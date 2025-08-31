@@ -6,6 +6,7 @@ const baseStyle = `
 	font-medium
 	tracking-normal
 	flex
+	items-center
 	gap-2
 	rounded-md
 	border-2
