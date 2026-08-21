@@ -115,8 +115,8 @@
     "semantic_hash": ""
   },
   "backend/src/controller/ProjectController.ts": {
-    "mtime": 1787214023.272496,
-    "ast_hash": "3e98e307b545546900bae8971095b5d6",
+    "mtime": 1787303900.709759,
+    "ast_hash": "c6ff3815cb86c03c6c593919f1ddb78f",
     "semantic_hash": ""
   },
   "backend/src/controller/ProjectStateWizardController.ts": {
@@ -225,8 +225,8 @@
     "semantic_hash": "ad73d207855f82eaf4d943a705f3dc22"
   },
   "backend/src/index.ts": {
-    "mtime": 1786109863.46069,
-    "ast_hash": "dbdf6d3af366ea2c1e39cf8211320e9e",
+    "mtime": 1787240669.7929966,
+    "ast_hash": "f9dd6f4c4a28b4edcfea5be07b107063",
     "semantic_hash": ""
   },
   "backend/src/models/ApiKeyModel.ts": {
@@ -330,8 +330,8 @@
     "semantic_hash": ""
   },
   "backend/src/plugins/noSQL.ts": {
-    "mtime": 1786876085.62622,
-    "ast_hash": "6399030c267534a0196f36c5b9dd43b8",
+    "mtime": 1787240669.7934158,
+    "ast_hash": "f5f3151964dc86ae1ccbc8b75977f8a7",
     "semantic_hash": ""
   },
   "backend/src/plugins/rateLimit.ts": {
@@ -415,8 +415,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/ProjectService.ts": {
-    "mtime": 1787213974.2739036,
-    "ast_hash": "4ef4efc7842c932cae4807be51580a1b",
+    "mtime": 1787303860.8496616,
+    "ast_hash": "f377b9950055c62a244990fadc151e1d",
     "semantic_hash": ""
   },
   "backend/src/service/ProjectWizardService.ts": {
@@ -665,13 +665,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1787215160.5275517,
-    "ast_hash": "8d04a2c3fb88ec91ae39fb39e4d54694",
+    "mtime": 1787303721.852149,
+    "ast_hash": "fa173b1bd8765154adbfb2481fe8fe98",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1787215160.526259,
-    "ast_hash": "ec4cbb716658e695c3eb5200a012c0c9",
+    "mtime": 1787303721.8514805,
+    "ast_hash": "b49773e839a51ce3c72f086c8c5b5ed3",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -920,8 +920,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useProjectApi.ts": {
-    "mtime": 1787214525.790601,
-    "ast_hash": "bf4fb6687381317ee18cff1ba38e4278",
+    "mtime": 1787303721.8505,
+    "ast_hash": "3a998a097d146ac5ff2ffd6752161f9c",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useProjectUserApi.ts": {
@@ -1330,8 +1330,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/Settings.tsx": {
-    "mtime": 1786109863.5246658,
-    "ast_hash": "7c62c5717193c2ea19c5e0cba0c05431",
+    "mtime": 1787303772.3520272,
+    "ast_hash": "8882e3a8731843054cd9d2e6bbf6a31b",
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/DangerZone.tsx": {
@@ -1340,8 +1340,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/ProjectInfoSection.tsx": {
-    "mtime": 1786895618.1351175,
-    "ast_hash": "d0089bd2af6d4af5a9e91cc900b837f3",
+    "mtime": 1787300868.8768191,
+    "ast_hash": "83a9e66db5aac7c5f078f47288dc9407",
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/ProjectStatsSection.tsx": {
@@ -2290,13 +2290,13 @@
     "semantic_hash": ""
   },
   "backend/src/utils/organizationMigration.test.ts": {
-    "mtime": 1787214252.7023404,
-    "ast_hash": "088f4af98cad4581ea13a6cd5c303cf1",
+    "mtime": 1787240920.5581625,
+    "ast_hash": "d5cb632756af6284e19cc3442c9390af",
     "semantic_hash": ""
   },
   "backend/src/utils/organizationMigration.ts": {
-    "mtime": 1787214966.1396017,
-    "ast_hash": "f73e3a335ecfdd0c7b451683e1004a9f",
+    "mtime": 1787240919.9723194,
+    "ast_hash": "f3b4a0b75193cfa4528f16e9428de773",
     "semantic_hash": ""
   },
   "backend/src/utils/slugUtils.ts": {
@@ -2375,8 +2375,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/ProjectService.test.ts": {
-    "mtime": 1787239718.7475536,
-    "ast_hash": "e7ee657c2a39d9f40e39c993db09039e",
+    "mtime": 1787304131.7977831,
+    "ast_hash": "a264f15b4197b0626b82e08b3076fe1c",
     "semantic_hash": ""
   },
   "backend/src/service/UserOrganizationService.test.ts": {
