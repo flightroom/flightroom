@@ -1,11 +1,21 @@
 import { describe, expect, it } from "vitest"
 import { parseAllDocuments } from "yaml"
-import { applicationListener, GATEWAY_HTTPS_PORT, renderGateway } from "./gatewayManifests"
+import { applicationListener, GATEWAY_HTTPS_PORT, gatewayName, renderGateway } from "./gatewayManifests"
 
 const documentsOf = (content: string) => parseAllDocuments(content).map(document => document.toJSON())
 
+describe("gatewayName", () => {
+    it("given a project, when its Gateway is named, then it is the slug, gateway and a hash of the project id", () => {
+        expect(gatewayName("64b7f0c2e4b0a1a2b3c4d5e6", "tnb-ai-portal")).toMatch(/^tnb-ai-portal-gateway-[0-9a-f]{6}$/)
+    })
+
+    it("given a long slug, when its Gateway is named, then the redirect route named after it still fits 63 characters", () => {
+        expect(`${gatewayName("64b7f0c2e4b0a1a2b3c4d5e6", "a".repeat(80))}-https-redirect`.length).toBeLessThanOrEqual(63)
+    })
+})
+
 describe("renderGateway", () => {
-    const gateway = { name: "mfe-shop-1a2b3c", namespace: "production", host: "app.example.com" }
+    const gateway = { name: "shop-gateway-1a2b3c", namespace: "production", host: "app.example.com" }
 
     it("given no issuer, when the Gateway is rendered, then it is the Gateway alone with a plain HTTP listener on the host", () => {
         const documents = documentsOf(renderGateway(gateway))
@@ -25,7 +35,7 @@ describe("renderGateway", () => {
         const redirect = documentsOf(renderGateway({ ...gateway, certificateIssuer: "letsencrypt" }))[2]
 
         expect(redirect.spec).toEqual({
-            parentRefs: [{ name: "mfe-shop-1a2b3c", sectionName: "http" }],
+            parentRefs: [{ name: "shop-gateway-1a2b3c", sectionName: "http" }],
             rules: [{ filters: [{ type: "RequestRedirect", requestRedirect: { scheme: "https", statusCode: 301 } }] }]
         })
     })

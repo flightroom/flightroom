@@ -1,5 +1,5 @@
 import { stringify } from "yaml"
-import { appProjectName, MANAGED_BY, MANAGED_BY_LABEL } from "./argoCdManifests"
+import { bounded, dnsPart, HASH_LENGTH, hashOf, MANAGED_BY, MANAGED_BY_LABEL, NAME_MAX_LENGTH } from "./argoCdManifests"
 
 /**
  * How an environment is exposed, through the Gateway API as Traefik implements it: the configuration
@@ -31,7 +31,14 @@ export interface EnvironmentGateway {
     certificateIssuer?: string
 }
 
-export const gatewayName = (projectId: string, projectSlug: string) => appProjectName(projectId, projectSlug)
+const HTTPS_REDIRECT_SUFFIX = "-https-redirect"
+
+/**
+ * `<project slug>-gateway-<hash of the project id>`, so that `shop-eu` and `shop` never meet, and short enough
+ * that the redirect route named after it still fits 63 characters
+ */
+export const gatewayName = (projectId: string, projectSlug: string) =>
+    `${bounded(dnsPart(`${projectSlug}-gateway`), NAME_MAX_LENGTH - HTTPS_REDIRECT_SUFFIX.length - HASH_LENGTH - 1)}-${hashOf(projectId)}`
 
 /** The listener the HTTPRoutes of the applications attach to: the HTTP one only when there is no HTTPS */
 export const applicationListener = (gateway: Pick<EnvironmentGateway, "certificateIssuer">) => (gateway.certificateIssuer ? HTTPS_LISTENER : HTTP_LISTENER)
@@ -85,7 +92,7 @@ export const renderGateway = (gateway: EnvironmentGateway): string => {
         documents.push({
             apiVersion: "gateway.networking.k8s.io/v1",
             kind: "HTTPRoute",
-            metadata: metadata(`${gateway.name}-https-redirect`),
+            metadata: metadata(`${gateway.name}${HTTPS_REDIRECT_SUFFIX}`),
             spec: {
                 parentRefs: [{ name: gateway.name, sectionName: HTTP_LISTENER }],
                 rules: [{ filters: [{ type: "RequestRedirect", requestRedirect: { scheme: "https", statusCode: 301 } }] }]

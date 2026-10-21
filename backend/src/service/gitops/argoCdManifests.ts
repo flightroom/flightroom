@@ -23,8 +23,8 @@ export const ENVIRONMENT_LABEL = "mfe-orchestrator/environment"
  */
 export const COMPONENT_LABEL = "mfe-orchestrator/component"
 
-const NAME_MAX_LENGTH = 63
-const HASH_LENGTH = 6
+export const NAME_MAX_LENGTH = 63
+export const HASH_LENGTH = 6
 /** The AppProject, and the start of every name: `mfe-<project slug>-<hash of the project id>` */
 const PROJECT_PREFIX_MAX_LENGTH = 24
 /** `<project prefix>.<environment slug>`, the start of the names of an environment */
@@ -32,10 +32,10 @@ const ENVIRONMENT_PREFIX_MAX_LENGTH = 32
 /** What is left of 63 for the slug of a generated application, after `<environment prefix>.app.` */
 const GENERATED_SLUG_MAX_LENGTH = NAME_MAX_LENGTH - ENVIRONMENT_PREFIX_MAX_LENGTH - ".app.".length
 
-const hashOf = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, HASH_LENGTH)
+export const hashOf = (value: string) => createHash("sha256").update(value).digest("hex").slice(0, HASH_LENGTH)
 
 /** Lowercase letters, digits and dashes: what Kubernetes takes in a name and in a label value */
-const dnsPart = (value: string) =>
+export const dnsPart = (value: string) =>
     value
         .toLowerCase()
         .replace(/[^a-z0-9-]+/g, "-")
@@ -43,7 +43,7 @@ const dnsPart = (value: string) =>
         .replace(/^-|-$/g, "")
 
 /** `value`, or when it is longer than `max` its start and a hash of the whole, so two names cut at the same place stay apart */
-const bounded = (value: string, max: number) => (value.length <= max ? value : `${value.slice(0, max - HASH_LENGTH - 1).replace(/[-.]+$/, "")}-${hashOf(value)}`)
+export const bounded = (value: string, max: number) => (value.length <= max ? value : `${value.slice(0, max - HASH_LENGTH - 1).replace(/[-.]+$/, "")}-${hashOf(value)}`)
 
 /**
  * The names are made of dot-separated parts, and no part holds a dot: the project, with a hash of its id so
