@@ -1,4 +1,4 @@
-import { Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, Spinner, Textarea } from "@mfe-orchestrator/design-system"
+import { Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Label, Spinner, Textarea } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { LayoutDashboard, Server, Sparkles } from "lucide-react"
 import { useId, useRef, useState } from "react"

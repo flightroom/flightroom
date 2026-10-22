@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox } from "@flightroom/design-system"
 import { Controller, useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"

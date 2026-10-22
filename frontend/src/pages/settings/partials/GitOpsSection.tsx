@@ -17,7 +17,7 @@ import {
     SelectTrigger,
     SelectValue,
     Switch
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"

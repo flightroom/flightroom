@@ -1,4 +1,4 @@
-import { Tabs, TabsContent, Textarea } from "@mfe-orchestrator/design-system"
+import { Tabs, TabsContent, Textarea } from "@flightroom/design-system"
 import { ArrowUp, GitBranchPlus, History, RotateCcw, Sparkles, Square, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"

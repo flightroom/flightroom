@@ -1,5 +1,5 @@
+import { Alert, AlertDescription, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Alert, AlertDescription, Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@mfe-orchestrator/design-system"
 import { useQueryClient } from "@tanstack/react-query"
 import { KeyboardEvent } from "react"
 import { FormProvider, useForm } from "react-hook-form"

@@ -1,4 +1,4 @@
-import { Card, CardContent, EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { Database as DatabaseIcon, Pencil, PlusCircle, Trash2 } from "lucide-react"
 import React, { useState } from "react"

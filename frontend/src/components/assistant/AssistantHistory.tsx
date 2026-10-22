@@ -1,4 +1,4 @@
-import { Spinner } from "@mfe-orchestrator/design-system"
+import { Spinner } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"

@@ -1,4 +1,4 @@
-import { EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@mfe-orchestrator/design-system"
+import { EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { CirclePlus, LayoutGrid, PackageOpen, SearchX, StretchHorizontal } from "lucide-react"
 import { useMemo, useState } from "react"

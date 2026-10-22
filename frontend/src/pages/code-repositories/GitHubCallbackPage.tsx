@@ -1,4 +1,4 @@
-import { Card, CardContent, Spinner } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, Spinner } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { AlertCircle, CheckCircle } from "lucide-react"
 import { useEffect, useState } from "react"

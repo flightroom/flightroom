@@ -1,4 +1,4 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
 import { ChevronRight, TriangleAlert } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"

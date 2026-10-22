@@ -1,4 +1,4 @@
-import { CodeBlock } from "@mfe-orchestrator/design-system"
+import { CodeBlock } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { SettingsDetails } from "./SettingsDetails"
 

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Textarea } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, AlertTitle, Textarea } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { Sparkles } from "lucide-react"
 import { useState } from "react"

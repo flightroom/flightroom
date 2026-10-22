@@ -1,4 +1,4 @@
-import { EmptyStateRow, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
+import { EmptyStateRow, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import type { VariableMapEntry, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"

@@ -1,4 +1,4 @@
-import { Card, EmptyState, SectionHeader, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
+import { Card, EmptyState, SectionHeader, Spinner, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Cpu, Pencil, Plus, Trash2 } from "lucide-react"
 import { useState } from "react"

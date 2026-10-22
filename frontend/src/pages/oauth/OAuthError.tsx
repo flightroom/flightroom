@@ -1,4 +1,4 @@
-import { EmptyState } from "@mfe-orchestrator/design-system"
+import { EmptyState } from "@flightroom/design-system"
 import { ShieldAlert } from "lucide-react"
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@flightroom/design-system"
 import { Cog, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"

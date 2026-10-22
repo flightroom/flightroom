@@ -1,4 +1,4 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"

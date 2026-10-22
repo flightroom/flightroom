@@ -1,4 +1,4 @@
-import { ColorPicker as DesignSystemColorPicker } from "@mfe-orchestrator/design-system"
+import { ColorPicker as DesignSystemColorPicker } from "@flightroom/design-system"
 import type { FieldValues } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { DEFAULT_COLORS } from "@/utils/EnviromentsPresets"

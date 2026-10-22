@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Spinner } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, Spinner } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Navigate, useParams, useSearchParams } from "react-router-dom"

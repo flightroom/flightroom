@@ -36,7 +36,7 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
           registry-url: https://npm.pkg.github.com
-          scope: '@mfe-orchestrator'
+          scope: '@flightroom'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile

@@ -1,4 +1,4 @@
-import { TabsList, TabsTrigger } from "@mfe-orchestrator/design-system"
+import { TabsList, TabsTrigger } from "@flightroom/design-system"
 import type { TFunction } from "i18next"
 import { X } from "lucide-react"
 import { useRef } from "react"

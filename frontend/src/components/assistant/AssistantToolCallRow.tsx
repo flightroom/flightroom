@@ -1,4 +1,4 @@
-import { CodeBlock } from "@mfe-orchestrator/design-system"
+import { CodeBlock } from "@flightroom/design-system"
 import { Ban, Check, ChevronRight, CircleAlert, CircleSlash, Hourglass, LoaderCircle } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"

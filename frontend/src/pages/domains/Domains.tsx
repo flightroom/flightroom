@@ -1,4 +1,4 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, EmptyState, Tabs, TabsContent, TabsList, TabsTrigger } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, EmptyState, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CirclePlus, FolderOpen, LayoutDashboard, LayoutGrid, Orbit, Pencil, Rocket, Server, Sparkles, Trash2 } from "lucide-react"
 import { useState } from "react"

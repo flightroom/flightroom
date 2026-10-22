@@ -1,4 +1,4 @@
-import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
+import { Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
 import { useQueries } from "@tanstack/react-query"
 import { LayoutDashboard, Server } from "lucide-react"
 import { useId } from "react"

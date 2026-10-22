@@ -1,4 +1,4 @@
-import { Spinner, TooltipProvider } from "@mfe-orchestrator/design-system"
+import { Spinner, TooltipProvider } from "@flightroom/design-system"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import React, { Suspense } from "react"
 import { HelmetProvider } from "react-helmet-async"

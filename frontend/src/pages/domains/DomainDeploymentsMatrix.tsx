@@ -1,4 +1,4 @@
-import { EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
+import { EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { ArrowLeft, LayoutDashboard, Rocket, Server } from "lucide-react"
 import { useTranslation } from "react-i18next"

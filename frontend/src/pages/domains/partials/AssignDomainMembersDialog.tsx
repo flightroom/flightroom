@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, SearchInput } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, Checkbox, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, SearchInput } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Link2 } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Spinner, Textarea } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, AlertTitle, Spinner, Textarea } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
 import { AlertTriangle, ArrowUp, ExternalLink, GitBranch, Server } from "lucide-react"

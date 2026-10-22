@@ -1,4 +1,4 @@
-import { Card, CardHeader, CardTitle } from "@mfe-orchestrator/design-system"
+import { Card, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import { DeployedService } from "@/hooks/apiClients/useDeploymentsApi"

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, ColorSwatch } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, ColorSwatch } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { LayoutDashboard, Rocket, Server } from "lucide-react"
