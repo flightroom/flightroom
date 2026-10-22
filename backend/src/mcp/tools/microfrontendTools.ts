@@ -138,7 +138,11 @@ const microfrontendFields = {
         })
         .optional(),
     // Only meaningful for a FRONTEND
-    ...containerFields
+    ...containerFields,
+    // A FRONTEND is reached only through its HTTPRoute: MicrofrontendService refuses one without it
+    exposurePath: containerFields.exposurePath.describe(
+        "Path the FRONTEND is exposed at on the host of every environment (the subdomain of the environment on the domain of the project), e.g. / or /shell. Required to create a FRONTEND or to make a microfrontend one, and it cannot be cleared on a FRONTEND; a MICROFRONTEND has none"
+    )
 }
 
 export const createSchema = z.object(microfrontendFields)
@@ -211,7 +215,8 @@ export const microfrontendTools = [
     defineTool({
         name: "microfrontend_create",
         title: "Create microfrontend",
-        description: "Adds a microfrontend to the project. A code repository can be linked if it already exists at the provider; use microfrontend_scaffold to create a new one from a template.",
+        description:
+            "Adds a microfrontend to the project. A code repository can be linked if it already exists at the provider; use microfrontend_scaffold to create a new one from a template. A FRONTEND needs its exposurePath.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: createSchema,
