@@ -1,4 +1,4 @@
-import { Checkbox, Spinner } from "@mfe-orchestrator/design-system"
+import { Checkbox, Spinner } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { useState } from "react"
 import { Controller, FormProvider, useForm } from "react-hook-form"

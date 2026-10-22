@@ -329,7 +329,7 @@ conventional commits. The **backend** is Fastify + TypeScript (layered
 models → services → controllers → plugins, MongoDB with Mongoose, Redis for
 caching, multi-auth: local JWT, Auth0, Google OAuth, Azure Entra ID). The
 **frontend** is React + TypeScript (rendered through
-`@mfe-orchestrator/design-system` on Tailwind CSS, React Query + Zustand, React
+`@flightroom/design-system` on Tailwind CSS, React Query + Zustand, React
 Router, react-hook-form, react-i18next).
 
 ### Prerequisites

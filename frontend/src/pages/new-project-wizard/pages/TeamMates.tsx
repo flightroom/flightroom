@@ -1,4 +1,4 @@
-import { Input } from "@mfe-orchestrator/design-system"
+import { Input } from "@flightroom/design-system"
 import { Plus, Trash2, Users } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"

@@ -21,7 +21,7 @@ This is a **monorepo** microfrontend orchestrator service with a Fastify backend
 - **Database**: MongoDB with Mongoose, Redis for caching
 
 **Frontend (React + TypeScript)**:
-- **UI**: `@mfe-orchestrator/design-system` components with Tailwind CSS
+- **UI**: `@flightroom/design-system` components with Tailwind CSS
 - **State**: React Query for server state, Zustand for client state
 - **Routing**: React Router with lazy-loaded pages
 - **Forms**: react-hook-form with TypeScript validation
@@ -95,7 +95,7 @@ When adding new pages:
 ### Frontend Key Directories  
 - `src/pages/` - All page components (lazy-loaded), 17 feature directories including `builds`, `profile`, `dependencies`, `integration`, `templates-library`
 - `src/components/` - Reusable UI components
-- `src/components/ui/` - Local leftovers only (`DeleteConfirmationDialog`, `Sidebar`); shared UI lives in `@mfe-orchestrator/design-system`
+- `src/components/ui/` - Local leftovers only (`DeleteConfirmationDialog`, `Sidebar`); shared UI lives in `@flightroom/design-system`
 - `src/store/` - Zustand stores for global state
 - `src/hooks/` - Custom hooks and API functions
 
@@ -182,7 +182,7 @@ const form = useForm<FormData>({
 2. **Code Quality**: Use Biome for linting/formatting (`pnpm lint`, `pnpm format`)
 3. **Authorization**: Always use service methods for database operations (never direct model access in controllers)
 4. **Error Handling**: Use specific error classes from `src/errors/` 
-5. **UI Components**: Import from `@mfe-orchestrator/design-system` before creating new ones; do not add to `src/components/ui/`
+5. **UI Components**: Import from `@flightroom/design-system` before creating new ones; do not add to `src/components/ui/`
 6. **Icons**: Only use lucide-react icons
 7. **Routing**: Use React Router (NOT Next.js router)
 8. **Package Manager**: Use pnpm for all dependencies

@@ -1,4 +1,4 @@
-import { EmptyStateRow, Meter, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tooltip, TooltipContent, TooltipTrigger } from "@mfe-orchestrator/design-system"
+import { EmptyStateRow, Meter, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tooltip, TooltipContent, TooltipTrigger } from "@flightroom/design-system"
 import { Cloud, Cog, Hammer, Link as LinkIcon, LucideIcon, Server } from "lucide-react"
 import React, { useState } from "react"
 import { useTranslation } from "react-i18next"

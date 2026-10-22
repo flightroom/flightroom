@@ -39,7 +39,7 @@ pnpm typecheck        # TypeScript check all packages
 - Always reuse existing **UI elements** instead of creating new ones from scratch
 - For forms, always use **react-hook-form**
 - For icons, use only **lucide-react**
-- Use every time ui components from `@mfe-orchestrator/design-system`. `/src/components/ui` holds only the local leftovers (`DeleteConfirmationDialog`, `Sidebar`) - do not add to it
+- Use every time ui components from `@flightroom/design-system`. `/src/components/ui` holds only the local leftovers (`DeleteConfirmationDialog`, `Sidebar`) - do not add to it
 - For toast notifications, use:
   ```ts
   import useToastNotificationStore from "@/store/useToastNotificationStore";

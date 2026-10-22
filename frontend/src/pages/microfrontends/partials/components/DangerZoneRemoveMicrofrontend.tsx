@@ -1,4 +1,4 @@
-import { ConfirmByTypingDialog, DangerZoneCard } from "@mfe-orchestrator/design-system"
+import { ConfirmByTypingDialog, DangerZoneCard } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"

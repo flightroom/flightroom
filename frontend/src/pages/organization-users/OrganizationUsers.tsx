@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback, Card, EmptyState, SectionHeader, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
+import { Avatar, AvatarFallback, Card, EmptyState, SectionHeader, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { MailCheck, RefreshCw, Trash2, X } from "lucide-react"

@@ -1,4 +1,4 @@
-import { ColorSwatch, Select, SelectContent, SelectControl, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
+import { ColorSwatch, Select, SelectContent, SelectControl, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"

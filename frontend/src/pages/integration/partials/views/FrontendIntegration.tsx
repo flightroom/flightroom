@@ -14,7 +14,7 @@ import {
     TabsContent,
     TabsList,
     TabsTrigger
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"

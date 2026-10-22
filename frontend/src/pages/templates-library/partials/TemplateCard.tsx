@@ -1,4 +1,4 @@
-import { Alert, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@mfe-orchestrator/design-system"
+import { Alert, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { Market } from "@/hooks/apiClients/useMarketApi"

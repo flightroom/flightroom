@@ -1,4 +1,4 @@
-import { Spinner } from "@mfe-orchestrator/design-system"
+import { Spinner } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
