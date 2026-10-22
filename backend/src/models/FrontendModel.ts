@@ -1,7 +1,7 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import { ServicePaths } from "../types/ServiceStack"
-import { exposurePath, IServiceEnvVariable, IServiceUrl, optionalPath, serviceEnvVariableSchema, serviceUrlSchema } from "./ContainerFields"
+import { exposurePath, IServiceEnvVariable, optionalPath, serviceEnvVariableSchema } from "./ContainerFields"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
 export enum FrontendType {
@@ -78,8 +78,6 @@ export interface IFrontendContainer extends Partial<ServicePaths> {
     port?: number
     /** The path it is exposed at on the host of every environment, as for a service */
     exposurePath?: string | null
-    /** One per environment it is exposed in: what the serve API hands out as its URL there */
-    urls?: IServiceUrl[]
     env?: IServiceEnvVariable[]
     /** Config maps of the project the container receives as environment variables, as for a service */
     configMapIds?: Schema.Types.ObjectId[]
@@ -393,10 +391,6 @@ const frontendSchema: Schema = new Schema<IFrontend>(
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,
-        urls: {
-            type: [serviceUrlSchema],
-            default: undefined
-        },
         env: {
             type: [serviceEnvVariableSchema],
             default: undefined

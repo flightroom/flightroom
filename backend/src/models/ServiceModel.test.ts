@@ -95,19 +95,6 @@ describe("Service model", () => {
         expect(service.toObject()).not.toHaveProperty("configMap")
     })
 
-    it("given a service with no base URL, when it is built, then it is exposed nowhere; given one without environment, then it is refused", async () => {
-        expect(aService().urls).toEqual([])
-
-        const service = new Service({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", urls: [{ url: "https://orders.acme.com" }] })
-        await expect(service.validate()).rejects.toMatchObject({ errors: { "urls.0.environmentId": expect.anything() } })
-    })
-
-    it("given a base URL that is not http(s), when it is validated, then it is refused even without going through ServiceService", async () => {
-        const service = new Service({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", urls: [{ environmentId: new Types.ObjectId(), url: "javascript:alert(1)" }] })
-
-        await expect(service.validate()).rejects.toMatchObject({ errors: { "urls.0.url": expect.anything() } })
-    })
-
     it("declares the slug unique inside its project", () => {
         expect(Service.schema.indexes()).toContainEqual([{ slug: 1, projectId: 1 }, expect.objectContaining({ unique: true })])
     })

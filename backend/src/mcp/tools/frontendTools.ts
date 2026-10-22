@@ -12,7 +12,7 @@ import { StorageService } from "../../service/StorageService"
 import { isExposurePath } from "../../types/Exposure"
 import FrontendDTO from "../../types/FrontendDTO"
 import { FrontendCompiler, FrontendFramework } from "../../types/FrontendStack"
-import { isServiceUrl, SERVICE_HTTP_PATH } from "../../types/ServiceStack"
+import { SERVICE_HTTP_PATH } from "../../types/ServiceStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
@@ -41,18 +41,6 @@ export const containerFields = {
         .nullable()
         .optional()
         .describe("Path it is exposed at on the host of every environment (the subdomain of the environment on the domain of the project), e.g. /api/orders; null when it is not exposed"),
-    urls: z
-        .array(
-            z.object({
-                environmentId: objectId("Id of an environment of the project, from environments_list"),
-                url: z
-                    .string()
-                    .refine(isServiceUrl, "absolute http(s), at most 2048 characters, without whitespace, credentials, query or fragment")
-                    .describe("Absolute http(s) base URL, e.g. https://orders.dev.acme.com")
-            })
-        )
-        .optional()
-        .describe("Where it is reachable, one base URL per environment it is exposed in; docsPath and openApiPath are relative to it. Replaced as a whole"),
     env: z
         .array(
             z.object({
@@ -102,7 +90,7 @@ const frontendFields = {
         .enum(FrontendKind)
         .optional()
         .describe(
-            "BUNDLE (default): a static bundle uploaded to and served by the orchestrator. DOCKER: an app built into an image and served by its own container, like a backend service; it never has parentIds and needs an exposurePath"
+            "BUNDLE (default): a static bundle uploaded to and served by the orchestrator. DOCKER: an app built into an image and served by its own container, like a backend service; it never has parentIds"
         ),
     path: z.string().max(500).optional(),
     continuousDeployment: z.boolean().optional(),
@@ -139,9 +127,8 @@ const frontendFields = {
         .optional(),
     // Only meaningful for a DOCKER
     ...containerFields,
-    // A DOCKER is reached only through its HTTPRoute: FrontendService refuses one without it
     exposurePath: containerFields.exposurePath.describe(
-        "Path the DOCKER frontend is exposed at on the host of every environment (the subdomain of the environment on the domain of the project), e.g. / or /shell. Required to create a DOCKER frontend or to make a BUNDLE frontend one, and it cannot be cleared on a DOCKER frontend; a BUNDLE frontend has none"
+        "Path the DOCKER frontend is exposed at on the host of every environment (the subdomain of the environment on the domain of the project), e.g. / or /shell; null when it is not exposed. A BUNDLE frontend has none"
     )
 }
 
@@ -215,8 +202,7 @@ export const frontendTools = [
     defineTool({
         name: "frontend_create",
         title: "Create frontend",
-        description:
-            "Adds a frontend to the project. A code repository can be linked if it already exists at the provider; use frontend_scaffold to create a new one from a template. A DOCKER frontend needs its exposurePath.",
+        description: "Adds a frontend to the project. A code repository can be linked if it already exists at the provider; use frontend_scaffold to create a new one from a template.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: createSchema,

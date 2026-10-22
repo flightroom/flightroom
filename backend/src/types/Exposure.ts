@@ -32,5 +32,16 @@ export const isExposurePath = (value: string): boolean => value.length <= EXPOSU
 /** Two exposure paths are the same prefix with or without the trailing slash */
 export const sameExposurePath = (a: string, b: string): boolean => (a.replace(/\/$/, "") || "/") === (b.replace(/\/$/, "") || "/")
 
+/**
+ * What an environment is exposed under: the subdomain set on it, else nothing for a production one, which
+ * takes the domain itself, and its slug in lowercase for the others, so that `DEV` lands on `dev.<domain>`.
+ */
+export const effectiveSubdomain = (environment: { slug: string; subdomain?: string; isProduction?: boolean }): string =>
+    environment.subdomain || (environment.isProduction ? "" : environment.slug.toLowerCase())
+
 /** The host an environment is exposed on: its subdomain of the domain, the domain itself without one */
 export const exposedHost = (domain: string, subdomain?: string): string => (subdomain ? `${subdomain}.${domain}` : domain)
+
+/** Where browsers reach an environment: HTTPS when the project asks an issuer for its certificates, HTTP without one */
+export const exposedOrigin = (exposure: { domain: string; certificateIssuer?: string | null }, subdomain?: string): string =>
+    `${exposure.certificateIssuer ? "https" : "http"}://${exposedHost(exposure.domain, subdomain)}`

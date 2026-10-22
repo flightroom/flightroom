@@ -18,6 +18,7 @@ import Frontend, { CanaryDeploymentType, CanaryType, FrontendKind, FrontendType,
 import { IGlobalVariable } from "../models/GlobalVariableModel"
 import Project, { IProject } from "../models/ProjectModel"
 import { IStorage, StorageType } from "../models/StorageModel"
+import { effectiveSubdomain, exposedOrigin } from "../types/Exposure"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
 import { getBackendUrl } from "../utils/backendUrl"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -673,13 +674,15 @@ export default class ServeService {
      */
     private async adaptFrontendToServe(
         frontend: IFrontend,
-        environment: Pick<IEnvironment, "_id" | "slug">,
+        environment: Pick<IEnvironment, "_id" | "slug" | "projectId" | "subdomain" | "isProduction">,
         deploymentId?: string | ObjectId | Schema.Types.ObjectId
     ): Promise<FrontendAdaptedToServe> {
         const environmentSlug = environment.slug
-        // Its own container serves it at the URL of that environment, and nothing of ours draws a canary for it
+        // Its own container serves it at the URL of that environment, and nothing of ours draws a canary for it.
+        // A DOCKER is never a remote, so this is a lookup of that one frontend: one query for the domain, not one per remote
         if (isDocker(frontend)) {
-            return buildFrontendAdaptedToServe(frontend, getFrontendUrl(frontend, environment))
+            const project = frontend.exposurePath ? await Project.findById(environment.projectId, { exposure: 1 }) : null
+            return buildFrontendAdaptedToServe(frontend, getFrontendUrl(frontend, environment, project?.exposure))
         }
         if (!frontend.canary?.enabled) {
             return buildFrontendAdaptedToServe(frontend, getFrontendUrlStatic(frontend, environmentSlug))
@@ -909,11 +912,12 @@ const getFrontendUrlStatic = (frontend: IFrontend, environmentSlug?: string, pin
 const isDocker = (frontend: Pick<IFrontend, "kind">): boolean => frontend.kind === FrontendKind.DOCKER
 
 /**
- * Where the container of a DOCKER answers in the environment, as set on it: there is nothing of ours to
- * point at. Empty when none is set there: the DOCKER is a host asking for its own configuration, which
- * must not fail for want of an address nobody loads it from.
+ * Where the container of a DOCKER answers in the environment: its exposure path on the host of the environment,
+ * there is nothing of ours to point at, without a trailing slash as the URL always had. Empty when it is not exposed or the project is exposed on no domain: the
+ * DOCKER is a host asking for its own configuration, which must not fail for want of an address nobody loads it from.
  */
-const getFrontendUrl = (frontend: IFrontend, environment: Pick<IEnvironment, "_id">): string => frontend.urls?.find(entry => String(entry.environmentId) === String(environment._id))?.url ?? ""
+const getFrontendUrl = (frontend: IFrontend, environment: Pick<IEnvironment, "slug" | "subdomain" | "isProduction">, exposure?: IProject["exposure"]): string =>
+    exposure?.domain && frontend.exposurePath ? `${exposedOrigin(exposure, effectiveSubdomain(environment))}${frontend.exposurePath.replace(/\/+$/, "")}` : ""
 
 const getFrontendUrlCanary = (frontend: IFrontend): string => {
     if (!frontend.canary?.url) {

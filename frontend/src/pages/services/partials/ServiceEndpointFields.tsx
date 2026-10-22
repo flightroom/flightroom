@@ -1,0 +1,61 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, SwitchField as Switch } from "@flightroom/design-system"
+import { useFormContext } from "react-hook-form"
+import { useTranslation } from "react-i18next"
+import { Badge } from "@/components/atoms"
+import TextField from "@/components/input/TextField.rhf"
+import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import useProjectStore from "@/store/useProjectStore"
+import { exposedOrigin } from "./serviceVariables"
+
+interface ServiceEndpointFieldsProps {
+    environments: EnvironmentDTO[]
+    placeholder?: string
+}
+
+/** Whether a container is exposed, and at which path: the same on the host of every environment, previewed per environment. */
+export const ServiceEndpointFields: React.FC<ServiceEndpointFieldsProps> = ({ environments, placeholder = "/api/orders" }) => {
+    const { t } = useTranslation()
+    const { watch } = useFormContext()
+    const exposure = useProjectStore(state => state.project?.exposure)
+    const exposed = Boolean(watch("exposed"))
+    const path = (watch("exposurePath") as string | undefined)?.trim() ?? ""
+
+    return (
+        <Card>
+            <CardHeader className={!exposed ? "border-b-0 pb-0" : ""}>
+                <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
+                    <div>
+                        <CardTitle className="mb-0">{t("services.urls.title")}</CardTitle>
+                        <CardDescription>{t("services.urls.description")}</CardDescription>
+                    </div>
+                    <Switch name="exposed" label={t("services.urls.expose")} />
+                </div>
+            </CardHeader>
+
+            {exposed && (
+                <CardContent className="flex flex-col gap-3 pt-3">
+                    <TextField name="exposurePath" label={t("services.exposure_path")} placeholder={placeholder} description={t("services.exposure_path_hint")} autoComplete="off" required />
+                    {!exposure?.domain ? (
+                        <p className="text-sm text-foreground-secondary">{t("services.urls.no_domain")}</p>
+                    ) : environments.length === 0 ? (
+                        <p className="text-sm text-foreground-secondary">{t("services.urls.no_environments")}</p>
+                    ) : (
+                        <div>
+                            <h3 className="mb-2 text-sm font-semibold">{t("services.urls.preview")}</h3>
+                            <ul className="flex flex-col gap-2">
+                                {environments.map(environment => (
+                                    <li key={environment._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                        <Badge variant="outline">{environment.name}</Badge>
+                                        <span className="min-w-0 break-all font-mono">{`${exposedOrigin(exposure, environment)}${path}`}</span>
+                                    </li>
+                                ))}
+                            </ul>
+                        </div>
+                    )}
+                </CardContent>
+            )}
+        </Card>
+    )
+}
+
+export default ServiceEndpointFields

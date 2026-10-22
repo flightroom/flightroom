@@ -62,23 +62,6 @@ const ensureDockerHasNoParents = (kind: FrontendKind | undefined, parentIds: unk
     }
 }
 
-/**
- * A DOCKER is reached by browsers only through its HTTPRoute, so it needs the path it is exposed at.
- * Checked when a write makes it a DOCKER or clears the path of one: a DOCKER stored without one
- * before the rule still takes the other edits.
- */
-const ensureFrontendExposed = (fields: Pick<FrontendDTO, "kind" | "exposurePath">, existing?: IFrontend) => {
-    const becomesFrontend = fields.kind === FrontendKind.DOCKER && existing?.kind !== FrontendKind.DOCKER
-    const clearsPath = (fields.kind ?? existing?.kind) === FrontendKind.DOCKER && fields.exposurePath !== undefined && !fields.exposurePath?.trim()
-    const exposurePath = fields.exposurePath !== undefined ? fields.exposurePath : existing?.exposurePath
-    if ((becomesFrontend && !exposurePath?.trim()) || clearsPath) {
-        throw createBusinessException({
-            code: "DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED",
-            message: "A DOCKER frontend is served by its own container and reached only at its exposurePath: give it one, e.g. / or /shell"
-        })
-    }
-}
-
 /** Matches a document with no parents: what a write making it a DOCKER requires of what is stored at that moment */
 const WITHOUT_PARENTS = { $or: [{ parentIds: { $exists: false } }, { parentIds: { $size: 0 } }] }
 
@@ -117,7 +100,6 @@ export class FrontendService extends BaseAuthorizedService {
         ensurePlainFields(dto, "FRONTEND_INVALID")
         ensureValidKind(dto.kind)
         ensureDockerHasNoParents(dto.kind, dto.parentIds, dto.slug)
-        ensureFrontendExposed(dto)
         // The version of a DOCKER is the tag of its image, as for a service; a BUNDLE's names an uploaded bundle
         const frontend = withDockerDefaults(await withNormalizedReferences(dto.kind === FrontendKind.DOCKER ? withManualVersion(dto) : dto, projectIdObj))
 
@@ -244,7 +226,6 @@ export class FrontendService extends BaseAuthorizedService {
         const kind = fields.kind ?? frontend.kind
         // Both sides of the rule can change here: parents given to a DOCKER, or a frontend with parents made one
         ensureDockerHasNoParents(kind, fields.parentIds ?? frontend.parentIds, frontend.slug)
-        ensureFrontendExposed(fields, frontend)
         // The version of a DOCKER is the tag of its image, as for a service; a BUNDLE's names an uploaded bundle
         const checked = kind === FrontendKind.DOCKER ? withManualVersion(fields) : fields
         const allowed: Partial<FrontendDTO> & Record<string, unknown> = withDockerDefaults(await withNormalizedReferences(checked, frontend.projectId, frontend), frontend)

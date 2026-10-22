@@ -23,7 +23,6 @@ export interface GitOpsApplication {
     exposurePath?: string | null
     livenessPath?: string
     readinessPath?: string
-    urls?: Array<{ environmentId: unknown; url: string }>
     configMapIds?: unknown[]
     secretIds?: unknown[]
 }
@@ -47,18 +46,6 @@ export const splitImage = (repository: string): { host: string; name: string } =
     const [first, ...rest] = repository.split("/")
     const isRegistry = rest.length > 0 && (first.includes(".") || first.includes(":") || first === "localhost")
     return isRegistry ? { host: first, name: rest.join("/") } : { host: "docker.io", name: repository }
-}
-
-/** The Ingress of the environment, from the URL the application answers at there; none when it has no URL there */
-const ingressOf = (application: GitOpsApplication, environmentId: string) => {
-    const url = application.urls?.find(candidate => String(candidate.environmentId) === environmentId)?.url
-    if (!url) return undefined
-    try {
-        const { hostname, pathname } = new URL(url)
-        return { host: hostname, path: pathname || "/" }
-    } catch {
-        return undefined
-    }
 }
 
 /** The Gateway of the environment the HTTPRoute of an application attaches to, and the listener it attaches to */
@@ -86,7 +73,6 @@ export const renderApplicationValues = (
     // isDeployable lets through only what has one: values without an image would be a Deployment that never starts
     if (!repository) throw new Error(`${application.slug} has no image repository and the project no container registry`)
     const names = (ids: unknown[] | undefined, byId: Map<string, string>) => (ids ?? []).map(id => byId.get(String(id))).filter((name): name is string => Boolean(name))
-    const ingress = ingressOf(application, String(environment._id))
     const route = gateway && application.exposurePath ? { gateway: gateway.name, listener: gateway.listener, path: application.exposurePath, hsts: gateway.hsts } : undefined
     const values = {
         replicas: 1,
@@ -98,7 +84,6 @@ export const renderApplicationValues = (
         },
         environmentMaps: names(application.configMapIds, mapNames.configMaps),
         secrets: names(application.secretIds, mapNames.secrets),
-        ...(ingress ? { ingress } : {}),
         ...(route ? { route } : {})
     }
     return `${MANAGED_VALUES_MARKER}\n# Written by every deploy of ${environment.slug}: a change made here is overwritten.\n${stringify(values)}`

@@ -64,7 +64,7 @@ export const scaffoldTools = [
         name: "frontend_scaffold",
         title: "Create frontend from template",
         description:
-            "Adds a frontend whose code repository is created at the provider from a marketplace template (a frontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). A DOCKER needs its exposurePath, checked before the repository is created. Use frontend_create instead to link a repository that already exists.",
+            "Adds a frontend whose code repository is created at the provider from a marketplace template (a frontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Use frontend_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,

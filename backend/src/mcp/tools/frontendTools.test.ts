@@ -37,15 +37,15 @@ const context = (): McpToolContext => {
 const run = (name: string, args: Record<string, unknown>) => tool(name).run(tool(name).inputSchema.parse(args) as never, context())
 
 describe("exposurePath of a DOCKER frontend", () => {
-    it.each(["frontend_create", "frontend_update"])("given %s, when its input is read, then exposurePath is described as required for a DOCKER frontend", name => {
+    it.each(["frontend_create", "frontend_update"])("given %s, when its input is read, then exposurePath is described as optional, null when not exposed", name => {
         // What MCP clients get: the partial update schema keeps the description only in its JSON Schema
         const description = (z.toJSONSchema(tool(name).inputSchema) as { properties: Record<string, { description?: string }> }).properties.exposurePath.description
 
-        expect(description).toContain("Required to create a DOCKER frontend")
+        expect(description).toContain("null when it is not exposed")
     })
 
-    it("given frontend_create, when its description is read, then it tells a DOCKER frontend needs its exposurePath", () => {
-        expect(tool("frontend_create").description).toContain("A DOCKER frontend needs its exposurePath")
+    it("given a DOCKER without exposurePath, when frontend_create input is read, then it is accepted", () => {
+        expect(tool("frontend_create").inputSchema.safeParse({ name: "Shell", slug: "shell", kind: "DOCKER", exposurePath: null }).success).toBe(true)
     })
 })
 

@@ -13,13 +13,13 @@ import RepositoryLink from "@/components/RepositoryLink"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
-import { useIsProjectViewer } from "@/store/useProjectStore"
+import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import ServiceBuildDialog from "./partials/ServiceBuildDialog"
 import ServiceHeader, { isServiceAiAvailable } from "./partials/ServiceHeader"
 import ServiceVariableMapsSection from "./partials/ServiceVariableMapsSection"
 import ServiceVersionsTable from "./partials/ServiceVersionsTable"
-import { useProjectEnvironmentsQuery } from "./partials/serviceVariables"
+import { exposedOrigin, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
 
 /** A path of the service, as declared: no URL is made up from it, the host depends on where the service runs */
 const ServicePath: React.FC<{ path?: string | null }> = ({ path }) => {
@@ -54,39 +54,44 @@ const ServiceLink: React.FC<{ href: string; label: string }> = ({ href, label })
     </a>
 )
 
-/** Where the service answers in each environment, with the docs and the OpenAPI spec reached from there */
+/** A path of the service under the URL it is exposed at: the exposure path may end with a slash, the paths start with one */
+const joinPath = (base: string, path: string) => base.replace(/\/+$/, "") + path
+
+/** Where the service answers in each environment, its exposure path on their host, with the docs and the OpenAPI spec reached from there */
 const ServiceUrls: React.FC<{ service: Service; environments: EnvironmentDTO[] }> = ({ service, environments }) => {
     const { t } = useTranslation()
-    // A URL left behind by a deleted environment has no row to show
-    const exposed = environments.some(environment => service.urls?.some(url => url.environmentId === environment._id))
+    const exposure = useProjectStore(state => state.project?.exposure)
+    const path = service.exposurePath
 
     return (
         <div>
             <h3 className="mb-2 text-base font-semibold">{t("services.urls.title")}</h3>
-            {exposed ? (
+            {!path ? (
+                <p className="text-sm text-foreground-secondary">{t("services.urls.not_exposed")}</p>
+            ) : !exposure?.domain ? (
+                // No host to put it on: the path is all there is to show
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                    <span className="font-mono">{path}</span>
+                    <span className="text-foreground-secondary">{t("services.urls.no_domain")}</span>
+                </p>
+            ) : environments.length === 0 ? (
+                <p className="text-sm text-foreground-secondary">{t("services.urls.no_environments")}</p>
+            ) : (
                 <ul className="flex flex-col gap-2">
                     {environments.map(environment => {
-                        const url = service.urls?.find(candidate => candidate.environmentId === environment._id)?.url
+                        const url = exposedOrigin(exposure, environment) + path
                         return (
                             <li key={environment._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                                 <Badge variant="outline">{environment.name}</Badge>
-                                {url ? (
-                                    <>
-                                        <span className="min-w-0 break-all font-mono">
-                                            <ServiceLink href={url} label={url} />
-                                        </span>
-                                        {service.docsPath && <ServiceLink href={url + service.docsPath} label={t("services.urls.open_docs")} />}
-                                        {service.openApiPath && <ServiceLink href={url + service.openApiPath} label={t("services.urls.open_openapi")} />}
-                                    </>
-                                ) : (
-                                    <span className="text-foreground-secondary">{t("services.urls.not_exposed")}</span>
-                                )}
+                                <span className="min-w-0 break-all font-mono">
+                                    <ServiceLink href={url} label={url} />
+                                </span>
+                                {service.docsPath && <ServiceLink href={joinPath(url, service.docsPath)} label={t("services.urls.open_docs")} />}
+                                {service.openApiPath && <ServiceLink href={joinPath(url, service.openApiPath)} label={t("services.urls.open_openapi")} />}
                             </li>
                         )
                     })}
                 </ul>
-            ) : (
-                <p className="text-sm text-foreground-secondary">{t("services.urls.empty")}</p>
             )}
         </div>
     )

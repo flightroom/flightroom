@@ -65,8 +65,7 @@ describe("renderApplicationValues", () => {
         port: 3000,
         livenessPath: "/live",
         configMapIds: [configMapId, new Types.ObjectId()],
-        secretIds: [secretId],
-        urls: [{ environmentId: environment._id, url: "https://orders.example.com/api" }]
+        secretIds: [secretId]
     }
     const render = (overrides = {}) => renderApplicationValues({ ...application, ...overrides }, environment, mapNames)
 
@@ -93,14 +92,6 @@ describe("renderApplicationValues", () => {
 
         expect(values.environmentMaps).toEqual(["logging"])
         expect(values.secrets).toEqual(["database"])
-    })
-
-    it("given a URL in the environment, when its values are rendered, then the ingress has its host and path", () => {
-        expect(parse(render()).ingress).toEqual({ host: "orders.example.com", path: "/api" })
-    })
-
-    it("given a URL of another environment only, when its values are rendered, then there is no ingress", () => {
-        expect(parse(render({ urls: [{ environmentId: new Types.ObjectId(), url: "https://other.example.com" }] })).ingress).toBeUndefined()
     })
 
     it("given an exposure path and a Gateway, when its values are rendered, then the route is on the Gateway with the path", () => {

@@ -14,7 +14,7 @@ import Project, { IProjectGitOps } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { variableMapModels } from "../models/VariableMapModel"
-import { exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
+import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
 import { VariableMapKind } from "../types/VariableMapDTO"
 import { NormalizedRepository } from "../utils/codeRepositoryUtils"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -116,13 +116,6 @@ export const gatewayFilePath = (environment: Pick<IEnvironment, "slug">) => `${e
 
 /** A project as its Gateways are named and exposed */
 type ExposedProject = { _id: unknown; slug: string; exposure?: { domain: string; certificateIssuer?: string; httpPort?: number; httpsPort?: number } }
-
-/**
- * What an environment is exposed under: the subdomain set on it, else nothing for a production one, which
- * takes the domain itself, and its slug in lowercase for the others, so that `DEV` lands on `dev.<domain>`.
- */
-export const effectiveSubdomain = (environment: Pick<IEnvironment, "slug" | "subdomain" | "isProduction">): string =>
-    environment.subdomain || (environment.isProduction ? "" : environment.slug.toLowerCase())
 
 /**
  * The Gateway of an environment, none when the project is exposed on no domain. Its host must be its own
