@@ -1,7 +1,7 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, EmptyState, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { Card, CardContent, CardFooter, CardHeader, CardTitle, EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CirclePlus, FolderOpen, LayoutDashboard, LayoutGrid, Orbit, Pencil, Rocket, Server, Sparkles, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { CirclePlus, FolderOpen, LayoutDashboard, LayoutGrid, Orbit, Pencil, Rocket, SearchX, Server, Sparkles, Trash2 } from "lucide-react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
@@ -35,6 +35,7 @@ const Domains = () => {
     const domainLinksApi = useDomainLinksApi()
 
     const [view, setView] = useState<View>("galaxy")
+    const [searchTerm, setSearchTerm] = useState("")
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [editedDomain, setEditedDomain] = useState<Domain | undefined>()
     const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null)
@@ -79,6 +80,25 @@ const Domains = () => {
     const domains = domainsQuery.data ?? []
     const domainNamed = (id: string) => ({ id, name: domains.find(domain => domain._id === id)?.name ?? "" })
 
+    const filteredDomains = useMemo(() => {
+        const term = searchTerm.trim().toLowerCase()
+        if (!term) return domains
+        return domains.filter(domain => [domain.name, domain.slug, domain.description].some(value => value?.toLowerCase().includes(term)))
+    }, [domains, searchTerm])
+    // While searching, the galaxy shows only the matching domains: their members and the relations between them.
+    const galaxy = useMemo(() => {
+        const frontends = frontendsQuery.data ?? []
+        const services = servicesQuery.data ?? []
+        const links = domainLinksQuery.data ?? []
+        if (!searchTerm.trim()) return { frontends, services, links }
+        const ids = new Set(filteredDomains.map(domain => domain._id))
+        return {
+            frontends: frontends.filter(mfe => mfe.domainId && ids.has(mfe.domainId)),
+            services: services.filter(service => service.domainId && ids.has(service.domainId)),
+            links: links.filter(link => ids.has(link.sourceDomainId) && ids.has(link.targetDomainId))
+        }
+    }, [frontendsQuery.data, servicesQuery.data, domainLinksQuery.data, filteredDomains, searchTerm])
+
     return (
         <>
             {/* The Tabs root wraps the layout so the view switcher can live in the page header, as on the domain page. */}
@@ -86,6 +106,21 @@ const Domains = () => {
                 <SinglePageLayout
                     title={t("domains.title")}
                     description={t("domains.description")}
+                    lrContainerClassname="items-end"
+                    left={
+                        domains.length > 0 && (
+                            <div className="flex min-w-0 flex-[1_1_280px]">
+                                <SearchInput
+                                    className="max-w-sm"
+                                    placeholder={t("domains.search_placeholder")}
+                                    value={searchTerm}
+                                    onValueChange={setSearchTerm}
+                                    onClear={() => setSearchTerm("")}
+                                    clearLabel={t("domains.clear_search")}
+                                />
+                            </div>
+                        )
+                    }
                     right={
                         domains.length > 0 && (
                             <div className="flex flex-[0_0_auto] items-center gap-2">
@@ -130,15 +165,29 @@ const Domains = () => {
                                     </Button>
                                 }
                             />
+                        ) : filteredDomains.length === 0 ? (
+                            <EmptyState
+                                variant="outlined"
+                                size="lg"
+                                tone="primary"
+                                icon={<SearchX />}
+                                title={t("domains.no_results_title")}
+                                description={t("domains.no_results_description", { searchTerm })}
+                                actions={
+                                    <Button variant="secondary" onClick={() => setSearchTerm("")}>
+                                        {t("domains.clear_search")}
+                                    </Button>
+                                }
+                            />
                         ) : (
                             <>
                                 <TabsContent value="galaxy" className="mt-0">
                                     <ApiStatusHandler queries={[frontendsQuery, servicesQuery, domainLinksQuery]} interceptEmpty={false}>
                                         <DomainGalaxy
-                                            domains={domains}
-                                            frontends={frontendsQuery.data ?? []}
-                                            services={servicesQuery.data ?? []}
-                                            links={domainLinksQuery.data ?? []}
+                                            domains={filteredDomains}
+                                            frontends={galaxy.frontends}
+                                            services={galaxy.services}
+                                            links={galaxy.links}
                                             onLink={(sourceDomainId, targetDomainId) => setLinkToCreate({ sourceDomainId, targetDomainId })}
                                             onUnlink={setLinkToDelete}
                                         />
@@ -146,7 +195,7 @@ const Domains = () => {
                                 </TabsContent>
                                 <TabsContent value="cards" className="mt-0">
                                     <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
-                                        {domains.map(domain => (
+                                        {filteredDomains.map(domain => (
                                             <Card key={domain._id} className="flex h-full flex-col transition-colors duration-200 hover:border-primary" data-testid={`domain-card-${domain.slug}`}>
                                                 <CardHeader>
                                                     <CardTitle className="mb-0 truncate" title={domain.name}>
