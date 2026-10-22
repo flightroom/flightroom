@@ -9,7 +9,7 @@ import { cn } from "@/utils/styleUtils"
  * itself. The text comes from the model, which also reads user-written names and CI logs, so a
  * link anywhere else is shown as plain text rather than as something to click.
  */
-const TRUSTED_HOSTS = ["mfe-orchestrator.dev", "github.com", "gitlab.com", "dev.azure.com", "visualstudio.com"]
+const TRUSTED_HOSTS = ["flightroom.dev", "mfe-orchestrator.dev", "github.com", "gitlab.com", "dev.azure.com", "visualstudio.com"]
 
 const isTrusted = (href: string) => {
     try {

@@ -21,7 +21,7 @@ const sizeClasses = {
 }
 
 /**
- * MainLogo component that displays the official MFE Orchestrator logo
+ * MainLogo component that displays the official Flightroom logo
  */
 export const MainLogo: React.FC<MainLogoProps> = ({ className = "", size = "md" }) => {
     const { t } = useTranslation()
