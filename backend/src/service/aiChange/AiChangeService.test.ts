@@ -53,6 +53,7 @@ const proposal = (overrides: Record<string, unknown> = {}) => ({
     _id: new Types.ObjectId(),
     projectId,
     frontendId,
+    userId: user._id,
     prompt: "Add a 404 page\nwith a link home",
     baseBranch: "main",
     status: AiChangeStatus.PROPOSED,
@@ -184,6 +185,27 @@ describe("AiChangeService", () => {
         role = RoleInProject.VIEWER
         isAdmin = true
         vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(proposal() as never)
+        vi.spyOn(AiChangeRequest, "findOneAndUpdate").mockResolvedValue({ status: AiChangeStatus.DISCARDED } as never)
+
+        await expect(service().discard(new Types.ObjectId().toString())).resolves.toMatchObject({ status: AiChangeStatus.DISCARDED })
+    })
+
+    it("Given a proposal someone else asked for, when a member applies, discards or opens its pull request, then each is refused before anything is claimed or pushed", async () => {
+        vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(proposal({ userId: new Types.ObjectId(), branch: "ai/catalog-1", commit: "c1" }) as never)
+        const claim = vi.spyOn(AiChangeRequest, "findOneAndUpdate").mockResolvedValue({ status: AiChangeStatus.APPLYING } as never)
+        const id = new Types.ObjectId().toString()
+
+        for (const action of [() => service().apply(id), () => service().discard(id), () => service().openPullRequest(id)]) {
+            await expect(action()).rejects.toMatchObject({ code: "AI_JOB_NOT_OWNER", statusCode: 403 })
+        }
+        expect(claim).not.toHaveBeenCalled()
+        expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
+        expect(workspaceService.openPullRequest).not.toHaveBeenCalled()
+    })
+
+    it("Given a proposal someone else asked for, when an organization administrator discards it, then it is allowed", async () => {
+        isAdmin = true
+        vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(proposal({ userId: new Types.ObjectId() }) as never)
         vi.spyOn(AiChangeRequest, "findOneAndUpdate").mockResolvedValue({ status: AiChangeStatus.DISCARDED } as never)
 
         await expect(service().discard(new Types.ObjectId().toString())).resolves.toMatchObject({ status: AiChangeStatus.DISCARDED })

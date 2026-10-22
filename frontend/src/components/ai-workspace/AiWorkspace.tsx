@@ -42,7 +42,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 import AiModelSelect from "@/components/assistant/AiModelSelect"
 import AnswerUsage from "@/components/assistant/AnswerUsage"
-import { ApplyAllButton, jobErrorMessage, StopJobButton, sumUsage } from "@/components/assistant/AssistantJobThread"
+import { ApplyAllButton, jobErrorMessage, ReadOnlyNote, StopJobButton, sumUsage } from "@/components/assistant/AssistantJobThread"
 import AssistantMessageText from "@/components/assistant/AssistantMessageText"
 import EffortSelect from "@/components/assistant/EffortSelect"
 import { useEffort, useFollowUpAiModel, useFollowUpEffort } from "@/components/assistant/useEffort"
@@ -152,12 +152,14 @@ const BranchStatus: React.FC<{ request: AiChangeRequest }> = ({ request }) => {
 
 interface ProposalProps {
     request: AiChangeRequest
+    /** Someone else's proposal: its files are shown, its actions are not. */
+    readOnly?: boolean
     onApplied: (request: AiChangeRequest) => void
     onConflict: () => void
     onDiscarded: (request: AiChangeRequest) => void
 }
 
-const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onDiscarded }) => {
+const Proposal: React.FC<ProposalProps> = ({ request, readOnly = false, onApplied, onConflict, onDiscarded }) => {
     const { t } = useTranslation()
     const aiChangesApi = useAiChangesApi()
     const notifications = useToastNotificationStore()
@@ -172,6 +174,7 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
                     if (code === "AI_CHANGE_CONFLICT") return t("frontend.aiChange.errors.AI_CHANGE_CONFLICT", { files: conflictsOf(error).join(", ") })
                     if (code === "AI_CHANGE_NOT_PROPOSED") return t("frontend.aiChange.errors.AI_CHANGE_NOT_PROPOSED")
                     if (code === "AI_CHANGE_PUSH_REFUSED") return t("frontend.aiChange.errors.AI_CHANGE_PUSH_REFUSED", { branch: request.baseBranch })
+                    if (code === "AI_JOB_NOT_OWNER") return t("assistant.jobs.errors.AI_JOB_NOT_OWNER")
                     return t("frontend.aiChange.errors.apply")
                 }
             }),
@@ -189,6 +192,7 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
                     const code = errorCodeOf(error)
                     if (code === "AI_CHANGE_CONFLICT") return t("frontend.aiChange.errors.AI_CHANGE_CONFLICT", { files: conflictsOf(error).join(", ") })
                     if (code === "AI_CHANGE_NOT_PROPOSED") return t("frontend.aiChange.errors.AI_CHANGE_NOT_PROPOSED")
+                    if (code === "AI_JOB_NOT_OWNER") return t("assistant.jobs.errors.AI_JOB_NOT_OWNER")
                     return t("frontend.aiChange.errors.pull_request")
                 }
             }),
@@ -225,12 +229,14 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
                     <AlertTitle>{t("frontend.aiChange.no_changes_title")}</AlertTitle>
                     <AlertDescription>{t("frontend.aiChange.no_changes_description")}</AlertDescription>
                 </Alert>
-                <div className="flex justify-end">
-                    <Button type="button" variant="secondary" disabled={busy} onClick={() => discardMutation.mutate()}>
-                        <Trash2 aria-hidden="true" />
-                        {t("frontend.aiChange.discard")}
-                    </Button>
-                </div>
+                {!readOnly && (
+                    <div className="flex justify-end">
+                        <Button type="button" variant="secondary" disabled={busy} onClick={() => discardMutation.mutate()}>
+                            <Trash2 aria-hidden="true" />
+                            {t("frontend.aiChange.discard")}
+                        </Button>
+                    </div>
+                )}
             </div>
         )
     }
@@ -273,37 +279,46 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
             </ul>
             <BranchStatus request={request} />
             {request.pullRequestError && <WarningAlert title={t("frontend.aiChange.pull_request_error_title")}>{request.pullRequestError}</WarningAlert>}
-            <p className="text-sm text-foreground-secondary">{t("frontend.aiChange.apply_description", { branch: request.baseBranch })}</p>
-            <div className="flex flex-wrap items-center justify-end gap-2">
-                <Button type="button" variant="secondary" disabled={busy} onClick={() => discardMutation.mutate()}>
-                    <Trash2 aria-hidden="true" />
-                    {t("frontend.aiChange.discard")}
-                </Button>
-                {request.pullRequestUrl ? (
-                    <PullRequestLink url={request.pullRequestUrl} />
-                ) : (
-                    <Button type="button" variant="secondary" disabled={busy} onClick={() => pullRequestMutation.mutate()}>
-                        {pullRequestMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <GitPullRequest aria-hidden="true" />}
-                        {t("frontend.aiChange.open_pull_request")}
+            {!readOnly && <p className="text-sm text-foreground-secondary">{t("frontend.aiChange.apply_description", { branch: request.baseBranch })}</p>}
+            {readOnly ? (
+                request.pullRequestUrl && (
+                    <div className="flex justify-end">
+                        <PullRequestLink url={request.pullRequestUrl} />
+                    </div>
+                )
+            ) : (
+                <div className="flex flex-wrap items-center justify-end gap-2">
+                    <Button type="button" variant="secondary" disabled={busy} onClick={() => discardMutation.mutate()}>
+                        <Trash2 aria-hidden="true" />
+                        {t("frontend.aiChange.discard")}
                     </Button>
-                )}
-                <Button type="button" disabled={busy} onClick={() => applyMutation.mutate()}>
-                    {applyMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <GitMerge aria-hidden="true" />}
-                    {t("frontend.aiChange.apply", { branch: request.baseBranch })}
-                </Button>
-            </div>
+                    {request.pullRequestUrl ? (
+                        <PullRequestLink url={request.pullRequestUrl} />
+                    ) : (
+                        <Button type="button" variant="secondary" disabled={busy} onClick={() => pullRequestMutation.mutate()}>
+                            {pullRequestMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <GitPullRequest aria-hidden="true" />}
+                            {t("frontend.aiChange.open_pull_request")}
+                        </Button>
+                    )}
+                    <Button type="button" disabled={busy} onClick={() => applyMutation.mutate()}>
+                        {applyMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <GitMerge aria-hidden="true" />}
+                        {t("frontend.aiChange.apply", { branch: request.baseBranch })}
+                    </Button>
+                </div>
+            )}
         </div>
     )
 }
 
 interface RepositoryProposalProps {
     requestId: string
+    readOnly: boolean
     onUpdated: (request: AiChangeRequest) => void
     onConflict: () => void
 }
 
 /** The open proposal of one repository: the job only lists its files, the request carries their contents. */
-const RepositoryProposal: React.FC<RepositoryProposalProps> = ({ requestId, onUpdated, onConflict }) => {
+const RepositoryProposal: React.FC<RepositoryProposalProps> = ({ requestId, readOnly, onUpdated, onConflict }) => {
     const { t } = useTranslation()
     const aiChangesApi = useAiChangesApi()
     const proposalQuery = useQuery({ queryKey: ["ai-change", requestId], queryFn: () => aiChangesApi.getSingle(requestId) })
@@ -314,6 +329,7 @@ const RepositoryProposal: React.FC<RepositoryProposalProps> = ({ requestId, onUp
             <Proposal
                 key={proposalQuery.data.updatedAt}
                 request={proposalQuery.data}
+                readOnly={readOnly}
                 onApplied={onUpdated}
                 onDiscarded={onUpdated}
                 onConflict={() => {
@@ -948,11 +964,12 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                                     // Every proposal still open, not only those of the latest message: a follow-up on a domain may go on with some repositories only.
                                     proposalOf={
                                         !agentWorking && turn.job.status === "DONE"
-                                            ? repository => <RepositoryProposal requestId={repository.requestId} onUpdated={onProposalUpdated} onConflict={onConflict} />
+                                            ? repository => <RepositoryProposal requestId={repository.requestId} readOnly={!turn.job.canAct} onUpdated={onProposalUpdated} onConflict={onConflict} />
                                             : undefined
                                     }
                                     actions={
                                         turn === open &&
+                                        turn.job.canAct &&
                                         applicable.length > 1 && (
                                             <div className="flex justify-end">
                                                 <ApplyAllButton job={turn.job} requestIds={applicable.map(repository => repository.requestId)} onApplying={onApplying} />
@@ -991,16 +1008,21 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                     </div>
                 )}
 
-                <FollowUpForm
-                    target={target}
-                    open={open}
-                    latest={latest}
-                    running={turns.find(turn => isAiJobActive(turn.job.status))?.job}
-                    onStopped={onStopped}
-                    placeholder={t(`frontend.aiChange.follow_up_${followUpState}`)}
-                    onSent={onSent}
-                    onFailed={() => chainQuery.refetch()}
-                />
+                {/* Stopped while it works, refined once done: by who started it, or an organization administrator, only. */}
+                {!(turns.find(turn => isAiJobActive(turn.job.status)) ?? open ?? latest).job.canAct ? (
+                    <ReadOnlyNote name={(open ?? latest).job.userName} className="border-t border-divider pt-4" />
+                ) : (
+                    <FollowUpForm
+                        target={target}
+                        open={open}
+                        latest={latest}
+                        running={turns.find(turn => isAiJobActive(turn.job.status))?.job}
+                        onStopped={onStopped}
+                        placeholder={t(`frontend.aiChange.follow_up_${followUpState}`)}
+                        onSent={onSent}
+                        onFailed={() => chainQuery.refetch()}
+                    />
+                )}
             </CardContent>
         </Card>
     )

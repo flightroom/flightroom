@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { drawRocket } from "@/components/ai-agents/drawRocket"
 
 // Physics in px and seconds
 const GRAVITY = 1400
@@ -195,32 +196,13 @@ export const DeployGame: React.FC = () => {
                 context.stroke()
             }
 
-            context.save()
-            context.translate(width * ROCKET_X_RATIO, game.y)
-            context.rotate(Math.max(-0.5, Math.min(1.2, game.vy / 700)))
             const thrusting = game.phase === "ready" || now - game.thrustAt < 180
             const flame = (thrusting ? 16 : 7) + Math.random() * 5
-            context.fillStyle = colors.flame
-            context.beginPath()
-            context.moveTo(-14, -6)
-            context.lineTo(-14 - flame, 0)
-            context.lineTo(-14, 6)
-            context.fill()
-            context.fillStyle = colors.rocket
-            context.beginPath()
-            context.ellipse(0, 0, 18, 9, 0, 0, Math.PI * 2)
-            context.moveTo(-10, -7)
-            context.lineTo(-18, -15)
-            context.lineTo(-4, -7)
-            context.moveTo(-10, 7)
-            context.lineTo(-18, 15)
-            context.lineTo(-4, 7)
-            context.fill()
-            context.fillStyle = colors.window
-            context.beginPath()
-            context.arc(6, 0, 4, 0, Math.PI * 2)
-            context.fill()
-            context.restore()
+            drawRocket(context, width * ROCKET_X_RATIO, game.y, Math.max(-0.5, Math.min(1.2, game.vy / 700)), 36, colors.rocket, {
+                windowColor: colors.window,
+                flameColor: colors.flame,
+                flame
+            })
         }
 
         const loop = (now: number) => {

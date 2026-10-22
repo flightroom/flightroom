@@ -28,6 +28,8 @@ const VariableMapForm = lazy(() => import("./pages/variable-maps/VariableMapForm
 const Dependencies = lazy(() => import("./pages/dependencies/Dependencies"))
 const Builds = lazy(() => import("./pages/builds/Builds"))
 const Deployments = lazy(() => import("./pages/deployments/Deployments"))
+const FleetPage = lazy(() => import("./pages/fleet/FleetPage"))
+const FleetMissionPage = lazy(() => import("./pages/fleet/FleetMissionPage"))
 const CanaryUsers = lazy(() => import("./pages/deployments/CanaryUsers"))
 const Integration = lazy(() => import("./pages/integration/Integration"))
 const Environments = lazy(() => import("./pages/environments/Environments"))
@@ -142,6 +144,8 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/secret/:id" element={<RouteWithSuspense element={<VariableMapForm kind="secret" />} />} />
                 <Route path="/dependencies" element={<RouteWithSuspense element={<Dependencies />} />} />
                 <Route path="/builds" element={<RouteWithSuspense element={<Builds />} />} />
+                <Route path="/fleet" element={<RouteWithSuspense element={<FleetPage />} />} />
+                <Route path="/fleet/:id" element={<RouteWithSuspense element={<FleetMissionPage />} />} />
                 <Route path="/deployments">
                     <Route index element={<RouteWithSuspense element={<Deployments />} />} />
                     <Route path=":deploymentId/canary-users" element={<RouteWithSuspense element={<CanaryUsers />} />} />

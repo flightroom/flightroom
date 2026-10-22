@@ -1,7 +1,7 @@
 import { fastify } from "../.."
 import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
-import AiChangeJob from "../../models/AiChangeJobModel"
+import AiChangeJob, { IAiChangeJob } from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus, IAiChangeFile, IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import { IFrontend } from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
@@ -101,6 +101,45 @@ const keepConversation = async (request: IAiChangeRequest) => {
     await AiChangeRequest.updateMany({ jobId: { $in: jobIds }, ...owner }, { $unset: { expiresAt: 1 } })
 }
 
+/** Who a listener acts as: the user whose call ended the job, or none for a sweep of the server. */
+export interface AiJobListenerContext {
+    user: ConstructorParameters<typeof BaseAuthorizedService>[0]
+    config: LlmConfiguration
+}
+
+type AiJobEndedListener = (job: Pick<IAiChangeJob, "_id" | "missionId">, context: AiJobListenerContext) => Promise<void>
+type AiCapCheckListener = (projectId: string, context: AiJobListenerContext) => Promise<void>
+
+/**
+ * What runs around the jobs without the job service knowing it: the missions register here, so the
+ * job service never imports the mission service that imports it. Keyed by name: a module loaded twice
+ * replaces its listener instead of adding a second one.
+ */
+const jobEndedListeners = new Map<string, AiJobEndedListener>()
+const capCheckListeners = new Map<string, AiCapCheckListener>()
+
+/** Called once a job is over, however it ended. */
+export const onAiJobEnded = (name: string, listener: AiJobEndedListener) => void jobEndedListeners.set(name, listener)
+
+/** Called before a project refused for its cap of AI work is counted again: what ended unnoticed frees its place. */
+export const onBeforeAiCapCheck = (name: string, listener: AiCapCheckListener) => void capCheckListeners.set(name, listener)
+
+/** Tells every listener, one after the other; a listener that fails is logged and the others still run. */
+export const aiJobEnded = async (job: Pick<IAiChangeJob, "_id" | "missionId">, context: AiJobListenerContext) => {
+    for (const [name, listener] of jobEndedListeners) {
+        await listener(job, context).catch(error => fastify.log.error({ error: loggable(error), aiJobId: String(job._id), listener: name }, "AI job listener failed"))
+    }
+}
+
+export const beforeAiCapCheck = async (projectId: string, context: AiJobListenerContext) => {
+    for (const [name, listener] of capCheckListeners) {
+        await listener(projectId, context).catch(error => fastify.log.error({ error: loggable(error), projectId, listener: name }, "AI cap listener failed"))
+    }
+}
+
+/** Others' jobs, missions and proposals can be read, not acted upon. */
+export const notOwner = () => createBusinessException({ code: "AI_JOB_NOT_OWNER", message: "Only the user who started it, or an organization administrator, can act on it", statusCode: 403 })
+
 /** What the AI change services share: who may change a project, and how a claimed proposal becomes a pull request. */
 export abstract class AiChangeBaseService extends BaseAuthorizedService {
     constructor(
@@ -128,6 +167,32 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
         const project = await Project.findById(projectId, { organizationId: 1 })
         if (project && (await this.isOrganizationAdmin(project.organizationId))) return
         throw createBusinessException({ code: "AI_CHANGE_FORBIDDEN", message: "A viewer cannot change the code of a frontend or a service", statusCode: 403 })
+    }
+
+    /** Organization administrators of each project, read once per service: views ask it for every job they show. */
+    private readonly organizationAdmin = new Map<string, Promise<boolean>>()
+
+    private isAdminOfProject(projectId: IFrontend["projectId"]): Promise<boolean> {
+        const key = String(projectId)
+        let admin = this.organizationAdmin.get(key)
+        if (!admin) {
+            admin = Project.findById(projectId, { organizationId: 1 }).then(project => (project ? this.isOrganizationAdmin(project.organizationId) : false))
+            this.organizationAdmin.set(key, admin)
+        }
+        return admin
+    }
+
+    /** Whether the caller may act on a job, a mission or a proposal: the user who started it, or an organization administrator. */
+    protected async canAct(owned: { userId: unknown; projectId: IFrontend["projectId"] }): Promise<boolean> {
+        const user = this.getUser()
+        if (!user) return false
+        if (String(owned.userId) === String(user._id)) return true
+        return this.isAdminOfProject(owned.projectId)
+    }
+
+    /** Refuses others what writes on a job, a mission or a proposal they did not start: they may look at it only. */
+    protected async ensureCanAct(owned: { userId: unknown; projectId: IFrontend["projectId"] }) {
+        if (!(await this.canAct(owned))) throw notOwner()
     }
 
     /**

@@ -3,6 +3,7 @@ import { Cog, GitBranch, Hammer, Sparkles, UsersRound } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
+import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
 import { CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
@@ -12,7 +13,6 @@ import BuildDialog from "./BuildDialog"
 import CloneRepositoryPopover from "./CloneRepositoryPopover"
 import { isAiEditAvailable } from "./FrontendHeader"
 import FrontendKindBadge from "./FrontendKindBadge"
-import WorkingAgentsIndicator, { useWorkingAgents } from "./WorkingAgentsIndicator"
 
 interface FrontendCardProps {
     mfe: Frontend
@@ -39,9 +39,11 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
         <Card className={cn("flex h-full flex-col transition-colors duration-200 hover:border-primary", agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}>
             <CardHeader className="flex-row items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
-                    <CardTitle className="mb-0 truncate" title={mfe.name}>
-                        {mfe.name}
-                    </CardTitle>
+                    <div className="flex min-w-0 items-center gap-2">
+                        <CardTitle className="mb-0 truncate" title={mfe.name}>
+                            {mfe.name}
+                        </CardTitle>
+                    </div>
                     <p className="truncate text-sm text-foreground-secondary" title={mfe.slug}>
                         {mfe.slug}
                     </p>

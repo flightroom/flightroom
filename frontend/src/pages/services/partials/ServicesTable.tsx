@@ -1,6 +1,7 @@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
+import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge } from "@/components/atoms"
 import RepositoryLink from "@/components/RepositoryLink"
@@ -30,8 +31,13 @@ export const ServicesTable: React.FC<{ services?: Service[]; frontends?: Fronten
                 <TableBody>
                     {services.map(service => (
                         <TableRow key={service._id} className="cursor-pointer border-divider hover:bg-primary/5" onClick={() => navigate(`/service/${service._id}`)}>
-                            <TableCell className="max-w-[16rem] truncate font-medium" title={service.name}>
-                                {service.name}
+                            <TableCell className="max-w-[16rem] font-medium">
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <span className="min-w-0 truncate" title={service.name}>
+                                        {service.name}
+                                    </span>
+                                    <ComponentWorkingAgents componentId={service._id} compact />
+                                </div>
                             </TableCell>
                             <TableCell className="max-w-[14rem] truncate text-foreground-secondary" title={service.slug}>
                                 {service.slug}
@@ -51,8 +57,13 @@ export const ServicesTable: React.FC<{ services?: Service[]; frontends?: Fronten
                             className="cursor-pointer border-divider hover:bg-primary/5"
                             onClick={() => navigate(isAiEditAvailable(frontend, assistantEnabled) ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/settings`)}
                         >
-                            <TableCell className="max-w-[16rem] truncate font-medium" title={frontend.name}>
-                                {frontend.name}
+                            <TableCell className="max-w-[16rem] font-medium">
+                                <div className="flex min-w-0 items-center gap-2">
+                                    <span className="min-w-0 truncate" title={frontend.name}>
+                                        {frontend.name}
+                                    </span>
+                                    <ComponentWorkingAgents componentId={frontend._id} compact />
+                                </div>
                             </TableCell>
                             <TableCell className="max-w-[14rem] truncate text-foreground-secondary" title={frontend.slug}>
                                 {frontend.slug}

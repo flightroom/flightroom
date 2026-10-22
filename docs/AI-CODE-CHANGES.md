@@ -80,6 +80,56 @@ Both need a code repository connection on the project. Creating a repository for
 is also available as `POST /frontends/:id/repository` and `POST /services/:id/repository`;
 viewers cannot use it.
 
+## Fleet: missions on many repositories
+
+The **Fleet** page sends one request ("upgrade React to 19") to many repositories at once: every
+frontend and service of the project with a code repository, or the ones picked from the list. This is
+a **mission**. A mission runs no agent of its own. It starts ordinary jobs, and each job proposes one
+diff per repository, reviewed, applied or opened as a pull request like any other.
+
+A mission runs in one of two modes:
+
+- **Global**: one agent sees several repositories together, so a change can span an API and the screens
+  that call it, as on a domain.
+- **Per repository**: each repository gets its own agent with the same prompt. The agents do not see each
+  other's work, so one failure stays in its own repository.
+
+The repositories are split into **batches of 10**, in the order they are listed, and the batches run one
+after the other: batch 2 starts only once every job of batch 1 has finished or failed. In global mode a
+batch is one job on its 10 repositories, so with more than 10 the agent only sees the repositories of its own
+batch. In per-repository mode a batch is up to 10 jobs on one repository each. At most `concurrency` of
+them run at once (1 to 10, 3 by default), and as one finishes the next repository of the batch starts. A
+repository whose job cannot start (its repository was disconnected in the meantime, say) is marked failed
+and the mission goes on without it. The mission is done once the last batch is over, and failed if every
+one of its jobs failed.
+
+**Stop** stops the jobs at work, which are dropped like a stopped job, and the repositories still queued
+never start. **Apply all** applies the proposals of every finished job, one job after the other, as each
+job's own **Apply** would. A proposal can also be applied on its own from the job, before the mission ends.
+A follow-up asked on one of its jobs (from the Fleet page or the assistant) stays part of the mission: the
+mission shows the follow-up's proposal in place of the one it refines, and **Apply all** applies that one.
+A follow-up takes no place of its own among the active jobs, and never holds up the next batch.
+
+Limits:
+
+- At most 200 repositories per mission.
+- A running mission takes one of the 3 places for AI work at once in a project, however many jobs it
+  runs. Its jobs do not take places of their own.
+- While a mission runs, its jobs and their proposals do not expire, however long ago they finished. Once it
+  ends, the mission, its jobs and the proposals nobody applied are removed 7 days later. Applied work is
+  kept, and branches stay.
+- A mission waiting for a job that died with the server (a restart, say) moves on by itself: the server
+  checks the running missions when it starts and every few minutes, and a job silent for 20 minutes counts
+  as failed.
+
+Who can use it: any member of the project sees everyone's missions. A member assigned to some domains
+only sees the missions whose repositories are all in those domains. Such a member can start a mission on
+repositories they pick from their domains, but never on every repository of the project. Viewers can
+neither start, stop nor apply a mission; organization administrators can. Only the user who started a
+mission, or an organization administrator, can stop or apply it: everyone else sees it read only. Starting and applying a mission
+count against `ASSISTANT_RATE_LIMIT_MAX`, per user. Every job runs as the user who started the mission,
+whoever's visit to the Fleet page moves it on, so its commits are authored by that user.
+
 ## Where the repositories are cloned
 
 ```
@@ -118,5 +168,7 @@ handed to each network call.
 ## Who can use it
 
 Any member of the project can see the requests. Viewers can neither ask for a change nor apply or
-discard one; organization administrators can. Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
+discard one; organization administrators can. A request, a job and its follow-ups belong to the user who
+started them: only they, or an organization administrator, can apply, discard, stop or follow them up, or
+open their pull request. Other members see them read only (`AI_JOB_NOT_OWNER`). Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
 per user, like the assistant. The token usage of each request is stored and shown in the console.

@@ -1,8 +1,11 @@
-import { Link2, LocateFixed, Trash2, X } from "lucide-react"
+import { Link2, LocateFixed, Rocket, Trash2, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ForceGraph2D, { ForceGraphMethods, LinkObject, NodeObject } from "react-force-graph-2d"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
+import { drawRocket } from "@/components/ai-agents/drawRocket"
+import useOpenAgentJob from "@/components/ai-agents/useOpenAgentJob"
+import { useWorkingAgentJobs } from "@/components/ai-agents/WorkingAgentsIndicator"
 import { Badge, Button } from "@/components/atoms"
 import { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import { Domain } from "@/hooks/apiClients/useDomainsApi"
@@ -66,6 +69,22 @@ interface Galaxy {
 }
 
 type StarNode = NodeObject<Star>
+
+/** An agent at work, flying around the stars of the frontends and services it works on. */
+interface Ship {
+    jobId: string
+    stops: StarNode[]
+    /** Spreads the ships out, so two on the same star do not overlap. */
+    phase: number
+    /** Where a click goes when the agent is a change request started on a page, which has no job to open; a job has none. */
+    fallbackPath?: string
+}
+
+/** Where a ship was drawn on the last frame, to tell which one a click hits */
+interface ShipHit extends Point {
+    ship: Ship
+    reach: number
+}
 type LaneLink = LinkObject<Star, Lane>
 
 /** The d3 forces force-graph creates, only as far as they are tuned here */
@@ -146,6 +165,18 @@ const FIT_MS = 600
 const FIT_PADDING = 110
 const MAX_GALAXY_ZOOM = 4
 const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
+/** Ships keep this size on screen, but never get bigger than a star system as the map zooms out. */
+const SHIP_SCREEN_SIZE = 16
+const SHIP_MAX_SIZE = 10
+/** Radians per second around a star */
+const SHIP_ORBIT_SPEED = 0.9
+/** Seconds a ship stays at a star, then flies to the next one */
+const SHIP_DWELL = 0.8
+const SHIP_FLIGHT = 2.6
+/** Frames a second while the ships fly over a settled map: smooth enough for them, half the redraws of the whole map. */
+const MOTION_FPS = 30
+/** In screen pixels: how near a click must fall to a ship */
+const SHIP_HIT = 14
 /** In screen pixels: how near a click must fall to a relation, the size of its arrow, the gap to its way back */
 const RELATION_HIT = 6
 const RELATION_ARROW = 10
@@ -241,6 +272,54 @@ const BACKGROUND_STARS = (() => {
     return Array.from({ length: 180 }, () => ({ x: random(), y: random(), size: random() < 0.9 ? 1 : 2, alpha: 0.15 + random() * 0.5 }))
 })()
 
+const easeInOut = (u: number) => (u < 0.5 ? 4 * u * u * u : 1 - (-2 * u + 2) ** 3 / 2)
+
+/** A stable spread from the job id, so a ship keeps its place in the orbit across polls. */
+const phaseOf = (id: string) => {
+    let hash = 0
+    for (const char of id) hash = (hash * 31 + char.charCodeAt(0)) % 9973
+    return (hash / 9973) * 2 * Math.PI
+}
+
+interface ShipPose extends Point {
+    /** Where the nose points, in radians */
+    angle: number
+    /** How long the exhaust is: none when parked */
+    flame: number
+}
+
+/** Where a ship is at `now` (seconds): `size` long, in graph units. */
+const shipPoses = (ship: Ship, now: number, size: number, reducedMotion: boolean): ShipPose[] => {
+    const orbitOf = (node: StarNode) => node.radius + 3 + size * 0.7
+    const around = (node: StarNode, angle: number) => ({ x: (node.x ?? 0) + Math.cos(angle) * orbitOf(node), y: (node.y ?? 0) + Math.sin(angle) * orbitOf(node) })
+
+    // Parked next to each of its stars, nose up and to the right.
+    if (reducedMotion) return ship.stops.map(node => ({ ...around(node, -Math.PI / 4 + ship.phase / 8), angle: -Math.PI / 4, flame: 0 }))
+
+    if (ship.stops.length === 1) {
+        const angle = ship.phase + now * SHIP_ORBIT_SPEED
+        // Counterclockwise on screen: the nose points along the tangent.
+        return [{ ...around(ship.stops[0], angle), angle: angle + Math.PI / 2, flame: 6 }]
+    }
+
+    // From star to star in a loop: a pause at each, then an eased flight to the next one.
+    const leg = SHIP_DWELL + SHIP_FLIGHT
+    const time = now + (ship.phase / (2 * Math.PI)) * leg
+    const index = Math.floor(time / leg) % ship.stops.length
+    const from = ship.stops[index]
+    const to = ship.stops[(index + 1) % ship.stops.length]
+    const dx = (to.x ?? 0) - (from.x ?? 0)
+    const dy = (to.y ?? 0) - (from.y ?? 0)
+    const angle = Math.atan2(dy, dx)
+    // It leaves from the edge of a star and lands at the edge of the next, never on top of them.
+    const start = around(from, angle)
+    const travel = Math.max(0, Math.hypot(dx, dy) - orbitOf(from) - orbitOf(to))
+    const elapsed = time % leg
+    const flying = elapsed > SHIP_DWELL
+    const progress = flying ? easeInOut((elapsed - SHIP_DWELL) / SHIP_FLIGHT) : 0
+    return [{ x: start.x + Math.cos(angle) * travel * progress, y: start.y + Math.sin(angle) * travel * progress, angle, flame: flying ? 10 : 3 }]
+}
+
 const readPrimaryHue = () => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || FALLBACK_PRIMARY
 const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
 
@@ -282,6 +361,9 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
     const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null)
     const pointerRef = useRef<Point | null>(null)
     const relationSegmentsRef = useRef<RelationSegment[]>([])
+    const shipHitsRef = useRef<ShipHit[]>([])
+    const workingJobs = useWorkingAgentJobs()
+    const openAgentJob = useOpenAgentJob()
     const [primaryHue] = useState(readPrimaryHue)
     const [reducedMotion] = useState(prefersReducedMotion)
     const [font] = useState(() => getComputedStyle(document.body).fontFamily)
@@ -374,10 +456,46 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
         previousNodesRef.current = graphData.nodes
     }, [graphData])
 
-    const hasBridges = graphData.links.some(link => link.bridge)
-    const animated = !reducedMotion && (hasBridges || graphData.nodes.some(node => node.canary !== undefined))
+    // The agents on the map: a job on stars that are not shown (another domain filtered out) has no ship.
+    const ships = useMemo<Ship[]>(() => {
+        const nodes = new Map(graphData.nodes.map(node => [node.id, node]))
+        return workingJobs.flatMap(job => {
+            const stops = job.componentIds.flatMap(id => nodes.get(id) ?? [])
+            if (!stops.length) return []
+            const first = stops[0]
+            // A job the user cannot open says so, rather than landing on a page that knows nothing of it.
+            return [{ jobId: job.jobId, stops, phase: phaseOf(job.jobId), fallbackPath: job.kind === "request" ? `/${first.kind}/${first.id}?change=${job.jobId}` : undefined }]
+        })
+    }, [workingJobs, graphData])
+
     // The graph is only rendered once the container has a size, and the forces need it in place.
     const isGraphMounted = size.width > 0
+
+    // The ships keep the map redrawing on its own: once the layout has settled, at MOTION_FPS rather than the screen's rate.
+    const throttled = !reducedMotion && ships.length > 0 && !linkSourceId
+    const throttledRef = useRef(false)
+    // Whether the layout has settled: until it has, every frame also moves the stars, and none is skipped.
+    const engineStoppedRef = useRef(false)
+    // biome-ignore lint/correctness/useExhaustiveDependencies: new data is what restarts the layout.
+    useEffect(() => {
+        engineStoppedRef.current = false
+    }, [graphData])
+
+    useEffect(() => {
+        throttledRef.current = throttled
+        if (!throttled || !isGraphMounted) return
+        // Each tick draws one frame: the frame pauses the loop right after (see onRenderFramePost).
+        const interval = setInterval(() => graphRef.current?.resumeAnimation(), 1000 / MOTION_FPS)
+        return () => {
+            clearInterval(interval)
+            throttledRef.current = false
+            // Unmounted, the ref is already gone: nothing is restarted on a canvas no longer shown.
+            graphRef.current?.resumeAnimation()
+        }
+    }, [throttled, isGraphMounted])
+
+    const hasBridges = graphData.links.some(link => link.bridge)
+    const animated = !reducedMotion && (hasBridges || ships.length > 0 || graphData.nodes.some(node => node.canary !== undefined))
 
     useEffect(() => {
         const graph = graphRef.current
@@ -403,8 +521,17 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
         linkForce?.distance(link => (link.bridge ? BRIDGE_DISTANCE : LANE_DISTANCE)).strength(link => (link.bridge ? 0.01 : 0.25))
         const chargeForce = graph.d3Force("charge") as unknown as ChargeForce | undefined
         chargeForce?.strength(-45).distanceMax(220)
+        engineStoppedRef.current = false
         graph.d3ReheatSimulation()
     }, [galaxies, isGraphMounted])
+
+    // With reduced motion the map is not redrawn on its own: a ship arriving or leaving asks for one frame,
+    // by zooming to where the map already is.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a change of the ships is what must trigger the frame.
+    useEffect(() => {
+        const graph = graphRef.current
+        if (reducedMotion && graph && isGraphMounted) graph.zoom(graph.zoom())
+    }, [ships, reducedMotion, isGraphMounted])
 
     const neighbourIds = useMemo(() => {
         if (!hovered) return null
@@ -422,6 +549,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
     }, [graphData])
 
     const onEngineStop = useCallback(() => {
+        engineStoppedRef.current = true
         if (fittedRef.current) return
         fittedRef.current = true
         fitAll()
@@ -500,6 +628,47 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
         },
         [galaxies, membersByGalaxy, focusedGalaxyId, font, sky, links, selectedLinkId, linking, linkSourceId]
     )
+
+    // The ships fly over everything else. Their positions are worked out from the clock on every frame,
+    // never stored in React state: only where they were drawn is kept, for the clicks.
+    const onRenderFramePost = useCallback(
+        (ctx: CanvasRenderingContext2D, scale: number) => {
+            // Throttled: the loop schedules its next frame after this callback, so it is cancelled once this frame is over.
+            if (throttledRef.current && engineStoppedRef.current) queueMicrotask(() => graphRef.current?.pauseAnimation())
+            const hits: ShipHit[] = []
+            if (!ships.length) {
+                shipHitsRef.current = hits
+                return
+            }
+            const size = Math.min(SHIP_SCREEN_SIZE / scale, SHIP_MAX_SIZE)
+            const reach = Math.max(size, SHIP_HIT / scale)
+            const body = `hsl(${sky.ink})`
+            const flameColor = `hsl(${sky.canary})`
+            const now = performance.now() / 1000
+            for (const ship of ships) {
+                for (const pose of shipPoses(ship, now, size, reducedMotion)) {
+                    drawRocket(ctx, pose.x, pose.y, pose.angle, size, body, { windowColor: sky.space, flameColor, flame: pose.flame })
+                    hits.push({ ship, x: pose.x, y: pose.y, reach })
+                }
+            }
+            shipHitsRef.current = hits
+        },
+        [ships, reducedMotion, sky]
+    )
+
+    /** The ship under a click, in graph coordinates; the nearest when two overlap. */
+    const shipAt = useCallback((point: Point) => {
+        let nearest: ShipHit | undefined
+        let best = Infinity
+        for (const hit of shipHitsRef.current) {
+            const distance = Math.hypot(point.x - hit.x, point.y - hit.y)
+            if (distance <= hit.reach && distance < best) {
+                nearest = hit
+                best = distance
+            }
+        }
+        return nearest?.ship
+    }, [])
 
     const paintStar = useCallback(
         (node: StarNode, ctx: CanvasRenderingContext2D, scale: number) => {
@@ -607,11 +776,15 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
     )
 
     const onNodeClick = useCallback(
-        (node: StarNode) => {
+        (node: StarNode, event: MouseEvent) => {
             if (linking) return pickForLink(galaxies.find(galaxy => galaxy.id === node.galaxyId))
+            // A ship orbiting close to its star is drawn over it: the click is for the ship.
+            const graph = graphRef.current
+            const ship = graph && shipAt(graph.screen2GraphCoords(event.offsetX, event.offsetY))
+            if (ship) return openAgentJob(ship.jobId, ship.fallbackPath)
             navigate(node.kind === "service" ? `/service/${node.id}` : `/frontend/${node.id}`)
         },
-        [linking, pickForLink, galaxies, navigate]
+        [linking, pickForLink, galaxies, navigate, shipAt, openAgentJob]
     )
 
     // A first click on a galaxy flies to it, a second one opens the domain; a click on empty space shows everything again.
@@ -627,6 +800,8 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             }
             const hit = galaxies.filter(galaxy => distance(galaxy) <= 1).sort((a, b) => distance(a) - distance(b))[0]
             if (linking) return pickForLink(hit)
+            const ship = shipAt(point)
+            if (ship) return openAgentJob(ship.jobId, ship.fallbackPath)
             // A relation is thin and runs between the halos, so it is looked for before the galaxies.
             const reach = RELATION_HIT / graph.zoom()
             const relation = relationSegmentsRef.current.find(segment => distanceToSegment(point, segment.from, segment.to) <= reach)
@@ -639,7 +814,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             graph.centerAt(geometry.x, geometry.y, FIT_MS)
             graph.zoom(Math.min(MAX_GALAXY_ZOOM, Math.min(size.width, size.height) / (2.6 * geometry.r)), FIT_MS)
         },
-        [galaxies, focusedGalaxyId, fitAll, navigate, size, linking, pickForLink]
+        [galaxies, focusedGalaxyId, fitAll, navigate, size, linking, pickForLink, shipAt, openAgentJob]
     )
 
     // The dashed line of a relation being drawn follows the pointer.
@@ -664,7 +839,26 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             onMouseLeave={() => setHovered(null)}
             onMouseMove={onMouseMove}
         >
-            <p className="sr-only">{t("domains.galaxy.summary", { count: graphData.links.filter(link => link.bridge).length })}</p>
+            <p className="sr-only">
+                {t("domains.galaxy.summary", { count: graphData.links.filter(link => link.bridge).length })}
+                {ships.length > 0 && ` ${t("domains.galaxy.agents_summary", { count: ships.length })}`}
+            </p>
+            {/* The ships for the keyboard and screen readers: hidden until one of them has the focus, same action as a click. */}
+            {ships.length > 0 && (
+                <ul
+                    aria-label={t("domains.galaxy.agents_list")}
+                    className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-14 focus-within:left-3 focus-within:z-20 focus-within:flex focus-within:max-w-sm focus-within:flex-col focus-within:gap-1 focus-within:rounded-md focus-within:border focus-within:border-border focus-within:bg-card focus-within:p-2 focus-within:shadow-md"
+                >
+                    {ships.map(ship => (
+                        <li key={ship.jobId}>
+                            <Button variant="ghost" size="sm" className="max-w-full justify-start" onClick={() => openAgentJob(ship.jobId, ship.fallbackPath)}>
+                                <Rocket aria-hidden="true" />
+                                <span className="truncate">{t("domains.galaxy.open_agent", { names: ship.stops.map(stop => stop.name).join(", ") })}</span>
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            )}
             {isGraphMounted && (
                 <ForceGraph2D<StarNode, LaneLink>
                     ref={graphRef}
@@ -683,6 +877,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
                     linkDirectionalParticleWidth={2.2}
                     linkDirectionalParticleColor={link => `hsl(${laneHue(link)})`}
                     onRenderFramePre={onRenderFramePre}
+                    onRenderFramePost={onRenderFramePost}
                     onNodeHover={onNodeHover}
                     onNodeClick={onNodeClick}
                     onBackgroundClick={onBackgroundClick}
@@ -720,6 +915,12 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
                     <span className="h-1 w-4 rounded-full bg-foreground/60" aria-hidden="true" />
                     {t("domains.galaxy.legend_relation")}
                 </span>
+                {ships.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                        <Rocket className="size-3.5 text-foreground" aria-hidden="true" />
+                        {t("domains.galaxy.legend_agent")}
+                    </span>
+                )}
             </div>
             <div className="absolute top-3 right-3 flex items-center gap-2">
                 <Button

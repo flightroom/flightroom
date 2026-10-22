@@ -32,6 +32,8 @@ export interface IAiChangeJob extends Document<ObjectId> {
     parentJobId?: Schema.Types.ObjectId
     /** The first job of the chain, itself included: what the console groups a conversation by. */
     rootJobId: Schema.Types.ObjectId
+    /** The mission that started the job: it starts the next ones as this one ends. */
+    missionId?: Schema.Types.ObjectId
     prompt: string
     scope: AiJobScope
     /** The functional domain the job was asked from: its follow-ups keep it, and the agent is told about it. */
@@ -68,6 +70,7 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
         parentJobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob" },
         rootJobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob", required: true, index: true },
+        missionId: { type: Schema.Types.ObjectId, ref: "AiMission", index: true },
         prompt: { type: String, required: true, maxlength: 8_000 },
         scope: { type: String, enum: ["global", "domain", "selection"], required: true },
         domainId: { type: Schema.Types.ObjectId, ref: "Domain" },
