@@ -1,5 +1,5 @@
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, SelectField, Spinner } from "@mfe-orchestrator/design-system"
+import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle, SelectField, Spinner } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"

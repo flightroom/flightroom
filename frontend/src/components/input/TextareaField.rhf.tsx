@@ -1,4 +1,4 @@
-import { TextareaField as DesignSystemTextareaField } from "@mfe-orchestrator/design-system"
+import { TextareaField as DesignSystemTextareaField } from "@flightroom/design-system"
 import type { FieldValues } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 

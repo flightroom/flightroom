@@ -1,4 +1,4 @@
-import { Card, CardContent, Dialog, DialogContent, DialogHeader, DialogTitle } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, Dialog, DialogContent, DialogHeader, DialogTitle } from "@flightroom/design-system"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"

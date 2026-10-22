@@ -12,7 +12,7 @@ import {
     TableHead,
     TableHeader,
     TableRow
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { AlertTriangle, GitBranch } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"

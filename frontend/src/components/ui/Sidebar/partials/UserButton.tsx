@@ -1,7 +1,7 @@
 import { useAuth0 } from "@auth0/auth0-react"
 import { AccountInfo } from "@azure/msal-browser"
 import { useMsal } from "@azure/msal-react"
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, NavItem, NavItemProps } from "@mfe-orchestrator/design-system"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger, NavItem, NavItemProps } from "@flightroom/design-system"
 import { LogOut, User, UserCog } from "lucide-react"
 import React, { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
