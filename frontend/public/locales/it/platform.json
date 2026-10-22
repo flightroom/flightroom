@@ -861,8 +861,8 @@
             "template_pipeline_hint": "La pipeline di questo template carica un bundle su Flightroom, che un frontend servito dal suo container Docker non accetta. Modificala perché costruisca l'immagine Docker e ne registri la versione."
         },
         "errors": {
-            "frontend_cannot_have_parents": "Un frontend servito dal suo container Docker non può avere parent",
-            "frontend_upload_not_allowed": "Un frontend servito dal suo container Docker non accetta upload di bundle: la sua pipeline registra l'immagine di ogni versione",
+            "docker_cannot_have_parents": "Un frontend servito dal suo container Docker non può avere parent",
+            "docker_upload_not_allowed": "Un frontend servito dal suo container Docker non accetta upload di bundle: la sua pipeline registra l'immagine di ogni versione",
             "version_registration_not_allowed": "Solo un frontend servito dal suo container Docker registra versioni di immagine: un frontend carica il suo bundle",
             "build_forbidden": "Chi ha il ruolo di viewer non può creare una versione di un frontend",
             "build_ref_not_found": "Il branch non esiste nel repository",
