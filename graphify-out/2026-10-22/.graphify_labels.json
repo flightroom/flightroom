@@ -295,11 +295,19 @@
   "293": "environmentSlug",
   "294": "status",
   "295": "manifest.json",
+  "296": "withRepositoryLock",
+  "297": "GoogleStorageClient",
   "298": "main",
   "299": "start-mongod.sh",
   "300": "start-redis.sh",
+  "301": "frontendTools.test.ts",
   "302": "BuildController.ts",
   "304": "start.sh",
   "305": "start-redis.sh",
-  "306": "integration"
+  "306": "integration",
+  "307": "connectionTest.ts",
+  "311": "EnvironmentController.ts",
+  "312": "assist",
+  "314": "GitWorkingCopy.test.ts",
+  "318": "projectWizardStateMachine.ts"
 }

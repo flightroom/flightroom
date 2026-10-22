@@ -302,20 +302,11 @@
   "300": "start-redis.sh",
   "301": "frontendTools.test.ts",
   "302": "BuildController.ts",
-  "303": "GlobalVariablesController.ts",
+  "303": ".isCanary",
   "304": "start.sh",
   "305": "start-redis.sh",
   "306": "integration",
   "307": "connectionTest.ts",
-  "308": "projectContext",
-  "309": "containerRegistry",
-  "310": "AssistantMessageText.tsx",
-  "311": "EnvironmentController.ts",
-  "312": "assist",
-  "313": "DeploymentCanaryUsersController.ts",
-  "314": "GitWorkingCopy.test.ts",
-  "315": ".getEnvironmentFomRefererAndProjectId",
-  "316": "ArgoCdController.ts",
-  "317": "IEnvironment",
-  "318": "projectWizardStateMachine.ts"
+  "308": "DeploymentController.ts",
+  "310": "account_activation"
 }
