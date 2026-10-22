@@ -2667,7 +2667,8 @@
             "entries": {
                 "title": "Chiavi",
                 "description": "Un valore per ambiente; se vuoto, la chiave non è impostata in quell'ambiente."
-            }
+            },
+            "attach": "Aggiungi config map"
         },
         "secret": {
             "label": "Secret",
@@ -2684,7 +2685,8 @@
             "entries": {
                 "title": "Chiavi",
                 "description": "Un valore per ambiente; se vuoto, la chiave non è impostata in quell'ambiente. I valori salvati non vengono mai mostrati: lasciali così per conservarli."
-            }
+            },
+            "attach": "Aggiungi secret"
         },
         "entries": {
             "add": "Aggiungi chiave",
@@ -2714,7 +2716,12 @@
             "description": "Le mappe del progetto i cui valori il servizio riceve come variabili d'ambiente. Una stessa chiave non può arrivare da due mappe.",
             "detail_description": "Cosa riceve il servizio come variabili d'ambiente, mappa per mappa.",
             "none": "Nessuna config map o secret agganciato. Agganciali dalle impostazioni del servizio.",
-            "manage": "Gestisci"
+            "manage": "Gestisci",
+            "search_placeholder": "Cerca per nome o chiave",
+            "no_results": "Nessuna mappa corrisponde a \"{{searchTerm}}\".",
+            "all_attached": "Tutte agganciate",
+            "detach": "Sgancia {{name}}",
+            "clear_search": "Pulisci ricerca"
         },
         "danger_zone": {
             "title": "Zona pericolosa",
