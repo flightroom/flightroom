@@ -746,7 +746,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         context: "Routes live in src/routes."
     })
 
-    it("Given one service, then the prompt describes it with its runtime, port, probe and docs paths and env, and points the agent to AGENTS.md", async () => {
+    it("Given one service, then the prompt describes it with its runtime, port, probe and docs paths and env, and points the agent to AGENTS.md and HTTP_PORT", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
 
         await runAiChangeAgent(client, { ...input(), repositories: [{ baseBranch: "main", workingCopy, service: ordersService() }] }, hooks().hooks)
@@ -763,16 +763,18 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(sent[0].system).toContain("ONE backend service")
         expect(sent[0].system).toContain("AGENTS.md")
         expect(sent[0].system).toContain("liveness_path and readiness_path")
+        expect(sent[0].system).toContain("read the port from HTTP_PORT")
         expect(sent[0].system).toContain("Document every endpoint you add or change in the OpenAPI spec")
         expect(sent[0].system).toContain("You cannot run commands")
     })
 
-    it("Given one frontend, then the agent is not sent to AGENTS.md", async () => {
+    it("Given one frontend, then the agent is not sent to AGENTS.md nor told about HTTP_PORT", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
 
         await runAiChangeAgent(client, input(), hooks().hooks)
 
         expect(sent[0].system).not.toContain("AGENTS.md")
+        expect(sent[0].system).not.toContain("HTTP_PORT")
     })
 
     it("Given a frontend and a service, when it runs, then the service is marked as such and paths start with its slug", async () => {

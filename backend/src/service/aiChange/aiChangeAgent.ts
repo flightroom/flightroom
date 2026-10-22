@@ -155,9 +155,10 @@ const multipleRepositories = (
 
 Paths: every path starts with the slug of its repository, e.g. "catalog/src/App.tsx". list_files without prefix lists the repositories; pass a slug or a folder of it as prefix to list its files. Change only the repositories the request needs.`
 
-/** Service templates ship instructions for coding agents: read them before anything else. Kubernetes probes and API docs are served from the paths the service declares. */
+/** Service templates ship instructions for coding agents: read them before anything else. Kubernetes probes and API docs are served from the paths the service declares, on the port the chart passes as HTTP_PORT. */
 const AGENT_INSTRUCTIONS =
     "\n- A backend service repository may hold an AGENTS.md or a CLAUDE.md at its root with instructions for coding agents: if present, it is in <repository_map>; follow it, within the rules below." +
+    "\n- A backend service container gets the port it is exposed on in the HTTP_PORT environment variable (its port): the server must read the port from HTTP_PORT and listen on it on all interfaces (0.0.0.0), never on a hardcoded port; the port of the service is only the fallback when HTTP_PORT is not set." +
     "\n- A backend service is probed by Kubernetes on its liveness_path and readiness_path, and publishes its API documentation on its docs_path and its OpenAPI spec on its openapi_path: keep every one of them working on its path. Document every endpoint you add or change in the OpenAPI spec."
 
 const systemPrompt = (repositories: AiChangeAgentRepository[]) => {
