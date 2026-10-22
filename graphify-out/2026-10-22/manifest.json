@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1792676344.0852296,
-    "ast_hash": "f7022305315c0d016259dd75276a13b9",
+    "mtime": 1792676877.9352918,
+    "ast_hash": "8796161b7b4431762731d26b1c8e3343",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1792676344.085334,
-    "ast_hash": "d24d85c4e657c84781fd16cb9c0ab92d",
+    "mtime": 1792676877.9329834,
+    "ast_hash": "1f8ff0bea9aa13f4a0aa050da1854f75",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -2510,7 +2510,7 @@
     "semantic_hash": ""
   },
   "backend/src/service/assistant/docs-index.json": {
-    "mtime": 1792674766.4842286,
+    "mtime": 1792676427.5930982,
     "ast_hash": "d661f563a69485d2511d110690273f47",
     "semantic_hash": ""
   },
@@ -3025,8 +3025,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/services/Services.tsx": {
-    "mtime": 1792658945.6101685,
-    "ast_hash": "0234d558ae4e9d9942e71b19cdf61b28",
+    "mtime": 1792676887.8576183,
+    "ast_hash": "02c9d2b4a977e9dbac18640e6b5d927b",
     "semantic_hash": ""
   },
   "frontend/src/pages/services/partials/RuntimeBadge.tsx": {
@@ -3060,13 +3060,13 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/services/partials/ServicesGrid.tsx": {
-    "mtime": 1792674766.5118973,
-    "ast_hash": "54b1b4987886524d5538e84bf8f5e80b",
+    "mtime": 1792676903.8091204,
+    "ast_hash": "539ddb98c7270f09973085b93abf3f81",
     "semantic_hash": ""
   },
   "frontend/src/pages/services/partials/ServicesTable.tsx": {
-    "mtime": 1792658945.6135464,
-    "ast_hash": "01b3f8ae0cfe21483d4fa8fbf2630a4e",
+    "mtime": 1792676912.7014067,
+    "ast_hash": "4b6ba4f4cc55dac98724f1b0d94a2eba",
     "semantic_hash": ""
   },
   "frontend/src/pages/services/partials/labels.ts": {
@@ -3180,8 +3180,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/Domains.tsx": {
-    "mtime": 1792674766.5035703,
-    "ast_hash": "c214263c9958e5fcd3e36215e1cab18c",
+    "mtime": 1792676783.3728368,
+    "ast_hash": "650670f480693e747236df1225abc9c6",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainFilter.tsx": {
@@ -4332,6 +4332,11 @@
   "e2e/screens/frontend-hosting-type.png": {
     "mtime": 1792674766.4930458,
     "ast_hash": "bbca4d52e7522c0e8dbda9727573e27b",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/services/partials/FrontendBadge.tsx": {
+    "mtime": 1792676877.8982966,
+    "ast_hash": "bed98b5229c08e84cd74ecd6307b11f0",
     "semantic_hash": ""
   }
 }

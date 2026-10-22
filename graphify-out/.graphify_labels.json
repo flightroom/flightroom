@@ -300,9 +300,7 @@
   "298": "main",
   "299": "start-mongod.sh",
   "300": "start-redis.sh",
-  "301": "projectWizardStateMachine.ts",
   "304": "start.sh",
   "305": "start-redis.sh",
-  "306": "DeploymentController.ts",
   "310": "AuthorizationController.ts"
 }
