@@ -59,7 +59,7 @@ export const SignUp = () => {
             footer={
                 <p className="text-sm text-foreground-secondary">
                     {t("auth.already_have_account")}{" "}
-                    <Link to="/login" className="text-primary underline-offset-4 underline">
+                    <Link to="/login" className="text-primary-strong underline-offset-4 underline">
                         {t("auth.login")}
                     </Link>
                 </p>

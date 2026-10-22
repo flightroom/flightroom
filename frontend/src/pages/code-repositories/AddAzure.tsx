@@ -147,8 +147,8 @@ const AddAzureRepositoryPage = () => {
                                     {testConnectionMutation.data && (
                                         <CardContent className="pt-4 border-t mt-4">
                                             <div className="flex items-center gap-2 mb-2">
-                                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                                <p className="text-sm font-medium text-green-600">{t("codeRepositories.gitlab.connectionSuccess")}</p>
+                                                <CheckCircle2 className="h-4 w-4 text-success" />
+                                                <p className="text-sm font-medium text-success">{t("codeRepositories.gitlab.connectionSuccess")}</p>
                                             </div>
                                             <p className="text-sm text-muted-foreground mb-2">
                                                 {t("codeRepositories.azure.projectsFound", {
@@ -223,7 +223,7 @@ const AddAzureRepositoryPage = () => {
                                 <div className="space-y-3">
                                     {requiredScopes.map((scope, index) => (
                                         <div key={index} className="flex items-start gap-3">
-                                            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                                            <CheckCircle2 className="h-5 w-5 text-success mt-0.5 flex-shrink-0" />
                                             <div>
                                                 <p className="font-medium text-sm">{scope.scope}</p>
                                                 <p className="text-xs text-muted-foreground">{scope.description}</p>

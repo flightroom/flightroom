@@ -27,16 +27,16 @@ export const McpClients = () => {
     const mcpUrl = String(getParameter("mcp.url") ?? "")
 
     const apiKeySnippets = [
-        { id: "claude-code", label: t("mcpClients.apiKey.claudeCode"), value: `claude mcp add --transport http mfe-orchestrator ${mcpUrl} --header "Authorization: Bearer <YOUR_API_KEY>"` },
+        { id: "claude-code", label: t("mcpClients.apiKey.claudeCode"), value: `claude mcp add --transport http flightroom ${mcpUrl} --header "Authorization: Bearer <YOUR_API_KEY>"` },
         {
             id: "gemini-cli",
             label: t("mcpClients.apiKey.geminiCli"),
-            value: JSON.stringify({ mcpServers: { "mfe-orchestrator": { httpUrl: mcpUrl, headers: { Authorization: "Bearer <YOUR_API_KEY>" } } } })
+            value: JSON.stringify({ mcpServers: { flightroom: { httpUrl: mcpUrl, headers: { Authorization: "Bearer <YOUR_API_KEY>" } } } })
         },
         {
             id: "cursor",
             label: t("mcpClients.apiKey.cursor"),
-            value: JSON.stringify({ mcpServers: { "mfe-orchestrator": { url: mcpUrl, headers: { Authorization: "Bearer <YOUR_API_KEY>" } } } })
+            value: JSON.stringify({ mcpServers: { flightroom: { url: mcpUrl, headers: { Authorization: "Bearer <YOUR_API_KEY>" } } } })
         }
     ]
 

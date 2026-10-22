@@ -58,7 +58,7 @@ const ProjectDraftAssistant: React.FC<ProjectDraftAssistantProps> = ({ draft, on
     return (
         <div className="mb-6 flex flex-col gap-3 rounded-lg border border-primary/30 bg-primary/5 p-4" data-testid="wizard-ai-draft">
             <div className="flex items-center gap-2">
-                <Sparkles className="size-5 text-primary" aria-hidden="true" />
+                <Sparkles className="size-5 text-primary-strong" aria-hidden="true" />
                 <h3 className="font-semibold text-foreground">{t("newProjectWizard.ai_draft.title")}</h3>
             </div>
             <p className="text-sm text-foreground-secondary">{t("newProjectWizard.ai_draft.description")}</p>

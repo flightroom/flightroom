@@ -332,7 +332,7 @@ const AddNewMicrofrontendForm: React.FC<AddNewMicrofrontendFormProps> = ({ versi
             version: data.version === "custom" ? data.customVersion : data.version,
             // Blank: the microfrontend is in no domain
             domainId: data.domainId || null,
-            // Only a FRONTEND declares a container, and MFE Orchestrator runs no canary for it
+            // Only a FRONTEND declares a container, and Flightroom runs no canary for it
             ...(data.kind === MicrofrontendKind.FRONTEND
                 ? {
                       port: Number(port),

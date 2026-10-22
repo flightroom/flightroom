@@ -343,7 +343,7 @@ export default function EnvironmentsPage() {
                                                     href={`https://${hostOf(env)}`}
                                                     target="_blank"
                                                     rel="noopener noreferrer"
-                                                    className="inline-flex items-center gap-1 text-primary underline-offset-4 hover:underline"
+                                                    className="inline-flex items-center gap-1 text-primary-strong underline-offset-4 hover:underline"
                                                 >
                                                     {hostOf(env)}
                                                     <ExternalLink className="size-3.5" aria-hidden="true" />

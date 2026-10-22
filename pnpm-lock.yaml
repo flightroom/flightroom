@@ -236,8 +236,8 @@ importers:
         specifier: ^5.7.2
         version: 5.7.2(@azure/msal-browser@5.25.1)(react@19.3.1)
       '@flightroom/design-system':
-        specifier: ^1.6.1
-        version: 1.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)
+        specifier: ^2.0.0
+        version: 2.0.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.3.1)
@@ -1127,8 +1127,8 @@ packages:
   '@fastify/swagger@9.9.2':
     resolution: {integrity: sha512-ayxItVgf/1axBvw33lqsA5ns02YMpT1r59G/HCJraRNWWBzvLgN+oiCBPhuzTiN67TvctlCYkG0+40WLKYuusQ==}
 
-  '@flightroom/design-system@1.6.1':
-    resolution: {integrity: sha512-H8aah/G7sU1ozgEzjHlxB+H/c0mLnE5BWdQ61Hbda11Pj7CUI+apsbgyKVnwuwqpu/75zW8vg8iS8y/j7jqCkQ==, tarball: https://npm.pkg.github.com/download/@flightroom/design-system/1.6.1/291d2013ddc78503452cdf293b77881cc0b4b0d6}
+  '@flightroom/design-system@2.0.0':
+    resolution: {integrity: sha512-9qKjLPQwKVmHCFQEQNCFEY3rukYQ+VKCnUA34CRAMYDeb6DU+rYJn5Q7cKkxDyx81wDH5AYbJZYdeEsQWTMd6g==, tarball: https://npm.pkg.github.com/download/@flightroom/design-system/2.0.0/0b7e52920c24c8d59b15b0c4015b038ad73af647}
     engines: {node: '>=21.0.0'}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
@@ -6937,7 +6937,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@flightroom/design-system@1.6.1(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)':
+  '@flightroom/design-system@2.0.0(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react-hook-form@7.90.0(@types/react@19.3.0)(react@19.3.1))(react@19.3.1)':
     dependencies:
       '@radix-ui/react-accordion': 1.2.20(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)
       '@radix-ui/react-avatar': 1.2.6(@types/react-dom@19.3.0(@types/react@19.3.0))(@types/react@19.3.0)(react-dom@19.3.1(react@19.3.1))(react@19.3.1)

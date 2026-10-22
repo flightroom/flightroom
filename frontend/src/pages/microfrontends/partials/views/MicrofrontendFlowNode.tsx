@@ -65,7 +65,7 @@ export const MicrofrontendFlowNode: React.FC<NodeProps<MicrofrontendFlowNodeType
             {microfrontend.kind !== MicrofrontendKind.FRONTEND && <Handle type="target" position={Position.Top} className={HANDLE_CLASS} />}
 
             <div className="flex items-start gap-2 px-3 pt-2.5">
-                {showKind && <LayoutDashboard className="mt-0.5 size-4 shrink-0 text-primary" aria-hidden="true" />}
+                {showKind && <LayoutDashboard className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden="true" />}
                 <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-card-foreground" title={microfrontend.name}>
                         {microfrontend.name}

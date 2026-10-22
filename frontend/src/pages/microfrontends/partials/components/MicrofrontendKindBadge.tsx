@@ -5,7 +5,7 @@ import { type Microfrontend, MicrofrontendKind } from "@/hooks/apiClients/useMic
 import { cn } from "@/utils/styleUtils"
 import { KIND_BADGE_KEYS, KIND_DESCRIPTION_KEYS } from "../labels"
 
-/** Who serves it, at a glance: MFE Orchestrator, or its own Docker container. */
+/** Who serves it, at a glance: Flightroom, or its own Docker container. */
 export const MicrofrontendKindBadge: React.FC<{ microfrontend: Microfrontend; className?: string }> = ({ microfrontend, className }) => {
     const { t } = useTranslation()
     const kind = microfrontend.kind ?? MicrofrontendKind.MICROFRONTEND

@@ -72,7 +72,7 @@ export const MicrofrontendCard: React.FC<MicrofrontendCardProps> = ({ mfe }) => 
                 {canary && (
                     <div className="rounded-md border border-divider bg-primary/5 p-3">
                         <div className="flex items-center justify-between gap-2">
-                            <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-primary">
+                            <span className="flex min-w-0 items-center gap-1.5 text-sm font-semibold text-primary-strong">
                                 <UsersRound className="size-4 shrink-0" aria-hidden="true" />
                                 <span className="truncate">{t("microfrontend.card.canary")}</span>
                             </span>

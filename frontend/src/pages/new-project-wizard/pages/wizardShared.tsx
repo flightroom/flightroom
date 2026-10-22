@@ -83,7 +83,7 @@ export const StepShell: React.FC<StepShellProps> = ({ title, description, childr
         </div>
         {skippableNote && (
             <p className="px-6 md:px-8 pb-4 -mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Info className="size-4 shrink-0 text-primary" />
+                <Info className="size-4 shrink-0 text-primary-strong" />
                 {skippableNote}
             </p>
         )}

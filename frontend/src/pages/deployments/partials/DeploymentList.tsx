@@ -15,7 +15,7 @@ const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secre
 
     return (
         <div className="mt-4">
-            <h4 className="font-semibold text-primary mb-1">{title}</h4>
+            <h4 className="font-semibold text-primary-strong mb-1">{title}</h4>
             {maps.map(map => (
                 <div key={map._id} className="mt-2">
                     <p className="text-sm font-medium">{map.name}</p>
@@ -54,7 +54,7 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
         <>
             {deployment.microfrontends.length > 0 && (
                 <div>
-                    <h4 className="font-semibold text-primary mb-2">{t("deployments.microfrontends_title")}</h4>
+                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.microfrontends_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                         {deployment.microfrontends.map(microfrontend => (
                             <DeploymentMicrofrontendCard key={microfrontend._id} microfrontend={microfrontend} />
@@ -64,7 +64,7 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
             )}
             {services.length > 0 && (
                 <div className={deployment.microfrontends.length > 0 ? "mt-4" : undefined}>
-                    <h4 className="font-semibold text-primary mb-2">{t("deployments.services_title")}</h4>
+                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.services_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                         {services.map(service => (
                             <DeploymentServiceCard key={service._id} service={service} />
@@ -74,7 +74,7 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
             )}
             {deployment.variables.length > 0 && (
                 <div className="mt-4">
-                    <h4 className="font-semibold text-primary mb-1">{t("deployments.env_variables_title")}</h4>
+                    <h4 className="font-semibold text-primary-strong mb-1">{t("deployments.env_variables_title")}</h4>
                     <DescriptionList orientation="inline">
                         {deployment.variables.map(variable => (
                             <DescriptionItem key={variable._id} label={variable.key}>

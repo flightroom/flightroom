@@ -89,7 +89,7 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
                             : `/microfrontend/${repository.microfrontendId}?change=${repository.requestId}`
                     }
                     aria-label={t("assistant.jobs.diff_label", { name: repository.microfrontendName })}
-                    className="font-medium text-primary underline-offset-4 hover:underline"
+                    className="font-medium text-primary-strong underline-offset-4 hover:underline"
                 >
                     {t("assistant.jobs.diff")}
                 </Link>
@@ -98,7 +98,7 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
                         href={repository.pullRequestUrl}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline"
+                        className="inline-flex items-center gap-1 font-medium text-primary-strong underline-offset-4 hover:underline"
                     >
                         {t("microfrontend.aiChange.pull_request")}
                         <ExternalLink className="size-3" aria-hidden="true" />

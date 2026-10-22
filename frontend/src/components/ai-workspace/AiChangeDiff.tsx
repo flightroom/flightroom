@@ -44,7 +44,7 @@ const buildRows = (original: string, proposed: string): DiffRow[] => {
 }
 
 const ROW_CLASSES: Record<"add" | "remove" | "context", string> = {
-    add: "bg-green-500/10 text-green-800 dark:text-green-300",
+    add: "bg-success-subtle text-success",
     remove: "bg-destructive/10 text-destructive",
     context: "text-foreground"
 }

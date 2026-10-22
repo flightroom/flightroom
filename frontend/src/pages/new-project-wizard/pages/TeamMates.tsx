@@ -121,7 +121,7 @@ const TeamMates: React.FC<WizardStepProps> = ({ project, onNext, onBack, onSkip 
                 </div>
 
                 <div className="flex items-start gap-3 rounded-lg border border-border bg-accent/60 p-4 text-sm text-foreground-secondary mt-2">
-                    <Users className="size-5 text-primary shrink-0 mt-0.5" />
+                    <Users className="size-5 text-primary-strong shrink-0 mt-0.5" />
                     <span>{t("newProjectWizard.team_mates.role_note")}</span>
                 </div>
             </div>

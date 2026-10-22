@@ -24,18 +24,18 @@ interface ServiceNodeData extends Record<string, unknown> {
 
 const SERVICE_NODE_TYPE = "service"
 
-/** Sky for the backend, against the primary violet of the microfrontends; the edge needs it as a plain colour. */
-const SERVICE_COLOR = "#0ea5e9"
+/** Zomp for the backend, against the primary pumpkin of the microfrontends; the edge needs it as a plain colour. */
+const SERVICE_COLOR = "#619B8A" // zomp-500
 const SERVICE_HANDLE_CLASS =
-    "!h-2 !w-2 !rounded-full !border-2 !border-card !bg-foreground-secondary/60 !transition-colors group-[.is-highlighted]:!bg-sky-500 after:absolute after:-inset-2 after:content-['']"
+    "!h-2 !w-2 !rounded-full !border-2 !border-card !bg-foreground-secondary/60 !transition-colors group-[.is-highlighted]:!bg-zomp-500 after:absolute after:-inset-2 after:content-['']"
 
 const ServiceFlowNode: React.FC<NodeProps<Node<ServiceNodeData>>> = ({ data }) => {
     const { service } = data
     return (
-        <div className="w-60 overflow-hidden rounded-lg border-2 border-l-4 border-border border-l-sky-500 bg-card text-left shadow-sm transition-colors group-[.is-highlighted]:border-sky-500">
+        <div className="w-60 overflow-hidden rounded-lg border-2 border-l-4 border-border border-l-zomp-500 bg-card text-left shadow-sm transition-colors group-[.is-highlighted]:border-zomp-500">
             <Handle type="target" position={Position.Top} className={SERVICE_HANDLE_CLASS} />
             <div className="flex items-start gap-2 px-3 pt-2.5">
-                <Server className="mt-0.5 size-4 shrink-0 text-sky-500" aria-hidden="true" />
+                <Server className="mt-0.5 size-4 shrink-0 text-zomp-500" aria-hidden="true" />
                 <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-card-foreground" title={service.name}>
                         {service.name}
@@ -270,7 +270,7 @@ export const DomainFlow: React.FC<DomainFlowProps> = ({ microfrontends, services
                         {t("domains.detail.frontend_title")}
                     </span>
                     <span className="flex items-center gap-1.5">
-                        <span className="size-2.5 rounded-full bg-sky-500" aria-hidden="true" />
+                        <span className="size-2.5 rounded-full bg-zomp-500" aria-hidden="true" />
                         {t("domains.detail.backend_title")}
                     </span>
                 </Panel>

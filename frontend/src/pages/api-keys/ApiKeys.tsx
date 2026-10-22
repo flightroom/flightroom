@@ -53,9 +53,9 @@ export const ApiKeys = () => {
             return { variant: "destructive", label: t("apiKeys.status_expired", { defaultValue: "Expired" }), dot: "bg-destructive" }
         }
         if (daysUntilExpiration <= 30) {
-            return { variant: "default", label: t("apiKeys.status_expiring", { defaultValue: "Expiring soon" }), dot: "bg-yellow-500" }
+            return { variant: "default", label: t("apiKeys.status_expiring", { defaultValue: "Expiring soon" }), dot: "bg-warning" }
         }
-        return { variant: "accent", label: t("apiKeys.status_active", { defaultValue: "Active" }), dot: "bg-green-500" }
+        return { variant: "accent", label: t("apiKeys.status_active", { defaultValue: "Active" }), dot: "bg-success" }
     }
 
     return (
