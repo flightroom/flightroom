@@ -33,14 +33,14 @@ jobs:
         AZURE_FOUNDRY_API_KEY: ${{ secrets.AZURE_FOUNDRY_API_KEY }}
       with:
         host: ${{ secrets.SSH_HOST }}
-        username: ${{ secrets.SSH_USERNAME }}
+        username: ${{ vars.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
-        port: ${{ secrets.SSH_PORT }}
+        port: ${{ vars.SSH_PORT }}
         envs: NOSQL_DATABASE_URL_PROD,NOSQL_DATABASE_URL_DEV,AZURE_FOUNDRY_API_KEY
         script: |
           export TF_VAR_nosql_database_url_prod="$NOSQL_DATABASE_URL_PROD"
           export TF_VAR_nosql_database_url_dev="$NOSQL_DATABASE_URL_DEV"
           export TF_VAR_azure_foundry_api_key="$AZURE_FOUNDRY_API_KEY"
-          cd ${{ secrets.TERRAFORM_PATH }}
+          cd ${{ vars.TERRAFORM_PATH }}
           tofu init
           tofu apply -auto-approve
