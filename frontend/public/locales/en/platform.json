@@ -2313,7 +2313,9 @@
             "noResultsTitle": "No results",
             "noResultsDescription": "No service matches \"{{searchTerm}}\".",
             "open": "Open",
-            "frontendBadge": "Frontend"
+            "frontendBadge": "Frontend",
+            "backendsSection": "Backend services",
+            "dockerFrontendsSection": "Docker frontends"
         },
         "env": {
             "title": "Environment variables",
