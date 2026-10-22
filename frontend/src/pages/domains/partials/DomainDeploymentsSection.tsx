@@ -5,13 +5,13 @@ import { LayoutDashboard, Rocket, Server } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
-import useDomainDeploymentsApi, { DeployedMicrofrontend, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
-import { CanaryType } from "@/hooks/apiClients/useMicrofrontendsApi"
+import useDomainDeploymentsApi, { DeployedFrontend, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
+import { CanaryType } from "@/hooks/apiClients/useFrontendsApi"
 import useThemeStore from "@/store/useThemeStore"
 
 interface DeployedVersionProps {
     version: string | null
-    canary?: DeployedMicrofrontend["canary"]
+    canary?: DeployedFrontend["canary"]
     /** Shown when there is no version: the frontend was not deployed, the backend was not reported */
     emptyLabel: string
 }
@@ -59,7 +59,7 @@ interface MemberListProps {
     title: string
     icon: React.ReactNode
     emptyLabel: string
-    members: { _id: string; slug: string; name: string; version: string | null; canary?: DeployedMicrofrontend["canary"] }[]
+    members: { _id: string; slug: string; name: string; version: string | null; canary?: DeployedFrontend["canary"] }[]
 }
 
 const MemberList: React.FC<MemberListProps> = ({ title, icon, emptyLabel, members }) =>
@@ -85,7 +85,7 @@ const MemberList: React.FC<MemberListProps> = ({ title, icon, emptyLabel, member
     )
 
 /**
- * Which version of each microfrontend and service of the domain runs in each environment: the
+ * Which version of each frontend and service of the domain runs in each environment: the
  * frontend from the deployment the environment serves, the backend from what the deploy pipeline reported.
  */
 const DomainDeploymentsSection: React.FC<{ domainId: string }> = ({ domainId }) => {
@@ -94,7 +94,7 @@ const DomainDeploymentsSection: React.FC<{ domainId: string }> = ({ domainId }) 
     const deploymentsQuery = useQuery({ queryKey: ["domain-deployments", domainId], queryFn: () => domainDeploymentsApi.getByDomainId(domainId) })
 
     const environments = deploymentsQuery.data?.environments ?? []
-    const hasMembers = environments.some(entry => entry.microfrontends.length > 0 || entry.services.length > 0)
+    const hasMembers = environments.some(entry => entry.frontends.length > 0 || entry.services.length > 0)
 
     return (
         <Card>
@@ -120,7 +120,7 @@ const DomainDeploymentsSection: React.FC<{ domainId: string }> = ({ domainId }) 
                                         title={t("domains.deployments.frontend")}
                                         icon={<LayoutDashboard className="size-3.5" aria-hidden="true" />}
                                         emptyLabel={t("domains.deployments.not_deployed")}
-                                        members={entry.microfrontends}
+                                        members={entry.frontends}
                                     />
                                     <MemberList
                                         title={t("domains.deployments.backend")}

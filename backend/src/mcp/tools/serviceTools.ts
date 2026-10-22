@@ -9,14 +9,14 @@ import { SERVICE_SLUG, SERVICE_VERSION } from "../../types/ServiceStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
-import { containerFields, ensureReferencesBelongToProject, createSchema as microfrontendCreateSchema } from "./microfrontendTools"
+import { containerFields, ensureReferencesBelongToProject, createSchema as frontendCreateSchema } from "./frontendTools"
 
 const serviceId = objectId("Id of the service, from services_list")
 
 /**
  * The fields a backend service can be created or edited with.
  *
- * Deliberately narrower than the console route, as for microfrontends: no `projectId` (the token's
+ * Deliberately narrower than the console route, as for frontends: no `projectId` (the token's
  * project is the only one), no `codeRepository.createData` (scaffolding a repository at the provider
  * is `service_scaffold`'s), and nothing the CI or a template sets (`version`, `template`, `stack`).
  * Linking an existing repository is allowed, checked against the project first.
@@ -27,7 +27,7 @@ const serviceFields = {
     description: z.string().max(2000).optional(),
     domainId: memberDomainId,
     context: z.string().max(CONTEXT_MAX_LENGTH).optional().describe("Markdown notes for AI agents about this service, replaced as a whole"),
-    codeRepository: microfrontendCreateSchema.shape.codeRepository,
+    codeRepository: frontendCreateSchema.shape.codeRepository,
     ...containerFields
 }
 

@@ -5,7 +5,7 @@ import { useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
 import useAiJobsApi from "@/hooks/apiClients/useAiJobsApi"
-import useMicrofrontendsApi from "@/hooks/apiClients/useMicrofrontendsApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useAssistantJobsStore from "@/store/useAssistantJobsStore"
 import AiModelSelect from "./AiModelSelect"
@@ -27,7 +27,7 @@ interface NewJobFormProps {
 const NewJobForm: React.FC<NewJobFormProps> = ({ projectId, onCreated, onCancel }) => {
     const { t } = useTranslation()
     const aiJobsApi = useAiJobsApi()
-    const microfrontendsApi = useMicrofrontendsApi()
+    const frontendsApi = useFrontendsApi()
     const servicesApi = useServicesApi()
     const [all, setAll] = useState(false)
     const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -38,29 +38,29 @@ const NewJobForm: React.FC<NewJobFormProps> = ({ projectId, onCreated, onCancel 
     const promptRef = useRef<HTMLTextAreaElement>(null)
     const idPrefix = useId()
 
-    const microfrontendsQuery = useQuery({
-        queryKey: ["microfrontends-by-project-id", projectId],
-        queryFn: () => microfrontendsApi.getByProjectId(projectId)
+    const frontendsQuery = useQuery({
+        queryKey: ["frontends-by-project-id", projectId],
+        queryFn: () => frontendsApi.getByProjectId(projectId)
     })
     const servicesQuery = useQuery({
         queryKey: ["services", projectId],
         queryFn: () => servicesApi.getAll()
     })
-    // The agent works on code: a microfrontend or a service without a linked repository has nothing to offer it.
+    // The agent works on code: a frontend or a service without a linked repository has nothing to offer it.
     const repositories = [
-        ...(microfrontendsQuery.data ?? []).map(microfrontend => ({ kind: "microfrontend" as const, id: microfrontend._id, name: microfrontend.name, enabled: microfrontend.codeRepository?.enabled })),
+        ...(frontendsQuery.data ?? []).map(frontend => ({ kind: "frontend" as const, id: frontend._id, name: frontend.name, enabled: frontend.codeRepository?.enabled })),
         ...(servicesQuery.data ?? []).map(service => ({ kind: "service" as const, id: service._id, name: service.name, enabled: service.codeRepository?.enabled }))
     ].filter((repository): repository is typeof repository & { id: string } => Boolean(repository.id && repository.enabled))
-    const isPending = microfrontendsQuery.isPending || servicesQuery.isPending
-    // Ids are unique across microfrontends and services: the kind only decides which list an id goes in.
-    const selectedOf = (kind: "microfrontend" | "service") => repositories.filter(repository => repository.kind === kind && selected.has(repository.id)).map(repository => repository.id)
+    const isPending = frontendsQuery.isPending || servicesQuery.isPending
+    // Ids are unique across frontends and services: the kind only decides which list an id goes in.
+    const selectedOf = (kind: "frontend" | "service") => repositories.filter(repository => repository.kind === kind && selected.has(repository.id)).map(repository => repository.id)
 
     const createMutation = useMutation({
         mutationFn: () =>
             aiJobsApi.create(
                 all
                     ? { prompt: prompt.trim(), scope: "global", effort, aiModelId: aiModel?.id }
-                    : { prompt: prompt.trim(), scope: "selection", microfrontendIds: selectedOf("microfrontend"), serviceIds: selectedOf("service"), effort, aiModelId: aiModel?.id },
+                    : { prompt: prompt.trim(), scope: "selection", frontendIds: selectedOf("frontend"), serviceIds: selectedOf("service"), effort, aiModelId: aiModel?.id },
                 {
                     customErrorMessage: error => jobErrorMessage(t, error, "create")
                 }
@@ -191,7 +191,7 @@ interface AssistantNewJobDialogProps {
     onOpenChange: (open: boolean) => void
 }
 
-/** Starts an agent job on the microfrontends and services the user picks, or on all of them; the job opens in a tab of its own. */
+/** Starts an agent job on the frontends and services the user picks, or on all of them; the job opens in a tab of its own. */
 const AssistantNewJobDialog: React.FC<AssistantNewJobDialogProps> = ({ projectId, open, onOpenChange }) => {
     const { t } = useTranslation()
     return (

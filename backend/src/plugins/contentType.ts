@@ -9,7 +9,7 @@ import fastifyPlugin from "fastify-plugin"
  * arbitrary string into `request.body` on any route. Since the whole API speaks JSON, we
  * drop it and keep the default JSON parser as the only accepted one.
  *
- * Routes that legitimately receive something else (the microfrontend bundle upload)
+ * Routes that legitimately receive something else (the frontend bundle upload)
  * register their own parser inside their own encapsulated scope.
  */
 export default fastifyPlugin(

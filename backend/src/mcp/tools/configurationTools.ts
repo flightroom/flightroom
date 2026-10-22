@@ -2,8 +2,8 @@ import { z } from "zod"
 import BuildStatusService from "../../service/BuildStatusService"
 import DatabaseService from "../../service/DatabaseService"
 import FederationIntegrationService, { IntegrationScope } from "../../service/FederationIntegrationService"
+import FrontendDependencyService from "../../service/FrontendDependencyService"
 import GlobalVariablesService from "../../service/GlobalVariablesService"
-import MicrofrontendDependencyService from "../../service/MicrofrontendDependencyService"
 import { StorageService } from "../../service/StorageService"
 import { DatabaseDTO } from "../../types/DatabaseDTO"
 import { StorageDTO } from "../../types/StorageDTO"
@@ -18,11 +18,11 @@ const environmentValues = z
     .min(1)
     .describe("The value of the variable in each environment")
 
-const branchesByMicrofrontend = z.record(z.string(), z.string()).optional().describe("Branch to read per microfrontend id; the default branch otherwise")
+const branchesByFrontend = z.record(z.string(), z.string()).optional().describe("Branch to read per frontend id; the default branch otherwise")
 
 const alignmentRequest = z.object({
-    branches: branchesByMicrofrontend,
-    microfrontendIds: z.array(objectId("Id of a microfrontend")).optional().describe("Restricts the alignment to these microfrontends"),
+    branches: branchesByFrontend,
+    frontendIds: z.array(objectId("Id of a frontend")).optional().describe("Restricts the alignment to these frontends"),
     packages: z.array(z.string().min(1)).optional().describe("Restricts the alignment to these npm packages"),
     branchName: z.string().min(1).optional().describe("Branch the commits land on"),
     commitMessage: z.string().min(1).max(500).optional()
@@ -35,7 +35,7 @@ export const configurationTools = [
         name: "build_status_get",
         title: "Get build status",
         description:
-            "The latest CI runs of every microfrontend (frontend builds, under microfrontends) and every service (backend builds, under services), read from the git providers, each with a link to the run on the provider, and which version each environment serves.",
+            "The latest CI runs of every frontend (under frontends) and every service (backend builds, under services), read from the git providers, each with a link to the run on the provider, and which version each environment serves.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY_EXTERNAL,
         inputSchema: NO_INPUT,
@@ -83,17 +83,17 @@ export const configurationTools = [
         description: "Reads package.json of every linked repository and reports outdated and misaligned dependencies against the npm registry.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY_EXTERNAL,
-        inputSchema: z.object({ branches: branchesByMicrofrontend }),
-        run: (args, { principal, projectId }) => new MicrofrontendDependencyService(principal).getReport(projectId, args)
+        inputSchema: z.object({ branches: branchesByFrontend }),
+        run: (args, { principal, projectId }) => new FrontendDependencyService(principal).getReport(projectId, args)
     }),
     defineTool({
         name: "dependencies_alignment_plan",
         title: "Plan dependency alignment",
-        description: "Dry run: which package.json files would change to align shared dependencies across microfrontends.",
+        description: "Dry run: which package.json files would change to align shared dependencies across frontends.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY_EXTERNAL,
         inputSchema: alignmentRequest,
-        run: (args, { principal, projectId }) => new MicrofrontendDependencyService(principal).getAlignmentPlan(projectId, args)
+        run: (args, { principal, projectId }) => new FrontendDependencyService(principal).getAlignmentPlan(projectId, args)
     }),
     defineTool({
         name: "dependencies_alignment_apply",
@@ -102,7 +102,7 @@ export const configurationTools = [
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE_EXTERNAL,
         inputSchema: alignmentRequest,
-        run: (args, { principal, projectId }) => new MicrofrontendDependencyService(principal).applyAlignment(projectId, args)
+        run: (args, { principal, projectId }) => new FrontendDependencyService(principal).applyAlignment(projectId, args)
     }),
     defineTool({
         name: "integration_plan",
@@ -117,16 +117,16 @@ export const configurationTools = [
     defineTool({
         name: "integration_apply",
         title: "Apply integration",
-        description: "Commits the planned integration changes to the default branch of the selected microfrontends' repositories. Run integration_plan first.",
+        description: "Commits the planned integration changes to the default branch of the selected frontends' repositories. Run integration_plan first.",
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE_EXTERNAL,
-        inputSchema: z.object({ scope: integrationScope, microfrontendIds: z.array(objectId("Id of a microfrontend")).min(1) }),
-        run: (args, { principal, projectId }) => new FederationIntegrationService(principal).apply(projectId, { microfrontendIds: args.microfrontendIds }, args.scope)
+        inputSchema: z.object({ scope: integrationScope, frontendIds: z.array(objectId("Id of a frontend")).min(1) }),
+        run: (args, { principal, projectId }) => new FederationIntegrationService(principal).apply(projectId, { frontendIds: args.frontendIds }, args.scope)
     }),
     defineTool({
         name: "storages_list",
         title: "List storages",
-        description: "The storages microfrontend bundles can be hosted on. Credentials are masked; creating or editing a storage is only possible from the console.",
+        description: "The storages frontend bundles can be hosted on. Credentials are masked; creating or editing a storage is only possible from the console.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,

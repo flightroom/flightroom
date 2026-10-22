@@ -70,7 +70,7 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
     return (
         <li className="flex flex-col gap-1 rounded-md border border-divider px-3 py-2 text-sm">
             <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{repository.microfrontendName}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{repository.frontendName}</span>
                 {repository.kind === "service" && (
                     <Badge variant="outline">
                         <Server className="size-3" aria-hidden="true" />
@@ -81,14 +81,10 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-secondary">
                 <span>{t("assistant.jobs.files", { count: repository.files.length })}</span>
-                {/* The review happens on the microfrontend (or service) page: diff, file selection, apply and discard. */}
+                {/* The review happens on the frontend (or service) page: diff, file selection, apply and discard. */}
                 <Link
-                    to={
-                        repository.kind === "service"
-                            ? `/service/${repository.microfrontendId}?change=${repository.requestId}`
-                            : `/microfrontend/${repository.microfrontendId}?change=${repository.requestId}`
-                    }
-                    aria-label={t("assistant.jobs.diff_label", { name: repository.microfrontendName })}
+                    to={repository.kind === "service" ? `/service/${repository.frontendId}?change=${repository.requestId}` : `/frontend/${repository.frontendId}?change=${repository.requestId}`}
+                    aria-label={t("assistant.jobs.diff_label", { name: repository.frontendName })}
                     className="font-medium text-primary-strong underline-offset-4 hover:underline"
                 >
                     {t("assistant.jobs.diff")}
@@ -100,9 +96,9 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 font-medium text-primary-strong underline-offset-4 hover:underline"
                     >
-                        {t("microfrontend.aiChange.pull_request")}
+                        {t("frontend.aiChange.pull_request")}
                         <ExternalLink className="size-3" aria-hidden="true" />
-                        <span className="sr-only">{t("microfrontend.aiChange.opens_new_tab")}</span>
+                        <span className="sr-only">{t("frontend.aiChange.opens_new_tab")}</span>
                     </a>
                 )}
             </div>
@@ -132,7 +128,7 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
             ) : (
                 Boolean(job.events?.length) && (
                     <details className="text-xs">
-                        <summary className="cursor-pointer text-foreground-secondary">{t("microfrontend.aiChange.show_progress_log")}</summary>
+                        <summary className="cursor-pointer text-foreground-secondary">{t("frontend.aiChange.show_progress_log")}</summary>
                         <div className="mt-2">
                             <ProgressLog events={job.events ?? []} live={false} />
                         </div>
@@ -143,7 +139,7 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
                 <Alert variant="destructive">
                     <AlertTriangle className="size-4" aria-hidden="true" />
                     <AlertTitle>{t("assistant.jobs.failed_title")}</AlertTitle>
-                    <AlertDescription className="whitespace-pre-wrap break-words">{job.error || t("microfrontend.aiChange.errors.generic")}</AlertDescription>
+                    <AlertDescription className="whitespace-pre-wrap break-words">{job.error || t("frontend.aiChange.errors.generic")}</AlertDescription>
                 </Alert>
             )}
             {job.summary && !active && <AssistantMessageText text={job.summary} />}
@@ -335,7 +331,7 @@ const AssistantJobThread: React.FC<AssistantJobThreadProps> = ({ projectId, tab 
         const failed = repositories.filter(repository => repository.status !== "APPLIED").length
         if (failed === 0) notifications.showSuccessNotification({ message: t("assistant.jobs.apply_all_success") })
         else notifications.showWarningNotification({ message: t("assistant.jobs.apply_all_failed", { count: failed, total: pending.requestIds.length }) })
-        // The microfrontend pages show the same requests.
+        // The frontend pages show the same requests.
         queryClient.invalidateQueries({ queryKey: ["ai-changes"] })
         queryClient.invalidateQueries({ queryKey: ["ai-change"] })
     }, [chainQuery.data])

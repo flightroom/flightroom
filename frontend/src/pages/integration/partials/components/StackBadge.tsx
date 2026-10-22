@@ -1,5 +1,5 @@
 import { useTranslation } from "react-i18next"
-import { IMicrofrontendStackDTO } from "@/hooks/apiClients/useServeApi"
+import { IFrontendStackDTO } from "@/hooks/apiClients/useServeApi"
 
 const FRAMEWORK_LABELS: Record<string, string> = {
     REACT: "React",
@@ -22,7 +22,7 @@ const SOURCE_KEYS: Record<string, string> = {
 }
 
 /** Says which stack the instructions were generated for, and how the platform knows it. */
-export const StackBadge: React.FC<{ stack: IMicrofrontendStackDTO }> = ({ stack }) => {
+export const StackBadge: React.FC<{ stack: IFrontendStackDTO }> = ({ stack }) => {
     const { t } = useTranslation()
 
     if (!stack.framework && !stack.compiler) {

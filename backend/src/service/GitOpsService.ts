@@ -8,7 +8,7 @@ import { createBusinessException } from "../errors/BusinessException"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import CodeRepository, { ICodeRepository } from "../models/CodeRepositoryModel"
 import Environment, { IEnvironment } from "../models/EnvironmentModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend, MicrofrontendKind } from "../models/MicrofrontendModel"
+import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
 import Project, { IProjectGitOps } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
@@ -312,7 +312,7 @@ export class GitOpsService extends BaseAuthorizedService {
         return { enabled: true, codeRepository, applicationsCodeRepository }
     }
 
-    private async resolveRepository(projectId: Schema.Types.ObjectId, input: GitOpsRepositoryInput, kind: GitOpsRepositoryKind): Promise<ICodeRepositoryMicrofrontend> {
+    private async resolveRepository(projectId: Schema.Types.ObjectId, input: GitOpsRepositoryInput, kind: GitOpsRepositoryKind): Promise<ICodeRepositoryFrontend> {
         const creating = input.newRepositoryName !== undefined
         if (!isValidObjectId(input.codeRepositoryId) || (!creating && (typeof input.repositoryId !== "string" || !input.repositoryId))) {
             throw createBusinessException({ code: "GITOPS_REPOSITORY_REQUIRED", message: `Pick the connection and the ${kind} repository of GitOps, or the name of one to create` })
@@ -329,7 +329,7 @@ export class GitOpsService extends BaseAuthorizedService {
         if (!repository) {
             throw createBusinessException({ code: "GITOPS_REPOSITORY_INVALID", message: `The connection "${codeRepository.name}" cannot reach the repository ${input.repositoryId}` })
         }
-        return importService.buildMicrofrontendCodeRepository(codeRepository, repository)
+        return importService.buildFrontendCodeRepository(codeRepository, repository)
     }
 
     /**
@@ -351,7 +351,7 @@ export class GitOpsService extends BaseAuthorizedService {
         await new TemplateScaffoldService(this.user).createRepository(codeRepository, target, repositoryName, null, { deploySecret: false })
         const repository: NormalizedRepository = { repositoryId: target.repositoryId, name: target.name ?? repositoryName, cloneUrlHttps: target.cloneUrlHttps, cloneUrlSsh: target.cloneUrlSsh }
 
-        const link = new CodeRepositoryImportService(this.user).buildMicrofrontendCodeRepository(codeRepository, repository)
+        const link = new CodeRepositoryImportService(this.user).buildFrontendCodeRepository(codeRepository, repository)
         const cloneUrl = cloneUrlFor({ component: { codeRepository: link }, codeRepository, repositoryName: repositoryNameFor(link, codeRepository) })
         const workingCopy = new GitWorkingCopy(await fs.mkdtemp(path.join(tmpdir(), "mfe-gitops-")), cloneUrl, gitCredentialsFor(codeRepository))
         try {
@@ -445,8 +445,8 @@ export class GitOpsService extends BaseAuthorizedService {
         domainId?: string
     ): Promise<T> {
         const scope = domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectId)
-        const applications: GitOpsApplication[] = [...(await Service.find({ projectId, ...scope })), ...(await Microfrontend.find({ projectId, kind: MicrofrontendKind.FRONTEND, ...scope }))]
-        const existingSlugs = new Set([...(await Service.find({ projectId }, { slug: 1 })), ...(await Microfrontend.find({ projectId }, { slug: 1 }))].map(application => application.slug))
+        const applications: GitOpsApplication[] = [...(await Service.find({ projectId, ...scope })), ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, ...scope }))]
+        const existingSlugs = new Set([...(await Service.find({ projectId }, { slug: 1 })), ...(await Frontend.find({ projectId }, { slug: 1 }))].map(application => application.slug))
         const mapNames = {
             configMaps: new Map(maps.configMap.map(map => [String(map._id), map.name])),
             secrets: new Map(maps.secret.map(map => [String(map._id), map.name]))
@@ -487,7 +487,7 @@ export class GitOpsService extends BaseAuthorizedService {
         const fields = { slug: 1, version: 1, image: 1, exposurePath: 1 }
         const applications: GitOpsApplication[] = [
             ...(await Service.find({ projectId, exposurePath: { $ne: null } }, fields)),
-            ...(await Microfrontend.find({ projectId, kind: MicrofrontendKind.FRONTEND, exposurePath: { $ne: null } }, fields))
+            ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, exposurePath: { $ne: null } }, fields))
         ]
         const exposed = applications.filter(isDeployable).filter(application => application.exposurePath)
         for (const [index, application] of exposed.entries()) {
@@ -503,7 +503,7 @@ export class GitOpsService extends BaseAuthorizedService {
     }
 
     /** The connection a GitOps repository is linked through: the one Argo CD is pointed at reads it with credentials of its own */
-    async connectionOf(link: ICodeRepositoryMicrofrontend, projectId: Schema.Types.ObjectId): Promise<ICodeRepository> {
+    async connectionOf(link: ICodeRepositoryFrontend, projectId: Schema.Types.ObjectId): Promise<ICodeRepository> {
         const codeRepository = await CodeRepository.findOne({ _id: link.codeRepositoryId, projectId })
         if (!codeRepository) {
             throw createBusinessException({
@@ -520,7 +520,7 @@ export class GitOpsService extends BaseAuthorizedService {
      * default branch. `commit` writes the files that actually change and pushes one commit onto a branch, never
      * forced. The copy is deleted afterwards: it holds the secrets in plaintext, and the database keeps them encrypted.
      */
-    private async inRepository<T>(projectId: Schema.Types.ObjectId, kind: GitOpsRepositoryKind, link: ICodeRepositoryMicrofrontend, task: (commit: Commit) => Promise<T>): Promise<T> {
+    private async inRepository<T>(projectId: Schema.Types.ObjectId, kind: GitOpsRepositoryKind, link: ICodeRepositoryFrontend, task: (commit: Commit) => Promise<T>): Promise<T> {
         const codeRepository = await this.connectionOf(link, projectId)
         const repositoryName = repositoryNameFor(link, codeRepository)
         const target = { component: { codeRepository: link }, codeRepository, repositoryName }

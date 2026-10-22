@@ -17,7 +17,7 @@ const VERSION = /^[A-Za-z0-9._-]{1,128}$/
 const STATUS_VARIANTS: Record<DomainBuildRepository["status"], "success" | "outline" | "destructive"> = { tagged: "success", ready: "outline", failed: "destructive" }
 
 /**
- * Creates a version of the whole domain: the repository of each of its microfrontends and services is tagged
+ * Creates a version of the whole domain: the repository of each of its frontends and services is tagged
  * with the same version on the same branch, and each tag starts the pipeline of its repository. The backend
  * checks every repository first and tags none when one fails: the outcome of each is listed after the submit.
  */

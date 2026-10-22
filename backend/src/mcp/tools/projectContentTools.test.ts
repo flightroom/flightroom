@@ -9,7 +9,7 @@ const deleteMultiple = vi.fn()
 const bulkDelete = vi.fn()
 const setPosition = vi.fn()
 const setDimension = vi.fn()
-const getMicrofrontend = vi.fn()
+const getFrontend = vi.fn()
 
 // Hoisted with the mocks below, which build their service classes with it
 const { principals, serviceClass } = vi.hoisted(() => {
@@ -27,18 +27,18 @@ const { principals, serviceClass } = vi.hoisted(() => {
 vi.mock("../../service/EnvironmentService", () => ({
     default: serviceClass({ createBulk: (...args: unknown[]) => createBulk(...args), deleteMultiple: (...args: unknown[]) => deleteMultiple(...args) })
 }))
-vi.mock("../../service/MicrofrontendService", () => ({
+vi.mock("../../service/FrontendService", () => ({
     default: serviceClass({
         bulkDelete: (...args: unknown[]) => bulkDelete(...args),
         setPosition: (...args: unknown[]) => setPosition(...args),
         setDimension: (...args: unknown[]) => setDimension(...args),
-        getById: (...args: unknown[]) => getMicrofrontend(...args)
+        getById: (...args: unknown[]) => getFrontend(...args)
     })
 }))
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const ENVIRONMENT = "bbbbbbbbbbbbbbbbbbbbbbbb"
-const MICROFRONTEND = "cccccccccccccccccccccccc"
+const FRONTEND = "cccccccccccccccccccccccc"
 
 const tool = (name: string) => projectContentTools.find(candidate => candidate.name === name)!
 
@@ -56,7 +56,7 @@ const run = (name: string, args: Record<string, unknown>) => tool(name).run(args
 
 describe("project content tools", () => {
     beforeEach(() => {
-        for (const mock of [createBulk, deleteMultiple, bulkDelete, setPosition, setDimension, getMicrofrontend]) {
+        for (const mock of [createBulk, deleteMultiple, bulkDelete, setPosition, setDimension, getFrontend]) {
             mock.mockReset()
         }
         principals.length = 0
@@ -67,7 +67,7 @@ describe("project content tools", () => {
             expect(definition.consoleOnly, definition.name).toBe(true)
         }
         const destructive = projectContentTools.filter(definition => definition.annotations.destructiveHint).map(definition => definition.name)
-        expect(destructive.sort()).toEqual(["environments_delete_bulk", "microfrontends_delete_bulk"])
+        expect(destructive.sort()).toEqual(["environments_delete_bulk", "frontends_delete_bulk"])
     })
 
     describe("environments_create_bulk", () => {
@@ -104,35 +104,35 @@ describe("project content tools", () => {
         })
     })
 
-    describe("microfrontends_delete_bulk", () => {
-        it("given microfrontends of the project, when deleted, then the count comes back", async () => {
+    describe("frontends_delete_bulk", () => {
+        it("given frontends of the project, when deleted, then the count comes back", async () => {
             bulkDelete.mockResolvedValue(1)
 
-            expect(await run("microfrontends_delete_bulk", { microfrontendIds: [MICROFRONTEND] })).toEqual({ deletedCount: 1 })
-            expect(bulkDelete).toHaveBeenCalledWith([MICROFRONTEND])
+            expect(await run("frontends_delete_bulk", { frontendIds: [FRONTEND] })).toEqual({ deletedCount: 1 })
+            expect(bulkDelete).toHaveBeenCalledWith([FRONTEND])
         })
 
-        it("given a microfrontend of another project, when deleted, then the refusal surfaces", async () => {
+        it("given a frontend of another project, when deleted, then the refusal surfaces", async () => {
             bulkDelete.mockRejectedValue(new UserCannotAccessThisProjectError())
 
-            await expect(run("microfrontends_delete_bulk", { microfrontendIds: [MICROFRONTEND] })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
+            await expect(run("frontends_delete_bulk", { frontendIds: [FRONTEND] })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
         })
     })
 
-    describe("microfrontend_canvas_set", () => {
+    describe("frontend_canvas_set", () => {
         it("given a position and a size, when set, then both are stored", async () => {
             setPosition.mockResolvedValue({ position: { x: 10, y: 20 } })
             setDimension.mockResolvedValue({ position: { x: 10, y: 20, width: 300, height: 200 } })
 
-            const result = await run("microfrontend_canvas_set", { microfrontendId: MICROFRONTEND, position: { x: 10, y: 20 }, size: { width: 300, height: 200 } })
+            const result = await run("frontend_canvas_set", { frontendId: FRONTEND, position: { x: 10, y: 20 }, size: { width: 300, height: 200 } })
 
-            expect(setPosition).toHaveBeenCalledWith(MICROFRONTEND, 10, 20)
-            expect(setDimension).toHaveBeenCalledWith(MICROFRONTEND, 300, 200)
-            expect(result).toEqual({ id: MICROFRONTEND, position: { x: 10, y: 20, width: 300, height: 200 } })
+            expect(setPosition).toHaveBeenCalledWith(FRONTEND, 10, 20)
+            expect(setDimension).toHaveBeenCalledWith(FRONTEND, 300, 200)
+            expect(result).toEqual({ id: FRONTEND, position: { x: 10, y: 20, width: 300, height: 200 } })
         })
 
         it("given neither a position nor a size, when set, then it is refused and nothing is stored", async () => {
-            await expect(run("microfrontend_canvas_set", { microfrontendId: MICROFRONTEND })).rejects.toMatchObject({ code: "CANVAS_NOTHING_TO_SET" })
+            await expect(run("frontend_canvas_set", { frontendId: FRONTEND })).rejects.toMatchObject({ code: "CANVAS_NOTHING_TO_SET" })
             expect(setPosition).not.toHaveBeenCalled()
             expect(setDimension).not.toHaveBeenCalled()
         })

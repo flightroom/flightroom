@@ -32,11 +32,11 @@ const Completed: React.FC<WizardStepProps & { onDone?: () => void }> = ({ projec
                     </Button>
                 ) : (
                     <>
-                        <Button variant="ghost" onClick={() => navigate("/microfrontends")}>
+                        <Button variant="ghost" onClick={() => navigate("/frontends")}>
                             {t("newProjectWizard.completed.go_to_dashboard")}
                         </Button>
-                        <Button variant="primary" onClick={() => navigate("/microfrontend/new")}>
-                            {t("newProjectWizard.completed.add_microfrontend")}
+                        <Button variant="primary" onClick={() => navigate("/frontend/new")}>
+                            {t("newProjectWizard.completed.add_frontend")}
                         </Button>
                     </>
                 )}

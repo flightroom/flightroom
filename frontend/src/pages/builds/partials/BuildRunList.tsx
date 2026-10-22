@@ -14,7 +14,7 @@ export enum BuildComponentKind {
 interface BuildRunListProps {
     runs: BuildRun[]
     kind: BuildComponentKind
-    /** Id of the microfrontend for a frontend build, of the service for a backend one. */
+    /** Id of the frontend for a frontend build, of the service for a backend one. */
     componentId: string
     componentName: string
     provider?: CodeRepositoryProvider
@@ -23,7 +23,7 @@ interface BuildRunListProps {
 const formatMoment = (value?: string) => (value ? new Date(value).toLocaleString() : "—")
 
 /**
- * The recent runs of a single microfrontend or service, newest first, as shown in the
+ * The recent runs of a single frontend or service, newest first, as shown in the
  * row the user expanded.
  */
 const BuildRunList: React.FC<BuildRunListProps> = ({ runs, kind, componentId, componentName, provider }) => {
@@ -36,7 +36,7 @@ const BuildRunList: React.FC<BuildRunListProps> = ({ runs, kind, componentId, co
     const explainQuestion = (run: BuildRun) =>
         kind === BuildComponentKind.BACKEND
             ? t("assistant.questions.explain_service_build", { name: componentName, serviceId: componentId, runId: run.id, ref: run.ref || "—" })
-            : t("assistant.questions.explain_build", { name: componentName, microfrontendId: componentId, runId: run.id, ref: run.ref || "—" })
+            : t("assistant.questions.explain_build", { name: componentName, frontendId: componentId, runId: run.id, ref: run.ref || "—" })
 
     return (
         <ul className="flex flex-col gap-2">

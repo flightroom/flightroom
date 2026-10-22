@@ -36,7 +36,7 @@ describe("MCP tool registry", () => {
     it.each([
         "deploy",
         "deployment_rollback",
-        "microfrontend_delete",
+        "frontend_delete",
         "service_delete",
         "domain_delete",
         "environment_delete",
@@ -50,7 +50,7 @@ describe("MCP tool registry", () => {
         expect(toolNamed(name)?.annotations.destructiveHint).toBe(true)
     })
 
-    it.each(["code_repository_branches", "build_status_get", "dependencies_report", "microfrontend_trigger_build", "domain_trigger_build", "integration_apply"])(
+    it.each(["code_repository_branches", "build_status_get", "dependencies_report", "frontend_trigger_build", "domain_trigger_build", "integration_apply"])(
         "given %s, which reaches a git provider or npm, when read, then it is open world",
         name => {
             expect(toolNamed(name)?.annotations.openWorldHint).toBe(true)
@@ -88,8 +88,8 @@ describe("MCP tool registry", () => {
 
         const registered = registerTool.mock.calls.map(call => call[0])
         registerTool.mockRestore()
-        expect(registered).toContain("microfrontends_list")
-        expect(registered).toEqual(expect.arrayContaining(["microfrontend_scaffold", "service_scaffold"]))
+        expect(registered).toContain("frontends_list")
+        expect(registered).toEqual(expect.arrayContaining(["frontend_scaffold", "service_scaffold"]))
         expect(registered).not.toContain("console_only_probe")
     })
 
@@ -104,7 +104,7 @@ describe("MCP tool registry", () => {
     })
 
     it("given a project tool, when its registered input is read, then it has an optional projectId", () => {
-        const schema = registeredInputSchema(toolNamed("microfrontends_list")!)
+        const schema = registeredInputSchema(toolNamed("frontends_list")!)
 
         expect(schema.safeParse({}).success).toBe(true)
         expect(schema.safeParse({ projectId: "6890f0b1c2d3e4f5a6b7c8d9" }).success).toBe(true)
@@ -117,8 +117,8 @@ describe("MCP tool registry", () => {
         }
     })
 
-    it("given a microfrontend creation that asks to scaffold a repository, when the input is parsed, then createData is dropped", () => {
-        const parsed = toolNamed("microfrontend_create")?.inputSchema.parse({
+    it("given a frontend creation that asks to scaffold a repository, when the input is parsed, then createData is dropped", () => {
+        const parsed = toolNamed("frontend_create")?.inputSchema.parse({
             name: "Cart",
             slug: "cart",
             version: "1.0.0",
@@ -129,7 +129,7 @@ describe("MCP tool registry", () => {
     })
 
     it("given an update carrying a project id, when the input is parsed, then the project id is dropped", () => {
-        const parsed = toolNamed("microfrontend_update")?.inputSchema.parse({ microfrontendId: "6890f0b1c2d3e4f5a6b7c8d9", projectId: "6890f0b1c2d3e4f5a6b7c8da", name: "Cart" })
+        const parsed = toolNamed("frontend_update")?.inputSchema.parse({ frontendId: "6890f0b1c2d3e4f5a6b7c8d9", projectId: "6890f0b1c2d3e4f5a6b7c8da", name: "Cart" })
 
         expect(parsed).not.toHaveProperty("projectId")
     })

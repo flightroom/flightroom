@@ -58,19 +58,19 @@ export const assistantOnlyTools = [
     defineTool({
         name: "get_failed_build_logs",
         title: "Read failed build logs",
-        description: `Downloads the logs of the failed jobs of one CI run of a microfrontend (frontend build) or of a service (backend build): pass exactly one of microfrontendId and serviceId. Each log is cut to its last ${MAX_LOG_CHARS_PER_JOB} characters, where the error usually is; "truncated" says when that happened. Get run ids from build_status_get.`,
+        description: `Downloads the logs of the failed jobs of one CI run of a frontend or of a service: pass exactly one of frontendId and serviceId. Each log is cut to its last ${MAX_LOG_CHARS_PER_JOB} characters, where the error usually is; "truncated" says when that happened. Get run ids from build_status_get.`,
         scope: MCP_SCOPE_READ,
         consoleOnly: true,
         annotations: READ_ONLY_EXTERNAL,
         inputSchema: z
             .object({
-                microfrontendId: objectId("Id of the microfrontend, as returned by microfrontends_list or build_status_get").optional(),
+                frontendId: objectId("Id of the frontend, as returned by frontends_list or build_status_get").optional(),
                 serviceId: objectId("Id of the service, as returned by services_list or build_status_get").optional(),
                 runId: z.string().trim().min(1).describe("Id of the CI run, as returned by build_status_get")
             })
-            .refine(args => Boolean(args.microfrontendId) !== Boolean(args.serviceId), { message: "Pass exactly one of microfrontendId and serviceId" }),
+            .refine(args => Boolean(args.frontendId) !== Boolean(args.serviceId), { message: "Pass exactly one of frontendId and serviceId" }),
         run: async (args, { principal, projectId }) => {
-            const owner: BuildRunOwner = args.serviceId ? { serviceId: args.serviceId } : { microfrontendId: args.microfrontendId as string }
+            const owner: BuildRunOwner = args.serviceId ? { serviceId: args.serviceId } : { frontendId: args.frontendId as string }
             const logs = await new BuildStatusService(principal).getFailedRunLogs(projectId, owner, args.runId)
             let budget = MAX_LOG_CHARS_TOTAL
             return logs.map(job => {

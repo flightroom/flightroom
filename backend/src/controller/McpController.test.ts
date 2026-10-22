@@ -145,9 +145,9 @@ describe("McpController", () => {
     it("given a read-only token, when the tools are listed, then only read tools are there", async () => {
         const names = await listToolNames(["mfe:read"])
 
-        expect(names).toContain("microfrontends_list")
+        expect(names).toContain("frontends_list")
         expect(names).not.toContain("deploy")
-        expect(names).not.toContain("microfrontend_create")
+        expect(names).not.toContain("frontend_create")
     })
 
     it("given a read-write token, when the tools are listed, then write tools are there too, with their annotations", async () => {
@@ -373,14 +373,14 @@ describe("McpController with a project API key", () => {
 
         const names = await toolNames({ authorization: "Bearer 11111111-2222-3333-4444-555555555555" })
 
-        expect(names).toContain("microfrontends_list")
+        expect(names).toContain("frontends_list")
         expect(names).toContain("deploy")
     })
 
     it("given a key in the api-key header, when the tools are listed, then it is accepted too", async () => {
         keys.push(aKey("a-key-in-a-header"))
 
-        expect(await toolNames({ apiKey: "a-key-in-a-header" })).toContain("microfrontends_list")
+        expect(await toolNames({ apiKey: "a-key-in-a-header" })).toContain("frontends_list")
     })
 
     it("given a VIEWER key, when the tools are listed, then only read tools are there", async () => {
@@ -388,9 +388,9 @@ describe("McpController with a project API key", () => {
 
         const names = await toolNames({ authorization: "Bearer a-viewer-key" })
 
-        expect(names).toContain("microfrontends_list")
+        expect(names).toContain("frontends_list")
         expect(names).not.toContain("deploy")
-        expect(names).not.toContain("microfrontend_create")
+        expect(names).not.toContain("frontend_create")
     })
 
     it("given a key of project A, when a tool targets an environment of project B, then it is not found", async () => {

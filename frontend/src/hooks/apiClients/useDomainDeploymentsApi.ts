@@ -1,8 +1,8 @@
 import useApiClient from "../useApiClient"
-import type { CanaryDeploymentType, CanaryType } from "./useMicrofrontendsApi"
+import type { CanaryDeploymentType, CanaryType } from "./useFrontendsApi"
 
-/** A microfrontend of the domain as the environment serves it */
-export interface DeployedMicrofrontend {
+/** A frontend of the domain as the environment serves it */
+export interface DeployedFrontend {
     _id: string
     slug: string
     name: string
@@ -29,7 +29,7 @@ export interface EnvironmentDeployment {
     environment: { _id: string; name: string; slug: string; color: string; isProduction: boolean }
     /** The deployment the environment serves, null when nothing was ever deployed there */
     deployment: { deploymentId: string; deployedAt: string } | null
-    microfrontends: DeployedMicrofrontend[]
+    frontends: DeployedFrontend[]
     services: DeployedService[]
 }
 

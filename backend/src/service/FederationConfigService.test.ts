@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { MicrofrontendCompiler, MicrofrontendFramework } from "../types/MicrofrontendStack"
+import { FrontendCompiler, FrontendFramework } from "../types/FrontendStack"
 import FederationConfigService, { federationName } from "./FederationConfigService"
 
 const remotes = [
@@ -7,11 +7,11 @@ const remotes = [
     { name: federationName("catalog"), slug: "catalog" }
 ]
 
-const configFor = (compiler: MicrofrontendCompiler, microfrontendSlug = "shell") =>
+const configFor = (compiler: FrontendCompiler, frontendSlug = "shell") =>
     new FederationConfigService().getInstructions({
-        framework: MicrofrontendFramework.REACT,
+        framework: FrontendFramework.REACT,
         compiler,
-        microfrontendSlug,
+        frontendSlug,
         remotes,
         projectId: "6f1b2c3d4e5f6a7b8c9d0e1f",
         backendUrl: "https://console.test/api"
@@ -19,28 +19,28 @@ const configFor = (compiler: MicrofrontendCompiler, microfrontendSlug = "shell")
 
 describe("FederationConfigService webpack remotes", () => {
     it("Given webpack remotes, when the config is generated, then each one loads its container through the SDK global", () => {
-        const config = configFor(MicrofrontendCompiler.WEBPACK)
+        const config = configFor(FrontendCompiler.WEBPACK)
 
         expect(config).toContain(`checkoutnew: "promise globalThis.__MFE_ORCHESTRATOR__.loadWebpackRemote('checkout-new', 'checkoutnew')"`)
         expect(config).toContain(`catalog: "promise globalThis.__MFE_ORCHESTRATOR__.loadWebpackRemote('catalog', 'catalog')"`)
     })
 
     it("Given webpack remotes, when the config is generated, then no promise expression imports the SDK by bare specifier", () => {
-        const config = configFor(MicrofrontendCompiler.WEBPACK)
+        const config = configFor(FrontendCompiler.WEBPACK)
 
         expect(config).not.toMatch(/promise import\(/)
         expect(config).not.toContain(".then(m => m.remoteUrl(")
     })
 
     it("Given a dashed slug, when its own webpack config is generated, then its federation name is the identifier hosts pass as the scope", () => {
-        const config = configFor(MicrofrontendCompiler.WEBPACK, "checkout-new")
+        const config = configFor(FrontendCompiler.WEBPACK, "checkout-new")
 
         expect(config).toContain("name: 'checkoutnew',")
         expect(config).not.toContain("name: 'checkout-new'")
     })
 
     it("Given vite remotes, when the config is generated, then they keep resolving the url with remoteUrl()", () => {
-        const config = configFor(MicrofrontendCompiler.VITE)
+        const config = configFor(FrontendCompiler.VITE)
 
         expect(config).toContain("external: `import('@mfe-orchestrator-hub/client').then(m => m.remoteUrl('checkout-new'))`,")
         expect(config).toContain("externalType: 'promise'")
@@ -52,9 +52,9 @@ describe("FederationConfigService webpack remotes", () => {
 describe("FederationConfigService single-spa", () => {
     const instructionsFor = (overrides: Partial<Parameters<FederationConfigService["getInstructions"]>[0]> = {}) =>
         new FederationConfigService().getInstructions({
-            framework: MicrofrontendFramework.REACT,
-            compiler: MicrofrontendCompiler.SINGLE_SPA,
-            microfrontendSlug: "root-config",
+            framework: FrontendFramework.REACT,
+            compiler: FrontendCompiler.SINGLE_SPA,
+            frontendSlug: "root-config",
             remotes,
             exposeSelf: true,
             projectId: "6f1b2c3d4e5f6a7b8c9d0e1f",
@@ -130,9 +130,9 @@ describe("FederationConfigService single-spa", () => {
 describe("FederationConfigService micro-lc", () => {
     const instructionsFor = (overrides: Partial<Parameters<FederationConfigService["getInstructions"]>[0]> = {}) =>
         new FederationConfigService().getInstructions({
-            framework: MicrofrontendFramework.REACT,
-            compiler: MicrofrontendCompiler.MICRO_LC,
-            microfrontendSlug: "shell",
+            framework: FrontendFramework.REACT,
+            compiler: FrontendCompiler.MICRO_LC,
+            frontendSlug: "shell",
             remotes,
             exposeSelf: true,
             projectId: "6f1b2c3d4e5f6a7b8c9d0e1f",
@@ -178,7 +178,7 @@ describe("FederationConfigService micro-lc", () => {
     })
 
     it("Given a parcel, when the instructions are generated, then it is one UMD file, dist/parcel.js, reading React from the shell's globals", () => {
-        const instructions = instructionsFor({ microfrontendSlug: "checkout-new", remotes: [], exposeSelf: false })
+        const instructions = instructionsFor({ frontendSlug: "checkout-new", remotes: [], exposeSelf: false })
 
         expect(instructions.configPath).toBe("vite.config.ts")
         expect(instructions.config).toContain("formats: ['umd']")
@@ -191,7 +191,7 @@ describe("FederationConfigService micro-lc", () => {
 
 describe("FederationConfigService web components", () => {
     it("Given a web component, when the instructions are generated, then it still integrates at runtime with nothing to write", () => {
-        const instructions = new FederationConfigService().getInstructions({ compiler: MicrofrontendCompiler.WEBCOMPONENT, microfrontendSlug: "shell", remotes })
+        const instructions = new FederationConfigService().getInstructions({ compiler: FrontendCompiler.WEBCOMPONENT, frontendSlug: "shell", remotes })
 
         expect(instructions).toEqual({ dependencies: [], code: "", runtimeIntegration: true })
     })

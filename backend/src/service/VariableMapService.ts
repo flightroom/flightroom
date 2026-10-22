@@ -2,7 +2,7 @@ import { isValidObjectId, ObjectId, Schema } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Service, { IService } from "../models/ServiceModel"
 import { ConfigMap, IVariableMap, IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
 import { SERVICE_VARIABLE_KEY } from "../types/ServiceStack"
@@ -142,14 +142,14 @@ export const resolveAttachedMaps = async <T extends { configMapIds?: unknown; se
 
 /**
  * The maps of this kind a domain-scoped member may see and edit: those attached to at least one service or
- * FRONTEND microfrontend, all of them in `scope`. A map shared with a component of another domain, or of
+ * DOCKER frontend, all of them in `scope`. A map shared with a component of another domain, or of
  * none, or attached to nothing, belongs to nobody assigned to only some domains.
  */
 export const mapIdsInScope = async (kind: VariableMapKind, projectId: Schema.Types.ObjectId, scope: string[]): Promise<Set<string>> => {
     const field = SERVICE_FIELD[kind]
     const attaching = { projectId, [field]: { $exists: true, $ne: [] } }
     const fields = { domainId: 1, configMapIds: 1, secretIds: 1 }
-    const components = [...(await Service.find(attaching, fields)), ...(await Microfrontend.find(attaching, fields))]
+    const components = [...(await Service.find(attaching, fields)), ...(await Frontend.find(attaching, fields))]
     const inScope = new Set<string>()
     const outOfScope = new Set<string>()
     for (const component of components) {
@@ -160,7 +160,7 @@ export const mapIdsInScope = async (kind: VariableMapKind, projectId: Schema.Typ
 }
 
 /**
- * A domain-scoped member attaches to a service or a FRONTEND only the config maps and secrets they can see,
+ * A domain-scoped member attaches to a service or a DOCKER only the config maps and secrets they can see,
  * those attached exclusively to components of their domains: anything else would hand them the values of
  * another domain. The maps the component already attaches stay, whoever attached them. `scope` is the
  * caller's domain scope, nothing to check without one.
@@ -287,16 +287,16 @@ export class VariableMapService extends BaseAuthorizedService {
         }
     }
 
-    /** What attaches this map: its backend services and its FRONTEND microfrontends, each a container of its own */
+    /** What attaches this map: its backend services and its DOCKER frontends, each a container of its own */
     private async attachedTo(map: IVariableMap): Promise<Array<Pick<IService, "name" | "configMapIds" | "secretIds">>> {
         const filter = { projectId: map.projectId, [this.serviceField]: map._id }
         const projection = { name: 1, configMapIds: 1, secretIds: 1 }
-        const [services, microfrontends] = await Promise.all([Service.find(filter, projection), Microfrontend.find(filter, projection)])
-        // A FRONTEND carries the same container fields as a service: the projection reads only those
-        return [...services, ...microfrontends] as unknown as Array<Pick<IService, "name" | "configMapIds" | "secretIds">>
+        const [services, frontends] = await Promise.all([Service.find(filter, projection), Frontend.find(filter, projection)])
+        // A DOCKER carries the same container fields as a service: the projection reads only those
+        return [...services, ...frontends] as unknown as Array<Pick<IService, "name" | "configMapIds" | "secretIds">>
     }
 
-    /** New keys must not collide with those of the other maps attached to any service or FRONTEND using this one */
+    /** New keys must not collide with those of the other maps attached to any service or DOCKER using this one */
     private async ensureNoClashInAttachingServices(map: IVariableMap, entries: VariableMapEntryDTO[]) {
         const services = await this.attachedTo(map)
         if (services.length === 0) return

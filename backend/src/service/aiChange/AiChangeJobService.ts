@@ -8,7 +8,7 @@ import AiChangeJob, { AiJobScope, AiJobStatus, IAiChangeJob } from "../../models
 import AiChangeRequest, { AI_CHANGE_MAX_EVENTS, AiChangeFileAction, AiChangeStatus, IAiChangeEvent, IAiChangeFile, IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import CodeRepository from "../../models/CodeRepositoryModel"
 import Domain, { IDomain } from "../../models/DomainModel"
-import Microfrontend from "../../models/MicrofrontendModel"
+import Frontend from "../../models/FrontendModel"
 import Project, { IProject } from "../../models/ProjectModel"
 import Service from "../../models/ServiceModel"
 import { toObjectId } from "../../utils/mongooseUtils"
@@ -25,7 +25,7 @@ import {
     componentOf,
     componentsOfJob,
     findComponents,
-    fromMicrofrontend,
+    fromFrontend,
     fromService,
     ownerFields,
     RepositoryComponent,
@@ -71,11 +71,11 @@ const JOB_LISTED = { events: 0, transcript: 0 } as const
 export interface AiJobCreateInput {
     prompt: string
     scope: AiJobScope
-    /** The domain whose microfrontends and services a `domain` job works on. */
+    /** The domain whose frontends and services a `domain` job works on. */
     domainId?: string
-    microfrontendIds?: string[]
+    frontendIds?: string[]
     serviceIds?: string[]
-    /** The branch each repository starts from, by microfrontend or service id: its default branch when left out. */
+    /** The branch each repository starts from, by frontend or service id: its default branch when left out. */
     baseBranches?: Record<string, string>
     /** How hard the agent reasons: `high` when left out. */
     effort?: LlmEffort
@@ -86,7 +86,7 @@ export interface AiJobCreateInput {
 export interface AiJobFollowUpInput {
     prompt: string
     /** The repositories of the parent job to refine; all those still proposed when both are left out. */
-    microfrontendIds?: string[]
+    frontendIds?: string[]
     serviceIds?: string[]
     /** How hard the agent reasons: the parent's effort when left out. */
     effort?: LlmEffort
@@ -96,11 +96,11 @@ export interface AiJobFollowUpInput {
 
 export interface AiJobRepositoryView {
     requestId: string
-    /** Whether the repository is a microfrontend's or a service's: the `microfrontend*` fields describe either. */
+    /** Whether the repository is a frontend's or a service's: the `frontend*` fields describe either. */
     kind: RepositoryComponentKind
-    microfrontendId: string
-    microfrontendName: string
-    microfrontendSlug: string
+    frontendId: string
+    frontendName: string
+    frontendSlug: string
     /** The repository on its provider, unset when the component has none any more. */
     repository?: { name: string; cloneUrlHttps?: string }
     status: AiChangeStatus
@@ -140,10 +140,10 @@ export interface AiJobView {
     updatedAt: Date
 }
 
-/** The agents at work on one microfrontend (or service): the console animates its card while any is. */
+/** The agents at work on one frontend (or service): the console animates its card while any is. */
 export interface AiWorkingAgentsView {
-    /** The id of the microfrontend or of the service. */
-    microfrontendId: string
+    /** The id of the frontend or of the service. */
+    frontendId: string
     agents: number
 }
 
@@ -177,7 +177,7 @@ const isStale = (job: Pick<IAiChangeJob, "status" | "updatedAt">) => ACTIVE_JOB_
 const tooMany = () =>
     createBusinessException({
         code: "AI_JOB_TOO_MANY_REPOSITORIES",
-        message: `A job works on at most ${MAX_REPOSITORIES_PER_JOB} repositories: select the microfrontends and services to change`,
+        message: `A job works on at most ${MAX_REPOSITORIES_PER_JOB} repositories: select the frontends and services to change`,
         statusCode: 422
     })
 
@@ -198,7 +198,7 @@ const sameFiles = (previous: IAiChangeFile[], files: IAiChangeFile[]) =>
 
 /**
  * The slug the paths of each repository start with in a multi-repository job. A service may share
- * its slug with a microfrontend of the project: the later one gets its kind appended, so every
+ * its slug with a frontend of the project: the later one gets its kind appended, so every
  * path still points into exactly one repository.
  */
 const pathSlugs = (components: RepositoryComponent[]) => {
@@ -211,8 +211,8 @@ const pathSlugs = (components: RepositoryComponent[]) => {
     })
 }
 
-/** What the agent is told of a repository: a microfrontend's stack, or what the platform expects of a service's container. */
-const agentRepository = (component: RepositoryComponent, slug: string, rest: Omit<AiChangeAgentRepository, "microfrontend" | "service">): AiChangeAgentRepository =>
+/** What the agent is told of a repository: a frontend's stack, or what the platform expects of a service's container. */
+const agentRepository = (component: RepositoryComponent, slug: string, rest: Omit<AiChangeAgentRepository, "frontend" | "service">): AiChangeAgentRepository =>
     component.kind === "service"
         ? {
               ...rest,
@@ -230,7 +230,7 @@ const agentRepository = (component: RepositoryComponent, slug: string, rest: Omi
                   context: component.context
               }
           }
-        : { ...rest, microfrontend: { name: component.name, slug, framework: component.framework, compiler: component.compiler, context: component.context } }
+        : { ...rest, frontend: { name: component.name, slug, framework: component.framework, compiler: component.compiler, context: component.context } }
 
 const toAgentDomain = (domain: IDomain) => ({ name: domain.name, description: domain.description, context: domain.context })
 
@@ -273,9 +273,9 @@ const toJobView = (
             {
                 requestId: String(request._id),
                 kind: ref.kind,
-                microfrontendId: ref.id,
-                microfrontendName: component?.name ?? "",
-                microfrontendSlug: component?.slug ?? "",
+                frontendId: ref.id,
+                frontendName: component?.name ?? "",
+                frontendSlug: component?.slug ?? "",
                 repository: component?.codeRepository?.name ? { name: component.codeRepository.name, cloneUrlHttps: component.codeRepository.cloneUrlHttps } : undefined,
                 status: staleOutcome(request) ?? request.status,
                 files: (request.files ?? []).map(file => ({ path: file.path, action: file.action })),
@@ -317,13 +317,13 @@ export class AiChangeJobService extends AiChangeBaseService {
             .map(fromService)
     }
 
-    /** The microfrontends, then the services, of the project whose repository connection the workspace can open. */
+    /** The frontends, then the services, of the project whose repository connection the workspace can open. */
     private async repositoriesOf(projectId: string): Promise<RepositoryComponent[]> {
         const targets = await new RepositoryFileService(this.user).resolveTargets(projectId)
-        const microfrontends = targets
+        const frontends = targets
             .filter(target => target.codeRepository && target.repositoryName && target.codeRepository.projectId?.toString() === projectId)
-            .map(target => fromMicrofrontend(target.microfrontend))
-        return [...microfrontends, ...(await this.servicesWithRepository(projectId))]
+            .map(target => fromFrontend(target.frontend))
+        return [...frontends, ...(await this.servicesWithRepository(projectId))]
     }
 
     /** A domain of the project. */
@@ -337,21 +337,21 @@ export class AiChangeJobService extends AiChangeBaseService {
         const available = await this.repositoriesOf(projectId)
         if (domain) {
             const members = available.filter(component => component.domainId && String(component.domainId) === String(domain._id))
-            if (members.length === 0) throw noRepositories(`No microfrontend or service of the domain ${domain.name} has a code repository connected`)
+            if (members.length === 0) throw noRepositories(`No frontend or service of the domain ${domain.name} has a code repository connected`)
             if (members.length > MAX_REPOSITORIES_PER_JOB) throw tooMany()
             return members
         }
         if (input.scope === "global") {
-            if (available.length === 0) throw noRepositories("No microfrontend or service of the project has a code repository connected")
+            if (available.length === 0) throw noRepositories("No frontend or service of the project has a code repository connected")
             if (available.length > MAX_REPOSITORIES_PER_JOB) throw tooMany()
             return available
         }
 
         const refs: RepositoryComponentRef[] = [
-            ...[...new Set(input.microfrontendIds ?? [])].map(id => ({ kind: "microfrontend" as const, id })),
+            ...[...new Set(input.frontendIds ?? [])].map(id => ({ kind: "frontend" as const, id })),
             ...[...new Set(input.serviceIds ?? [])].map(id => ({ kind: "service" as const, id }))
         ]
-        if (refs.length === 0) throw noRepositories("Select at least one microfrontend or service")
+        if (refs.length === 0) throw noRepositories("Select at least one frontend or service")
         if (refs.length > MAX_REPOSITORIES_PER_JOB) throw tooMany()
         const inProject = (await findComponents(refs, { name: 1, projectId: 1, domainId: 1 })).filter(component => String(component.projectId) === projectId)
         const missing = refs.find(ref => !inProject.some(sameComponent(ref)))
@@ -365,7 +365,7 @@ export class AiChangeJobService extends AiChangeBaseService {
     }
 
     /**
-     * Starts a job on every microfrontend and service of the project with a repository, on those of
+     * Starts a job on every frontend and service of the project with a repository, on those of
      * one domain (its frontend and its backend at once), or on the selected ones.
      */
     async create(projectId: string, input: AiJobCreateInput): Promise<AiJobView> {
@@ -407,7 +407,7 @@ export class AiChangeJobService extends AiChangeBaseService {
         const parentRequests = await AiChangeRequest.find({ jobId: parent._id }, WITHOUT_CONTENTS)
         const requestOf = (componentId: string) => parentRequests.find(request => componentIdOf(request) === componentId)
         const parentRefs = componentsOfJob(parent)
-        const requested = [...new Set([...(input.microfrontendIds ?? []), ...(input.serviceIds ?? [])])]
+        const requested = [...new Set([...(input.frontendIds ?? []), ...(input.serviceIds ?? [])])]
         const ids = requested.length ? requested : parentRefs.map(ref => ref.id).filter(id => requestOf(id)?.status === AiChangeStatus.PROPOSED)
         if (ids.length === 0) {
             throw createBusinessException({ code: "AI_CHANGE_NOT_PROPOSED", message: "No proposal of this job is left to refine", statusCode: 409 })
@@ -471,7 +471,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             domainId: input.domainId,
             effort,
             aiModelId: settings.id,
-            microfrontendIds: input.repositories.filter(({ component }) => component.kind === "microfrontend").map(({ component }) => component._id),
+            frontendIds: input.repositories.filter(({ component }) => component.kind === "frontend").map(({ component }) => component._id),
             serviceIds: input.repositories.filter(({ component }) => component.kind === "service").map(({ component }) => component._id),
             status: AiJobStatus.PENDING,
             events: queued()
@@ -531,7 +531,7 @@ export class AiChangeJobService extends AiChangeBaseService {
      */
     private async historyOf(job: IAiChangeJob): Promise<IAiChangeJob["transcript"]> {
         if (!job.parentJobId) return undefined
-        const parent = await AiChangeJob.findById(job.parentJobId, { transcript: 1, microfrontendIds: 1, serviceIds: 1 })
+        const parent = await AiChangeJob.findById(job.parentJobId, { transcript: 1, frontendIds: 1, serviceIds: 1 })
         return parent?.transcript?.length && sameRepositories(parent, job) ? parent.transcript : undefined
     }
 
@@ -564,7 +564,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             const requests = await AiChangeRequest.find({ jobId: job._id })
             const refs = componentsOfJob(job)
             const components = await findComponents(refs)
-            // A job on single microfrontends or services still follows the context of the domains they are in.
+            // A job on single frontends or services still follows the context of the domains they are in.
             const memberDomainIds = domain ? [] : [...new Set(components.flatMap(component => (component.domainId ? [String(component.domainId)] : [])))]
             const memberDomains = memberDomainIds.length ? await Domain.find({ _id: { $in: memberDomainIds.map(id => toObjectId(id)) }, projectId: job.projectId }).sort({ name: 1 }) : []
             const workspaceService = new RepositoryWorkspaceService(this.user)
@@ -842,7 +842,7 @@ export class AiChangeJobService extends AiChangeBaseService {
     }
 
     /**
-     * The jobs a domain-scoped member may see: those working only on microfrontends and services they
+     * The jobs a domain-scoped member may see: those working only on frontends and services they
      * see, and never one on the whole project. Anyone else sees them all, without a query.
      */
     private async inDomainScope<T extends ListedJob>(projectId: IAiChangeJob["projectId"], jobs: T[]): Promise<T[]> {
@@ -889,7 +889,7 @@ export class AiChangeJobService extends AiChangeBaseService {
     }
 
     /**
-     * The latest conversations on a domain, everyone's, as a microfrontend page shows everyone's requests:
+     * The latest conversations on a domain, everyone's, as a frontend page shows everyone's requests:
      * the first job of each chain, which names it, and its latest, which says where it stands. Newest first.
      */
     async domainConversations(projectId: string, domainId: string): Promise<AiJobView[]> {
@@ -940,7 +940,7 @@ export class AiChangeJobService extends AiChangeBaseService {
     }
 
     /**
-     * How many agents are working on each microfrontend and service of the project right now, whoever started
+     * How many agents are working on each frontend and service of the project right now, whoever started
      * them: a job counts on every repository it works on, a change asked from the component page on its own.
      * A job is fresh by its own date, its requests are not touched while it runs.
      */
@@ -948,24 +948,24 @@ export class AiChangeJobService extends AiChangeBaseService {
         await this.ensureAccessToProject(toObjectId(projectId))
         const fresh = { $gt: new Date(Date.now() - STALE_AFTER_MS) }
         const [jobs, requests] = await Promise.all([
-            AiChangeJob.find({ projectId: toObjectId(projectId), status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh }, { microfrontendIds: 1, serviceIds: 1 }),
+            AiChangeJob.find({ projectId: toObjectId(projectId), status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh }, { frontendIds: 1, serviceIds: 1 }),
             AiChangeRequest.find(
                 { projectId: toObjectId(projectId), jobId: { $exists: false }, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] }, updatedAt: fresh },
-                { microfrontendId: 1, serviceId: 1 }
+                { frontendId: 1, serviceId: 1 }
             )
         ])
         const agents = new Map<string, number>()
         for (const id of [...jobs.flatMap(job => componentsOfJob(job).map(ref => ref.id)), ...requests.map(componentIdOf)]) {
             agents.set(id, (agents.get(id) ?? 0) + 1)
         }
-        // A domain-scoped member is told about the microfrontends and services they see only
+        // A domain-scoped member is told about the frontends and services they see only
         const inScope = await this.domainScopeFilter(projectId)
         if (Object.keys(inScope).length > 0) {
             const projectFilter = { projectId: toObjectId(projectId), ...inScope }
-            const visible = new Set((await Promise.all([Microfrontend.find(projectFilter, { _id: 1 }), Service.find(projectFilter, { _id: 1 })])).flat().map(component => String(component._id)))
+            const visible = new Set((await Promise.all([Frontend.find(projectFilter, { _id: 1 }), Service.find(projectFilter, { _id: 1 })])).flat().map(component => String(component._id)))
             for (const id of agents.keys()) if (!visible.has(id)) agents.delete(id)
         }
-        return [...agents].map(([microfrontendId, count]) => ({ microfrontendId, agents: count }))
+        return [...agents].map(([frontendId, count]) => ({ frontendId, agents: count }))
     }
 
     /**

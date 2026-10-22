@@ -1,8 +1,8 @@
-# Microfrontend Orchestrator AI Coding Instructions
+# Frontend Orchestrator AI Coding Instructions
 
 > `.cursorrules` in the repo root is the source of truth. This file mirrors it - when they disagree, `.cursorrules` wins, and any change here should be made there too.
 
-This is a **monorepo** microfrontend orchestrator service with a Fastify backend and React frontend for managing microfrontends across multiple environments.
+This is a **monorepo** frontend orchestrator service with a Fastify backend and React frontend for managing frontends across multiple environments.
 
 ## Architecture Overview
 
@@ -28,9 +28,9 @@ This is a **monorepo** microfrontend orchestrator service with a Fastify backend
 - **i18n**: Complete internationalization with react-i18next
 
 **Key Features**:
-- **Canary deployments**: `CanaryType` (`RANDOM` | `ON_SESSION` | `ON_USER`, default `ON_SESSION`) and `CanaryDeploymentType` (`BASED_ON_VERSION` | `BASED_ON_URL`) in `backend/src/models/MicrofrontendModel.ts`; enrolled canary users in `DeploymentCanaryUsersController.ts`. See https://flightroom.dev/documentation/docs/microfrontends/canary-releases
+- **Canary deployments**: `CanaryType` (`RANDOM` | `ON_SESSION` | `ON_USER`, default `ON_SESSION`) and `CanaryDeploymentType` (`BASED_ON_VERSION` | `BASED_ON_URL`) in `backend/src/models/FrontendModel.ts`; enrolled canary users in `DeploymentCanaryUsersController.ts`. See https://flightroom.dev/documentation/docs/frontends/canary-releases
 - **Federation integration**: `FederationIntegrationService` replaced the old host injection, which is gone. See https://flightroom.dev/documentation/docs/integration/overview
-- **Environment-free serving**: manifest, global variables and microfrontend config are served both with an environment slug and without it, via the `auto/:projectId` route forms (`ServeController.ts`)
+- **Environment-free serving**: manifest, global variables and frontend config are served both with an environment slug and without it, via the `auto/:projectId` route forms (`ServeController.ts`)
 - **Builds**: build pipeline pages and API. See https://flightroom.dev/documentation/docs/deployments/build-status
 
 ## Key Patterns & Conventions

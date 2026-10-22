@@ -1,16 +1,16 @@
 import fs from "node:fs/promises"
 import { fastify } from "../.."
 import AiChangeRequest from "../../models/AiChangeRequestModel"
-import { IMicrofrontend } from "../../models/MicrofrontendModel"
+import { IFrontend } from "../../models/FrontendModel"
 import Organization from "../../models/OrganizationModel"
 import Project, { IProject } from "../../models/ProjectModel"
 import { IService } from "../../models/ServiceModel"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { projectWorkspacePath } from "../../utils/workspacePaths"
-import { componentWorkspacePath, fromMicrofrontend, fromService, RepositoryComponent } from "./repositoryComponent"
+import { componentWorkspacePath, fromFrontend, fromService, RepositoryComponent } from "./repositoryComponent"
 
 /**
- * What goes away with a microfrontend, a service or a project besides its documents: the local clones of its
+ * What goes away with a frontend, a service or a project besides its documents: the local clones of its
  * repositories and the AI change requests made on them.
  *
  * Kept apart from the workspace service so the services that delete things can call it without
@@ -34,13 +34,13 @@ const forgetComponents = async (components: RepositoryComponent[]) => {
             if (owner) await removeFolder(componentWorkspacePath(fastify.config.REPOSITORIES_FOLDER, owner, component))
         }
         const idsOf = (kind: RepositoryComponent["kind"]) => components.filter(component => component.kind === kind).map(component => component._id)
-        await AiChangeRequest.deleteMany({ $or: [{ microfrontendId: { $in: idsOf("microfrontend") } }, { serviceId: { $in: idsOf("service") } }] })
+        await AiChangeRequest.deleteMany({ $or: [{ frontendId: { $in: idsOf("frontend") } }, { serviceId: { $in: idsOf("service") } }] })
     } catch (error) {
         fastify.log.warn({ err: error }, "Could not clean up after deleted components")
     }
 }
 
-export const forgetMicrofrontends = (microfrontends: IMicrofrontend[]) => forgetComponents(microfrontends.map(fromMicrofrontend))
+export const forgetFrontends = (frontends: IFrontend[]) => forgetComponents(frontends.map(fromFrontend))
 
 export const forgetServices = (services: IService[]) => forgetComponents(services.map(fromService))
 

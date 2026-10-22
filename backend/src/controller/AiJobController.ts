@@ -8,20 +8,20 @@ import { getProjectIdFromRequest } from "../utils/requestUtils"
 
 const prompt = { type: "string", minLength: 1, maxLength: 8_000 }
 // Beyond 10 the service answers AI_JOB_TOO_MANY_REPOSITORIES, which the console explains; this only bounds the body.
-const microfrontendIds = { type: "array", maxItems: 100, items: { type: "string", pattern: "^[a-fA-F0-9]{24}$" } }
-const serviceIds = microfrontendIds
+const frontendIds = { type: "array", maxItems: 100, items: { type: "string", pattern: "^[a-fA-F0-9]{24}$" } }
+const serviceIds = frontendIds
 const domainId = { type: "string", pattern: "^[a-fA-F0-9]{24}$" }
 const effort = { type: "string", enum: LLM_EFFORTS }
 // An id of the organization's AIs, or `system`
 const aiModelId = { type: "string", minLength: 1, maxLength: 64 }
-// The branch each repository starts from, by microfrontend or service id
+// The branch each repository starts from, by frontend or service id
 const baseBranches = { type: "object", maxProperties: 100, propertyNames: { pattern: "^[a-fA-F0-9]{24}$" }, additionalProperties: { type: "string", minLength: 1, maxLength: 255 } }
 
 const createBodySchema = {
     type: "object",
     required: ["prompt", "scope"],
     additionalProperties: false,
-    properties: { prompt, scope: { type: "string", enum: ["global", "domain", "selection"] }, domainId, microfrontendIds, serviceIds, baseBranches, effort, aiModelId },
+    properties: { prompt, scope: { type: "string", enum: ["global", "domain", "selection"] }, domainId, frontendIds, serviceIds, baseBranches, effort, aiModelId },
     // A domain job works on the members of that domain: without it there is nothing to work on.
     if: { properties: { scope: { const: "domain" } } },
     then: { required: ["domainId"] }
@@ -43,7 +43,7 @@ const followUpBodySchema = {
     type: "object",
     required: ["prompt"],
     additionalProperties: false,
-    properties: { prompt, microfrontendIds, serviceIds, effort, aiModelId }
+    properties: { prompt, frontendIds, serviceIds, effort, aiModelId }
 }
 
 const projectIdOf = (request: FastifyRequest) => {
@@ -53,10 +53,10 @@ const projectIdOf = (request: FastifyRequest) => {
 }
 
 /**
- * AI agent jobs on one or more repositories (microfrontends and services) of a project, and their follow-ups.
+ * AI agent jobs on one or more repositories (frontends and services) of a project, and their follow-ups.
  *
  * Starting a job answers at once with the job; the console polls it until every repository has its
- * proposal. Console sessions only, like the AI changes of a single microfrontend.
+ * proposal. Console sessions only, like the AI changes of a single frontend.
  */
 export default async function aiJobController(fastify: FastifyInstance) {
     const service = (request: FastifyRequest) => new AiChangeJobService(request.databaseUser, fastify.config)
@@ -74,7 +74,7 @@ export default async function aiJobController(fastify: FastifyInstance) {
         reply.status(202).send(await service(request).create(projectIdOf(request), request.body))
     )
 
-    // What to create in a domain without microfrontends nor services before a job can work on it: one model call, so the same ceiling.
+    // What to create in a domain without frontends nor services before a job can work on it: one model call, so the same ceiling.
     fastify.post<{ Body: DomainPlanInput }>("/ai-jobs/domain-plan", { schema: { body: domainPlanBodySchema }, config: { ...config, rateLimit } }, async (request, reply) =>
         reply.send(await new DomainPlanService(request.databaseUser, fastify.config).plan(projectIdOf(request), request.body))
     )
@@ -83,7 +83,7 @@ export default async function aiJobController(fastify: FastifyInstance) {
         reply.status(202).send(await service(request).followUp(request.params.id, request.body))
     )
 
-    // With a domain, everyone's conversations on it (first and latest job of each chain): the domain page shows them as a microfrontend page shows its requests.
+    // With a domain, everyone's conversations on it (first and latest job of each chain): the domain page shows them as a frontend page shows its requests.
     fastify.get<{ Querystring: { active?: string; domainId?: string } }>("/ai-jobs", { schema: { querystring: listQuerySchema }, config }, async (request, reply) =>
         reply.send(
             request.query.domainId
@@ -92,7 +92,7 @@ export default async function aiJobController(fastify: FastifyInstance) {
         )
     )
 
-    // Every user's agents, not only the caller's: the microfrontend list shows who is being worked on.
+    // Every user's agents, not only the caller's: the frontend list shows who is being worked on.
     fastify.get("/ai-jobs/working", { config }, async (request, reply) => reply.send(await service(request).working(projectIdOf(request))))
 
     fastify.get<{ Params: { id: string } }>("/ai-jobs/:id", { config }, async (request, reply) => reply.send(await service(request).get(request.params.id)))

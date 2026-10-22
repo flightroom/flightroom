@@ -628,7 +628,7 @@ class GithubClient {
      * The most recent Actions runs of a repository, newest first.
      *
      * Only the first page is read: the build screen shows a handful of runs per
-     * microfrontend and this endpoint is polled, so walking the pagination would
+     * frontend and this endpoint is polled, so walking the pagination would
      * burn the token's rate limit for rows nobody looks at.
      */
     async getWorkflowRuns(accessToken: string, repositoryName: string, perPage: number, orgName?: string, userName?: string): Promise<GithubWorkflowRun[]> {

@@ -13,7 +13,7 @@ import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project, { IProject, IProjectPipelines } from "../models/ProjectModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
@@ -99,25 +99,25 @@ interface ContextEntry {
     context: string
 }
 
-/** What the team wrote for AI agents in one project: the shared context and the one of each domain, microfrontend and service that has it. */
+/** What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and service that has it. */
 export interface ProjectContextDTO {
     project: { id: string; name: string; context?: string }
     domains: ContextEntry[]
-    microfrontends: ContextEntry[]
+    frontends: ContextEntry[]
     services: ContextEntry[]
 }
 
 /**
- * The piece of work a context is read for. A microfrontend or a service reads its own context and
- * the one of its domain; a domain reads its own and the one of each of its microfrontends and services.
+ * The piece of work a context is read for. A frontend or a service reads its own context and
+ * the one of its domain; a domain reads its own and the one of each of its frontends and services.
  * The project context always comes along.
  */
-export type ContextFocus = { microfrontendId: string } | { serviceId: string } | { domainId: string }
+export type ContextFocus = { frontendId: string } | { serviceId: string } | { domainId: string }
 
-/** Which domains, microfrontends and services a focus reads the context of: a list left out is read for none. */
+/** Which domains, frontends and services a focus reads the context of: a list left out is read for none. */
 interface ContextFilters {
     domains?: Record<string, unknown>
-    microfrontends?: Record<string, unknown>
+    frontends?: Record<string, unknown>
     services?: Record<string, unknown>
 }
 
@@ -140,7 +140,7 @@ export interface ProjectSummaryDTO {
     count: {
         environments: number
         users: number
-        microfrontends: number
+        frontends: number
         apiKeys: number
         storages: number
         databases: number
@@ -237,7 +237,7 @@ export class ProjectService extends BaseAuthorizedService {
             count: {
                 environments: await Environment.countDocuments({ projectId: projectIdObj }),
                 users: await UserProject.countDocuments({ projectId: projectIdObj }),
-                microfrontends: await Microfrontend.countDocuments({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) }),
+                frontends: await Frontend.countDocuments({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) }),
                 apiKeys: await ApiKey.countDocuments({ projectId: projectIdObj }),
                 storages: await Storage.countDocuments({ projectId: projectIdObj }),
                 databases: await Database.countDocuments({ projectId: projectIdObj }),
@@ -256,15 +256,15 @@ export class ProjectService extends BaseAuthorizedService {
         const filters = await this.contextFilters(projectIdObj, focus)
         const withContext = { projectId: projectIdObj, context: { $nin: [null, ""] } }
         const fields = { slug: 1, name: 1, context: 1 }
-        const [domains, microfrontends, services] = await Promise.all([
+        const [domains, frontends, services] = await Promise.all([
             filters.domains ? Domain.find({ ...filters.domains, ...withContext }, fields).sort({ slug: 1 }) : [],
-            filters.microfrontends ? Microfrontend.find({ ...filters.microfrontends, ...withContext }, fields).sort({ slug: 1 }) : [],
+            filters.frontends ? Frontend.find({ ...filters.frontends, ...withContext }, fields).sort({ slug: 1 }) : [],
             filters.services ? Service.find({ ...filters.services, ...withContext }, fields).sort({ slug: 1 }) : []
         ])
         return {
             project: { id: project._id.toString(), name: project.name, context: project.context || undefined },
             domains: domains.map(toContextEntry),
-            microfrontends: microfrontends.map(toContextEntry),
+            frontends: frontends.map(toContextEntry),
             services: services.map(toContextEntry)
         }
     }
@@ -278,7 +278,7 @@ export class ProjectService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(projectId)
         if (!focus) {
             const members = await this.domainScopeFilter(projectId)
-            return { domains: await this.domainScopeFilter(projectId, "_id"), microfrontends: members, services: members }
+            return { domains: await this.domainScopeFilter(projectId, "_id"), frontends: members, services: members }
         }
         const domainOf = (domainId?: unknown) => (domainId ? { _id: domainId } : undefined)
         const ensureInScope = (domainId: unknown) => {
@@ -288,13 +288,13 @@ export class ProjectService extends BaseAuthorizedService {
             const domain = await Domain.findOne({ _id: toObjectId(focus.domainId), projectId }, { _id: 1 })
             if (!domain) throw new EntityNotFoundError(focus.domainId)
             ensureInScope(domain._id)
-            return { domains: { _id: domain._id }, microfrontends: { domainId: domain._id }, services: { domainId: domain._id } }
+            return { domains: { _id: domain._id }, frontends: { domainId: domain._id }, services: { domainId: domain._id } }
         }
-        if ("microfrontendId" in focus) {
-            const microfrontend = await Microfrontend.findOne({ _id: toObjectId(focus.microfrontendId), projectId }, { domainId: 1 })
-            if (!microfrontend) throw new EntityNotFoundError(focus.microfrontendId)
-            ensureInScope(microfrontend.domainId)
-            return { domains: domainOf(microfrontend.domainId), microfrontends: { _id: microfrontend._id } }
+        if ("frontendId" in focus) {
+            const frontend = await Frontend.findOne({ _id: toObjectId(focus.frontendId), projectId }, { domainId: 1 })
+            if (!frontend) throw new EntityNotFoundError(focus.frontendId)
+            ensureInScope(frontend.domainId)
+            return { domains: domainOf(frontend.domainId), frontends: { _id: frontend._id } }
         }
         const service = await Service.findOne({ _id: toObjectId(focus.serviceId), projectId }, { domainId: 1 })
         if (!service) throw new EntityNotFoundError(focus.serviceId)
@@ -379,7 +379,7 @@ export class ProjectService extends BaseAuthorizedService {
             // One field at a time rather than a spread of the request body. The route carries no
             // schema, so a spread would write whatever the caller decides to send: `slug` included,
             // and that one is part of the path already uploaded bundles live under
-            // (`<slug>-<id>/<microfrontend>/<version>`). Moving it would orphan every deployed file.
+            // (`<slug>-<id>/<frontend>/<version>`). Moving it would orphan every deployed file.
             // biome-ignore lint/suspicious/noExplicitAny: updateData needs to support MongoDB update operators dynamically
             const updateData: any = {}
             if (projectData.name !== undefined) {
@@ -470,7 +470,7 @@ export class ProjectService extends BaseAuthorizedService {
         if (!repository) {
             throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: `The connection "${codeRepository.name}" cannot reach the repository ${input.repositoryId}` })
         }
-        return { codeRepository: importService.buildMicrofrontendCodeRepository(codeRepository, repository), ...(ref ? { ref } : {}) }
+        return { codeRepository: importService.buildFrontendCodeRepository(codeRepository, repository), ...(ref ? { ref } : {}) }
     }
 
     async delete(projectId: string): Promise<DeleteResult> {
@@ -491,9 +491,9 @@ export class ProjectService extends BaseAuthorizedService {
         await Database.deleteMany({ projectId: projectIdObj }, { session })
         await CodeRepository.deleteMany({ projectId: projectIdObj }, session)
 
-        const microfrontends = await Microfrontend.find({ projectId: projectIdObj }, {}, { session })
-        const mfeIds = microfrontends.map(mfe => mfe._id)
-        await BuiltFrontend.deleteMany({ microfrontendId: { $in: mfeIds } }, session)
+        const frontends = await Frontend.find({ projectId: projectIdObj }, {}, { session })
+        const mfeIds = frontends.map(mfe => mfe._id)
+        await BuiltFrontend.deleteMany({ frontendId: { $in: mfeIds } }, session)
 
         const services = await Service.find({ projectId: projectIdObj }, { _id: 1 }, { session })
         await BuiltService.deleteMany({ serviceId: { $in: services.map(service => service._id) } }, session)
@@ -508,7 +508,7 @@ export class ProjectService extends BaseAuthorizedService {
         await Deployment.deleteMany({ environmentId: { $in: environmentIds } }, session)
 
         await Deployment.deleteMany({ projectId: projectIdObj }, session)
-        await Microfrontend.deleteMany({ projectId: projectIdObj }, session)
+        await Frontend.deleteMany({ projectId: projectIdObj }, session)
         await Service.deleteMany({ projectId: projectIdObj }, session)
         await ConfigMap.deleteMany({ projectId: projectIdObj }, { session })
         await Secret.deleteMany({ projectId: projectIdObj }, { session })

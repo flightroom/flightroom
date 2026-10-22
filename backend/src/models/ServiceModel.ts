@@ -1,8 +1,8 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { FrontendStackSource } from "../types/FrontendStack"
 import { ServicePaths, ServiceRuntime } from "../types/ServiceStack"
 import { CONTAINER_DEFAULTS, exposurePath, IServiceEnvVariable, IServiceUrl, optionalPath, probePath, serviceEnvVariableSchema, serviceUrlSchema } from "./ContainerFields"
-import { ICodeRepositoryMicrofrontend, microfrontendCodeRepositorySchema } from "./MicrofrontendModel"
+import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
 export type { IServiceEnvVariable, IServiceUrl }
@@ -11,7 +11,7 @@ export type { IServiceEnvVariable, IServiceUrl }
 export interface IServiceStack {
     runtime?: ServiceRuntime
     framework?: string
-    source: MicrofrontendStackSource
+    source: FrontendStackSource
     detectedAt?: Date
 }
 
@@ -28,7 +28,7 @@ export interface IService extends Document<ObjectId>, ServicePaths {
     stack?: IServiceStack
     /** The latest version the CI registered */
     version?: string
-    codeRepository?: ICodeRepositoryMicrofrontend
+    codeRepository?: ICodeRepositoryFrontend
     image?: {
         /** Without tag, e.g. ghcr.io/acme/orders-api */
         repository?: string
@@ -61,7 +61,7 @@ const serviceStackSchema = new Schema<IServiceStack>(
         },
         source: {
             type: String,
-            enum: Object.values(MicrofrontendStackSource),
+            enum: Object.values(FrontendStackSource),
             required: true
         },
         detectedAt: {
@@ -117,7 +117,7 @@ const serviceSchema = new Schema<IService>(
             required: false
         },
         codeRepository: {
-            type: microfrontendCodeRepositorySchema,
+            type: frontendCodeRepositorySchema,
             required: false
         },
         image: {

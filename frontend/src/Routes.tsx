@@ -18,9 +18,9 @@ const Domains = lazy(() => import("./pages/domains/Domains"))
 const DomainDetail = lazy(() => import("./pages/domains/DomainDetail"))
 const DomainAiWorkspace = lazy(() => import("./pages/domains/DomainAiWorkspace"))
 const DomainDeploymentsMatrix = lazy(() => import("./pages/domains/DomainDeploymentsMatrix"))
-const Microfrontends = lazy(() => import("./pages/microfrontends/Microfrontends"))
-const AddMicrofrontend = lazy(() => import("./pages/microfrontends/AddMicrofrontend"))
-const MicrofrontendAiWorkspace = lazy(() => import("./pages/microfrontends/MicrofrontendAiWorkspace"))
+const Frontends = lazy(() => import("./pages/frontends/Frontends"))
+const AddFrontend = lazy(() => import("./pages/frontends/AddFrontend"))
+const FrontendAiWorkspace = lazy(() => import("./pages/frontends/FrontendAiWorkspace"))
 const Services = lazy(() => import("./pages/services/Services"))
 const AddService = lazy(() => import("./pages/services/AddService"))
 const ServiceDetail = lazy(() => import("./pages/services/ServiceDetail"))
@@ -102,7 +102,7 @@ const OAuthRoutes: React.FC = () => {
 }
 
 /**
- * The console opens on the AI agent; without an AI provider its page sends on to /microfrontends.
+ * The console opens on the AI agent; without an AI provider its page sends on to /frontends.
  * Safety net: a login that lands on "/" instead of the consent page resumes the pending consent.
  */
 const RootRedirect: React.FC = () => <Navigate to={readOAuthResume() ?? ASSISTANT_PAGE_PATH} replace />
@@ -128,10 +128,10 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/domain/:id" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
                 <Route path="/domain/:id/ai" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
                 <Route path="/domain/:id/structure" element={<RouteWithSuspense element={<DomainDetail />} />} />
-                <Route path="/microfrontends" element={<RouteWithSuspense element={<Microfrontends />} />} />
-                <Route path="/microfrontend/new" element={<RouteWithSuspense element={<AddMicrofrontend />} />} />
-                <Route path="/microfrontend/:id" element={<RouteWithSuspense element={<MicrofrontendAiWorkspace />} />} />
-                <Route path="/microfrontend/:id/settings" element={<RouteWithSuspense element={<AddMicrofrontend />} />} />
+                <Route path="/frontends" element={<RouteWithSuspense element={<Frontends />} />} />
+                <Route path="/frontend/new" element={<RouteWithSuspense element={<AddFrontend />} />} />
+                <Route path="/frontend/:id" element={<RouteWithSuspense element={<FrontendAiWorkspace />} />} />
+                <Route path="/frontend/:id/settings" element={<RouteWithSuspense element={<AddFrontend />} />} />
                 <Route path="/services" element={<RouteWithSuspense element={<Services />} />} />
                 <Route path="/service/new" element={<RouteWithSuspense element={<AddService />} />} />
                 <Route path="/service/:id" element={<RouteWithSuspense element={<ServiceDetail view="ai" />} />} />

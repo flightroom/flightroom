@@ -47,7 +47,7 @@ export const DependencyAlignmentTable: React.FC<DependencyAlignmentTableProps> =
                             <div className="flex flex-wrap gap-2">
                                 {issue.occurrences.map(occurrence => (
                                     <Badge
-                                        key={occurrence.microfrontendId}
+                                        key={occurrence.frontendId}
                                         variant={occurrence.aligned ? "default" : "destructive"}
                                         title={occurrence.aligned ? t("dependencies.already_aligned") : t("dependencies.to_be_aligned", { range: issue.suggestedRange })}
                                     >

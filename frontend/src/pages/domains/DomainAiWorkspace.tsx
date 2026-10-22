@@ -10,7 +10,7 @@ import { jobErrorMessage } from "@/components/assistant/AssistantJobThread"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import useAiJobsApi, { AiJob, DomainPlan } from "@/hooks/apiClients/useAiJobsApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
-import useMicrofrontendsApi from "@/hooks/apiClients/useMicrofrontendsApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
 import DomainHeader from "./partials/DomainHeader"
@@ -20,7 +20,7 @@ import DomainScaffoldDialog, { repositoryNameFor, ScaffoldItem } from "./partial
 const MAX_REPOSITORIES = 10
 
 interface DomainRepository {
-    kind: "microfrontend" | "service"
+    kind: "frontend" | "service"
     id: string
     name: string
     slug: string
@@ -31,7 +31,7 @@ interface DomainRepository {
 
 /** The rows of the creation dialog for what the AI proposes in an empty domain. */
 const planItems = (plan: DomainPlan): ScaffoldItem[] => [
-    ...plan.microfrontends.map((component, index) => ({ ...component, key: `microfrontend-${index}`, kind: "microfrontend" as const })),
+    ...plan.frontends.map((component, index) => ({ ...component, key: `frontend-${index}`, kind: "frontend" as const })),
     ...plan.services.map((component, index) => ({ ...component, key: `service-${index}`, kind: "service" as const }))
 ]
 
@@ -78,7 +78,7 @@ interface ScaffoldState {
 }
 
 /**
- * The landing screen of a functional domain: Edit with AI, the same workspace as a microfrontend's and a service's,
+ * The landing screen of a functional domain: Edit with AI, the same workspace as a frontend's and a service's,
  * on every repository of the domain at once. With nothing to work on yet, Generate first offers to create it: the
  * components the AI proposes for an empty domain, or the repositories of members that have none.
  */
@@ -88,15 +88,15 @@ const DomainAiWorkspace: React.FC = () => {
     const projectId = useProjectStore(state => state.project?._id)
     const aiModels = useProjectAiModels()
     const domainsApi = useDomainsApi()
-    const microfrontendsApi = useMicrofrontendsApi()
+    const frontendsApi = useFrontendsApi()
     const servicesApi = useServicesApi()
     const aiJobsApi = useAiJobsApi()
     const [scaffold, setScaffold] = useState<ScaffoldState>({ open: false, items: [], prompt: "" })
 
     const domainQuery = useQuery({ queryKey: ["domain", id], queryFn: () => domainsApi.getSingle(id!), enabled: !!id })
-    const microfrontendsQuery = useQuery({
-        queryKey: ["microfrontends-by-project-id", projectId],
-        queryFn: () => microfrontendsApi.getByProjectId(projectId!),
+    const frontendsQuery = useQuery({
+        queryKey: ["frontends-by-project-id", projectId],
+        queryFn: () => frontendsApi.getByProjectId(projectId!),
         enabled: !!projectId
     })
     const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
@@ -106,7 +106,7 @@ const DomainAiWorkspace: React.FC = () => {
     })
 
     // Not an ApiStatusHandler: it unmounts its children on every background refetch, and the workspace holds a draft prompt.
-    const queries = [domainQuery, microfrontendsQuery, servicesQuery]
+    const queries = [domainQuery, frontendsQuery, servicesQuery]
     if (queries.some(query => query.isPending)) {
         return (
             <div className="flex min-h-[200px] items-center justify-center">
@@ -126,16 +126,16 @@ const DomainAiWorkspace: React.FC = () => {
     }
 
     const domain = domainQuery.data
-    const microfrontends = (microfrontendsQuery.data ?? []).filter(microfrontend => microfrontend.domainId === id && microfrontend._id)
+    const frontends = (frontendsQuery.data ?? []).filter(frontend => frontend.domainId === id && frontend._id)
     const services = (servicesQuery.data ?? []).filter(service => service.domainId === id && service._id)
     const repositories: DomainRepository[] = [
-        ...microfrontends.map(microfrontend => ({
-            kind: "microfrontend" as const,
-            id: microfrontend._id!,
-            name: microfrontend.name,
-            slug: microfrontend.slug,
-            template: microfrontend.template,
-            linked: Boolean(microfrontend.codeRepository?.enabled)
+        ...frontends.map(frontend => ({
+            kind: "frontend" as const,
+            id: frontend._id!,
+            name: frontend.name,
+            slug: frontend.slug,
+            template: frontend.template,
+            linked: Boolean(frontend.codeRepository?.enabled)
         })),
         ...services.map(service => ({
             kind: "service" as const,
@@ -174,10 +174,7 @@ const DomainAiWorkspace: React.FC = () => {
                     key={id}
                     target={{ kind: "domain", id: id! }}
                     name={domain.name}
-                    repositories={[
-                        ...microfrontends.flatMap(microfrontend => workspaceRepositoriesOf("microfrontend", microfrontend)),
-                        ...services.flatMap(service => workspaceRepositoriesOf("service", service))
-                    ]}
+                    repositories={[...frontends.flatMap(frontend => workspaceRepositoriesOf("frontend", frontend)), ...services.flatMap(service => workspaceRepositoriesOf("service", service))]}
                     composer={{
                         context: <DomainRepositoriesContext repositories={repositories} />,
                         blocked: linked.length > MAX_REPOSITORIES,

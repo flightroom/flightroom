@@ -5,10 +5,10 @@ import AuthenticationMethod from "../types/AuthenticationMethod"
 export default async function serveController(fastify: FastifyInstance) {
     fastify.get<{
         Querystring: {
-            /** Both default to the stack stored on the microfrontend */
+            /** Both default to the stack stored on the frontend */
             framework?: string
             compiler?: string
-            microfrontendId: string
+            frontendId: string
             deploymentId: string
         }
     }>("/serve/code", async (request, reply) => {
@@ -95,7 +95,7 @@ export default async function serveController(fastify: FastifyInstance) {
         if (!referer) {
             throw new Error("Referer not found")
         }
-        return reply.send(await new ServeService(request, reply).getMicrofrontendConfigurationByMicrofrontendId(request.params.mfeId, referer))
+        return reply.send(await new ServeService(request, reply).getFrontendConfigurationByFrontendId(request.params.mfeId, referer))
     })
 
     fastify.get<{
@@ -104,7 +104,7 @@ export default async function serveController(fastify: FastifyInstance) {
             mfeSlug: string
         }
     }>("/serve/mfe/config/auto/:projectId/:mfeSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getMicrofrontendConfigurationByProjectIdRefererAndMfeSlug(request.params.projectId, request.params.mfeSlug, getReferer(request)))
+        return reply.send(await new ServeService(request, reply).getFrontendConfigurationByProjectIdRefererAndMfeSlug(request.params.projectId, request.params.mfeSlug, getReferer(request)))
     })
 
     fastify.get<{
@@ -115,7 +115,7 @@ export default async function serveController(fastify: FastifyInstance) {
         }
     }>("/serve/mfe/config/:projectId/:environmentSlug/:mfeSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
         return reply.send(
-            await new ServeService(request, reply).getMicrofrontendConfigurationByProjectIdEnvironmentSlugAndMfeSlug(request.params.projectId, request.params.environmentSlug, request.params.mfeSlug)
+            await new ServeService(request, reply).getFrontendConfigurationByProjectIdEnvironmentSlugAndMfeSlug(request.params.projectId, request.params.environmentSlug, request.params.mfeSlug)
         )
     })
 
@@ -125,7 +125,7 @@ export default async function serveController(fastify: FastifyInstance) {
             mfeSlug: string
         }
     }>("/serve/mfe/config/:environmentId/:mfeSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getMicrofrontendConfigurationByEnvironmentIdAndMfeSlug(request.params.environmentId, request.params.mfeSlug))
+        return reply.send(await new ServeService(request, reply).getFrontendConfigurationByEnvironmentIdAndMfeSlug(request.params.environmentId, request.params.mfeSlug))
     })
 
     fastify.get<{
@@ -154,7 +154,7 @@ export default async function serveController(fastify: FastifyInstance) {
             version?: string
             "*": string
         }
-    }>(`/serve/mfe/files/:mfeId/${VERSION_PATH_SEGMENT}/:version/*`, { config: { authMethod: AuthenticationMethod.PUBLIC } }, serveByMicrofrontendId)
+    }>(`/serve/mfe/files/:mfeId/${VERSION_PATH_SEGMENT}/:version/*`, { config: { authMethod: AuthenticationMethod.PUBLIC } }, serveByFrontendId)
 
     fastify.get<{
         Params: {
@@ -162,7 +162,7 @@ export default async function serveController(fastify: FastifyInstance) {
             version?: string
             "*": string
         }
-    }>("/serve/mfe/files/:mfeId/*", { config: { authMethod: AuthenticationMethod.PUBLIC } }, serveByMicrofrontendId)
+    }>("/serve/mfe/files/:mfeId/*", { config: { authMethod: AuthenticationMethod.PUBLIC } }, serveByFrontendId)
 
     fastify.get<{
         Params: {
@@ -183,7 +183,7 @@ export default async function serveController(fastify: FastifyInstance) {
     }>("/serve/mfe/files/auto/:projectId/:mfeSlug/*", { config: { authMethod: AuthenticationMethod.PUBLIC } }, serveAutoByReferer)
 
     /**
-     * Serves a microfrontend file, with or without the version pinned in the URL.
+     * Serves a frontend file, with or without the version pinned in the URL.
      * When the service asks for a version to be pinned, the browser is redirected to the very same
      * file under `/_v/<version>/`: the entrypoint is an ES module, so its relative imports are then
      * resolved against that URL and the whole page load stays on one single version.
@@ -191,7 +191,7 @@ export default async function serveController(fastify: FastifyInstance) {
     async function serveByEnvironmentSlug(request: FastifyRequest<{ Params: { projectId: string; environmentSlug: string; mfeSlug: string; version?: string; "*": string } }>, reply: FastifyReply) {
         const { projectId, environmentSlug, mfeSlug, version } = request.params
         const filePath = request.params["*"] || ""
-        const data = await new ServeService(request, reply).getByEnvironmentSlugAndProjectIdAndMicrofrontendSlug(environmentSlug, projectId, mfeSlug, filePath, version)
+        const data = await new ServeService(request, reply).getByEnvironmentSlugAndProjectIdAndFrontendSlug(environmentSlug, projectId, mfeSlug, filePath, version)
 
         if (isRedirectToVersion(data)) {
             addHeaders(data.headers, reply)
@@ -203,16 +203,16 @@ export default async function serveController(fastify: FastifyInstance) {
     }
 
     /**
-     * Same as serveByEnvironmentSlug, for the URLs identifying the microfrontend by its id.
+     * Same as serveByEnvironmentSlug, for the URLs identifying the frontend by its id.
      */
-    async function serveByMicrofrontendId(request: FastifyRequest<{ Params: { mfeId: string; version?: string; "*": string } }>, reply: FastifyReply) {
+    async function serveByFrontendId(request: FastifyRequest<{ Params: { mfeId: string; version?: string; "*": string } }>, reply: FastifyReply) {
         const referer = request.headers.referer
         if (!referer) {
             throw new Error("Referer not found")
         }
         const { mfeId, version } = request.params
         const filePath = request.params["*"] || ""
-        const data = await new ServeService(request, reply).getMicrofrontendFilesByMicrofrontendId(mfeId, filePath, referer, version)
+        const data = await new ServeService(request, reply).getFrontendFilesByFrontendId(mfeId, filePath, referer, version)
 
         if (isRedirectToVersion(data)) {
             addHeaders(data.headers, reply)
@@ -230,7 +230,7 @@ export default async function serveController(fastify: FastifyInstance) {
         const referer = getReferer(request)
         const { projectId, mfeSlug, version } = request.params
         const filePath = request.params["*"] || ""
-        const data = await new ServeService(request, reply).getMicrofrontendFilesByProjectIdAndMicrofrontendSlug(projectId, mfeSlug, filePath, referer, version)
+        const data = await new ServeService(request, reply).getFrontendFilesByProjectIdAndFrontendSlug(projectId, mfeSlug, filePath, referer, version)
 
         if (isRedirectToVersion(data)) {
             addHeaders(data.headers, reply)

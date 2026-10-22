@@ -1,4 +1,4 @@
-![Flightroom, the open-source control room for micro frontends](docs/assets/banner.png)
+![Flightroom, the open-source control room for frontends](docs/assets/banner.png)
 
 # Flightroom
 
@@ -7,18 +7,18 @@
 [![Docker Pulls](https://img.shields.io/docker/pulls/lory1990/flightroom)](https://hub.docker.com/r/lory1990/flightroom)
 [![Documentation](https://img.shields.io/badge/docs-flightroom.dev-FE7F2D)](https://flightroom.dev/documentation/)
 
-**The open-source control plane for micro frontends.** It stores every build you
+**The open-source control plane for frontends.** It stores every build you
 publish, decides which version each environment serves, and hands your host
-application the runtime configuration it needs — so releasing one micro
+application the runtime configuration it needs — so releasing one
 frontend never means rebuilding the shell.
 
-![The Flightroom console assigning micro frontend versions to environments](docs/assets/promo-video.gif)
+![The Flightroom console assigning frontend versions to environments](docs/assets/promo-video.gif)
 
 ## Try it in 60 seconds
 
 **Hosted console — nothing to install.** Sign up free at
 [console.flightroom.dev](https://console.flightroom.dev) and create
-your first micro frontend from a template.
+your first frontend from a template.
 
 **Self-hosted — one container.** The all-in-one image bundles the orchestrator,
 MongoDB, Redis and Nginx:
@@ -32,12 +32,12 @@ Open http://localhost:8080 and create the first user.
 
 Either way, the
 [**10-minute quick start**](https://flightroom.dev/documentation/docs/quick-start)
-takes you from an empty project to a deployed micro frontend — and back with a
+takes you from an empty project to a deployed frontend — and back with a
 one-click rollback.
 
 ## What it does
 
-- **Independent deployments** — publish a micro frontend and assign it to an
+- **Independent deployments** — publish a frontend and assign it to an
   environment; the host application is untouched.
 - **Immutable deployments, one-click rollback** — every deploy is a snapshot of
   versions, variables and storage settings. Rolling back is re-activating the
@@ -57,25 +57,25 @@ one-click rollback.
   sticky share of browsers, or to an explicit list of enrolled users, and switch
   strategy without touching the host application.
 - **Build status, live** — the builds screen lists the pipeline runs of every
-  micro frontend and streams their status, reading GitHub Actions, GitLab
+  frontend and streams their status, reading GitHub Actions, GitLab
   pipelines and Azure DevOps builds through the provider each one is hosted on.
 - **Global variables, injected for you** — the generated integration writes a
   global variables script straight into the host document, addressed per
   project, so the host picks up the environment's variables without wiring them
   by hand.
-- **Cross-repository dependency analysis** — scan your micro frontend
+- **Cross-repository dependency analysis** — scan your frontend
   repositories and align peer dependencies across them.
 - **Import your repositories** — connect your GitHub organization, GitLab group
-  or Azure DevOps project and create one micro frontend per repository in a
+  or Azure DevOps project and create one frontend per repository in a
   single pass, instead of declaring them one by one.
 
-![The microfrontends of a project, with the version, the host and the canary split each one is serving](docs/assets/microfrontends-dashboard.png)
+![The frontends of a project, with the version, the host and the canary split each one is serving](docs/assets/frontends-dashboard.png)
 
 ## Use it from your AI client (MCP) 🤖
 
 Flightroom runs a remote [MCP](https://modelcontextprotocol.io) server, so
 Claude, ChatGPT, Gemini, Claude Code, Cursor, VS Code and Gemini CLI can read
-your projects, manage micro frontends and services, and deploy, with your role
+your projects, manage frontends and services, and deploy, with your role
 on each project. The client signs in with OAuth: you log in to the console, pick
 the projects to share and whether the client may change things.
 
@@ -130,7 +130,7 @@ is the user-facing version.
 
 ```mermaid
 flowchart LR
-    subgraph teams [One repo and pipeline per micro frontend]
+    subgraph teams [One repo and pipeline per frontend]
         MFE1[header repo] --> CI1[pipeline]
         MFE2[checkout repo] --> CI2[pipeline]
     end
@@ -156,10 +156,10 @@ The full documentation lives at
 - **[Core concepts](https://flightroom.dev/documentation/docs/core-concepts)** - projects, environments, deployments and how they relate
 - **[Self-hosting](https://flightroom.dev/documentation/docs/self-hosting/docker-compose)** - Docker, Docker Compose, Terraform
 - **[Host integration](https://flightroom.dev/documentation/docs/integration/overview)** - Wiring module federation and the global variables script into a host application
-- **[Canary releases](https://flightroom.dev/documentation/docs/microfrontends/canary-releases)** - The three strategies, enrolled users and how a version is pinned
+- **[Canary releases](https://flightroom.dev/documentation/docs/frontends/canary-releases)** - The three strategies, enrolled users and how a version is pinned
 - **[Build status](https://flightroom.dev/documentation/docs/deployments/build-status)** - How pipeline runs are read from each provider and streamed to the console
-- **[Repository import](https://flightroom.dev/documentation/docs/repositories/import-microfrontends)** - Creating one microfrontend per repository from a code repository connection
-- **[Dependency analysis](https://flightroom.dev/documentation/docs/repositories/dependency-analysis)** - How microfrontend dependencies are scanned and peer dependencies aligned
+- **[Repository import](https://flightroom.dev/documentation/docs/repositories/import-frontends)** - Creating one frontend per repository from a code repository connection
+- **[Dependency analysis](https://flightroom.dev/documentation/docs/repositories/dependency-analysis)** - How frontend dependencies are scanned and peer dependencies aligned
 
 Project reference:
 
@@ -194,7 +194,7 @@ Open http://localhost:8080 and create the first user. That is all.
 What you should know about it:
 
 - **Everything persistent lives in `/data`**: database (`/data/db`), Redis dump
-  (`/data/redis`), uploaded microfrontends (`/data/microfrontends`) and the JWT
+  (`/data/redis`), uploaded frontends (`/data/microfrontends`) and the JWT
   secret (`/data/secrets`). Mount that single volume and the installation
   survives an image upgrade.
 - **The JWT secret is generated on the first start** and kept in the volume, so
@@ -287,7 +287,7 @@ envSecrets:
   JWT_SECRET: a-random-32-bytes-string
 ```
 
-The chart also handles ingress, persistence of the uploaded microfrontends,
+The chart also handles ingress, persistence of the uploaded frontends,
 probes on `/api/echo`, autoscaling and secrets kept outside of `values.yaml`
 (`existingSecret`, `extraEnv`). MongoDB and Redis are not deployed by the chart:
 point it at your own instances. See the
@@ -304,7 +304,7 @@ falling back to it.
 | `FRONTEND_URL`                         | `http://localhost:3000`                                                                           | URL of the frontend application.                                |
 | `REGISTRATION_ALLOWED`                 | `true`                                                                                            | If `true`, allows new user registration.                        |
 | `ALLOW_EMBEDDED_LOGIN`                 | `true`                                                                                            | If `true`, enables the login system within the application.     |
-| `MICROFRONTEND_HOST_FOLDER`            | `/upload-microfrontends`                                                                          | Folder containing the host microfrontends.                      |
+| `MICROFRONTEND_HOST_FOLDER`            | `/upload-microfrontends`                                                                          | Folder containing the host frontends.                      |
 | `AI_PROVIDER`                          | _(empty)_ (`anthropic` when `ANTHROPIC_API_KEY` is set)                                           | Model behind the assistant and AI code changes: `anthropic`, `azure-foundry`, `gemini`, `azure-openai`. See [docs/AI-PROVIDERS.md](docs/AI-PROVIDERS.md). |
 | `REPOSITORIES_FOLDER`                  | `/repositories` (`/data/repositories` in the all-in-one image)                                    | Where repositories are cloned to be edited with AI. A cache.    |
 | `REPOSITORIES_MAX_SIZE_MB`             | `500`                                                                                             | Repositories bigger than this on disk are refused.              |
@@ -377,14 +377,14 @@ Self-hosted installations send **one anonymous ping per day**, so that we know h
   "version": "1.0.0",
   "nodeVersion": "24.4",
   "projects": 2,
-  "microfrontends": 12,
+  "frontends": 12,
   "environments": 3,
   "users": 4,
   "deploymentsLastWeek": 5
 }
 ```
 
-That is the whole payload: no names, no emails, no URLs, no hostnames, no project or microfrontend content. It is never sent when `NODE_ENV` is not `prod`, so development and CI runs are not counted.
+That is the whole payload: no names, no emails, no URLs, no hostnames, no project or frontend content. It is never sent when `NODE_ENV` is not `prod`, so development and CI runs are not counted.
 
 To turn it off:
 

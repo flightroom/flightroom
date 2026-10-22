@@ -18,7 +18,7 @@ export interface IMarket extends Document<ObjectId> {
     type?: string
     compiler?: string
     /**
-     * File of the build output a microfrontend created from the template is served by, relative
+     * File of the build output a frontend created from the template is served by, relative
      * to the uploaded folder (`assets/remoteEntry.js`, `index.js`, `parcel.js`)
      */
     entryPoint?: string

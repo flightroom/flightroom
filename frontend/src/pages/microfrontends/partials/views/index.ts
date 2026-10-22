@@ -1,4 +1,0 @@
-export * from "./MicrofrontendsBackendFlow"
-export * from "./MicrofrontendsFlow"
-export * from "./MicrofrontendsGrid"
-export * from "./MicrofrontendsTable"

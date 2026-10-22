@@ -4,7 +4,7 @@ import GithubClient from "../client/GithubClient"
 import GitlabClient from "../client/GitlabClient"
 import { createBusinessException } from "../errors/BusinessException"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend, IMicrofrontend } from "../models/MicrofrontendModel"
+import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../models/FrontendModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
@@ -13,7 +13,7 @@ import CodeRepositoryService from "./CodeRepositoryService"
 export const REPOSITORY_CONCURRENCY = 4
 
 export interface RepositoryTarget {
-    microfrontend: IMicrofrontend
+    frontend: IFrontend
     codeRepository: ICodeRepository
     repositoryName: string
 }
@@ -58,8 +58,8 @@ export const mapWithConcurrency = async <T, R>(items: T[], concurrency: number, 
     return results
 }
 
-/** The name a provider knows the repository of a microfrontend or a service by. */
-export const repositoryNameFor = (repository: ICodeRepositoryMicrofrontend | undefined, codeRepository: ICodeRepository): string => {
+/** The name a provider knows the repository of a frontend or a service by. */
+export const repositoryNameFor = (repository: ICodeRepositoryFrontend | undefined, codeRepository: ICodeRepository): string => {
     if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
         return repository?.name || repository?.repositoryId || ""
     }
@@ -70,7 +70,7 @@ export const repositoryNameFor = (repository: ICodeRepositoryMicrofrontend | und
 export const toErrorMessage = (error: unknown): string => (error instanceof Error ? error.message : String(error))
 
 /**
- * Reading and writing files in the repositories backing the microfrontends of a project,
+ * Reading and writing files in the repositories backing the frontends of a project,
  * behind one API for GitHub, GitLab and Azure DevOps.
  *
  * Every caller that walks a project's repositories goes through here: the dependency
@@ -79,34 +79,34 @@ export const toErrorMessage = (error: unknown): string => (error instanceof Erro
  */
 export class RepositoryFileService extends BaseAuthorizedService {
     /**
-     * Every microfrontend of the project backed by a code repository, paired with the
+     * Every frontend of the project backed by a code repository, paired with the
      * connection it belongs to. `codeRepository` is left undefined when the connection
-     * referenced by the microfrontend no longer exists.
+     * referenced by the frontend no longer exists.
      */
     async resolveTargets(projectId: string | Schema.Types.ObjectId): Promise<RepositoryTarget[]> {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
 
-        // A domain-scoped member reaches the repositories of their microfrontends only: the dependency
+        // A domain-scoped member reaches the repositories of their frontends only: the dependency
         // report and the integration plans built on these are theirs too
-        const microfrontends = await Microfrontend.find({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) }).sort({ slug: 1 })
-        const withRepository = microfrontends.filter(microfrontend => microfrontend.codeRepository?.enabled && microfrontend.codeRepository?.codeRepositoryId)
+        const frontends = await Frontend.find({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) }).sort({ slug: 1 })
+        const withRepository = frontends.filter(frontend => frontend.codeRepository?.enabled && frontend.codeRepository?.codeRepositoryId)
 
         if (withRepository.length === 0) {
             return []
         }
 
-        const codeRepositoryIds = [...new Set(withRepository.map(microfrontend => microfrontend.codeRepository!.codeRepositoryId.toString()))]
+        const codeRepositoryIds = [...new Set(withRepository.map(frontend => frontend.codeRepository!.codeRepositoryId.toString()))]
         const codeRepositories = await CodeRepository.find({ _id: { $in: codeRepositoryIds.map(id => toObjectId(id)) } })
         const codeRepositoryById = new Map(codeRepositories.map(codeRepository => [codeRepository._id.toString(), codeRepository]))
 
-        return withRepository.map(microfrontend => {
-            const codeRepository = codeRepositoryById.get(microfrontend.codeRepository!.codeRepositoryId.toString())
+        return withRepository.map(frontend => {
+            const codeRepository = codeRepositoryById.get(frontend.codeRepository!.codeRepositoryId.toString())
 
             return {
-                microfrontend,
+                frontend,
                 codeRepository: codeRepository as ICodeRepository,
-                repositoryName: codeRepository ? this.resolveRepositoryName(microfrontend, codeRepository) : microfrontend.codeRepository?.name || ""
+                repositoryName: codeRepository ? this.resolveRepositoryName(frontend, codeRepository) : frontend.codeRepository?.name || ""
             }
         })
     }
@@ -282,8 +282,8 @@ export class RepositoryFileService extends BaseAuthorizedService {
         })
     }
 
-    private resolveRepositoryName(microfrontend: IMicrofrontend, codeRepository: ICodeRepository): string {
-        return repositoryNameFor(microfrontend.codeRepository, codeRepository)
+    private resolveRepositoryName(frontend: IFrontend, codeRepository: ICodeRepository): string {
+        return repositoryNameFor(frontend.codeRepository, codeRepository)
     }
 
     private unsupportedProvider(codeRepository: ICodeRepository, repositoryName: string) {

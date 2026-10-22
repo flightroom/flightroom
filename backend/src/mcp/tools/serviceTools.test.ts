@@ -117,7 +117,7 @@ describe("service tools", () => {
             const aiContext = {
                 project: { id: PROJECT, name: "Shop" },
                 domains: [],
-                microfrontends: [],
+                frontends: [],
                 services: [{ id: SERVICE, slug: "orders-api", name: "Orders API", context: "Routes live in src/routes" }]
             }
             getContext.mockResolvedValue(aiContext)

@@ -10,7 +10,7 @@ import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
 import useDomainLinksApi, { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
-import useMicrofrontendsApi from "@/hooks/apiClients/useMicrofrontendsApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
 import DomainFormDialog from "./partials/DomainFormDialog"
@@ -30,7 +30,7 @@ const Domains = () => {
     const queryClient = useQueryClient()
     const projectId = useProjectStore(state => state.project?._id)
     const domainsApi = useDomainsApi()
-    const microfrontendsApi = useMicrofrontendsApi()
+    const frontendsApi = useFrontendsApi()
     const servicesApi = useServicesApi()
     const domainLinksApi = useDomainLinksApi()
 
@@ -47,9 +47,9 @@ const Domains = () => {
         enabled: !!projectId
     })
     // The members are only needed by the galaxy, so the cards do not wait for them.
-    const microfrontendsQuery = useQuery({
-        queryKey: ["microfrontends-by-project-id", projectId],
-        queryFn: () => microfrontendsApi.getByProjectId(projectId!),
+    const frontendsQuery = useQuery({
+        queryKey: ["frontends-by-project-id", projectId],
+        queryFn: () => frontendsApi.getByProjectId(projectId!),
         enabled: !!projectId && view === "galaxy"
     })
     const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId && view === "galaxy" })
@@ -60,7 +60,7 @@ const Domains = () => {
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["domains"] })
             await queryClient.invalidateQueries({ queryKey: ["services"] })
-            await queryClient.invalidateQueries({ queryKey: ["microfrontends-by-project-id"] })
+            await queryClient.invalidateQueries({ queryKey: ["frontends-by-project-id"] })
             // The relations of the domain go with it
             await queryClient.invalidateQueries({ queryKey: ["domain-links"] })
         }
@@ -133,10 +133,10 @@ const Domains = () => {
                         ) : (
                             <>
                                 <TabsContent value="galaxy" className="mt-0">
-                                    <ApiStatusHandler queries={[microfrontendsQuery, servicesQuery, domainLinksQuery]} interceptEmpty={false}>
+                                    <ApiStatusHandler queries={[frontendsQuery, servicesQuery, domainLinksQuery]} interceptEmpty={false}>
                                         <DomainGalaxy
                                             domains={domains}
-                                            microfrontends={microfrontendsQuery.data ?? []}
+                                            frontends={frontendsQuery.data ?? []}
                                             services={servicesQuery.data ?? []}
                                             links={domainLinksQuery.data ?? []}
                                             onLink={(sourceDomainId, targetDomainId) => setLinkToCreate({ sourceDomainId, targetDomainId })}
@@ -161,7 +161,7 @@ const Domains = () => {
                                                     <div className="flex flex-wrap gap-4">
                                                         <span className="flex items-center gap-1.5">
                                                             <LayoutDashboard className="size-4" aria-hidden="true" />
-                                                            {t("domains.frontend_count", { count: domain.microfrontendsCount ?? 0 })}
+                                                            {t("domains.frontend_count", { count: domain.frontendsCount ?? 0 })}
                                                         </span>
                                                         <span className="flex items-center gap-1.5">
                                                             <Server className="size-4" aria-hidden="true" />

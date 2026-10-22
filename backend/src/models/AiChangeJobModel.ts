@@ -13,7 +13,7 @@ export enum AiJobStatus {
 }
 
 /**
- * `global` works on every microfrontend and service of the project with a repository, `domain` on those of one
+ * `global` works on every frontend and service of the project with a repository, `domain` on those of one
  * functional domain, its frontend and its backend together, `selection` on the ones the user picked.
  */
 export type AiJobScope = "global" | "domain" | "selection"
@@ -37,8 +37,8 @@ export interface IAiChangeJob extends Document<ObjectId> {
     /** The functional domain the job was asked from: its follow-ups keep it, and the agent is told about it. */
     domainId?: Schema.Types.ObjectId
     /** The repositories the agent works on, in the order they are shown. */
-    microfrontendIds: Schema.Types.ObjectId[]
-    /** The services among them, shown after the microfrontends. */
+    frontendIds: Schema.Types.ObjectId[]
+    /** The services among them, shown after the frontends. */
     serviceIds: Schema.Types.ObjectId[]
     status: AiJobStatus
     /** How hard the agent reasons: the user's choice, else the parent's for a follow-up, else `high`. */
@@ -69,7 +69,7 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         prompt: { type: String, required: true, maxlength: 8_000 },
         scope: { type: String, enum: ["global", "domain", "selection"], required: true },
         domainId: { type: Schema.Types.ObjectId, ref: "Domain" },
-        microfrontendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Microfrontend" }], default: [] },
+        frontendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Frontend" }], default: [] },
         serviceIds: { type: [{ type: Schema.Types.ObjectId, ref: "Service" }], default: [] },
         status: { type: String, enum: Object.values(AiJobStatus), default: AiJobStatus.PENDING, required: true },
         // Jobs from before the effort could be chosen ran at high: they read so.

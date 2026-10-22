@@ -10,8 +10,8 @@ export interface AssistantJobTab {
     rootJobId: string
     /** The latest job of the chain: the one polled and followed up. */
     jobId: string
-    /** Set when the job works on one repository: the tab is named after its microfrontend. */
-    microfrontendName?: string
+    /** Set when the job works on one repository: the tab is named after its frontend. */
+    frontendName?: string
     repositoryCount: number
     /** Of the latest job. In memory only: polling fills it in again after a reload. */
     status?: AiJobStatus
@@ -41,7 +41,7 @@ const MAX_DISMISSED = 50
 const toTab = (job: AiJob): AssistantJobTab => ({
     rootJobId: job.rootJobId,
     jobId: job._id,
-    microfrontendName: job.repositories.length === 1 ? job.repositories[0].microfrontendName : undefined,
+    frontendName: job.repositories.length === 1 ? job.repositories[0].frontendName : undefined,
     repositoryCount: job.repositories.length,
     status: job.status
 })

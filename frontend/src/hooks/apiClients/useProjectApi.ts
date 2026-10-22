@@ -62,7 +62,7 @@ export interface ProjectSummaryDTO {
     count: {
         environments: number
         users: number
-        microfrontends: number
+        frontends: number
         codeRepositories: number
         apiKeys: number
         storages: number

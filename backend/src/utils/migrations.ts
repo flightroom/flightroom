@@ -1,12 +1,15 @@
 import { FastifyBaseLogger } from "fastify"
-import { Model, ObjectId, QueryFilter } from "mongoose"
+import { Model, mongo, ObjectId, QueryFilter } from "mongoose"
 import AiChangeJob from "../models/AiChangeJobModel"
 import AiChangeRequest from "../models/AiChangeRequestModel"
 import AssistantConversation from "../models/AssistantConversationModel"
+import BuiltFrontend from "../models/BuiltFrontendModel"
 import CodeRepository, { CODE_REPOSITORY_SECRET_PATHS } from "../models/CodeRepositoryModel"
 import Database, { DATABASE_SECRET_PATHS } from "../models/DatabaseModel"
 import Deployment, { IDeployment } from "../models/DeploymentModel"
-import Microfrontend, { CanaryType, IMicrofrontend } from "../models/MicrofrontendModel"
+import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
+import FrontendDeployment from "../models/FrontendDeploymentModel"
+import Frontend, { CanaryType, FrontendKind, IFrontend } from "../models/FrontendModel"
 import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
@@ -26,8 +29,8 @@ const LEGACY_CANARY_TYPES = ["ON_SESSIONS", "COOKIE_BASED"]
 /**
  * Rewrites the canary types written by the previous model.
  *
- * It has to touch deployments as well as microfrontends: a deployment stores a snapshot of the
- * microfrontends it shipped, and that snapshot is what the serve API reads, so leaving it alone would
+ * It has to touch deployments as well as frontends: a deployment stores a snapshot of the
+ * frontends it shipped, and that snapshot is what the serve API reads, so leaving it alone would
  * turn the canary of every already deployed environment off until the next deploy.
  *
  * Idempotent by construction — the filter only matches documents still holding a legacy value — so it
@@ -36,24 +39,138 @@ const LEGACY_CANARY_TYPES = ["ON_SESSIONS", "COOKIE_BASED"]
 export const migrateLegacyCanaryTypes = async (logger: FastifyBaseLogger): Promise<void> => {
     // Cast on the filters only: a dotted path into a subdocument is not expressible in the typed
     // QueryFilter, and spelling it out is what keeps this a single update per collection.
-    const microfrontends = await Microfrontend.updateMany({ "canary.type": { $in: LEGACY_CANARY_TYPES } } as QueryFilter<IMicrofrontend>, {
+    const frontends = await Frontend.updateMany({ "canary.type": { $in: LEGACY_CANARY_TYPES } } as QueryFilter<IFrontend>, {
         $set: { "canary.type": CanaryType.ON_SESSION }
     })
 
     const deployments = await Deployment.updateMany(
-        { "microfrontends.canary.type": { $in: LEGACY_CANARY_TYPES } } as QueryFilter<IDeployment>,
-        { $set: { "microfrontends.$[microfrontend].canary.type": CanaryType.ON_SESSION } },
-        { arrayFilters: [{ "microfrontend.canary.type": { $in: LEGACY_CANARY_TYPES } }] }
+        { "frontends.canary.type": { $in: LEGACY_CANARY_TYPES } } as QueryFilter<IDeployment>,
+        { $set: { "frontends.$[frontend].canary.type": CanaryType.ON_SESSION } },
+        { arrayFilters: [{ "frontend.canary.type": { $in: LEGACY_CANARY_TYPES } }] }
     )
 
-    if (microfrontends.modifiedCount > 0 || deployments.modifiedCount > 0) {
-        logger.info(`Migrated legacy canary types on ${microfrontends.modifiedCount} microfrontend(s) and ${deployments.modifiedCount} deployment(s)`)
+    if (frontends.modifiedCount > 0 || deployments.modifiedCount > 0) {
+        logger.info(`Migrated legacy canary types on ${frontends.modifiedCount} frontend(s) and ${deployments.modifiedCount} deployment(s)`)
     }
 }
 
 /** MongoDB's codes for a collection, or an index, that does not exist. */
 const NAMESPACE_NOT_FOUND = 26
 const INDEX_NOT_FOUND = 27
+
+/** The collection the frontends were stored in while the model was called Microfrontend */
+const LEGACY_FRONTEND_COLLECTION = "microfrontends"
+
+/** The kinds as they were stored before BUNDLE and DOCKER, with what each one became */
+const LEGACY_FRONTEND_KINDS: Array<[string, FrontendKind]> = [
+    ["MICROFRONTEND", FrontendKind.BUNDLE],
+    ["FRONTEND", FrontendKind.DOCKER]
+]
+
+/** Runs a drop or a rename that a second replica, migrating at the same time, may have already done */
+const unlessAlreadyGone = async (operation: Promise<unknown>): Promise<void> => {
+    try {
+        await operation
+    } catch (error) {
+        const code = (error as { code?: unknown } | null)?.code
+        if (code !== NAMESPACE_NOT_FOUND && code !== INDEX_NOT_FOUND) throw error
+    }
+}
+
+/**
+ * Moves the frontends of the legacy collection that `frontends` does not hold yet, then drops the legacy
+ * one. It is what a rolling update leaves behind: the pod still on the previous version keeps writing to
+ * the old collection after the new one renamed it. A frontend whose slug was taken again in the meantime
+ * cannot be moved: the legacy collection is then kept and the conflict logged.
+ */
+const mergeLegacyFrontends = async (logger: FastifyBaseLogger, legacy: mongo.Collection): Promise<void> => {
+    let moved = 0
+    let conflicts = 0
+    for await (const { _id, ...fields } of legacy.find()) {
+        try {
+            moved += (await Frontend.collection.updateOne({ _id }, { $setOnInsert: fields }, { upsert: true })).upsertedCount
+        } catch (error) {
+            conflicts++
+            logger.error({ error }, `Frontend ${_id} of ${LEGACY_FRONTEND_COLLECTION} could not be moved`)
+        }
+    }
+
+    if (conflicts > 0) {
+        logger.error(`${conflicts} frontend(s) of ${LEGACY_FRONTEND_COLLECTION} could not be moved: the collection is kept, merge them by hand`)
+    } else {
+        await unlessAlreadyGone(legacy.drop())
+        logger.info(`Moved ${moved} frontend(s) from ${LEGACY_FRONTEND_COLLECTION} and dropped it`)
+    }
+}
+
+/**
+ * Moves what was stored under the Microfrontend name to the Frontend one: the collection, the fields
+ * of the other collections pointing at a frontend, the deployment snapshots and the kinds.
+ *
+ * Before the other migrations touching a frontend: they read them through the new names. Mongoose may
+ * have created an empty `frontends` collection with its indexes before this runs, so the legacy one
+ * replaces it; one already holding documents gets the legacy frontends merged into it.
+ *
+ * The indexes on a renamed field are dropped whether documents still carry it or not: Mongoose builds
+ * them on empty collections too, and the unique one of the built frontends, left on a field no document
+ * has any more, would refuse the second image registered with a version already used by another frontend.
+ * They are dropped before the rename, which that index would otherwise refuse as well, and built again after.
+ *
+ * Idempotent, and safe with a second replica migrating at the same time: once nothing carries a legacy
+ * name or kind, it costs one listing, a few index listings and a few empty updates.
+ */
+export const migrateMicrofrontendsToFrontends = async (logger: FastifyBaseLogger): Promise<void> => {
+    const db = Frontend.db.db
+    if (!db) return
+
+    const [legacy] = await db.listCollections({ name: LEGACY_FRONTEND_COLLECTION }, { nameOnly: true }).toArray()
+    if (legacy) {
+        const target = Frontend.collection.collectionName
+        if ((await db.collection(target).countDocuments({}, { limit: 1 })) > 0) {
+            await mergeLegacyFrontends(logger, db.collection(LEGACY_FRONTEND_COLLECTION))
+        } else {
+            await unlessAlreadyGone(db.renameCollection(LEGACY_FRONTEND_COLLECTION, target, { dropTarget: true }))
+            await Frontend.createIndexes()
+            logger.info(`Renamed the collection ${LEGACY_FRONTEND_COLLECTION} to ${target}`)
+        }
+    }
+
+    // The models have nothing in common but these fields, so they are walked through the loosest shape
+    type FrontendReference = Model<Record<string, unknown>>
+    const fields: Array<[FrontendReference, string, string]> = [
+        [BuiltFrontend as unknown as FrontendReference, "microfrontendId", "frontendId"],
+        [FrontendDeployment as unknown as FrontendReference, "microfrontendId", "frontendId"],
+        [DeploymentToCanaryUsers as unknown as FrontendReference, "microfrontendId", "frontendId"],
+        [AiChangeRequest as unknown as FrontendReference, "microfrontendId", "frontendId"],
+        [AiChangeJob as unknown as FrontendReference, "microfrontendIds", "frontendIds"],
+        [Deployment as unknown as FrontendReference, "microfrontends", "frontends"]
+    ]
+    for (const [model, from, to] of fields) {
+        const { collection } = model
+        const indexes = await collection.indexes().catch(error => {
+            if ((error as { code?: unknown } | null)?.code === NAMESPACE_NOT_FOUND) return []
+            throw error
+        })
+        const stale = indexes.filter(index => index.name && Object.keys(index.key).some(key => key === from || key.startsWith(`${from}.`)))
+        for (const index of stale) {
+            await unlessAlreadyGone(collection.dropIndex(index.name as string))
+        }
+
+        const { modifiedCount } = await collection.updateMany({ [from]: { $exists: true } }, { $rename: { [from]: to } })
+        if (stale.length > 0 || modifiedCount > 0) {
+            await model.createIndexes()
+            logger.info(`Renamed ${from} to ${to} on ${modifiedCount} document(s) of ${collection.collectionName}, dropping ${stale.length} index(es) on it`)
+        }
+    }
+
+    for (const [from, to] of LEGACY_FRONTEND_KINDS) {
+        const frontends = await Frontend.collection.updateMany({ kind: from }, { $set: { kind: to } })
+        const deployments = await Deployment.collection.updateMany({ "frontends.kind": from }, { $set: { "frontends.$[legacy].kind": to } }, { arrayFilters: [{ "legacy.kind": from }] })
+        if (frontends.modifiedCount > 0 || deployments.modifiedCount > 0) {
+            logger.info(`Migrated the kind ${from} to ${to} on ${frontends.modifiedCount} frontend(s) and ${deployments.modifiedCount} deployment(s)`)
+        }
+    }
+}
 
 /**
  * Removes the expiry the first version of the assistant history had: a TTL index on `expiresAt`,
@@ -231,7 +348,7 @@ const conversationOf = async (request: AiChangeRequestLinks): Promise<ObjectId> 
 
 /**
  * Gives every AI change request written before requests carried their conversation the one it belongs to:
- * the console groups the requests of a microfrontend by it. Idempotent: only the requests still without
+ * the console groups the requests of a frontend by it. Idempotent: only the requests still without
  * one are read, so once they are all done it costs one empty query.
  */
 export const backfillAiChangeConversations = async (logger: FastifyBaseLogger): Promise<void> => {
@@ -250,9 +367,12 @@ export const backfillAiChangeConversations = async (logger: FastifyBaseLogger): 
  * Every data migration the application needs, run once the database connection is up.
  *
  * A failure is logged and swallowed: none of these is required for the process to serve traffic, and
- * refusing to boot over one would take the whole console down for a data fix.
+ * refusing to boot over one would take the whole console down for a data fix. Except the move of the
+ * frontends to their new names, which runs first and is let through: without it the console would
+ * boot showing no frontend and every deployment would serve nothing, so a failed boot, retried, is better.
  */
 export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> => {
+    await migrateMicrofrontendsToFrontends(logger)
     try {
         // First: everything else in the application reads a project through its organization, so a
         // project still missing one would be invisible to whoever owns it.

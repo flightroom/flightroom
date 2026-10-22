@@ -73,7 +73,7 @@ export class LocalChangeService extends BaseAuthorizedService {
     async checkout(ref: RepositoryComponentRef): Promise<RepositoryCheckout> {
         const component = await this.getComponent(ref)
         const workspace = await new RepositoryWorkspaceService(this.user).open(component)
-        const focus = component.kind === "service" ? { serviceId: ref.id } : { microfrontendId: ref.id }
+        const focus = component.kind === "service" ? { serviceId: ref.id } : { frontendId: ref.id }
         const aiContext = await new ProjectService(this.user).getContext(component.projectId.toString(), focus)
         return {
             kind: component.kind,

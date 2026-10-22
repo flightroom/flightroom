@@ -4,7 +4,7 @@ import { AlertTriangle, CheckCircle2, GitBranch } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
-import useDependenciesApi, { AlignmentApplyResult, MicrofrontendAlignmentChange } from "@/hooks/apiClients/useDependenciesApi"
+import useDependenciesApi, { AlignmentApplyResult, FrontendAlignmentChange } from "@/hooks/apiClients/useDependenciesApi"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 const DEFAULT_BRANCH_NAME = "chore/align-peer-dependencies"
@@ -12,12 +12,12 @@ const DEFAULT_BRANCH_NAME = "chore/align-peer-dependencies"
 export interface AlignPeerDependenciesDialogProps {
     isOpen: boolean
     onOpenChange: (open: boolean) => void
-    /** Branch compared for each microfrontend: the alignment branch is created from it */
+    /** Branch compared for each frontend: the alignment branch is created from it */
     branches: Record<string, string>
     onApplied?: () => void | Promise<void>
 }
 
-const ChangeList: React.FC<{ changes: MicrofrontendAlignmentChange[] }> = ({ changes }) => (
+const ChangeList: React.FC<{ changes: FrontendAlignmentChange[] }> = ({ changes }) => (
     <ul className="mt-1 flex flex-col gap-1">
         {changes.map(change => (
             <li key={change.name} className="text-sm">
@@ -68,7 +68,7 @@ export const AlignPeerDependenciesDialog: React.FC<AlignPeerDependenciesDialogPr
     }
 
     const plan = planQuery.data
-    const hasChanges = Boolean(plan?.microfrontends.length)
+    const hasChanges = Boolean(plan?.frontends.length)
 
     return (
         <Dialog open={isOpen} onOpenChange={handleOpenChange}>
@@ -81,7 +81,7 @@ export const AlignPeerDependenciesDialog: React.FC<AlignPeerDependenciesDialogPr
                 {result ? (
                     <div className="flex flex-col gap-3">
                         {result.results.map(item => (
-                            <div key={item.microfrontendId} className="rounded-md border-2 border-border p-3">
+                            <div key={item.frontendId} className="rounded-md border-2 border-border p-3">
                                 <div className="flex flex-wrap items-center gap-2">
                                     <span className="font-medium">{item.name}</span>
                                     <span className="text-sm text-foreground-secondary">{item.repositoryName}</span>
@@ -118,8 +118,8 @@ export const AlignPeerDependenciesDialog: React.FC<AlignPeerDependenciesDialogPr
                         </label>
 
                         <div className="flex flex-col gap-3">
-                            {plan?.microfrontends.map(item => (
-                                <div key={item.microfrontendId} className="rounded-md border-2 border-border p-3">
+                            {plan?.frontends.map(item => (
+                                <div key={item.frontendId} className="rounded-md border-2 border-border p-3">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <span className="font-medium">{item.name}</span>
                                         <span className="text-sm text-foreground-secondary">{item.repositoryName}</span>

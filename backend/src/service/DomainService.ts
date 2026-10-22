@@ -4,7 +4,7 @@ import { BusinessException, createBusinessException } from "../errors/BusinessEx
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Domain, { IDomain } from "../models/DomainModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend } from "../models/MicrofrontendModel"
+import Frontend, { ICodeRepositoryFrontend } from "../models/FrontendModel"
 import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
 import DomainDTO, { DomainBuildFailure, DomainBuildRepository, DomainBuildResult, DomainMembersDTO } from "../types/DomainDTO"
@@ -19,7 +19,7 @@ import { repositoryKeys } from "./repositoryLinks"
 import TemplateScaffoldService, { TagLookupError, TagTarget } from "./TemplateScaffoldService"
 
 /**
- * The domain a microfrontend or a service is put in, as it is stored: null when it is taken out of
+ * The domain a frontend or a service is put in, as it is stored: null when it is taken out of
  * any. A domain of another project is refused as missing, as a code repository connection is:
  * membership must never reach across projects.
  */
@@ -78,13 +78,13 @@ const countBy = (members: { domainId?: unknown }[]): Map<string, number> => {
 /** A repository linked to members of a domain, with every member that links to it */
 interface BuildRepository {
     id: string
-    link: ICodeRepositoryMicrofrontend
+    link: ICodeRepositoryFrontend
     /** What tells the repository, as {@link repositoryKeys} gives it: another link with any of them is the same repository */
     keys: Set<string>
     members: DomainBuildRepository["members"]
 }
 
-type BuildMember = { kind: "microfrontend" | "service"; _id: unknown; name: string; codeRepository?: ICodeRepositoryMicrofrontend }
+type BuildMember = { kind: "frontend" | "service"; _id: unknown; name: string; codeRepository?: ICodeRepositoryFrontend }
 
 /**
  * The members' repositories, once each: two members linked to the same repository would otherwise tag it twice.
@@ -176,22 +176,22 @@ export class DomainService extends BaseAuthorizedService {
         return domain
     }
 
-    /** The domains of the project, each with how many microfrontends and services it groups */
+    /** The domains of the project, each with how many frontends and services it groups */
     async getByProjectId(projectId: string | Schema.Types.ObjectId) {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
         // The counts need no filter of their own: every member of a domain in scope is in scope too
         const inScope = await this.domainScopeFilter(projectIdObj, "_id")
-        const [domains, microfrontends, services] = await Promise.all([
+        const [domains, frontends, services] = await Promise.all([
             Domain.find({ projectId: projectIdObj, ...inScope }).sort({ name: 1 }),
-            Microfrontend.find({ projectId: projectIdObj, domainId: { $ne: null } }, { domainId: 1 }),
+            Frontend.find({ projectId: projectIdObj, domainId: { $ne: null } }, { domainId: 1 }),
             Service.find({ projectId: projectIdObj, domainId: { $ne: null } }, { domainId: 1 })
         ])
-        const microfrontendCounts = countBy(microfrontends)
+        const frontendCounts = countBy(frontends)
         const serviceCounts = countBy(services)
         return domains.map(domain => ({
             ...domain.toObject(),
-            microfrontendsCount: microfrontendCounts.get(String(domain._id)) ?? 0,
+            frontendsCount: frontendCounts.get(String(domain._id)) ?? 0,
             servicesCount: serviceCounts.get(String(domain._id)) ?? 0
         }))
     }
@@ -257,28 +257,28 @@ export class DomainService extends BaseAuthorizedService {
     }
 
     /**
-     * Puts microfrontends and services in the domain, taking them out of the one they were in. Only members of
+     * Puts frontends and services in the domain, taking them out of the one they were in. Only members of
      * the domain's project are moved: an id of another project is left as it is, never pulled across projects.
      */
-    async addMembers(id: string | ObjectId, dto: DomainMembersDTO): Promise<{ microfrontends: number; services: number }> {
+    async addMembers(id: string | ObjectId, dto: DomainMembersDTO): Promise<{ frontends: number; services: number }> {
         const domain = await this.getById(id)
         if (!domain) {
             throw new EntityNotFoundError(String(id))
         }
         // Moving members between domains moves them in or out of the scopes of other members
         await this.ensureWholeProject(domain.projectId)
-        const microfrontendIds = ensureIdList("microfrontendIds", dto?.microfrontendIds)
+        const frontendIds = ensureIdList("frontendIds", dto?.frontendIds)
         const serviceIds = ensureIdList("serviceIds", dto?.serviceIds)
         return runInTransaction(async session => {
             const membership = { $set: { domainId: domain._id } }
-            const microfrontends = await Microfrontend.updateMany({ _id: { $in: microfrontendIds }, projectId: domain.projectId }, membership, { session })
+            const frontends = await Frontend.updateMany({ _id: { $in: frontendIds }, projectId: domain.projectId }, membership, { session })
             const services = await Service.updateMany({ _id: { $in: serviceIds }, projectId: domain.projectId }, membership, { session })
-            return { microfrontends: microfrontends.matchedCount, services: services.matchedCount }
+            return { frontends: frontends.matchedCount, services: services.matchedCount }
         })
     }
 
     /**
-     * Releases the whole domain: tags the repository of each of its microfrontends and services with the same
+     * Releases the whole domain: tags the repository of each of its frontends and services with the same
      * `version`, on the same `ref` (main by default), as their own builds do one at a time. Every repository is
      * checked first (its connection, the domain scope, the ref, a tag of that name): when one fails, none is
      * tagged and the refusal lists each one. A tag that still fails afterwards leaves the others made, and the
@@ -301,12 +301,12 @@ export class DomainService extends BaseAuthorizedService {
         await this.ensureNotViewer(domain.projectId, { code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain" })
 
         const inDomain = { projectId: domain.projectId, domainId: domain._id }
-        const [microfrontends, services] = await Promise.all([Microfrontend.find(inDomain, { name: 1, codeRepository: 1 }), Service.find(inDomain, { name: 1, codeRepository: 1 })])
-        if (microfrontends.length + services.length === 0) {
-            throw createBusinessException({ code: "DOMAIN_BUILD_EMPTY", message: "The domain has no microfrontend nor service to build" })
+        const [frontends, services] = await Promise.all([Frontend.find(inDomain, { name: 1, codeRepository: 1 }), Service.find(inDomain, { name: 1, codeRepository: 1 })])
+        if (frontends.length + services.length === 0) {
+            throw createBusinessException({ code: "DOMAIN_BUILD_EMPTY", message: "The domain has no frontend nor service to build" })
         }
         const members: BuildMember[] = [
-            ...microfrontends.map(member => ({ kind: "microfrontend" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository })),
+            ...frontends.map(member => ({ kind: "frontend" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository })),
             ...services.map(member => ({ kind: "service" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository }))
         ]
         // The provider decides which of name and GitLab path tells a repository
@@ -314,7 +314,7 @@ export class DomainService extends BaseAuthorizedService {
         const connections = connectionIds.length > 0 ? await CodeRepository.find({ _id: { $in: connectionIds.map(toObjectId) } }, { provider: 1 }) : []
         const repositories = repositoriesOf(members, new Map(connections.map(connection => [String(connection._id), connection.provider])))
         if (repositories.length === 0) {
-            throw createBusinessException({ code: "DOMAIN_BUILD_NO_REPOSITORIES", message: "No microfrontend nor service of the domain has a linked code repository to tag" })
+            throw createBusinessException({ code: "DOMAIN_BUILD_NO_REPOSITORIES", message: "No frontend nor service of the domain has a linked code repository to tag" })
         }
 
         const scaffold = new TemplateScaffoldService(this.user)
@@ -358,7 +358,7 @@ export class DomainService extends BaseAuthorizedService {
     }
 
     /**
-     * Deletes the domain only: its microfrontends and services stay, without a domain. The memberships
+     * Deletes the domain only: its frontends and services stay, without a domain. The memberships
      * scoped to it lose it from their scope and stay scoped, even when it was their last domain: they
      * then reach nothing rather than the whole project, until an owner gives them a new scope.
      */
@@ -371,7 +371,7 @@ export class DomainService extends BaseAuthorizedService {
         return runInTransaction(async session => {
             const members = { projectId: domain.projectId, domainId: domain._id }
             // null, as the forms store "no domain": the filters and the counts treat it as a missing domainId
-            await Microfrontend.updateMany(members, { $set: { domainId: null } }, { session })
+            await Frontend.updateMany(members, { $set: { domainId: null } }, { session })
             await Service.updateMany(members, { $set: { domainId: null } }, { session })
             await UserProject.updateMany({ projectId: domain.projectId, domainIds: domain._id }, { $pull: { domainIds: domain._id } }, { session })
             await deleteLinksOfDomain(domain._id, session)

@@ -211,7 +211,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
     }
 
     /**
-     * A connection about to be changed: the connections lend their token to every microfrontend and
+     * A connection about to be changed: the connections lend their token to every frontend and
      * service of the project, so only those reaching the whole project manage them.
      */
     private async findForWrite(repositoryId: string, session?: ClientSession): Promise<ICodeRepository | null> {
