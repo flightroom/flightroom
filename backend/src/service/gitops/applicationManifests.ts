@@ -15,7 +15,7 @@ export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: mfe-orches
 /** What a values file is made from: a backend service, or a DOCKER, which runs as a container the same way */
 export interface GitOpsApplication {
     slug: string
-    /** The latest version the CI registered: the tag of the image */
+    /** The latest version the CI registered, or the one set by hand: the tag of the image */
     version?: string
     image?: { repository?: string }
     port?: number
@@ -31,9 +31,16 @@ export interface GitOpsApplication {
 /** The values file of an application, at the root of the branch of each environment */
 export const applicationValuesPath = (application: Pick<GitOpsApplication, "slug">) => `${application.slug}.yaml`
 
+/**
+ * The image an application runs, without tag: its own repository, otherwise `<containerRegistry>/<slug>` when the
+ * project has a container registry, so that a CI that never registers its versions still gets deployed. None without either.
+ */
+export const applicationImageRepository = (application: Pick<GitOpsApplication, "slug" | "image">, containerRegistry?: string): string | undefined =>
+    application.image?.repository?.trim() || (containerRegistry ? `${containerRegistry}/${application.slug}` : undefined)
+
 /** Only what has an image and a version can be installed: the others are left out of the deploy */
-export const isDeployable = (application: GitOpsApplication): application is GitOpsApplication & { version: string; image: { repository: string } } =>
-    Boolean(application.version && application.image?.repository)
+export const isDeployable = (application: GitOpsApplication, containerRegistry?: string): application is GitOpsApplication & { version: string } =>
+    Boolean(application.version && applicationImageRepository(application, containerRegistry))
 
 /** `ghcr.io/acme/orders-api` as the chart takes it: the registry, then the rest. An image of Docker Hub has no registry in front */
 export const splitImage = (repository: string): { host: string; name: string } => {
@@ -65,20 +72,25 @@ export interface ApplicationGateway {
 /**
  * The values of one application in one environment. The config maps and the secrets go by name: the
  * configuration repository holds them, as manifests in the namespace of the environment. With a Gateway in
- * the environment, an application with an exposure path gets a route on it.
+ * the environment, an application with an exposure path gets a route on it. Without an image repository of
+ * its own, the image is the one in the container registry of the project.
  */
 export const renderApplicationValues = (
-    application: GitOpsApplication & { version: string; image: { repository: string } },
+    application: GitOpsApplication & { version: string },
     environment: { _id: unknown; slug: string },
     mapNames: { configMaps: Map<string, string>; secrets: Map<string, string> },
-    gateway?: ApplicationGateway
+    gateway?: ApplicationGateway,
+    containerRegistry?: string
 ): string => {
+    const repository = applicationImageRepository(application, containerRegistry)
+    // isDeployable lets through only what has one: values without an image would be a Deployment that never starts
+    if (!repository) throw new Error(`${application.slug} has no image repository and the project no container registry`)
     const names = (ids: unknown[] | undefined, byId: Map<string, string>) => (ids ?? []).map(id => byId.get(String(id))).filter((name): name is string => Boolean(name))
     const ingress = ingressOf(application, String(environment._id))
     const route = gateway && application.exposurePath ? { gateway: gateway.name, listener: gateway.listener, path: application.exposurePath, hsts: gateway.hsts } : undefined
     const values = {
         replicas: 1,
-        image: { ...splitImage(application.image.repository), tag: application.version },
+        image: { ...splitImage(repository), tag: application.version },
         containerPort: application.port ?? 8080,
         probes: {
             liveness: { active: Boolean(application.livenessPath), path: application.livenessPath ?? "/" },

@@ -12,9 +12,20 @@ import useGitOpsErrorMessage from "@/hooks/apiClients/useGitOpsErrorMessage"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import { ArgoCdSection, DangerZone, GitOpsSection, PipelineTemplatesSection, ProjectContextSection, ProjectExposureSection, ProjectInfoSection, ProjectStatsSection } from "./partials"
+import {
+    ArgoCdSection,
+    DangerZone,
+    GitOpsSection,
+    PipelineTemplatesSection,
+    ProjectContainerRegistrySection,
+    ProjectContextSection,
+    ProjectExposureSection,
+    ProjectInfoSection,
+    ProjectStatsSection
+} from "./partials"
 import type { GitOpsFormValues } from "./partials/GitOpsSection"
 import type { PipelineTemplatesFormValues } from "./partials/PipelineTemplatesSection"
+import type { ProjectContainerRegistryFormValues } from "./partials/ProjectContainerRegistrySection"
 import type { ProjectContextFormValues } from "./partials/ProjectContextSection"
 import type { ProjectExposureFormValues } from "./partials/ProjectExposureSection"
 import type { ProjectInfoFormValues } from "./partials/ProjectInfoSection"
@@ -102,6 +113,20 @@ export const Settings: React.FC = () => {
         },
         onError: () => {
             notifications.showErrorNotification({ message: t("settings.notifications.exposureUpdateFailed") })
+        }
+    })
+
+    const updateContainerRegistryMutation = useMutation({
+        // Un registry svuotato vuol dire "nessuno", che l'API esprime con un null esplicito
+        mutationFn: (values: ProjectContainerRegistryFormValues) => projectApi.updateProject(project._id, { containerRegistry: values.containerRegistry.trim() || null }),
+        onSuccess: updated => {
+            // Il form dei servizi e dei frontend Docker legge il registry dallo store per mostrare l'immagine deployata
+            setProject({ ...project, containerRegistry: updated.containerRegistry })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            notifications.showSuccessNotification({ message: t("settings.notifications.containerRegistryUpdated") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("settings.notifications.containerRegistryUpdateFailed") })
         }
     })
 
@@ -222,6 +247,14 @@ export const Settings: React.FC = () => {
 
                         {projectData?.gitOps?.enabled && projectData.gitOps.codeRepository && (
                             <ProjectExposureSection exposure={projectData.exposure} onUpdate={values => updateExposureMutation.mutate(values)} isUpdating={updateExposureMutation.isPending} />
+                        )}
+
+                        {projectData?.gitOps?.enabled && projectData.gitOps.codeRepository && (
+                            <ProjectContainerRegistrySection
+                                containerRegistry={projectData.containerRegistry}
+                                onUpdate={values => updateContainerRegistryMutation.mutate(values)}
+                                isUpdating={updateContainerRegistryMutation.isPending}
+                            />
                         )}
 
                         {/* Argo CD deploya cio che il GitOps salvato committa: senza repository di configurazione non c'e' niente da consegnargli */}

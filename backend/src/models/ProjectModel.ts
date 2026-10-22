@@ -1,5 +1,6 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
+import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
@@ -114,6 +115,11 @@ export interface IProject extends Document<ObjectId> {
     exposure?: IProjectExposure
     pipelines?: IProjectPipelines
     /**
+     * Where the images of the services and of the DOCKER frontends are pushed, e.g. `ghcr.io/acme`: one with no
+     * image repository of its own is deployed as `<containerRegistry>/<slug>`.
+     */
+    containerRegistry?: string
+    /**
      * The AIs of the organization the project may use, by id (`system` for the one of the environment).
      * Unset: all of them, the ones added later included. Empty: AI is off for the project.
      */
@@ -180,6 +186,7 @@ const projectSchema = new Schema<IProject>(
             codeRepository: { type: Schema.Types.Mixed },
             ref: { type: String, trim: true }
         },
+        containerRegistry: { type: String, trim: true, match: CONTAINER_REGISTRY },
         // No default: an empty array would turn AI off, where unset means every AI of the organization
         aiModelIds: { type: [String], default: undefined }
     },

@@ -8,12 +8,10 @@ import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_DESCRIPTION_KEYS, CANARY
 interface ReleaseSectionProps {
     isEdit?: boolean
     versions?: string[]
-    /** The version of the saved document: a DOCKER shows it, as only its pipeline sets it */
-    savedVersion?: string
 }
 
 /** Version and canary settings: the two knobs that decide what gets served, kept above the tabs so they are always visible. */
-export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions, savedVersion }) => {
+export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions }) => {
     const { t } = useTranslation()
     const { watch } = useFormContext()
     const canaryEnabled = watch("canary.enabled")
@@ -23,8 +21,8 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
     // On User is an explicit enrolment, not a split: there is no traffic share to set, so asking for a
     // percentage would only suggest it does something.
     const isPercentageBased = canaryType !== CanaryType.ON_USER
-    // A DOCKER is served by its own container, which Flightroom cannot split traffic for, and its
-    // pipeline sets the version: neither is edited here
+    // A DOCKER is served by its own container, which Flightroom cannot split traffic for: no canary. Its
+    // version is the tag of its image, typed here or set by its pipeline, with no bundle to pick from
     const isDocker = watch("kind") === FrontendKind.DOCKER
 
     return (
@@ -36,11 +34,13 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
             <CardContent className="flex flex-col gap-4 pt-3">
                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                     {isDocker ? (
-                        <div className="flex flex-[1_1_240px] flex-col gap-1">
-                            <span className="text-sm font-medium">{t("frontend.version")}</span>
-                            <span className="font-mono text-sm">{savedVersion || "—"}</span>
-                            <span className="text-xs text-foreground-secondary">{t("frontend.kind.version_from_pipeline")}</span>
-                        </div>
+                        <TextField
+                            name="version"
+                            label={t("frontend.version")}
+                            placeholder={t("frontend.version_placeholder")}
+                            description={t("frontend.kind.version_from_pipeline")}
+                            containerClassName="flex-[1_1_240px]"
+                        />
                     ) : hasVersionHistory ? (
                         <>
                             <SelectField

@@ -141,11 +141,11 @@ const nameClash = (name: string) =>
         details: { name }
     })
 
-/** The services and frontends a deploy writes the values of: those with an image and a version */
-const deployableSlugs = async (projectId: Schema.Types.ObjectId): Promise<string[]> => {
+/** The services and frontends a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
+const deployableSlugs = async (projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<string[]> => {
     const fields = { slug: 1, version: 1, image: 1 }
     const applications: GitOpsApplication[] = [...(await Service.find({ projectId }, fields)), ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields))]
-    return applications.filter(isDeployable).map(application => application.slug)
+    return applications.filter(application => isDeployable(application, containerRegistry)).map(application => application.slug)
 }
 
 const environmentsOf = async (projectId: Schema.Types.ObjectId) =>
@@ -243,7 +243,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         await this.acquire(projectIdObj, lease)
         try {
             // Read again under the lease: a run that ended meanwhile may have rotated the tokens read above
-            const current = await Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1 })
+            const current = await Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 })
             if (!current) throw new ProjectNotFoundError(String(projectId))
             const gitOps = current.gitOps
             if (!gitOps?.enabled || !gitOps.codeRepository) throw gitOpsRequired()
@@ -278,7 +278,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                     configurationRepoUrl: repoUrlOf("configuration"),
                     applicationsRepoUrl: repoUrlOf("applications"),
                     environments,
-                    ...(applicationsTarget ? { applications: await deployableSlugs(projectIdObj), applicationBranches: await this.branchesOf(applicationsTarget) } : {})
+                    ...(applicationsTarget ? { applications: await deployableSlugs(projectIdObj, current.containerRegistry), applicationBranches: await this.branchesOf(applicationsTarget) } : {})
                 })
                 const clash = clashingName(state)
                 if (clash) throw nameClash(clash)
@@ -406,7 +406,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         // Stored only while no initialization runs: the one that runs re-aligns everything, and saves over it
         const idle = { _id: projectId, "argoCd.initializingAt": { $exists: false } }
         try {
-            const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
+            const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 })
             const argoCd = project?.argoCd
             const link = project?.gitOps?.enabled ? project.gitOps.applicationsCodeRepository : undefined
             if (!project || !link || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) return
@@ -432,7 +432,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                 configurationRepoUrl: argoCd.repositories?.configuration?.repoUrl,
                 applicationsRepoUrl: repoUrl,
                 environments: await environmentsOf(projectId),
-                applications: await deployableSlugs(projectId),
+                applications: await deployableSlugs(projectId, project.containerRegistry),
                 applicationBranches: await this.branchesOf({ link, connection })
             }
             const clash = clashingName(buildArgoCdState(target))

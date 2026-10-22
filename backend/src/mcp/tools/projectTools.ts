@@ -4,6 +4,7 @@ import { CONTEXT_MAX_LENGTH } from "../../models/ProjectModel"
 import MarketService from "../../service/MarketService"
 import ProjectService, { ContextFocus } from "../../service/ProjectService"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../../types/Exposure"
+import { CONTAINER_REGISTRY } from "../../types/ServiceStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
 
@@ -49,7 +50,7 @@ export const projectTools = [
         name: "project_update",
         title: "Update project",
         description:
-            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole) or where it is exposed. Pass description, context or exposure null to remove it.",
+            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole), where it is exposed or its container registry. Pass description, context, exposure or containerRegistry null to remove it.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
@@ -77,7 +78,13 @@ export const projectTools = [
                 })
                 .nullable()
                 .optional()
-                .describe("Where GitOps exposes the environments: a Traefik Gateway per environment, an HTTPRoute per application with its exposurePath. Replaced as a whole")
+                .describe("Where GitOps exposes the environments: a Traefik Gateway per environment, an HTTPRoute per application with its exposurePath. Replaced as a whole"),
+            containerRegistry: z
+                .string()
+                .regex(CONTAINER_REGISTRY, "a host, with a port and a namespace if any, without scheme nor trailing slash, e.g. ghcr.io/acme")
+                .nullable()
+                .optional()
+                .describe("Where the images are pushed, e.g. ghcr.io/acme: a service or DOCKER frontend with no image repository of its own is deployed as <containerRegistry>/<slug>")
         }),
         run: (args, { principal, projectId }) => new ProjectService(principal).update(projectId, args)
     }),

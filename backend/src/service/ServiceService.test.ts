@@ -313,6 +313,21 @@ describe("ServiceService.update", () => {
         expect(write.mock.calls[0][1]).toEqual({ name: "Orders" })
     })
 
+    it("given a version set by hand, when a service is updated, then it is written trimmed", async () => {
+        const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+
+        await new ServiceService().update(String(serviceId), { name: "Orders", version: " 1.4.0 " } as ServiceDTO)
+
+        expect(write.mock.calls[0][1]).toEqual({ name: "Orders", version: "1.4.0" })
+    })
+
+    it.each(["", "1.4.0+build", "release/1"])("given the version %j, when a service is updated, then it is refused before anything is written", async version => {
+        const write = vi.spyOn(Service, "findByIdAndUpdate")
+
+        await expect(new ServiceService().update(String(serviceId), { name: "Orders", version } as ServiceDTO)).rejects.toMatchObject({ code: "SERVICE_VERSION_INVALID" })
+        expect(write).not.toHaveBeenCalled()
+    })
+
     it("given new probe and docs paths, when a service is updated, then they are written and validated", async () => {
         const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
         const paths = { livenessPath: "/q/health/live", readinessPath: "/q/health/ready", docsPath: "/q/swagger-ui", openApiPath: "/q/openapi" }

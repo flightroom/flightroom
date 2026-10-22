@@ -545,6 +545,21 @@ describe("GitOpsService.deploy", () => {
             expect(parse(values[0].content!)).toMatchObject({ image: { host: "ghcr.io", name: "acme/orders-api", tag: "1.4.0" }, environmentMaps: ["logging"], secrets: ["database"] })
         })
 
+        it("given a project with a container registry, when the applications are committed, then one with a version and no image gets the slug in the registry", async () => {
+            vi.spyOn(Project, "findById").mockResolvedValue({
+                _id: projectId,
+                gitOps: { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink },
+                containerRegistry: "azimutmarketplace.azurecr.io"
+            } as never)
+            vi.spyOn(Service, "find").mockResolvedValue([orders, { ...notBuilt, version: "0.3.0" }] as never)
+
+            await deployOf(production)()
+
+            const values = applicationsCommit.mock.calls[0][1].filter(file => !file.path.startsWith("microservice-chart/"))
+            expect(values.map(file => file.path)).toEqual(["orders-api.yaml", "not-built.yaml"])
+            expect(parse(values[1].content!).image).toEqual({ host: "azimutmarketplace.azurecr.io", name: "not-built", tag: "0.3.0" })
+        })
+
         it("given the applications are committed, when the chart is written, then every chart file is flagged to be written only when missing", async () => {
             await deployOf(production)()
 

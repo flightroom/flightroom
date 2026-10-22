@@ -25,7 +25,7 @@ import ServiceRuntimeFields from "@/pages/services/partials/ServiceRuntimeFields
 import ServiceUrlsFields from "@/pages/services/partials/ServiceUrlsFields"
 import ServiceVariableMapsFields from "@/pages/services/partials/ServiceVariableMapsFields"
 import ServiceVersionsTable from "@/pages/services/partials/ServiceVersionsTable"
-import { createServiceRuntimeShape, fromFormUrls, toFormUrls, useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
+import { createServiceRuntimeShape, fromFormUrls, SERVICE_VERSION, toFormUrls, useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -39,6 +39,7 @@ interface FormMessages {
     exposurePathRequired: string
     url: string
     versionRequired: string
+    versionInvalid: string
     hostUrlRequired: string
     canaryPercentage: string
 }
@@ -56,7 +57,7 @@ const createFormSchema = (messages: FormMessages) => {
             domainId: z.string().nullable().optional(),
             kind: z.enum(FrontendKind),
             context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
-            // Required below for a BUNDLE only: a DOCKER frontend's is set by its pipeline on the first registration
+            // Required below for a BUNDLE only: a DOCKER frontend's is set here or by its pipeline on the first registration
             version: z.string().optional(),
             customVersion: z.string().optional(),
             continuousDeployment: z.boolean().default(false),
@@ -137,6 +138,10 @@ const createFormSchema = (messages: FormMessages) => {
                 // Optional for a service, not for a DOCKER frontend: browsers reach its container only at this path
                 if (!data.exposurePath?.trim()) {
                     ctx.addIssue({ code: "custom", message: messages.exposurePathRequired, path: ["exposurePath"] })
+                }
+                // Optional, as for a service: it is the tag of the image, with the same rule
+                if (data.version?.trim() && !SERVICE_VERSION.test(data.version.trim())) {
+                    ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["version"] })
                 }
                 return
             }
@@ -236,6 +241,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                 exposurePathRequired: t("frontend.validation.exposure_path_required"),
                 url: t("services.urls.invalid"),
                 versionRequired: t("frontend.validation.version_required"),
+                versionInvalid: t("services.version_invalid"),
                 hostUrlRequired: t("frontend.validation.host_url_required"),
                 canaryPercentage: t("frontend.validation.canary_percentage")
             }),
@@ -262,7 +268,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         resolver: zodResolver(formSchema),
         // A DOCKER may be saved without a host: the hosting tab it would be validated in is hidden for it
         defaultValues: frontend
-            ? { ...frontend, kind: frontend.kind ?? FrontendKind.BUNDLE, host: frontend.host ?? getStandardHost(), ...containerDefaults }
+            ? { ...frontend, kind: frontend.kind ?? FrontendKind.BUNDLE, version: frontend.version ?? "", host: frontend.host ?? getStandardHost(), ...containerDefaults }
             : {
                   slug: "",
                   name: "",
@@ -316,6 +322,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const kind = form.watch("kind")
     const isDocker = kind === FrontendKind.DOCKER
 
+    // A new DOCKER starts with no version, which its pipeline or this form sets; a new BUNDLE starts at 1.0.0
+    useEffect(() => {
+        if (!isEdit) form.setValue("version", isDocker ? "" : "1.0.0")
+    }, [isDocker, isEdit, form])
+
     // The builds of what is saved, not of the kind being chosen: a BUNDLE has no image to show
     const buildsQuery = useQuery({
         queryKey: ["frontend-builds", id],
@@ -350,8 +361,9 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         } as Frontend & { customVersion?: string }
 
         delete dataToSend.customVersion
-        // A DOCKER frontend's version is the one its pipeline registered last: saving the form must not overwrite it
-        if (data.kind === FrontendKind.DOCKER) delete dataToSend.version
+        // A DOCKER frontend's version is the tag of its image: sent only when typed here, so that saving the form
+        // does not move back a newer one its pipeline registered meanwhile
+        if (data.kind === FrontendKind.DOCKER && (!dataToSend.version?.trim() || (isEdit && !form.formState.dirtyFields.version))) delete dataToSend.version
 
         if (template) {
             if (!dataToSend.codeRepository?.createData) {
@@ -419,7 +431,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
                 <FetchDataTemplateCard slug={template} />
 
-                <ReleaseSection isEdit={isEdit} versions={versions} savedVersion={frontend?.version} />
+                <ReleaseSection isEdit={isEdit} versions={versions} />
 
                 {isEdit && frontend?.kind === FrontendKind.DOCKER && <ServiceVersionsTable versions={buildsQuery.data ?? []} />}
 

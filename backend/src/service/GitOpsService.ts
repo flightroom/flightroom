@@ -389,7 +389,7 @@ export class GitOpsService extends BaseAuthorizedService {
     }
 
     private async deployProject<T>(projectId: Schema.Types.ObjectId, environmentIds: Set<string>, deploy: () => Promise<T>, domainId?: string): Promise<T> {
-        const project = await Project.findById(projectId, { gitOps: 1, slug: 1, exposure: 1 })
+        const project = await Project.findById(projectId, { gitOps: 1, slug: 1, exposure: 1, containerRegistry: 1 })
         const gitOps = project?.gitOps
         if (!project || !gitOps?.enabled || !gitOps.codeRepository) return deploy()
 
@@ -405,9 +405,12 @@ export class GitOpsService extends BaseAuthorizedService {
         for (const kind of Object.keys(GITOPS_FOLDER) as VariableMapKind[]) maps[kind] = await variableMapModels[kind].find({ projectId })
 
         const applicationsLink = gitOps.applicationsCodeRepository
-        if (applicationsLink && [...gateways.values()].some(Boolean)) await this.ensureDistinctExposurePaths(projectId)
+        if (applicationsLink && [...gateways.values()].some(Boolean)) await this.ensureDistinctExposurePaths(projectId, project.containerRegistry)
         const withApplications = applicationsLink
-            ? () => this.inRepository(projectId, "applications", applicationsLink, commit => this.commitApplications(projectId, deployed, maps, gateways, commit, deploy, domainId))
+            ? () =>
+                  this.inRepository(projectId, "applications", applicationsLink, commit =>
+                      this.commitApplications(projectId, project.containerRegistry, deployed, maps, gateways, commit, deploy, domainId)
+                  )
             : deploy
 
         const result = await this.inRepository(projectId, "configuration", gitOps.codeRepository, async commit => {
@@ -430,13 +433,15 @@ export class GitOpsService extends BaseAuthorizedService {
 
     /**
      * Commits on the branch of each deployed environment the values of the services and frontends that can be
-     * installed, and the chart when the branch has none, then runs `deploy`. A domain-scoped member writes the
+     * installed, with the container registry of the project for those with no image of their own, and the chart
+     * when the branch has none, then runs `deploy`. A domain-scoped member writes the
      * values of their own applications only, a deploy of one domain those of that domain; the values of an
      * application that no longer exists go. In an
      * environment with a Gateway, an application with an exposure path is routed on it.
      */
     private async commitApplications<T>(
         projectId: Schema.Types.ObjectId,
+        containerRegistry: string | undefined,
         deployed: Pick<IEnvironment, "_id" | "slug">[],
         maps: Record<VariableMapKind, DeployedMap[]>,
         gateways: Map<string, EnvironmentGateway | undefined>,
@@ -466,11 +471,13 @@ export class GitOpsService extends BaseAuthorizedService {
                 const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER } : undefined
                 const files: GitOpsFile[] = [
                     ...CHART_FILES.map(file => ({ ...file, action: "update" as const, ifMissing: true })),
-                    ...applications.filter(isDeployable).map(application => ({
-                        path: applicationValuesPath(application),
-                        action: "update" as const,
-                        content: renderApplicationValues(application, environment, mapNames, route)
-                    }))
+                    ...applications
+                        .filter(application => isDeployable(application, containerRegistry))
+                        .map(application => ({
+                            path: applicationValuesPath(application),
+                            action: "update" as const,
+                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry)
+                        }))
                 ]
                 pushed.push({ branch: environment.slug, undo: await commit(`Deploy ${environment.slug}`, files, { branch: environment.slug, prune: isOrphanValues }) })
             }
@@ -483,13 +490,13 @@ export class GitOpsService extends BaseAuthorizedService {
      * the path to the older one without a word. Every application of the project counts, those out of the
      * reach of a domain-scoped member too: their values are on the branches already.
      */
-    private async ensureDistinctExposurePaths(projectId: Schema.Types.ObjectId): Promise<void> {
+    private async ensureDistinctExposurePaths(projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<void> {
         const fields = { slug: 1, version: 1, image: 1, exposurePath: 1 }
         const applications: GitOpsApplication[] = [
             ...(await Service.find({ projectId, exposurePath: { $ne: null } }, fields)),
             ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, exposurePath: { $ne: null } }, fields))
         ]
-        const exposed = applications.filter(isDeployable).filter(application => application.exposurePath)
+        const exposed = applications.filter(application => isDeployable(application, containerRegistry) && application.exposurePath)
         for (const [index, application] of exposed.entries()) {
             const sharing = exposed.slice(index + 1).find(other => sameExposurePath(other.exposurePath!, application.exposurePath!))
             if (sharing) {

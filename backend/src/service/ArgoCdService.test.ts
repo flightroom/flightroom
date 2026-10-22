@@ -502,6 +502,16 @@ describe("ArgoCdService.alignApplications", () => {
         expect(storedError()).toBeUndefined()
     })
 
+    it("given a container registry in the project, when a deploy aligns it, then a service with a version and no image gets its ApplicationSet too", async () => {
+        previous = initialized()
+        vi.mocked(Project.findById).mockImplementation(() => ({ _id: projectId, slug: "shop", gitOps, argoCd: previous, containerRegistry: "ghcr.io/acme" }) as never)
+        vi.mocked(Service.find).mockResolvedValue([{ slug: "draft", version: "0.1.0" }] as never)
+
+        await align()
+
+        expect(calls).toContain(`argo:upsertApplicationSet:${applicationSetNameOf("draft")}`)
+    })
+
     it("given an environment added since the initialization, when a deploy aligns it, then the ApplicationSets leave it out until its namespace is in the AppProject", async () => {
         previous = initialized()
         vi.mocked(CodeRepositoryService.prototype.getBranches).mockResolvedValue([{ branch: "development" }, { branch: "production" }] as never)
