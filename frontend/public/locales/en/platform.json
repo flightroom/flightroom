@@ -2465,6 +2465,44 @@
                 "forbidden": "A viewer cannot create a version of the domain"
             }
         },
+        "release": {
+            "action": "Build and deploy",
+            "title": "Build and deploy {{domain}}",
+            "description": "Creates the version as Create version does, waits for the pipeline of every tagged repository to register it, sets it as the version of those frontends and services, then deploys the domain to the environment picked. The console goes on with it even if you close this window.",
+            "progress_description": "Version {{version}} from branch {{ref}} to {{environment}}.",
+            "start": "Build and deploy",
+            "new": "New build and deploy",
+            "success": "{{domain}} {{version}} deployed to {{environment}}",
+            "failed": "The build and deploy of {{domain}} {{version}} failed",
+            "untouched_hint": "Frontends and services without a code repository are left out: their version does not change.",
+            "steps": {
+                "building": "Build",
+                "waiting_ci": "CI",
+                "updating_versions": "Versions",
+                "deploying": "Deploy"
+            },
+            "kinds": {
+                "frontend": "Frontend",
+                "service": "Service"
+            },
+            "member_status": {
+                "untouched": "No repository",
+                "waiting": "Waiting for CI",
+                "built": "Built"
+            },
+            "errors": {
+                "running": "A build and deploy of this domain is already running",
+                "environment_invalid": "Pick the environment to deploy to",
+                "environment_not_found": "The environment is not one of this project",
+                "generic": "The release failed: {{message}}",
+                "DOMAIN_BUILD_CHECK_FAILED": "No repository was tagged: the check failed for at least one of them",
+                "DOMAIN_RELEASE_TAG_FAILED": "Some repositories could not be tagged, so the release stopped: the others stay tagged",
+                "DOMAIN_RELEASE_CI_TIMEOUT": "The pipeline did not register version {{version}} within 60 minutes for: {{names}}",
+                "DOMAIN_RELEASE_CI_FAILED": "The pipeline of tag {{version}} failed for: {{names}}",
+                "DOMAIN_RELEASE_INTERRUPTED": "The release stopped in the middle of a step, most likely on a restart of the console: check the deployments of the environment before starting it again",
+                "DOMAIN_RELEASE_USER_UNAVAILABLE": "The user who started the release can no longer act in the console"
+            }
+        },
         "deployments": {
             "open": "Deployed versions",
             "matrix_title": "Deployed versions by domain",

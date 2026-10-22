@@ -12,9 +12,36 @@ import { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 /** The rule of the backend: the tag becomes, in the pipelines, an image tag and a URL segment */
-const VERSION = /^[A-Za-z0-9._-]{1,128}$/
+export const VERSION = /^[A-Za-z0-9._-]{1,128}$/
 
 const STATUS_VARIANTS: Record<DomainBuildRepository["status"], "success" | "outline" | "destructive"> = { tagged: "success", ready: "outline", failed: "destructive" }
+
+/** What a domain build did, or would have done, repository by repository: also shown by the build and deploy of the domain */
+export const DomainBuildOutcomes: React.FC<{ result: DomainBuildResult }> = ({ result }) => {
+    const { t } = useTranslation()
+
+    /** The translated reason of a failure; a provider error keeps the provider's own words */
+    const reasonOf = (repository: DomainBuildRepository) => {
+        if (repository.status !== "failed") return undefined
+        if (!repository.reason || repository.reason === "PROVIDER_ERROR") return t("domains.build.reasons.PROVIDER_ERROR", { message: repository.message ?? "" })
+        return t(`domains.build.reasons.${repository.reason}`, { ref: result.ref, version: result.version })
+    }
+
+    return (
+        <ul className="my-4 flex flex-col gap-2" data-testid="domain-build-result">
+            {result.repositories.map(repository => (
+                <li key={repository.id} className="flex flex-col gap-1 rounded-md border border-divider p-3">
+                    <div className="flex items-center justify-between gap-2">
+                        <span className="truncate font-mono text-sm">{repository.repository}</span>
+                        <Badge variant={STATUS_VARIANTS[repository.status]}>{t(`domains.build.status.${repository.status}`)}</Badge>
+                    </div>
+                    <span className="text-xs text-foreground-secondary">{repository.members.map(member => member.name).join(", ")}</span>
+                    {reasonOf(repository) && <span className="text-xs text-destructive">{reasonOf(repository)}</span>}
+                </li>
+            ))}
+        </ul>
+    )
+}
 
 /**
  * Creates a version of the whole domain: the repository of each of its frontends and services is tagged
@@ -61,13 +88,6 @@ export const DomainBuildButton: React.FC<{ domain: Domain }> = ({ domain }) => {
         }
     }
 
-    /** The translated reason of a failure; a provider error keeps the provider's own words */
-    const reasonOf = (repository: DomainBuildRepository) => {
-        if (repository.status !== "failed") return undefined
-        if (!repository.reason || repository.reason === "PROVIDER_ERROR") return t("domains.build.reasons.PROVIDER_ERROR", { message: repository.message ?? "" })
-        return t(`domains.build.reasons.${repository.reason}`, { ref: result?.ref, version: result?.version })
-    }
-
     // A viewer may look, not release
     if (isViewer) return null
 
@@ -85,18 +105,7 @@ export const DomainBuildButton: React.FC<{ domain: Domain }> = ({ domain }) => {
                     </DialogHeader>
                     {result ? (
                         <>
-                            <ul className="my-4 flex flex-col gap-2" data-testid="domain-build-result">
-                                {result.repositories.map(repository => (
-                                    <li key={repository.id} className="flex flex-col gap-1 rounded-md border border-divider p-3">
-                                        <div className="flex items-center justify-between gap-2">
-                                            <span className="truncate font-mono text-sm">{repository.repository}</span>
-                                            <Badge variant={STATUS_VARIANTS[repository.status]}>{t(`domains.build.status.${repository.status}`)}</Badge>
-                                        </div>
-                                        <span className="text-xs text-foreground-secondary">{repository.members.map(member => member.name).join(", ")}</span>
-                                        {reasonOf(repository) && <span className="text-xs text-destructive">{reasonOf(repository)}</span>}
-                                    </li>
-                                ))}
-                            </ul>
+                            <DomainBuildOutcomes result={result} />
                             <DialogFooter>
                                 <Button variant="secondary" type="button" onClick={() => setResult(undefined)}>
                                     {t("common.back")}

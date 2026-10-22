@@ -2484,6 +2484,44 @@
                 "forbidden": "Chi ha il ruolo di viewer non può creare una versione del dominio"
             }
         },
+        "release": {
+            "action": "Build e deploy",
+            "title": "Build e deploy di {{domain}}",
+            "description": "Crea la versione come fa Crea versione, attende che la pipeline di ogni repository taggato la registri, la imposta come versione di quei frontend e servizi, poi esegue il deploy del dominio sull'ambiente scelto. La console va avanti anche se chiudi questa finestra.",
+            "progress_description": "Versione {{version}} dal branch {{ref}} su {{environment}}.",
+            "start": "Build e deploy",
+            "new": "Nuovo build e deploy",
+            "success": "{{domain}} {{version}} deployato su {{environment}}",
+            "failed": "Il build e deploy di {{domain}} {{version}} è fallito",
+            "untouched_hint": "I frontend e i servizi senza repository di codice restano fuori: la loro versione non cambia.",
+            "steps": {
+                "building": "Build",
+                "waiting_ci": "CI",
+                "updating_versions": "Versioni",
+                "deploying": "Deploy"
+            },
+            "kinds": {
+                "frontend": "Frontend",
+                "service": "Servizio"
+            },
+            "member_status": {
+                "untouched": "Senza repository",
+                "waiting": "In attesa della CI",
+                "built": "Buildato"
+            },
+            "errors": {
+                "running": "È già in corso un build e deploy di questo dominio",
+                "environment_invalid": "Scegli l'ambiente su cui fare il deploy",
+                "environment_not_found": "L'ambiente non appartiene a questo progetto",
+                "generic": "Il rilascio è fallito: {{message}}",
+                "DOMAIN_BUILD_CHECK_FAILED": "Nessun repository è stato taggato: la verifica è fallita per almeno uno di essi",
+                "DOMAIN_RELEASE_TAG_FAILED": "Alcuni repository non sono stati taggati, quindi il rilascio si è fermato: gli altri restano taggati",
+                "DOMAIN_RELEASE_CI_TIMEOUT": "La pipeline non ha registrato la versione {{version}} entro 60 minuti per: {{names}}",
+                "DOMAIN_RELEASE_CI_FAILED": "La pipeline del tag {{version}} è fallita per: {{names}}",
+                "DOMAIN_RELEASE_INTERRUPTED": "Il rilascio si è fermato a metà di un passo, probabilmente per un riavvio della console: controlla i deployment dell'ambiente prima di avviarlo di nuovo",
+                "DOMAIN_RELEASE_USER_UNAVAILABLE": "L'utente che ha avviato il rilascio non può più operare nella console"
+            }
+        },
         "deployments": {
             "open": "Versioni deployate",
             "matrix_title": "Versioni deployate per dominio",
