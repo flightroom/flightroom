@@ -167,7 +167,7 @@ class DeploymentService extends BaseAuthorizedService {
         const inScope = { projectId: environment.projectId, ...(scope && { domainId: { $in: scope.map(id => toObjectId(id)) } }) }
         const frontend = await Frontend.find(inScope).session(session || null)
         // With GitOps on, the deploy commits the values of these services at this version
-        const service: IDeployedService[] = await Service.find(inScope, { slug: 1, name: 1, domainId: 1, version: 1, image: 1 })
+        const service: IDeployedService[] = await Service.find(inScope, { slug: 1, name: 1, domainId: 1, version: 1, image: 1, exposurePath: 1 })
             .session(session || null)
             .lean<IDeployedService[]>()
         let variables: unknown[] = await GlobalVariable.find({ environmentId: environmentIdObj }).session(session || null)

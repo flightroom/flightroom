@@ -11,6 +11,8 @@ export interface DeployedService {
     domainId?: string | null
     version?: string
     image?: { repository?: string }
+    /** Absent from the deployments made before it was recorded, null when the service is not exposed */
+    exposurePath?: string | null
 }
 
 /** A config map or a secret as the deploy recorded it in its environment: a secret's keys come without values */

@@ -15,8 +15,8 @@ export interface IDeployedVariableMap {
     entries: Array<{ key: string; value?: string }>
 }
 
-/** A backend service as the deploy recorded it: only what tells which one and at which version, never its env */
-export type IDeployedService = Pick<IService, "_id" | "slug" | "name" | "domainId" | "version" | "image">
+/** A backend service as the deploy recorded it: only what tells which one, at which version and where it is exposed, never its env */
+export type IDeployedService = Pick<IService, "_id" | "slug" | "name" | "domainId" | "version" | "image" | "exposurePath">
 
 export interface IDeployment extends Document<ObjectId> {
     environmentId: ObjectId
