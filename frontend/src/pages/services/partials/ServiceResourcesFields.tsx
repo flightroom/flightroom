@@ -5,6 +5,7 @@ import { Controller, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
+import ResourceIcon from "@/components/resource/ResourceIcon"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 import { RESOURCE_LIST_PATH, typeLabel } from "@/pages/resources/partials/resources"
 
@@ -60,6 +61,7 @@ export const ServiceResourcesFields: React.FC<{ resources: Resource[] }> = ({ re
                                                 <li key={resource._id} className="flex items-center gap-3 py-2 pl-3 pr-2">
                                                     <div className="min-w-0 flex-1">
                                                         <span className="flex items-center gap-2">
+                                                            <ResourceIcon resource={resource} />
                                                             <span className="truncate font-mono text-sm font-medium">{resource.name}</span>
                                                             <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
                                                         </span>
@@ -115,6 +117,7 @@ export const ServiceResourcesFields: React.FC<{ resources: Resource[] }> = ({ re
                                                                 }}
                                                             >
                                                                 <span className="flex items-center gap-2">
+                                                                    <ResourceIcon resource={resource} />
                                                                     <span className="truncate font-mono text-sm font-medium">{resource.name}</span>
                                                                     <span className="text-xs text-foreground-secondary">{typeLabel(t, resource.type)}</span>
                                                                 </span>

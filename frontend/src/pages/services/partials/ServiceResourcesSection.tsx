@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, Table, Table
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
+import ResourceIcon from "@/components/resource/ResourceIcon"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import type { Resource, ResourceEnvKey } from "@/hooks/apiClients/useResourcesApi"
 import type { Service } from "@/hooks/apiClients/useServicesApi"
@@ -31,6 +32,7 @@ export const ServiceResourcesSection: React.FC<{ service: Service; resources: Re
                 {attached.map(resource => (
                     <div key={resource._id} className="flex flex-col gap-2">
                         <div className="flex flex-wrap items-center gap-2">
+                            <ResourceIcon resource={resource} />
                             <Link to={resourcePath(resource._id!)} className="font-mono font-semibold underline-offset-4 hover:underline">
                                 {resource.name}
                             </Link>

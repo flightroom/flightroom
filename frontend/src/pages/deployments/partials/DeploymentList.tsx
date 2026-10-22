@@ -5,7 +5,9 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
+import ResourceIcon from "@/components/resource/ResourceIcon"
 import { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { exposedOrigin } from "@/pages/services/partials/serviceVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
@@ -13,7 +15,7 @@ import DeploymentFrontendCard from "./DeploymentFrontendCard"
 import DeploymentServiceCard from "./DeploymentServiceCard"
 
 /** The config maps or the secrets of a deployment, each with the keys it set in the environment */
-const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secret?: boolean }> = ({ title, maps, secret }) => {
+const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secret?: boolean; icon?: (map: DeployedVariableMap) => React.ReactNode }> = ({ title, maps, secret, icon }) => {
     const { t } = useTranslation()
 
     return (
@@ -21,7 +23,10 @@ const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secre
             <h4 className="font-semibold text-primary-strong mb-1">{title}</h4>
             {maps.map(map => (
                 <div key={map._id} className="mt-2">
-                    <p className="text-sm font-medium">{map.name}</p>
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                        {icon?.(map)}
+                        {map.name}
+                    </p>
                     {map.entries.length > 0 ? (
                         <DescriptionList orientation="inline">
                             {map.entries.map(entry => (
@@ -53,6 +58,12 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
     const configMaps = deployment.configMaps ?? []
     const secrets = deployment.secrets ?? []
     const resources = deployment.resources ?? []
+    // The deployment records names and keys only: the icon comes from the resource as it is now, none once it is deleted
+    const resourcesQuery = useResourcesQuery(resources.length > 0)
+    const resourceIcon = (map: DeployedVariableMap) => {
+        const resource = resourcesQuery.data?.find(candidate => candidate._id === map._id)
+        return resource && <ResourceIcon resource={resource} />
+    }
     const exposure = useProjectStore(state => state.project?.exposure)
     const environment = useProjectStore(state => state.environments?.find(candidate => candidate._id === deployment.environmentId))
     // No link without a domain to expose on: the path alone does not open anything
@@ -96,7 +107,7 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
             {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} />}
             {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} secret />}
             {/* Recorded keys only, as for a secret: the values stay with the resource */}
-            {resources.length > 0 && <DeployedMaps title={t("deployments.resources_title")} maps={resources} secret />}
+            {resources.length > 0 && <DeployedMaps title={t("deployments.resources_title")} maps={resources} secret icon={resourceIcon} />}
         </>
     )
 }

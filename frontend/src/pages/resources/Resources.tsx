@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
+import ResourceIcon from "@/components/resource/ResourceIcon"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
@@ -113,8 +114,11 @@ const Resources: React.FC = () => {
                                     const services = servicesOf(resource._id!)
                                     return (
                                         <TableRow key={resource._id} className="cursor-pointer border-divider hover:bg-primary/5" onClick={() => navigate(resourcePath(resource._id!))}>
-                                            <TableCell className="max-w-[16rem] truncate font-mono font-medium" title={resource.name}>
-                                                {resource.name}
+                                            <TableCell className="max-w-[16rem] font-mono font-medium" title={resource.name}>
+                                                <span className="flex items-center gap-2">
+                                                    <ResourceIcon resource={resource} />
+                                                    <span className="truncate">{resource.name}</span>
+                                                </span>
                                             </TableCell>
                                             <TableCell>
                                                 <div className="flex flex-wrap items-center gap-1">

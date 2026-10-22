@@ -7,6 +7,7 @@ import { drawRocket } from "@/components/ai-agents/drawRocket"
 import useOpenAgentJob from "@/components/ai-agents/useOpenAgentJob"
 import { useWorkingAgentJobs } from "@/components/ai-agents/WorkingAgentsIndicator"
 import { Badge, Button } from "@/components/atoms"
+import { resourceBrand } from "@/components/resource/resourceIcons"
 import { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
@@ -51,6 +52,8 @@ interface Star {
     /** Share of the traffic on the canary, only while one is on */
     canary?: number
     radius: number
+    /** A resource only: the path (24x24) of the logo of its provider or engine, when there is one */
+    brand?: string
 }
 
 interface Lane {
@@ -104,6 +107,18 @@ interface ChargeForce {
 }
 
 const NO_DOMAIN = "no-domain"
+
+/** The logos of the resources, parsed once: a star is painted on every frame */
+const brandPaths = new Map<string, Path2D>()
+const brandPath = (path: string) => {
+    let parsed = brandPaths.get(path)
+    if (!parsed) {
+        parsed = new Path2D(path)
+        brandPaths.set(path, parsed)
+    }
+    return parsed
+}
+
 /** Where a resource attached by services of several galaxies sits: between them, in no galaxy, with no anchor to pull it */
 const SHARED = "shared-resources"
 
@@ -420,7 +435,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             if (!users.length) return []
             const galaxyIds = new Set(users.map(id => galaxyById.get(id) ?? NO_DOMAIN))
             const galaxyId = galaxyIds.size === 1 ? [...galaxyIds][0] : SHARED
-            return [{ id: resource._id!, kind: "resource" as const, name: resource.name, slug: typeLabel(t, resource.type), galaxyId, users }]
+            return [{ id: resource._id!, kind: "resource" as const, name: resource.name, slug: typeLabel(t, resource.type), galaxyId, users, brand: resourceBrand(resource)?.path }]
         })
 
         // Links to something that is not on the map are left out: there is no star to draw them to.
@@ -735,8 +750,19 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             }
             ctx.fillStyle = `hsl(${hue})`
             body(r)
-            ctx.fillStyle = `hsl(${STAR_CORE} / 0.85)`
-            body(r * 0.4)
+            if (node.brand) {
+                // The logo of the resource in place of the core, in the colour of the sky so it stands out on either theme
+                const side = r * 1.4
+                ctx.save()
+                ctx.translate(x - side / 2, y - side / 2)
+                ctx.scale(side / 24, side / 24)
+                ctx.fillStyle = sky.space
+                ctx.fill(brandPath(node.brand))
+                ctx.restore()
+            } else {
+                ctx.fillStyle = `hsl(${STAR_CORE} / 0.85)`
+                body(r * 0.4)
+            }
 
             // The canary is a ring as wide as its share of the traffic, pulsing unless motion is reduced.
             if (node.canary !== undefined) {

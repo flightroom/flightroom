@@ -2,6 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flig
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
+import ResourceIcon from "@/components/resource/ResourceIcon"
 import type { Service } from "@/hooks/apiClients/useServicesApi"
 import { resourcePath, typeLabel, useResourcesQuery } from "@/pages/resources/partials/resources"
 
@@ -34,6 +35,7 @@ export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ serv
                     <ul className="flex flex-col divide-y divide-divider">
                         {used.map(({ resource, usedBy }) => (
                             <li key={resource._id} className="flex flex-wrap items-center gap-2 py-2">
+                                <ResourceIcon resource={resource} />
                                 <Link to={resourcePath(resource._id!)} className="font-mono text-sm font-semibold underline-offset-4 hover:underline">
                                     {resource.name}
                                 </Link>
