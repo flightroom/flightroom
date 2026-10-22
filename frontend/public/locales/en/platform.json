@@ -2468,7 +2468,7 @@
             "title": "Deployed versions",
             "description": "Which version of each frontend and service of the domain runs in each environment. Frontend comes from the active deployment, backend from what the deploy pipeline reported.",
             "matrix_title": "Deployed versions by domain",
-            "matrix_description": "For each domain and environment, the frontend versions of the active deployment and the backend versions reported by the deploy pipeline",
+            "matrix_description": "For each domain and environment, the versions in the active deployment or, when they are not in the deployment, the ones the deploy pipeline reported",
             "matrix_empty_title": "Nothing to show",
             "matrix_empty_description": "The project has no domains, frontends or services yet",
             "back": "Back to domains",

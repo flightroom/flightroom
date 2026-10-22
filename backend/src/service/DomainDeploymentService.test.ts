@@ -239,6 +239,27 @@ describe("DomainDeploymentService.getByDomainId", () => {
         ])
     })
 
+    it("given a service in the deployment an environment serves, when the deployments are read, then its version there wins over the reported ones", async () => {
+        deploymentFind.mockImplementation(
+            findDeployments([
+                { _id: devActive, environmentId: dev._id, deploymentId: "#2", deployedAt: at(2), frontends: [], services: [{ _id: ordersApi._id, version: "2.0.0", image: { repository: "registry/orders" } }] },
+                // Recorded without a version: the reports still tell
+                { _id: prodActive, environmentId: prod._id, deploymentId: "#7", deployedAt: at(4), frontends: [], services: [{ _id: ordersApi._id }] }
+            ])
+        )
+        serviceDeploymentAggregate.mockImplementation(((pipeline: Stage[]) =>
+            Promise.resolve(runPipeline([...serviceDeployments, { serviceId: ordersApi._id, environmentId: prod._id, version: "1.9.0", deployedAt: at(3), _id: new Types.ObjectId() }], pipeline))) as never)
+
+        const result = await new DomainDeploymentService().getByDomainId(String(domainId))
+
+        expect(result.environments.map(entry => entry.services[0])).toEqual([
+            // Reported later, at(5), yet the deployment wins
+            { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "2.0.0", deployedAt: at(2) },
+            { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "1.9.0", deployedAt: at(3) },
+            { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: null, deployedAt: null }
+        ])
+    })
+
     it("given a domain, when its deployments are read, then the served deployments are picked on scalars only and read alone, without their secrets", async () => {
         await new DomainDeploymentService().getByDomainId(String(domainId))
 
@@ -253,7 +274,7 @@ describe("DomainDeploymentService.getByDomainId", () => {
         const [filter, projection] = deploymentFind.mock.calls[0]
         expect(filter._id.$in.map(String).sort()).toEqual([devActive, prodActive].map(String).sort())
         // The snapshot also carries the variables and the storage credentials: they never leave the database
-        expect(projection).toEqual({ environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1 })
+        expect(projection).toEqual({ environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1, "services._id": 1, "services.version": 1 })
     })
 
     it("given a domain, when its deployments are read, then one aggregation keeps the latest reported deploy of each service in each environment", async () => {

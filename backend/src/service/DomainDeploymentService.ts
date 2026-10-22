@@ -25,7 +25,7 @@ export interface DomainDeploymentFrontend {
     kind: FrontendKind
     /**
      * As frozen in the deployment that environment serves; null when it was never deployed there. For a
-     * DOCKER, the latest version its deploy pipeline reported there, as for a service.
+     * DOCKER missing from that deployment, the latest version its deploy pipeline reported there, as for a service.
      */
     version: string | null
     /**
@@ -40,7 +40,10 @@ export interface DomainDeploymentServiceVersion {
     _id: unknown
     slug: string
     name: string
-    /** The latest version the deploy pipeline reported for that environment; null when it reported none */
+    /**
+     * As frozen in the deployment that environment serves, which GitOps ships; when missing from it, the latest
+     * version the deploy pipeline reported there; null when neither has one
+     */
     version: string | null
     deployedAt: Date | null
 }
@@ -62,7 +65,8 @@ export interface DomainDeployments {
 type Member = { _id: unknown; slug: string; name: string; domainId?: unknown; kind?: FrontendKind }
 type Environments = Awaited<ReturnType<typeof findEnvironments>>
 type SnapshotFrontend = { _id: unknown; version?: string; canary?: ICanaryFrontend }
-type CurrentDeployment = { _id: unknown; environmentId: unknown; deploymentId: string; deployedAt: Date; frontends?: SnapshotFrontend[] }
+type SnapshotService = { _id: unknown; version?: string }
+type CurrentDeployment = { _id: unknown; environmentId: unknown; deploymentId: string; deployedAt: Date; frontends?: SnapshotFrontend[]; services?: SnapshotService[] }
 type LatestServiceDeployment = { _id: { serviceId: unknown; environmentId: unknown }; version: string; deployedAt: Date }
 
 const MEMBER_FIELDS = { slug: 1, name: 1, domainId: 1 }
@@ -70,7 +74,7 @@ const FRONTEND_FIELDS = { ...MEMBER_FIELDS, kind: 1 }
 
 const isDocker = (member: Member) => member.kind === FrontendKind.DOCKER
 /** Only what is shown: the snapshot also carries the variables and the storage credentials */
-const DEPLOYMENT_FIELDS = { environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1 }
+const DEPLOYMENT_FIELDS = { environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1, "services._id": 1, "services.version": 1 }
 
 const findEnvironments = (projectId: Schema.Types.ObjectId) => Environment.find({ projectId }, { name: 1, slug: 1, color: 1, isProduction: 1, order: 1 }).sort({ order: 1, createdAt: 1 })
 
@@ -79,7 +83,8 @@ const toDomain = (domain: DomainDeploymentDomain): DomainDeploymentDomain => ({ 
 /**
  * What each environment runs, in a fixed number of queries whatever the number of environments and members:
  * the deployment each one serves (the active one, or the most recent when none is flagged, as the
- * deployment service picks it) and the latest deploy the pipelines reported for each service there.
+ * deployment service picks it) and the latest deploy the pipelines reported for each service there, the
+ * fallback for a service or a DOCKER missing from that deployment.
  *
  * The deployment is picked on scalars only, then read alone: sorting whole snapshots would load the
  * full history of every environment on each call.
@@ -112,7 +117,14 @@ const findVersions = async (environments: Environments, services: Member[], fron
     const deployments = currentDeploymentIds.length === 0 ? [] : await Deployment.find({ _id: { $in: currentDeploymentIds.map(current => current.id) } }, DEPLOYMENT_FIELDS).lean<CurrentDeployment[]>()
 
     const deploymentByEnvironment = new Map(
-        deployments.map(deployment => [String(deployment.environmentId), { deployment, frontends: new Map((deployment.frontends ?? []).map(frontend => [String(frontend._id), frontend])) }])
+        deployments.map(deployment => [
+            String(deployment.environmentId),
+            {
+                deployment,
+                frontends: new Map((deployment.frontends ?? []).map(frontend => [String(frontend._id), frontend])),
+                services: new Map((deployment.services ?? []).map(service => [String(service._id), service]))
+            }
+        ])
     )
     const serviceDeploymentByKey = new Map(serviceDeployments.map(deploy => [`${deploy._id.serviceId}:${deploy._id.environmentId}`, deploy]))
     const frontendDeploymentByKey = new Map(frontendDeployments.map(deploy => [`${deploy._id.frontendId}:${deploy._id.environmentId}`, deploy]))
@@ -126,11 +138,11 @@ const buildEnvironments = (environments: Environments, frontends: Member[], serv
             environment: { _id: environment._id, name: environment.name, slug: environment.slug, color: environment.color, isProduction: Boolean(environment.isProduction) },
             deployment: current ? { deploymentId: current.deployment.deploymentId, deployedAt: current.deployment.deployedAt } : null,
             frontends: frontends.map(frontend => {
+                const snapshot = current?.frontends.get(String(frontend._id))
                 if (isDocker(frontend)) {
                     const deploy = versions.frontendDeploymentByKey.get(`${frontend._id}:${environment._id}`)
-                    return { _id: frontend._id, slug: frontend.slug, name: frontend.name, kind: FrontendKind.DOCKER, version: deploy?.version ?? null, canary: null }
+                    return { _id: frontend._id, slug: frontend.slug, name: frontend.name, kind: FrontendKind.DOCKER, version: snapshot?.version ?? deploy?.version ?? null, canary: null }
                 }
-                const snapshot = current?.frontends.get(String(frontend._id))
                 return {
                     _id: frontend._id,
                     slug: frontend.slug,
@@ -148,6 +160,10 @@ const buildEnvironments = (environments: Environments, frontends: Member[], serv
                 }
             }),
             services: services.map(service => {
+                const snapshot = current?.services.get(String(service._id))
+                if (current && snapshot?.version) {
+                    return { _id: service._id, slug: service.slug, name: service.name, version: snapshot.version, deployedAt: current.deployment.deployedAt }
+                }
                 const deploy = versions.serviceDeploymentByKey.get(`${service._id}:${environment._id}`)
                 return { _id: service._id, slug: service.slug, name: service.name, version: deploy?.version ?? null, deployedAt: deploy?.deployedAt ?? null }
             })
@@ -156,9 +172,9 @@ const buildEnvironments = (environments: Environments, frontends: Member[], serv
 
 /**
  * Which version of each frontend and service (backend) of a domain runs in each
- * environment. A frontend's version is the one frozen in the deployment the environment serves;
- * a service's, and a DOCKER frontend's, is the latest one the customer's deploy pipeline reported, since the
- * orchestrator deploys neither. Members are the ones in the domain now, environments come in their order.
+ * environment: the version frozen in the deployment the environment serves, which GitOps ships. A service or a
+ * DOCKER frontend missing from it falls back to the latest version the customer's deploy pipeline reported,
+ * for the projects whose pipeline deploys them. Members are the ones in the domain now, environments come in their order.
  */
 export class DomainDeploymentService extends BaseAuthorizedService {
     async getByDomainId(domainId: string | ObjectId): Promise<{ domain: DomainDeploymentDomain; environments: DomainDeploymentEnvironment[] }> {

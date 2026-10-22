@@ -15,12 +15,12 @@ export interface DeployedFrontend {
     canary: { type: CanaryType; deploymentType: CanaryDeploymentType; percentage: number; version: string | null } | null
 }
 
-/** A service of the domain as the deploy pipeline reported it for the environment */
+/** A service of the domain as the active deployment, or else the deploy pipeline, has it for the environment */
 export interface DeployedService {
     _id: string
     slug: string
     name: string
-    /** The latest version reported; null when none was */
+    /** The version in the active deployment, else the latest one reported; null when neither has one */
     version: string | null
     deployedAt: string | null
 }
