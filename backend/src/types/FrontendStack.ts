@@ -50,9 +50,12 @@ export interface FrontendStackDTO {
     detectedAt?: Date
 }
 
+/** Keyed by the normalised spelling: lowercase, without dots, dashes, underscores or spaces, so "Vue.js" is "vuejs" */
 const FRAMEWORK_BY_NAME: Record<string, FrontendFramework> = {
     react: FrontendFramework.REACT,
+    reactjs: FrontendFramework.REACT,
     vue: FrontendFramework.VUE,
+    vuejs: FrontendFramework.VUE,
     angular: FrontendFramework.ANGULAR
 }
 
@@ -71,7 +74,7 @@ const COMPILER_BY_NAME: Record<string, FrontendCompiler> = {
  * values freely ("React", "vite", "webcomponent"), so both axes are normalised on the way in and
  * an unknown value becomes undefined rather than a wrong stack.
  */
-export const parseFramework = (value?: string): FrontendFramework | undefined => (value ? FRAMEWORK_BY_NAME[value.trim().toLowerCase()] : undefined)
+export const parseFramework = (value?: string): FrontendFramework | undefined => (value ? FRAMEWORK_BY_NAME[value.toLowerCase().replace(/[-_.\s]/g, "")] : undefined)
 
 const compilerKey = (value: string): string =>
     value

@@ -1,5 +1,7 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
+import { FrontendFramework } from "../types/FrontendStack"
+import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
 import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import type { ICodeRepositoryFrontend } from "./FrontendModel"
@@ -124,6 +126,11 @@ export interface IProject extends Document<ObjectId> {
      * Unset: all of them, the ones added later included. Empty: AI is off for the project.
      */
     aiModelIds?: string[]
+    /**
+     * The default frontend and backend technology the team picked. They guide users and AI agents creating
+     * a frontend or a service, and are never enforced: another stack can still be chosen for any of them.
+     */
+    technologies?: IProjectTechnologies
     createdAt: Date
     updatedAt: Date
 }
@@ -188,7 +195,17 @@ const projectSchema = new Schema<IProject>(
         },
         containerRegistry: { type: String, trim: true, match: CONTAINER_REGISTRY },
         // No default: an empty array would turn AI off, where unset means every AI of the organization
-        aiModelIds: { type: [String], default: undefined }
+        aiModelIds: { type: [String], default: undefined },
+        technologies: {
+            type: new Schema<IProjectTechnologies>(
+                {
+                    frontend: { type: String, enum: Object.values(FrontendFramework) },
+                    backend: { type: String, enum: Object.values(BackendTechnology) }
+                },
+                { _id: false }
+            ),
+            required: false
+        }
     },
     {
         timestamps: true

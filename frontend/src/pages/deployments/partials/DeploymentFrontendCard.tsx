@@ -1,8 +1,10 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryDeploymentType, CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
+import { frontendTechnologyOf } from "@/utils/technologies"
 import DeploymentExposedLink from "./DeploymentExposedLink"
 
 interface DeploymentFrontendCardProps {
@@ -19,14 +21,18 @@ export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ 
     const isUrlBased = canary?.deploymentType === CanaryDeploymentType.BASED_ON_URL
     const canaryTarget = isUrlBased ? canary?.url : canary?.version
     const canaryTargetLabel = isUrlBased ? t("frontend.canaryUrl") : t("frontend.canaryVersion")
+    const technology = frontendTechnologyOf(frontend)
 
     return (
         <Card>
             <CardHeader className="flex-row items-end justify-between flex-wrap-reverse border-0 pb-0">
                 <div className="min-w-0">
-                    <CardTitle className="mb-0 text-base truncate" title={frontend.name}>
-                        {frontend.name}
-                    </CardTitle>
+                    <div className="flex min-w-0 items-center gap-2">
+                        {technology && <TechnologyLogo technology={technology} />}
+                        <CardTitle className="mb-0 text-base truncate" title={frontend.name}>
+                            {frontend.name}
+                        </CardTitle>
+                    </div>
                     <div className="text-sm text-foreground-secondary truncate" title={frontend.slug}>
                         {frontend.slug}
                     </div>

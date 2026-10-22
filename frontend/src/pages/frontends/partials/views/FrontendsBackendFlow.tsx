@@ -7,10 +7,12 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import useFrontendsApi, { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
 import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
+import { backendTechnologyOf, frontendTechnologyOf, type Technology } from "@/utils/technologies"
 import "@xyflow/react/dist/style.css"
 
 interface FrontendsBackendFlowProps {
@@ -21,6 +23,7 @@ interface LinkNodeData extends Record<string, unknown> {
     name: string
     slug: string
     version?: string
+    technology?: Technology
 }
 
 /** Same look as the handles of the frontend graph, with a hit area larger than the dot. */
@@ -30,7 +33,8 @@ const HANDLE_CLASS = "!h-2.5 !w-2.5 !rounded-full !border-2 !border-card !bg-pri
 const LinkNode: React.FC<NodeProps<Node<LinkNodeData>> & { side: "frontend" | "service" }> = ({ data, side }) => (
     <div className="flex w-60 items-center gap-2 rounded-lg border-2 border-border bg-card px-3 py-2.5 text-left shadow-sm">
         {side === "service" && <Handle type="target" position={Position.Left} className={HANDLE_CLASS} />}
-        {side === "service" && <Server className="h-4 w-4 shrink-0 text-foreground-secondary" />}
+        {/* The logo of its technology when known; a service without one keeps the generic server icon. */}
+        {data.technology ? <TechnologyLogo technology={data.technology} /> : side === "service" && <Server className="h-4 w-4 shrink-0 text-foreground-secondary" />}
         <div className="min-w-0 flex-1">
             <div className="truncate text-sm font-semibold text-card-foreground" title={data.name}>
                 {data.name}
@@ -111,14 +115,14 @@ export const FrontendsBackendFlow: React.FC<FrontendsBackendFlowProps> = ({ fron
             ...frontends.map((mfe, index) => ({
                 id: mfe._id!,
                 type: "frontend",
-                data: { name: mfe.name, slug: mfe.slug, version: mfe.version },
+                data: { name: mfe.name, slug: mfe.slug, version: mfe.version, technology: frontendTechnologyOf(mfe) },
                 position: { x: COLUMN_X.frontend, y: index * ROW_GAP },
                 deletable: false
             })),
             ...services.map((service, index) => ({
                 id: service._id!,
                 type: "service",
-                data: { name: service.name, slug: service.slug, version: service.version },
+                data: { name: service.name, slug: service.slug, version: service.version, technology: backendTechnologyOf(service) },
                 position: { x: COLUMN_X.service, y: index * ROW_GAP },
                 deletable: false
             }))

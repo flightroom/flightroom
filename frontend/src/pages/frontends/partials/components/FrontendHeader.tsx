@@ -4,7 +4,9 @@ import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import { Badge } from "@/components/atoms"
 import RepositoryLink from "@/components/RepositoryLink"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
+import TechnologyBadge from "@/components/technology/TechnologyBadge"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
+import { frontendTechnologyOf } from "@/utils/technologies"
 
 /** Edit with AI needs both an AI provider on the installation and a repository the agent can work on. */
 export const isAiEditAvailable = (frontend: Frontend | undefined, assistantEnabled: boolean) => assistantEnabled && Boolean(frontend?.codeRepository?.enabled)
@@ -19,6 +21,7 @@ interface FrontendHeaderProps {
 /** Shared by the two screens of a frontend, so switching between them keeps the same frame. */
 export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active, aiAvailable }) => {
     const { t } = useTranslation()
+    const technology = frontendTechnologyOf(frontend)
 
     return (
         <WorkspaceHeader
@@ -28,6 +31,7 @@ export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active
             meta={
                 <>
                     <span className="font-mono">{frontend.slug}</span>
+                    {technology && <TechnologyBadge technology={technology} />}
                     <Badge variant="outline">{t("frontend.workspace.version", { version: frontend.version || "—" })}</Badge>
                     <RepositoryLink repository={frontend.codeRepository} />
                     <TemplateRepositoryLink slug={frontend.template} />

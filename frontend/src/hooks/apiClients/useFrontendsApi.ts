@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
+import type { IFrontendStackDTO } from "./useServeApi"
 import type { BuiltService, Service } from "./useServicesApi"
 
 export enum HostedOn {
@@ -64,6 +65,8 @@ export interface Frontend extends FrontendContainer {
     kind?: FrontendKind
     /** Market slug of the template the frontend was created from */
     template?: string
+    /** Framework and bundler, from the template, detected in the repository or set by hand */
+    stack?: IFrontendStackDTO
     continuousDeployment?: boolean
     projectId?: string
     /** The functional domain it belongs to; null or missing when it is in none */

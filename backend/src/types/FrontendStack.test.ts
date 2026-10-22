@@ -1,5 +1,22 @@
 import { describe, expect, it } from "vitest"
-import { FrontendCompiler, isIntegrationModel, parseCompiler, supportsModuleFederation } from "./FrontendStack"
+import { FrontendCompiler, FrontendFramework, isIntegrationModel, parseCompiler, parseFramework, supportsModuleFederation } from "./FrontendStack"
+
+describe("parseFramework", () => {
+    it.each([
+        ["React", FrontendFramework.REACT],
+        ["React.js", FrontendFramework.REACT],
+        ["Vue.js", FrontendFramework.VUE],
+        ["vuejs", FrontendFramework.VUE],
+        [" angular ", FrontendFramework.ANGULAR]
+    ])("given %j, when it is parsed, then it is the framework the console spells the same way", (value, framework) => {
+        expect(parseFramework(value)).toBe(framework)
+    })
+
+    it("given an unknown value, when it is parsed, then it is undefined", () => {
+        expect(parseFramework("svelte")).toBeUndefined()
+        expect(parseFramework(undefined)).toBeUndefined()
+    })
+})
 
 describe("parseCompiler", () => {
     it.each(["single-spa", "Single-SPA", "SINGLE_SPA", "singlespa", " single-spa "])("given %j, when it is parsed, then it is SINGLE_SPA", value => {

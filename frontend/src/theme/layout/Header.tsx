@@ -4,9 +4,11 @@ import { Link, NavLink } from "react-router-dom"
 import AssistantToggleButton from "@/components/assistant/AssistantToggleButton"
 import SwitchOrganizationButton from "@/components/SwitchOrganizationButton"
 import SwitchProjectButton from "@/components/SwitchProjectButton"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
+import { TECHNOLOGY_LABEL_KEYS } from "@/utils/technologies"
 
 /** Il menu in alto: le pagine che valgono per tutto il progetto. L'agente a tutta pagina sta in sidebar. */
 const HeaderMenu: React.FC = () => {
@@ -39,7 +41,9 @@ const HeaderMenu: React.FC = () => {
 }
 
 const Header: React.FC = () => {
+    const { t } = useTranslation()
     const { project } = useProjectStore()
+    const technologies = project?.technologies
     const { organization } = useOrganizationStore()
 
     return (
@@ -56,6 +60,11 @@ const Header: React.FC = () => {
                     </>
                 )}
                 <span className="truncate">{project?.name}</span>
+                {/* Le tecnologie di default del progetto, scelte nelle impostazioni */}
+                {technologies?.frontend && (
+                    <TechnologyLogo technology={technologies.frontend} className="ml-1" title={t("technologies.header.frontend", { name: t(TECHNOLOGY_LABEL_KEYS[technologies.frontend]) })} />
+                )}
+                {technologies?.backend && <TechnologyLogo technology={technologies.backend} title={t("technologies.header.backend", { name: t(TECHNOLOGY_LABEL_KEYS[technologies.backend]) })} />}
             </h1>
             <div className="flex shrink-0 items-center gap-2">
                 <HeaderMenu />

@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import type { BackendTechnology, FrontendTechnology, ProjectTechnologies } from "@/utils/technologies"
 import useApiClient from "../useApiClient"
 import { EnvironmentDTO } from "./useEnvironmentsApi"
 import { domainScopeErrorMessage } from "./useProjectUserApi"
@@ -52,6 +53,8 @@ export interface Project {
     pipelines?: ProjectPipelines
     /** Dove sono pubblicate le immagini, es. ghcr.io/acme: chi non ha un repository immagine suo viene deployato come <registry>/<slug> */
     containerRegistry?: string
+    /** Le tecnologie di default per frontend e servizi: guidano template e agenti AI senza vincolare */
+    technologies?: ProjectTechnologies
     /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
     role?: RoleInProject
     createdAt?: string
@@ -90,6 +93,8 @@ export interface ProjectUpdateDTO {
     exposure?: { domain: string; certificateIssuer?: string | null; httpPort?: number | null; httpsPort?: number | null } | null
     /** `null` toglie il container registry: chi non ha un repository immagine suo torna fuori dal deploy */
     containerRegistry?: string | null
+    /** `null` toglie entrambe; un campo a `null` toglie solo quella tecnologia */
+    technologies?: { frontend?: FrontendTechnology | null; backend?: BackendTechnology | null } | null
     /** Il repository si indica con l'id del provider: il backend verifica che la connessione lo raggiunga */
     gitOps?: {
         enabled: boolean

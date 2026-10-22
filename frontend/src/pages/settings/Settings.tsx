@@ -21,7 +21,8 @@ import {
     ProjectContextSection,
     ProjectExposureSection,
     ProjectInfoSection,
-    ProjectStatsSection
+    ProjectStatsSection,
+    ProjectTechnologiesSection
 } from "./partials"
 import type { GitOpsFormValues } from "./partials/GitOpsSection"
 import type { PipelineTemplatesFormValues } from "./partials/PipelineTemplatesSection"
@@ -29,6 +30,7 @@ import type { ProjectContainerRegistryFormValues } from "./partials/ProjectConta
 import type { ProjectContextFormValues } from "./partials/ProjectContextSection"
 import type { ProjectExposureFormValues } from "./partials/ProjectExposureSection"
 import type { ProjectInfoFormValues } from "./partials/ProjectInfoSection"
+import type { ProjectTechnologiesFormValues } from "./partials/ProjectTechnologiesSection"
 
 const TABS = ["general", "access", "resources", "delivery"] as const
 type Tab = (typeof TABS)[number]
@@ -94,6 +96,21 @@ export const Settings: React.FC = () => {
         },
         onError: () => {
             notifications.showErrorNotification({ message: t("settings.notifications.contextUpdateFailed") })
+        }
+    })
+
+    const updateTechnologiesMutation = useMutation({
+        // Una tecnologia lasciata a "nessuna" va tolta, che l'API esprime con un null esplicito
+        mutationFn: (values: ProjectTechnologiesFormValues) => projectApi.updateProject(project._id, { technologies: { frontend: values.frontend ?? null, backend: values.backend ?? null } }),
+        onSuccess: updated => {
+            // Template, servizi e header leggono le tecnologie dallo store
+            setProject({ ...project, technologies: updated.technologies })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            queryClient.invalidateQueries({ queryKey: ["projects-mine"] })
+            notifications.showSuccessNotification({ message: t("technologies.settings.saved") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("technologies.settings.save_failed") })
         }
     })
 
@@ -168,6 +185,15 @@ export const Settings: React.FC = () => {
 
                     <TabsContent value="general" className="mt-6 flex flex-col gap-6">
                         {projectData && <ProjectInfoSection {...projectData} onUpdate={values => updateProjectMutation.mutate(values)} isUpdating={updateProjectMutation.isPending} />}
+
+                        {projectData && (
+                            <ProjectTechnologiesSection
+                                key={projectData._id}
+                                technologies={projectData.technologies}
+                                onUpdate={values => updateTechnologiesMutation.mutate(values)}
+                                isUpdating={updateTechnologiesMutation.isPending}
+                            />
+                        )}
 
                         {projectData && <ProjectContextSection context={projectData.context} onUpdate={values => updateContextMutation.mutate(values)} isUpdating={updateContextMutation.isPending} />}
 

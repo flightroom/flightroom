@@ -296,6 +296,41 @@ describe("update", () => {
 
         expect(written).toEqual({ $unset: { description: 1, context: 1 } })
     })
+
+    it("Given both technologies, when the project is updated, then each is written on its own path", async () => {
+        await update({ technologies: { frontend: "VUE", backend: "MICRONAUT" } })
+
+        expect(written).toEqual({ "technologies.frontend": "VUE", "technologies.backend": "MICRONAUT" })
+    })
+
+    /** A side left out keeps what the project had: the screen may send only the one the user changed. */
+    it("Given only the backend technology, when the project is updated, then the frontend one is left alone", async () => {
+        await update({ technologies: { backend: "SPRING_BOOT" } })
+
+        expect(written).toEqual({ "technologies.backend": "SPRING_BOOT" })
+    })
+
+    it("Given a null side, when the project is updated, then that side only is unset", async () => {
+        await update({ technologies: { frontend: null, backend: "GO" } })
+
+        expect(written).toEqual({ "technologies.backend": "GO", $unset: { "technologies.frontend": 1 } })
+    })
+
+    it("Given null technologies, when the project is updated, then both are unset", async () => {
+        await update({ technologies: null })
+
+        expect(written).toEqual({ $unset: { technologies: 1 } })
+    })
+
+    it.each([
+        ["an unknown frontend", { frontend: "SVELTE" }],
+        ["a backend spelled freely", { backend: "Spring Boot" }],
+        ["a side that is not a string", { frontend: 42 }],
+        ["something that is not an object", "REACT"]
+    ])("Given technologies with %s, when the project is updated, then it is refused with a 400 and nothing is written", async (_case, technologies) => {
+        await expect(update({ technologies })).rejects.toMatchObject({ code: "PROJECT_TECHNOLOGIES_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
+    })
 })
 
 describe("update of the pipeline templates", () => {
@@ -430,6 +465,20 @@ describe("getContext", () => {
         for (const filter of Object.values(filters)) {
             expect(filter).toMatchObject({ context: { $nin: [null, ""] } })
         }
+    })
+
+    it("Given a project with default technologies, when the context is read, then they come back with it, a side left unpicked left out", async () => {
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", technologies: { backend: "QUARKUS" } } as never)
+
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.technologies).toEqual({ backend: "QUARKUS" })
+    })
+
+    it("Given a project without technologies, when the context is read, then none come back", async () => {
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.technologies).toBeUndefined()
     })
 
     it("Given a frontend in a domain, when its context is read, then only its own and its domain's come back with the project's", async () => {

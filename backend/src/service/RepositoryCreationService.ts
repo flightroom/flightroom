@@ -4,8 +4,10 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository, { ICodeRepository } from "../models/CodeRepositoryModel"
 import Frontend, { IFrontend } from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
+import Project from "../models/ProjectModel"
 import Service, { IService } from "../models/ServiceModel"
 import { FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
+import { IProjectTechnologies, parseBackendTechnology } from "../types/ProjectTechnology"
 import { isServiceTemplateType, parseRuntime } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
@@ -35,14 +37,28 @@ export const REPOSITORY_NAME_SUFFIXES: Record<RepositoryComponentKind, string> =
 /** Whether a template scaffolds that kind: a service template builds a Docker image, which nothing can load as a frontend. */
 export const isTemplateOfKind = (template: Pick<IMarket, "type" | "comingSoon">, kind: RepositoryComponentKind) => !template.comingSoon && isServiceTemplateType(template.type) === (kind === "service")
 
-/** The default template of a kind among the available ones: by slug, otherwise the first remote for a frontend, the first of the kind for a service. */
-export const defaultTemplateOf = <T extends Pick<IMarket, "slug" | "type" | "comingSoon">>(templates: T[], kind: RepositoryComponentKind): T | undefined => {
+/** Whether a template is built with the technology the project picked for its kind; never when it picked none. */
+export const matchesProjectTechnology = (template: Pick<IMarket, "framework">, kind: RepositoryComponentKind, technologies?: IProjectTechnologies): boolean => {
+    const chosen = kind === "frontend" ? technologies?.frontend : technologies?.backend
+    return Boolean(chosen) && (kind === "frontend" ? parseFramework(template.framework) : parseBackendTechnology(template.framework)) === chosen
+}
+
+/**
+ * The default template of a kind among the available ones: by slug, otherwise the first remote for a frontend, the
+ * first of the kind for a service. Picked among the ones matching the technologies of the project first, so that a
+ * Vue project starts from a Vue remote; among all of them when none does.
+ */
+export const defaultTemplateOf = <T extends Pick<IMarket, "slug" | "type" | "comingSoon" | "framework">>(
+    templates: T[],
+    kind: RepositoryComponentKind,
+    technologies?: IProjectTechnologies
+): T | undefined => {
     const ofKind = templates.filter(template => isTemplateOfKind(template, kind))
-    return (
-        ofKind.find(template => template.slug === DEFAULT_TEMPLATE_SLUGS[kind]) ??
-        (kind === "frontend" ? ofKind.find(template => template.type?.trim().toLowerCase() === "remote") : undefined) ??
-        ofKind[0]
-    )
+    const pick = (candidates: T[]) =>
+        candidates.find(template => template.slug === DEFAULT_TEMPLATE_SLUGS[kind]) ??
+        (kind === "frontend" ? candidates.find(template => template.type?.trim().toLowerCase() === "remote") : undefined) ??
+        candidates[0]
+    return pick(ofKind.filter(template => matchesProjectTechnology(template, kind, technologies))) ?? pick(ofKind)
 }
 
 const alreadyLinked = (kind: RepositoryComponentKind) => createBusinessException({ code: "REPOSITORY_ALREADY_LINKED", message: `The ${kind} already has a code repository linked`, statusCode: 409 })
@@ -125,7 +141,7 @@ export class RepositoryCreationService extends BaseAuthorizedService {
             throw new EntityNotFoundError(String(input.codeRepositoryId))
         }
 
-        const template = await this.templateFor(kind, (typeof input.template === "string" && input.template.trim()) || member.template)
+        const template = await this.templateFor(kind, (typeof input.template === "string" && input.template.trim()) || member.template, member.projectId)
         const groupId = input.gitlab?.groupId
         return {
             connection,
@@ -140,10 +156,11 @@ export class RepositoryCreationService extends BaseAuthorizedService {
         }
     }
 
-    /** The template asked for, or the default of the kind; one of the other kind is refused, as on create. */
-    private async templateFor(kind: RepositoryComponentKind, slug?: string): Promise<IMarket> {
+    /** The template asked for, or the default of the kind for the project's technologies; one of the other kind is refused, as on create. */
+    private async templateFor(kind: RepositoryComponentKind, slug: string | undefined, projectId: Member["projectId"]): Promise<IMarket> {
         const market = new MarketService()
-        const template = slug ? await market.getSingle(slug) : (defaultTemplateOf(await market.getAll(), kind) ?? null)
+        const technologies = slug ? undefined : (await Project.findById(projectId, { technologies: 1 }))?.technologies
+        const template = slug ? await market.getSingle(slug) : (defaultTemplateOf(await market.getAll(), kind, technologies) ?? null)
         if (!template) {
             throw createBusinessException({ code: "TEMPLATE_NOT_FOUND", message: slug ? `There is no template "${slug}"` : `There is no ${kind} template` })
         }

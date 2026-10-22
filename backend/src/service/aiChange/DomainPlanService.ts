@@ -6,11 +6,12 @@ import Frontend from "../../models/FrontendModel"
 import { IMarket } from "../../models/MarketModel"
 import Project from "../../models/ProjectModel"
 import Service from "../../models/ServiceModel"
+import { describeProjectTechnologies, IProjectTechnologies } from "../../types/ProjectTechnology"
 import { SERVICE_SLUG } from "../../types/ServiceStack"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { aiProviderError } from "../llm"
 import MarketService from "../MarketService"
-import { defaultTemplateOf, isTemplateOfKind, REPOSITORY_NAME_SUFFIXES } from "../RepositoryCreationService"
+import { defaultTemplateOf, isTemplateOfKind, matchesProjectTechnology, REPOSITORY_NAME_SUFFIXES } from "../RepositoryCreationService"
 import { isValidRepositoryName } from "../RepositoryRenameService"
 import { RepositoryComponentKind } from "../workspace/repositoryComponent"
 import { AiChangeBaseService, loggable } from "./aiChangeShared"
@@ -50,7 +51,7 @@ const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain
 - name: a short human name, e.g. "Orders".
 - slug: lowercase letters, digits and dashes, 2 to 50 characters, starting with a letter or a digit, not one of the slugs already taken.
 - repositoryName: the slug followed by "${REPOSITORY_NAME_SUFFIXES.frontend}" for a frontend and by "${REPOSITORY_NAME_SUFFIXES.service}" for a service, e.g. orders${REPOSITORY_NAME_SUFFIXES.frontend} and orders${REPOSITORY_NAME_SUFFIXES.service}.
-- template: the slug of one of the listed templates of the same kind, the one whose stack fits the project best; when nothing hints at a stack, the one marked default.
+- template: the slug of one of the listed templates of the same kind. Unless the request explicitly asks for another stack, prefer one marked "project technology": it is built with the default technology the team chose for that kind (see project_technologies). Otherwise the one whose stack fits the project best; when nothing hints at a stack, the one marked default.
 - reason: one sentence, in the language of the request, on what the component does for it.
 Follow the project and domain context: it is what the team wrote for AI agents.`
 
@@ -100,19 +101,19 @@ const freeSlug = (slug: string, taken: Set<string>) => {
     return candidate
 }
 
-const describeTemplate = (template: Template, isDefault: boolean) =>
-    `- ${template.slug}${isDefault ? " (default)" : ""}: ${[template.type, template.framework, template.compiler].filter(Boolean).join(", ")}${template.description ? ` — ${template.description}` : ""}`
+const describeTemplate = (template: Template, isDefault: boolean, isProjectTechnology: boolean) =>
+    `- ${template.slug}${isDefault ? " (default)" : ""}${isProjectTechnology ? " (project technology)" : ""}: ${[template.type, template.framework, template.compiler].filter(Boolean).join(", ")}${template.description ? ` — ${template.description}` : ""}`
 
 /**
  * What the model proposed, made safe to show as a starting point: unknown or wrong-kind templates
- * become the default of the kind, slugs and repository names valid and free in the project, at
+ * become the default of the kind, one matching the technologies of the project when there is one, slugs and repository names valid and free in the project, at
  * most {@link MAX_PLANNED_PER_KIND} of each kind. The user still reviews it before anything is created.
  */
-export const sanitizePlan = (answer: unknown, templates: Template[], taken: Record<RepositoryComponentKind, Set<string>>): DomainPlan => {
+export const sanitizePlan = (answer: unknown, templates: Template[], taken: Record<RepositoryComponentKind, Set<string>>, technologies?: IProjectTechnologies): DomainPlan => {
     const proposed = (answer ?? {}) as Partial<Record<"frontends" | "services", unknown>>
     const sanitize = (items: unknown, kind: RepositoryComponentKind): DomainPlanComponent[] => {
         const ofKind = templates.filter(template => isTemplateOfKind(template, kind))
-        const fallbackTemplate = defaultTemplateOf(templates, kind)
+        const fallbackTemplate = defaultTemplateOf(templates, kind, technologies)
         // Without a template of the kind nothing of it can be scaffolded: the plan leaves it out.
         if (!fallbackTemplate || !Array.isArray(items)) return []
         const suffix = REPOSITORY_NAME_SUFFIXES[kind]
@@ -158,17 +159,18 @@ export class DomainPlanService extends AiChangeBaseService {
         }
 
         const [project, templates, frontends, services] = await Promise.all([
-            Project.findById(projectIdObj, { name: 1, context: 1 }),
+            Project.findById(projectIdObj, { name: 1, context: 1, technologies: 1 }),
             new MarketService().getAll(),
             Frontend.find({ projectId: projectIdObj }, { slug: 1 }),
             Service.find({ projectId: projectIdObj }, { slug: 1 })
         ])
         const taken = { frontend: new Set(frontends.map(item => item.slug)), service: new Set(services.map(item => item.slug)) }
+        const technologies = project?.technologies
         const templateList = (kind: RepositoryComponentKind) => {
-            const fallback = defaultTemplateOf(templates, kind)
+            const fallback = defaultTemplateOf(templates, kind, technologies)
             return templates
                 .filter(template => isTemplateOfKind(template, kind))
-                .map(template => describeTemplate(template, template.slug === fallback?.slug))
+                .map(template => describeTemplate(template, template.slug === fallback?.slug, matchesProjectTechnology(template, kind, technologies)))
                 .join("\n")
         }
 
@@ -178,11 +180,14 @@ export class DomainPlanService extends AiChangeBaseService {
                 user: [
                     `<request>\n${input.prompt}\n</request>`,
                     project?.context ? `<project_context project="${project.name}">\n${project.context}\n</project_context>` : `<project name="${project?.name ?? ""}" />`,
+                    describeProjectTechnologies(technologies),
                     [`<domain_context domain="${domain.name}">`, domain.description, domain.context, "</domain_context>"].filter(Boolean).join("\n"),
                     `<frontend_templates>\n${templateList("frontend")}\n</frontend_templates>`,
                     `<service_templates>\n${templateList("service")}\n</service_templates>`,
                     `<taken_slugs>\nfrontends: ${[...taken.frontend].join(", ") || "none"}\nservices: ${[...taken.service].join(", ") || "none"}\n</taken_slugs>`
-                ].join("\n\n"),
+                ]
+                    .filter(Boolean)
+                    .join("\n\n"),
                 schema: PLAN_SCHEMA,
                 maxTokens: MAX_TOKENS,
                 effort: "low"
@@ -199,7 +204,7 @@ export class DomainPlanService extends AiChangeBaseService {
                 statusCode: 502
             })
         }
-        return sanitizePlan(answer, templates, taken)
+        return sanitizePlan(answer, templates, taken, technologies)
     }
 }
 

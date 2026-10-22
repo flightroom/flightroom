@@ -3009,5 +3009,39 @@
         },
         "applying_label_one": "Applicazione di {{count}} proposta…",
         "applying_label_other": "Applicazione di {{count}} proposte…"
+    },
+    "technologies": {
+        "names": {
+            "REACT": "React",
+            "VUE": "Vue",
+            "ANGULAR": "Angular",
+            "NODE": "Node.js",
+            "PYTHON": "Python",
+            "SPRING_BOOT": "Spring Boot",
+            "QUARKUS": "Quarkus",
+            "MICRONAUT": "Micronaut",
+            "GO": "Go",
+            "DOTNET": ".NET"
+        },
+        "settings": {
+            "title": "Tecnologie di default",
+            "subtitle": "Lo stack con cui il progetto crea di solito frontend e servizi.",
+            "details": "Quando crei un frontend o un servizio, i template di queste tecnologie vengono proposti per primi e preselezionati; gli agenti AI le usano come stack di riferimento. Non vincolano niente: puoi sempre scegliere un altro template o un'altra tecnologia.",
+            "frontend_label": "Frontend",
+            "frontend_hint": "Il framework proposto per i nuovi frontend.",
+            "backend_label": "Backend",
+            "backend_hint": "Il framework proposto per i nuovi servizi. Micronaut non ha ancora un template: gli agenti lo useranno comunque, mentre lo scaffolding parte dal template più vicino.",
+            "none": "Nessuna",
+            "saved": "Tecnologie di default aggiornate",
+            "save_failed": "Impossibile aggiornare le tecnologie di default"
+        },
+        "recommended": "Consigliato",
+        "recommended_title": "Usa la tecnologia di default del progetto",
+        "templates_hint": "I template con le tecnologie di default del progetto sono in cima e segnati come consigliati: tutti gli altri restano disponibili.",
+        "clear_template": "Nessun template",
+        "header": {
+            "frontend": "Frontend di default: {{name}}",
+            "backend": "Backend di default: {{name}}"
+        }
     }
 }
