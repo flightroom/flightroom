@@ -727,7 +727,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 {
                     prompt: job.prompt,
                     effort: job.effort,
-                    project: { name: project.name, context: project.context },
+                    project: { name: project.name, context: project.context, technologies: project.technologies },
                     domain: domain ? toAgentDomain(domain) : undefined,
                     memberDomains: memberDomains.map(toAgentDomain),
                     repositories: repositories.map(({ component, request, workspace, previousFiles }, index) =>
