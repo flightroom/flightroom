@@ -50,6 +50,8 @@ export interface Project {
     gitOps?: ProjectGitOps
     exposure?: ProjectExposure
     pipelines?: ProjectPipelines
+    /** Dove sono pubblicate le immagini, es. ghcr.io/acme: chi non ha un repository immagine suo viene deployato come <registry>/<slug> */
+    containerRegistry?: string
     /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
     role?: RoleInProject
     createdAt?: string
@@ -86,6 +88,8 @@ export interface ProjectUpdateDTO {
     isActive?: boolean
     /** `null` toglie l'esposizione: al prossimo deploy ogni ambiente perde il suo Gateway */
     exposure?: { domain: string; certificateIssuer?: string | null; httpPort?: number | null; httpsPort?: number | null } | null
+    /** `null` toglie il container registry: chi non ha un repository immagine suo torna fuori dal deploy */
+    containerRegistry?: string | null
     /** Il repository si indica con l'id del provider: il backend verifica che la connessione lo raggiunga */
     gitOps?: {
         enabled: boolean

@@ -1,7 +1,7 @@
 import { Types } from "mongoose"
 import { describe, expect, it } from "vitest"
 import { parse } from "yaml"
-import { APPLICATIONS_CHART_FOLDER, CHART_FILES, isDeployable, MANAGED_VALUES_MARKER, renderApplicationValues, splitImage } from "./applicationManifests"
+import { APPLICATIONS_CHART_FOLDER, applicationImageRepository, CHART_FILES, isDeployable, MANAGED_VALUES_MARKER, renderApplicationValues, splitImage } from "./applicationManifests"
 
 describe("splitImage", () => {
     it.each([
@@ -11,6 +11,23 @@ describe("splitImage", () => {
         ["localhost:5000/x", { host: "localhost:5000", name: "x" }]
     ])("given the image %s, when it is split, then the registry and the name are told apart", (repository, expected) => {
         expect(splitImage(repository)).toEqual(expected)
+    })
+})
+
+describe("applicationImageRepository", () => {
+    it("given an image repository of its own, when the image is resolved, then it wins over the registry of the project", () => {
+        expect(applicationImageRepository({ slug: "orders", image: { repository: "ghcr.io/acme/orders-api" } }, "registry.example.com")).toBe("ghcr.io/acme/orders-api")
+    })
+
+    it.each([
+        ["no image", {}],
+        ["a blank repository", { image: { repository: " " } }]
+    ])("given %s and a registry in the project, when the image is resolved, then it is the slug in the registry", (_case, fields) => {
+        expect(applicationImageRepository({ slug: "orders", ...fields }, "azimutmarketplace.azurecr.io")).toBe("azimutmarketplace.azurecr.io/orders")
+    })
+
+    it("given no image and no registry in the project, when the image is resolved, then there is none", () => {
+        expect(applicationImageRepository({ slug: "orders" })).toBeUndefined()
     })
 })
 
@@ -25,6 +42,14 @@ describe("isDeployable", () => {
         ["an empty repository", { slug: "orders", version: "1.0.0", image: { repository: "" } }]
     ])("given %s, when it is checked, then the application is left out", (_case, application) => {
         expect(isDeployable(application)).toBe(false)
+    })
+
+    it("given a version and no image, when the project has a container registry, then the application can be deployed", () => {
+        expect(isDeployable({ slug: "orders", version: "1.0.0" }, "ghcr.io/acme")).toBe(true)
+    })
+
+    it("given no version, when the project has a container registry, then the application is still left out", () => {
+        expect(isDeployable({ slug: "orders" }, "ghcr.io/acme")).toBe(false)
     })
 })
 
@@ -51,6 +76,16 @@ describe("renderApplicationValues", () => {
 
     it("given an application, when its values are rendered, then the image has the registry, the name and the version as tag", () => {
         expect(parse(render()).image).toEqual({ host: "ghcr.io", name: "acme/orders", tag: "1.2.3" })
+    })
+
+    it("given no image of its own, when its values are rendered with the registry of the project, then the image is the slug in the registry", () => {
+        const values = parse(renderApplicationValues({ ...application, image: undefined }, environment, mapNames, undefined, "azimutmarketplace.azurecr.io"))
+
+        expect(values.image).toEqual({ host: "azimutmarketplace.azurecr.io", name: "orders", tag: "1.2.3" })
+    })
+
+    it("given no image and no registry in the project, when its values are rendered, then it is refused", () => {
+        expect(() => renderApplicationValues({ ...application, image: undefined }, environment, mapNames)).toThrow()
     })
 
     it("given maps attached by id, when its values are rendered, then they go by name and an unknown id is left out", () => {

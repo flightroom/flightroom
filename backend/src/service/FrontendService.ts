@@ -27,7 +27,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { domainScopeForbidden, ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged, isInDomainScope } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
-import { ensurePlainFields, imageRepositoryOf, isNewerVersion, parseRegistration, withNormalizedReferences } from "./ServiceService"
+import { ensurePlainFields, imageRepositoryOf, isNewerVersion, parseRegistration, withManualVersion, withNormalizedReferences } from "./ServiceService"
 import TemplateScaffoldService from "./TemplateScaffoldService"
 import { ensureAttachableMaps } from "./VariableMapService"
 import { forgetFrontends } from "./workspace/workspaceCleanup"
@@ -118,7 +118,8 @@ export class FrontendService extends BaseAuthorizedService {
         ensureValidKind(dto.kind)
         ensureDockerHasNoParents(dto.kind, dto.parentIds, dto.slug)
         ensureFrontendExposed(dto)
-        const frontend = withDockerDefaults(await withNormalizedReferences(dto, projectIdObj))
+        // The version of a DOCKER is the tag of its image, as for a service; a BUNDLE's names an uploaded bundle
+        const frontend = withDockerDefaults(await withNormalizedReferences(dto.kind === FrontendKind.DOCKER ? withManualVersion(dto) : dto, projectIdObj))
 
         // Both before the repository is created: a refused domain or a taken slug would leave an orphan repository behind
         if (frontend.domainId !== undefined) {
@@ -244,7 +245,9 @@ export class FrontendService extends BaseAuthorizedService {
         // Both sides of the rule can change here: parents given to a DOCKER, or a frontend with parents made one
         ensureDockerHasNoParents(kind, fields.parentIds ?? frontend.parentIds, frontend.slug)
         ensureFrontendExposed(fields, frontend)
-        const allowed: Partial<FrontendDTO> & Record<string, unknown> = withDockerDefaults(await withNormalizedReferences(fields, frontend.projectId, frontend), frontend)
+        // The version of a DOCKER is the tag of its image, as for a service; a BUNDLE's names an uploaded bundle
+        const checked = kind === FrontendKind.DOCKER ? withManualVersion(fields) : fields
+        const allowed: Partial<FrontendDTO> & Record<string, unknown> = withDockerDefaults(await withNormalizedReferences(checked, frontend.projectId, frontend), frontend)
         // The orchestrator draws no canary for a DOCKER: one left enabled would only mislead the console
         if (kind === FrontendKind.DOCKER && allowed.canary) {
             allowed.canary = { ...allowed.canary, enabled: false }

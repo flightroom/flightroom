@@ -243,10 +243,18 @@
             "https_port_hint": "The port the websecure entry point of Traefik listens on inside the pod. 443 by default; a Traefik Helm chart left at its defaults uses 8443.",
             "port_invalid": "A port between 1 and 65535"
         },
+        "containerRegistry": {
+            "title": "Container registry",
+            "subtitle": "Where the images of services and frontends served by Docker are pushed.",
+            "details": "A service or frontend served by Docker with no image repository of its own is deployed as <registry>/<slug>, tagged with its version: GitOps writes its Helm values even when its pipeline does not register its versions.",
+            "label": "Registry",
+            "hint": "E.g. ghcr.io/acme or registry.example.com:5000, without https://. Left empty, only what has an image repository of its own is deployed.",
+            "invalid": "A host, with a port and a namespace if any, without scheme, spaces or a trailing slash, e.g. ghcr.io/acme"
+        },
         "gitOps": {
             "title": "GitOps for environments, config maps and secrets",
             "subtitle": "Every Deploy commits what it ships to a Git repository: the namespace of the environment, its config maps and its secrets.",
-            "details": "To the configuration repository, on the default branch: <environment>/namespace.yaml, <environment>/configMaps/<name>.yaml and <environment>/secrets/<name>.yaml. Optionally, to the applications repository: one branch per environment with a Helm values file for every service and frontend that has an image and a version, plus a shared Helm chart in microservice-chart/, written only when missing so you can customize it.",
+            "details": "To the configuration repository, on the default branch: <environment>/namespace.yaml, <environment>/configMaps/<name>.yaml and <environment>/secrets/<name>.yaml. Optionally, to the applications repository: one branch per environment with a Helm values file for every service and frontend that has a version and an image, its own or <registry>/<slug> when the project has a container registry, plus a shared Helm chart in microservice-chart/, written only when missing so you can customize it.",
             "enabled": "Commit to a repository on every Deploy",
             "connection": "Connection",
             "connectionPlaceholder": "Pick a connection",
@@ -386,7 +394,9 @@
             "contextUpdated": "Project context updated",
             "contextUpdateFailed": "Could not update the project context",
             "exposureUpdated": "Exposure saved: it applies from the next deploy of each environment",
-            "exposureUpdateFailed": "The exposure could not be saved"
+            "exposureUpdateFailed": "The exposure could not be saved",
+            "containerRegistryUpdated": "Container registry saved: it applies from the next deploy",
+            "containerRegistryUpdateFailed": "The container registry could not be saved"
         }
     },
     "theme": {
@@ -739,7 +749,7 @@
             "badge_docker": "Docker",
             "no_parents_hint": "A frontend served by Docker cannot have parents",
             "container_tab": "Container",
-            "version_from_pipeline": "Set by the pipeline each time it registers an image version: it cannot be changed here.",
+            "version_from_pipeline": "The tag of the image deployed. Set it here, or the pipeline sets it when it registers a newer image.",
             "template_pipeline_hint": "The pipeline of this template uploads a bundle to Flightroom, which a frontend served by its Docker container does not accept. Change it to build the Docker image and register its version."
         },
         "errors": {
@@ -2250,7 +2260,12 @@
         "exposure_path_invalid": "A path an HTTPRoute takes: starting with /, letters, digits and -._~!$&'()*+,;=:@ or %XX, without query, fragment, // nor . or .. segments",
         "path_invalid": "Must start with \"/\", with at most 256 characters and no spaces",
         "image_repository": "Image repository",
-        "image_repository_hint": "Optional. E.g. ghcr.io/acme/orders-api",
+        "image_repository_hint": "Optional. E.g. ghcr.io/acme/orders-api. Left empty, the pipeline sets it when it registers a version.",
+        "image_repository_hint_registry": "Optional. Left empty, {{image}} is deployed, from the container registry of the project.",
+        "image_repository_missing": "No image repository here and no container registry in the project settings: GitOps does not deploy this version.",
+        "version": "Version",
+        "version_hint": "The tag of the image deployed. Set it here, or the pipeline sets it when it registers a newer image.",
+        "version_invalid": "Letters, digits, dots, dashes and underscores only, at most 128",
         "urls": {
             "title": "Endpoints",
             "description": "The base URL the service is reachable at in each environment. The docs and OpenAPI paths are relative to it. Leave it blank where the service is not exposed.",

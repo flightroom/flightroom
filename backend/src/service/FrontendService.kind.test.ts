@@ -189,6 +189,32 @@ describe("FrontendService.update, kind", () => {
         expect(write).not.toHaveBeenCalled()
     })
 
+    it("given a DOCKER, when its version is set by hand, then it is written trimmed", async () => {
+        const write = vi.spyOn(Frontend, "findOneAndUpdate").mockImplementation((async (_filter: unknown, update: unknown) => update) as never)
+        const frontend = existing({ kind: FrontendKind.DOCKER, exposurePath: "/shell" })
+
+        await serviceFor(frontend).update(String(frontend._id), { version: " 2.1.0 " } as FrontendDTO)
+
+        expect(write.mock.calls[0][1]).toMatchObject({ version: "2.1.0" })
+    })
+
+    it("given a DOCKER, when it is given a version an image tag cannot be, then it is refused before anything is written", async () => {
+        const write = vi.spyOn(Frontend, "findOneAndUpdate")
+        const frontend = existing({ kind: FrontendKind.DOCKER, exposurePath: "/shell" })
+
+        expect(await codeOf(serviceFor(frontend).update(String(frontend._id), { version: "2.1.0 beta" } as FrontendDTO))).toBe("SERVICE_VERSION_INVALID")
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a BUNDLE, when its version is updated, then it is written as before, without the rule of an image tag", async () => {
+        const write = vi.spyOn(Frontend, "findByIdAndUpdate").mockImplementation((async (_id: unknown, update: unknown) => update) as never)
+        const frontend = existing({})
+
+        await serviceFor(frontend).update(String(frontend._id), { version: "1.0.0+build.5" } as FrontendDTO)
+
+        expect(write.mock.calls[0][1]).toMatchObject({ version: "1.0.0+build.5" })
+    })
+
     it("given a DOCKER stored without an exposure path, when another field is updated, then it is written", async () => {
         const write = vi.spyOn(Frontend, "findOneAndUpdate").mockImplementation((async (_filter: unknown, update: unknown) => update) as never)
         const frontend = existing({ kind: FrontendKind.DOCKER })

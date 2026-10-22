@@ -21,6 +21,7 @@ import Storage from "../models/StorageModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposure"
+import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import { slugify } from "../utils/slugUtils"
@@ -53,6 +54,8 @@ export interface ProjectUpdateInput {
     exposure?: { domain: string; certificateIssuer?: string | null; httpPort?: number | null; httpsPort?: number | null } | null
     /** Replaced as a whole, `null` goes back to the official template-pipelines */
     pipelines?: PipelineTemplatesInput | null
+    /** e.g. `ghcr.io/acme`; `null` or blank removes it, and an application with no image of its own is left out of the deploy again */
+    containerRegistry?: string | null
 }
 
 /** The repository of the pipeline templates as the settings screen names it: by the provider id, the backend resolves the rest */
@@ -90,6 +93,19 @@ const exposureOf = (input: unknown): { domain: string; certificateIssuer?: strin
         ...(httpPort != null ? { httpPort: httpPort as number } : {}),
         ...(httpsPort != null ? { httpsPort: httpsPort as number } : {})
     }
+}
+
+/** The container registry to store, trimmed and without a trailing slash: refused with a 400 rather than by the model with a 500 */
+const containerRegistryOf = (input: unknown): string => {
+    const registry = typeof input === "string" ? input.trim().replace(/\/+$/, "") : ""
+    if (!CONTAINER_REGISTRY.test(registry)) {
+        throw createBusinessException({
+            code: "PROJECT_CONTAINER_REGISTRY_INVALID",
+            message: "The container registry is a host, with a port and a namespace if any, without scheme, e.g. ghcr.io/acme or registry.example.com:5000",
+            statusCode: 400
+        })
+    }
+    return registry
 }
 
 interface ContextEntry {
@@ -400,6 +416,12 @@ export class ProjectService extends BaseAuthorizedService {
                 updateData.$unset = { ...updateData.$unset, exposure: 1 }
             } else if (projectData.exposure !== undefined) {
                 updateData.exposure = exposureOf(projectData.exposure)
+            }
+            const { containerRegistry } = projectData
+            if (containerRegistry === null || (typeof containerRegistry === "string" && !containerRegistry.trim())) {
+                updateData.$unset = { ...updateData.$unset, containerRegistry: 1 }
+            } else if (containerRegistry !== undefined) {
+                updateData.containerRegistry = containerRegistryOf(containerRegistry)
             }
             for (const field of ["description", "context"] as const) {
                 if (projectData[field] === null) {

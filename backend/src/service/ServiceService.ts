@@ -105,6 +105,19 @@ export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "urls"
 }
 
 /**
+ * A version set by hand rather than registered by the CI, held to the same rule: the deploy pulls it as the
+ * tag of the image. Left out, the stored one stays; the CI still moves it on to a newer one it registers.
+ */
+export const withManualVersion = <T extends { version?: string }>(fields: T): T => {
+    if (fields.version === undefined) return fields
+    const version = typeof fields.version === "string" ? fields.version.trim() : ""
+    if (!SERVICE_VERSION.test(version)) {
+        throw createBusinessException({ code: "SERVICE_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
+    }
+    return { ...fields, version }
+}
+
+/**
  * The body the CI posts once it pushed an image. It arrives with an API key only, from a pipeline
  * nobody watches: a malformed one is refused with a 400 rather than stored half filled.
  */
@@ -195,7 +208,7 @@ export class ServiceService extends BaseAuthorizedService {
         const slug = (dto.slug ?? "").trim().toLowerCase()
         ensureValidSlug(slug)
         const { id: _id, ...fields } = { ...dto, slug }
-        const service = await withNormalizedReferences(fields, projectIdObj)
+        const service = await withNormalizedReferences(withManualVersion(fields), projectIdObj)
         if (service.domainId !== undefined) {
             service.domainId = await resolveDomainId(service.domainId, projectIdObj)
         }
@@ -275,7 +288,7 @@ export class ServiceService extends BaseAuthorizedService {
         // Never moved to another project, nor given another identity, through an update: the slug is
         // in the registration URL the CI of the repository calls
         const { id: _id, _id: _mongoId, projectId: _projectId, slug: _slug, ...fields } = updates as Partial<ServiceDTO> & { _id?: unknown; projectId?: unknown }
-        const allowed = await withNormalizedReferences(fields, service.projectId, service)
+        const allowed = await withNormalizedReferences(withManualVersion(fields), service.projectId, service)
         if (allowed.domainId !== undefined) {
             allowed.domainId = await resolveDomainId(allowed.domainId, service.projectId)
             // Moved only between the domains of a domain-scoped member, never out of their reach

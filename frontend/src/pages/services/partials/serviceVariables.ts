@@ -8,6 +8,9 @@ import useProjectStore from "@/store/useProjectStore"
 /** Same rule as the backend (SERVICE_HTTP_PATH): a probe or docs path is absolute, at most 256 characters, without whitespace */
 export const SERVICE_HTTP_PATH = /^\/\S{0,255}$/
 
+/** Same rule as the backend (SERVICE_VERSION): the version is the tag of the image, which takes no `+`, space or slash */
+export const SERVICE_VERSION = /^[A-Za-z0-9._-]{1,128}$/
+
 /** Same rule as the backend: what an HTTPRoute takes as a path, no query, fragment, // nor . or .. segment */
 const EXPOSURE_PATH = /^(?!.*%2[fF])(\/|(\/(?!\.{1,2}(\/|$))([-A-Za-z0-9._~!$&'()*+,;=:@]|%[0-9a-fA-F]{2})+)+\/?)$/
 

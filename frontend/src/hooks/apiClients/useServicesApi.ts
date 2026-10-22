@@ -45,7 +45,7 @@ export interface Service {
         source?: string
         detectedAt?: Date
     }
-    /** Latest registered version */
+    /** Latest registered version, or the one set by hand: the tag of the image deployed */
     version?: string
     codeRepository?: ServiceCodeRepository
     image?: {
@@ -73,7 +73,7 @@ export interface Service {
     updatedAt?: Date
 }
 
-export type ServiceDTO = Omit<Service, "_id" | "projectId" | "stack" | "version" | "createdAt" | "updatedAt">
+export type ServiceDTO = Omit<Service, "_id" | "projectId" | "stack" | "createdAt" | "updatedAt">
 
 /** Port and probe paths left out come from the template, the platform defaults after it. */
 export type ServiceCreateDTO = Omit<ServiceDTO, "port" | "livenessPath" | "readinessPath"> & Partial<Pick<ServiceDTO, "port" | "livenessPath" | "readinessPath">>

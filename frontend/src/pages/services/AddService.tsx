@@ -30,7 +30,7 @@ import ServiceRuntimeFields from "./partials/ServiceRuntimeFields"
 import ServiceUrlsFields from "./partials/ServiceUrlsFields"
 import ServiceVariableMapsFields from "./partials/ServiceVariableMapsFields"
 import { isServiceTemplate } from "./partials/serviceTemplates"
-import { createServiceRuntimeShape, fromFormUrls, toFormUrls, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
+import { createServiceRuntimeShape, fromFormUrls, SERVICE_VERSION, toFormUrls, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
 
 /** Same rule as the backend (SERVICE_SLUG): the slug names the workspace folder and the CI registration URL */
 const SERVICE_SLUG = /^[a-z0-9][a-z0-9-]{1,49}$/
@@ -49,6 +49,7 @@ const prefilledValuesOf = (defaults: ServiceDefaults): PrefilledValues => ({
 
 interface FormMessages {
     slug: string
+    version: string
     path: string
     exposurePath: string
     url: string
@@ -62,6 +63,12 @@ const createFormSchema = (messages: FormMessages) =>
         domainId: z.string().nullable().optional(),
         context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
         template: z.string().optional(),
+        // Blank: none yet, until the pipeline registers a first one
+        version: z
+            .string()
+            .trim()
+            .refine(value => value === "" || SERVICE_VERSION.test(value), messages.version)
+            .optional(),
         ...createServiceRuntimeShape(messages),
         codeRepository: z
             .object({
@@ -114,6 +121,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
         () =>
             createFormSchema({
                 slug: t("services.slug_invalid"),
+                version: t("services.version_invalid"),
                 path: t("services.path_invalid"),
                 exposurePath: t("services.exposure_path_invalid"),
                 url: t("services.urls.invalid")
@@ -125,6 +133,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
         defaultValues: service
             ? {
                   ...service,
+                  version: service.version ?? "",
                   domainId: service.domainId ?? "",
                   port: String(service.port),
                   docsPath: service.docsPath ?? "",
@@ -143,6 +152,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                   domainId: initialDomainId ?? "",
                   context: "",
                   template: initialTemplate,
+                  version: "",
                   port: "8080",
                   livenessPath: "/health/live",
                   readinessPath: "/health/ready",
@@ -188,6 +198,8 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
             urls: fromFormUrls(data.urls, environments)
         } as unknown as ServiceDTO
         const template = data.template || undefined
+        // Sent only when typed here: saving the form must not move back a newer version the pipeline registered meanwhile
+        if (!data.version || !form.formState.dirtyFields.version) delete dto.version
 
         if (!isEdit && template && dto.codeRepository) {
             dto.codeRepository.createData = { ...dto.codeRepository.createData, template, name: dto.codeRepository.createData?.name || data.slug }
@@ -247,7 +259,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                     </CardContent>
                 </Card>
 
-                <ServiceRuntimeFields />
+                <ServiceRuntimeFields withVersion />
 
                 <ServiceUrlsFields environments={environments} />
 

@@ -251,6 +251,34 @@ describe("update", () => {
         expect(written).toBeUndefined()
     })
 
+    it("Given a container registry with spaces and a trailing slash, when the project is updated, then it is written trimmed without the slash", async () => {
+        await update({ containerRegistry: " ghcr.io/acme/ " })
+
+        expect(written).toEqual({ containerRegistry: "ghcr.io/acme" })
+    })
+
+    it("Given a registry with a port, when the project is updated, then it is written as it is", async () => {
+        await update({ containerRegistry: "registry.example.com:5000" })
+
+        expect(written).toEqual({ containerRegistry: "registry.example.com:5000" })
+    })
+
+    it.each([null, "  "])("Given the container registry %j, when the project is updated, then it is unset", async containerRegistry => {
+        await update({ containerRegistry })
+
+        expect(written).toEqual({ $unset: { containerRegistry: 1 } })
+    })
+
+    it.each([
+        ["a scheme", "https://ghcr.io/acme"],
+        ["a space inside", "ghcr.io/ac me"],
+        ["an image tag", "ghcr.io/acme:latest"],
+        ["something that is not a string", 42]
+    ])("Given a container registry with %s, when the project is updated, then it is refused with a 400 and nothing is written", async (_case, containerRegistry) => {
+        await expect(update({ containerRegistry })).rejects.toMatchObject({ code: "PROJECT_CONTAINER_REGISTRY_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
+    })
+
     it("Given only a description, when the project is updated, then the name is left alone", async () => {
         await update({ description: "the checkout flow" })
 
