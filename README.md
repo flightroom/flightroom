@@ -71,6 +71,61 @@ one-click rollback.
 
 ![The microfrontends of a project, with the version, the host and the canary split each one is serving](docs/assets/microfrontends-dashboard.png)
 
+## Use it from your AI client (MCP) 🤖
+
+Flightroom runs a remote [MCP](https://modelcontextprotocol.io) server, so
+Claude, ChatGPT, Gemini, Claude Code, Cursor, VS Code and Gemini CLI can read
+your projects, manage micro frontends and services, and deploy, with your role
+on each project. The client signs in with OAuth: you log in to the console, pick
+the projects to share and whether the client may change things.
+
+| Console | MCP server URL |
+| --- | --- |
+| Hosted | `https://console.flightroom.dev/api/mcp` |
+| Self-hosted | `https://<your console>/api/mcp` (shown in Settings → Access → AI assistants) |
+
+- **Claude, ChatGPT, Gemini** — add the URL as a custom connector (remote MCP
+  server) and sign in when asked.
+- **Claude Code** — add it, then run `/mcp` to sign in:
+
+  ```bash
+  claude mcp add --transport http flightroom https://console.flightroom.dev/api/mcp
+  ```
+
+- **Cursor** — `~/.cursor/mcp.json` (or `.cursor/mcp.json` in the project):
+
+  ```json
+  { "mcpServers": { "flightroom": { "url": "https://console.flightroom.dev/api/mcp" } } }
+  ```
+
+- **VS Code** — `.vscode/mcp.json`, then **Start** on the server to sign in:
+
+  ```json
+  { "servers": { "flightroom": { "type": "http", "url": "https://console.flightroom.dev/api/mcp" } } }
+  ```
+
+- **Gemini CLI** — `~/.gemini/settings.json`, then `/mcp auth flightroom`:
+
+  ```json
+  { "mcpServers": { "flightroom": { "httpUrl": "https://console.flightroom.dev/api/mcp" } } }
+  ```
+
+A client that cannot do OAuth (a script, a CI job) can send a project API key
+instead, as `Authorization: Bearer <api key>`; it reaches that project only.
+
+On a self-hosted install the MCP server is **off by default**. Turn it on with:
+
+```bash
+MCP_ENABLED=true
+FRONTEND_URL=https://<your console>
+JWT_SECRET=<your own secret, openssl rand -hex 32>
+```
+
+[docs/MCP.md](docs/MCP.md) covers scopes, the consent page, revoking access,
+reverse proxy setup and every `MCP_*` variable; the
+[MCP server guide](https://flightroom.dev/documentation/docs/build-with-ai/mcp-server/)
+is the user-facing version.
+
 ## How it works
 
 ```mermaid
