@@ -12,7 +12,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import DomainLink from "../models/DomainLinkModel"
 import Domain from "../models/DomainModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
@@ -124,19 +124,19 @@ describe("resolveDomainId", () => {
 })
 
 describe("DomainService.getByProjectId", () => {
-    it("given members in some domains, when the domains are listed, then each carries how many microfrontends and services it groups", async () => {
+    it("given members in some domains, when the domains are listed, then each carries how many frontends and services it groups", async () => {
         allowAccess()
         const otherId = new Types.ObjectId()
         const domain = (id: Types.ObjectId, name: string) => ({ _id: id, toObject: () => ({ _id: id, name }) })
         vi.spyOn(Domain, "find").mockReturnValue({ sort: vi.fn().mockResolvedValue([domain(domainId, "Payments"), domain(otherId, "Search")]) } as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([{ domainId }, { domainId }, { domainId: otherId }] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([{ domainId }, { domainId }, { domainId: otherId }] as never)
         vi.spyOn(Service, "find").mockResolvedValue([{ domainId }] as never)
 
         const domains = await new DomainService().getByProjectId(projectId)
 
         expect(domains).toEqual([
-            { _id: domainId, name: "Payments", microfrontendsCount: 2, servicesCount: 1 },
-            { _id: otherId, name: "Search", microfrontendsCount: 1, servicesCount: 0 }
+            { _id: domainId, name: "Payments", frontendsCount: 2, servicesCount: 1 },
+            { _id: otherId, name: "Search", frontendsCount: 1, servicesCount: 0 }
         ])
     })
 })
@@ -149,10 +149,10 @@ describe("DomainService.delete", () => {
         vi.spyOn(Domain, "findById").mockResolvedValue(domain as never)
     })
 
-    it("given a domain with members, when it is deleted, then its microfrontends and services lose the domain but are kept", async () => {
-        const unsetMicrofrontends = vi.spyOn(Microfrontend, "updateMany").mockResolvedValue({ modifiedCount: 2 } as never)
+    it("given a domain with members, when it is deleted, then its frontends and services lose the domain but are kept", async () => {
+        const unsetFrontends = vi.spyOn(Frontend, "updateMany").mockResolvedValue({ modifiedCount: 2 } as never)
         const unsetServices = vi.spyOn(Service, "updateMany").mockResolvedValue({ modifiedCount: 1 } as never)
-        const deleteMicrofrontends = vi.spyOn(Microfrontend, "deleteMany")
+        const deleteFrontends = vi.spyOn(Frontend, "deleteMany")
         const deleteServices = vi.spyOn(Service, "deleteMany")
         const deleteLinks = vi.spyOn(DomainLink, "deleteMany").mockResolvedValue({ deletedCount: 1 } as never)
         const pullFromScopes = vi.spyOn(UserProject, "updateMany").mockResolvedValue({ modifiedCount: 1 } as never)
@@ -161,20 +161,20 @@ describe("DomainService.delete", () => {
         const deleted = await new DomainService().delete(String(domainId))
 
         const members = { projectId, domainId }
-        expect(unsetMicrofrontends).toHaveBeenCalledWith(members, { $set: { domainId: null } }, expect.anything())
+        expect(unsetFrontends).toHaveBeenCalledWith(members, { $set: { domainId: null } }, expect.anything())
         expect(unsetServices).toHaveBeenCalledWith(members, { $set: { domainId: null } }, expect.anything())
         expect(deleteLinks).toHaveBeenCalledWith({ $or: [{ sourceDomainId: domainId }, { targetDomainId: domainId }] }, expect.anything())
         // Pulled from the scopes and nothing else: `domainScoped` stays, so an emptied scope reaches nothing rather than the whole project
         expect(pullFromScopes).toHaveBeenCalledWith({ projectId, domainIds: domainId }, { $pull: { domainIds: domainId } }, expect.anything())
         expect(remove).toHaveBeenCalledWith(domainId, expect.anything())
-        expect(deleteMicrofrontends).not.toHaveBeenCalled()
+        expect(deleteFrontends).not.toHaveBeenCalled()
         expect(deleteServices).not.toHaveBeenCalled()
         expect(deleted).toBe(domain)
     })
 
     it("given an unknown domain, when it is deleted, then it is not found and no member is touched", async () => {
         vi.spyOn(Domain, "findById").mockResolvedValue(null)
-        const unset = vi.spyOn(Microfrontend, "updateMany")
+        const unset = vi.spyOn(Frontend, "updateMany")
 
         await expect(new DomainService().delete(String(domainId))).rejects.toBeInstanceOf(EntityNotFoundError)
         expect(unset).not.toHaveBeenCalled()
@@ -183,7 +183,7 @@ describe("DomainService.delete", () => {
 
 describe("DomainService.addMembers", () => {
     const domain = { _id: domainId, projectId, slug: "payments", name: "Payments" }
-    const microfrontendId = new Types.ObjectId().toString()
+    const frontendId = new Types.ObjectId().toString()
     const serviceId = new Types.ObjectId().toString()
 
     beforeEach(() => {
@@ -191,22 +191,22 @@ describe("DomainService.addMembers", () => {
         vi.spyOn(Domain, "findById").mockResolvedValue(domain as never)
     })
 
-    it("given microfrontends and services, when they are added, then only the ones of the domain's project are put in it", async () => {
-        const moveMicrofrontends = vi.spyOn(Microfrontend, "updateMany").mockResolvedValue({ matchedCount: 1 } as never)
+    it("given frontends and services, when they are added, then only the ones of the domain's project are put in it", async () => {
+        const moveFrontends = vi.spyOn(Frontend, "updateMany").mockResolvedValue({ matchedCount: 1 } as never)
         const moveServices = vi.spyOn(Service, "updateMany").mockResolvedValue({ matchedCount: 1 } as never)
 
-        const added = await new DomainService().addMembers(String(domainId), { microfrontendIds: [microfrontendId], serviceIds: [serviceId] })
+        const added = await new DomainService().addMembers(String(domainId), { frontendIds: [frontendId], serviceIds: [serviceId] })
 
         const membership = { $set: { domainId } }
-        expect(moveMicrofrontends).toHaveBeenCalledWith({ _id: { $in: [microfrontendId] }, projectId }, membership, expect.anything())
+        expect(moveFrontends).toHaveBeenCalledWith({ _id: { $in: [frontendId] }, projectId }, membership, expect.anything())
         expect(moveServices).toHaveBeenCalledWith({ _id: { $in: [serviceId] }, projectId }, membership, expect.anything())
-        expect(added).toEqual({ microfrontends: 1, services: 1 })
+        expect(added).toEqual({ frontends: 1, services: 1 })
     })
 
-    it.each([[{ microfrontendIds: "abc" }], [{ serviceIds: ["not-an-id"] }], [{ serviceIds: [42] }]])(
+    it.each([[{ frontendIds: "abc" }], [{ serviceIds: ["not-an-id"] }], [{ serviceIds: [42] }]])(
         "given the body %j, when members are added, then it is refused with a 400 and nothing is moved",
         async body => {
-            const move = vi.spyOn(Microfrontend, "updateMany")
+            const move = vi.spyOn(Frontend, "updateMany")
 
             await expect(new DomainService().addMembers(String(domainId), body as never)).rejects.toMatchObject({ code: "DOMAIN_INVALID", statusCode: 400 })
             expect(move).not.toHaveBeenCalled()
@@ -286,9 +286,9 @@ describe("DomainService.build", () => {
     let createTag: ReturnType<typeof vi.spyOn>
 
     /** The domain with these members, each repository on the same GitHub connection of the project */
-    const withMembers = (microfrontends: ReturnType<typeof member>[], services: ReturnType<typeof member>[] = []) => {
+    const withMembers = (frontends: ReturnType<typeof member>[], services: ReturnType<typeof member>[] = []) => {
         vi.spyOn(Domain, "findById").mockResolvedValue(domain as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue(microfrontends as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue(frontends as never)
         vi.spyOn(Service, "find").mockResolvedValue(services as never)
     }
 
@@ -344,7 +344,7 @@ describe("DomainService.build", () => {
     })
 
     /** A tag of a version starts the pipeline of the whole repository: a second one of the same name would fail */
-    it("given a repository shared by a microfrontend and a service, when the domain is built, then it is tagged once for both", async () => {
+    it("given a repository shared by a frontend and a service, when the domain is built, then it is tagged once for both", async () => {
         withMembers([member("Cart", link("shop", "7"))], [member("Cart API", link("shop", "7"))])
 
         const result = await new DomainService().build(String(domainId), "1.4.0")
@@ -352,7 +352,7 @@ describe("DomainService.build", () => {
         expect(createTag).toHaveBeenCalledTimes(1)
         expect(result.repositories).toHaveLength(1)
         expect(result.repositories[0].members.map(({ kind, name }) => ({ kind, name }))).toEqual([
-            { kind: "microfrontend", name: "Cart" },
+            { kind: "frontend", name: "Cart" },
             { kind: "service", name: "Cart API" }
         ])
     })
@@ -546,7 +546,7 @@ describe("DomainService.build", () => {
         withMembers([member("Cart", link("cart-fe", "1"))])
 
         await expect(asUser().build(String(domainId), "1.4.0")).rejects.toMatchObject({ code: "DOMAIN_BUILD_FORBIDDEN", statusCode: 403 })
-        expect(Microfrontend.find).not.toHaveBeenCalled()
+        expect(Frontend.find).not.toHaveBeenCalled()
         expect(getBranchCommitSha).not.toHaveBeenCalled()
         expect(createTag).not.toHaveBeenCalled()
     })
@@ -573,14 +573,14 @@ describe("DomainService.build", () => {
             withMembers([member("Cart", link("cart-fe", "1"))])
 
             await expect(asUser().build(String(domainId), "1.4.0")).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN", statusCode: 403 })
-            expect(Microfrontend.find).not.toHaveBeenCalled()
+            expect(Frontend.find).not.toHaveBeenCalled()
             expect(createTag).not.toHaveBeenCalled()
         })
 
         it("given their domain with a repository shared with a component of another domain, when it is built, then no repository is tagged", async () => {
             scopedTo([domainId])
             withMembers([member("Cart", link("cart-fe", "1")), member("Search", link("search-fe", "2"))])
-            vi.spyOn(Microfrontend, "exists").mockImplementation(((query: { "codeRepository.codeRepositoryId": unknown; $or: Record<string, unknown>[] }) =>
+            vi.spyOn(Frontend, "exists").mockImplementation(((query: { "codeRepository.codeRepositoryId": unknown; $or: Record<string, unknown>[] }) =>
                 Promise.resolve(query.$or.some(condition => condition["codeRepository.name"] === "search-fe") ? { _id: new Types.ObjectId() } : null)) as never)
             vi.spyOn(Service, "exists").mockResolvedValue(null as never)
 
@@ -594,7 +594,7 @@ describe("DomainService.build", () => {
         it("given their own domain, when it is built, then its repositories are tagged", async () => {
             scopedTo([domainId])
             withMembers([member("Cart", link("cart-fe", "1"))])
-            vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
+            vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
             vi.spyOn(Service, "exists").mockResolvedValue(null as never)
 
             const result = await asUser().build(String(domainId), "1.4.0")

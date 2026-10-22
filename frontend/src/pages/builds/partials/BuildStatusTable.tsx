@@ -12,13 +12,13 @@ interface BuildStatusTableProps {
     data: ProjectBuildStatus
 }
 
-/** One row of the table: a microfrontend (frontend build) or a service (backend build). */
+/** One row of the table: a frontend or a service. */
 interface BuildStatusRow extends ComponentBuildStatus {
     kind: BuildComponentKind
     id: string
 }
 
-/** Microfrontends and services share one id space only once the kind is part of the key. */
+/** Frontends and services share one id space only once the kind is part of the key. */
 const rowKey = (row: BuildStatusRow) => `${row.kind}-${row.id}`
 
 /** Renders a version, or a dash when that environment serves none. */
@@ -46,7 +46,7 @@ const BuildStatusTable: React.FC<BuildStatusTableProps> = ({ data }) => {
     const environments = data.environments || []
     // Frontends first, then backends: each list already comes sorted by name.
     const rows: BuildStatusRow[] = [
-        ...(data.microfrontends || []).map(({ microfrontendId, ...row }) => ({ ...row, kind: BuildComponentKind.FRONTEND, id: microfrontendId })),
+        ...(data.frontends || []).map(({ frontendId, ...row }) => ({ ...row, kind: BuildComponentKind.FRONTEND, id: frontendId })),
         ...(data.services || []).map(({ serviceId, ...row }) => ({ ...row, kind: BuildComponentKind.BACKEND, id: serviceId }))
     ]
     // Header cells before the environment block: expander, name, type, last build,

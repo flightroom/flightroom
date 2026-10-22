@@ -12,7 +12,7 @@ export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 /** In the first line of every values file the console writes: what tells it from one someone else put there */
 export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: mfe-orchestrator"
 
-/** What a values file is made from: a backend service, or a FRONTEND, which runs as a container the same way */
+/** What a values file is made from: a backend service, or a DOCKER, which runs as a container the same way */
 export interface GitOpsApplication {
     slug: string
     /** The latest version the CI registered: the tag of the image */

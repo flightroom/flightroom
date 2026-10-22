@@ -1,4 +1,4 @@
-import MicrofrontendDTO from "./MicrofrontendDTO"
+import FrontendDTO from "./FrontendDTO"
 import { ServiceStackDTO } from "./ServiceStack"
 
 export interface ServiceEnvVariableDTO {
@@ -21,8 +21,8 @@ interface ServiceDTO {
     template?: string
     stack?: ServiceStackDTO
     version?: string
-    /** Same shape as a microfrontend's: `createData` creates the repository from a template */
-    codeRepository?: MicrofrontendDTO["codeRepository"]
+    /** Same shape as a frontend's: `createData` creates the repository from a template */
+    codeRepository?: FrontendDTO["codeRepository"]
     image?: {
         repository?: string
     }

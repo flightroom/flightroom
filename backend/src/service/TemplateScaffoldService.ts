@@ -13,10 +13,10 @@ import { BusinessException, createBusinessException } from "../errors/BusinessEx
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType, ICodeRepository } from "../models/CodeRepositoryModel"
+import { ICodeRepositoryFrontend } from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
-import { ICodeRepositoryMicrofrontend } from "../models/MicrofrontendModel"
 import Project from "../models/ProjectModel"
-import MicrofrontendDTO from "../types/MicrofrontendDTO"
+import FrontendDTO from "../types/FrontendDTO"
 import { createSystemDeployKey } from "./ApiKeyService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeManagementService from "./CodeManagementService"
@@ -29,7 +29,7 @@ import RepositoryWorkspaceService, { cloneUrlFor, gitCredentialsFor } from "./wo
 /** A linked repository ready to be tagged: its connection, checked against the project, and the commit the ref points to */
 export interface TagTarget {
     codeRepository: ICodeRepository
-    link: ICodeRepositoryMicrofrontend
+    link: ICodeRepositoryFrontend
     ref: string
     commit: string
 }
@@ -113,17 +113,17 @@ export const placeholderDomain = () => process.env.BACKEND_URL || "https://conso
 
 /**
  * The placeholders of a pipeline copied from the pipeline templates, the same on every provider. Both slugs
- * are the slug of what is scaffolded, so one pipeline can serve microfrontends and services alike.
+ * are the slug of what is scaffolded, so one pipeline can serve frontends and services alike.
  */
 const pipelinePlaceholders = (slug: string): Record<string, string> => ({ "%microfrontendSlug%": slug, "%serviceSlug%": slug, "%domain%": placeholderDomain() })
 
-/** The repository part of a microfrontend or service DTO, filled in once the repository exists */
-export type CodeRepositoryTarget = MicrofrontendDTO["codeRepository"]
+/** The repository part of a frontend or service DTO, filled in once the repository exists */
+export type CodeRepositoryTarget = FrontendDTO["codeRepository"]
 
 /**
  * Ends the line of a template's bundler config that holds the module federation name, e.g.
  * `name: 'exampleremote', // mfe-orchestrator:federation-name`. The template keeps a valid name of
- * its own, so it builds as it is, and the scaffolder swaps that string for the microfrontend's.
+ * its own, so it builds as it is, and the scaffolder swaps that string for the frontend's.
  */
 export const FEDERATION_NAME_MARKER = "mfe-orchestrator:federation-name"
 
@@ -143,15 +143,15 @@ export const replaceFederationName = (content: string, name: string): string =>
 
 export interface ScaffoldOptions {
     /**
-     * Replaced in every text file of the scaffolded tree before the initial commit. Microfrontends
+     * Replaced in every text file of the scaffolded tree before the initial commit. Frontends
      * leave it out: their placeholders live only in the pipeline overlay, replaced on its own.
      */
     placeholders?: Record<string, string>
     /**
-     * Slug of the microfrontend being scaffolded: the federation name in its webpack config becomes
+     * Slug of the frontend being scaffolded: the federation name in its webpack config becomes
      * `federationName(slug)`, the name a host configured by the console looks the remote up by.
      */
-    microfrontendSlug?: string
+    frontendSlug?: string
     /**
      * False for a repository no pipeline of the console builds, as the GitOps one: on GitHub it gets no
      * deploy secret, so no deploy key is issued for it.
@@ -161,7 +161,7 @@ export interface ScaffoldOptions {
 
 /**
  * Creates code repositories from marketplace templates and tags their releases, for whatever is
- * built from one: microfrontends and backend services go through exactly the same steps.
+ * built from one: frontends and backend services go through exactly the same steps.
  */
 export class TemplateScaffoldService extends BaseAuthorizedService {
     /**
@@ -349,8 +349,8 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             await this.replacePlaceholdersInDirectory(tempDir, options.placeholders)
         }
 
-        if (options?.microfrontendSlug) {
-            await this.replaceFederationNameInConfigs(tempDir, federationName(options.microfrontendSlug))
+        if (options?.frontendSlug) {
+            await this.replaceFederationNameInConfigs(tempDir, federationName(options.frontendSlug))
         }
 
         // Stage + commit
@@ -444,8 +444,8 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             await this.replacePlaceholdersInDirectory(tempDir, options.placeholders)
         }
 
-        if (options?.microfrontendSlug) {
-            await this.replaceFederationNameInConfigs(tempDir, federationName(options.microfrontendSlug))
+        if (options?.frontendSlug) {
+            await this.replaceFederationNameInConfigs(tempDir, federationName(options.frontendSlug))
         }
 
         // Stage + commit
@@ -557,8 +557,8 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             await this.replacePlaceholdersInDirectory(tempDir, options.placeholders)
         }
 
-        if (options?.microfrontendSlug) {
-            await this.replaceFederationNameInConfigs(tempDir, federationName(options.microfrontendSlug))
+        if (options?.frontendSlug) {
+            await this.replaceFederationNameInConfigs(tempDir, federationName(options.frontendSlug))
         }
 
         // Stage + commit
@@ -828,7 +828,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
      * the release pipeline. Nothing happens when no repository is linked. The connection must belong
      * to `projectId`, the project of what is built: one of another project would lend it its token.
      */
-    async createTag(link: ICodeRepositoryMicrofrontend | undefined, projectId: unknown, version: string, ref?: string): Promise<void> {
+    async createTag(link: ICodeRepositoryFrontend | undefined, projectId: unknown, version: string, ref?: string): Promise<void> {
         const target = await this.resolveTagTarget(link, projectId, ref)
         if (target) {
             await this.pushTag(target, version)
@@ -840,7 +840,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
      * commit `ref` (main by default) points to. Undefined when there is nothing to tag: no repository linked,
      * or a provider without tags. Writes nothing, so a whole domain is checked before any of its tags is made.
      */
-    async resolveTagTarget(link: ICodeRepositoryMicrofrontend | undefined, projectId: unknown, ref?: string): Promise<TagTarget | undefined> {
+    async resolveTagTarget(link: ICodeRepositoryFrontend | undefined, projectId: unknown, ref?: string): Promise<TagTarget | undefined> {
         if (!link?.enabled) return undefined
 
         const codeRepository = await CodeRepository.findById(link.codeRepositoryId)
@@ -863,7 +863,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
     }
 
     /** The commit `branchName` points to, undefined for a provider without tags */
-    private async findCommit(codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend, branchName: string): Promise<string | undefined> {
+    private async findCommit(codeRepository: ICodeRepository, link: ICodeRepositoryFrontend, branchName: string): Promise<string | undefined> {
         if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
             return new GithubClient().getBranchCommitSha(codeRepository.accessToken, link.name, branchName, codeRepository.githubData?.organizationId, codeRepository.githubData?.userName)
         } else if (codeRepository.provider === CodeRepositoryProvider.GITLAB) {
@@ -882,7 +882,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
      * branch from a repository that is gone, renamed or out of reach of the token (providers answer 404 for
      * both). Any other failure, or one the repository read does not explain, is passed on as it came.
      */
-    private async explainMissingCommit(error: unknown, codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend, branchName: string): Promise<unknown> {
+    private async explainMissingCommit(error: unknown, codeRepository: ICodeRepository, link: ICodeRepositoryFrontend, branchName: string): Promise<unknown> {
         const status = axios.isAxiosError(error) ? error.response?.status : undefined
         const branchMissing = error instanceof AzureBranchNotFoundError || status === 404
         if (!branchMissing && status !== 401 && status !== 403) return error
@@ -898,7 +898,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
         return branchMissing ? new TagLookupError("REF_NOT_FOUND", `The branch ${branchName} was not found in the repository ${link.name}`) : error
     }
 
-    private async readRepository(codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend): Promise<void> {
+    private async readRepository(codeRepository: ICodeRepository, link: ICodeRepositoryFrontend): Promise<void> {
         if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
             await new GithubClient().getRepository({
                 accessToken: codeRepository.accessToken,

@@ -16,7 +16,7 @@ vi.mock("../MarketService", () => ({
 import { BusinessException } from "../../errors/BusinessException"
 import AiModel from "../../models/AiModelModel"
 import Domain from "../../models/DomainModel"
-import Microfrontend from "../../models/MicrofrontendModel"
+import Frontend from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
 import Service from "../../models/ServiceModel"
 import { IUser } from "../../models/UserModel"
@@ -42,31 +42,31 @@ const templates = [
 const planned = (slug: string, template: string, repositoryName: string) => ({ name: slug, slug, template, repositoryName, reason: `${slug} reason` })
 
 describe("sanitizePlan", () => {
-    const none = () => ({ microfrontend: new Set<string>(), service: new Set<string>() })
+    const none = () => ({ frontend: new Set<string>(), service: new Set<string>() })
 
     it("given templates of the wrong kind or unknown, when the plan is sanitized, then each becomes the default of its kind", () => {
         const plan = sanitizePlan(
-            { microfrontends: [planned("orders", "service-node-fastify", "orders-fe"), planned("cart", "soon-remote", "cart-fe")], services: [planned("orders", "nope", "orders-be")] },
+            { frontends: [planned("orders", "service-node-fastify", "orders-fe"), planned("cart", "soon-remote", "cart-fe")], services: [planned("orders", "nope", "orders-be")] },
             templates,
             none()
         )
 
-        expect(plan.microfrontends.map(item => item.template)).toEqual(["vite-remote-react", "vite-remote-react"])
+        expect(plan.frontends.map(item => item.template)).toEqual(["vite-remote-react", "vite-remote-react"])
         expect(plan.services[0].template).toBe("service-node-fastify")
     })
 
     it("given a slug taken in the project, when the plan is sanitized, then it gets a number and the repository is named after the new slug", () => {
-        const plan = sanitizePlan({ microfrontends: [planned("orders", "vite-remote-vue", "orders-fe")], services: [] }, templates, {
-            microfrontend: new Set(["orders"]),
+        const plan = sanitizePlan({ frontends: [planned("orders", "vite-remote-vue", "orders-fe")], services: [] }, templates, {
+            frontend: new Set(["orders"]),
             service: new Set()
         })
 
-        expect(plan.microfrontends[0]).toMatchObject({ slug: "orders-2", repositoryName: "orders-2-fe", template: "vite-remote-vue" })
+        expect(plan.frontends[0]).toMatchObject({ slug: "orders-2", repositoryName: "orders-2-fe", template: "vite-remote-vue" })
     })
 
     it("given names the platform refuses, when the plan is sanitized, then the slug is made kebab case and the repository ends with the suffix of its kind", () => {
         const plan = sanitizePlan(
-            { microfrontends: [], services: [{ name: "Order API", slug: "Order API!", template: "service-python-fastapi", repositoryName: "order api", reason: "" }] },
+            { frontends: [], services: [{ name: "Order API", slug: "Order API!", template: "service-python-fastapi", repositoryName: "order api", reason: "" }] },
             templates,
             none()
         )
@@ -75,13 +75,13 @@ describe("sanitizePlan", () => {
     })
 
     it("given more components than allowed, when the plan is sanitized, then only the first three of each kind are kept", () => {
-        const plan = sanitizePlan({ microfrontends: ["a1", "b2", "c3", "d4"].map(slug => planned(slug, "vite-remote-react", `${slug}-fe`)), services: [] }, templates, none())
+        const plan = sanitizePlan({ frontends: ["a1", "b2", "c3", "d4"].map(slug => planned(slug, "vite-remote-react", `${slug}-fe`)), services: [] }, templates, none())
 
-        expect(plan.microfrontends.map(item => item.slug)).toEqual(["a1", "b2", "c3"])
+        expect(plan.frontends.map(item => item.slug)).toEqual(["a1", "b2", "c3"])
     })
 
     it("given two components of a kind with the same slug, when the plan is sanitized, then neither their slugs nor their repositories clash", () => {
-        const plan = sanitizePlan({ microfrontends: [], services: [planned("orders", "service-node-fastify", "orders-be"), planned("orders", "service-node-fastify", "orders-be")] }, templates, none())
+        const plan = sanitizePlan({ frontends: [], services: [planned("orders", "service-node-fastify", "orders-be"), planned("orders", "service-node-fastify", "orders-be")] }, templates, none())
 
         expect(plan.services.map(item => [item.slug, item.repositoryName])).toEqual([
             ["orders", "orders-be"],
@@ -93,24 +93,24 @@ describe("sanitizePlan", () => {
 describe("sanitizePlan with long repository names", () => {
     it("given two components asking for the same 100 character repository name, when the plan is sanitized, then the numbered one still fits 100 characters", () => {
         const long = `${"a".repeat(97)}-fe`
-        const plan = sanitizePlan({ microfrontends: [planned("one", "vite-remote-react", long), planned("two", "vite-remote-react", long)], services: [] }, templates, {
-            microfrontend: new Set(),
+        const plan = sanitizePlan({ frontends: [planned("one", "vite-remote-react", long), planned("two", "vite-remote-react", long)], services: [] }, templates, {
+            frontend: new Set(),
             service: new Set()
         })
 
-        expect(plan.microfrontends[0].repositoryName).toBe(long)
-        expect(plan.microfrontends[1].repositoryName).toHaveLength(100)
-        expect(plan.microfrontends[1].repositoryName).toMatch(/^a+-2-fe$/)
+        expect(plan.frontends[0].repositoryName).toBe(long)
+        expect(plan.frontends[1].repositoryName).toHaveLength(100)
+        expect(plan.frontends[1].repositoryName).toMatch(/^a+-2-fe$/)
     })
 })
 
 describe("DomainPlanService.plan", () => {
     let role: RoleInProject
-    let members: { microfrontend: boolean; service: boolean }
+    let members: { frontend: boolean; service: boolean }
 
     beforeEach(() => {
         role = RoleInProject.MEMBER
-        members = { microfrontend: false, service: false }
+        members = { frontend: false, service: false }
         const gates = BaseAuthorizedService.prototype as unknown as WithGates
         vi.spyOn(gates, "ensureAccessToProject").mockResolvedValue(undefined)
         vi.spyOn(gates, "isOrganizationAdmin").mockResolvedValue(false)
@@ -119,12 +119,12 @@ describe("DomainPlanService.plan", () => {
         // The organization defines no AI: the system one, from the configuration the service is given, answers
         vi.spyOn(AiModel, "find").mockResolvedValue([] as never)
         vi.spyOn(Domain, "findOne").mockResolvedValue(domain as never)
-        vi.spyOn(Microfrontend, "exists").mockImplementation((() => Promise.resolve(members.microfrontend ? { _id: new Types.ObjectId() } : null)) as never)
+        vi.spyOn(Frontend, "exists").mockImplementation((() => Promise.resolve(members.frontend ? { _id: new Types.ObjectId() } : null)) as never)
         vi.spyOn(Service, "exists").mockImplementation((() => Promise.resolve(members.service ? { _id: new Types.ObjectId() } : null)) as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([{ slug: "catalog" }] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "catalog" }] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
         getAll.mockResolvedValue(templates)
-        json.mockResolvedValue({ microfrontends: [planned("checkout", "vite-remote-react", "checkout-fe")], services: [planned("orders", "service-node-fastify", "orders-be")] })
+        json.mockResolvedValue({ frontends: [planned("checkout", "vite-remote-react", "checkout-fe")], services: [planned("orders", "service-node-fastify", "orders-be")] })
     })
 
     afterEach(() => {
@@ -137,7 +137,7 @@ describe("DomainPlanService.plan", () => {
     it("given a domain without members, when a plan is asked, then the model reads the request, the contexts and the templates and its plan comes back", async () => {
         const result = await plan()
 
-        expect(result.microfrontends).toEqual([planned("checkout", "vite-remote-react", "checkout-fe")])
+        expect(result.frontends).toEqual([planned("checkout", "vite-remote-react", "checkout-fe")])
         expect(result.services).toEqual([planned("orders", "service-node-fastify", "orders-be")])
         const request = json.mock.calls[0][0] as { user: string }
         for (const expected of [
@@ -147,7 +147,7 @@ describe("DomainPlanService.plan", () => {
             "Prices are in cents",
             "vite-remote-react (default)",
             "service-node-fastify (default)",
-            "microfrontends: catalog"
+            "frontends: catalog"
         ]) {
             expect(request.user).toContain(expected)
         }
@@ -156,7 +156,7 @@ describe("DomainPlanService.plan", () => {
         expect(request.user).not.toContain("soon-remote")
     })
 
-    it.each(["microfrontend", "service"] as const)("given a domain with a %s, when a plan is asked, then it is refused without calling the model", async kind => {
+    it.each(["frontend", "service"] as const)("given a domain with a %s, when a plan is asked, then it is refused without calling the model", async kind => {
         members[kind] = true
 
         await expect(plan()).rejects.toMatchObject({ code: "AI_DOMAIN_PLAN_HAS_MEMBERS", statusCode: 422 })

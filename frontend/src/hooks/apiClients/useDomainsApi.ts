@@ -2,7 +2,7 @@ import type { AxiosError } from "axios"
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf } from "../useApiClient"
 
-/** A functional domain: a named group of microfrontends and services of the project */
+/** A functional domain: a named group of frontends and services of the project */
 export interface Domain {
     _id: string
     projectId: string
@@ -12,7 +12,7 @@ export interface Domain {
     /** Markdown notes for AI agents about this domain */
     context?: string
     /** Only on the list */
-    microfrontendsCount?: number
+    frontendsCount?: number
     /** Only on the list */
     servicesCount?: number
     createdAt?: Date
@@ -25,9 +25,9 @@ export interface DomainDTO {
     context?: string
 }
 
-/** Microfrontends and services of the project to put in a domain */
+/** Frontends and services of the project to put in a domain */
 export interface DomainMembersDTO {
-    microfrontendIds?: string[]
+    frontendIds?: string[]
     serviceIds?: string[]
 }
 
@@ -39,7 +39,7 @@ export interface DomainBuildRepository {
     /** Stable across builds: the connection, the repository id or name, and the GitLab path when there is one */
     id: string
     repository: string
-    members: { kind: "microfrontend" | "service"; _id: string; name: string }[]
+    members: { kind: "frontend" | "service"; _id: string; name: string }[]
     /** ready: checked, but left untagged because another repository failed its check */
     status: "tagged" | "ready" | "failed"
     reason?: DomainBuildFailure
@@ -106,8 +106,8 @@ const useDomainsApi = () => {
     }
 
     /** Moves the members into the domain, out of the one they were in; answers how many it now groups of each */
-    const addMembers = async (id: string, members: DomainMembersDTO): Promise<{ microfrontends: number; services: number }> => {
-        const response = await apiClient.doRequest<{ microfrontends: number; services: number }>({
+    const addMembers = async (id: string, members: DomainMembersDTO): Promise<{ frontends: number; services: number }> => {
+        const response = await apiClient.doRequest<{ frontends: number; services: number }>({
             url: `/api/domains/${id}/members`,
             method: "POST",
             data: members,

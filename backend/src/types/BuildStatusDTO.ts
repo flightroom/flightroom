@@ -34,7 +34,7 @@ export interface BuildRunDTO {
 }
 
 /**
- * Why a microfrontend or a service carries no run at all: the console shows this instead
+ * Why a frontend or a service carries no run at all: the console shows this instead
  * of an empty list, so "never built" is never confused with "we could not ask".
  */
 export enum BuildUnavailableReason {
@@ -43,7 +43,7 @@ export enum BuildUnavailableReason {
     PROVIDER_ERROR = "PROVIDER_ERROR"
 }
 
-/** What a microfrontend and a service share on the build screen: only the id they are known by differs. */
+/** What a frontend and a service share on the build screen: only the id they are known by differs. */
 export interface ComponentBuildStatusDTO {
     name: string
     slug: string
@@ -51,10 +51,10 @@ export interface ComponentBuildStatusDTO {
     repositoryName?: string
     /** Version the component itself currently points at. */
     selectedVersion?: string
-    /** Most recent version the CI registered: the bundle of a microfrontend, the image of a service. */
+    /** Most recent version the CI registered: the bundle of a frontend, the image of a service. */
     latestBuiltVersion?: string
     /**
-     * Version served by each environment: for a microfrontend the one of that environment's
+     * Version served by each environment: for a frontend the one of that environment's
      * active deployment, for a service the latest deploy its pipeline reported there.
      */
     versionByEnvironmentId: Record<string, string>
@@ -62,8 +62,8 @@ export interface ComponentBuildStatusDTO {
     unavailableReason?: BuildUnavailableReason
 }
 
-export interface MicrofrontendBuildStatusDTO extends ComponentBuildStatusDTO {
-    microfrontendId: string
+export interface FrontendBuildStatusDTO extends ComponentBuildStatusDTO {
+    frontendId: string
 }
 
 export interface ServiceBuildStatusDTO extends ComponentBuildStatusDTO {
@@ -95,7 +95,7 @@ export interface ProjectBuildStatusDTO {
     fetchedAt: string
     environments: BuildStatusEnvironmentDTO[]
     /** Frontend builds. */
-    microfrontends: MicrofrontendBuildStatusDTO[]
+    frontends: FrontendBuildStatusDTO[]
     /** Backend builds. */
     services: ServiceBuildStatusDTO[]
 }

@@ -6,13 +6,13 @@ import { useNavigate } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import { Domain } from "@/hooks/apiClients/useDomainsApi"
-import { Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
+import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { Service } from "@/hooks/apiClients/useServicesApi"
 import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
 
 interface DomainGalaxyProps {
     domains: Domain[]
-    microfrontends: Microfrontend[]
+    frontends: Frontend[]
     services: Service[]
     /** The relations drawn by hand between the domains */
     links: DomainLink[]
@@ -36,7 +36,7 @@ interface RelationSegment {
 
 interface Star {
     id: string
-    kind: "microfrontend" | "service"
+    kind: "frontend" | "service"
     name: string
     slug: string
     version?: string
@@ -260,11 +260,11 @@ const useIsDark = () => {
 }
 
 /**
- * The whole project as a sky: every domain a galaxy, its microfrontends and services the stars in it,
+ * The whole project as a sky: every domain a galaxy, its frontends and services the stars in it,
  * members in no domain in a grey nebula. Links across two domains are drawn as bridges between the
  * galaxies, the ones the domain diagram has to leave out.
  */
-export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfrontends, services, links, onLink, onUnlink }) => {
+export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, services, links, onLink, onUnlink }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const graphRef = useRef<ForceGraphMethods<StarNode, LaneLink>>(undefined)
@@ -300,9 +300,9 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
         const galaxyOf = (domainId?: string | null) => (domainId && domainIds.has(domainId) ? domainId : NO_DOMAIN)
 
         const members = [
-            ...microfrontends.map(mfe => ({
+            ...frontends.map(mfe => ({
                 id: mfe._id!,
-                kind: "microfrontend" as const,
+                kind: "frontend" as const,
                 name: mfe.name,
                 slug: mfe.slug,
                 version: mfe.version,
@@ -323,8 +323,8 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
 
         // Links to something that is not on the map are left out: there is no star to draw them to.
         const lanes: Lane[] = [
-            ...microfrontends.flatMap(mfe => (mfe.parentIds ?? []).filter(parentId => galaxyById.has(parentId)).map(parentId => ({ from: parentId, to: mfe._id!, kind: "relation" as const }))),
-            ...microfrontends.flatMap(mfe => (mfe.serviceIds ?? []).filter(serviceId => galaxyById.has(serviceId)).map(serviceId => ({ from: mfe._id!, to: serviceId, kind: "service" as const })))
+            ...frontends.flatMap(mfe => (mfe.parentIds ?? []).filter(parentId => galaxyById.has(parentId)).map(parentId => ({ from: parentId, to: mfe._id!, kind: "relation" as const }))),
+            ...frontends.flatMap(mfe => (mfe.serviceIds ?? []).filter(serviceId => galaxyById.has(serviceId)).map(serviceId => ({ from: mfe._id!, to: serviceId, kind: "service" as const })))
         ].map(lane => ({ ...lane, bridge: galaxyById.get(lane.from) !== galaxyById.get(lane.to) }))
 
         const degree = new Map<string, number>()
@@ -334,7 +334,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
         }
 
         const countIn = (galaxyId: string, kind: Star["kind"]) => members.filter(member => member.galaxyId === galaxyId && member.kind === kind).length
-        const caption = (galaxyId: string) => `${t("domains.frontend_count", { count: countIn(galaxyId, "microfrontend") })} · ${t("domains.backend_count", { count: countIn(galaxyId, "service") })}`
+        const caption = (galaxyId: string) => `${t("domains.frontend_count", { count: countIn(galaxyId, "frontend") })} · ${t("domains.backend_count", { count: countIn(galaxyId, "service") })}`
         const galaxyList = [
             ...domains.map((domain, index) => ({ id: domain._id, name: domain.name, domainId: domain._id, caption: caption(domain._id), paletteIndex: index })),
             ...(members.some(member => member.galaxyId === NO_DOMAIN) ? [{ id: NO_DOMAIN, name: t("domains.no_domain"), caption: caption(NO_DOMAIN) }] : [])
@@ -368,7 +368,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
 
         const membersByGalaxy = new Map(galaxies.map(galaxy => [galaxy.id, nodes.filter(node => node.galaxyId === galaxy.id)]))
         return { galaxies, membersByGalaxy, graphData: { nodes, links: lanes.map<LaneLink>(lane => ({ ...lane, source: lane.from, target: lane.to })) } }
-    }, [domains, microfrontends, services, t])
+    }, [domains, frontends, services, t])
 
     useEffect(() => {
         previousNodesRef.current = graphData.nodes
@@ -609,7 +609,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
     const onNodeClick = useCallback(
         (node: StarNode) => {
             if (linking) return pickForLink(galaxies.find(galaxy => galaxy.id === node.galaxyId))
-            navigate(node.kind === "service" ? `/service/${node.id}` : `/microfrontend/${node.id}`)
+            navigate(node.kind === "service" ? `/service/${node.id}` : `/frontend/${node.id}`)
         },
         [linking, pickForLink, galaxies, navigate]
     )
@@ -770,7 +770,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
                     </div>
                     <div className="text-foreground-secondary">{hovered.node.slug}</div>
                     <div className="mt-1 text-foreground-secondary">
-                        {t(hovered.node.kind === "service" ? "domains.galaxy.kind_service" : "domains.galaxy.kind_microfrontend")}
+                        {t(hovered.node.kind === "service" ? "domains.galaxy.kind_service" : "domains.galaxy.kind_frontend")}
                         {hoveredGalaxy && ` · ${hoveredGalaxy.name}`}
                     </div>
                     {hovered.node.canary !== undefined && <div className="mt-1 font-medium text-warning">{t("domains.galaxy.canary", { percentage: hovered.node.canary })}</div>}

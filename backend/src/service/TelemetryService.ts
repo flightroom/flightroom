@@ -5,7 +5,7 @@ import { version as applicationVersion } from "../../package.json"
 import Configuration from "../models/ConfigurationModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import User from "../models/UserModel"
 import { TelemetryPayloadDTO } from "../types/TelemetryDTO"
@@ -49,10 +49,10 @@ class TelemetryService {
      */
     async collect(): Promise<TelemetryPayloadDTO> {
         const [major, minor] = process.versions.node.split(".")
-        const [installationId, projects, microfrontends, environments, users, deploymentsLastWeek] = await Promise.all([
+        const [installationId, projects, frontends, environments, users, deploymentsLastWeek] = await Promise.all([
             this.getInstallationId(),
             Project.estimatedDocumentCount(),
-            Microfrontend.estimatedDocumentCount(),
+            Frontend.estimatedDocumentCount(),
             Environment.estimatedDocumentCount(),
             User.estimatedDocumentCount(),
             Deployment.countDocuments({ deployedAt: { $gte: new Date(Date.now() - ONE_WEEK_MS) } })
@@ -63,7 +63,7 @@ class TelemetryService {
             version: applicationVersion,
             nodeVersion: `${major}.${minor}`,
             projects,
-            microfrontends,
+            microfrontends: frontends,
             environments,
             users,
             deploymentsLastWeek

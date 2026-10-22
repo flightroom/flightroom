@@ -65,24 +65,24 @@ export const AiChangeDiff: React.FC<AiChangeDiffProps> = ({ file }) => {
     const rows = useMemo(() => (available ? buildRows(original, proposed) : []), [available, original, proposed])
 
     if (!available) {
-        return <p className="px-3 py-2 text-sm text-muted-foreground">{t("microfrontend.aiChange.diff.too_big")}</p>
+        return <p className="px-3 py-2 text-sm text-muted-foreground">{t("frontend.aiChange.diff.too_big")}</p>
     }
 
     if (rows.length === 0) {
-        return <p className="px-3 py-2 text-sm text-muted-foreground">{t("microfrontend.aiChange.diff.no_differences")}</p>
+        return <p className="px-3 py-2 text-sm text-muted-foreground">{t("frontend.aiChange.diff.no_differences")}</p>
     }
 
-    const srLabel = { add: t("microfrontend.aiChange.diff.added_line"), remove: t("microfrontend.aiChange.diff.removed_line"), context: t("microfrontend.aiChange.diff.unchanged_line") }
+    const srLabel = { add: t("frontend.aiChange.diff.added_line"), remove: t("frontend.aiChange.diff.removed_line"), context: t("frontend.aiChange.diff.unchanged_line") }
 
     return (
         <div className="max-h-[480px] overflow-auto">
             <table className="w-full border-collapse font-mono text-xs leading-5">
-                <caption className="sr-only">{t("microfrontend.aiChange.diff.caption", { path: file.path })}</caption>
+                <caption className="sr-only">{t("frontend.aiChange.diff.caption", { path: file.path })}</caption>
                 <thead className="sr-only">
                     <tr>
-                        <th scope="col">{t("microfrontend.aiChange.diff.old_line_number")}</th>
-                        <th scope="col">{t("microfrontend.aiChange.diff.new_line_number")}</th>
-                        <th scope="col">{t("microfrontend.aiChange.diff.content")}</th>
+                        <th scope="col">{t("frontend.aiChange.diff.old_line_number")}</th>
+                        <th scope="col">{t("frontend.aiChange.diff.new_line_number")}</th>
+                        <th scope="col">{t("frontend.aiChange.diff.content")}</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -90,7 +90,7 @@ export const AiChangeDiff: React.FC<AiChangeDiffProps> = ({ file }) => {
                         row.type === "gap" ? (
                             <tr key={index} className="bg-muted/50 text-muted-foreground">
                                 <td colSpan={3} className="px-3 py-1 text-center italic">
-                                    {t("microfrontend.aiChange.diff.hidden_lines", { count: row.hidden })}
+                                    {t("frontend.aiChange.diff.hidden_lines", { count: row.hidden })}
                                 </td>
                             </tr>
                         ) : (

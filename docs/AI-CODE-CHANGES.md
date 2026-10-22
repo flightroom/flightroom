@@ -1,7 +1,7 @@
-# Editing a microfrontend with AI
+# Editing a frontend with AI
 
-From **Edit with AI**, the screen a microfrontend opens on, a user describes a change ("add a 404 page"). An
-AI agent works on a local clone of the microfrontend's repository and proposes the change as a diff.
+From **Edit with AI**, the screen a frontend opens on, a user describes a change ("add a 404 page"). An
+AI agent works on a local clone of the frontend's repository and proposes the change as a diff.
 Under the prompt, the console shows the repository it works on, linked to its page on the provider, and the
 branch it starts from: the repository's default branch unless another one is picked from its branches.
 Once the agent is done, the console commits the proposal on a feature branch of its own and pushes it:
@@ -22,20 +22,20 @@ starts from the base branch. The commit and the pull request are named after the
 request description quotes every message of the conversation. Once a proposal is applied, the whole conversation is kept, not removed
 with the proposals.
 
-It is available when an [AI provider](AI-PROVIDERS.md) is configured and the microfrontend has a
+It is available when an [AI provider](AI-PROVIDERS.md) is configured and the frontend has a
 code repository connected (GitHub, GitLab or Azure DevOps).
 
 ## How it works
 
 1. The request is stored and a background job starts; the console follows it by polling.
-2. The job takes a lock on the microfrontend's working copy (Redis, or in-process without Redis), so
+2. The job takes a lock on the frontend's working copy (Redis, or in-process without Redis), so
    two requests on the same repository queue instead of sharing a checkout.
 3. The working copy is cloned if missing, otherwise fetched and reset to `origin/<base branch>`:
    every run starts from exactly what the remote has.
-4. The agent explores and edits the files. It receives the [project and microfrontend context](MCP.md#project-context)
+4. The agent explores and edits the files. It receives the [project and frontend context](MCP.md#project-context)
    and the detected stack.
 5. The changed files are committed on the conversation's feature branch,
-   `ai/<microfrontend>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
+   `ai/<frontend>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
    the base the agent started from, and force-pushed. A follow-up that only answers a question, without
    changing a file, pushes nothing. A push that fails does not lose the proposal: the console shows the
    error, and applying it or opening its pull request pushes it again.
@@ -56,7 +56,7 @@ needed in the image, and no repository hook is ever run.
 
 ## Changing a whole domain
 
-**Edit with AI** on a functional domain starts one agent on every microfrontend and service of the
+**Edit with AI** on a functional domain starts one agent on every frontend and service of the
 domain that has a code repository (at most 10), with the project and domain context. It sees them all
 at once, so one change can span an API and the screens that call it, and it still proposes one diff
 per repository, each on its own feature branch, applied or opened as a pull request on its own. Each
@@ -67,7 +67,7 @@ a repository are left out and listed under the request.
 
 When the domain has nothing for the agent to work on yet, **Generate** first offers to create it:
 
-- **No microfrontend and no service:** one model call proposes the components the request needs
+- **No frontend and no service:** one model call proposes the components the request needs
   (usually a frontend and a backend, at most 3 of each), each with a name, a slug, a template and a
   repository name ending in `-fe` or `-be`. The user reviews and edits the proposal; on confirmation
   the console creates each one in the domain with a new repository scaffolded from its template, then
@@ -77,13 +77,13 @@ When the domain has nothing for the agent to work on yet, **Generate** first off
   starts the job.
 
 Both need a code repository connection on the project. Creating a repository for an existing member
-is also available as `POST /microfrontends/:id/repository` and `POST /services/:id/repository`;
+is also available as `POST /frontends/:id/repository` and `POST /services/:id/repository`;
 viewers cannot use it.
 
 ## Where the repositories are cloned
 
 ```
-$REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<microfrontend-slug>/
+$REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<frontend-slug>/
 ```
 
 | Variable                        | Default                                              | What it does                                         |
@@ -93,7 +93,7 @@ $REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<microfrontend
 | `REPOSITORIES_EVICT_AFTER_DAYS` | `14`                                                 | Clones not used for this long are deleted.           |
 
 The folder is a **cache**: deleting it only costs a new clone. Clones are also removed when their
-microfrontend or project is deleted. On Kubernetes the chart mounts an `emptyDir` there
+frontend or project is deleted. On Kubernetes the chart mounts an `emptyDir` there
 (`repositories.sizeLimit`, 10Gi by default); set `repositories.existingClaim` to keep the clones across
 restarts. Each replica can have its own folder: there is no state to share.
 

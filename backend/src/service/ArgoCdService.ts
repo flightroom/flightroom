@@ -6,7 +6,7 @@ import { BusinessException, createBusinessException } from "../errors/BusinessEx
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend, MicrofrontendKind } from "../models/MicrofrontendModel"
+import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
 import Project, { IArgoCdError, IArgoCdRepositoryCredential, IArgoCdRepositoryRegistration, IProjectArgoCd, IProjectGitOps } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -71,7 +71,7 @@ interface PendingDeployToken {
 
 interface RepositoryTarget {
     kind: ArgoCdRepositoryKind
-    link: ICodeRepositoryMicrofrontend
+    link: ICodeRepositoryFrontend
     connection: ICodeRepository
     repoUrl: string
     /** The AppProject the credentials are scoped to; global when unset */
@@ -101,17 +101,17 @@ const normalizeUrl = (value: unknown): string => {
 }
 
 /** The GitOps repositories of the project, configuration first; none while GitOps is off */
-const linksOf = (gitOps?: IProjectGitOps): Array<[ArgoCdRepositoryKind, ICodeRepositoryMicrofrontend]> => {
+const linksOf = (gitOps?: IProjectGitOps): Array<[ArgoCdRepositoryKind, ICodeRepositoryFrontend]> => {
     if (!gitOps?.enabled) return []
-    const links: Array<[ArgoCdRepositoryKind, ICodeRepositoryMicrofrontend | undefined]> = [
+    const links: Array<[ArgoCdRepositoryKind, ICodeRepositoryFrontend | undefined]> = [
         ["configuration", gitOps.codeRepository],
         ["applications", gitOps.applicationsCodeRepository]
     ]
-    return links.filter((entry): entry is [ArgoCdRepositoryKind, ICodeRepositoryMicrofrontend] => Boolean(entry[1]))
+    return links.filter((entry): entry is [ArgoCdRepositoryKind, ICodeRepositoryFrontend] => Boolean(entry[1]))
 }
 
 /** GitLab takes the numeric id or the full path of a project, never a bare name */
-const gitlabAddressOf = (link: ICodeRepositoryMicrofrontend, codeRepository: ICodeRepository): string => {
+const gitlabAddressOf = (link: ICodeRepositoryFrontend, codeRepository: ICodeRepository): string => {
     const groupPath = codeRepository.gitlabData?.groupPath
     return encodeURIComponent(link.repositoryId || link.gitlab?.path || (groupPath ? `${groupPath}/${link.name}` : link.name))
 }
@@ -144,7 +144,7 @@ const nameClash = (name: string) =>
 /** The services and frontends a deploy writes the values of: those with an image and a version */
 const deployableSlugs = async (projectId: Schema.Types.ObjectId): Promise<string[]> => {
     const fields = { slug: 1, version: 1, image: 1 }
-    const applications: GitOpsApplication[] = [...(await Service.find({ projectId }, fields)), ...(await Microfrontend.find({ projectId, kind: MicrofrontendKind.FRONTEND }, fields))]
+    const applications: GitOpsApplication[] = [...(await Service.find({ projectId }, fields)), ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields))]
     return applications.filter(isDeployable).map(application => application.slug)
 }
 

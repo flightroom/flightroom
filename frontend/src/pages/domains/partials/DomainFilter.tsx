@@ -16,7 +16,7 @@ interface DomainFilterProps {
     onValueChange: (value: string) => void
 }
 
-/** Filters a list of microfrontends or services by functional domain */
+/** Filters a list of frontends or services by functional domain */
 export const DomainFilter: React.FC<DomainFilterProps> = ({ value, onValueChange }) => {
     const { t } = useTranslation()
     const domainsApi = useDomainsApi()

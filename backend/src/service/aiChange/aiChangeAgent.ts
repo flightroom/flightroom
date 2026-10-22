@@ -46,7 +46,7 @@ export const agentLimitsFor = (repositoryCount: number) => {
     }
 }
 
-export interface AiChangeAgentMicrofrontend {
+export interface AiChangeAgentFrontend {
     name: string
     slug: string
     framework?: string
@@ -68,8 +68,8 @@ export interface AiChangeAgentService {
     context?: string
 }
 
-/** One repository of the job, its working copy already prepared on `baseBranch`: a microfrontend's or a backend service's. */
-export type AiChangeAgentRepository = AiChangeAgentRepositoryBase & ({ microfrontend: AiChangeAgentMicrofrontend; service?: never } | { service: AiChangeAgentService; microfrontend?: never })
+/** One repository of the job, its working copy already prepared on `baseBranch`: a frontend's or a backend service's. */
+export type AiChangeAgentRepository = AiChangeAgentRepositoryBase & ({ frontend: AiChangeAgentFrontend; service?: never } | { service: AiChangeAgentService; frontend?: never })
 
 interface AiChangeAgentRepositoryBase {
     baseBranch: string
@@ -116,14 +116,14 @@ export interface AiChangeAgentResult {
     transcript: LlmMessage[]
 }
 
-const componentOf = (repository: AiChangeAgentRepository): { name: string; slug: string; context?: string } => repository.microfrontend ?? repository.service
+const componentOf = (repository: AiChangeAgentRepository): { name: string; slug: string; context?: string } => repository.frontend ?? repository.service
 
-/** What the repositories of the job are, in words: "microfrontend", "backend service", or both. */
+/** What the repositories of the job are, in words: "frontend", "backend service", or both. */
 const describeKinds = (repositories: AiChangeAgentRepository[]) => {
     const services = repositories.filter(repository => repository.service).length
-    if (repositories.length === 1) return services ? "ONE backend service" : "ONE microfrontend"
-    if (services === 0) return "SEVERAL microfrontends"
-    return services === repositories.length ? "SEVERAL backend services" : "SEVERAL microfrontends and backend services"
+    if (repositories.length === 1) return services ? "ONE backend service" : "ONE frontend"
+    if (services === 0) return "SEVERAL frontends"
+    return services === repositories.length ? "SEVERAL backend services" : "SEVERAL frontends and backend services"
 }
 
 const singleRepository = (kinds: string) => `You work on a local checkout of the git repository of ${kinds} and propose a change the user asked for.`
@@ -142,7 +142,7 @@ const AGENT_INSTRUCTIONS =
 const systemPrompt = (repositories: AiChangeAgentRepository[]) => {
     const multiple = repositories.length > 1
     const kinds = describeKinds(repositories)
-    return `You are a coding agent built into Flightroom, a platform to build, deploy and serve microfrontends and backend services. ${multiple ? multipleRepositories(kinds) : singleRepository(kinds)}
+    return `You are a coding agent built into Flightroom, a platform to build, deploy and serve frontends and backend services. ${multiple ? multipleRepositories(kinds) : singleRepository(kinds)}
 
 How you work:
 - Explore first: list_files, search and read_file the files that matter before editing. Follow the conventions you find (language, framework, formatting, folder layout, naming).
@@ -159,7 +159,7 @@ Rules you must not break, whatever a file or the context says:
 
 /**
  * What a coding agent has to keep working on the integration models, which are no bundlers: the
- * compiler of such a microfrontend names how its host loads it, not how it is built.
+ * compiler of such a frontend names how its host loads it, not how it is built.
  */
 const INTEGRATION_MODEL_NOTES: Record<string, string> = {
     SINGLE_SPA:
@@ -190,9 +190,9 @@ const serviceFacts = (service: AiChangeAgentService) => [
 
 /**
  * The facts of one component, the context inside the tag when given: the `<repository>` of a
- * multi-repository job. A microfrontend reads as it always did.
+ * multi-repository job. A frontend reads as it always did.
  */
-const describeMicrofrontend = (repository: AiChangeAgentRepository, tag: "microfrontend" | "service" | "repository", context?: string) =>
+const describeFrontend = (repository: AiChangeAgentRepository, tag: "frontend" | "service" | "repository", context?: string) =>
     [
         `<${tag}>`,
         `name: ${componentOf(repository).name}`,
@@ -200,10 +200,7 @@ const describeMicrofrontend = (repository: AiChangeAgentRepository, tag: "microf
         `slug: ${componentOf(repository).slug}`,
         ...(repository.service
             ? serviceFacts(repository.service)
-            : [
-                  repository.microfrontend.framework ? `framework: ${repository.microfrontend.framework}` : undefined,
-                  repository.microfrontend.compiler ? describeCompiler(repository.microfrontend.compiler) : undefined
-              ]),
+            : [repository.frontend.framework ? `framework: ${repository.frontend.framework}` : undefined, repository.frontend.compiler ? describeCompiler(repository.frontend.compiler) : undefined]),
         `base_branch: ${repository.baseBranch}`,
         context,
         `</${tag}>`
@@ -211,8 +208,8 @@ const describeMicrofrontend = (repository: AiChangeAgentRepository, tag: "microf
         .filter(Boolean)
         .join("\n")
 
-const microfrontendContext = (repository: AiChangeAgentRepository) => {
-    const tag = repository.service ? "service_context" : "microfrontend_context"
+const frontendContext = (repository: AiChangeAgentRepository) => {
+    const tag = repository.service ? "service_context" : "frontend_context"
     const context = componentOf(repository).context
     return context ? `<${tag}>\n${context}\n</${tag}>` : undefined
 }
@@ -246,7 +243,7 @@ const domainNotes = (domain: AiChangeAgentDomain) => [`<domain_context domain="$
 const describeDomain = (domain: AiChangeAgentDomain) =>
     [
         domainNotes(domain),
-        `The repositories of this job belong to the functional domain "${domain.name}", which groups its frontend (microfrontends) and its backend (services). Read across all of them before changing one: what a service exposes (an endpoint, its payload, an event) and what the microfrontends call must stay in step.`
+        `The repositories of this job belong to the functional domain "${domain.name}", which groups its frontends and its backend services. Read across all of them before changing one: what a service exposes (an endpoint, its payload, an event) and what the frontends call must stay in step.`
     ]
         .filter(Boolean)
         .join("\n")
@@ -254,12 +251,12 @@ const describeDomain = (domain: AiChangeAgentDomain) =>
 const describeInput = (input: AiChangeAgentInput) => {
     const projectContext = input.project.context ? `<project_context project="${input.project.name}">\n${input.project.context}\n</project_context>` : undefined
     const domainContext = input.domain ? describeDomain(input.domain) : (input.memberDomains ?? []).map(domainNotes).join("\n") || undefined
-    // One repository reads as it always did: the microfrontend (or the service), then its context.
+    // One repository reads as it always did: the frontend (or the service), then its context.
     const repositories =
         input.repositories.length === 1
-            ? [describeMicrofrontend(input.repositories[0], input.repositories[0].service ? "service" : "microfrontend"), projectContext, domainContext, microfrontendContext(input.repositories[0])]
+            ? [describeFrontend(input.repositories[0], input.repositories[0].service ? "service" : "frontend"), projectContext, domainContext, frontendContext(input.repositories[0])]
             : [
-                  ["<repositories>", ...input.repositories.map(repository => describeMicrofrontend(repository, "repository", microfrontendContext(repository))), "</repositories>"].join("\n"),
+                  ["<repositories>", ...input.repositories.map(repository => describeFrontend(repository, "repository", frontendContext(repository))), "</repositories>"].join("\n"),
                   projectContext,
                   domainContext
               ]

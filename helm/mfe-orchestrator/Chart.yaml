@@ -1,7 +1,7 @@
 apiVersion: v2
 name: mfe-orchestrator
 # NOTE: chart name and the "mfe-orchestrator.*" helpers are kept on purpose: the name feeds the immutable Deployment selector (app.kubernetes.io/name) and the resource names.
-description: Flightroom - JSON based configuration, versioning and multi-environment delivery of microfrontends
+description: Flightroom - JSON based configuration, versioning and multi-environment delivery of frontends
 type: application
 
 # Chart version: bumped on every change to the chart itself.
@@ -15,7 +15,7 @@ sources:
 icon: https://raw.githubusercontent.com/flightroom/flightroom/main/frontend/public/favicon.ico
 
 keywords:
-  - microfrontend
+  - frontend
   - orchestrator
   - module-federation
   - frontend

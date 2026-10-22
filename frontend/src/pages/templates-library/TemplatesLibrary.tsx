@@ -38,25 +38,25 @@ export const TemplatesLibrary: React.FC = () => {
     }, [marketsQuery.data])
 
     const handleCardClick = (slug: string) => {
-        // Service templates create a backend service, not a microfrontend.
+        // Service templates create a backend service, not a frontend.
         if (marketsQuery.data?.some(market => market.slug === slug && isServiceTemplate(market))) {
             navigate(`/service/new?template=${slug}`)
         } else if (getParams.get("parentId")) {
-            navigate(`/microfrontend/new?template=${slug}&parentId=${getParams.get("parentId")}`)
+            navigate(`/frontend/new?template=${slug}&parentId=${getParams.get("parentId")}`)
         } else {
-            navigate(`/microfrontend/new?template=${slug}`)
+            navigate(`/frontend/new?template=${slug}`)
         }
     }
 
     const handleBlankCardClick = () => {
-        navigate("/microfrontend/new")
+        navigate("/frontend/new")
     }
 
     const filteredMarkets = useMemo(() => {
         if (!marketsQuery.data) return []
 
         return marketsQuery.data.filter(market => {
-            // A microfrontend parent can only take microfrontend children.
+            // A frontend parent can only take frontend children.
             if (getParams.get("parentId") && isServiceTemplate(market)) return false
             const matchesSearch = market.name.toLowerCase().includes(searchTerm.toLowerCase())
             const matchesFramework = selectedFramework === "all" || market.framework === selectedFramework

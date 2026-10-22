@@ -1,18 +1,18 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
-import type { ICodeRepositoryMicrofrontend } from "./MicrofrontendModel"
+import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
-/** Upper bound of a context, of a project, a domain, a microfrontend or a service: it ends up in the prompt of every agent reading it. */
+/** Upper bound of a context, of a project, a domain, a frontend or a service: it ends up in the prompt of every agent reading it. */
 export const CONTEXT_MAX_LENGTH = 20_000
 
 /** Config maps and secrets committed to a repository as Kubernetes manifests, every time one is saved */
 export interface IProjectGitOps {
     enabled: boolean
-    /** Linked like the repository of a microfrontend, through one of the connections of the project */
-    codeRepository?: ICodeRepositoryMicrofrontend
+    /** Linked like the repository of a frontend, through one of the connections of the project */
+    codeRepository?: ICodeRepositoryFrontend
     /** Where the Helm values of the applications go, one branch per environment; none when left out */
-    applicationsCodeRepository?: ICodeRepositoryMicrofrontend
+    applicationsCodeRepository?: ICodeRepositoryFrontend
 }
 
 /**
@@ -20,8 +20,8 @@ export interface IProjectGitOps {
  * official template-pipelines: a repository with the same layout. Unset, the official ones are used.
  */
 export interface IProjectPipelines {
-    /** Linked like the repository of a microfrontend, through one of the connections of the project */
-    codeRepository: ICodeRepositoryMicrofrontend
+    /** Linked like the repository of a frontend, through one of the connections of the project */
+    codeRepository: ICodeRepositoryFrontend
     /** The branch or tag read; the default branch of the repository when left out */
     ref?: string
 }
