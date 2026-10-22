@@ -4,6 +4,7 @@ import { Copy, ExternalLink, Hammer, Tag } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Navigate, useParams } from "react-router-dom"
+import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
@@ -258,6 +259,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
                     />
                     {/* Sections are siblings so further ones (e.g. AI) can be added next to them. */}
                     <ServiceRepositorySection service={service} />
+                    <AiUsageSummary target={{ kind: "service", id: service._id! }} />
                     <ServiceVersionsTable versions={versionsQuery.data ?? []} />
                     <ServiceConfigurationSection service={service} environments={environmentsQuery.data ?? []} />
                     <ServiceVariableMapsSection service={service} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />

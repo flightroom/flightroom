@@ -163,6 +163,21 @@ describe("AssistantService", () => {
         expect(outcome.usage).toEqual({ inputTokens: 920, cachedInputTokens: 800, outputTokens: 14 })
     })
 
+    it("Given a provider failing on the second round, when the answer fails, then the first round's tokens were already handed over with the AI they were spent on", async () => {
+        getEnvironments.mockResolvedValue([])
+        const usage = { input_tokens: 10, cache_read_input_tokens: 400, cache_creation_input_tokens: 50, output_tokens: 7 }
+        stream.mockReturnValueOnce(fakeStream({ stop_reason: "tool_use", content: [{ type: "tool_use", id: "toolu_1", name: "environments_list", input: {} }], usage })).mockImplementationOnce(() => {
+            throw new Error("overloaded")
+        })
+        const onUsage = vi.fn()
+        const { handlers } = recordingHandlers()
+
+        await expect(new AssistantService(user, { ANTHROPIC_API_KEY: "test-key" }).chat(PROJECT, { messages: [{ role: "user", content: "?" }] }, { ...handlers, onUsage })).rejects.toThrow()
+
+        expect(onUsage).toHaveBeenCalledTimes(1)
+        expect(onUsage).toHaveBeenCalledWith({ inputTokens: 460, cachedInputTokens: 400, outputTokens: 7 }, expect.objectContaining({ aiModelId: "system", provider: "anthropic" }))
+    })
+
     it("Given a chosen effort and a model reasoning over two rounds, then the effort is sent, and the reasoning streams apart from the text with a break between rounds", async () => {
         getEnvironments.mockResolvedValue([])
         stream

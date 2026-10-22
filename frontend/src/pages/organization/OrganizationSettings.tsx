@@ -4,6 +4,7 @@ import { Building2, Cpu, Users } from "lucide-react"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
+import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useOrganizationApi, { canAdministerOrganization } from "@/hooks/apiClients/useOrganizationApi"
@@ -71,8 +72,10 @@ const OrganizationSettings: React.FC = () => {
                             <OrganizationMembersSection organization={organization} users={usersQuery.data ?? []} canAdminister={canAdminister} />
                         </TabsContent>
 
-                        <TabsContent value="ai" className="mt-6">
+                        <TabsContent value="ai" className="mt-6 flex flex-col gap-6">
                             <OrganizationAiModelsSection organizationId={organization._id} canAdminister={canAdminister} />
+                            {/* Per project, as the access of the projects to the AIs: for those who decide it. */}
+                            {canAdminister && <AiUsageSummary target={{ kind: "organization", id: organization._id }} />}
                         </TabsContent>
                     </Tabs>
                 )}

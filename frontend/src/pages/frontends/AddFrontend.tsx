@@ -6,6 +6,7 @@ import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import * as z from "zod"
+import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Button } from "@/components/atoms"
 import TextareaField from "@/components/input/TextareaField.rhf"
@@ -570,6 +571,8 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             <div className="flex min-h-full flex-col gap-6">
                 <FrontendHeader frontend={frontend} active="settings" aiAvailable={aiAvailable} />
                 {content}
+                {/* Outside the form: its period selector is no field of the frontend. */}
+                {id && <AiUsageSummary target={{ kind: "frontend", id }} />}
             </div>
         )
     }

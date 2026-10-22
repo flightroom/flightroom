@@ -22,6 +22,7 @@ import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import { isProtectedPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { ResolvedAiModel } from "../AiModelService"
+import { recordAiUsage } from "../AiUsageService"
 import { redactSecrets } from "../assistant/assistantTools"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
@@ -729,11 +730,32 @@ export class AiChangeJobService extends AiChangeBaseService {
         await AiChangeRequest.updateMany({ jobId: toObjectId(jobId) }, event(kind, shown))
     }
 
-    /** The usage is the job's: every request of it carries the same total. */
-    private async addUsage(jobId: string, usage: LlmUsage) {
+    /**
+     * The usage is the job's: every request of it carries the same total. Also added to the ledger, which outlives
+     * the job: a job nobody applies is removed after a week, what it spent still counts.
+     */
+    private async addUsage(job: IAiChangeJob, project: IProject, client: LlmClient, usage: LlmUsage) {
         const increment = { $inc: { "usage.inputTokens": usage.inputTokens, "usage.cachedInputTokens": usage.cachedInputTokens, "usage.outputTokens": usage.outputTokens } }
-        await AiChangeJob.updateOne({ _id: toObjectId(jobId) }, increment)
-        await AiChangeRequest.updateMany({ jobId: toObjectId(jobId) }, increment)
+        await AiChangeJob.updateOne({ _id: job._id }, increment)
+        await AiChangeRequest.updateMany({ jobId: job._id }, increment)
+        try {
+            await recordAiUsage({
+                organizationId: project.organizationId,
+                projectId: job.projectId,
+                userId: job.userId,
+                source: "agent",
+                jobId: job._id,
+                domainId: job.domainId,
+                frontendIds: job.frontendIds,
+                serviceIds: job.serviceIds,
+                aiModelId: job.aiModelId,
+                provider: client.provider,
+                effort: job.effort,
+                ...usage
+            })
+        } catch (error) {
+            fastify.log.error({ error: loggable(error), aiJobId: String(job._id) }, "AI job usage not recorded")
+        }
     }
 
     private async fail(jobId: string, error: string) {
@@ -893,7 +915,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                     onEvent: (kind, message) => this.log(jobId, kind, message),
                     onUsage: async usage => {
                         onUsage(usage)
-                        await this.addUsage(jobId, usage)
+                        await this.addUsage(job, project, client, usage)
                         const current = await AiChangeJob.findById(job._id, { status: 1 })
                         if (current?.status !== AiJobStatus.RUNNING) abort.abort()
                     }

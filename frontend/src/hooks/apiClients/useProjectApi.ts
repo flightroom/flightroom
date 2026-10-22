@@ -57,6 +57,8 @@ export interface Project {
     technologies?: ProjectTechnologies
     /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
     role?: RoleInProject
+    /** On the projects of the switcher: true when the user reaches only some of its domains, hence not what spans the whole project */
+    domainScoped?: boolean
     createdAt?: string
     updatedAt?: string
     _id: string

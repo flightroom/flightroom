@@ -83,10 +83,22 @@ const PROJECT_DRAFT_SCHEMA = {
     additionalProperties: false
 }
 
+/** The AI an answer runs on and the effort it was given: what its tokens are recorded against. */
+export interface AssistantSpentOn {
+    effort: LlmEffort
+    aiModelId: string
+    provider: LlmProvider
+}
+
 export interface AssistantStreamHandlers extends AssistantToolEvents {
     onText: (delta: string) => void
     /** The summary of the model's reasoning as it is generated. */
     onThinking: (delta: string) => void
+    /**
+     * The tokens of each model round as it ends. An answer stopped by the user or failing midway returns nothing, yet
+     * its rounds were spent: this is how they are still counted.
+     */
+    onUsage?: (usage: LlmUsage, spentOn: AssistantSpentOn) => void
 }
 
 export type AssistantStopReason = "end_turn" | "refusal" | "max_tokens" | "max_tool_rounds" | "awaiting_confirmation"
@@ -238,6 +250,7 @@ class AssistantService extends BaseAuthorizedService {
         let textRound: number | undefined
         let thinkingRound: number | undefined
         const effort = resolveEffort(settings, request.effort, DEFAULT_EFFORT)
+        const spentOn: AssistantSpentOn = { effort, aiModelId: settings.id, provider: settings.provider }
         const loop = await runAgentLoop({
             client: llm,
             system: CHAT_SYSTEM_PROMPT,
@@ -257,6 +270,7 @@ class AssistantService extends BaseAuthorizedService {
                 thinkingRound = round
                 handlers.onThinking(delta)
             },
+            onTurn: result => handlers.onUsage?.(result.usage, spentOn),
             runTools: async calls => {
                 // The turn so far, after the user's last message: parked with an action waiting for the user.
                 const outcome = await runner.runRound(calls, handlers, messages.slice(newestUserMessage + 1))
@@ -267,7 +281,7 @@ class AssistantService extends BaseAuthorizedService {
             }
         })
         const stopReason: AssistantStopReason = awaitingConfirmation ? "awaiting_confirmation" : loop.stopReason === "max_rounds" ? "max_tool_rounds" : (loop.stopReason as AssistantStopReason)
-        return { stopReason, wrote, usage: loop.usage, effort, aiModelId: settings.id, provider: settings.provider }
+        return { stopReason, wrote, usage: loop.usage, ...spentOn }
     }
 
     /**

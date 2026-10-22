@@ -26,6 +26,7 @@ import AiChangeJob, { AiJobStatus } from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus } from "../../models/AiChangeRequestModel"
 import AiMission from "../../models/AiMissionModel"
 import AiModel from "../../models/AiModelModel"
+import AiUsage from "../../models/AiUsageModel"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
 import Domain from "../../models/DomainModel"
 import Environment from "../../models/EnvironmentModel"
@@ -105,6 +106,7 @@ describe("AiChangeJobService", () => {
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), name: "Shop", context: "Shop context" } as never)
         // The organization defines no AI: the system one, from the configuration the service is given, answers
         vi.spyOn(AiModel, "find").mockResolvedValue([] as never)
+        vi.spyOn(AiUsage, "create").mockResolvedValue({} as never)
         vi.spyOn(RepositoryFileService.prototype, "resolveTargets").mockImplementation(async () =>
             withRepository.map(candidate => ({ frontend: candidate, codeRepository: { projectId }, repositoryName: candidate.slug }) as never)
         )
@@ -1257,6 +1259,29 @@ describe("AiChangeJobService", () => {
             ])
             const audits = log.info.mock.calls.filter(([entry]) => entry?.audit === "ai_job_usage")
             expect(audits).toEqual([[{ audit: "ai_job_usage", userId: String(user._id), projectId, jobId: String(jobId), inputTokens: 30, cachedInputTokens: 12, outputTokens: 12 }, "AI job usage"]])
+        })
+
+        it("Given an agent spending tokens over two rounds, when it runs, then each round is added to the ledger with the organization, the project, the job and its repositories", async () => {
+            const organizationId = new Types.ObjectId()
+            vi.mocked(Project.findById).mockResolvedValue({ _id: projectId, organizationId, name: "Shop", context: "Shop context" } as never)
+
+            await run()
+
+            const attribution = { organizationId, projectId, userId: user._id, source: "agent", jobId, frontendIds: [catalog._id] }
+            expect(vi.mocked(AiUsage.create).mock.calls).toEqual([
+                [expect.objectContaining({ ...attribution, inputTokens: 10, cachedInputTokens: 4, outputTokens: 5 })],
+                [expect.objectContaining({ ...attribution, inputTokens: 20, cachedInputTokens: 8, outputTokens: 7 })]
+            ])
+        })
+
+        it("Given a ledger that cannot be written, when the agent spends tokens, then the job still adds them and finishes", async () => {
+            vi.mocked(AiUsage.create).mockRejectedValue(new Error("mongo down"))
+
+            await run()
+
+            expect(updates.filter(({ update }) => update.$inc)).toHaveLength(4)
+            expect(updates).toContainEqual(expect.objectContaining({ model: "job", update: expect.objectContaining({ status: AiJobStatus.DONE }) }))
+            expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ aiJobId: String(jobId) }), "AI job usage not recorded")
         })
 
         it("Given a proposal of more files than a repository allows, when it is collected, then the job fails before any request is proposed", async () => {

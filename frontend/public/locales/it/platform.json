@@ -3320,5 +3320,42 @@
         "retype": {
             "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"
         }
+    },
+    "ai_usage": {
+        "title": "Token AI",
+        "description": {
+            "domain": "Spesi da Modifica con AI sulle richieste fatte da questo dominio.",
+            "frontend": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
+            "service": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
+            "project": "Spesi sull'intero progetto da Modifica con AI e da Maestro.",
+            "organization": "Spesi da tutti i progetti dell'organizzazione, Modifica con AI e Maestro insieme."
+        },
+        "period": {
+            "label": "Periodo",
+            "30d": "Ultimi 30 giorni",
+            "month": "Questo mese",
+            "90d": "Ultimi 90 giorni",
+            "all": "Sempre"
+        },
+        "input": "Token in input",
+        "input_hint": "Tutti i token in input, compresi quelli letti dalla cache.",
+        "cached": "Dalla cache",
+        "cached_hint": "La parte dell'input letta dalla cache del prompt: costa molto meno.",
+        "output": "Token in output",
+        "columns": {
+            "source": "Funzionalità",
+            "project": "Progetto"
+        },
+        "sources": {
+            "agent": "Modifica con AI",
+            "assistant": "Maestro"
+        },
+        "deleted_project": "Progetto eliminato",
+        "since": "Conteggiati dal {{date}}.",
+        "since_start": "Conteggiati da quando l'uso dell'AI viene registrato.",
+        "empty": "Nessun token AI registrato in questo periodo. L'uso è conteggiato dal rilascio di questa funzionalità in poi.",
+        "errors": {
+            "load": "Non è stato possibile caricare l'uso dell'AI."
+        }
     }
 }
