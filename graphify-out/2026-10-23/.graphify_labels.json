@@ -308,7 +308,5 @@
   "306": "integration",
   "307": "connectionTest.ts",
   "308": "DeploymentController.ts",
-  "309": "ConfigurationModel.ts",
-  "310": "account_activation",
-  "318": "projectWizardStateMachine.ts"
+  "310": "account_activation"
 }
