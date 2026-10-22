@@ -5,7 +5,7 @@ import { useTranslation } from "react-i18next"
 import AskAssistantButton from "@/components/assistant/AskAssistantButton"
 import { Button } from "@/components/atoms"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import useDeploymentsApi from "@/hooks/apiClients/useDeploymentsApi"
+import useDeploymentsApi, { DEPLOY_MUTATION_KEY } from "@/hooks/apiClients/useDeploymentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import EnvironmentsGate from "@/theme/EnvironmentsGate"
 import EnvironmentSelector from "../../components/molecules/EnvironmentSelector"
@@ -21,6 +21,7 @@ export const Deployments: React.FC = () => {
 
     // With GitOps on the deploy commits to the repositories first, and takes a while
     const deployMutation = useMutation({
+        mutationKey: DEPLOY_MUTATION_KEY,
         mutationFn: (environmentId: string) => deploymentsApi.createDeployment([environmentId]),
         onSuccess: (_deployment, environmentId) => queryClient.invalidateQueries({ queryKey: ["deployments", environmentId] })
     })

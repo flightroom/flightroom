@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
-import useDeploymentsApi from "@/hooks/apiClients/useDeploymentsApi"
+import useDeploymentsApi, { DEPLOY_MUTATION_KEY } from "@/hooks/apiClients/useDeploymentsApi"
 import type { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
@@ -30,6 +30,7 @@ export const DomainDeployButton: React.FC<{ domain: Domain }> = ({ domain }) => 
 
     // With GitOps on the deploy commits to the repositories first, and takes a while
     const deployMutation = useMutation({
+        mutationKey: DEPLOY_MUTATION_KEY,
         mutationFn: (environmentId: string) => deploymentsApi.createDeployment([environmentId], domain._id),
         onSuccess: async (_deployment, environmentId) => {
             const deployed = environments.find(candidate => candidate._id === environmentId)

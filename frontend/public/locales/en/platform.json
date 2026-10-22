@@ -555,6 +555,39 @@
             "remove_title_other": "Remove {{count}} canary users",
             "remove_description_one": "Remove \"{{userId}}\" from the canary users? They will go back to the stable version.",
             "remove_description_other": "Remove {{count}} users from the canary users? They will go back to the stable version."
+        },
+        "overlay": {
+            "title": "Deploying",
+            "elapsed": "In flight for {{time}}",
+            "hide": "Hide",
+            "hide_hint": "The deploy goes on even if you hide this screen (Esc)",
+            "show": "Show",
+            "pill": "Deploying · {{time}}",
+            "messages": [
+                "Control tower: takeoff clearance requested…",
+                "Fuel check: full.",
+                "The microfrontends are fastening their seatbelts.",
+                "Autopilot engaged, enjoy the ride.",
+                "Light turbulence in the pipeline, nothing serious.",
+                "Lining up the versions on the runway.",
+                "The crew is handing out config maps to the passengers.",
+                "Taxiing to the runway…",
+                "Tailwind: all good.",
+                "A slow deploy is still a deploy.",
+                "Meanwhile, try to beat the record below.",
+                "Please keep your dependencies fastened until landing."
+            ],
+            "game": {
+                "label": "Mini-game: steer the rocket between the towers",
+                "score": "Score {{score}}",
+                "best": "Best {{score}}",
+                "start": "Press space or tap to take off",
+                "retry": "Press space or tap to try again",
+                "over_zero": "Crashed on takeoff! Try again",
+                "over_one": "Crash! You passed {{count}} tower",
+                "over_other": "Crash! You passed {{count}} towers",
+                "new_best": "New record: {{score}}!"
+            }
         }
     },
     "builds": {

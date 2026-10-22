@@ -38,6 +38,9 @@ export interface DeploymentDTO {
     deployedAt: string
 }
 
+/** Shared by every mutation that deploys, so that the deploy overlay sees each of them */
+export const DEPLOY_MUTATION_KEY = ["deploy"]
+
 const useDeploymentsApi = () => {
     const apiClient = useApiClient()
     // Il deploy fa il commit sul repository GitOps: se fallisce, il deploy non parte

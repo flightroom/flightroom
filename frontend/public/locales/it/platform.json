@@ -458,6 +458,39 @@
             "remove_title_other": "Rimuovi {{count}} utenti canary",
             "remove_description_one": "Vuoi rimuovere «{{userId}}» dagli utenti canary? Tornerà a vedere la versione stabile.",
             "remove_description_other": "Vuoi rimuovere {{count}} utenti dagli utenti canary? Torneranno a vedere la versione stabile."
+        },
+        "overlay": {
+            "title": "Deploy in corso",
+            "elapsed": "In volo da {{time}}",
+            "hide": "Nascondi",
+            "hide_hint": "Il deploy prosegue anche se nascondi questa schermata (Esc)",
+            "show": "Mostra",
+            "pill": "Deploy in corso · {{time}}",
+            "messages": [
+                "Torre di controllo: richiesta di decollo inviata…",
+                "Controllo carburante: pieno.",
+                "I microfrontend allacciano le cinture.",
+                "Il pilota automatico è inserito, goditi il viaggio.",
+                "Leggere turbolenze nella pipeline, niente di grave.",
+                "Allineamento delle versioni in pista.",
+                "L'equipaggio distribuisce config map ai passeggeri.",
+                "Rullaggio verso la pista…",
+                "Vento in coda: tutto procede.",
+                "Un deploy lento è pur sempre un deploy.",
+                "Nel frattempo, prova a battere il record qui sotto.",
+                "Si prega di non slacciare le dipendenze fino all'atterraggio."
+            ],
+            "game": {
+                "label": "Mini-gioco: guida il razzo tra le torri",
+                "score": "Punti {{score}}",
+                "best": "Record {{score}}",
+                "start": "Premi spazio o tocca per decollare",
+                "retry": "Premi spazio o tocca per riprovare",
+                "over_zero": "Schianto al decollo! Riprova",
+                "over_one": "Schianto! Hai superato {{count}} torre",
+                "over_other": "Schianto! Hai superato {{count}} torri",
+                "new_best": "Nuovo record: {{score}}!"
+            }
         }
     },
     "builds": {
