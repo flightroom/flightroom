@@ -4,6 +4,7 @@ import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { EnvironmentNotFoundError } from "../errors/EnvironmentNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
+import UserCannotAccessThisOrganizationError from "../errors/UserCannotAccessThisOrganizationError"
 import errorHandler from "./errorHandler"
 
 describe("errorHandler", () => {
@@ -23,6 +24,9 @@ describe("errorHandler", () => {
         })
         app.get("/business", async () => {
             throw createBusinessException({ code: "NOPE", message: "Not allowed" })
+        })
+        app.get("/not-an-admin", async () => {
+            throw new UserCannotAccessThisOrganizationError()
         })
         app.get("/boom", async () => {
             throw new Error("Something went wrong")
@@ -63,6 +67,12 @@ describe("errorHandler", () => {
 
         expect(response.statusCode).toBe(400)
         expect(response.json().error.code).toBe("NOPE")
+    })
+
+    it("Given a member who cannot access the organization, when the route throws, then the response is a 403 and not a server error", async () => {
+        const response = await app.inject({ method: "GET", url: "/not-an-admin" })
+
+        expect(response.statusCode).toBe(403)
     })
 
     it("Given an unexpected error, when the route throws, then the response is still a 500", async () => {
