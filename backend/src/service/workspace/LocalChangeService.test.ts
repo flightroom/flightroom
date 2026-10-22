@@ -152,7 +152,7 @@ describe("LocalChangeService.submit", () => {
     it("signs as the orchestrator for an API key", async () => {
         const instance = allowProjectAccess(new LocalChangeService({ _id: "key-1", email: "api-key:key-1", apiKeyId: "key-1", restrictedToProjectIds: [PROJECT] } as never))
         await instance.submit(ref, input())
-        expect(workingCopy.commitAndPush.mock.calls[0][0].author).toEqual({ name: "MFE Orchestrator", email: "noreply@mfe-orchestrator.dev" })
+        expect(workingCopy.commitAndPush.mock.calls[0][0].author).toEqual({ name: "Flightroom", email: "noreply@flightroom.dev" })
         expect(openPullRequest.mock.calls[0][1].description).toContain("the API key key-1")
     })
 })

@@ -185,7 +185,7 @@ export class LocalChangeService extends BaseAuthorizedService {
                         sourceBranch: branch,
                         targetBranch: baseBranch,
                         title,
-                        description: [input.description?.trim(), `---\nSubmitted through the MFE Orchestrator MCP server by ${submitter}.`].filter(Boolean).join("\n\n")
+                        description: [input.description?.trim(), `---\nSubmitted through the Flightroom MCP server by ${submitter}.`].filter(Boolean).join("\n\n")
                     })
                 } catch (error) {
                     // The branch is pushed: the change is not lost, the developer opens the pull request by hand.

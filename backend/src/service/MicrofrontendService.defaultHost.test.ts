@@ -33,7 +33,7 @@ describe("MicrofrontendService.create hosting", () => {
         expect(host).toEqual({ type: HostedOn.CUSTOM_SOURCE, storageId, entryPoint: "assets/remoteEntry.js" })
     })
 
-    it("given no host and no default storage, when a microfrontend is created, then it is served from the MFE Orchestrator hub", async () => {
+    it("given no host and no default storage, when a microfrontend is created, then it is served from the Flightroom hub", async () => {
         vi.spyOn(Storage, "findOne").mockResolvedValue(null as never)
 
         const { host } = await created({})

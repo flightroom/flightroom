@@ -115,7 +115,7 @@ const microfrontendFields = {
             entryPoint: z.string().max(500).optional()
         })
         .optional()
-        .describe("Where the bundle is served from. Omit it to use the project's default storage, or the MFE Orchestrator hub when the project has none"),
+        .describe("Where the bundle is served from. Omit it to use the project's default storage, or the Flightroom hub when the project has none"),
     codeRepository: z
         .object({
             enabled: z.boolean(),

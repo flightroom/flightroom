@@ -335,7 +335,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
             secretName: deploySecretName,
             value: apiKey.apiKey,
             variableGroupName: azureDevOpsVariableGroupName,
-            variableGroupDescription: "MFE Orchestrator Deploy Secret"
+            variableGroupDescription: "Flightroom Deploy Secret"
         })
     }
 

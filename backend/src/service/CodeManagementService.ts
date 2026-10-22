@@ -53,7 +53,7 @@ class CodeManagementService {
                 url: repositoryUrl,
                 singleBranch: true,
                 depth: 1,
-                headers: { "User-Agent": "mfe-orchestrator" },
+                headers: { "User-Agent": "flightroom" },
                 onAuth
             })
             fastify.log.info("✅ Repo cloned successfully")

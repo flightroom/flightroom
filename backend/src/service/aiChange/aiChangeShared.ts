@@ -284,7 +284,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                 description: [
                     request.summary,
                     related.length ? `Part of a change across ${related.length + 1} repositories:\n${related.map(line => `- ${line}`).join("\n")}` : undefined,
-                    `---\nRequested in MFE Orchestrator by ${user.email}:\n\n${prompts.map(prompt => `> ${prompt.split("\n").join("\n> ")}`).join("\n\n")}`
+                    `---\nRequested in Flightroom by ${user.email}:\n\n${prompts.map(prompt => `> ${prompt.split("\n").join("\n> ")}`).join("\n\n")}`
                 ]
                     .filter(Boolean)
                     .join("\n\n")

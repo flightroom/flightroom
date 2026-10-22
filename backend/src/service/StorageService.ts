@@ -59,7 +59,7 @@ export const withUnchangedSecrets = (incoming: StorageDTO, existing?: IStorage):
 const WRITE_FORBIDDEN = { code: "STORAGE_WRITE_FORBIDDEN", message: "A viewer of the project cannot add, edit, test or delete a storage" }
 
 /** The probe goes where the bundles of the project go, keyed the way ServeService reads them */
-export const PROBE_FILE = ".mfe-orchestrator-connection-test"
+export const PROBE_FILE = ".flightroom-connection-test"
 
 type StorageClient = Pick<S3BucketClient, "uploadFile" | "deleteFile"> & { downloadFileStream(filePath: string): Readable | Promise<Readable> }
 

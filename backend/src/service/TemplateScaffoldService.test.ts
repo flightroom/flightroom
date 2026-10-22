@@ -190,7 +190,7 @@ describe("TemplateScaffoldService, microfrontend templates", () => {
             await templateZip({ "src/index.ts": 'export const name = "%microfrontendSlug%" // %domain%' }),
             await pipelinesZip({ "remote/vite/github/workflows/deploy.yml": "slug: %microfrontendSlug%\nurl: %domain%" })
         )
-        const domain = process.env.BACKEND_URL || "https://console.mfe-orchestrator.dev"
+        const domain = process.env.BACKEND_URL || "https://console.flightroom.dev"
 
         await service.injectTemplateGithub("cart", "token", "https://github.com/acme/cart.git", "github", remoteTemplate)
 
@@ -234,7 +234,7 @@ describe("TemplateScaffoldService, pipelines of template-pipelines", () => {
     const fixtures = join(__dirname, "__fixtures__", "template-pipelines")
     const slug = "checkout-new"
     /** BACKEND_URL unset: the fallback every provider shares */
-    const domain = "https://console.mfe-orchestrator.dev"
+    const domain = "https://console.flightroom.dev"
 
     // biome-ignore lint/suspicious/noExplicitAny: a parsed pipeline is an arbitrarily nested YAML document
     type Pipeline = Record<string, any>

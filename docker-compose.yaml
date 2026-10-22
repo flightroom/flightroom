@@ -31,9 +31,9 @@ services:
       timeout: 5s
       retries: 5
 
-  mfe-orchestrator:
-    image: lory1990/mfe-orchestrator:4.0.0
-    container_name: mfe-orchestrator
+  flightroom:
+    image: lory1990/flightroom:all-in-one
+    container_name: flightroom
     restart: always
     ports:
       - '8080:80'

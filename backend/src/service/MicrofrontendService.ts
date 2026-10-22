@@ -196,7 +196,7 @@ export class MicrofrontendService extends BaseAuthorizedService {
 
     /**
      * The hosting the console preselects for a new microfrontend: the project's default storage,
-     * or the MFE Orchestrator hub when it has none, with the template's entry point when it was
+     * or the Flightroom hub when it has none, with the template's entry point when it was
      * created from one. Applied when a caller (the assistant, an MCP client) creates one without
      * saying where it is served from.
      */

@@ -84,7 +84,7 @@ export const assistantOnlyTools = [
         name: "search_docs",
         title: "Search the documentation",
         description:
-            "Searches the MFE Orchestrator documentation (written in English) and returns the best matching sections with their URL. Use it for any how-to or concept question, and cite the URL of the sections you relied on.",
+            "Searches the Flightroom documentation (written in English) and returns the best matching sections with their URL. Use it for any how-to or concept question, and cite the URL of the sections you relied on.",
         scope: MCP_SCOPE_READ,
         consoleOnly: true,
         annotations: READ_ONLY,

@@ -201,7 +201,7 @@ export const renderNamespace = (environment: Pick<IEnvironment, "slug" | "namesp
 const GITOPS_README: Record<GitOpsRepositoryKind, string> = {
     configuration: `# GitOps configuration
 
-Committed by MFE Orchestrator every time environments of the project are deployed, for each of them:
+Committed by Flightroom every time environments of the project are deployed, for each of them:
 
 - \`<environment>/namespace.yaml\`: the Namespace of the environment, named as set on it or as its slug in lowercase
 - \`<environment>/gateway.yaml\`: when the project has a domain, the Traefik Gateway answering on the host of the environment, its cert-manager Certificate and the redirect to HTTPS
@@ -212,7 +212,7 @@ Do not edit these manifests here: the next deploy of the environment overwrites 
 `,
     applications: `# GitOps applications
 
-One branch per environment, named as its slug, committed by MFE Orchestrator every time the environment is deployed:
+One branch per environment, named as its slug, committed by Flightroom every time the environment is deployed:
 
 - \`<application>.yaml\`: the Helm values of each backend service and frontend, with the version deployed and, when it has an exposure path, its HTTPRoute on the Gateway of the environment
 - \`microservice-chart/\`: the Helm chart they are installed with, written once: change it as the cluster needs

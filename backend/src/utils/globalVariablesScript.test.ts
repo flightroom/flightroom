@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import { globalVariablesScriptUrl, injectGlobalVariablesScript } from "./globalVariablesScript"
 
-const URL = "https://console.mfe-orchestrator.dev/api/serve/global-variables/auto/6936fe9cb862bc56f28342e8/index.js"
+const URL = "https://console.flightroom.dev/api/serve/global-variables/auto/6936fe9cb862bc56f28342e8/index.js"
 const TAG = `<script src="${URL}"></script>`
 
 const document = (head: string) => `<!doctype html>
@@ -18,11 +18,11 @@ const document = (head: string) => `<!doctype html>
 
 describe("globalVariablesScriptUrl", () => {
     it("Given a backend url and a project id, when the url is built, then it addresses the project through the auto form", () => {
-        expect(globalVariablesScriptUrl("https://console.mfe-orchestrator.dev/api", "6936fe9cb862bc56f28342e8")).toBe(URL)
+        expect(globalVariablesScriptUrl("https://console.flightroom.dev/api", "6936fe9cb862bc56f28342e8")).toBe(URL)
     })
 
     it("Given a backend url with a trailing slash, when the url is built, then the path is not doubled", () => {
-        expect(globalVariablesScriptUrl("https://console.mfe-orchestrator.dev/api/", "6936fe9cb862bc56f28342e8")).toBe(URL)
+        expect(globalVariablesScriptUrl("https://console.flightroom.dev/api/", "6936fe9cb862bc56f28342e8")).toBe(URL)
     })
 })
 
@@ -38,7 +38,7 @@ describe("injectGlobalVariablesScript", () => {
     })
 
     it("Given a tag addressing one environment, when it is injected, then that tag becomes the portable one instead of a second being added", () => {
-        const environmentSpecific = `<script src="https://console.mfe-orchestrator.dev/api/serve/global-variables/6a71f61943857c3da9eb0364/index.js"></script>`
+        const environmentSpecific = `<script src="https://console.flightroom.dev/api/serve/global-variables/6a71f61943857c3da9eb0364/index.js"></script>`
 
         const result = injectGlobalVariablesScript(document(`\n    ${environmentSpecific}`), URL)
 

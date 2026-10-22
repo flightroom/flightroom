@@ -70,7 +70,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
 ]
 
 const SERVER_INSTRUCTIONS =
-    "Tools of the MFE Orchestrator console, bound to the projects shared when this connection was authorized. " +
+    "Tools of the Flightroom console, bound to the projects shared when this connection was authorized. " +
     "Call projects_list first: when more than one project is shared, every project tool needs its projectId. " +
     "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one microfrontend, service or domain, pass its id to context_get, or read aiContext from microfrontend_get, service_get or domain_get: follow those notes. " +
     "To change the code of a microfrontend or a service: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
@@ -162,7 +162,7 @@ export const selectProject = (session: McpSession, requested: string | undefined
  * projects, one of which the user only views, writes on the other one only.
  */
 export const createMcpServer = (session: McpSession, hooks: McpServerHooks = {}): McpServer => {
-    const server = new McpServer({ name: "mfe-orchestrator", title: "MFE Orchestrator", version: applicationVersion }, { instructions: SERVER_INSTRUCTIONS })
+    const server = new McpServer({ name: "flightroom", title: "Flightroom", version: applicationVersion }, { instructions: SERVER_INSTRUCTIONS })
 
     for (const tool of MCP_TOOLS) {
         if (tool.consoleOnly || !session.scopes.includes(tool.scope)) {

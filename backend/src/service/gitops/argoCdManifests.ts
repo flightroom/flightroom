@@ -98,7 +98,7 @@ export const buildAppProject = (target: ArgoCdProjectTarget) => ({
     kind: "AppProject",
     metadata: { name: appProjectName(target.projectId, target.projectSlug), labels: labels(target.projectId) },
     spec: {
-        description: `Deployed by MFE Orchestrator from the GitOps repositories of the project ${target.projectSlug}`,
+        description: `Deployed by Flightroom from the GitOps repositories of the project ${target.projectSlug}`,
         sourceRepos: [target.configurationRepoUrl, target.applicationsRepoUrl].filter((url): url is string => Boolean(url)),
         destinations: [...new Set(target.environments.map(environment => environment.namespace))].map(namespace => ({ server: IN_CLUSTER_SERVER, namespace })),
         clusterResourceWhitelist: [{ group: "", kind: "Namespace" }]

@@ -45,7 +45,7 @@ export interface DomainPlan {
     services: DomainPlanComponent[]
 }
 
-const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain on MFE Orchestrator, a platform where a project is made of microfrontends (frontends, each in its own repository) and backend services (each in its own repository, deployed as a container). The domain has no component yet. From the user's request, propose the microfrontends and the services to create so that an AI agent can then implement the request in them.
+const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain on Flightroom, a platform where a project is made of microfrontends (frontends, each in its own repository) and backend services (each in its own repository, deployed as a container). The domain has no component yet. From the user's request, propose the microfrontends and the services to create so that an AI agent can then implement the request in them.
 - Propose the smallest set the request needs: usually one microfrontend and one service, none of a kind the request does not need, at most ${MAX_PLANNED_PER_KIND} of each.
 - name: a short human name, e.g. "Orders".
 - slug: lowercase letters, digits and dashes, 2 to 50 characters, starting with a letter or a digit, not one of the slugs already taken.

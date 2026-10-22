@@ -142,7 +142,7 @@ const AGENT_INSTRUCTIONS =
 const systemPrompt = (repositories: AiChangeAgentRepository[]) => {
     const multiple = repositories.length > 1
     const kinds = describeKinds(repositories)
-    return `You are a coding agent built into MFE Orchestrator, a platform to build, deploy and serve microfrontends and backend services. ${multiple ? multipleRepositories(kinds) : singleRepository(kinds)}
+    return `You are a coding agent built into Flightroom, a platform to build, deploy and serve microfrontends and backend services. ${multiple ? multipleRepositories(kinds) : singleRepository(kinds)}
 
 How you work:
 - Explore first: list_files, search and read_file the files that matter before editing. Follow the conventions you find (language, framework, formatting, folder layout, naming).
