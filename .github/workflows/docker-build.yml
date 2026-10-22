@@ -9,6 +9,9 @@ on:
     branches: [main,development]
     tags: ["*"]
 
+env:
+  IMAGE: lory1990/flightroom
+
 jobs:
   monorepo-build:
     uses: ./.github/workflows/monorepo-build.yml
@@ -42,24 +45,24 @@ jobs:
 
       - name: 🚀 Build and Push Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:latest -f Dockerfile .
+          docker build -t ${{ env.IMAGE }}:latest -f Dockerfile .
 
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            docker tag ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:latest ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:${{ github.ref_name }}
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:${{ github.ref_name }}
+            docker tag ${{ env.IMAGE }}:latest ${{ env.IMAGE }}:${{ github.ref_name }}
+            docker push ${{ env.IMAGE }}:${{ github.ref_name }}
           else
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:latest
+            docker push ${{ env.IMAGE }}:latest
           fi
 
       # Self contained image: orchestrator + MongoDB + Redis + Nginx, so that a
       # `docker run` is enough to get a working installation.
       - name: 📦 Build and Push All-in-One Docker Image
         run: |
-          docker build -t ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:all-in-one -f Dockerfile.all-in-one .
+          docker build -t ${{ env.IMAGE }}:all-in-one -f Dockerfile.all-in-one .
 
           if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            docker tag ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:all-in-one ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:${{ github.ref_name }}-all-in-one
-            docker push ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:${{ github.ref_name }}-all-in-one
+            docker tag ${{ env.IMAGE }}:all-in-one ${{ env.IMAGE }}:${{ github.ref_name }}-all-in-one
+            docker push ${{ env.IMAGE }}:${{ github.ref_name }}-all-in-one
           fi
 
-          docker push ${{ secrets.DOCKERHUB_USERNAME }}/mfe-orchestrator:all-in-one
+          docker push ${{ env.IMAGE }}:all-in-one
