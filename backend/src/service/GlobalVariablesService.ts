@@ -25,7 +25,7 @@ export default class GlobalVariablesService extends BaseAuthorizedService {
 
     async createForProject(variableData: GlobalVariableCreateDTO, projectId: string): Promise<IGlobalVariable[]> {
         await this.ensureAccessToProject(projectId)
-        // Every microfrontend of the project reads the global variables: they are no domain's own
+        // Every frontend of the project reads the global variables: they are no domain's own
         await this.ensureWholeProject(projectId)
 
         const environments = await Environment.find({ projectId: toObjectId(projectId) }).select("_id")

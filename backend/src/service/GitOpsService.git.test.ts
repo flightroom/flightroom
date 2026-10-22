@@ -36,7 +36,7 @@ vi.mock("./workspace/RepositoryWorkspaceService", async importOriginal => ({
 
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
@@ -104,7 +104,7 @@ describe.skipIf(!hasGit)("GitOpsService against a local smart HTTP remote", () =
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production, slug: "production", projectId }] as never)
         vi.spyOn(ConfigMap, "find").mockResolvedValue([] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
     const secret = (password: string) => ({ _id: new Types.ObjectId(), name: "database", entries: [{ key: "DATABASE_PASSWORD", values: [{ environmentId: String(production), value: password }] }] })

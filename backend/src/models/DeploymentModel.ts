@@ -1,7 +1,7 @@
 import { Document, model, ObjectId, Schema } from "mongoose"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
+import { IFrontend } from "./FrontendModel"
 import { IGlobalVariable } from "./GlobalVariableModel"
-import { IMicrofrontend } from "./MicrofrontendModel"
 import { IService } from "./ServiceModel"
 import { IStorage, STORAGE_SECRET_PATHS } from "./StorageModel"
 
@@ -21,7 +21,7 @@ export type IDeployedService = Pick<IService, "_id" | "slug" | "name" | "domainI
 export interface IDeployment extends Document<ObjectId> {
     environmentId: ObjectId
     variables?: IGlobalVariable[]
-    microfrontends?: IMicrofrontend[]
+    frontends?: IFrontend[]
     /** Absent from the deployments made before the services were recorded */
     services?: IDeployedService[]
     /** Absent from the deployments made before the config maps and secrets were recorded, as for the services */
@@ -49,7 +49,7 @@ const deploymentSchema = new Schema<IDeployment>(
             type: Array,
             required: false
         },
-        microfrontends: {
+        frontends: {
             type: Array,
             required: false
         },

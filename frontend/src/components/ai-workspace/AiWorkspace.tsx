@@ -64,7 +64,7 @@ import { AiWorkspaceRepository, BaseBranches, pickedBaseBranches, RepositoryBran
 const PROMPT_MAX_LENGTH = 8000
 const POLL_INTERVAL_MS = 2000
 
-/** Whose code the agent works on: the repository of a microfrontend or of a service, or every repository of a domain at once. */
+/** Whose code the agent works on: the repository of a frontend or of a service, or every repository of a domain at once. */
 export type AiWorkspaceTarget = AiChangeTarget | { kind: "domain"; id: string }
 
 const isRepositoryTarget = (target: AiWorkspaceTarget): target is AiChangeTarget => target.kind !== "domain"
@@ -91,14 +91,14 @@ const firstLine = (text: string) =>
 
 const conflictsOf = (error: Error): string[] => (error as AxiosError<{ error?: { details?: { conflicts?: string[] } } }>)?.response?.data?.error?.details?.conflicts ?? []
 
-/** The page of the microfrontend or service a repository belongs to, open on the request. */
-const repositoryPath = (repository: AiJobRepository) => `/${repository.kind === "service" ? "service" : "microfrontend"}/${repository.microfrontendId}?change=${repository.requestId}`
+/** The page of the frontend or service a repository belongs to, open on the request. */
+const repositoryPath = (repository: AiJobRepository) => `/${repository.kind === "service" ? "service" : "frontend"}/${repository.frontendId}?change=${repository.requestId}`
 
 /** Set on the requests of a job over several repositories: the request is one part of a wider change. */
 const JobBadge: React.FC<{ request: AiChangeRequest }> = ({ request }) => {
     const { t } = useTranslation()
     if (!request.jobId || !request.jobRepositoryCount || request.jobRepositoryCount <= 1) return null
-    return <Badge variant="outline">{t("microfrontend.aiChange.job_badge", { count: request.jobRepositoryCount })}</Badge>
+    return <Badge variant="outline">{t("frontend.aiChange.job_badge", { count: request.jobRepositoryCount })}</Badge>
 }
 
 const WarningAlert: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
@@ -113,9 +113,9 @@ const PullRequestLink: React.FC<{ url: string }> = ({ url }) => {
     const { t } = useTranslation()
     return (
         <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary-strong underline-offset-4 hover:underline">
-            {t("microfrontend.aiChange.view_pull_request")}
+            {t("frontend.aiChange.view_pull_request")}
             <ExternalLink className="size-3.5" aria-hidden="true" />
-            <span className="sr-only">{t("microfrontend.aiChange.opens_new_tab")}</span>
+            <span className="sr-only">{t("frontend.aiChange.opens_new_tab")}</span>
         </a>
     )
 }
@@ -125,10 +125,10 @@ const AppliedAlert: React.FC<{ baseBranch: string; commit?: string; pullRequestU
     return (
         <Alert>
             <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
-            <AlertTitle>{t("microfrontend.aiChange.applied_title")}</AlertTitle>
+            <AlertTitle>{t("frontend.aiChange.applied_title")}</AlertTitle>
             <AlertDescription className="flex flex-col gap-1">
                 <span>
-                    {t("microfrontend.aiChange.applied_onto")} <code className="font-mono text-xs">{baseBranch}</code>
+                    {t("frontend.aiChange.applied_onto")} <code className="font-mono text-xs">{baseBranch}</code>
                     {commit && <code className="ml-2 font-mono text-xs text-muted-foreground">{commit.slice(0, 7)}</code>}
                 </span>
                 {pullRequestUrl && <PullRequestLink url={pullRequestUrl} />}
@@ -140,12 +140,12 @@ const AppliedAlert: React.FC<{ baseBranch: string; commit?: string; pullRequestU
 /** Where the proposal is in the repository already: its feature branch, or why it is not there. */
 const BranchStatus: React.FC<{ request: AiChangeRequest }> = ({ request }) => {
     const { t } = useTranslation()
-    if (request.pushError) return <WarningAlert title={t("microfrontend.aiChange.push_error_title")}>{request.pushError}</WarningAlert>
+    if (request.pushError) return <WarningAlert title={t("frontend.aiChange.push_error_title")}>{request.pushError}</WarningAlert>
     if (!request.branch || !request.commit) return null
     return (
         <p className="flex flex-wrap items-center gap-1.5 text-sm text-foreground-secondary">
             <GitBranch className="size-4 shrink-0" aria-hidden="true" />
-            {t("microfrontend.aiChange.pushed_on")} <code className="break-all font-mono text-xs">{request.branch}</code>
+            {t("frontend.aiChange.pushed_on")} <code className="break-all font-mono text-xs">{request.branch}</code>
         </p>
     )
 }
@@ -169,14 +169,14 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
             aiChangesApi.apply(request._id, {
                 customErrorMessage: error => {
                     const code = errorCodeOf(error)
-                    if (code === "AI_CHANGE_CONFLICT") return t("microfrontend.aiChange.errors.AI_CHANGE_CONFLICT", { files: conflictsOf(error).join(", ") })
-                    if (code === "AI_CHANGE_NOT_PROPOSED") return t("microfrontend.aiChange.errors.AI_CHANGE_NOT_PROPOSED")
-                    if (code === "AI_CHANGE_PUSH_REFUSED") return t("microfrontend.aiChange.errors.AI_CHANGE_PUSH_REFUSED", { branch: request.baseBranch })
-                    return t("microfrontend.aiChange.errors.apply")
+                    if (code === "AI_CHANGE_CONFLICT") return t("frontend.aiChange.errors.AI_CHANGE_CONFLICT", { files: conflictsOf(error).join(", ") })
+                    if (code === "AI_CHANGE_NOT_PROPOSED") return t("frontend.aiChange.errors.AI_CHANGE_NOT_PROPOSED")
+                    if (code === "AI_CHANGE_PUSH_REFUSED") return t("frontend.aiChange.errors.AI_CHANGE_PUSH_REFUSED", { branch: request.baseBranch })
+                    return t("frontend.aiChange.errors.apply")
                 }
             }),
         onSuccess: applied => {
-            notifications.showSuccessNotification({ message: t("microfrontend.aiChange.applied_success", { branch: request.baseBranch }) })
+            notifications.showSuccessNotification({ message: t("frontend.aiChange.applied_success", { branch: request.baseBranch }) })
             onApplied(applied)
         },
         onError: () => onConflict()
@@ -187,14 +187,14 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
             aiChangesApi.openPullRequest(request._id, {
                 customErrorMessage: error => {
                     const code = errorCodeOf(error)
-                    if (code === "AI_CHANGE_CONFLICT") return t("microfrontend.aiChange.errors.AI_CHANGE_CONFLICT", { files: conflictsOf(error).join(", ") })
-                    if (code === "AI_CHANGE_NOT_PROPOSED") return t("microfrontend.aiChange.errors.AI_CHANGE_NOT_PROPOSED")
-                    return t("microfrontend.aiChange.errors.pull_request")
+                    if (code === "AI_CHANGE_CONFLICT") return t("frontend.aiChange.errors.AI_CHANGE_CONFLICT", { files: conflictsOf(error).join(", ") })
+                    if (code === "AI_CHANGE_NOT_PROPOSED") return t("frontend.aiChange.errors.AI_CHANGE_NOT_PROPOSED")
+                    return t("frontend.aiChange.errors.pull_request")
                 }
             }),
         onSuccess: opened => {
             // A provider refusing it answers with the error on the proposal: it shows there.
-            if (opened.pullRequestUrl) notifications.showSuccessNotification({ message: t("microfrontend.aiChange.pull_request_opened") })
+            if (opened.pullRequestUrl) notifications.showSuccessNotification({ message: t("frontend.aiChange.pull_request_opened") })
             onApplied(opened)
         },
         onError: () => onConflict()
@@ -203,7 +203,7 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
     const discardMutation = useMutation({
         mutationFn: () => aiChangesApi.discard(request._id),
         onSuccess: discarded => {
-            notifications.showInfoNotification({ message: t("microfrontend.aiChange.discarded_success") })
+            notifications.showInfoNotification({ message: t("frontend.aiChange.discarded_success") })
             onDiscarded(discarded)
         }
     })
@@ -222,13 +222,13 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
             <div className="flex flex-col gap-3">
                 <Alert>
                     <CheckCircle2 className="size-4" aria-hidden="true" />
-                    <AlertTitle>{t("microfrontend.aiChange.no_changes_title")}</AlertTitle>
-                    <AlertDescription>{t("microfrontend.aiChange.no_changes_description")}</AlertDescription>
+                    <AlertTitle>{t("frontend.aiChange.no_changes_title")}</AlertTitle>
+                    <AlertDescription>{t("frontend.aiChange.no_changes_description")}</AlertDescription>
                 </Alert>
                 <div className="flex justify-end">
                     <Button type="button" variant="secondary" disabled={busy} onClick={() => discardMutation.mutate()}>
                         <Trash2 aria-hidden="true" />
-                        {t("microfrontend.aiChange.discard")}
+                        {t("frontend.aiChange.discard")}
                     </Button>
                 </div>
             </div>
@@ -238,8 +238,8 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
     return (
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold">{t("microfrontend.aiChange.files_title")}</h4>
-                <span className="text-xs text-muted-foreground">{t("microfrontend.aiChange.files_count", { count: request.files.length })}</span>
+                <h4 className="text-sm font-semibold">{t("frontend.aiChange.files_title")}</h4>
+                <span className="text-xs text-muted-foreground">{t("frontend.aiChange.files_count", { count: request.files.length })}</span>
             </div>
             <ul className="flex flex-col gap-2">
                 {request.files.map(file => {
@@ -249,14 +249,14 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
                         <li key={file.path} className="overflow-hidden rounded-md border border-divider">
                             <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
                                 <span className="min-w-0 flex-1 break-all font-mono text-xs">{file.path}</span>
-                                <Badge variant={ACTION_VARIANT[file.action]}>{t(`microfrontend.aiChange.action.${file.action}`)}</Badge>
+                                <Badge variant={ACTION_VARIANT[file.action]}>{t(`frontend.aiChange.action.${file.action}`)}</Badge>
                                 <Button
                                     type="button"
                                     variant="ghost"
                                     size="icon"
                                     aria-expanded={isExpanded}
                                     aria-controls={diffId}
-                                    aria-label={t(isExpanded ? "microfrontend.aiChange.hide_diff" : "microfrontend.aiChange.show_diff", { path: file.path })}
+                                    aria-label={t(isExpanded ? "frontend.aiChange.hide_diff" : "frontend.aiChange.show_diff", { path: file.path })}
                                     onClick={() => setExpanded(current => toggle(current, file.path))}
                                 >
                                     {isExpanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
@@ -272,24 +272,24 @@ const Proposal: React.FC<ProposalProps> = ({ request, onApplied, onConflict, onD
                 })}
             </ul>
             <BranchStatus request={request} />
-            {request.pullRequestError && <WarningAlert title={t("microfrontend.aiChange.pull_request_error_title")}>{request.pullRequestError}</WarningAlert>}
-            <p className="text-sm text-foreground-secondary">{t("microfrontend.aiChange.apply_description", { branch: request.baseBranch })}</p>
+            {request.pullRequestError && <WarningAlert title={t("frontend.aiChange.pull_request_error_title")}>{request.pullRequestError}</WarningAlert>}
+            <p className="text-sm text-foreground-secondary">{t("frontend.aiChange.apply_description", { branch: request.baseBranch })}</p>
             <div className="flex flex-wrap items-center justify-end gap-2">
                 <Button type="button" variant="secondary" disabled={busy} onClick={() => discardMutation.mutate()}>
                     <Trash2 aria-hidden="true" />
-                    {t("microfrontend.aiChange.discard")}
+                    {t("frontend.aiChange.discard")}
                 </Button>
                 {request.pullRequestUrl ? (
                     <PullRequestLink url={request.pullRequestUrl} />
                 ) : (
                     <Button type="button" variant="secondary" disabled={busy} onClick={() => pullRequestMutation.mutate()}>
                         {pullRequestMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <GitPullRequest aria-hidden="true" />}
-                        {t("microfrontend.aiChange.open_pull_request")}
+                        {t("frontend.aiChange.open_pull_request")}
                     </Button>
                 )}
                 <Button type="button" disabled={busy} onClick={() => applyMutation.mutate()}>
                     {applyMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <GitMerge aria-hidden="true" />}
-                    {t("microfrontend.aiChange.apply", { branch: request.baseBranch })}
+                    {t("frontend.aiChange.apply", { branch: request.baseBranch })}
                 </Button>
             </div>
         </div>
@@ -326,7 +326,7 @@ const RepositoryProposal: React.FC<RepositoryProposalProps> = ({ requestId, onUp
     if (proposalQuery.isError) {
         return (
             <Alert variant="destructive">
-                <AlertDescription>{t("microfrontend.aiChange.errors.load")}</AlertDescription>
+                <AlertDescription>{t("frontend.aiChange.errors.load")}</AlertDescription>
             </Alert>
         )
     }
@@ -357,7 +357,7 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
                             {firstLine(request.prompt)}
                         </CardTitle>
                         <CardDescription>
-                            {t("microfrontend.aiChange.request_meta", {
+                            {t("frontend.aiChange.request_meta", {
                                 date: format(new Date(request.createdAt), "PPp", { locale: themeStore.getLocale() }),
                                 branch: request.baseBranch
                             })}
@@ -371,34 +371,34 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-3">
                 <details className="text-sm">
-                    <summary className="cursor-pointer text-muted-foreground">{t("microfrontend.aiChange.show_prompt")}</summary>
+                    <summary className="cursor-pointer text-muted-foreground">{t("frontend.aiChange.show_prompt")}</summary>
                     <p className="mt-2 whitespace-pre-wrap break-words rounded-md bg-muted/40 p-3">{request.prompt}</p>
                 </details>
 
                 {active && (
                     <output className="flex items-center gap-2 text-sm">
                         <Spinner size={16} centerScreen={false} />
-                        <span>{t(`microfrontend.aiChange.status_description.${request.status}`)}</span>
+                        <span>{t(`frontend.aiChange.status_description.${request.status}`)}</span>
                     </output>
                 )}
 
-                {request.error && request.status === "PROPOSED" && <WarningAlert title={t("microfrontend.aiChange.proposal_warning")}>{request.error}</WarningAlert>}
+                {request.error && request.status === "PROPOSED" && <WarningAlert title={t("frontend.aiChange.proposal_warning")}>{request.error}</WarningAlert>}
 
                 {request.status === "FAILED" && (
                     <Alert variant="destructive">
                         <AlertTriangle className="size-4" aria-hidden="true" />
-                        <AlertTitle>{t("microfrontend.aiChange.failed_title")}</AlertTitle>
-                        <AlertDescription className="whitespace-pre-wrap break-words">{request.error || t("microfrontend.aiChange.errors.generic")}</AlertDescription>
+                        <AlertTitle>{t("frontend.aiChange.failed_title")}</AlertTitle>
+                        <AlertDescription className="whitespace-pre-wrap break-words">{request.error || t("frontend.aiChange.errors.generic")}</AlertDescription>
                     </Alert>
                 )}
 
                 {request.status === "APPLIED" && <AppliedAlert baseBranch={request.baseBranch} commit={request.commit} pullRequestUrl={request.pullRequestUrl} />}
 
-                {request.status === "DISCARDED" && <p className="text-sm text-muted-foreground">{t("microfrontend.aiChange.discarded_description")}</p>}
+                {request.status === "DISCARDED" && <p className="text-sm text-muted-foreground">{t("frontend.aiChange.discarded_description")}</p>}
 
                 {request.summary && finished && (
                     <div className="flex flex-col gap-1">
-                        <h4 className="text-sm font-semibold">{t("microfrontend.aiChange.summary")}</h4>
+                        <h4 className="text-sm font-semibold">{t("frontend.aiChange.summary")}</h4>
                         <AssistantMessageText text={request.summary} className="text-sm" />
                     </div>
                 )}
@@ -407,9 +407,9 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
 
                 {(request.status === "FAILED" || request.status === "DISCARDED") && (
                     <div className="flex justify-end">
-                        <Button type="button" variant="secondary" onClick={() => onRetry(request.prompt, { [request.microfrontendId ?? request.serviceId ?? ""]: request.baseBranch })}>
+                        <Button type="button" variant="secondary" onClick={() => onRetry(request.prompt, { [request.frontendId ?? request.serviceId ?? ""]: request.baseBranch })}>
                             <RotateCcw aria-hidden="true" />
-                            {t("microfrontend.aiChange.try_again")}
+                            {t("frontend.aiChange.try_again")}
                         </Button>
                     </div>
                 )}
@@ -420,7 +420,7 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
                     request.events &&
                     request.events.length > 0 && (
                         <details className="text-sm">
-                            <summary className="cursor-pointer text-muted-foreground">{t("microfrontend.aiChange.show_progress_log")}</summary>
+                            <summary className="cursor-pointer text-muted-foreground">{t("frontend.aiChange.show_progress_log")}</summary>
                             <div className="mt-2">
                                 <ProgressLog events={request.events} live={false} />
                             </div>
@@ -433,12 +433,12 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
                     <div className="flex flex-col gap-0.5">
                         <AnswerUsage
                             usage={{ ...request.usage, cachedInputTokens: request.usage.cachedInputTokens ?? 0 }}
-                            label={t("microfrontend.aiChange.usage_label")}
-                            hint={t("microfrontend.aiChange.usage_hint")}
+                            label={t("frontend.aiChange.usage_label")}
+                            hint={t("frontend.aiChange.usage_hint")}
                             effort={request.effort}
                         />
                         {request.jobRepositoryCount !== undefined && request.jobRepositoryCount > 1 && (
-                            <p className="text-xs text-muted-foreground">{t("microfrontend.aiChange.usage_shared", { count: request.jobRepositoryCount })}</p>
+                            <p className="text-xs text-muted-foreground">{t("frontend.aiChange.usage_shared", { count: request.jobRepositoryCount })}</p>
                         )}
                     </div>
                 )}
@@ -485,27 +485,25 @@ const RepositoryResult: React.FC<RepositoryResultProps> = ({ job, repository, la
             {isActive(repository.status) && (
                 <output className="flex items-center gap-2 text-sm">
                     <Spinner size={16} centerScreen={false} />
-                    <span>{t(`microfrontend.aiChange.status_description.${repository.status}`)}</span>
+                    <span>{t(`frontend.aiChange.status_description.${repository.status}`)}</span>
                 </output>
             )}
 
             {repository.status === "FAILED" && (
                 <Alert variant="destructive">
                     <AlertTriangle className="size-4" aria-hidden="true" />
-                    <AlertTitle>{t("microfrontend.aiChange.failed_title")}</AlertTitle>
-                    <AlertDescription className="whitespace-pre-wrap break-words">{repository.error || job.error || t("microfrontend.aiChange.errors.generic")}</AlertDescription>
+                    <AlertTitle>{t("frontend.aiChange.failed_title")}</AlertTitle>
+                    <AlertDescription className="whitespace-pre-wrap break-words">{repository.error || job.error || t("frontend.aiChange.errors.generic")}</AlertDescription>
                 </Alert>
             )}
 
-            {repository.status === "PROPOSED" && repository.error && <WarningAlert title={t("microfrontend.aiChange.proposal_warning")}>{repository.error}</WarningAlert>}
+            {repository.status === "PROPOSED" && repository.error && <WarningAlert title={t("frontend.aiChange.proposal_warning")}>{repository.error}</WarningAlert>}
 
             {proposal}
 
             {repository.status === "APPLIED" && <AppliedAlert baseBranch={repository.baseBranch} commit={repository.commit} pullRequestUrl={repository.pullRequestUrl} />}
 
-            {repository.status === "DISCARDED" && (
-                <p className="text-sm text-muted-foreground">{t(superseded ? "microfrontend.aiChange.superseded" : "microfrontend.aiChange.discarded_description")}</p>
-            )}
+            {repository.status === "DISCARDED" && <p className="text-sm text-muted-foreground">{t(superseded ? "frontend.aiChange.superseded" : "frontend.aiChange.discarded_description")}</p>}
         </>
     )
 
@@ -513,12 +511,12 @@ const RepositoryResult: React.FC<RepositoryResultProps> = ({ job, repository, la
 
     const Icon = repository.kind === "service" ? Server : LayoutDashboard
     return (
-        <section aria-label={repository.microfrontendName} className="flex flex-col gap-3 rounded-md border border-divider p-3">
+        <section aria-label={repository.frontendName} className="flex flex-col gap-3 rounded-md border border-divider p-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
                 <Icon className="size-4 shrink-0 text-foreground-secondary" aria-hidden="true" />
                 <Link to={repositoryPath(repository)} className="min-w-0 flex-1 truncate font-medium underline-offset-4 hover:underline">
-                    {repository.microfrontendName}
-                    <span className="sr-only"> ({t(`microfrontend.aiChange.kind.${repository.kind}`)})</span>
+                    {repository.frontendName}
+                    <span className="sr-only"> ({t(`frontend.aiChange.kind.${repository.kind}`)})</span>
                 </Link>
                 <StatusBadge status={repository.status} />
             </div>
@@ -530,7 +528,7 @@ const RepositoryResult: React.FC<RepositoryResultProps> = ({ job, repository, la
                     {repository.branch && (
                         <>
                             <span aria-hidden="true">→</span>
-                            <span className="sr-only">{t("microfrontend.aiChange.feature_branch")}</span>
+                            <span className="sr-only">{t("frontend.aiChange.feature_branch")}</span>
                             <code className="break-all font-mono">{repository.branch}</code>
                         </>
                     )}
@@ -547,9 +545,9 @@ const RepositoryTab: React.FC<{ repository: AiJobRepository }> = ({ repository }
     const Icon = repository.kind === "service" ? Server : LayoutDashboard
     const count = repository.files.length
     return (
-        <TabsTrigger value={repository.requestId} className="min-w-0 max-w-[16rem]" title={repository.microfrontendName} dataTestId="ai-change-repository-tab">
+        <TabsTrigger value={repository.requestId} className="min-w-0 max-w-[16rem]" title={repository.frontendName} dataTestId="ai-change-repository-tab">
             <Icon className="shrink-0" aria-hidden="true" />
-            <span className="truncate">{repository.microfrontendName}</span>
+            <span className="truncate">{repository.frontendName}</span>
             {count > 0 && (
                 <span aria-hidden="true" className="shrink-0 rounded-full bg-muted px-1.5 tabular-nums text-foreground">
                     {count}
@@ -559,7 +557,7 @@ const RepositoryTab: React.FC<{ repository: AiJobRepository }> = ({ repository }
             {repository.status === "FAILED" && <AlertTriangle className="shrink-0 text-destructive" aria-hidden="true" />}
             {repository.status === "APPLIED" && <CheckCircle2 className="shrink-0 text-success" aria-hidden="true" />}
             <span className="sr-only">
-                {count > 0 && `, ${t("microfrontend.aiChange.files_count", { count })}`}, {t(`microfrontend.aiChange.status.${repository.status}`)}
+                {count > 0 && `, ${t("frontend.aiChange.files_count", { count })}`}, {t(`frontend.aiChange.status.${repository.status}`)}
             </span>
         </TabsTrigger>
     )
@@ -607,8 +605,8 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
             {job.status === "FAILED" && !repositories.some(repository => repository.status === "FAILED") && (
                 <Alert variant="destructive">
                     <AlertTriangle className="size-4" aria-hidden="true" />
-                    <AlertTitle>{t("microfrontend.aiChange.failed_title")}</AlertTitle>
-                    <AlertDescription className="whitespace-pre-wrap break-words">{job.error || t("microfrontend.aiChange.errors.generic")}</AlertDescription>
+                    <AlertTitle>{t("frontend.aiChange.failed_title")}</AlertTitle>
+                    <AlertDescription className="whitespace-pre-wrap break-words">{job.error || t("frontend.aiChange.errors.generic")}</AlertDescription>
                 </Alert>
             )}
 
@@ -616,7 +614,7 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
 
             {tabbed ? (
                 <Tabs value={selectedTab ?? firstTab(repositories)} onValueChange={setSelectedTab} layoutSize="sm">
-                    <TabsList aria-label={t("microfrontend.aiChange.repositories_tabs_label")} className="max-w-full">
+                    <TabsList aria-label={t("frontend.aiChange.repositories_tabs_label")} className="max-w-full">
                         {repositories.map(repository => (
                             <RepositoryTab key={repository.requestId} repository={repository} />
                         ))}
@@ -639,7 +637,7 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
             ) : (
                 Boolean(job.events?.length) && (
                     <details className="text-sm">
-                        <summary className="cursor-pointer text-muted-foreground">{t("microfrontend.aiChange.show_progress_log")}</summary>
+                        <summary className="cursor-pointer text-muted-foreground">{t("frontend.aiChange.show_progress_log")}</summary>
                         <div className="mt-2">
                             <ProgressLog events={job.events ?? []} live={false} />
                         </div>
@@ -650,9 +648,9 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
             {/* Live while the agent works: the cost of the job grows with every round. */}
             {(!active || job.usage.inputTokens > 0) && (
                 <div className="flex flex-col gap-0.5">
-                    <AnswerUsage usage={job.usage} label={t("microfrontend.aiChange.usage_label")} hint={t("microfrontend.aiChange.usage_hint")} effort={job.effort} />
+                    <AnswerUsage usage={job.usage} label={t("frontend.aiChange.usage_label")} hint={t("frontend.aiChange.usage_hint")} effort={job.effort} />
                     {/* Part of a wider job: the repositories not shown here share its cost. */}
-                    {repositories.length < job.repositories.length && <p className="text-xs text-muted-foreground">{t("microfrontend.aiChange.usage_shared", { count: job.repositories.length })}</p>}
+                    {repositories.length < job.repositories.length && <p className="text-xs text-muted-foreground">{t("frontend.aiChange.usage_shared", { count: job.repositories.length })}</p>}
                 </div>
             )}
         </div>
@@ -662,7 +660,7 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
 /** On a repository a follow-up goes on with that repository only: the others of a job over several go on from their own page, or from the assistant. A domain goes on with all of them. */
 const followUpScope = (target: AiWorkspaceTarget) => {
     if (target.kind === "service") return { serviceIds: [target.id] }
-    if (target.kind === "microfrontend") return { microfrontendIds: [target.id] }
+    if (target.kind === "frontend") return { frontendIds: [target.id] }
     return {}
 }
 
@@ -712,7 +710,7 @@ const FollowUpForm: React.FC<FollowUpFormProps> = ({ target, open, latest, place
             }}
         >
             <Label htmlFor={promptId} className="sr-only">
-                {t("microfrontend.aiChange.follow_up_label")}
+                {t("frontend.aiChange.follow_up_label")}
             </Label>
             <Textarea
                 id={promptId}
@@ -740,13 +738,7 @@ const FollowUpForm: React.FC<FollowUpFormProps> = ({ target, open, latest, place
             </span>
             <AiModelSelect value={aiModel?.id} onChange={setAiModel} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-ai-model" />
             <EffortSelect value={effort} onChange={setEffort} efforts={effortsOf(aiModel)} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-effort" />
-            <Button
-                type="submit"
-                size="icon"
-                aria-label={t("microfrontend.aiChange.follow_up_send")}
-                disabled={!draft.trim() || locked || followUpMutation.isPending}
-                dataTestId="ai-change-follow-up-send"
-            >
+            <Button type="submit" size="icon" aria-label={t("frontend.aiChange.follow_up_send")} disabled={!draft.trim() || locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-send">
                 {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp aria-hidden="true" />}
             </Button>
         </form>
@@ -772,7 +764,7 @@ interface ConversationThreadProps {
 
 /**
  * A conversation with the agent: every message with what it did on the repositories of the workspace (the one of a
- * microfrontend or service, all those of a domain), the latest proposals to review, and the input to refine them
+ * frontend or service, all those of a domain), the latest proposals to review, and the input to refine them
  * further before applying them.
  */
 const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversationId, target, baseBranch, badge, onRetry, onQueueChanged, fallback }) => {
@@ -796,7 +788,7 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
     // A conversation started on a domain may go on with other repositories only: on a repository, keep the messages that worked on it.
     const turns: Turn[] = (chainQuery.data ?? []).flatMap(job => {
         if (target.kind === "domain") return [{ job, repositories: job.repositories }]
-        const repositories = job.repositories.filter(candidate => candidate.microfrontendId === target.id)
+        const repositories = job.repositories.filter(candidate => candidate.frontendId === target.id)
         return repositories.length > 0 ? [{ job, repositories }] : []
     })
     const first = turns[0]
@@ -839,7 +831,7 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
         const failed = repositories.filter(repository => repository.status !== "APPLIED").length
         if (failed === 0) notifications.showSuccessNotification({ message: t("assistant.jobs.apply_all_success") })
         else notifications.showWarningNotification({ message: t("assistant.jobs.apply_all_failed", { count: failed, total: pending.requestIds.length }) })
-        // The pages of the microfrontends and services show the same requests.
+        // The pages of the frontends and services show the same requests.
         queryClient.invalidateQueries({ queryKey: ["ai-change"] })
     }, [chainQuery.data])
 
@@ -885,7 +877,7 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
     const followUpState = open ? "placeholder" : busy ? "running" : status === "FAILED" ? "failed" : "closed"
     const closed = !busy && !open && (status === "FAILED" || status === "DISCARDED")
     const date = format(new Date(first.job.createdAt), "PPp", { locale: themeStore.getLocale() })
-    const repositoryCount = new Set(turns.flatMap(turn => turn.repositories.map(repository => repository.microfrontendId))).size
+    const repositoryCount = new Set(turns.flatMap(turn => turn.repositories.map(repository => repository.frontendId))).size
     // Several proposals open at once: they can go out together, one pull request per repository.
     const applicable = open?.repositories.filter(repository => repository.status === "PROPOSED" && repository.files.length > 0) ?? []
 
@@ -899,8 +891,8 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                         </CardTitle>
                         <CardDescription>
                             {baseBranch !== undefined
-                                ? t("microfrontend.aiChange.request_meta", { date, branch: baseBranch })
-                                : t("microfrontend.aiChange.request_meta_repositories", { date, count: repositoryCount })}
+                                ? t("frontend.aiChange.request_meta", { date, branch: baseBranch })
+                                : t("frontend.aiChange.request_meta_repositories", { date, count: repositoryCount })}
                         </CardDescription>
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
@@ -910,7 +902,7 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                 </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-6 pt-3">
-                <ol aria-label={t("microfrontend.aiChange.conversation_label")} className="flex flex-col gap-8">
+                <ol aria-label={t("frontend.aiChange.conversation_label")} className="flex flex-col gap-8">
                     {turns.map((turn, index) => {
                         const later = turns.slice(index + 1).filter(candidate => candidate.job.status === "DONE")
                         const superseded = new Set(
@@ -918,7 +910,7 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                                 .filter(
                                     repository =>
                                         repository.status === "DISCARDED" &&
-                                        later.some(candidate => candidate.repositories.some(next => next.microfrontendId === repository.microfrontendId && next.status !== "FAILED"))
+                                        later.some(candidate => candidate.repositories.some(next => next.frontendId === repository.frontendId && next.status !== "FAILED"))
                                 )
                                 .map(repository => repository.requestId)
                         )
@@ -949,11 +941,7 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                 </ol>
 
                 {turns.length > 1 && (
-                    <AnswerUsage
-                        usage={sumUsage(turns.map(turn => turn.job))}
-                        label={t("microfrontend.aiChange.usage_conversation", { count: turns.length })}
-                        hint={t("microfrontend.aiChange.usage_hint")}
-                    />
+                    <AnswerUsage usage={sumUsage(turns.map(turn => turn.job))} label={t("frontend.aiChange.usage_conversation", { count: turns.length })} hint={t("frontend.aiChange.usage_hint")} />
                 )}
 
                 {/* Nothing left to refine: start over with everything asked so far. */}
@@ -968,17 +956,17 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                                         .map(turn => turn.job.prompt)
                                         .join("\n\n")
                                         .slice(0, PROMPT_MAX_LENGTH),
-                                    Object.fromEntries((first?.repositories ?? []).map(repository => [repository.microfrontendId, repository.baseBranch]))
+                                    Object.fromEntries((first?.repositories ?? []).map(repository => [repository.frontendId, repository.baseBranch]))
                                 )
                             }
                         >
                             <RotateCcw aria-hidden="true" />
-                            {t("microfrontend.aiChange.try_again")}
+                            {t("frontend.aiChange.try_again")}
                         </Button>
                     </div>
                 )}
 
-                <FollowUpForm target={target} open={open} latest={latest} placeholder={t(`microfrontend.aiChange.follow_up_${followUpState}`)} onSent={onSent} onFailed={() => chainQuery.refetch()} />
+                <FollowUpForm target={target} open={open} latest={latest} placeholder={t(`frontend.aiChange.follow_up_${followUpState}`)} onSent={onSent} onFailed={() => chainQuery.refetch()} />
             </CardContent>
         </Card>
     )
@@ -1037,7 +1025,7 @@ const RequestSelection: React.FC<RequestSelectionProps> = ({ requestId, target, 
     if (requestQuery.isError) {
         return (
             <Alert variant="destructive">
-                <AlertDescription>{t("microfrontend.aiChange.errors.load")}</AlertDescription>
+                <AlertDescription>{t("frontend.aiChange.errors.load")}</AlertDescription>
             </Alert>
         )
     }
@@ -1155,7 +1143,7 @@ const QueueItem: React.FC<{ entry: QueueEntry; selected: boolean; onSelect: () =
                 type="button"
                 aria-current={selected ? "true" : undefined}
                 // The label replaces the content of the button: it has to carry the status the badges show.
-                aria-label={`${t("microfrontend.aiChange.open_request", { prompt: firstLine(entry.prompt) })} · ${t(`microfrontend.aiChange.status.${entry.status}`)}`}
+                aria-label={`${t("frontend.aiChange.open_request", { prompt: firstLine(entry.prompt) })} · ${t(`frontend.aiChange.status.${entry.status}`)}`}
                 onClick={onSelect}
                 className={cn(
                     "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
@@ -1165,9 +1153,9 @@ const QueueItem: React.FC<{ entry: QueueEntry; selected: boolean; onSelect: () =
                 <span className="line-clamp-2 break-words text-sm font-medium">{firstLine(entry.prompt)}</span>
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                     <time dateTime={entry.at}>{format(new Date(entry.at), "PPp", { locale: themeStore.getLocale() })}</time>
-                    {entry.turns !== undefined && entry.turns > 1 && <span>· {t("microfrontend.aiChange.turns_count", { count: entry.turns })}</span>}
-                    {Boolean(entry.files) && <span>· {t("microfrontend.aiChange.files_count", { count: entry.files })}</span>}
-                    {Boolean(entry.repositories) && <span>· {t("microfrontend.aiChange.repositories_count", { count: entry.repositories })}</span>}
+                    {entry.turns !== undefined && entry.turns > 1 && <span>· {t("frontend.aiChange.turns_count", { count: entry.turns })}</span>}
+                    {Boolean(entry.files) && <span>· {t("frontend.aiChange.files_count", { count: entry.files })}</span>}
+                    {Boolean(entry.repositories) && <span>· {t("frontend.aiChange.repositories_count", { count: entry.repositories })}</span>}
                 </span>
                 <span className="flex flex-wrap items-center gap-1.5">
                     <StatusBadge status={entry.status} />
@@ -1200,14 +1188,14 @@ const QueueSection: React.FC<QueueSectionProps> = ({ group, entries, selectedId,
         <span className="flex items-center justify-between gap-2">
             <span id={headingId} className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground-secondary">
                 <Icon className={cn("size-3.5", group === "active" && entries.length > 0 && "animate-spin motion-reduce:animate-none")} aria-hidden="true" />
-                {t(`microfrontend.aiChange.groups.${group}`)}
+                {t(`frontend.aiChange.groups.${group}`)}
             </span>
             <Badge variant={group === "review" && entries.length > 0 ? "accent" : "outline"}>{entries.length}</Badge>
         </span>
     )
     const list =
         entries.length === 0 ? (
-            <p className="text-xs text-muted-foreground">{t(`microfrontend.aiChange.group_empty.${group}`)}</p>
+            <p className="text-xs text-muted-foreground">{t(`frontend.aiChange.group_empty.${group}`)}</p>
         ) : (
             <ul aria-labelledby={headingId} className="flex flex-col gap-1.5">
                 {entries.map(entry => (
@@ -1280,7 +1268,7 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
     const [effort, setEffort] = useEffort("code")
     const { selected: aiModel, setSelected: setAiModel } = useProjectAiModels()
     const promptId = useId()
-    const context = kind === "microfrontend" ? undefined : kind
+    const context = kind === "frontend" ? undefined : kind
     const busy = pending || Boolean(extension?.pending)
 
     // biome-ignore lint/correctness/useExhaustiveDependencies: only the mount decides
@@ -1302,15 +1290,15 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
                 <CardHeader>
                     <CardTitle className="mb-0 flex items-center gap-2 break-words text-xl">
                         <Sparkles className="size-5 shrink-0 text-primary-strong" aria-hidden="true" />
-                        {t("microfrontend.aiChange.composer_title", { name })}
+                        {t("frontend.aiChange.composer_title", { name })}
                     </CardTitle>
-                    <CardDescription>{t("microfrontend.aiChange.description", { context })}</CardDescription>
+                    <CardDescription>{t("frontend.aiChange.description", { context })}</CardDescription>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 pt-3">
                     {extension?.context}
                     <div className="flex flex-col gap-1.5">
                         <Label htmlFor={promptId} className="sr-only">
-                            {t("microfrontend.aiChange.prompt_label")}
+                            {t("frontend.aiChange.prompt_label")}
                         </Label>
                         <Textarea
                             id={promptId}
@@ -1321,7 +1309,7 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
                             required
                             aria-invalid={Boolean(error)}
                             aria-describedby={`${promptId}-hint`}
-                            placeholder={t("microfrontend.aiChange.prompt_placeholder", { context: kind === "domain" ? kind : undefined })}
+                            placeholder={t("frontend.aiChange.prompt_placeholder", { context: kind === "domain" ? kind : undefined })}
                             disabled={busy}
                             onChange={event => onPromptChange(event.target.value)}
                             onKeyDown={event => {
@@ -1334,20 +1322,20 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
                         />
                         <div id={`${promptId}-hint`} className="flex justify-between gap-2 text-xs">
                             <span className="text-destructive">{error}</span>
-                            <span className="text-muted-foreground">{t("microfrontend.aiChange.prompt_counter", { count: prompt.length, max: PROMPT_MAX_LENGTH })}</span>
+                            <span className="text-muted-foreground">{t("frontend.aiChange.prompt_counter", { count: prompt.length, max: PROMPT_MAX_LENGTH })}</span>
                         </div>
                     </div>
                     <RepositoryBranches repositories={repositories} value={baseBranches} onChange={onBaseBranchesChange} disabled={busy} />
                     <div className="flex flex-wrap items-center justify-between gap-2">
                         <span className="text-xs text-muted-foreground" aria-live="polite">
-                            {extension?.pending && extension.pendingLabel ? extension.pendingLabel : t("microfrontend.aiChange.composer_shortcut")}
+                            {extension?.pending && extension.pendingLabel ? extension.pendingLabel : t("frontend.aiChange.composer_shortcut")}
                         </span>
                         <div className="flex items-center gap-2">
                             <AiModelSelect value={aiModel?.id} onChange={setAiModel} disabled={busy} dataTestId="ai-change-ai-model" />
                             <EffortSelect value={effort} onChange={setEffort} disabled={busy} dataTestId="ai-change-effort" />
                             <Button type="submit" disabled={busy || extension?.blocked} dataTestId="ai-change-generate">
                                 {busy ? <Spinner size={16} centerScreen={false} /> : <Sparkles aria-hidden="true" />}
-                                {t("microfrontend.aiChange.generate")}
+                                {t("frontend.aiChange.generate")}
                             </Button>
                         </div>
                     </div>
@@ -1366,9 +1354,9 @@ interface AiWorkspaceProps {
 }
 
 /**
- * "Edit with AI", the same workspace on a microfrontend, a service and a domain: the queue of the conversations with
+ * "Edit with AI", the same workspace on a frontend, a service and a domain: the queue of the conversations with
  * the agent on one side (waiting for review, in progress, discarded, done) and the selected one, or a new request, on
- * the other. A microfrontend or a service works on its own repository, a domain on all of its repositories at once.
+ * the other. A frontend or a service works on its own repository, a domain on all of its repositories at once.
  * The selection lives in `?change=`, so the assistant can link a job straight to its diff.
  */
 export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, composer }) => {
@@ -1448,8 +1436,8 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                     customErrorMessage: error => {
                         const code = errorCodeOf(error)
                         return code && CREATE_ERROR_CODES.has(code)
-                            ? t(`microfrontend.aiChange.errors.${code}`, { context: repository.kind === "service" ? "service" : undefined })
-                            : t("microfrontend.aiChange.errors.create")
+                            ? t(`frontend.aiChange.errors.${code}`, { context: repository.kind === "service" ? "service" : undefined })
+                            : t("frontend.aiChange.errors.create")
                     }
                 }
             )
@@ -1462,10 +1450,10 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
     /** A job the page started itself (a domain that needed its repositories created first): open it like one created here. */
     const started = (job: AiJob) => {
         reset()
-        select(repository ? (job.repositories.find(candidate => candidate.microfrontendId === repository.id)?.requestId ?? NEW_CHANGE) : job.rootJobId)
+        select(repository ? (job.repositories.find(candidate => candidate.frontendId === repository.id)?.requestId ?? NEW_CHANGE) : job.rootJobId)
     }
 
-    const promptError = submitted && prompt.trim().length === 0 ? t("microfrontend.aiChange.prompt_required") : undefined
+    const promptError = submitted && prompt.trim().length === 0 ? t("frontend.aiChange.prompt_required") : undefined
 
     const generate = () => {
         setSubmitted(true)
@@ -1494,13 +1482,13 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
 
     return (
         <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-            <aside aria-label={t("microfrontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
+            <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
                 <Button type="button" variant={linkedId === NEW_CHANGE ? "secondary" : "primary"} onClick={startNew} dataTestId="ai-change-new">
                     <Plus aria-hidden="true" />
-                    {t("microfrontend.aiChange.new_change")}
+                    {t("frontend.aiChange.new_change")}
                 </Button>
                 {queueQuery.isPending && <Spinner size={24} centerScreen={false} label={t("common.loading")} />}
-                {queueQuery.isError && <p className="text-sm text-destructive">{t("microfrontend.aiChange.errors.history")}</p>}
+                {queueQuery.isError && <p className="text-sm text-destructive">{t("frontend.aiChange.errors.history")}</p>}
                 {queueQuery.data &&
                     groups.map(group => <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />)}
             </aside>
@@ -1536,7 +1524,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                             onQueueChanged={invalidateQueue}
                             fallback={
                                 <Alert variant="destructive">
-                                    <AlertDescription>{t("microfrontend.aiChange.errors.load")}</AlertDescription>
+                                    <AlertDescription>{t("frontend.aiChange.errors.load")}</AlertDescription>
                                 </Alert>
                             }
                         />

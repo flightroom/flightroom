@@ -26,7 +26,7 @@ vi.mock("./TemplateScaffoldService", async importOriginal => ({
 
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository from "../models/CodeRepositoryModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
@@ -62,9 +62,9 @@ describe("RepositoryCreationService", () => {
         vi.spyOn(UserProject, "findOne").mockImplementation((() => Promise.resolve({ role })) as never)
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId() } as never)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, projectId } as never)
-        for (const model of [Microfrontend, Service] as const) {
-            vi.spyOn(model as typeof Microfrontend, "findById").mockImplementation((() => Promise.resolve(member)) as never)
-            vi.spyOn(model as typeof Microfrontend, "findOneAndUpdate").mockImplementation(((filter: Record<string, unknown>, set: Record<string, unknown>) => {
+        for (const model of [Frontend, Service] as const) {
+            vi.spyOn(model as typeof Frontend, "findById").mockImplementation((() => Promise.resolve(member)) as never)
+            vi.spyOn(model as typeof Frontend, "findOneAndUpdate").mockImplementation(((filter: Record<string, unknown>, set: Record<string, unknown>) => {
                 if (linkedMeanwhile) return Promise.resolve(null)
                 saved = { filter, set }
                 return Promise.resolve({ ...member, ...set })
@@ -82,14 +82,14 @@ describe("RepositoryCreationService", () => {
     const service = () => new RepositoryCreationService(user)
     const input = (overrides: Record<string, unknown> = {}) => ({ codeRepositoryId: String(connectionId), repositoryName: "checkout-fe", ...overrides })
 
-    it("given a microfrontend without a repository, when one is created, then it is scaffolded from the template and linked without the creation data", async () => {
-        await service().createMicrofrontendRepository(String(member._id), input({ template: "vite-remote-react", private: true }))
+    it("given a frontend without a repository, when one is created, then it is scaffolded from the template and linked without the creation data", async () => {
+        await service().createFrontendRepository(String(member._id), input({ template: "vite-remote-react", private: true }))
 
         expect(createRepository).toHaveBeenCalledTimes(1)
         const [, target, slug, template, options] = createRepository.mock.calls[0] as unknown as [unknown, Record<string, unknown>, string, { slug: string }, unknown]
         expect(slug).toBe("checkout")
         expect(template.slug).toBe("vite-remote-react")
-        expect(options).toEqual({ microfrontendSlug: "checkout" })
+        expect(options).toEqual({ frontendSlug: "checkout" })
         expect(saved?.set.codeRepository).toEqual({
             enabled: true,
             codeRepositoryId: String(connectionId),
@@ -109,11 +109,11 @@ describe("RepositoryCreationService", () => {
         ["the platform default", "assets/remoteEntry.js", "parcel.js"],
         ["none", undefined, "parcel.js"],
         ["one of its own", "dist/app.js", undefined]
-    ])("given a microfrontend served by %s entry point, when its repository is created from a template with one, then the template's replaces only a default", async (_case, entryPoint, expected) => {
+    ])("given a frontend served by %s entry point, when its repository is created from a template with one, then the template's replaces only a default", async (_case, entryPoint, expected) => {
         getSingle.mockResolvedValue({ slug: "microlc-remote-react", type: "remote", compiler: "micro-lc", framework: "React", entryPoint: "parcel.js" })
         member = { ...member, host: { type: "MFE_ORCHESTRATOR_HUB", entryPoint } }
 
-        await service().createMicrofrontendRepository(String(member._id), input({ template: "microlc-remote-react" }))
+        await service().createFrontendRepository(String(member._id), input({ template: "microlc-remote-react" }))
 
         expect(saved?.set["host.entryPoint"]).toBe(expected)
     })
@@ -128,10 +128,10 @@ describe("RepositoryCreationService", () => {
         expect(createRepository).toHaveBeenCalledTimes(1)
     })
 
-    it("given a microfrontend with a template and a stack, when its repository is created without one, then its own template is used and both are kept", async () => {
+    it("given a frontend with a template and a stack, when its repository is created without one, then its own template is used and both are kept", async () => {
         member = { ...member, template: "vite-remote-react", stack: { framework: "VUE", source: "MANUAL" } }
 
-        await service().createMicrofrontendRepository(String(member._id), input())
+        await service().createFrontendRepository(String(member._id), input())
 
         expect(getSingle).toHaveBeenCalledWith("vite-remote-react")
         expect(saved?.set).not.toHaveProperty("template")
@@ -151,7 +151,7 @@ describe("RepositoryCreationService", () => {
     it("given a member already linked to a repository, when one is created, then it is refused before anything is created", async () => {
         member = { ...member, codeRepository: { enabled: true, codeRepositoryId: connectionId, name: "checkout" } }
 
-        await expect(service().createMicrofrontendRepository(String(member._id), input())).rejects.toMatchObject({ code: "REPOSITORY_ALREADY_LINKED", statusCode: 409 })
+        await expect(service().createFrontendRepository(String(member._id), input())).rejects.toMatchObject({ code: "REPOSITORY_ALREADY_LINKED", statusCode: 409 })
         expect(createRepository).not.toHaveBeenCalled()
     })
 
@@ -163,13 +163,13 @@ describe("RepositoryCreationService", () => {
     })
 
     it("given a name no provider accepts, when a repository is created, then it is refused", async () => {
-        await expect(service().createMicrofrontendRepository(String(member._id), input({ repositoryName: "-checkout fe" }))).rejects.toMatchObject({ code: "INVALID_REPOSITORY_NAME" })
+        await expect(service().createFrontendRepository(String(member._id), input({ repositoryName: "-checkout fe" }))).rejects.toMatchObject({ code: "INVALID_REPOSITORY_NAME" })
         expect(createRepository).not.toHaveBeenCalled()
     })
 
     it.each([
-        ["a service", "createServiceRepository", "vite-remote-react", "MICROFRONTEND_TEMPLATE_NOT_ALLOWED"],
-        ["a microfrontend", "createMicrofrontendRepository", "service-node-fastify", "SERVICE_TEMPLATE_NOT_ALLOWED"]
+        ["a service", "createServiceRepository", "vite-remote-react", "FRONTEND_TEMPLATE_NOT_ALLOWED"],
+        ["a frontend", "createFrontendRepository", "service-node-fastify", "SERVICE_TEMPLATE_NOT_ALLOWED"]
     ] as const)("given %s, when its repository is created from a template of the other kind, then it is refused", async (_kind, method, template, code) => {
         await expect(service()[method](String(member._id), input({ template }))).rejects.toMatchObject({ code })
         expect(createRepository).not.toHaveBeenCalled()
@@ -178,7 +178,7 @@ describe("RepositoryCreationService", () => {
     it("given a viewer, when a repository is created, then it is refused", async () => {
         role = RoleInProject.VIEWER
 
-        await expect(service().createMicrofrontendRepository(String(member._id), input())).rejects.toMatchObject({ code: "REPOSITORY_CREATE_FORBIDDEN", statusCode: 403 })
+        await expect(service().createFrontendRepository(String(member._id), input())).rejects.toMatchObject({ code: "REPOSITORY_CREATE_FORBIDDEN", statusCode: 403 })
         expect(createRepository).not.toHaveBeenCalled()
     })
 })

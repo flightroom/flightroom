@@ -9,7 +9,7 @@ import Environment from "../models/EnvironmentModel"
 import Project from "../models/ProjectModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service, { IService } from "../models/ServiceModel"
-import { MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { FrontendStackSource } from "../types/FrontendStack"
 import ServiceDTO, { ServiceVersionRegistrationDTO } from "../types/ServiceDTO"
 import { isServiceTemplateType, isServiceUrl, parseRuntime, SERVICE_SLUG, SERVICE_URL_MAX_LENGTH, SERVICE_VERSION } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -87,7 +87,7 @@ export const ensurePlainFields = (fields: object, code = "SERVICE_INVALID") => {
 
 /**
  * The base URLs of `dto`, normalised, and the maps it attaches, checked: a caller that leaves them out
- * (an MCP update of the name, say) changes none of them and costs no query. A FRONTEND microfrontend
+ * (an MCP update of the name, say) changes none of them and costs no query. A DOCKER frontend
  * goes through it too, since it has the same container fields.
  */
 export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "urls" | "configMapIds" | "secretIds">>(
@@ -232,8 +232,8 @@ export class ServiceService extends BaseAuthorizedService {
                 }
                 if (template && !isServiceTemplateType(template.type)) {
                     throw createBusinessException({
-                        code: "MICROFRONTEND_TEMPLATE_NOT_ALLOWED",
-                        message: `"${template.slug}" is a microfrontend template: create a microfrontend from it, not a service`
+                        code: "FRONTEND_TEMPLATE_NOT_ALLOWED",
+                        message: `"${template.slug}" is a frontend template: create a frontend from it, not a service`
                     })
                 }
 
@@ -255,7 +255,7 @@ export class ServiceService extends BaseAuthorizedService {
                     service.stack = {
                         runtime: parseRuntime(template.framework),
                         framework: template.framework,
-                        source: MicrofrontendStackSource.TEMPLATE
+                        source: FrontendStackSource.TEMPLATE
                     }
                 }
 
@@ -305,7 +305,7 @@ export class ServiceService extends BaseAuthorizedService {
         await BuiltService.deleteMany({ serviceId: service._id })
         await ServiceDeployment.deleteMany({ serviceId: service._id })
         const deleted = await Service.findByIdAndDelete(service._id)
-        // The local clone and the AI change requests go with it, as for a microfrontend.
+        // The local clone and the AI change requests go with it, as for a frontend.
         await forgetServices([service])
         return deleted
     }

@@ -25,7 +25,7 @@ const AssistantPage: React.FC = () => {
     }
 
     // Without an AI available to the project the page has nothing to show; the menu does not link to it either.
-    if (!enabled) return <Navigate to="/microfrontends" replace />
+    if (!enabled) return <Navigate to="/frontends" replace />
 
     return (
         <>

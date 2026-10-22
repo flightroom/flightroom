@@ -1,6 +1,6 @@
-import { MicrofrontendStackSource } from "./MicrofrontendStack"
+import { FrontendStackSource } from "./FrontendStack"
 
-/** The marketplace `type` of a template that scaffolds a backend service rather than a microfrontend */
+/** The marketplace `type` of a template that scaffolds a backend service rather than a frontend */
 export const SERVICE_TEMPLATE_TYPE = "service"
 
 /** Whether a marketplace `type` is the service one: the marketplace is hand edited, so its case is not trusted */
@@ -66,7 +66,7 @@ export enum ServiceRuntime {
 export interface ServiceStackDTO {
     runtime?: ServiceRuntime
     framework?: string
-    source: MicrofrontendStackSource
+    source: FrontendStackSource
     detectedAt?: Date
 }
 

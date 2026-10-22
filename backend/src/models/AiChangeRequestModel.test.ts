@@ -15,11 +15,11 @@ const request = (owner: Record<string, unknown>) =>
 
 describe("AiChangeRequest", () => {
     it("Given a request without its conversation, when it is validated, then it is refused", async () => {
-        await expect(request({ microfrontendId: new Types.ObjectId(), conversationId: undefined }).validate()).rejects.toThrow(/conversationId/)
+        await expect(request({ frontendId: new Types.ObjectId(), conversationId: undefined }).validate()).rejects.toThrow(/conversationId/)
     })
 
     it.each([
-        ["a microfrontend", { microfrontendId: new Types.ObjectId() }],
+        ["a frontend", { frontendId: new Types.ObjectId() }],
         ["a service", { serviceId: new Types.ObjectId() }]
     ])("Given a request on %s, when it is validated, then it is valid", async (_owner, owner) => {
         await expect(request(owner).validate()).resolves.toBeUndefined()
@@ -27,8 +27,8 @@ describe("AiChangeRequest", () => {
 
     it.each([
         ["neither", {}],
-        ["both", { microfrontendId: new Types.ObjectId(), serviceId: new Types.ObjectId() }]
-    ])("Given a request on %s a microfrontend nor a service, when it is validated, then it is refused", async (_owner, owner) => {
-        await expect(request(owner).validate()).rejects.toThrow(/Exactly one of microfrontendId and serviceId/)
+        ["both", { frontendId: new Types.ObjectId(), serviceId: new Types.ObjectId() }]
+    ])("Given a request on %s a frontend nor a service, when it is validated, then it is refused", async (_owner, owner) => {
+        await expect(request(owner).validate()).rejects.toThrow(/Exactly one of frontendId and serviceId/)
     })
 })

@@ -4,7 +4,7 @@ vi.mock("..", () => ({
     fastify: { log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }, config: {} }
 }))
 
-import { MicrofrontendCompiler, MicrofrontendFramework } from "../types/MicrofrontendStack"
+import { FrontendCompiler, FrontendFramework } from "../types/FrontendStack"
 import RepositoryFileService, { RepositoryTarget } from "./RepositoryFileService"
 import StackDetectionService from "./StackDetectionService"
 
@@ -29,8 +29,8 @@ describe("StackDetectionService.detect", () => {
 
         const detected = await new StackDetectionService().detect(target, "main")
 
-        expect(detected.framework).toBe(MicrofrontendFramework.REACT)
-        expect(detected.compiler).toBe(MicrofrontendCompiler.SINGLE_SPA)
+        expect(detected.framework).toBe(FrontendFramework.REACT)
+        expect(detected.compiler).toBe(FrontendCompiler.SINGLE_SPA)
         expect(detected.configPath).toBe("vite.config.ts")
         expect(detected.clientPackageInstalled).toBe(true)
     })
@@ -38,13 +38,13 @@ describe("StackDetectionService.detect", () => {
     it("given a single-spa-react application, when it is detected, then it is SINGLE_SPA", async () => {
         repositoryWith({ "package.json": manifest({ "single-spa-react": "^6.0.2" }, { react: "^19.3.1", vite: "^8.3.4" }) })
 
-        expect((await new StackDetectionService().detect(target, "main")).compiler).toBe(MicrofrontendCompiler.SINGLE_SPA)
+        expect((await new StackDetectionService().detect(target, "main")).compiler).toBe(FrontendCompiler.SINGLE_SPA)
     })
 
     it("given a micro-lc shell, when it is detected, then the orchestrator dependency makes it MICRO_LC", async () => {
         repositoryWith({ "package.json": manifest({ "@micro-lc/orchestrator": "^2.4.3", react: "^19.3.1" }, { vite: "^8.3.4" }) })
 
-        expect((await new StackDetectionService().detect(target, "main")).compiler).toBe(MicrofrontendCompiler.MICRO_LC)
+        expect((await new StackDetectionService().detect(target, "main")).compiler).toBe(FrontendCompiler.MICRO_LC)
     })
 
     /** The parcel template declares no micro-lc package: its UMD build of the parcel entry is the signal */
@@ -56,7 +56,7 @@ describe("StackDetectionService.detect", () => {
 
         const detected = await new StackDetectionService().detect(target, "main")
 
-        expect(detected.compiler).toBe(MicrofrontendCompiler.MICRO_LC)
+        expect(detected.compiler).toBe(FrontendCompiler.MICRO_LC)
         expect(detected.configPath).toBe("vite.config.ts")
     })
 
@@ -66,7 +66,7 @@ describe("StackDetectionService.detect", () => {
             "vite.config.ts": "build: { lib: { entry: 'src/index.ts', formats: ['umd'] } }"
         })
 
-        expect((await new StackDetectionService().detect(target, "main")).compiler).toBe(MicrofrontendCompiler.VITE)
+        expect((await new StackDetectionService().detect(target, "main")).compiler).toBe(FrontendCompiler.VITE)
     })
 
     it("given a Vite app with module federation, when it is detected, then it stays VITE", async () => {
@@ -77,7 +77,7 @@ describe("StackDetectionService.detect", () => {
 
         const detected = await new StackDetectionService().detect(target, "main")
 
-        expect(detected.compiler).toBe(MicrofrontendCompiler.VITE)
+        expect(detected.compiler).toBe(FrontendCompiler.VITE)
         expect(detected.federationConfigured).toBe(true)
     })
 })

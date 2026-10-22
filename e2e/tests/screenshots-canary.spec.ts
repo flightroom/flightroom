@@ -24,7 +24,7 @@ const forceEnglishLightTheme = async (page: import("@playwright/test").Page) => 
 
 test.setTimeout(240_000)
 
-test("Given the docs account When the canary of a microfrontend is configured Then the form and the list views are captured", async ({ browser }) => {
+test("Given the docs account When the canary of a frontend is configured Then the form and the list views are captured", async ({ browser }) => {
     const context = await browser.newContext({ viewport: { width: 1440, height: 900 }, deviceScaleFactor: 1 })
     const page = await context.newPage()
     await forceEnglishLightTheme(page)
@@ -33,7 +33,7 @@ test("Given the docs account When the canary of a microfrontend is configured Th
     await waitForAuthenticated(page)
 
     // ---------- LIST VIEWS ----------
-    await page.goto("/microfrontends")
+    await page.goto("/frontends")
     // Diagram view is the default and the switcher is a tablist, so the views are tabs, not buttons.
     const gridView = page.getByRole("tab", { name: "Grid view" })
     await expect(gridView).toBeVisible({ timeout: 120_000 })
@@ -43,7 +43,7 @@ test("Given the docs account When the canary of a microfrontend is configured Th
 
     console.log("=== GRID VIEW TEXT ===")
     console.log(await page.locator("main").innerText())
-    await page.screenshot({ path: `${DOCS_ASSETS}/microfrontends-grid-view.png` })
+    await page.screenshot({ path: `${DOCS_ASSETS}/frontends-grid-view.png` })
 
     // The canary block of a single card, cropped: the docs quote it on its own to show the share bar.
     const catalogCard = page
@@ -54,14 +54,14 @@ test("Given the docs account When the canary of a microfrontend is configured Th
         .last()
     const cardBox = await catalogCard.boundingBox()
     expect(cardBox, "the Product Catalog card was not found in grid view").not.toBeNull()
-    await page.screenshot({ path: `${DOCS_ASSETS}/microfrontend-canary-card.png`, clip: cardBox! })
+    await page.screenshot({ path: `${DOCS_ASSETS}/frontend-canary-card.png`, clip: cardBox! })
 
     const tableView = page.getByRole("tab", { name: "Table view" })
     await tableView.click()
     await page.waitForTimeout(2_000)
     console.log("=== TABLE VIEW TEXT ===")
     console.log(await page.getByRole("table").innerText())
-    await page.screenshot({ path: `${DOCS_ASSETS}/microfrontends-table-view.png` })
+    await page.screenshot({ path: `${DOCS_ASSETS}/frontends-table-view.png` })
 
     await context.close()
 })
@@ -78,7 +78,7 @@ test("Given the docs account When the canary settings section is filled in Then 
     await waitForAuthenticated(page)
 
     const openConfiguration = async (name: string) => {
-        await page.goto("/microfrontends")
+        await page.goto("/frontends")
         const tableView = page.getByRole("tab", { name: "Table view" })
         await expect(tableView).toBeVisible({ timeout: 120_000 })
         await page.waitForTimeout(2_500)
@@ -112,7 +112,7 @@ test("Given the docs account When the canary settings section is filled in Then 
     await openConfiguration("Product Catalog")
     console.log("=== FORM TABS ===")
     console.log(await page.getByRole("tablist").last().innerText())
-    await page.screenshot({ path: `${DOCS_ASSETS}/microfrontend-form.png` })
+    await page.screenshot({ path: `${DOCS_ASSETS}/frontend-form.png` })
 
     // The Canary Type select, open on its three options.
     const canaryType = page.locator('button[role="combobox"][id="canary.type"]')
@@ -127,7 +127,7 @@ test("Given the docs account When the canary settings section is filled in Then 
     const typeClipX = Math.max(0, canaryTypeBox!.x - 10)
     const typeClipY = typeLabelBox!.y - 4
     await page.screenshot({
-        path: `${DOCS_ASSETS}/microfrontend-canary-type.png`,
+        path: `${DOCS_ASSETS}/frontend-canary-type.png`,
         clip: {
             x: typeClipX,
             y: typeClipY,
@@ -179,14 +179,14 @@ test("Given the docs account When the canary settings section is filled in Then 
     expect(canaryBox, "the Canary Settings block was not found").not.toBeNull()
     console.log("=== CANARY SETTINGS TEXT ===")
     console.log(await page.locator('h3:text("Canary Settings")').locator('xpath=ancestor::div[contains(@class,"border-t")]').innerText())
-    await page.screenshot({ path: `${DOCS_ASSETS}/microfrontend-canary.png`, clip: canaryBox! })
+    await page.screenshot({ path: `${DOCS_ASSETS}/frontend-canary.png`, clip: canaryBox! })
 
     // Saved as a User canary, so the deployment card of the next test reads "Enrolled users" next
     // to the two percentage ones.
     await pickOption("canary.type", "User")
     await page.waitForTimeout(500)
     await page.getByRole("button", { name: "Save", exact: true }).click()
-    await expect(page).toHaveURL(/\/microfrontends$/, { timeout: 60_000 })
+    await expect(page).toHaveURL(/\/frontends$/, { timeout: 60_000 })
 
     await context.close()
 })
@@ -230,7 +230,7 @@ test("Given the docs account When a deployment carrying canaries is opened Then 
         const x = Math.max(0, rect.x - 14)
         return { x, y: rect.y - 4, width: Math.min(1440 - x, rect.width + 28), height: rect.height + 18 }
     })
-    expect(cardsBox, "the microfrontend cards of the active deployment were not found").not.toBeNull()
+    expect(cardsBox, "the frontend cards of the active deployment were not found").not.toBeNull()
     await page.screenshot({ path: `${DOCS_ASSETS}/deployment-canary-cards.png`, clip: cardsBox! })
 
     // ---------- CANARY USERS ----------

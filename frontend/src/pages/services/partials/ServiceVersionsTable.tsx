@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyStateRo
 import { Copy } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
-import type { BuiltFrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
+import type { BuiltFrontend } from "@/hooks/apiClients/useFrontendsApi"
 import type { BuiltService } from "@/hooks/apiClients/useServicesApi"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 

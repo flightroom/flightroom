@@ -7,9 +7,9 @@ interface DomainDTO {
     context?: string | null
 }
 
-/** Microfrontends and services of the project to put in a domain */
+/** Frontends and services of the project to put in a domain */
 export interface DomainMembersDTO {
-    microfrontendIds?: string[]
+    frontendIds?: string[]
     serviceIds?: string[]
 }
 
@@ -21,7 +21,7 @@ export interface DomainBuildRepository {
     /** Stable across builds: the connection, the repository id or name, and the GitLab path when there is one */
     id: string
     repository: string
-    members: { kind: "microfrontend" | "service"; _id: string; name: string }[]
+    members: { kind: "frontend" | "service"; _id: string; name: string }[]
     /** ready: checked, but left untagged because another repository failed its check */
     status: "tagged" | "ready" | "failed"
     reason?: DomainBuildFailure

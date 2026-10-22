@@ -25,7 +25,7 @@ const FormDataSchema = z.object({
 
 type FormData = z.infer<typeof FormDataSchema>
 
-/** Same flow as the microfrontend build: the tag it creates is what triggers the service pipeline. */
+/** Same flow as the frontend build: the tag it creates is what triggers the service pipeline. */
 export const ServiceBuildDialog: React.FC<ServiceBuildDialogProps> = ({ open, onOpenChange, service, onBuilt }) => {
     const { t } = useTranslation()
     const { build } = useServicesApi()

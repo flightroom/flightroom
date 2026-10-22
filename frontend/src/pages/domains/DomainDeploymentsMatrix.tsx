@@ -13,10 +13,7 @@ import { DeployedVersion, EnvironmentHeading } from "./partials/DomainDeployment
 /** The frontend, then the backend, of one domain in one environment, as `slug version` lines */
 const MatrixCell: React.FC<{ entry: EnvironmentDeployment }> = ({ entry }) => {
     const { t } = useTranslation()
-    const lines = [
-        ...entry.microfrontends.map(microfrontend => ({ ...microfrontend, kind: "frontend" as const })),
-        ...entry.services.map(service => ({ ...service, canary: null, kind: "backend" as const }))
-    ]
+    const lines = [...entry.frontends.map(frontend => ({ ...frontend, kind: "frontend" as const })), ...entry.services.map(service => ({ ...service, canary: null, kind: "backend" as const }))]
     return (
         <ul className="flex flex-col gap-1">
             {lines.map(line => {
@@ -99,7 +96,7 @@ const DomainDeploymentsMatrix = () => {
                                         </TableCell>
                                         {row.environments.map(entry => (
                                             <TableCell key={entry.environment._id}>
-                                                {entry.microfrontends.length === 0 && entry.services.length === 0 ? (
+                                                {entry.frontends.length === 0 && entry.services.length === 0 ? (
                                                     <span className="text-sm text-foreground-secondary">{t("domains.deployments.no_members_short")}</span>
                                                 ) : (
                                                     <MatrixCell entry={entry} />

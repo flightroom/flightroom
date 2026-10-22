@@ -32,20 +32,20 @@
             "stack_detected": "detected in the repository",
             "stack_manual": "set manually",
             "stack_unknown_title": "Stack not detected",
-            "stack_unknown_description": "We could not tell which framework and bundler this microfrontend uses. Pick them below to get the right instructions, or connect the repository so we can read them.",
+            "stack_unknown_description": "We could not tell which framework and bundler this frontend uses. Pick them below to get the right instructions, or connect the repository so we can read them.",
             "framework_label": "Framework",
             "compiler_label": "Bundler",
             "install_step": "Install what the integration needs:",
             "config_step": "Then write this configuration to {{path}}:",
             "runtime_integration_title": "Runtime integration",
-            "integrate_all_button": "Integrate my microfrontends",
+            "integrate_all_button": "Integrate my frontends",
             "stack_auto": "Automatic",
             "federation_tab": "Module Federation",
-            "runtime_integration_description": "Web component microfrontends are plain scripts that register a custom element, so there is no module federation config to write: the host asks the SDK for the resolved url and mounts the element. See MicrofrontendLoader in the web component templates.",
+            "runtime_integration_description": "Web component frontends are plain scripts that register a custom element, so there is no module federation config to write: the host asks the SDK for the resolved url and mounts the element. See FrontendLoader in the web component templates.",
             "integrate_dialog_title": "Wire up module federation",
-            "integrate_dialog_description": "For each microfrontend that consumes others, we write the bundler config declaring its remotes (for a single-spa root config, the src/applications.ts registering them; for a micro-lc shell, the src/microlc-config.ts mounting them) and add the packages that config needs. Review what changes, then pick what to commit: the write lands on the default branch of each repository.",
+            "integrate_dialog_description": "For each frontend that consumes others, we write the bundler config declaring its remotes (for a single-spa root config, the src/applications.ts registering them; for a micro-lc shell, the src/microlc-config.ts mounting them) and add the packages that config needs. Review what changes, then pick what to commit: the write lands on the default branch of each repository.",
             "integrate_confirm": "Commit to the selected repositories",
-            "integrate_nothing_to_do": "Nothing to integrate: every repository is already wired up, or none of your microfrontends consumes another one yet.",
+            "integrate_nothing_to_do": "Nothing to integrate: every repository is already wired up, or none of your frontends consumes another one yet.",
             "integrate_success": "Module federation wired up in {{count}} repositories",
             "integrate_partial": "Wired up {{applied}} repositories, {{failed}} failed",
             "integrate_remotes": "Remotes",
@@ -67,7 +67,7 @@
         },
         "env_vars_integration_tab": {
             "title": "Environment Variables",
-            "description": "Access your environment variables in your microfrontends using the following methods.",
+            "description": "Access your environment variables in your frontends using the following methods.",
             "javascript_title": "JavaScript Integration",
             "javascript_description": "Include this script in your HTML to make environment variables available as",
             "javascript_auto_note": "The same tag works in every environment: the console resolves which one answers from the domain the page is served on, so promoting a build never means editing this url.",
@@ -81,8 +81,8 @@
             "integrate_success": "Script added in {{count}} repositories",
             "integrate_partial": "Script added in {{applied}} repositories, {{failed}} failed"
         },
-        "microfrontend_select_label": "Microfrontend",
-        "microfrontend_select_placeholder": "Select a microfrontend"
+        "frontend_select_label": "Frontend",
+        "frontend_select_placeholder": "Select a frontend"
     },
     "auth": {
         "registration_success": "Registration completed successfully, log in to access your account",
@@ -217,10 +217,10 @@
         },
         "projectContext": {
             "title": "Project AI context",
-            "subtitle": "Notes for AI agents (MCP clients and the console assistant) that apply to the whole project: domain, conventions, rules shared by the microfrontends.",
+            "subtitle": "Notes for AI agents (MCP clients and the console assistant) that apply to the whole project: domain, conventions, rules shared by the frontends.",
             "label": "Context",
             "placeholder": "## Domain\nCustomer portal for ...\n\n## Conventions\n- Strict TypeScript\n- ...",
-            "hint": "Markdown is supported. Agents read it with the context_get tool, together with the context of each microfrontend.",
+            "hint": "Markdown is supported. Agents read it with the context_get tool, together with the context of each frontend.",
             "tooLong": "The context can be at most {{max}} characters long"
         },
         "exposure": {
@@ -284,7 +284,7 @@
         },
         "pipelines": {
             "title": "Pipeline templates",
-            "subtitle": "The pipeline a new microfrontend or service gets when its repository is created. By default it comes from the official mfe-orchestrator/template-pipelines repository.",
+            "subtitle": "The pipeline a new frontend or service gets when its repository is created. By default it comes from the official mfe-orchestrator/template-pipelines repository.",
             "details": "Point the project at a repository of yours with the same layout to use your own pipelines instead. Repositories already created are left as they are.",
             "enabled": "Use the pipeline templates of a repository of the project",
             "repository": "Pipeline templates repository",
@@ -502,7 +502,7 @@
         "deploying": "Deploying…",
         "active_deployments": "Active deployment",
         "history": "History",
-        "microfrontends_title": "Microfrontends",
+        "frontends_title": "Frontends",
         "services_title": "Backends",
         "config_maps_title": "Config maps",
         "secrets_title": "Secrets",
@@ -511,7 +511,7 @@
         "env_variables_title": "Environment variables",
         "no_deployments": "No deployments found",
         "no_deployments_description": "Deployments will appear here once created",
-        "microfrontend_card": {
+        "frontend_card": {
             "stable_version": "Stable version",
             "canary_traffic": "Canary {{percentage}}%",
             "canary_target_missing": "Not configured"
@@ -527,7 +527,7 @@
         },
         "canary_users": {
             "title": "Canary Users",
-            "subtitle": "Who sees the canary version of the microfrontends of this deployment configured with the \"User\" type",
+            "subtitle": "Who sees the canary version of the frontends of this deployment configured with the \"User\" type",
             "no_users": "No users have access to this canary version yet.",
             "columns": {
                 "user": "User",
@@ -566,7 +566,7 @@
             "messages": [
                 "Control tower: takeoff clearance requested…",
                 "Fuel check: full.",
-                "The microfrontends are fastening their seatbelts.",
+                "The frontends are fastening their seatbelts.",
                 "Autopilot engaged, enjoy the ride.",
                 "Light turbulence in the pipeline, nothing serious.",
                 "Lining up the versions on the runway.",
@@ -600,7 +600,7 @@
             "filtered_count_one": "{{count}} of {{total}} component",
             "filtered_count_other": "{{count}} of {{total}} components",
             "no_results_title": "No results",
-            "no_results_description": "No microfrontend or service matches \"{{searchTerm}}\"."
+            "no_results_description": "No frontend or service matches \"{{searchTerm}}\"."
         },
         "live": {
             "connected": "Live updates on",
@@ -608,8 +608,8 @@
             "last_update": "Last update: {{moment}}"
         },
         "empty": {
-            "title": "No microfrontends or services",
-            "description": "Create a microfrontend or a service to see its build status here."
+            "title": "No frontends or services",
+            "description": "Create a frontend or a service to see its build status here."
         },
         "table": {
             "name": "Name",
@@ -728,15 +728,15 @@
         "error_description": "We couldn't load the invitation. Please try again in a moment.",
         "go_to_login": "Go to login"
     },
-    "microfrontend": {
+    "frontend": {
         "kind": {
             "label": "Kind",
-            "microfrontend": "Microfrontend",
-            "microfrontend_description": "Served by Flightroom",
-            "frontend": "Frontend",
-            "frontend_description": "Served by its Docker container",
-            "badge_microfrontend": "Microfrontend",
-            "badge_frontend": "Docker",
+            "bundle": "Bundle",
+            "bundle_description": "Served by Flightroom",
+            "docker": "Docker",
+            "docker_description": "Served by its Docker container",
+            "badge_bundle": "Bundle",
+            "badge_docker": "Docker",
             "no_parents_hint": "A frontend served by Docker cannot have parents",
             "container_tab": "Container",
             "version_from_pipeline": "Set by the pipeline each time it registers an image version: it cannot be changed here.",
@@ -744,10 +744,10 @@
         },
         "errors": {
             "frontend_cannot_have_parents": "A frontend served by its Docker container cannot have parents",
-            "frontend_exposure_path_required": "A frontend served by its Docker container needs an exposure path: browsers reach it only there",
+            "docker_exposure_path_required": "A frontend served by its Docker container needs an exposure path: browsers reach it only there",
             "frontend_upload_not_allowed": "A frontend served by its Docker container takes no bundle upload: its pipeline registers the image of each version",
-            "version_registration_not_allowed": "Only a frontend served by its Docker container registers image versions: a microfrontend uploads its bundle",
-            "build_forbidden": "A viewer cannot create a version of a microfrontend",
+            "version_registration_not_allowed": "Only a frontend served by its Docker container registers image versions: a frontend uploads its bundle",
+            "build_forbidden": "A viewer cannot create a version of a frontend",
             "build_ref_not_found": "The branch does not exist in the repository",
             "build_repository_not_found": "The repository was not found, or the token of the connection cannot reach it"
         },
@@ -764,17 +764,17 @@
             "customSource": "Custom Source"
         },
         "backendLinks": {
-            "microfrontendsColumn": "Microfrontends",
+            "frontendsColumn": "Frontends",
             "servicesColumn": "Backend services",
-            "hint": "Drag from a microfrontend’s dot to a service to link them. Select a link and press Delete to remove it.",
+            "hint": "Drag from a frontend’s dot to a service to link them. Select a link and press Delete to remove it.",
             "noServicesTitle": "No backend services",
-            "noServicesDescription": "Create a backend service to link it to your microfrontends.",
+            "noServicesDescription": "Create a backend service to link it to your frontends.",
             "createService": "Create a service"
         },
         "dashboard": {
-            "title": "Microfrontends",
-            "description": "Manage your project's microfrontends",
-            "searchPlaceholder": "Search microfrontend...",
+            "title": "Frontends",
+            "description": "Manage your project's frontends",
+            "searchPlaceholder": "Search frontend...",
             "filterStatus": "Filter by status",
             "statusAll": "All",
             "statusActive": "Active",
@@ -785,11 +785,11 @@
             "viewBackend": "Backend links view",
             "clearSearch": "Clear search",
             "noResultsTitle": "No results",
-            "noResultsDescription": "No microfrontend matches “{{searchTerm}}”. Try a different search term.",
-            "totalCount_one": "{{count}} microfrontend",
-            "totalCount_other": "{{count}} microfrontends",
-            "filteredCount_one": "{{count}} of {{total}} microfrontends",
-            "filteredCount_other": "{{count}} of {{total}} microfrontends"
+            "noResultsDescription": "No frontend matches “{{searchTerm}}”. Try a different search term.",
+            "totalCount_one": "{{count}} frontend",
+            "totalCount_other": "{{count}} frontends",
+            "filteredCount_one": "{{count}} of {{total}} frontends",
+            "filteredCount_other": "{{count}} of {{total}} frontends"
         },
         "build": {
             "title": "Build {{name}}",
@@ -807,7 +807,7 @@
         "import": {
             "action": "Import from repository",
             "title": "Import repositories",
-            "description": "Create one microfrontend for each repository of the selected connection. Repositories already linked to a microfrontend or a service are skipped.",
+            "description": "Create one frontend for each repository of the selected connection. Repositories already linked to a frontend or a service are skipped.",
             "loading": "Loading repositories...",
             "loadError": "Unable to load the repositories of this connection.",
             "noRepositories": "This connection does not expose any repository.",
@@ -819,8 +819,8 @@
             "alreadyImported": "Already imported",
             "import_one": "Import {{count}} repository",
             "import_other": "Import {{count}} repositories",
-            "importedCount_one": "{{count}} microfrontend imported",
-            "importedCount_other": "{{count}} microfrontends imported",
+            "importedCount_one": "{{count}} frontend imported",
+            "importedCount_other": "{{count}} frontends imported",
             "failedCount_one": "{{count}} repository could not be imported: {{names}}",
             "failedCount_other": "{{count}} repositories could not be imported: {{names}}",
             "nothingImported": "No repository was imported."
@@ -835,17 +835,17 @@
             "workingAgents_one": "One agent at work",
             "workingAgents_other": "{{count}} agents at work"
         },
-        "no_microfrontends_found": "No Microfrontends Found",
-        "no_microfrontends_found_description": "No microfrontends have been registered yet. Once they're added, they'll appear here. You can create a new one to get started.",
-        "add_your_first_microfrontend": "Add your first microfrontend to get started!",
-        "add_new": "Add New Microfrontend",
-        "add_new_description": "Create a new microfrontend to add to your project",
-        "edit": "Edit Microfrontend",
-        "edit_description": "Update the details of your microfrontend",
-        "updated_success_message": "Microfrontend updated successfully",
-        "click_to_create": "Click to create a new microfrontend",
+        "no_frontends_found": "No Frontends Found",
+        "no_frontends_found_description": "No frontends have been registered yet. Once they're added, they'll appear here. You can create a new one to get started.",
+        "add_your_first_frontend": "Add your first frontend to get started!",
+        "add_new": "Add New Frontend",
+        "add_new_description": "Create a new frontend to add to your project",
+        "edit": "Edit Frontend",
+        "edit_description": "Update the details of your frontend",
+        "updated_success_message": "Frontend updated successfully",
+        "click_to_create": "Click to create a new frontend",
         "name": "Name",
-        "name_placeholder": "Enter microfrontend name",
+        "name_placeholder": "Enter frontend name",
         "slug": "Slug",
         "slug_placeholder": "Enter a slug",
         "source": "Source",
@@ -858,13 +858,13 @@
         "continuous_deployment_description": "Enable automatic deployment of new versions",
         "status": "Status",
         "dont_worry": "Don't worry, you can change these settings later.",
-        "create_microfrontend": "Create Microfrontend",
-        "your_microfrontend_has_been_created": "Your microfrontend has been created successfully!",
+        "create_frontend": "Create Frontend",
+        "your_frontend_has_been_created": "Your frontend has been created successfully!",
         "general_information": "General Information",
-        "general_information_description": "Basic information about your microfrontend",
+        "general_information_description": "Basic information about your frontend",
         "slug_description": "A URL-friendly version of the name",
         "hosting_information": "Hosting Information",
-        "hosting_information_description": "Configure where your microfrontend is hosted",
+        "hosting_information_description": "Configure where your frontend is hosted",
         "hosting_type": "Hosting Type",
         "canaryReleaseActive": "Canary Release Active",
         "distribution": "Distribution:",
@@ -925,9 +925,9 @@
         "repository_name_checking": "Checking repository name availability...",
         "repository_name_taken": "Repository name is already taken. Please choose a different name.",
         "repository_name_available": "Repository name is available.",
-        "created_success": "Microfrontend created",
-        "created_success_message": "Your microfrontend has been created successfully",
-        "create_error": "Failed to create microfrontend",
+        "created_success": "Frontend created",
+        "created_success_message": "Your frontend has been created successfully",
+        "create_error": "Failed to create frontend",
         "select_repository": "Select Repository",
         "select_repository_placeholder": "Choose a repository...",
         "sourceCodeProvider": "Source Code Provider",
@@ -945,18 +945,18 @@
             "title": "Danger Zone",
             "subtitle": "These actions are irreversible. Please be certain.",
             "delete": {
-                "title": "Delete this microfrontend",
-                "description": "Once you delete a microfrontend, there is no going back. Please be certain.",
-                "button": "Delete Microfrontend",
-                "success": "Microfrontend deleted successfully",
+                "title": "Delete this frontend",
+                "description": "Once you delete a frontend, there is no going back. Please be certain.",
+                "button": "Delete Frontend",
+                "success": "Frontend deleted successfully",
                 "dialog": {
-                    "title": "Delete Microfrontend",
+                    "title": "Delete Frontend",
                     "warning": "Warning!",
-                    "description": "This action cannot be undone. This will permanently delete the microfrontend \"{{microfrontendName}}\" and all its data.",
-                    "confirmation": "Please type \"{{microfrontendName}}\" to confirm.",
-                    "confirmationText": "Please type the microfrontend name to confirm deletion.",
+                    "description": "This action cannot be undone. This will permanently delete the frontend \"{{frontendName}}\" and all its data.",
+                    "confirmation": "Please type \"{{frontendName}}\" to confirm.",
+                    "confirmationText": "Please type the frontend name to confirm deletion.",
                     "deleting": "Deleting...",
-                    "confirmButton": "Delete Microfrontend"
+                    "confirmButton": "Delete Frontend"
                 }
             }
         },
@@ -964,15 +964,15 @@
         "canary_enrolled_users": "Enrolled users",
         "canary_none": "No canary",
         "context": {
-            "title": "Microfrontend AI context",
-            "subtitle": "Notes for AI agents about this microfrontend; what applies to all of them belongs in the project context, in Settings.",
+            "title": "Frontend AI context",
+            "subtitle": "Notes for AI agents about this frontend; what applies to all of them belongs in the project context, in Settings.",
             "label": "Context",
             "placeholder": "## Responsibility\nHandles ...\n\n## Notes\n- ...",
             "hint": "Markdown is supported, at most 20,000 characters."
         },
         "aiChange": {
             "title": "Edit with AI",
-            "description": "Describe the change you want. The agent reads the repository together with the AI context of the project and of this microfrontend, then proposes the edits. Nothing is pushed until you approve: on approval the changes are committed on a new branch and a pull request is opened.",
+            "description": "Describe the change you want. The agent reads the repository together with the AI context of the project and of this frontend, then proposes the edits. Nothing is pushed until you approve: on approval the changes are committed on a new branch and a pull request is opened.",
             "prompt_label": "What should change?",
             "prompt_placeholder": "e.g. Add a 404 page with a link back to the home page",
             "prompt_required": "Describe the change you want",
@@ -1077,8 +1077,8 @@
                 "load": "Could not load the request.",
                 "history": "Could not load the previous requests.",
                 "ASSISTANT_DISABLED": "AI editing is not enabled in this project: it has no AI available.",
-                "AI_CHANGE_FORBIDDEN": "You do not have permission to edit this microfrontend with AI.",
-                "WORKSPACE_NO_REPOSITORY": "This microfrontend has no linked code repository.",
+                "AI_CHANGE_FORBIDDEN": "You do not have permission to edit this frontend with AI.",
+                "WORKSPACE_NO_REPOSITORY": "This frontend has no linked code repository.",
                 "AI_CHANGE_CONFLICT": "These files changed on the base branch after the proposal: {{files}}. Ask for the change again.",
                 "AI_CHANGE_NOT_PROPOSED": "This request is no longer waiting for approval.",
                 "AI_CHANGE_FORBIDDEN_service": "You do not have permission to edit this service with AI.",
@@ -1118,7 +1118,7 @@
             "follow_up_send": "Send",
             "usage_conversation_one": "Tokens used by the conversation ({{count}} message)",
             "usage_conversation_other": "Tokens used by the conversation ({{count}} messages)",
-            "description_domain": "The agent reads the microfrontends and the services of the domain all at once, together with the AI context of the project, of the domain and of each of them, so a change can span frontend and backend (an endpoint and the screens that call it). It proposes the edits for review: nothing is pushed until you apply them, as one pull request per repository.",
+            "description_domain": "The agent reads the frontends and the services of the domain all at once, together with the AI context of the project, of the domain and of each of them, so a change can span frontend and backend (an endpoint and the screens that call it). It proposes the edits for review: nothing is pushed until you apply them, as one pull request per repository.",
             "prompt_placeholder_domain": "e.g. Add the shipping cost to the order API and show it in the cart and checkout pages",
             "repositories_count_one": "{{count}} repository",
             "repositories_count_other": "{{count}} repositories",
@@ -1126,7 +1126,7 @@
             "request_meta_repositories_one": "{{date}} · {{count}} repository",
             "request_meta_repositories_other": "{{date}} · {{count}} repositories",
             "kind": {
-                "microfrontend": "microfrontend",
+                "frontend": "frontend",
                 "service": "service"
             },
             "apply_description": "All the proposed files go together: they depend on each other, so none can be left out. Apply pushes them straight onto {{branch}}, with no review, and its CI starts right away: review the diff first, or open a pull request to have it reviewed in the repository.",
@@ -1137,8 +1137,8 @@
             "pull_request_opened": "Pull request opened"
         },
         "workspace": {
-            "back": "All microfrontends",
-            "nav_label": "Microfrontend sections",
+            "back": "All frontends",
+            "nav_label": "Frontend sections",
             "nav_ai": "Edit with AI",
             "nav_settings": "Details & settings",
             "version": "v{{version}}"
@@ -1163,7 +1163,7 @@
             "errors": {
                 "invalid_name": "The repository name is not valid",
                 "name_taken": "A repository with this name already exists",
-                "not_linked": "This microfrontend has no linked repository",
+                "not_linked": "This frontend has no linked repository",
                 "rename_failed": "The provider refused the rename: {{reason}}",
                 "generic": "Could not rename the repository",
                 "link_inconsistent": "The saved repository link does not match the repository shown: select the repository again and save"
@@ -1271,7 +1271,7 @@
         "storages": "Storages",
         "storagesDescription": "Manage your storage providers and configurations",
         "noStoragesFound": "No storages found",
-        "newStorageDescription": "Configure a new storage provider to store your microfrontend builds",
+        "newStorageDescription": "Configure a new storage provider to store your frontend builds",
         "editStorageDescription": "Update your storage provider configuration",
         "types": {
             "aws": "Amazon S3",
@@ -1343,7 +1343,7 @@
             "write_forbidden": "A read-only member cannot add, edit, test or delete storages.",
             "secret_required": "Type the credential again: the stored one is only valid for the provider and the account it was saved with."
         },
-        "connectionTestSuccess": "A probe file was uploaded and read back: microfrontend hosting can use this storage."
+        "connectionTestSuccess": "A probe file was uploaded and read back: frontend hosting can use this storage."
     },
     "database": {
         "databases": "Databases",
@@ -1606,12 +1606,12 @@
     },
     "market": {
         "title": "Templates library",
-        "description": "Choose from our collection of microfrontend templates",
+        "description": "Choose from our collection of frontend templates",
         "templateRepository": "Template: {{name}}",
         "templateRepositoryTitle": "Open the repository of the template {{name}}",
         "noTemplates": {
             "title": "No templates available",
-            "description": "There are no microfrontend templates in the market yet."
+            "description": "There are no frontend templates in the market yet."
         },
         "error": {
             "failedToFetch": "Failed to fetch markets"
@@ -1673,18 +1673,18 @@
         },
         "environments": {
             "title": "Configure environments",
-            "description": "Environments (e.g. development, production) let you manage different versions of your microfrontends. Choose a preset or customize them, then save."
+            "description": "Environments (e.g. development, production) let you manage different versions of your frontends. Choose a preset or customize them, then save."
         },
         "hosting": {
-            "title": "Where do we host your microfrontends?",
+            "title": "Where do we host your frontends?",
             "description": "Connect a storage bucket to deploy your bundles. You can skip this step and configure it later.",
             "alert_title": "This step is not essential",
-            "alert_description": "If you skip it and don't connect any cloud, microfrontend bundles will still be hosted directly by Flightroom. You can connect an external storage at any time from the project settings.",
+            "alert_description": "If you skip it and don't connect any cloud, frontend bundles will still be hosted directly by Flightroom. You can connect an external storage at any time from the project settings.",
             "submit": "Save and continue"
         },
         "code_repositories": {
             "title": "Connect your source code",
-            "description": "Connect a Git provider (GitHub, GitLab or Azure DevOps) to enable automatic builds and deployments of your microfrontends.",
+            "description": "Connect a Git provider (GitHub, GitLab or Azure DevOps) to enable automatic builds and deployments of your frontends.",
             "skippable_note": "No rush: you can connect or change repositories at any time from the project's Repositories section.",
             "connect_repository": "Connect a repository"
         },
@@ -1707,15 +1707,15 @@
             "title": "Project ready!",
             "configured_with_name": "has been configured successfully.",
             "configured_generic": "The project has been configured successfully.",
-            "start_adding": "You can start adding microfrontends.",
-            "start_deploying": "Start deploying your microfrontends",
+            "start_adding": "You can start adding frontends.",
+            "start_deploying": "Start deploying your frontends",
             "go_to_dashboard": "Go to dashboard",
-            "add_microfrontend": "Add microfrontend"
+            "add_frontend": "Add frontend"
         },
         "ai_draft": {
             "title": "Describe the project and let the assistant draft it",
             "description": "Describe what you want to build in your own words: the assistant proposes a name, a description and the environments. You review everything before confirming each step.",
-            "placeholder": "E.g. A customer portal made of three React microfrontends, with development, staging and production environments, bundles on AWS S3 and code on GitHub.",
+            "placeholder": "E.g. A customer portal made of three React frontends, with development, staging and production environments, bundles on AWS S3 and code on GitHub.",
             "submit": "Generate a proposal",
             "loading": "Preparing the proposal…",
             "error": "I could not generate a proposal. You can fill in the fields by hand.",
@@ -1739,22 +1739,22 @@
     "dependencies": {
         "sidebar_title": "Dependencies",
         "title": "Dependencies",
-        "description": "Scan the microfrontend repositories, check what is outdated and align the peer dependencies.",
+        "description": "Scan the frontend repositories, check what is outdated and align the peer dependencies.",
         "rescan": "Rescan",
         "align_peer_dependencies": "Align peer dependencies",
-        "registry_unavailable": "The npm registry could not be reached: the latest versions are not available, only the cross-microfrontend comparison is shown.",
-        "summary_microfrontends": "Scanned microfrontends",
+        "registry_unavailable": "The npm registry could not be reached: the latest versions are not available, only the cross-frontend comparison is shown.",
+        "summary_frontends": "Scanned frontends",
         "summary_packages": "Distinct packages",
         "summary_outdated": "Outdated packages",
         "summary_peer_misaligned": "Misaligned peer dependencies",
         "peer_section_title": "Peer dependencies to align",
         "shared_section_title": "Shared dependencies with different versions",
         "shared_section_description": "Reported for visibility only: the alignment action never rewrites these.",
-        "per_microfrontend_title": "Dependencies by microfrontend",
+        "per_frontend_title": "Dependencies by frontend",
         "only_outdated": "Show outdated only",
-        "no_peer_issues": "All peer dependencies are aligned across the microfrontends.",
+        "no_peer_issues": "All peer dependencies are aligned across the frontends.",
         "no_shared_issues": "No shared dependency declared with different versions.",
-        "no_microfrontends": "No microfrontend of this project is connected to a code repository.",
+        "no_frontends": "No frontend of this project is connected to a code repository.",
         "no_dependencies": "This package.json declares no dependency.",
         "all_up_to_date": "Every dependency is up to date.",
         "scan_failed": "Scan failed",
@@ -1781,7 +1781,7 @@
         "align_failed": "Failed",
         "align_nothing_to_do": "Already aligned",
         "branch_selection_title": "Branches to compare",
-        "branch_selection_description": "Each microfrontend is scanned on its default branch. Pick another one to compare a different branch, then rescan.",
+        "branch_selection_description": "Each frontend is scanned on its default branch. Pick another one to compare a different branch, then rescan.",
         "branch_default": "default",
         "branch_not_default": "Different from the default branch",
         "rescan_pending": "Apply the selected branches",
@@ -2005,7 +2005,7 @@
         "stop": "Stop",
         "disclaimer": "Answers are generated by AI and may contain mistakes. Maestro can change the project: actions that delete or remove something run only after you confirm them.",
         "empty_title": "How can I help?",
-        "empty_description": "I can look up and change the microfrontends, builds, deployments, environments and variables of this project, and search the documentation.",
+        "empty_description": "I can look up and change the frontends, builds, deployments, environments and variables of this project, and search the documentation.",
         "thinking": "Thinking…",
         "tool": {
             "input": "Input",
@@ -2042,8 +2042,8 @@
                 "organization": "Organization",
                 "environment": "Environment",
                 "environments": "Environments",
-                "microfrontend": "Microfrontend",
-                "microfrontends": "Microfrontends",
+                "frontend": "Frontend",
+                "frontends": "Frontends",
                 "host": "Host",
                 "remote": "Remote",
                 "user": "User",
@@ -2099,10 +2099,10 @@
             "check_variables": "Check the variables"
         },
         "questions": {
-            "explain_build": "Why did build {{runId}} (ref {{ref}}) of microfrontend {{name}} (id {{microfrontendId}}) fail? Read the logs of the failed jobs, explain the cause and suggest a fix.",
+            "explain_build": "Why did build {{runId}} (ref {{ref}}) of frontend {{name}} (id {{frontendId}}) fail? Read the logs of the failed jobs, explain the cause and suggest a fix.",
             "explain_service_build": "Why did build {{runId}} (ref {{ref}}) of service {{name}} (id {{serviceId}}) fail? Read the logs of the failed jobs, explain the cause and suggest a fix.",
             "analyze_deployments": "Compare the latest deployment of environment {{environment}} (id {{environmentId}}) with the previous one: which versions and variables changed, and is there anything to check?",
-            "explain_dependencies": "Analyze the shared dependencies and misaligned peer dependencies across the microfrontends: which conflicts are risky and which should I tackle first?",
+            "explain_dependencies": "Analyze the shared dependencies and misaligned peer dependencies across the frontends: which conflicts are risky and which should I tackle first?",
             "check_variables": "Compare the environment variables across the project's environments: are any defined in one environment and missing from another, production in particular?"
         },
         "usage": {
@@ -2138,7 +2138,7 @@
                 "DONE": "Done",
                 "FAILED": "Failed"
             },
-            "scope_global": "All microfrontends and services",
+            "scope_global": "All frontends and services",
             "repositories": "Repositories",
             "files_one": "{{count}} file changed",
             "files_other": "{{count}} files changed",
@@ -2166,17 +2166,17 @@
             "toast_failed": "{{label}}: the job failed",
             "new": {
                 "title": "New AI job",
-                "description": "One agent works on the chosen microfrontends and services together, so a change can span them, such as an API of a backend service and the microfrontends that call it. It proposes the edits for review: nothing is pushed until you apply them.",
-                "all": "All microfrontends and services",
-                "all_hint": "Every microfrontend and service with a linked repository, at most {{max}}.",
+                "description": "One agent works on the chosen frontends and services together, so a change can span them, such as an API of a backend service and the frontends that call it. It proposes the edits for review: nothing is pushed until you apply them.",
+                "all": "All frontends and services",
+                "all_hint": "Every frontend and service with a linked repository, at most {{max}}.",
                 "selection_hint": "{{selected}} selected, at most {{max}}.",
-                "selection_required": "Select at least one microfrontend or service",
-                "no_repositories": "No microfrontend or service of this project has a linked code repository.",
+                "selection_required": "Select at least one frontend or service",
+                "no_repositories": "No frontend or service of this project has a linked code repository.",
                 "prompt_label": "What should change?",
-                "prompt_placeholder": "e.g. Rename the getUser API of the shell and update the microfrontends that call it",
+                "prompt_placeholder": "e.g. Rename the getUser API of the shell and update the frontends that call it",
                 "prompt_required": "Describe the change you want",
                 "start": "Start job",
-                "repositories_label": "Microfrontends and services"
+                "repositories_label": "Frontends and services"
             },
             "errors": {
                 "load": "Could not load the job.",
@@ -2184,15 +2184,15 @@
                 "follow_up": "Could not send the request.",
                 "apply": "Could not apply the proposals.",
                 "ASSISTANT_DISABLED": "AI editing is not enabled in this project: it has no AI available.",
-                "AI_CHANGE_FORBIDDEN": "You do not have permission to edit microfrontends and services with AI.",
+                "AI_CHANGE_FORBIDDEN": "You do not have permission to edit frontends and services with AI.",
                 "AI_CHANGE_TOO_MANY": "Too many jobs are running in this project: wait for one to finish.",
                 "AI_JOB_NOT_DONE": "The job has not finished yet.",
-                "AI_JOB_NO_REPOSITORIES": "None of these microfrontends or services has a linked code repository.",
-                "AI_JOB_TOO_MANY_REPOSITORIES": "A job can work on at most 10 repositories: select the microfrontends and services to include.",
+                "AI_JOB_NO_REPOSITORIES": "None of these frontends or services has a linked code repository.",
+                "AI_JOB_TOO_MANY_REPOSITORIES": "A job can work on at most 10 repositories: select the frontends and services to include.",
                 "AI_JOB_FOLLOW_UP_RUNNING": "A follow-up of this job is still running: wait for it to finish.",
                 "AI_CHANGE_NOT_PROPOSED": "These proposals are no longer waiting for approval.",
                 "plan": "The AI could not propose the components.",
-                "AI_DOMAIN_PLAN_HAS_MEMBERS": "The domain already has microfrontends or services: reload the page.",
+                "AI_DOMAIN_PLAN_HAS_MEMBERS": "The domain already has frontends or services: reload the page.",
                 "AI_DOMAIN_PLAN_FAILED": "The AI could not propose the components: try again or describe the request differently.",
                 "AI_MODEL_NOT_AVAILABLE": "The AI you picked is no longer available to the project: pick another one.",
                 "AI_PROVIDER_ERROR": "The AI provider answered with an error: try again shortly."
@@ -2209,7 +2209,7 @@
     "services": {
         "title": "Services",
         "import": {
-            "description": "Create one service for each repository of the selected connection. Repositories already linked to a microfrontend or a service are skipped.",
+            "description": "Create one service for each repository of the selected connection. Repositories already linked to a frontend or a service are skipped.",
             "importedCount_one": "{{count}} service imported",
             "importedCount_other": "{{count}} services imported"
         },
@@ -2364,29 +2364,29 @@
     "domains": {
         "sidebar_title": "Domains",
         "title": "Functional domains",
-        "description": "Group the project's microfrontends and services by functional area",
+        "description": "Group the project's frontends and services by functional area",
         "add_new": "New domain",
         "empty_title": "No functional domains",
-        "empty_description": "Create a domain to group the microfrontends and services that work on the same functional area.",
-        "frontend_count_one": "{{count}} microfrontend",
-        "frontend_count_other": "{{count}} microfrontends",
+        "empty_description": "Create a domain to group the frontends and services that work on the same functional area.",
+        "frontend_count_one": "{{count}} frontend",
+        "frontend_count_other": "{{count}} frontends",
         "backend_count_one": "{{count}} service",
         "backend_count_other": "{{count}} services",
         "open": "Open",
         "delete_title": "Delete domain",
-        "delete_description": "Delete the domain “{{name}}”? Its microfrontends and services stay, without a domain.",
+        "delete_description": "Delete the domain “{{name}}”? Its frontends and services stay, without a domain.",
         "created_success_message": "Domain created",
         "updated_success_message": "Domain updated",
         "no_domain": "No domain",
         "deploy": {
             "title": "Deploy {{domain}}",
-            "description": "Pick the environment: only the microfrontends and services of this domain are deployed, the other domains keep the versions the environment serves now. Config maps and secrets are still deployed as they are now.",
+            "description": "Pick the environment: only the frontends and services of this domain are deployed, the other domains keep the versions the environment serves now. Config maps and secrets are still deployed as they are now.",
             "success": "{{domain}} deployed to {{environment}}"
         },
         "build": {
             "action": "Create version",
             "title": "Create a version of {{domain}}",
-            "description": "Every microfrontend and service of the domain with a code repository gets the same version, tagged on the same branch: each tag starts the pipeline of its repository. A repository shared by several of them is tagged once. Every repository is checked first: if one fails, none is tagged.",
+            "description": "Every frontend and service of the domain with a code repository gets the same version, tagged on the same branch: each tag starts the pipeline of its repository. A repository shared by several of them is tagged once. Every repository is checked first: if one fails, none is tagged.",
             "result_description": "Version {{version}} on branch {{ref}}, repository by repository.",
             "version": "Version",
             "branch": "Branch",
@@ -2403,7 +2403,7 @@
             },
             "reasons": {
                 "CONNECTION_NOT_FOUND": "The code repository connection is no longer one of this project",
-                "DOMAIN_SCOPE_FORBIDDEN": "The repository is shared with a microfrontend or a service outside your domains",
+                "DOMAIN_SCOPE_FORBIDDEN": "The repository is shared with a frontend or a service outside your domains",
                 "REPOSITORY_NOT_FOUND": "The repository was not found, or the token of the connection cannot reach it",
                 "REF_NOT_FOUND": "The branch {{ref}} does not exist in this repository",
                 "TAG_EXISTS": "The tag {{version}} already exists in this repository",
@@ -2412,8 +2412,8 @@
             "errors": {
                 "version_invalid": "The version may hold only letters, digits, dots, dashes and underscores (at most 128)",
                 "ref_invalid": "The branch must be a valid git branch name (no spaces, no '..', none of ~^:?*[\\, no slash at either end), at most 255 characters",
-                "empty": "The domain has no microfrontend or service to build",
-                "no_repositories": "No microfrontend or service of the domain has a linked code repository",
+                "empty": "The domain has no frontend or service to build",
+                "no_repositories": "No frontend or service of the domain has a linked code repository",
                 "check_failed": "No repository was tagged: the check failed for at least one of them",
                 "forbidden": "A viewer cannot create a version of the domain"
             }
@@ -2421,11 +2421,11 @@
         "deployments": {
             "open": "Deployed versions",
             "title": "Deployed versions",
-            "description": "Which version of each microfrontend and service of the domain runs in each environment. Frontend comes from the active deployment, backend from what the deploy pipeline reported.",
+            "description": "Which version of each frontend and service of the domain runs in each environment. Frontend comes from the active deployment, backend from what the deploy pipeline reported.",
             "matrix_title": "Deployed versions by domain",
             "matrix_description": "For each domain and environment, the frontend versions of the active deployment and the backend versions reported by the deploy pipeline",
             "matrix_empty_title": "Nothing to show",
-            "matrix_empty_description": "The project has no domains, microfrontends or services yet",
+            "matrix_empty_description": "The project has no domains, frontends or services yet",
             "back": "Back to domains",
             "domain": "Domain",
             "frontend": "Frontend",
@@ -2439,7 +2439,7 @@
             "canary_without_version": "canary ({{audience}})",
             "canary_enrolled_users": "enrolled users",
             "no_environments": "The project has no environments yet",
-            "no_members": "The domain has no microfrontends or services yet",
+            "no_members": "The domain has no frontends or services yet",
             "no_members_short": "No members"
         },
         "viewCards": "Cards view",
@@ -2448,10 +2448,10 @@
             "legend_canary": "Canary on",
             "legend_bridge": "Link across domains",
             "recenter": "Show everything",
-            "hint": "Click a galaxy to fly to it and click it again to open the domain. Click a star to open the microfrontend or the service, a relation to delete it. Scroll to zoom.",
-            "summary_one": "Project map: every domain is a galaxy, its microfrontends and services are the stars. There is {{count}} link across two domains.",
-            "summary_other": "Project map: every domain is a galaxy, its microfrontends and services are the stars. There are {{count}} links across two domains.",
-            "kind_microfrontend": "Microfrontend",
+            "hint": "Click a galaxy to fly to it and click it again to open the domain. Click a star to open the frontend or the service, a relation to delete it. Scroll to zoom.",
+            "summary_one": "Project map: every domain is a galaxy, its frontends and services are the stars. There is {{count}} link across two domains.",
+            "summary_other": "Project map: every domain is a galaxy, its frontends and services are the stars. There are {{count}} links across two domains.",
+            "kind_frontend": "Frontend",
             "kind_service": "Service",
             "canary": "Canary at {{percentage}}%",
             "legend_relation": "Domain relation",
@@ -2474,7 +2474,7 @@
         "form": {
             "create_title": "New functional domain",
             "edit_title": "Edit functional domain",
-            "description": "A domain groups the microfrontends and services of the same functional area.",
+            "description": "A domain groups the frontends and services of the same functional area.",
             "name": "Name",
             "name_placeholder": "E.g. Payments",
             "name_required": "The name is required",
@@ -2500,9 +2500,9 @@
         "detail": {
             "back": "All domains",
             "frontend_title": "Frontend",
-            "frontend_description": "The microfrontends of this domain",
-            "frontend_empty": "No microfrontends in this domain.",
-            "add_microfrontend": "Add microfrontend",
+            "frontend_description": "The frontends of this domain",
+            "frontend_empty": "No frontends in this domain.",
+            "add_frontend": "Add frontend",
             "backend_title": "Backend",
             "backend_description": "The services of this domain",
             "backend_empty": "No services in this domain.",
@@ -2511,29 +2511,29 @@
             "viewFlow": "Diagram view",
             "viewGrid": "Grid view",
             "viewTable": "Table view",
-            "flow_hint": "Drag from a microfrontend’s dot to another microfrontend or to a service to link them. Select a link and press Delete to remove it. Double click a block to open it."
+            "flow_hint": "Drag from a frontend’s dot to another frontend or to a service to link them. Select a link and press Delete to remove it. Double click a block to open it."
         },
         "members": {
-            "create_microfrontend": "Create a new microfrontend",
+            "create_frontend": "Create a new frontend",
             "create_service": "Create a new service",
             "assign_existing": "Add existing",
             "import_repository": "Import from repository",
-            "assign_title_microfrontend": "Add existing microfrontends",
+            "assign_title_frontend": "Add existing frontends",
             "assign_title_service": "Add existing services",
-            "assign_description_microfrontend": "Pick the microfrontends of the project to put in this domain. Those in another domain are moved here.",
+            "assign_description_frontend": "Pick the frontends of the project to put in this domain. Those in another domain are moved here.",
             "assign_description_service": "Pick the services of the project to put in this domain. Those in another domain are moved here.",
             "search_placeholder": "Search by name or slug...",
             "clear_search": "Clear the search",
             "select_all": "Select all",
             "selected_count": "{{count}} of {{total}} selected",
             "in_domain": "In {{name}}",
-            "empty_microfrontend": "Every microfrontend of the project is already in this domain.",
+            "empty_frontend": "Every frontend of the project is already in this domain.",
             "empty_service": "Every service of the project is already in this domain.",
             "no_search_results": "Nothing matches this search.",
             "confirm_one": "Add {{count}}",
             "confirm_other": "Add {{count}}",
-            "assigned_microfrontend_one": "{{count}} microfrontend added to the domain",
-            "assigned_microfrontend_other": "{{count}} microfrontends added to the domain",
+            "assigned_frontend_one": "{{count}} frontend added to the domain",
+            "assigned_frontend_other": "{{count}} frontends added to the domain",
             "assigned_service_one": "{{count}} service added to the domain",
             "assigned_service_other": "{{count}} services added to the domain"
         },
@@ -2547,8 +2547,8 @@
         "ai": {
             "open": "Edit with AI",
             "unavailable": "AI editing is not available in this project: the organization has no AI it can use.",
-            "no_members": "This domain has no microfrontend or service yet: Generate first asks the AI which ones your request needs, and creates them with their repositories once you confirm.",
-            "no_repositories": "No microfrontend or service of this domain has a linked code repository: Generate offers to create one for each of them, from a template.",
+            "no_members": "This domain has no frontend or service yet: Generate first asks the AI which ones your request needs, and creates them with their repositories once you confirm.",
+            "no_repositories": "No frontend or service of this domain has a linked code repository: Generate offers to create one for each of them, from a template.",
             "planning": "The AI is proposing the components…",
             "unlinked": "Left out, without a linked repository: {{names}}",
             "too_many_title": "Too many repositories",
@@ -2558,8 +2558,8 @@
                 "plan_description": "The AI proposes them for your request. Review and edit them: each one is created in {{name}} with a new repository scaffolded from its template, then the agent implements the request in them.",
                 "plan_empty": "The AI did not propose anything to create: describe in the request what the domain should do and try again.",
                 "repositories_title": "Can I create the repositories?",
-                "repositories_description": "No microfrontend or service of {{name}} has a code repository for the agent to work on. Each selected one gets a new repository scaffolded from its template, then the agent implements the request in them.",
-                "frontends": "Frontends (microfrontends)",
+                "repositories_description": "No frontend or service of {{name}} has a code repository for the agent to work on. Each selected one gets a new repository scaffolded from its template, then the agent implements the request in them.",
+                "frontends": "Frontends",
                 "backends": "Backends (services)",
                 "include": "Create {{name}}",
                 "field_name": "Name",
@@ -2586,7 +2586,7 @@
                 "too_many_description": "{{count}} are selected, one agent works on at most {{max}} repositories: select fewer, you can start a job on the others later.",
                 "errors": {
                     "generic": "It could not be created: check that the repository name is still free at the provider and try again.",
-                    "MICROFRONTEND_SLUG_TAKEN": "A microfrontend with this slug already exists in the project: pick another one.",
+                    "FRONTEND_SLUG_TAKEN": "A frontend with this slug already exists in the project: pick another one.",
                     "SERVICE_SLUG_TAKEN": "A service with this slug already exists in the project: pick another one.",
                     "SERVICE_SLUG_INVALID": "The slug is not valid: 2 to 50 lowercase letters, digits or dashes.",
                     "INVALID_REPOSITORY_NAME": "The repository name is not valid.",
@@ -2607,7 +2607,7 @@
         "sections": {
             "devops": "DevOps",
             "domains": "Functional domains",
-            "microfrontends": "Microfrontends",
+            "frontends": "Frontends",
             "services": "Backend services",
             "cloud": "Cloud"
         },

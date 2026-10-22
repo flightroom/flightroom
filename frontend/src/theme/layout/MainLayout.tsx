@@ -41,7 +41,7 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
 
     // Solo voci di progetto: il livello organizzazione vive nell'header, dal suo menu, e le pagine
     // che valgono per tutto il progetto (impostazioni) nel menu in alto. Le variabili d'ambiente
-    // valgono solo per i microfrontend, quindi stanno nella loro sezione. L'agente apre la console
+    // valgono solo per i frontend, quindi stanno nella loro sezione. L'agente apre la console
     // ed e' la prima voce, senza titolo di sezione.
     const mainNavSections: SidebarNavSection[] = [
         ...(assistantEnabled ? [{ items: [{ name: t("assistant.page_title"), path: ASSISTANT_PAGE_PATH, icon: <Sparkles /> }] }] : []),
@@ -50,9 +50,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             items: [{ name: t("domains.sidebar_title"), path: "/domains", icon: <Layers /> }]
         },
         {
-            title: t("navigation.sections.microfrontends"),
+            title: t("navigation.sections.frontends"),
             items: [
-                { name: "Microfrontends", path: "/microfrontends", icon: <LayoutDashboard /> },
+                { name: "Frontends", path: "/frontends", icon: <LayoutDashboard /> },
                 { name: t("dependencies.sidebar_title"), path: "/dependencies", icon: <PackageIcon /> },
                 { name: t("integration.sidebar_title"), path: "/integration", icon: <LinkIcon /> },
                 { name: t("environmentVariables.title"), path: "/environment-variables", icon: <FileText /> }

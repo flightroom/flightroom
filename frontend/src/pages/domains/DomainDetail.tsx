@@ -7,9 +7,9 @@ import { Link, useNavigate, useParams } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
-import useMicrofrontendsApi from "@/hooks/apiClients/useMicrofrontendsApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
-import { MicrofrontendsGrid, MicrofrontendsTable } from "@/pages/microfrontends/partials/views"
+import { FrontendsGrid, FrontendsTable } from "@/pages/frontends/partials/views"
 import { ServicesGrid } from "@/pages/services/partials/ServicesGrid"
 import { ServicesTable } from "@/pages/services/partials/ServicesTable"
 import useProjectStore from "@/store/useProjectStore"
@@ -99,38 +99,38 @@ const DomainDetail = () => {
     const { id } = useParams<{ id: string }>()
     const projectId = useProjectStore(state => state.project?._id)
     const domainsApi = useDomainsApi()
-    const microfrontendsApi = useMicrofrontendsApi()
+    const frontendsApi = useFrontendsApi()
     const servicesApi = useServicesApi()
     const [isFormOpen, setIsFormOpen] = useState(false)
     const [view, setView] = useState<View>("flow")
 
     const domainQuery = useQuery({ queryKey: ["domain", id], queryFn: () => domainsApi.getSingle(id!), enabled: !!id })
-    const microfrontendsQuery = useQuery({
-        queryKey: ["microfrontends-by-project-id", projectId],
-        queryFn: () => microfrontendsApi.getByProjectId(projectId!),
+    const frontendsQuery = useQuery({
+        queryKey: ["frontends-by-project-id", projectId],
+        queryFn: () => frontendsApi.getByProjectId(projectId!),
         enabled: !!projectId
     })
     const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
 
     const domain = domainQuery.data
-    const microfrontends = (microfrontendsQuery.data ?? []).filter(microfrontend => microfrontend.domainId === id)
+    const frontends = (frontendsQuery.data ?? []).filter(frontend => frontend.domainId === id)
     const services = (servicesQuery.data ?? []).filter(service => service.domainId === id)
     const domainParam = `domainId=${encodeURIComponent(id ?? "")}`
-    const onAddMicrofrontend = (parentId?: string) => navigate(`/microfrontend/new?${domainParam}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ""}`)
+    const onAddFrontend = (parentId?: string) => navigate(`/frontend/new?${domainParam}${parentId ? `&parentId=${encodeURIComponent(parentId)}` : ""}`)
     const onAddService = () => navigate(`/service/new?${domainParam}`)
 
     const frontendSection = {
         title: t("domains.detail.frontend_title"),
         icon: <LayoutDashboard className="size-5" aria-hidden="true" />,
-        isEmpty: microfrontends.length === 0,
+        isEmpty: frontends.length === 0,
         emptyLabel: t("domains.detail.frontend_empty"),
         actions: (
             <DomainMemberActions
-                kind="microfrontend"
+                kind="frontend"
                 domainId={id!}
-                label={t("domains.detail.add_microfrontend")}
-                onCreate={() => onAddMicrofrontend()}
-                candidates={(microfrontendsQuery.data ?? []).filter(microfrontend => microfrontend.domainId !== id).map(microfrontend => ({ ...microfrontend, _id: microfrontend._id! }))}
+                label={t("domains.detail.add_frontend")}
+                onCreate={() => onAddFrontend()}
+                candidates={(frontendsQuery.data ?? []).filter(frontend => frontend.domainId !== id).map(frontend => ({ ...frontend, _id: frontend._id! }))}
             />
         )
     }
@@ -151,9 +151,9 @@ const DomainDetail = () => {
     }
 
     return (
-        <ApiStatusHandler queries={[domainQuery, microfrontendsQuery, servicesQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[domainQuery, frontendsQuery, servicesQuery]} interceptEmpty={false}>
             {domain && (
-                // The Tabs root wraps the page so the view switcher can live in the page header, as on the microfrontends page.
+                // The Tabs root wraps the page so the view switcher can live in the page header, as on the frontends page.
                 <Tabs value={view} onValueChange={value => setView(value as View)} className="flex min-h-full flex-col gap-6" layoutSize="sm" iconButtons tabsListPosition="end">
                     <DomainHeader
                         domain={domain}
@@ -162,7 +162,7 @@ const DomainDetail = () => {
                             <>
                                 <TabsList>
                                     {VIEWS.map(({ value, icon: Icon, labelKey }) => (
-                                        // Same switcher as the microfrontends page: labelled via aria-label/title, primary fill when active.
+                                        // Same switcher as the frontends page: labelled via aria-label/title, primary fill when active.
                                         <TabsTrigger
                                             key={value}
                                             value={value}
@@ -189,12 +189,12 @@ const DomainDetail = () => {
                                 icon={<LayoutDashboard className="size-5" aria-hidden="true" />}
                                 emptyLabel={t("domains.detail.frontend_empty")}
                                 actions={frontendSection.actions}
-                                members={microfrontends.map(microfrontend => ({
-                                    id: microfrontend._id!,
-                                    name: microfrontend.name,
-                                    slug: microfrontend.slug,
-                                    version: microfrontend.version,
-                                    href: `/microfrontend/${microfrontend._id}/settings`
+                                members={frontends.map(frontend => ({
+                                    id: frontend._id!,
+                                    name: frontend.name,
+                                    slug: frontend.slug,
+                                    version: frontend.version,
+                                    href: `/frontend/${frontend._id}/settings`
                                 }))}
                             />
                             <MemberSection
@@ -215,16 +215,16 @@ const DomainDetail = () => {
                         <DomainDeploymentsSection domainId={id!} />
                     </TabsContent>
                     <TabsContent value="flow" className="mt-0 flex flex-col gap-3">
-                        {/* Frontend and backend on one canvas; positions are saved on the microfrontend, so the blocks sit where they were left on the microfrontends page too. */}
+                        {/* Frontend and backend on one canvas; positions are saved on the frontend, so the blocks sit where they were left on the frontends page too. */}
                         <div className="flex items-center justify-end gap-2">
                             {frontendSection.actions}
                             {backendSection.actions}
                         </div>
-                        <DomainFlow microfrontends={microfrontends} services={services} onAddMicrofrontend={onAddMicrofrontend} />
+                        <DomainFlow frontends={frontends} services={services} onAddFrontend={onAddFrontend} />
                     </TabsContent>
                     <TabsContent value="grid" className="mt-0 flex flex-col gap-8">
                         <ViewSection {...frontendSection}>
-                            <MicrofrontendsGrid microfrontends={microfrontends} onAddNewMicrofrontend={onAddMicrofrontend} />
+                            <FrontendsGrid frontends={frontends} onAddNewFrontend={onAddFrontend} />
                         </ViewSection>
                         <ViewSection {...backendSection}>
                             <ServicesGrid services={services} />
@@ -232,7 +232,7 @@ const DomainDetail = () => {
                     </TabsContent>
                     <TabsContent value="table" className="mt-0 flex flex-col gap-8">
                         <ViewSection {...frontendSection}>
-                            <MicrofrontendsTable microfrontends={microfrontends} />
+                            <FrontendsTable frontends={frontends} />
                         </ViewSection>
                         <ViewSection {...backendSection}>
                             <ServicesTable services={services} />

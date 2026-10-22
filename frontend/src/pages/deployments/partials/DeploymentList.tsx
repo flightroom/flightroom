@@ -6,7 +6,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
-import DeploymentMicrofrontendCard from "./DeploymentMicrofrontendCard"
+import DeploymentFrontendCard from "./DeploymentFrontendCard"
 import DeploymentServiceCard from "./DeploymentServiceCard"
 
 /** The config maps or the secrets of a deployment, each with the keys it set in the environment */
@@ -52,18 +52,18 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
 
     return (
         <>
-            {deployment.microfrontends.length > 0 && (
+            {deployment.frontends.length > 0 && (
                 <div>
-                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.microfrontends_title")}</h4>
+                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.frontends_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {deployment.microfrontends.map(microfrontend => (
-                            <DeploymentMicrofrontendCard key={microfrontend._id} microfrontend={microfrontend} />
+                        {deployment.frontends.map(frontend => (
+                            <DeploymentFrontendCard key={frontend._id} frontend={frontend} />
                         ))}
                     </div>
                 </div>
             )}
             {services.length > 0 && (
-                <div className={deployment.microfrontends.length > 0 ? "mt-4" : undefined}>
+                <div className={deployment.frontends.length > 0 ? "mt-4" : undefined}>
                     <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.services_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                         {services.map(service => (

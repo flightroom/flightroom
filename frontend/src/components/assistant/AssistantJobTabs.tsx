@@ -6,8 +6,8 @@ import { useTranslation } from "react-i18next"
 import { isAiJobActive } from "@/hooks/apiClients/useAiJobsApi"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
 
-/** A job on one repository is named after its microfrontend; a wider one by how many repositories it touches. */
-export const jobTabLabel = (t: TFunction, tab: AssistantJobTab) => tab.microfrontendName ?? t("assistant.jobs.tab_label", { count: tab.repositoryCount })
+/** A job on one repository is named after its frontend; a wider one by how many repositories it touches. */
+export const jobTabLabel = (t: TFunction, tab: AssistantJobTab) => tab.frontendName ?? t("assistant.jobs.tab_label", { count: tab.repositoryCount })
 
 interface AssistantJobTabsProps {
     projectId: string

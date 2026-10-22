@@ -40,7 +40,7 @@ env:
   # Same list, but applied only to the /serve/* endpoints consumed by the host
   # applications. Falls back to ALLOWED_ORIGINS when empty.
   ALLOWED_SERVE_ORIGINS: ""
-  # Folder the uploaded microfrontends are served from. Kept in sync with
+  # Folder the uploaded frontend bundles are served from. Kept in sync with
   # persistence.mountPath below. default: /upload-microfrontends
   MICROFRONTEND_HOST_FOLDER: /upload-microfrontends
   # Allow new users to sign up. default: true
@@ -209,7 +209,7 @@ extraEnv: []
 #       fieldPath: status.podIP
 
 ## ---------------------------------------------------------------------------
-## Storage of the uploaded microfrontends
+## Storage of the uploaded frontend bundles
 ## ---------------------------------------------------------------------------
 persistence:
   enabled: true

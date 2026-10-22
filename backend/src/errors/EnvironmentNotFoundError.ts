@@ -23,7 +23,7 @@ export class EnvironmentNotFoundError extends EntityNotFoundError {
     static fromDomain(domain: string, projectId: string): EnvironmentNotFoundError {
         return new EnvironmentNotFoundError(
             domain,
-            `No environment of project ${projectId} has "${domain}" among its registered domains, so the environment cannot be resolved from the calling domain. Register it on the environment, or address the microfrontend with an url that names the environment.`
+            `No environment of project ${projectId} has "${domain}" among its registered domains, so the environment cannot be resolved from the calling domain. Register it on the environment, or address the frontend with an url that names the environment.`
         )
     }
 
