@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1792707026.4546084,
-    "ast_hash": "ac5f87fc3e8b178968fb61ef788c236c",
+    "mtime": 1792708262.0835202,
+    "ast_hash": "381055ba2ee1dca53f5f20ce5a974ed2",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1792707026.4551532,
-    "ast_hash": "65f98a7ccade4c52fa6087d76de9752f",
+    "mtime": 1792708262.086449,
+    "ast_hash": "e6d6f8b411f39ef84648aa4fb80447e4",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -3025,8 +3025,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/services/Services.tsx": {
-    "mtime": 1792677899.4969244,
-    "ast_hash": "22dcfa38fd4dbd0d921eb3bda5b20a88",
+    "mtime": 1792709172.5191345,
+    "ast_hash": "4e65584500419b36ef45beaf0f284ae5",
     "semantic_hash": ""
   },
   "frontend/src/pages/services/partials/RuntimeBadge.tsx": {
@@ -3175,8 +3175,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/Domains.tsx": {
-    "mtime": 1792704359.4182367,
-    "ast_hash": "75c008e6dd741d093a665f09628517fb",
+    "mtime": 1792709172.5201013,
+    "ast_hash": "63e692ea68a37520c1a2d664018d0138",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainFilter.tsx": {
@@ -3340,8 +3340,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainGalaxy.tsx": {
-    "mtime": 1792707303.15722,
-    "ast_hash": "74bb0e4da5d7721cd734f6e55b1c34db",
+    "mtime": 1792709165.9411063,
+    "ast_hash": "a59f717c74d63d88bbe30b20ecf0304a",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainDeploymentsApi.ts": {
@@ -4595,8 +4595,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/resource/resourceIcons.ts": {
-    "mtime": 1792707277.4603176,
-    "ast_hash": "6b9c2a51be1093211fa231ef19e36796",
+    "mtime": 1792708026.4279337,
+    "ast_hash": "2a6a74e8c1d35cfff525aadb784b99e8",
     "semantic_hash": ""
   }
 }
