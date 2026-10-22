@@ -56,6 +56,8 @@ export interface AiJob {
     events?: AiChangeEvent[]
     summary?: string
     error?: string
+    /** Set when a user stopped the agent before it finished: the job is FAILED, its requests DISCARDED. */
+    stoppedAt?: string
     /** The cost of this job alone, every model round summed. */
     usage: AiUsage
     /** The reasoning effort the agent worked at. */
@@ -192,6 +194,18 @@ const useAiJobsApi = () => {
         return response.data
     }
 
+    /** Stops the agent at once: what it did so far is dropped, nothing is pushed. */
+    const stop = async (id: string, metadata?: IClientRequestMetadataExtended): Promise<AiJob> => {
+        const response = await apiClient.doRequest<AiJob>({
+            url: `/api/ai-jobs/${id}/stop`,
+            method: "POST",
+            // The client always sends a JSON content type, and Fastify rejects an empty JSON body.
+            data: {},
+            ...metadata
+        })
+        return response.data
+    }
+
     /** What the AI proposes to create in a domain without frontends nor services, for the request: nothing is created yet. */
     const planDomain = async (data: DomainPlanDTO, metadata?: IClientRequestMetadataExtended): Promise<DomainPlan> => {
         const response = await apiClient.doRequest<DomainPlan, DomainPlanDTO>({
@@ -211,7 +225,8 @@ const useAiJobsApi = () => {
         chain,
         list,
         working,
-        apply
+        apply,
+        stop
     }
 }
 

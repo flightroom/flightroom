@@ -662,6 +662,47 @@ describe("AiChangeJobService", () => {
             expect(workingCopy.discardChanges).toHaveBeenCalled()
         })
 
+        it("Given a user stopping the job while the agent works, when it is stopped, then the model call is aborted at once and nothing is pushed nor saved", async () => {
+            const started = new Promise<void>(resolve => {
+                runAgent.mockImplementationOnce(
+                    (_client: unknown, _input: unknown, _hooks: unknown, signal: AbortSignal) =>
+                        new Promise((_resolve, reject) => {
+                            signal.addEventListener("abort", () => reject(new Error("aborted")))
+                            resolve()
+                        })
+                )
+            })
+            const running = run()
+            await started
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({
+                _id: jobId,
+                rootJobId: jobId,
+                projectId,
+                userId: user._id,
+                frontendIds,
+                status: AiJobStatus.RUNNING,
+                usage: {},
+                updatedAt: new Date()
+            } as never)
+            vi.spyOn(AiChangeJob, "findOneAndUpdate").mockResolvedValue({
+                _id: jobId,
+                rootJobId: jobId,
+                projectId,
+                userId: user._id,
+                frontendIds,
+                status: AiJobStatus.FAILED,
+                usage: {},
+                stoppedAt: new Date()
+            } as never)
+
+            await service().stop(String(jobId))
+            await running
+
+            expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
+            expect(updates.some(({ update }) => update.status === AiChangeStatus.PROPOSED || update.status === AiJobStatus.DONE)).toBe(false)
+            expect(workingCopy.discardChanges).toHaveBeenCalled()
+        })
+
         it("Given a proposal, when the job ends, then it is pushed on the conversation's branch, named after its first message, before it is saved", async () => {
             await run()
 
@@ -1087,6 +1128,57 @@ describe("AiChangeJobService", () => {
             await service().apply(String(jobId))
 
             await vi.waitFor(() => expect(applyClaimed).toHaveBeenCalledTimes(2))
+        })
+    })
+
+    describe("stop", () => {
+        const jobId = new Types.ObjectId()
+        const job = (status: AiJobStatus) => ({ _id: jobId, rootJobId: jobId, projectId, userId: user._id, frontendIds: [catalog._id, cart._id], status, usage: {}, updatedAt: new Date() })
+        let stopped: ReturnType<typeof job> | null
+
+        beforeEach(() => {
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue(job(AiJobStatus.RUNNING) as never)
+            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([] as never)
+            stopped = { ...job(AiJobStatus.FAILED), stoppedAt: new Date() } as ReturnType<typeof job>
+            vi.spyOn(AiChangeJob, "findOneAndUpdate").mockImplementation(((filter: Record<string, unknown>, update: Record<string, unknown>) => {
+                updates.push({ model: "job", filter, update })
+                return Promise.resolve(stopped)
+            }) as never)
+        })
+
+        it("Given a job at work, when it is stopped, then it ends as stopped and its requests at work are discarded", async () => {
+            const view = await service().stop(String(jobId))
+
+            expect(view.stoppedAt).toBeDefined()
+            expect(updates).toContainEqual(
+                expect.objectContaining({
+                    model: "job",
+                    filter: { _id: jobId, status: { $in: [AiJobStatus.PENDING, AiJobStatus.RUNNING] }, "events.message": { $ne: "pushing" } },
+                    update: expect.objectContaining({ status: AiJobStatus.FAILED, stoppedAt: expect.any(Date) })
+                })
+            )
+            expect(updates).toContainEqual(
+                expect.objectContaining({
+                    model: "request",
+                    filter: { jobId, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] } },
+                    update: expect.objectContaining({ status: AiChangeStatus.DISCARDED })
+                })
+            )
+            expect(pushed(updates)).toContain("stopped")
+        })
+
+        it("Given a job already done or pushing its proposals, when it is stopped, then it is refused and no request is touched", async () => {
+            stopped = null
+
+            await expect(service().stop(String(jobId))).rejects.toMatchObject({ code: "AI_JOB_NOT_RUNNING", statusCode: 409 })
+            expect(updates.filter(({ model }) => model === "request")).toEqual([])
+        })
+
+        it("Given a viewer of the project, when they stop a job, then it is refused", async () => {
+            role = RoleInProject.VIEWER
+
+            await expect(service().stop(String(jobId))).rejects.toBeDefined()
+            expect(updates).toEqual([])
         })
     })
 

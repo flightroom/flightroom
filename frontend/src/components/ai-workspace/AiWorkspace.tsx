@@ -42,7 +42,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 import AiModelSelect from "@/components/assistant/AiModelSelect"
 import AnswerUsage from "@/components/assistant/AnswerUsage"
-import { ApplyAllButton, jobErrorMessage, sumUsage } from "@/components/assistant/AssistantJobThread"
+import { ApplyAllButton, jobErrorMessage, StopJobButton, sumUsage } from "@/components/assistant/AssistantJobThread"
 import AssistantMessageText from "@/components/assistant/AssistantMessageText"
 import EffortSelect from "@/components/assistant/EffortSelect"
 import { useEffort, useFollowUpAiModel, useFollowUpEffort } from "@/components/assistant/useEffort"
@@ -462,7 +462,8 @@ const STATUS_PRECEDENCE: AiChangeStatus[] = ["PENDING", "RUNNING", "APPLYING", "
 /** Where a message stands: the status of its repository, or, over several, the most pressing of theirs. */
 const turnStatus = ({ job, repositories }: Turn): AiChangeStatus => {
     if (job.status === "PENDING" || job.status === "RUNNING") return job.status
-    return STATUS_PRECEDENCE.find(status => repositories.some(repository => repository.status === status)) ?? (job.status === "FAILED" ? "FAILED" : "DISCARDED")
+    // A job stopped by a user discarded its requests: it did not fail.
+    return STATUS_PRECEDENCE.find(status => repositories.some(repository => repository.status === status)) ?? (job.status === "FAILED" && !job.stoppedAt ? "FAILED" : "DISCARDED")
 }
 
 interface RepositoryResultProps {
@@ -503,7 +504,11 @@ const RepositoryResult: React.FC<RepositoryResultProps> = ({ job, repository, la
 
             {repository.status === "APPLIED" && <AppliedAlert baseBranch={repository.baseBranch} commit={repository.commit} pullRequestUrl={repository.pullRequestUrl} />}
 
-            {repository.status === "DISCARDED" && <p className="text-sm text-muted-foreground">{t(superseded ? "frontend.aiChange.superseded" : "frontend.aiChange.discarded_description")}</p>}
+            {repository.status === "DISCARDED" && (
+                <p className="text-sm text-muted-foreground">
+                    {t(superseded ? "frontend.aiChange.superseded" : job.stoppedAt ? "frontend.aiChange.stopped_description" : "frontend.aiChange.discarded_description")}
+                </p>
+            )}
         </>
     )
 
@@ -602,7 +607,7 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
             <p className="max-w-[85%] self-end whitespace-pre-wrap break-words rounded-lg bg-primary/10 px-3 py-2 text-sm">{job.prompt}</p>
 
             {/* A job that failed before any repository could tell its own outcome. */}
-            {job.status === "FAILED" && !repositories.some(repository => repository.status === "FAILED") && (
+            {job.status === "FAILED" && !job.stoppedAt && !repositories.some(repository => repository.status === "FAILED") && (
                 <Alert variant="destructive">
                     <AlertTriangle className="size-4" aria-hidden="true" />
                     <AlertTitle>{t("frontend.aiChange.failed_title")}</AlertTitle>
@@ -670,6 +675,9 @@ interface FollowUpFormProps {
     open?: Turn
     /** The latest message: while nothing is open, its effort is shown, the one the running follow-up was sent with. */
     latest?: Turn
+    /** The job the agent works on: the send button gives way to the one that stops it. */
+    running?: AiJob
+    onStopped: (stopped?: AiJob) => void
     placeholder: string
     onSent: (child: AiJob) => void
     /** Refused: the conversation most likely moved on elsewhere (the assistant, another tab). */
@@ -677,7 +685,7 @@ interface FollowUpFormProps {
 }
 
 /** Goes on with the conversation: a follow-up starts from the open proposal and replaces it once it proposes. */
-const FollowUpForm: React.FC<FollowUpFormProps> = ({ target, open, latest, placeholder, onSent, onFailed }) => {
+const FollowUpForm: React.FC<FollowUpFormProps> = ({ target, open, latest, running, onStopped, placeholder, onSent, onFailed }) => {
     const { t } = useTranslation()
     const aiJobsApi = useAiJobsApi()
     const [draft, setDraft] = useState("")
@@ -738,9 +746,19 @@ const FollowUpForm: React.FC<FollowUpFormProps> = ({ target, open, latest, place
             </span>
             <AiModelSelect value={aiModel?.id} onChange={setAiModel} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-ai-model" />
             <EffortSelect value={effort} onChange={setEffort} efforts={effortsOf(aiModel)} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-effort" />
-            <Button type="submit" size="icon" aria-label={t("frontend.aiChange.follow_up_send")} disabled={!draft.trim() || locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-send">
-                {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp aria-hidden="true" />}
-            </Button>
+            {running ? (
+                <StopJobButton job={running} onStopped={onStopped} dataTestId="ai-change-stop" />
+            ) : (
+                <Button
+                    type="submit"
+                    size="icon"
+                    aria-label={t("frontend.aiChange.follow_up_send")}
+                    disabled={!draft.trim() || locked || followUpMutation.isPending}
+                    dataTestId="ai-change-follow-up-send"
+                >
+                    {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp aria-hidden="true" />}
+                </Button>
+            )}
         </form>
     )
 }
@@ -849,6 +867,13 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
     }
 
     const onConflict = () => {
+        chainQuery.refetch()
+        changed()
+    }
+
+    // Shown stopped at once; a follow-up stopped leaves the proposal it refined open again.
+    const onStopped = (stopped?: AiJob) => {
+        if (stopped) queryClient.setQueryData<AiJob[]>(chainQueryKey, chain => chain?.map(job => (job._id === stopped._id ? stopped : job)))
         chainQuery.refetch()
         changed()
     }
@@ -966,7 +991,16 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                     </div>
                 )}
 
-                <FollowUpForm target={target} open={open} latest={latest} placeholder={t(`frontend.aiChange.follow_up_${followUpState}`)} onSent={onSent} onFailed={() => chainQuery.refetch()} />
+                <FollowUpForm
+                    target={target}
+                    open={open}
+                    latest={latest}
+                    running={turns.find(turn => isAiJobActive(turn.job.status))?.job}
+                    onStopped={onStopped}
+                    placeholder={t(`frontend.aiChange.follow_up_${followUpState}`)}
+                    onSent={onSent}
+                    onFailed={() => chainQuery.refetch()}
+                />
             </CardContent>
         </Card>
     )
@@ -1118,8 +1152,8 @@ const jobEntries = (jobs: AiJob[]): QueueEntry[] => {
     }
     return [...chains.entries()].map(([rootJobId, { first, latest }]) => {
         const status = turnStatus({ job: latest, repositories: latest.repositories })
-        // A failed follow-up leaves the proposals before it open: the conversation still waits for a review.
-        const reviewable = status === "FAILED" && turnStatus({ job: first, repositories: first.repositories }) === "PROPOSED"
+        // A failed or stopped follow-up leaves the proposals before it open: the conversation still waits for a review.
+        const reviewable = (status === "FAILED" || Boolean(latest.stoppedAt)) && turnStatus({ job: first, repositories: first.repositories }) === "PROPOSED"
         return {
             id: rootJobId,
             ids: [rootJobId],

@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle, Spinner, Textarea } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
-import { AlertTriangle, ArrowUp, ExternalLink, GitBranch, Server } from "lucide-react"
+import { AlertTriangle, ArrowUp, ExternalLink, GitBranch, Server, Square } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -30,6 +30,7 @@ const JOB_ERROR_CODES = new Set([
     "AI_CHANGE_TOO_MANY",
     "AI_JOB_FOLLOW_UP_RUNNING",
     "AI_JOB_NOT_DONE",
+    "AI_JOB_NOT_RUNNING",
     "AI_JOB_NO_REPOSITORIES",
     "AI_JOB_TOO_MANY_REPOSITORIES",
     "AI_DOMAIN_PLAN_HAS_MEMBERS",
@@ -112,6 +113,7 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
 const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
     const { t } = useTranslation()
     const active = isAiJobActive(job.status)
+    const stopped = Boolean(job.stoppedAt)
 
     return (
         <div className="flex flex-col gap-2 text-sm text-foreground">
@@ -119,7 +121,9 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
                 <AssistantMessageText text={job.prompt} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={job.status === "FAILED" ? "destructive" : job.status === "DONE" ? "accent" : "outline"}>{t(`assistant.jobs.status.${job.status}`)}</Badge>
+                <Badge variant={stopped ? "outline" : job.status === "FAILED" ? "destructive" : job.status === "DONE" ? "accent" : "outline"}>
+                    {t(stopped ? "assistant.jobs.status.STOPPED" : `assistant.jobs.status.${job.status}`)}
+                </Badge>
                 {job.scope === "global" && <Badge variant="outline">{t("assistant.jobs.scope_global")}</Badge>}
                 {job.scope === "domain" && <Badge variant="outline">{t("assistant.jobs.scope_domain")}</Badge>}
             </div>
@@ -135,7 +139,8 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
                     </details>
                 )
             )}
-            {job.status === "FAILED" && (
+            {stopped && <p className="text-xs text-foreground-secondary">{t("frontend.aiChange.stopped_description")}</p>}
+            {job.status === "FAILED" && !stopped && (
                 <Alert variant="destructive">
                     <AlertTriangle className="size-4" aria-hidden="true" />
                     <AlertTitle>{t("assistant.jobs.failed_title")}</AlertTitle>
@@ -197,15 +202,42 @@ export const ApplyAllButton: React.FC<ApplyAllButtonProps> = ({ job, requestIds,
     )
 }
 
+interface StopJobButtonProps {
+    job: AiJob
+    /** Told with the stopped job, or without one when the stop was refused (the agent finished meanwhile). */
+    onStopped: (stopped?: AiJob) => void
+    dataTestId: string
+}
+
+/** Stops the agent at once, in place of the send button while it works: what it did so far is dropped, nothing is pushed. */
+export const StopJobButton: React.FC<StopJobButtonProps> = ({ job, onStopped, dataTestId }) => {
+    const { t } = useTranslation()
+    const aiJobsApi = useAiJobsApi()
+    const notifications = useToastNotificationStore()
+
+    const stopMutation = useMutation({
+        mutationFn: () => aiJobsApi.stop(job._id, { customErrorMessage: error => jobErrorMessage(t, error, "stop") }),
+        onSuccess: () => notifications.showInfoNotification({ message: t("assistant.jobs.stopped_success") }),
+        onSettled: stopped => onStopped(stopped)
+    })
+
+    return (
+        <Button type="button" variant="secondary" size="icon" aria-label={t("assistant.jobs.stop")} disabled={stopMutation.isPending} onClick={() => stopMutation.mutate()} dataTestId={dataTestId}>
+            {stopMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <Square aria-hidden="true" />}
+        </Button>
+    )
+}
+
 interface FollowUpFormProps {
     projectId: string
     latest: AiJob
     /** The job the follow-up refines: the latest one that finished with proposals still open. */
     target?: AiJob
+    onStopped: () => void
 }
 
 /** Asks the agent to go on from the latest proposal: a child job, which the tab follows from then on. */
-const FollowUpForm: React.FC<FollowUpFormProps> = ({ projectId, latest, target }) => {
+const FollowUpForm: React.FC<FollowUpFormProps> = ({ projectId, latest, target, onStopped }) => {
     const { t } = useTranslation()
     const aiJobsApi = useAiJobsApi()
     const [draft, setDraft] = useState("")
@@ -263,15 +295,19 @@ const FollowUpForm: React.FC<FollowUpFormProps> = ({ projectId, latest, target }
                         }
                     }}
                 />
-                <Button
-                    type="submit"
-                    size="icon"
-                    aria-label={t("assistant.jobs.follow_up_send")}
-                    disabled={!draft.trim() || !ready || followUpMutation.isPending}
-                    dataTestId="assistant-job-follow-up-send"
-                >
-                    {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp />}
-                </Button>
+                {isAiJobActive(latest.status) ? (
+                    <StopJobButton job={latest} onStopped={onStopped} dataTestId="assistant-job-stop" />
+                ) : (
+                    <Button
+                        type="submit"
+                        size="icon"
+                        aria-label={t("assistant.jobs.follow_up_send")}
+                        disabled={!draft.trim() || !ready || followUpMutation.isPending}
+                        dataTestId="assistant-job-follow-up-send"
+                    >
+                        {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp />}
+                    </Button>
+                )}
             </div>
             {/* Below the field, not next to it: the panel is too narrow for both. */}
             <div className="flex items-center justify-end gap-2">
@@ -380,7 +416,7 @@ const AssistantJobThread: React.FC<AssistantJobThreadProps> = ({ projectId, tab 
                 ))}
             </div>
 
-            <FollowUpForm projectId={projectId} latest={latest} target={target} />
+            <FollowUpForm projectId={projectId} latest={latest} target={target} onStopped={() => chainQuery.refetch()} />
         </div>
     )
 }

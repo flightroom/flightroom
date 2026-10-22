@@ -99,6 +99,9 @@ export default async function aiJobController(fastify: FastifyInstance) {
 
     fastify.get<{ Params: { id: string } }>("/ai-jobs/:id/chain", { config }, async (request, reply) => reply.send(await service(request).chain(request.params.id)))
 
+    // Stops the agent at once: what it did so far is dropped, nothing is pushed.
+    fastify.post<{ Params: { id: string } }>("/ai-jobs/:id/stop", { config }, async (request, reply) => reply.send(await service(request).stop(request.params.id)))
+
     // Answers once every proposal is claimed: the pull requests are opened in the background.
     fastify.post<{ Params: { id: string } }>("/ai-jobs/:id/apply", { config }, async (request, reply) => reply.status(202).send(await service(request).apply(request.params.id)))
 }

@@ -134,6 +134,8 @@ export interface AiJobView {
     events?: { at: Date; kind: IAiChangeEvent["kind"]; message: string }[]
     summary?: string
     error?: string
+    /** Set when a user stopped the agent before it finished. */
+    stoppedAt?: Date
     usage: LlmUsage
     repositories: AiJobRepositoryView[]
     createdAt: Date
@@ -184,6 +186,16 @@ const tooMany = () =>
 const noRepositories = (message: string) => createBusinessException({ code: "AI_JOB_NO_REPOSITORIES", message, statusCode: 422 })
 
 const notDone = () => createBusinessException({ code: "AI_JOB_NOT_DONE", message: "The job has not finished yet", statusCode: 409 })
+
+const notRunning = () => createBusinessException({ code: "AI_JOB_NOT_RUNNING", message: "The agent is not working on this job anymore", statusCode: 409 })
+
+const STOPPED_ERROR = "Stopped by the user before the agent finished"
+
+/**
+ * The agents running in this process, by job: a stop aborts the model call under way at once. A job
+ * running on another replica stops at its next round instead, when it reads its status.
+ */
+const runningAgents = new Map<string, AbortController>()
 
 const expiry = () => new Date(Date.now() + PROPOSAL_TTL_MS)
 
@@ -263,6 +275,7 @@ const toJobView = (
     events: withEvents ? (job.events ?? []).map(entry => ({ at: entry.at, kind: entry.kind, message: entry.message })) : undefined,
     summary: job.summary,
     error: job.error,
+    stoppedAt: job.stoppedAt,
     usage: { inputTokens: job.usage?.inputTokens ?? 0, cachedInputTokens: job.usage?.cachedInputTokens ?? 0, outputTokens: job.usage?.outputTokens ?? 0 },
     repositories: componentsOfJob(job).flatMap(ref => {
         // A request nobody acted upon expires: the job then only lists the others.
@@ -613,8 +626,11 @@ export class AiChangeJobService extends AiChangeBaseService {
         onUsage: (usage: LlmUsage) => void
     ): Promise<void> {
         const jobId = String(job._id)
+        // A job declared dead, failed or stopped while the agent works stops at the next round instead of spending on.
+        const abort = new AbortController()
+        runningAgents.set(jobId, abort)
         try {
-            // Guarded: a job declared dead while it waited for the locks stays dead.
+            // Guarded: a job declared dead (or stopped) while it waited for the locks stays dead.
             if (!(await AiChangeJob.findOneAndUpdate({ _id: job._id, status: AiJobStatus.PENDING }, { status: AiJobStatus.RUNNING }))) return
             await AiChangeRequest.updateMany({ jobId: job._id, status: AiChangeStatus.PENDING }, { status: AiChangeStatus.RUNNING })
             await this.log(jobId, "info", "preparing")
@@ -628,8 +644,6 @@ export class AiChangeJobService extends AiChangeBaseService {
             }
             await this.log(jobId, "info", "working")
 
-            // A job declared dead (or failed) while the agent works stops at the next round instead of spending on.
-            const abort = new AbortController()
             const history = await this.historyOf(job)
             const slugs = pathSlugs(repositories.map(repository => repository.component))
             // The agent may stop midway, the provider failing or its answer cut off: what it wrote until then is still proposed.
@@ -671,6 +685,8 @@ export class AiChangeJobService extends AiChangeBaseService {
                 return undefined
             })
 
+            // Stopped by a user meanwhile: nothing of it is saved nor pushed.
+            if (abort.signal.aborted) return
             if (result?.stopReason === "refusal") throw new Error("The model declined this request")
             if (result?.stopReason === "max_tokens") stopped = "The agent's answer was cut off: try a smaller request or a lower effort"
 
@@ -759,6 +775,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 }
             )
         } finally {
+            runningAgents.delete(jobId)
             for (const repository of repositories) await repository.workspace.workingCopy.discardChanges().catch(() => undefined)
         }
     }
@@ -1005,6 +1022,29 @@ export class AiChangeJobService extends AiChangeBaseService {
             this.applyAll(claimed).catch(error => fastify.log.error({ error: loggable(error), aiJobId: jobId }, "AI job apply crashed"))
         }
         return this.view((await AiChangeJob.findById(job._id)) ?? job, true)
+    }
+
+    /**
+     * Stops the agent of a job still queued or at work: nothing it did is kept, and its requests are
+     * discarded. A follow-up stopped leaves the proposal it refined open, as it was. Refused once the
+     * agent is done and its proposals are being pushed: they are about to be saved.
+     */
+    async stop(jobId: string): Promise<AiJobView> {
+        const job = await this.getJob(jobId)
+        await this.ensureCanChangeProject(job.projectId)
+        const stopped = await AiChangeJob.findOneAndUpdate(
+            { _id: job._id, status: { $in: ACTIVE_JOB_STATUSES }, "events.message": { $ne: "pushing" } },
+            { status: AiJobStatus.FAILED, error: STOPPED_ERROR, stoppedAt: new Date(), expiresAt: expiry(), ...event("info", "stopped") },
+            { new: true }
+        )
+        if (!stopped) throw notRunning()
+        await AiChangeRequest.updateMany(
+            { jobId: job._id, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] } },
+            { status: AiChangeStatus.DISCARDED, error: STOPPED_ERROR, expiresAt: expiry(), ...event("info", "stopped") }
+        )
+        runningAgents.get(jobId)?.abort()
+        fastify.log.info({ audit: "ai_job_stopped", userId: String(this.getUser()!._id), projectId: String(job.projectId), jobId }, "AI job stopped")
+        return this.view(stopped, true)
     }
 
     private async applyAll(claimed: { request: IAiChangeRequest; files: IAiChangeFile[] }[]) {
