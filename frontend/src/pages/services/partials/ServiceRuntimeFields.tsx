@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 
 /** The port, the probes, the docs paths and the image repository of a container: a service's, or a frontend's served by its own. */
-export const ServiceRuntimeFields: React.FC = () => {
+export const ServiceRuntimeFields: React.FC<{ exposureRequired?: boolean }> = ({ exposureRequired = false }) => {
     const { t } = useTranslation()
 
     return (
@@ -32,7 +32,14 @@ export const ServiceRuntimeFields: React.FC = () => {
                 />
                 <TextField name="docsPath" label={t("services.docs_path")} placeholder="/docs" description={t("services.docs_path_hint")} containerClassName="flex-[1_1_240px]" />
                 <TextField name="openApiPath" label={t("services.openapi_path")} placeholder="/openapi.json" description={t("services.openapi_path_hint")} containerClassName="flex-[1_1_240px]" />
-                <TextField name="exposurePath" label={t("services.exposure_path")} placeholder="/api/orders" description={t("services.exposure_path_hint")} containerClassName="flex-[1_1_240px]" />
+                <TextField
+                    name="exposurePath"
+                    label={t("services.exposure_path")}
+                    placeholder={exposureRequired ? "/shell" : "/api/orders"}
+                    description={t(exposureRequired ? "services.exposure_path_required_hint" : "services.exposure_path_hint")}
+                    required={exposureRequired}
+                    containerClassName="flex-[1_1_240px]"
+                />
                 <TextField
                     name="image.repository"
                     label={t("services.image_repository")}

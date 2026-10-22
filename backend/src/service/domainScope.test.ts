@@ -711,7 +711,7 @@ describe("config maps of a domain-scoped member", () => {
         const write = vi.spyOn(Microfrontend, "create")
 
         const created = new MicrofrontendService(memberOf([OWN_DOMAIN])).create(
-            { name: "Shop", slug: "shop", kind: MicrofrontendKind.FRONTEND, domainId: String(OWN_DOMAIN), configMapIds: [String(sharedMap)] } as MicrofrontendDTO,
+            { name: "Shop", slug: "shop", kind: MicrofrontendKind.FRONTEND, exposurePath: "/shop", domainId: String(OWN_DOMAIN), configMapIds: [String(sharedMap)] } as MicrofrontendDTO,
             String(PROJECT_ID)
         )
 

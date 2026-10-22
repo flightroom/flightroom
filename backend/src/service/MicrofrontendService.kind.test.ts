@@ -56,7 +56,7 @@ describe("MicrofrontendService.create, kind", () => {
     })
 
     it("given a FRONTEND without parents, when it is created, then it gets the service defaults it was not given", async () => {
-        const write = await create({ kind: MicrofrontendKind.FRONTEND, parentIds: [], readinessPath: "/ready" })
+        const write = await create({ kind: MicrofrontendKind.FRONTEND, exposurePath: "/shell", parentIds: [], readinessPath: "/ready" })
 
         expect(write.mock.calls[0][0]).toMatchObject({ kind: MicrofrontendKind.FRONTEND, port: 8080, livenessPath: "/health/live", readinessPath: "/ready" })
     })
@@ -71,8 +71,19 @@ describe("MicrofrontendService.create, kind", () => {
         expect(written).not.toHaveProperty("livenessPath")
     })
 
+    it.each([[undefined], [null], ["  "]])("given a FRONTEND with exposure path %j, when it is created, then it is refused before anything is written", async exposurePath => {
+        const write = vi.spyOn(Microfrontend, "create")
+        const service = new MicrofrontendService()
+        vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
+
+        const code = await codeOf(service.create({ name: "Shell", slug: "shell", kind: MicrofrontendKind.FRONTEND, exposurePath } as MicrofrontendDTO, String(projectId)))
+
+        expect(code).toBe("FRONTEND_EXPOSURE_PATH_REQUIRED")
+        expect(write).not.toHaveBeenCalled()
+    })
+
     it("given a FRONTEND without a version, when it is created, then it is written without one", async () => {
-        const write = await create({ kind: MicrofrontendKind.FRONTEND, version: undefined })
+        const write = await create({ kind: MicrofrontendKind.FRONTEND, exposurePath: "/shell", version: undefined })
 
         expect((write.mock.calls[0][0] as Record<string, unknown>).version).toBeUndefined()
     })
@@ -136,7 +147,7 @@ describe("MicrofrontendService.update, kind", () => {
         const write = vi.spyOn(Microfrontend, "findByIdAndUpdate").mockImplementation((async (_id: unknown, update: unknown) => update) as never)
         const microfrontend = existing({ parentIds: [new Types.ObjectId()] })
 
-        await serviceFor(microfrontend).update(String(microfrontend._id), { kind: MicrofrontendKind.FRONTEND, parentIds: [] } as unknown as MicrofrontendDTO)
+        await serviceFor(microfrontend).update(String(microfrontend._id), { kind: MicrofrontendKind.FRONTEND, exposurePath: "/shell", parentIds: [] } as unknown as MicrofrontendDTO)
 
         expect(write.mock.calls[0][1]).toMatchObject({ kind: MicrofrontendKind.FRONTEND, parentIds: [], port: 8080, livenessPath: "/health/live", readinessPath: "/health/ready" })
         expect(write.mock.calls[0][2]).toMatchObject({ new: true, runValidators: true })
@@ -153,13 +164,38 @@ describe("MicrofrontendService.update, kind", () => {
 
     it("given a microfrontend with no parents, when it is made a FRONTEND, then the write requires no parents stored and its canary is turned off", async () => {
         const write = vi.spyOn(Microfrontend, "findOneAndUpdate").mockImplementation((async (_filter: unknown, update: unknown) => update) as never)
-        const microfrontend = existing({ canary: { enabled: true, percentage: 10 } })
+        const microfrontend = existing({ canary: { enabled: true, percentage: 10 }, exposurePath: "/shell" })
 
         await serviceFor(microfrontend).update(String(microfrontend._id), { kind: MicrofrontendKind.FRONTEND } as MicrofrontendDTO)
 
         const [filter, update] = write.mock.calls[0] as unknown as [Record<string, unknown>, Record<string, unknown>]
         expect(filter).toEqual({ _id: microfrontend._id, $or: [{ parentIds: { $exists: false } }, { parentIds: { $size: 0 } }] })
         expect(update).toMatchObject({ kind: MicrofrontendKind.FRONTEND, "canary.enabled": false })
+    })
+
+    it("given a MICROFRONTEND without an exposure path, when it is made a FRONTEND, then it is refused before anything is written", async () => {
+        const write = vi.spyOn(Microfrontend, "findOneAndUpdate")
+        const microfrontend = existing({})
+
+        expect(await codeOf(serviceFor(microfrontend).update(String(microfrontend._id), { kind: MicrofrontendKind.FRONTEND } as MicrofrontendDTO))).toBe("FRONTEND_EXPOSURE_PATH_REQUIRED")
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a FRONTEND, when its exposure path is cleared, then it is refused before anything is written", async () => {
+        const write = vi.spyOn(Microfrontend, "findOneAndUpdate")
+        const microfrontend = existing({ kind: MicrofrontendKind.FRONTEND, exposurePath: "/shell" })
+
+        expect(await codeOf(serviceFor(microfrontend).update(String(microfrontend._id), { exposurePath: "" } as MicrofrontendDTO))).toBe("FRONTEND_EXPOSURE_PATH_REQUIRED")
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a FRONTEND stored without an exposure path, when another field is updated, then it is written", async () => {
+        const write = vi.spyOn(Microfrontend, "findOneAndUpdate").mockImplementation((async (_filter: unknown, update: unknown) => update) as never)
+        const microfrontend = existing({ kind: MicrofrontendKind.FRONTEND })
+
+        await serviceFor(microfrontend).update(String(microfrontend._id), { name: "Shell" } as MicrofrontendDTO)
+
+        expect(write.mock.calls[0][1]).toMatchObject({ name: "Shell" })
     })
 
     it("given a FRONTEND, when a canary is sent enabled, then it is stored disabled", async () => {
@@ -174,7 +210,7 @@ describe("MicrofrontendService.update, kind", () => {
     /** A relation set between the check and the write: the conditional write misses */
     it("given a parent set since it was read, when it is made a FRONTEND, then it is refused", async () => {
         vi.spyOn(Microfrontend, "findOneAndUpdate").mockResolvedValue(null as never)
-        const microfrontend = existing({})
+        const microfrontend = existing({ exposurePath: "/shell" })
 
         expect(await codeOf(serviceFor(microfrontend).update(String(microfrontend._id), { kind: MicrofrontendKind.FRONTEND } as MicrofrontendDTO))).toBe("FRONTEND_CANNOT_HAVE_PARENTS")
     })
