@@ -21,6 +21,15 @@ const VIEWS = [
 
 type View = (typeof VIEWS)[number]["value"]
 
+const ListSection: React.FC<{ title: string; count: number; children: React.ReactNode }> = ({ title, count, children }) => (
+    <section className="flex flex-col gap-3">
+        <h2 className="text-lg font-semibold">
+            {title} <span className="font-normal text-foreground-secondary">({count})</span>
+        </h2>
+        {children}
+    </section>
+)
+
 const Services = () => {
     const { t } = useTranslation()
     const navigate = useNavigate()
@@ -60,6 +69,25 @@ const Services = () => {
         setSearchTerm("")
         setDomainFilter(ALL_DOMAINS)
     }
+    // Backends and Docker frontends in two sections, each shown only when the filters leave something in it.
+    // Without Docker frontends in the project the list stays a plain list of services.
+    const renderSections = (servicesView: React.ReactNode, frontendsView: React.ReactNode) =>
+        dockerFrontends.length === 0 ? (
+            servicesView
+        ) : (
+            <>
+                {filtered.length > 0 && (
+                    <ListSection title={t("services.list.backendsSection")} count={filtered.length}>
+                        {servicesView}
+                    </ListSection>
+                )}
+                {filteredFrontends.length > 0 && (
+                    <ListSection title={t("services.list.dockerFrontendsSection")} count={filteredFrontends.length}>
+                        {frontendsView}
+                    </ListSection>
+                )}
+            </>
+        )
     // The form picks the template itself: the library is only one way in
     const onCreate = () => navigate("/service/new")
 
@@ -151,11 +179,11 @@ const Services = () => {
                         />
                     ) : (
                         <>
-                            <TabsContent value="grid" className="mt-0">
-                                <ServicesGrid services={filtered} frontends={filteredFrontends} />
+                            <TabsContent value="grid" className="mt-0 flex flex-col gap-6">
+                                {renderSections(<ServicesGrid services={filtered} />, <ServicesGrid frontends={filteredFrontends} />)}
                             </TabsContent>
-                            <TabsContent value="table" className="mt-0">
-                                <ServicesTable services={filtered} frontends={filteredFrontends} />
+                            <TabsContent value="table" className="mt-0 flex flex-col gap-6">
+                                {renderSections(<ServicesTable services={filtered} />, <ServicesTable frontends={filteredFrontends} />)}
                             </TabsContent>
                         </>
                     )}

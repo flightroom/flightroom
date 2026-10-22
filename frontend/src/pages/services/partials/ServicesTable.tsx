@@ -10,7 +10,7 @@ import { isAiEditAvailable } from "@/pages/frontends/partials/components"
 import FrontendBadge from "./FrontendBadge"
 import RuntimeBadge from "./RuntimeBadge"
 
-export const ServicesTable: React.FC<{ services: Service[]; frontends?: Frontend[] }> = ({ services, frontends = [] }) => {
+export const ServicesTable: React.FC<{ services?: Service[]; frontends?: Frontend[] }> = ({ services = [], frontends = [] }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const assistantEnabled = useProjectAiModels().enabled

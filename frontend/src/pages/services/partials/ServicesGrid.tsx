@@ -12,8 +12,8 @@ import FrontendBadge from "./FrontendBadge"
 import RuntimeBadge from "./RuntimeBadge"
 import { isServiceAiAvailable } from "./ServiceHeader"
 
-/** The services, then the frontends served by their own container, which open on their frontend pages. */
-export const ServicesGrid: React.FC<{ services: Service[]; frontends?: Frontend[] }> = ({ services, frontends = [] }) => {
+/** Services, or frontends served by their own container: these open on their frontend pages. */
+export const ServicesGrid: React.FC<{ services?: Service[]; frontends?: Frontend[] }> = ({ services = [], frontends = [] }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const assistantEnabled = useProjectAiModels().enabled

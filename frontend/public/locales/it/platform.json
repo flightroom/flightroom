@@ -2332,7 +2332,9 @@
             "noResultsTitle": "Nessun risultato",
             "noResultsDescription": "Nessun servizio corrisponde a «{{searchTerm}}».",
             "open": "Apri",
-            "frontendBadge": "Frontend"
+            "frontendBadge": "Frontend",
+            "backendsSection": "Servizi backend",
+            "dockerFrontendsSection": "Frontend Docker"
         },
         "env": {
             "title": "Variabili d'ambiente",
