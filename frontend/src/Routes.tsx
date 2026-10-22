@@ -15,7 +15,6 @@ import SelectProjectWrapper from "./theme/SelectProjectWrapper"
 // Lazy load all page components
 const AssistantPage = lazy(() => import("./pages/assistant/AssistantPage"))
 const Domains = lazy(() => import("./pages/domains/Domains"))
-const DomainDetail = lazy(() => import("./pages/domains/DomainDetail"))
 const DomainAiWorkspace = lazy(() => import("./pages/domains/DomainAiWorkspace"))
 const DomainDeploymentsMatrix = lazy(() => import("./pages/domains/DomainDeploymentsMatrix"))
 const Frontends = lazy(() => import("./pages/frontends/Frontends"))
@@ -127,7 +126,6 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/domains/deployments" element={<RouteWithSuspense element={<DomainDeploymentsMatrix />} />} />
                 <Route path="/domain/:id" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
                 <Route path="/domain/:id/ai" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
-                <Route path="/domain/:id/structure" element={<RouteWithSuspense element={<DomainDetail />} />} />
                 <Route path="/frontends" element={<RouteWithSuspense element={<Frontends />} />} />
                 <Route path="/frontend/new" element={<RouteWithSuspense element={<AddFrontend />} />} />
                 <Route path="/frontend/:id" element={<RouteWithSuspense element={<FrontendAiWorkspace />} />} />

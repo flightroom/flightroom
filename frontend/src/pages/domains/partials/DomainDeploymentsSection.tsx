@@ -1,11 +1,8 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, ColorSwatch } from "@flightroom/design-system"
-import { useQuery } from "@tanstack/react-query"
+import { ColorSwatch } from "@flightroom/design-system"
 import { format } from "date-fns"
-import { LayoutDashboard, Rocket, Server } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
-import { ApiStatusHandler } from "@/components/organisms"
-import useDomainDeploymentsApi, { DeployedFrontend, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
+import { DeployedFrontend, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
 import { CanaryType } from "@/hooks/apiClients/useFrontendsApi"
 import useThemeStore from "@/store/useThemeStore"
 
@@ -54,88 +51,3 @@ export const EnvironmentHeading: React.FC<{ entry: EnvironmentDeployment }> = ({
         </div>
     )
 }
-
-interface MemberListProps {
-    title: string
-    icon: React.ReactNode
-    emptyLabel: string
-    members: { _id: string; slug: string; name: string; version: string | null; canary?: DeployedFrontend["canary"] }[]
-}
-
-const MemberList: React.FC<MemberListProps> = ({ title, icon, emptyLabel, members }) =>
-    members.length === 0 ? null : (
-        <div className="flex flex-col gap-1">
-            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-foreground-secondary">
-                {icon}
-                {title}
-            </h4>
-            <ul className="divide-y divide-divider">
-                {members.map(member => (
-                    <li key={member._id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                        <span className="min-w-0 truncate" title={member.slug}>
-                            {member.name}
-                        </span>
-                        <span className="shrink-0 text-right">
-                            <DeployedVersion version={member.version} canary={member.canary} emptyLabel={emptyLabel} />
-                        </span>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    )
-
-/**
- * Which version of each frontend and service of the domain runs in each environment: the
- * frontend from the deployment the environment serves, the backend from what the deploy pipeline reported.
- */
-const DomainDeploymentsSection: React.FC<{ domainId: string }> = ({ domainId }) => {
-    const { t } = useTranslation()
-    const domainDeploymentsApi = useDomainDeploymentsApi()
-    const deploymentsQuery = useQuery({ queryKey: ["domain-deployments", domainId], queryFn: () => domainDeploymentsApi.getByDomainId(domainId) })
-
-    const environments = deploymentsQuery.data?.environments ?? []
-    const hasMembers = environments.some(entry => entry.frontends.length > 0 || entry.services.length > 0)
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="mb-0 flex items-center gap-2">
-                    <Rocket className="size-5" aria-hidden="true" />
-                    {t("domains.deployments.title")}
-                </CardTitle>
-                <CardDescription>{t("domains.deployments.description")}</CardDescription>
-            </CardHeader>
-            <CardContent className="pt-3">
-                <ApiStatusHandler queries={[deploymentsQuery]}>
-                    {environments.length === 0 ? (
-                        <p className="text-sm text-foreground-secondary">{t("domains.deployments.no_environments")}</p>
-                    ) : !hasMembers ? (
-                        <p className="text-sm text-foreground-secondary">{t("domains.deployments.no_members")}</p>
-                    ) : (
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-4">
-                            {environments.map(entry => (
-                                <div key={entry.environment._id} className="flex flex-col gap-3 rounded-md border border-divider p-3" data-testid={`domain-deployments-${entry.environment.slug}`}>
-                                    <EnvironmentHeading entry={entry} />
-                                    <MemberList
-                                        title={t("domains.deployments.frontend")}
-                                        icon={<LayoutDashboard className="size-3.5" aria-hidden="true" />}
-                                        emptyLabel={t("domains.deployments.not_deployed")}
-                                        members={entry.frontends}
-                                    />
-                                    <MemberList
-                                        title={t("domains.deployments.backend")}
-                                        icon={<Server className="size-3.5" aria-hidden="true" />}
-                                        emptyLabel={t("domains.deployments.not_reported")}
-                                        members={entry.services}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </ApiStatusHandler>
-            </CardContent>
-        </Card>
-    )
-}
-
-export default DomainDeploymentsSection

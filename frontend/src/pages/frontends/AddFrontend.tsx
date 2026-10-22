@@ -388,7 +388,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             })
         }
 
-        navigate(!isEdit && initialDomainId ? `/domain/${initialDomainId}/structure` : `/frontends`)
+        navigate(!isEdit && initialDomainId ? `/domain/${initialDomainId}` : `/frontends`)
     }
 
     const hasRepositories = Boolean(repositories && repositories.length > 0)

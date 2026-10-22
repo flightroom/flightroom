@@ -2465,8 +2465,6 @@
         },
         "deployments": {
             "open": "Deployed versions",
-            "title": "Deployed versions",
-            "description": "Which version of each frontend and service of the domain runs in each environment. Frontend comes from the active deployment, backend from what the deploy pipeline reported.",
             "matrix_title": "Deployed versions by domain",
             "matrix_description": "For each domain and environment, the versions in the active deployment or, when they are not in the deployment, the ones the deploy pipeline reported",
             "matrix_empty_title": "Nothing to show",
@@ -2484,7 +2482,6 @@
             "canary_without_version": "canary ({{audience}})",
             "canary_enrolled_users": "enrolled users",
             "no_environments": "The project has no environments yet",
-            "no_members": "The domain has no frontends or services yet",
             "no_members_short": "No members"
         },
         "viewCards": "Cards view",
@@ -2545,42 +2542,7 @@
         "detail": {
             "back": "All domains",
             "frontend_title": "Frontend",
-            "frontend_description": "The frontends of this domain",
-            "frontend_empty": "No frontends in this domain.",
-            "add_frontend": "Add frontend",
-            "backend_title": "Backend",
-            "backend_description": "The services of this domain",
-            "backend_empty": "No services in this domain.",
-            "add_service": "Add service",
-            "viewOverview": "Overview",
-            "viewFlow": "Diagram view",
-            "viewGrid": "Grid view",
-            "viewTable": "Table view",
-            "flow_hint": "Drag from a frontend’s dot to another frontend or to a service to link them. Select a link and press Delete to remove it. Double click a block to open it."
-        },
-        "members": {
-            "create_frontend": "Create a new frontend",
-            "create_service": "Create a new service",
-            "assign_existing": "Add existing",
-            "import_repository": "Import from repository",
-            "assign_title_frontend": "Add existing frontends",
-            "assign_title_service": "Add existing services",
-            "assign_description_frontend": "Pick the frontends of the project to put in this domain. Those in another domain are moved here.",
-            "assign_description_service": "Pick the services of the project to put in this domain. Those in another domain are moved here.",
-            "search_placeholder": "Search by name or slug...",
-            "clear_search": "Clear the search",
-            "select_all": "Select all",
-            "selected_count": "{{count}} of {{total}} selected",
-            "in_domain": "In {{name}}",
-            "empty_frontend": "Every frontend of the project is already in this domain.",
-            "empty_service": "Every service of the project is already in this domain.",
-            "no_search_results": "Nothing matches this search.",
-            "confirm_one": "Add {{count}}",
-            "confirm_other": "Add {{count}}",
-            "assigned_frontend_one": "{{count}} frontend added to the domain",
-            "assigned_frontend_other": "{{count}} frontends added to the domain",
-            "assigned_service_one": "{{count}} service added to the domain",
-            "assigned_service_other": "{{count}} services added to the domain"
+            "backend_title": "Backend"
         },
         "errors": {
             "slug_taken": "A domain with this name already exists in the project",
@@ -2644,8 +2606,7 @@
             }
         },
         "workspace": {
-            "nav_label": "Domain sections",
-            "nav_structure": "Structure"
+            "nav_label": "Domain sections"
         }
     },
     "navigation": {
