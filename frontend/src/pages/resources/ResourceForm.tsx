@@ -11,6 +11,8 @@ import { Badge, Button } from "@/components/atoms"
 import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
+import ResourceIcon from "@/components/resource/ResourceIcon"
+import { resourceIconUrl } from "@/components/resource/resourceIcons"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useResourcesApi, { Resource, ResourceDTO, ResourceTypeSpec } from "@/hooks/apiClients/useResourcesApi"
@@ -309,8 +311,14 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
     const variantSpec = spec?.variants.find(candidate => candidate.id === variant)
     const retype = initial ? credentialsToRetype(variantSpec, initial.fields, fields ?? {}, variant !== initial.variant) : []
 
-    const typeOptions = catalog.map(candidate => ({ value: candidate.type, label: typeLabel(t, candidate.type) }))
-    const variantOptions = (spec?.variants ?? []).map(candidate => ({ value: candidate.id, label: variantLabel(t, type, candidate.id) }))
+    // The engine of a database picks its logo, for every variant
+    const engine = fields?.engine?.value || undefined
+    const typeOptions = catalog.map(candidate => ({ value: candidate.type, label: typeLabel(t, candidate.type), icon: resourceIconUrl({ type: candidate.type }) }))
+    const variantOptions = (spec?.variants ?? []).map(candidate => ({
+        value: candidate.id,
+        label: variantLabel(t, type, candidate.id),
+        icon: resourceIconUrl({ type, variant: candidate.id, engine })
+    }))
 
     // Another type has other fields: they start over from its defaults, on its first variant
     const onTypeChange = (next: string) => {
@@ -359,7 +367,11 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
     }
 
     return (
-        <SinglePageLayout title={resource ? resource.name : t("resources.add_new")} description={t("resources.form_description")}>
+        <SinglePageLayout
+            title={resource ? resource.name : t("resources.add_new")}
+            icon={type ? <ResourceIcon resource={{ type, variant, engine }} size={24} decorative /> : undefined}
+            description={t("resources.form_description")}
+        >
             <FormProvider {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
                     <Card>
