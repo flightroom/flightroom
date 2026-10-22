@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [5.1.0] - 2026-10-22
+
+### Changed
+
+- **MFE Orchestrator Is Now Flightroom**: the product, the console, the emails, the MCP server and the AI assistant all carry the new name, and the links point to flightroom.dev, console.flightroom.dev and github.com/flightroom. The Docker image is published as `lory1990/flightroom`. Identifiers that existing installations depend on keep their old value: the database name, the `MFE_ORCHESTRATOR_HUB` hosting type, token salts and issuers, Kubernetes labels, the Helm chart name, the client SDK packages and the `MFE_ORCHESTRATOR_*` variables
+- **New Palette And Icon**: the console follows `@flightroom/design-system` 2.0 (charcoal, pumpkin, sunglow, olivine, zomp). Status colours come from the new success, warning and info tokens instead of fixed Tailwind shades, every text/background pair meets WCAG AA in both themes, and the favicon and logo are the new control-room icon
+
 ### Security
 
 - **The API No Longer Returns The Activation And Reset Tokens**: `toFrontendObject()` stripped the password and the salt but left `activateEmailToken` and `resetPasswordToken` in the object, so `POST /api/users/registration` — a public route — answered with the activation token it had just minted, and every other route that serialises a user did the same with the reset token whenever one was pending: login, profile, the organization and project invitation responses. Both are bearer credentials, and holding one activates the account or changes its password without ever reading the mailbox, which is the whole of what the email verification proves. Anybody could therefore register somebody else's address and activate it from the response body. The two tokens and their expiry dates are now deleted alongside the credentials, in the single method every user response goes through
