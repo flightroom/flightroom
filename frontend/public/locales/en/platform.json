@@ -2210,14 +2210,16 @@
                 "AI_DOMAIN_PLAN_HAS_MEMBERS": "The domain already has frontends or services: reload the page.",
                 "AI_DOMAIN_PLAN_FAILED": "The AI could not propose the components: try again or describe the request differently.",
                 "AI_MODEL_NOT_AVAILABLE": "The AI you picked is no longer available to the project: pick another one.",
-                "AI_PROVIDER_ERROR": "The AI provider answered with an error: try again shortly."
+                "AI_PROVIDER_ERROR": "The AI provider answered with an error: try again shortly.",
+                "AI_JOB_NOT_OWNER": "Only the user who started it, or an organization administrator, can do this."
             },
             "apply_all_started": "Applying the proposals onto their base branches",
             "apply_all_failed_one": "{{count}} of {{total}} proposals could not be applied: see the error on its repository",
             "apply_all_failed_other": "{{count}} of {{total}} proposals could not be applied: see the errors on their repositories",
             "follow_up_no_proposal": "No proposal left to refine: start a new job for further changes.",
             "service_badge": "Service",
-            "scope_domain": "Domain"
+            "scope_domain": "Domain",
+            "read_only": "Started by {{name}}: read only"
         },
         "page_title": "AI agent"
     },
@@ -2493,7 +2495,7 @@
             "legend_canary": "Canary on",
             "legend_bridge": "Link across domains",
             "recenter": "Show everything",
-            "hint": "Click a galaxy to fly to it and click it again to open the domain. Click a star to open the frontend or the service, a relation to delete it. Scroll to zoom.",
+            "hint": "Click a galaxy to fly to it and click it again to open the domain. Click a star to open the frontend or the service, a relation to delete it, a ship to open the work of its agent. Scroll to zoom.",
             "summary_one": "Project map: every domain is a galaxy, its frontends and services are the stars. There is {{count}} link across two domains.",
             "summary_other": "Project map: every domain is a galaxy, its frontends and services are the stars. There are {{count}} links across two domains.",
             "kind_frontend": "Frontend",
@@ -2514,7 +2516,12 @@
             "errors": {
                 "link_exists": "These domains are already linked this way.",
                 "link_invalid": "This relation is not valid."
-            }
+            },
+            "agents_summary_one": "One AI agent is at work, drawn as a ship.",
+            "agents_summary_other": "{{count}} AI agents are at work, drawn as ships.",
+            "legend_agent": "Agent at work",
+            "agents_list": "Agents at work",
+            "open_agent": "Open the agent on {{names}}"
         },
         "form": {
             "create_title": "New functional domain",
@@ -2832,5 +2839,118 @@
             "missing_fields": "Some required settings are missing: {{fields}}.",
             "default_conflict": "Another AI was just made the default: reload the page and try again."
         }
+    },
+    "fleet": {
+        "title": "Fleet",
+        "description": "AI missions: the same task handed to agents across many repositories, in batches.",
+        "new_mission": "New mission",
+        "list_label": "Missions",
+        "empty_title": "No missions",
+        "empty_description": "A mission hands the same task to AI agents across many repositories at once, for example updating a dependency everywhere.",
+        "someone": "a user",
+        "started_by": "Started by {{name}}",
+        "batch_progress": "Batch {{current}} of {{total}}",
+        "progress_label": "{{done}} of {{total}} repositories through",
+        "usage_label": "Cost",
+        "usage_hint": "Tokens used by every agent of the mission, all the model rounds summed. Tokens read from the cache cost much less.",
+        "mode": {
+            "global": "Global",
+            "perRepository": "Per repository",
+            "global_description": "One agent sees the repositories together, in batches of 10: a change can span them.",
+            "perRepository_description": "One isolated agent per repository, with the same request."
+        },
+        "status": {
+            "RUNNING": "Running",
+            "DONE": "Done",
+            "FAILED": "Failed",
+            "STOPPED": "Stopped"
+        },
+        "counts": {
+            "queued_one": "{{count}} queued",
+            "queued_other": "{{count}} queued",
+            "running_one": "{{count}} at work",
+            "running_other": "{{count}} at work",
+            "proposed_one": "{{count}} proposed",
+            "proposed_other": "{{count}} proposed",
+            "applied_one": "{{count}} applied",
+            "applied_other": "{{count}} applied",
+            "failed_one": "{{count}} failed",
+            "failed_other": "{{count}} failed",
+            "noChanges_one": "{{count}} without changes",
+            "noChanges_other": "{{count}} without changes",
+            "applying_one": "{{count}} applying",
+            "applying_other": "{{count}} applying"
+        },
+        "repository_status": {
+            "queued": "Queued",
+            "notStarted": "Not started",
+            "running": "At work",
+            "proposed": "Proposed",
+            "applying": "Applying",
+            "applied": "Applied",
+            "failed": "Failed",
+            "noChanges": "No changes"
+        },
+        "stop": "Stop mission",
+        "stop_title": "Stop the mission?",
+        "stop_description": "The agents at work are stopped and what they did so far is dropped; the next batches do not start. The proposals already made stay to be reviewed.",
+        "stopping": "Stopping…",
+        "stopped_success": "Mission stopped",
+        "detail": {
+            "title": "Mission",
+            "back": "Back to the fleet",
+            "prompt": "Request",
+            "concurrency_one": "{{count}} agent at a time",
+            "concurrency_other": "{{count}} agents at a time",
+            "batch": "Batch {{number}} of {{total}}",
+            "batch_state": {
+                "current": "Running",
+                "done": "Done",
+                "upcoming": "Waiting",
+                "not_started": "Not started"
+            },
+            "open_job": "Open",
+            "open_job_label": "Open the job of {{name}} in the assistant"
+        },
+        "new": {
+            "title": "New mission",
+            "description": "The same task across many repositories. The agents propose changes to review: nothing is published until you apply them.",
+            "prompt_label": "What do you want to change?",
+            "prompt_placeholder": "e.g. Update axios to the latest 1.x and fix the deprecated uses",
+            "prompt_required": "Describe the change you want",
+            "mode_label": "Mode",
+            "repositories_label": "Repositories",
+            "all": "All repositories ({{count}})",
+            "search_placeholder": "Search a repository",
+            "search_clear": "Clear search",
+            "no_results": "No repository matches the search.",
+            "select_group": "Select every repository of {{name}}",
+            "selected_count_one": "{{count}} repository selected, at most {{max}}.",
+            "selected_count_other": "{{count}} repositories selected, at most {{max}}.",
+            "selection_required": "Select at least one repository",
+            "too_many": "You picked {{count}} repositories: a mission can have at most {{max}}.",
+            "batches_global": "With more than {{size}} repositories the agent sees them in batches of {{size}} ({{batches}} batches, one after the other): a change cannot span repositories of different batches.",
+            "batches_per_repository": "The repositories are worked on in batches of {{size}}, one after the other: {{batches}} batches.",
+            "concurrency_label": "Agents at a time",
+            "concurrency_hint": "How many agents work together inside a batch, from {{min}} to {{max}}.",
+            "concurrency_invalid": "Enter a whole number from {{min}} to {{max}}",
+            "start": "Start mission",
+            "started": "Mission started"
+        },
+        "errors": {
+            "load": "Could not load the missions.",
+            "create": "Could not start the mission.",
+            "stop": "Could not stop the mission.",
+            "apply": "Could not apply the proposals of the mission.",
+            "AI_MISSION_TOO_MANY_REPOSITORIES": "A mission can work on at most 200 repositories: narrow the selection.",
+            "AI_MISSION_NOT_RUNNING": "The mission is already over.",
+            "AI_MISSION_INVALID_SELECTION": "Pick all the repositories or a selection, not both.",
+            "AI_CHANGE_TOO_MANY": "Too many jobs or missions are running in this project: wait for one to finish.",
+            "DOMAIN_SCOPE_FORBIDDEN": "Some repositories are outside the domains you have access to.",
+            "AI_JOB_NOT_OWNER": "Only the user who started this mission, or an organization administrator, can do this.",
+            "AI_MISSION_EMPTY_PROMPT": "Write what the agents should do."
+        },
+        "applying_label_one": "Applying {{count}} proposal…",
+        "applying_label_other": "Applying {{count}} proposals…"
     }
 }

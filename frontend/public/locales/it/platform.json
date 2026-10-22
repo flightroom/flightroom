@@ -2229,14 +2229,16 @@
                 "AI_DOMAIN_PLAN_HAS_MEMBERS": "Il dominio ha già frontend o servizi: ricarica la pagina.",
                 "AI_DOMAIN_PLAN_FAILED": "L'AI non è riuscita a proporre i componenti: riprova o descrivi la richiesta in un altro modo.",
                 "AI_MODEL_NOT_AVAILABLE": "L'IA scelta non è più disponibile per il progetto: scegline un'altra.",
-                "AI_PROVIDER_ERROR": "Il provider IA ha risposto con un errore: riprova tra poco."
+                "AI_PROVIDER_ERROR": "Il provider IA ha risposto con un errore: riprova tra poco.",
+                "AI_JOB_NOT_OWNER": "Solo chi l'ha avviato, o un amministratore dell'organizzazione, può farlo."
             },
             "apply_all_started": "Applicazione delle proposte sui branch di partenza in corso",
             "apply_all_failed_one": "{{count}} proposta su {{total}} non è stata applicata: guarda l'errore sul suo repository",
             "apply_all_failed_other": "{{count}} proposte su {{total}} non sono state applicate: guarda gli errori sui loro repository",
             "follow_up_no_proposal": "Non ci sono proposte da rifinire: avvia un nuovo job per altre modifiche.",
             "service_badge": "Servizio",
-            "scope_domain": "Dominio"
+            "scope_domain": "Dominio",
+            "read_only": "Avviato da {{name}}: sola lettura"
         },
         "page_title": "Agente AI"
     },
@@ -2512,7 +2514,7 @@
             "legend_canary": "Canary attivo",
             "legend_bridge": "Collegamento tra domini",
             "recenter": "Mostra tutto",
-            "hint": "Clicca una galassia per avvicinarti e cliccala di nuovo per aprire il dominio. Clicca una stella per aprire il frontend o il servizio, una relazione per eliminarla. Usa la rotella per lo zoom.",
+            "hint": "Clicca una galassia per avvicinarti e cliccala di nuovo per aprire il dominio. Clicca una stella per aprire il frontend o il servizio, una relazione per eliminarla, una nave per aprire il lavoro del suo agente. Usa la rotella per lo zoom.",
             "summary_one": "Mappa del progetto: ogni dominio è una galassia, i suoi frontend e servizi sono le stelle. C'è {{count}} collegamento tra domini diversi.",
             "summary_other": "Mappa del progetto: ogni dominio è una galassia, i suoi frontend e servizi sono le stelle. Ci sono {{count}} collegamenti tra domini diversi.",
             "kind_frontend": "Frontend",
@@ -2533,7 +2535,12 @@
             "errors": {
                 "link_exists": "Questi domini sono già collegati in questa direzione.",
                 "link_invalid": "Questa relazione non è valida."
-            }
+            },
+            "agents_summary_one": "C'è un agente AI al lavoro, disegnato come una nave.",
+            "agents_summary_other": "Ci sono {{count}} agenti AI al lavoro, disegnati come navi.",
+            "legend_agent": "Agente al lavoro",
+            "agents_list": "Agenti al lavoro",
+            "open_agent": "Apri l'agente su {{names}}"
         },
         "form": {
             "create_title": "Nuovo dominio funzionale",
@@ -2851,5 +2858,118 @@
             "missing_fields": "Mancano alcune impostazioni obbligatorie: {{fields}}.",
             "default_conflict": "Un'altra IA è appena stata impostata come default: ricarica la pagina e riprova."
         }
+    },
+    "fleet": {
+        "title": "Flotta",
+        "description": "Missioni AI: lo stesso compito affidato agli agenti su molte repository, a lotti.",
+        "new_mission": "Nuova missione",
+        "list_label": "Missioni",
+        "empty_title": "Nessuna missione",
+        "empty_description": "Una missione affida lo stesso compito agli agenti AI su molte repository insieme, per esempio aggiornare una dipendenza ovunque.",
+        "someone": "un utente",
+        "started_by": "Avviata da {{name}}",
+        "batch_progress": "Lotto {{current}} di {{total}}",
+        "progress_label": "{{done}} repository su {{total}} concluse",
+        "usage_label": "Costo",
+        "usage_hint": "Token usati da tutti gli agenti della missione, sommando tutti i passaggi del modello. I token letti dalla cache costano molto meno.",
+        "mode": {
+            "global": "Globale",
+            "perRepository": "Per repository",
+            "global_description": "Un agente vede le repository insieme, a lotti di 10: una modifica può attraversarle.",
+            "perRepository_description": "Un agente isolato per ogni repository, con la stessa richiesta."
+        },
+        "status": {
+            "RUNNING": "In corso",
+            "DONE": "Completata",
+            "FAILED": "Non riuscita",
+            "STOPPED": "Fermata"
+        },
+        "counts": {
+            "queued_one": "{{count}} in coda",
+            "queued_other": "{{count}} in coda",
+            "running_one": "{{count}} al lavoro",
+            "running_other": "{{count}} al lavoro",
+            "proposed_one": "{{count}} proposta",
+            "proposed_other": "{{count}} proposte",
+            "applied_one": "{{count}} applicata",
+            "applied_other": "{{count}} applicate",
+            "failed_one": "{{count}} fallita",
+            "failed_other": "{{count}} fallite",
+            "noChanges_one": "{{count}} senza modifiche",
+            "noChanges_other": "{{count}} senza modifiche",
+            "applying_one": "{{count}} in applicazione",
+            "applying_other": "{{count}} in applicazione"
+        },
+        "repository_status": {
+            "queued": "In coda",
+            "notStarted": "Non avviata",
+            "running": "Al lavoro",
+            "proposed": "Proposta",
+            "applying": "In applicazione",
+            "applied": "Applicata",
+            "failed": "Fallita",
+            "noChanges": "Senza modifiche"
+        },
+        "stop": "Ferma missione",
+        "stop_title": "Fermare la missione?",
+        "stop_description": "Gli agenti al lavoro vengono fermati e quello che hanno fatto finora viene scartato; i lotti successivi non partono. Le proposte già pronte restano da rivedere.",
+        "stopping": "Arresto in corso…",
+        "stopped_success": "Missione fermata",
+        "detail": {
+            "title": "Missione",
+            "back": "Torna alla flotta",
+            "prompt": "Richiesta",
+            "concurrency_one": "{{count}} agente in parallelo",
+            "concurrency_other": "{{count}} agenti in parallelo",
+            "batch": "Lotto {{number}} di {{total}}",
+            "batch_state": {
+                "current": "In corso",
+                "done": "Concluso",
+                "upcoming": "In attesa",
+                "not_started": "Non avviato"
+            },
+            "open_job": "Apri",
+            "open_job_label": "Apri nell'assistente il job di {{name}}"
+        },
+        "new": {
+            "title": "Nuova missione",
+            "description": "Lo stesso compito su molte repository. Gli agenti propongono le modifiche da rivedere: non viene pubblicato nulla finché non le applichi.",
+            "prompt_label": "Cosa vuoi cambiare?",
+            "prompt_placeholder": "es. Aggiorna axios all'ultima versione 1.x e sistema gli usi deprecati",
+            "prompt_required": "Descrivi la modifica che vuoi",
+            "mode_label": "Modalità",
+            "repositories_label": "Repository",
+            "all": "Tutte le repository ({{count}})",
+            "search_placeholder": "Cerca una repository",
+            "search_clear": "Cancella la ricerca",
+            "no_results": "Nessuna repository corrisponde alla ricerca.",
+            "select_group": "Seleziona tutte le repository di {{name}}",
+            "selected_count_one": "{{count}} repository selezionata, al massimo {{max}}.",
+            "selected_count_other": "{{count}} repository selezionate, al massimo {{max}}.",
+            "selection_required": "Seleziona almeno una repository",
+            "too_many": "Hai scelto {{count}} repository: una missione ne può avere al massimo {{max}}.",
+            "batches_global": "Con più di {{size}} repository l'agente le vede a lotti di {{size}} ({{batches}} lotti, uno dopo l'altro): una modifica non può attraversare repository di lotti diversi.",
+            "batches_per_repository": "Le repository vengono lavorate a lotti di {{size}}, uno dopo l'altro: {{batches}} lotti.",
+            "concurrency_label": "Agenti in parallelo",
+            "concurrency_hint": "Quanti agenti lavorano insieme dentro un lotto, da {{min}} a {{max}}.",
+            "concurrency_invalid": "Indica un numero intero da {{min}} a {{max}}",
+            "start": "Avvia missione",
+            "started": "Missione avviata"
+        },
+        "errors": {
+            "load": "Impossibile caricare le missioni.",
+            "create": "Impossibile avviare la missione.",
+            "stop": "Impossibile fermare la missione.",
+            "apply": "Impossibile applicare le proposte della missione.",
+            "AI_MISSION_TOO_MANY_REPOSITORIES": "Una missione può lavorare al massimo su 200 repository: riduci la selezione.",
+            "AI_MISSION_NOT_RUNNING": "La missione è già finita.",
+            "AI_MISSION_INVALID_SELECTION": "Scegli tutte le repository oppure una selezione, non entrambe.",
+            "AI_CHANGE_TOO_MANY": "Ci sono troppi job o missioni in corso in questo progetto: attendi che uno finisca.",
+            "DOMAIN_SCOPE_FORBIDDEN": "Alcune repository sono fuori dai domini a cui hai accesso.",
+            "AI_JOB_NOT_OWNER": "Solo chi ha avviato questa missione, o un amministratore dell'organizzazione, può farlo.",
+            "AI_MISSION_EMPTY_PROMPT": "Scrivi cosa devono fare gli agenti."
+        },
+        "applying_label_one": "Applicazione di {{count}} proposta…",
+        "applying_label_other": "Applicazione di {{count}} proposte…"
     }
 }

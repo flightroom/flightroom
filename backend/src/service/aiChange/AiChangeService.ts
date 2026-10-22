@@ -107,6 +107,7 @@ export class AiChangeService extends AiChangeBaseService {
     async discard(id: string): Promise<IAiChangeRequest> {
         const request = await this.getRequest(id)
         await this.ensureCanChangeProject(request.projectId)
+        await this.ensureCanAct(request)
         // A follow-up running on it pushes the same branch: deleting it now would take the follow-up's work away.
         await ensureNotBeingRefined(request)
         const discarded = await AiChangeRequest.findOneAndUpdate({ _id: request._id, status: AiChangeStatus.PROPOSED }, { status: AiChangeStatus.DISCARDED }, { new: true })
@@ -123,6 +124,7 @@ export class AiChangeService extends AiChangeBaseService {
     async openPullRequest(id: string): Promise<IAiChangeRequest> {
         const request = await this.getRequest(id)
         await this.ensureCanChangeProject(request.projectId)
+        await this.ensureCanAct(request)
         await this.ensureRepositoriesInDomainScope(request.projectId, [componentOf(request)])
         if (request.status !== AiChangeStatus.PROPOSED) throw createBusinessException({ code: "AI_CHANGE_NOT_PROPOSED", message: "This change is not waiting for approval", statusCode: 409 })
         if (request.pullRequestUrl) return request
@@ -145,6 +147,7 @@ export class AiChangeService extends AiChangeBaseService {
     async apply(id: string): Promise<IAiChangeRequest> {
         const request = await this.getRequest(id)
         await this.ensureCanChangeProject(request.projectId)
+        await this.ensureCanAct(request)
         await this.ensureRepositoriesInDomainScope(request.projectId, [componentOf(request)])
         const files = this.filesToCommit(request)
         await ensureNotBeingRefined(request)

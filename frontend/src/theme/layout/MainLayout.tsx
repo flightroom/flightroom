@@ -10,6 +10,7 @@ import {
     Package as PackageIcon,
     Rocket as RocketIcon,
     Server,
+    Ship,
     SlidersHorizontal,
     Sparkles
 } from "lucide-react"
@@ -70,7 +71,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             title: t("navigation.sections.devops"),
             items: [
                 { name: t("builds.title"), path: "/builds", icon: <HammerIcon /> },
-                { name: t("deployments.title"), path: "/deployments", icon: <RocketIcon /> }
+                { name: t("deployments.title"), path: "/deployments", icon: <RocketIcon /> },
+                // Missions run AI agents: without an AI in the project there is nothing to start.
+                ...(assistantEnabled ? [{ name: t("fleet.title"), path: "/fleet", icon: <Ship /> }] : [])
             ]
         },
         {

@@ -1,12 +1,12 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react"
 import { LayoutDashboard } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import { Badge } from "@/components/atoms"
 import { CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { cn } from "@/utils/styleUtils"
 import CloneRepositoryPopover from "../components/CloneRepositoryPopover"
 import FrontendKindBadge from "../components/FrontendKindBadge"
-import WorkingAgentsIndicator, { useWorkingAgents } from "../components/WorkingAgentsIndicator"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "../labels"
 
 /**

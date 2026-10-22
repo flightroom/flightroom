@@ -2,6 +2,7 @@ import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@flightroo
 import { Cog, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
+import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
 import RepositoryLink from "@/components/RepositoryLink"
@@ -33,6 +34,7 @@ export const ServicesGrid: React.FC<{ services?: Service[]; frontends?: Frontend
                                 <p className="truncate text-sm text-foreground-secondary" title={service.slug}>
                                     {service.slug}
                                 </p>
+                                <ComponentWorkingAgents componentId={service._id} className="mt-2 max-w-full" />
                             </div>
                             {service.version && <Badge className="shrink-0">{service.version}</Badge>}
                         </CardHeader>
@@ -61,6 +63,7 @@ export const ServicesGrid: React.FC<{ services?: Service[]; frontends?: Frontend
                                 <p className="truncate text-sm text-foreground-secondary" title={frontend.slug}>
                                     {frontend.slug}
                                 </p>
+                                <ComponentWorkingAgents componentId={frontend._id} className="mt-2 max-w-full" />
                             </div>
                             {frontend.version && <Badge className="shrink-0">{frontend.version}</Badge>}
                         </CardHeader>

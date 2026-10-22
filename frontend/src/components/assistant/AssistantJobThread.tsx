@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle, Spinner, Textarea } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
-import { AlertTriangle, ArrowUp, ExternalLink, GitBranch, Server, Square } from "lucide-react"
+import { AlertTriangle, ArrowUp, ExternalLink, Eye, GitBranch, Server, Square } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -13,6 +13,7 @@ import { effortsOf } from "@/hooks/apiClients/useAiModelsApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
+import { cn } from "@/utils/styleUtils"
 import AiModelSelect from "./AiModelSelect"
 import AnswerUsage from "./AnswerUsage"
 import AssistantMessageText from "./AssistantMessageText"
@@ -23,13 +24,14 @@ export const POLL_INTERVAL_MS = 2000
 export const PROMPT_MAX_LENGTH = 8000
 
 /** Error codes of the job endpoints that have a message of their own. */
-const JOB_ERROR_CODES = new Set([
+export const JOB_ERROR_CODES = new Set([
     "ASSISTANT_DISABLED",
     "AI_CHANGE_FORBIDDEN",
     "AI_CHANGE_NOT_PROPOSED",
     "AI_CHANGE_TOO_MANY",
     "AI_JOB_FOLLOW_UP_RUNNING",
     "AI_JOB_NOT_DONE",
+    "AI_JOB_NOT_OWNER",
     "AI_JOB_NOT_RUNNING",
     "AI_JOB_NO_REPOSITORIES",
     "AI_JOB_TOO_MANY_REPOSITORIES",
@@ -56,6 +58,17 @@ export const sumUsage = (jobs: AiJob[]): AiUsage =>
         }),
         { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 }
     )
+
+/** In place of the actions on a job or a mission someone else started: only they, or an organization administrator, act on it. */
+export const ReadOnlyNote: React.FC<{ name?: string; className?: string }> = ({ name, className }) => {
+    const { t } = useTranslation()
+    return (
+        <p className={cn("flex items-center gap-1.5 text-xs text-foreground-secondary", className)} data-testid="ai-read-only-note">
+            <Eye className="size-3.5 shrink-0" aria-hidden="true" />
+            {t("assistant.jobs.read_only", { name: name ?? t("fleet.someone") })}
+        </p>
+    )
+}
 
 /** Still moving: the agent works, or a proposal is being pushed. */
 const isBusy = (job: AiJob) => isAiJobActive(job.status) || job.repositories.some(repository => repository.status === "APPLYING")
@@ -403,7 +416,7 @@ const AssistantJobThread: React.FC<AssistantJobThreadProps> = ({ projectId, tab 
                 <AnswerUsage usage={latest.usage} label={t("assistant.jobs.usage_latest")} hint={t("assistant.jobs.usage_hint")} effort={latest.effort} />
                 {chain.length > 1 && <AnswerUsage usage={sumUsage(chain)} label={t("assistant.jobs.usage_total", { count: chain.length })} hint={t("assistant.jobs.usage_hint")} />}
                 {chainQuery.isError && <p className="text-xs text-destructive">{t("assistant.jobs.errors.load")}</p>}
-                {target && proposed.length > 0 && (
+                {target?.canAct && proposed.length > 0 && (
                     <div className="flex justify-end pt-1">
                         <ApplyAllButton job={target} requestIds={proposed.map(repository => repository.requestId)} onApplying={onApplying} />
                     </div>
@@ -416,7 +429,12 @@ const AssistantJobThread: React.FC<AssistantJobThreadProps> = ({ projectId, tab 
                 ))}
             </div>
 
-            <FollowUpForm projectId={projectId} latest={latest} target={target} onStopped={() => chainQuery.refetch()} />
+            {/* Stopped while it works, refined once done: by who started it, or an organization administrator, only. */}
+            {(isAiJobActive(latest.status) ? latest : (target ?? latest)).canAct ? (
+                <FollowUpForm projectId={projectId} latest={latest} target={target} onStopped={() => chainQuery.refetch()} />
+            ) : (
+                <ReadOnlyNote name={(target ?? latest).userName} className="border-t border-divider px-4 py-3" />
+            )}
         </div>
     )
 }

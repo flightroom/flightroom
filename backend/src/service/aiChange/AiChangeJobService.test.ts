@@ -24,18 +24,20 @@ vi.mock("./aiChangeAgent", async importOriginal => ({ ...(await importOriginal<t
 
 import AiChangeJob, { AiJobStatus } from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus } from "../../models/AiChangeRequestModel"
+import AiMission from "../../models/AiMissionModel"
 import AiModel from "../../models/AiModelModel"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
 import Domain from "../../models/DomainModel"
 import Frontend from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
 import Service from "../../models/ServiceModel"
-import { IUser } from "../../models/UserModel"
+import User, { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import { LlmClient } from "../llm"
 import { RepositoryFileService } from "../RepositoryFileService"
 import AiChangeJobService from "./AiChangeJobService"
+import AiMissionService from "./AiMissionService"
 
 type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
 type WithProcess = { process: (jobId: string, client: LlmClient) => Promise<void> }
@@ -106,6 +108,9 @@ describe("AiChangeJobService", () => {
         vi.spyOn(AiChangeJob, "exists").mockResolvedValue(null as never)
         vi.spyOn(AiChangeRequest, "exists").mockResolvedValue(null as never)
         vi.spyOn(AiChangeJob, "countDocuments").mockImplementation((() => Promise.resolve(activeJobs)) as never)
+        vi.spyOn(AiMission, "countDocuments").mockResolvedValue(0 as never)
+        // No mission running: what the cap moves on before refusing.
+        vi.spyOn(AiMission, "find").mockResolvedValue([] as never)
         vi.spyOn(AiChangeJob, "create").mockImplementation(((document: Record<string, unknown>) => Promise.resolve({ ...document, createdAt: new Date(), updatedAt: new Date() })) as never)
         vi.spyOn(AiChangeRequest, "create").mockImplementation(((document: Record<string, unknown>) => Promise.resolve({ _id: new Types.ObjectId(), files: [], ...document })) as never)
         for (const [model, target] of [
@@ -188,6 +193,32 @@ describe("AiChangeJobService", () => {
             activeJobs = 3
 
             await expect(service().create(projectId, { prompt: "Rename the price API", scope: "global" })).rejects.toMatchObject({ code: "AI_CHANGE_TOO_MANY", statusCode: 429 })
+        })
+
+        it("Given 2 jobs and a mission running in the project, when another job is started, then the mission counts as one and the mission's jobs do not count", async () => {
+            activeJobs = 2
+            vi.spyOn(AiMission, "countDocuments").mockResolvedValue(1 as never)
+
+            await expect(service().create(projectId, { prompt: "Rename the price API", scope: "global" })).rejects.toMatchObject({ code: "AI_CHANGE_TOO_MANY", statusCode: 429 })
+            const [jobFilter] = (AiChangeJob.countDocuments as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
+            expect(jobFilter).toMatchObject({ missionId: { $exists: false } })
+        })
+
+        it("Given the cap reached by a mission whose last job died unnoticed, when a job is started, then the mission is moved on first and the job starts once it ended", async () => {
+            activeJobs = 2
+            let missionRunning = true
+            vi.spyOn(AiMission, "countDocuments").mockImplementation((() => Promise.resolve(missionRunning ? 1 : 0)) as never)
+            const missionId = new Types.ObjectId()
+            vi.spyOn(AiMission, "find").mockResolvedValue([{ _id: missionId }] as never)
+            const advance = vi.spyOn(AiMissionService.prototype, "advance").mockImplementation(async () => {
+                missionRunning = false
+            })
+            vi.spyOn(AiChangeJobService.prototype as unknown as WithProcess, "process").mockResolvedValue(undefined)
+
+            await service().create(projectId, { prompt: "Rename the price API", scope: "global" })
+
+            expect(advance).toHaveBeenCalledWith(String(missionId))
+            expect(AiChangeJob.create).toHaveBeenCalled()
         })
 
         it("Given two selected frontends, when the job is started, then it is its own root and each repository gets a pending request on its default branch", async () => {
@@ -426,6 +457,53 @@ describe("AiChangeJobService", () => {
             expect(AiChangeRequest.create).toHaveBeenCalledWith(expect.objectContaining({ frontendId: catalog._id, parentId: requests[0]._id, baseBranch: "develop" }))
             // The follow-up goes on on the parent's branch: its pull request follows it.
             expect(AiChangeRequest.create).toHaveBeenCalledWith(expect.objectContaining({ branch: "ai/catalog-20261020-090000", pullRequestUrl: "https://github.com/acme/catalog/pull/4" }))
+        })
+
+        it("Given a job of a mission, when it is followed up, then the follow-up is the mission's too and takes no place among the active jobs", async () => {
+            const missionId = new Types.ObjectId()
+            activeJobs = 3
+            vi.spyOn(AiChangeJob, "findById").mockImplementation((() =>
+                Promise.resolve({
+                    _id: parentJobId,
+                    rootJobId,
+                    missionId,
+                    projectId,
+                    userId: user._id,
+                    prompt: "Upgrade React",
+                    scope: "selection",
+                    frontendIds: [catalog._id],
+                    status: parentStatus,
+                    usage: {},
+                    updatedAt: new Date()
+                })) as never)
+
+            await service().followUp(String(parentJobId), { prompt: "Also the tests" })
+
+            expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ missionId, parentJobId, rootJobId }))
+            expect(AiChangeJob.countDocuments).not.toHaveBeenCalled()
+        })
+
+        it("Given a job someone else started, when a member follows it up, then it is refused, and an organization administrator may", async () => {
+            vi.spyOn(AiChangeJob, "findById").mockImplementation((() =>
+                Promise.resolve({
+                    _id: parentJobId,
+                    rootJobId,
+                    projectId,
+                    userId: new Types.ObjectId(),
+                    prompt: "Rename the price API",
+                    scope: "global",
+                    frontendIds: [catalog._id],
+                    status: parentStatus,
+                    usage: {},
+                    updatedAt: new Date()
+                })) as never)
+
+            await expect(service().followUp(String(parentJobId), { prompt: "Also rename the tests" })).rejects.toMatchObject({ code: "AI_JOB_NOT_OWNER", statusCode: 403 })
+            expect(AiChangeJob.create).not.toHaveBeenCalled()
+
+            vi.spyOn(BaseAuthorizedService.prototype as unknown as WithGates, "isOrganizationAdmin").mockResolvedValue(true)
+            const child = await service().followUp(String(parentJobId), { prompt: "Also rename the tests" })
+            expect(child.canAct).toBe(true)
         })
 
         it("Given a parent that reasoned at low, when it is followed up, then the child reasons at low too unless another effort is chosen", async () => {
@@ -1066,6 +1144,19 @@ describe("AiChangeJobService", () => {
 
         const claims = () => updates.filter(({ update }) => update.status === AiChangeStatus.APPLYING)
 
+        it("Given a job someone else started, when a member applies it, then it is refused without claiming, and an organization administrator may", async () => {
+            vi.spyOn(AiChangeJob, "findById").mockImplementation((() =>
+                Promise.resolve({ _id: jobId, rootJobId: jobId, projectId, userId: new Types.ObjectId(), frontendIds: [catalog._id, cart._id], status, usage: {}, updatedAt: new Date() })) as never)
+            vi.spyOn(AiChangeJobService.prototype as unknown as WithApplyClaimed, "applyClaimed").mockResolvedValue({})
+
+            await expect(service().apply(String(jobId))).rejects.toMatchObject({ code: "AI_JOB_NOT_OWNER", statusCode: 403 })
+            expect(claims()).toEqual([])
+
+            vi.spyOn(BaseAuthorizedService.prototype as unknown as WithGates, "isOrganizationAdmin").mockResolvedValue(true)
+            await service().apply(String(jobId))
+            expect(claims()).toHaveLength(2)
+        })
+
         it("Given a job not finished, when it is applied, then it is refused", async () => {
             status = AiJobStatus.RUNNING
 
@@ -1146,6 +1237,17 @@ describe("AiChangeJobService", () => {
             }) as never)
         })
 
+        it("Given a job someone else started, when a member stops it, then it is refused and it keeps running; an organization administrator may stop it", async () => {
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({ ...job(AiJobStatus.RUNNING), userId: new Types.ObjectId() } as never)
+
+            await expect(service().stop(String(jobId))).rejects.toMatchObject({ code: "AI_JOB_NOT_OWNER", statusCode: 403 })
+            expect(updates).toEqual([])
+
+            vi.spyOn(BaseAuthorizedService.prototype as unknown as WithGates, "isOrganizationAdmin").mockResolvedValue(true)
+            await service().stop(String(jobId))
+            expect(updates).toContainEqual(expect.objectContaining({ model: "job", update: expect.objectContaining({ status: AiJobStatus.FAILED }) }))
+        })
+
         it("Given a job at work, when it is stopped, then it ends as stopped and its requests at work are discarded", async () => {
             const view = await service().stop(String(jobId))
 
@@ -1182,28 +1284,92 @@ describe("AiChangeJobService", () => {
         })
     })
 
+    describe("a job someone else started", () => {
+        it("Given a job of another member, when it is read, then it reads as not theirs to act on, with who started it", async () => {
+            const jobId = new Types.ObjectId()
+            const owner = { _id: new Types.ObjectId(), name: "Grace", surname: "Hopper", email: "grace@example.com" }
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({
+                _id: jobId,
+                rootJobId: jobId,
+                projectId,
+                userId: owner._id,
+                frontendIds: [catalog._id],
+                status: AiJobStatus.DONE,
+                usage: {},
+                updatedAt: new Date()
+            } as never)
+            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([] as never)
+            vi.spyOn(User, "find").mockResolvedValue([owner] as never)
+
+            expect(await service().get(String(jobId))).toMatchObject({ canAct: false, userName: "Grace Hopper" })
+        })
+    })
+
+    describe("a job of a mission", () => {
+        it("Given a job started by a mission, when it ends, however it ends, then the mission moves on", async () => {
+            const missionId = new Types.ObjectId()
+            const jobId = new Types.ObjectId()
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({ _id: jobId, projectId, userId: user._id, missionId, frontendIds: [catalog._id], status: AiJobStatus.PENDING } as never)
+            vi.spyOn(Project, "findById").mockResolvedValue(null as never)
+            const advance = vi.spyOn(AiMissionService.prototype, "advance").mockResolvedValue(undefined)
+
+            await (service() as unknown as WithProcess).process(String(jobId), {} as LlmClient)
+
+            expect(updates).toContainEqual(expect.objectContaining({ model: "job", update: expect.objectContaining({ status: AiJobStatus.FAILED }) }))
+            expect(advance).toHaveBeenCalledWith(String(missionId))
+        })
+    })
+
     describe("working", () => {
-        it("Given two jobs on the catalog and a change on the cart alone, when the project is asked, then each frontend counts its agents", async () => {
-            vi.spyOn(AiChangeJob, "find").mockResolvedValue([{ frontendIds: [catalog._id, cart._id], serviceIds: [catalogApi._id] }, { frontendIds: [catalog._id] }] as never)
-            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ frontendId: cart._id }] as never)
+        it("Given two jobs, one of a mission, and a change on the cart alone, when the project is asked, then each agent is listed with what it works on", async () => {
+            const missionId = new Types.ObjectId()
+            const jobs = [
+                { _id: new Types.ObjectId(), frontendIds: [catalog._id, cart._id], serviceIds: [catalogApi._id] },
+                { _id: new Types.ObjectId(), missionId, frontendIds: [catalog._id] }
+            ]
+            const requestId = new Types.ObjectId()
+            vi.spyOn(AiChangeJob, "find").mockResolvedValue(jobs as never)
+            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ _id: requestId, frontendId: cart._id }] as never)
 
             const working = await service().working(projectId)
 
-            expect(working).toEqual(
-                expect.arrayContaining([
-                    { frontendId: String(catalog._id), agents: 2 },
-                    { frontendId: String(cart._id), agents: 2 },
-                    { frontendId: String(catalogApi._id), agents: 1 }
-                ])
-            )
-            // Only what is running and still alive: a job's own requests are counted through the job.
+            expect(working).toEqual([
+                { jobId: String(jobs[0]._id), kind: "job", componentIds: [String(catalog._id), String(cart._id), String(catalogApi._id)] },
+                { jobId: String(jobs[1]._id), kind: "job", missionId: String(missionId), componentIds: [String(catalog._id)] },
+                { jobId: String(requestId), kind: "request", componentIds: [String(cart._id)] }
+            ])
+            // Only what is running and still alive: a job's own requests are listed through the job.
             const [jobFilter] = (AiChangeJob.find as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
             expect(jobFilter).toMatchObject({ status: { $in: [AiJobStatus.PENDING, AiJobStatus.RUNNING] }, updatedAt: { $gt: expect.any(Date) } })
             const [requestFilter] = (AiChangeRequest.find as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
             expect(requestFilter).toMatchObject({ jobId: { $exists: false }, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] } })
         })
 
-        it("Given nothing running, when the project is asked, then no frontend is listed", async () => {
+        it("Given a domain-scoped member, when the project is asked, then only the jobs they may open are listed, whole, and the changes on what they see", async () => {
+            const ownDomain = new Types.ObjectId()
+            vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(ownDomain)])
+            const jobs = [
+                { _id: new Types.ObjectId(), scope: "selection", frontendIds: [catalog._id, cart._id] },
+                { _id: new Types.ObjectId(), scope: "selection", frontendIds: [catalog._id] },
+                { _id: new Types.ObjectId(), scope: "global", frontendIds: [catalog._id] }
+            ]
+            const requests = [
+                { _id: new Types.ObjectId(), frontendId: catalog._id },
+                { _id: new Types.ObjectId(), frontendId: cart._id }
+            ]
+            vi.spyOn(AiChangeJob, "find").mockResolvedValue(jobs as never)
+            vi.spyOn(AiChangeRequest, "find").mockResolvedValue(requests as never)
+            // Only the catalog is in the member's domain.
+            vi.spyOn(Frontend, "find").mockResolvedValue([{ _id: catalog._id, domainId: ownDomain }] as never)
+            vi.spyOn(Service, "find").mockResolvedValue([] as never)
+
+            expect(await service().working(projectId)).toEqual([
+                { jobId: String(jobs[1]._id), kind: "job", componentIds: [String(catalog._id)] },
+                { jobId: String(requests[0]._id), kind: "request", componentIds: [String(catalog._id)] }
+            ])
+        })
+
+        it("Given nothing running, when the project is asked, then no agent is listed", async () => {
             vi.spyOn(AiChangeJob, "find").mockResolvedValue([] as never)
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue([] as never)
 

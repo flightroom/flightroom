@@ -65,13 +65,23 @@ export interface AiJob {
     /** The AI of the organization the agent worked with; missing on jobs made before AIs were per organization. */
     aiModelId?: string
     repositories: AiJobRepository[]
+    /** Whether the current user may apply, stop or follow it up: who started it, or an organization administrator. */
+    canAct: boolean
+    /** Who started it, sent only when the current user cannot act on it. */
+    userName?: string
     createdAt: string
     updatedAt: string
 }
 
-export interface AiWorkingAgents {
-    frontendId: string
-    agents: number
+/** An agent at work: a job (of a mission or not) or a change request started on a frontend or service page. */
+export interface AiWorkingJob {
+    /** A job id, or the id of a change request that has no job. */
+    jobId: string
+    /** A job opens in the assistant; a request has no job, it is shown on its frontend or service page. */
+    kind: "job" | "request"
+    missionId?: string
+    /** The frontends and services it works on. */
+    componentIds: string[]
 }
 
 /** Without `effort`, the backend works at `high`; without `aiModelId`, with the default AI of the project. */
@@ -174,9 +184,9 @@ const useAiJobsApi = () => {
         return response.data
     }
 
-    /** How many agents of anyone in the project are at work on each frontend; those with none are left out. */
-    const working = async (metadata?: IClientRequestMetadataExtended): Promise<AiWorkingAgents[]> => {
-        const response = await apiClient.doRequest<AiWorkingAgents[]>({
+    /** The agents of anyone in the project at work right now, with the frontends and services each works on. */
+    const working = async (metadata?: IClientRequestMetadataExtended): Promise<AiWorkingJob[]> => {
+        const response = await apiClient.doRequest<AiWorkingJob[]>({
             url: "/api/ai-jobs/working",
             ...metadata
         })
