@@ -188,8 +188,8 @@ importers:
         specifier: ^5.5.5
         version: 5.5.5(@azure/msal-browser@5.18.0)(react@19.2.8)
       '@flightroom/design-system':
-        specifier: ^1.6.0
-        version: 1.6.0(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-hook-form@7.85.0(react@19.2.8))(react@19.2.8)
+        specifier: ^1.6.1
+        version: 1.6.1(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-hook-form@7.85.0(react@19.2.8))(react@19.2.8)
       '@heroicons/react':
         specifier: ^2.2.0
         version: 2.2.0(react@19.2.8)
@@ -983,8 +983,8 @@ packages:
   '@fastify/swagger@9.8.1':
     resolution: {integrity: sha512-VpHMnqZTY8iBZYJE8WWkbKPrXIYWy2rDfIf5qLr6DzZSpQYZ+KxQVcJFiq/AMlvNwI4gCBd66++iUlxXXGT0IQ==}
 
-  '@flightroom/design-system@1.6.0':
-    resolution: {integrity: sha512-YNnk58Eq8oihBcUInssetjyTnwhTdAeFxrJXTPiMOF2SCp6zBzUiorV8wnT5JgZhhVEeQGX/8lTCIdCPjKF+cg==, tarball: https://npm.pkg.github.com/download/@flightroom/design-system/1.6.0/9b3cf48fc32130ac3defb220a41778d825fa2a8a}
+  '@flightroom/design-system@1.6.1':
+    resolution: {integrity: sha512-H8aah/G7sU1ozgEzjHlxB+H/c0mLnE5BWdQ61Hbda11Pj7CUI+apsbgyKVnwuwqpu/75zW8vg8iS8y/j7jqCkQ==, tarball: https://npm.pkg.github.com/download/@flightroom/design-system/1.6.1/291d2013ddc78503452cdf293b77881cc0b4b0d6}
     engines: {node: '>=21.0.0'}
     peerDependencies:
       react: ^18.0.0 || ^19.0.0
@@ -5739,7 +5739,7 @@ snapshots:
     transitivePeerDependencies:
       - supports-color
 
-  '@flightroom/design-system@1.6.0(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-hook-form@7.85.0(react@19.2.8))(react@19.2.8)':
+  '@flightroom/design-system@1.6.1(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react-hook-form@7.85.0(react@19.2.8))(react@19.2.8)':
     dependencies:
       '@radix-ui/react-accordion': 1.2.20(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
       '@radix-ui/react-avatar': 1.2.6(@types/react-dom@19.2.4(@types/react@19.2.18))(@types/react@19.2.18)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
