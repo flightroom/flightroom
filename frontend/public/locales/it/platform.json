@@ -497,6 +497,14 @@
         "title": "Build",
         "subtitle": "Stato delle build frontend e backend, con il link a ogni run sulla sua piattaforma CI, e versione servita da ogni ambiente",
         "refresh": "Aggiorna",
+        "search": {
+            "placeholder": "Cerca per nome, slug o repository...",
+            "clear": "Cancella la ricerca",
+            "filtered_count_one": "{{count}} di {{total}} componente",
+            "filtered_count_other": "{{count}} di {{total}} componenti",
+            "no_results_title": "Nessun risultato",
+            "no_results_description": "Nessun microfrontend o servizio corrisponde a «{{searchTerm}}»."
+        },
         "live": {
             "connected": "Aggiornamento in tempo reale attivo",
             "disconnected": "Aggiornamento in tempo reale non disponibile",
