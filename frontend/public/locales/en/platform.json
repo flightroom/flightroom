@@ -602,7 +602,7 @@
     },
     "builds": {
         "title": "Builds",
-        "subtitle": "Frontend and backend build status, with a link to each run on its CI platform, and the version each environment serves",
+        "subtitle": "Frontend and backend build status, with a link to each run on its CI platform",
         "refresh": "Refresh",
         "search": {
             "placeholder": "Search by name, slug or repository...",
@@ -626,14 +626,11 @@
             "kind": "Type",
             "last_build": "Last build",
             "build_ref": "Tag / branch",
-            "last_built_version": "Last built version",
-            "production": "Production",
             "no_runs": "No builds",
             "triggered_by": "started by {{user}}",
             "open_run": "Open on provider",
             "open_run_on": "Open on {{provider}}",
             "repository": "Repository: {{name}}",
-            "selected_version": "selected version: {{version}}",
             "expand_history": "Show build history for {{name}}",
             "collapse_history": "Hide build history for {{name}}"
         },

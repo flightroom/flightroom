@@ -505,7 +505,7 @@
     },
     "builds": {
         "title": "Build",
-        "subtitle": "Stato delle build frontend e backend, con il link a ogni run sulla sua piattaforma CI, e versione servita da ogni ambiente",
+        "subtitle": "Stato delle build frontend e backend, con il link a ogni run sulla sua piattaforma CI",
         "refresh": "Aggiorna",
         "search": {
             "placeholder": "Cerca per nome, slug o repository...",
@@ -529,14 +529,11 @@
             "kind": "Tipo",
             "last_build": "Ultima build",
             "build_ref": "Tag / branch",
-            "last_built_version": "Ultima versione buildata",
-            "production": "Produzione",
             "no_runs": "Nessuna build",
             "triggered_by": "avviata da {{user}}",
             "open_run": "Apri sul provider",
             "open_run_on": "Apri su {{provider}}",
             "repository": "Repository: {{name}}",
-            "selected_version": "versione selezionata: {{version}}",
             "expand_history": "Mostra lo storico build di {{name}}",
             "collapse_history": "Nascondi lo storico build di {{name}}"
         },
