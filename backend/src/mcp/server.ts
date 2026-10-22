@@ -74,6 +74,7 @@ const SERVER_INSTRUCTIONS =
     "Call projects_list first: when more than one project is shared, every project tool needs its projectId. " +
     "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one frontend, service or domain, pass its id to context_get, or read aiContext from frontend_get, service_get or domain_get: follow those notes. Its project.technologies are the default frontend and backend technologies for anything new, unless the user asks otherwise. " +
     "To change the code of a frontend or a service: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
+    "A backend service container gets the port it is exposed on in the HTTP_PORT environment variable: its server must read the port from HTTP_PORT and listen on it on 0.0.0.0, never on a hardcoded port. " +
     "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend service (e.g. orders-be). " +
     "Ids are 24 character hexadecimal strings returned by the list tools. Tools marked destructive change what users are served " +
     "(deploy, rollback) or delete data: confirm with the user before calling them."
