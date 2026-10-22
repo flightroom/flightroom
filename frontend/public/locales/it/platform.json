@@ -2317,7 +2317,7 @@
         },
         "list": {
             "title": "Servizi",
-            "description": "Gestisci i servizi backend Docker del tuo progetto",
+            "description": "Gestisci i servizi backend e i frontend Docker del tuo progetto",
             "searchPlaceholder": "Cerca servizi...",
             "clearSearch": "Cancella la ricerca",
             "viewGrid": "Vista griglia",
@@ -2331,7 +2331,8 @@
             "createFromTemplate": "Crea da un template",
             "noResultsTitle": "Nessun risultato",
             "noResultsDescription": "Nessun servizio corrisponde a «{{searchTerm}}».",
-            "open": "Apri"
+            "open": "Apri",
+            "frontendBadge": "Frontend"
         },
         "env": {
             "title": "Variabili d'ambiente",
