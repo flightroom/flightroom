@@ -18,6 +18,7 @@ import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
 import AssistantPanel, { ASSISTANT_PAGE_PATH } from "@/components/assistant/AssistantPanel"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
+import DeployOverlay from "@/components/deploy-overlay/DeployOverlay"
 import { Sidebar, type SidebarNavSection } from "@/components/ui/Sidebar/Sidebar"
 import { cn } from "@/utils/styleUtils"
 import Header from "./Header"
@@ -94,6 +95,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             </div>
 
             {!isAssistantPage && <AssistantPanel />}
+
+            <DeployOverlay />
         </div>
     )
 }

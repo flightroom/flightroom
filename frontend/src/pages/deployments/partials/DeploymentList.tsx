@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
-import useDeploymentsApi, { DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
+import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
 import DeploymentMicrofrontendCard from "./DeploymentMicrofrontendCard"
 import DeploymentServiceCard from "./DeploymentServiceCard"
 
@@ -105,6 +105,7 @@ export const DeploymentList: React.FC<DeploymentListProps> = ({ environmentId })
     })
 
     const redeployQuery = useMutation({
+        mutationKey: DEPLOY_MUTATION_KEY,
         mutationFn: redeploy,
         onSuccess: () => dataQuery.refetch()
     })
