@@ -3,12 +3,15 @@ import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import { CanaryDeploymentType, CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
+import DeploymentExposedLink from "./DeploymentExposedLink"
 
 interface DeploymentFrontendCardProps {
     frontend: Frontend
+    /** Where it is reached in the environment of the deployment, when it is exposed there */
+    url?: string
 }
 
-export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ frontend }) => {
+export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ frontend, url }) => {
     const { t } = useTranslation()
 
     const canary = frontend.canary?.enabled ? frontend.canary : undefined
@@ -32,6 +35,11 @@ export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ 
                     {frontend.version || "—"}
                 </Badge>
             </CardHeader>
+            {url && (
+                <CardContent className="pt-2">
+                    <DeploymentExposedLink url={url} />
+                </CardContent>
+            )}
             {canary && (
                 <CardContent className="pt-3">
                     <div className="flex flex-wrap items-center gap-1.5">

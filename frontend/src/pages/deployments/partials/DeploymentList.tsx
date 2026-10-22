@@ -5,6 +5,9 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
+import { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { exposedOrigin } from "@/pages/services/partials/serviceVariables"
+import useProjectStore from "@/store/useProjectStore"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
 import DeploymentFrontendCard from "./DeploymentFrontendCard"
 import DeploymentServiceCard from "./DeploymentServiceCard"
@@ -49,6 +52,11 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
     const services = deployment.services ?? []
     const configMaps = deployment.configMaps ?? []
     const secrets = deployment.secrets ?? []
+    const exposure = useProjectStore(state => state.project?.exposure)
+    const environment = useProjectStore(state => state.environments?.find(candidate => candidate._id === deployment.environmentId))
+    // No link without a domain to expose on: the path alone does not open anything
+    const origin = exposure?.domain && environment ? exposedOrigin(exposure, environment) : undefined
+    const exposedUrl = (path?: string | null) => (origin && path ? origin + path : undefined)
 
     return (
         <>
@@ -57,7 +65,7 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
                     <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.frontends_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                         {deployment.frontends.map(frontend => (
-                            <DeploymentFrontendCard key={frontend._id} frontend={frontend} />
+                            <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
                         ))}
                     </div>
                 </div>
@@ -67,7 +75,7 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
                     <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.services_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                         {services.map(service => (
-                            <DeploymentServiceCard key={service._id} service={service} />
+                            <DeploymentServiceCard key={service._id} service={service} url={exposedUrl(service.exposurePath)} />
                         ))}
                     </div>
                 </div>
