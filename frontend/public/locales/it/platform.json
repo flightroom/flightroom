@@ -2501,7 +2501,10 @@
             "canary_without_version": "canary ({{audience}})",
             "canary_enrolled_users": "utenti abilitati",
             "no_environments": "Il progetto non ha ancora ambienti",
-            "no_members_short": "Nessun membro"
+            "no_members_short": "Nessun membro",
+            "search_placeholder": "Cerca per dominio, frontend o servizio...",
+            "no_results_title": "Nessun risultato",
+            "no_results_description": "Nessun dominio, frontend o servizio corrisponde a “{{searchTerm}}”."
         },
         "viewCards": "Vista schede",
         "viewGalaxy": "Vista galassia",
