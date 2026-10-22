@@ -53,6 +53,8 @@ export interface IAiChangeJob extends Document<ObjectId> {
      */
     transcript?: LlmMessage[]
     error?: string
+    /** Set when a user stopped the agent before it finished: the job is FAILED, its requests DISCARDED. */
+    stoppedAt?: Date
     usage: IAiChangeUsage
     /** Finished jobs nobody applied are removed by a TTL index on this date, like their proposals. */
     expiresAt?: Date
@@ -79,6 +81,7 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         summary: { type: String },
         transcript: { type: [Schema.Types.Mixed], default: undefined },
         error: { type: String },
+        stoppedAt: { type: Date },
         usage: {
             inputTokens: { type: Number, default: 0 },
             cachedInputTokens: { type: Number, default: 0 },
