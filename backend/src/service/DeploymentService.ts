@@ -6,14 +6,17 @@ import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { IFrontend } from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
+import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import { ConfigMap, IVariableMap, Secret } from "../models/VariableMapModel"
+import { resourceEnvironmentValues } from "../types/ResourceCatalog"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import BaseAuthorizedService, { isInDomainScope } from "./BaseAuthorizedService"
 import DeploymentCanaryUsersService from "./DeploymentCanaryUsersService"
 import GitOpsService from "./GitOpsService"
+import { resourceIdsInScope } from "./ResourceService"
 import { mapIdsInScope } from "./VariableMapService"
 
 /** The keys `map` sets in the environment, as GitOps commits them: with their values for a config map only */
@@ -46,7 +49,7 @@ class DeploymentService extends BaseAuthorizedService {
 
     /**
      * The snapshots as a domain-scoped member may read them: only the frontends and services of their
-     * domains as they are now, one deleted since being nobody's, and the config maps and secrets they may see. The documents are only answered, never
+     * domains as they are now, one deleted since being nobody's, and the config maps, secrets and resources they may see. The documents are only answered, never
      * saved: what the environment serves stays whole.
      */
     private async withinDomainScope(environmentId: string | Schema.Types.ObjectId, deployments: IDeployment[]): Promise<IDeployment[]> {
@@ -59,11 +62,13 @@ class DeploymentService extends BaseAuthorizedService {
         const visible = new Set([...(await Frontend.find(filter, { _id: 1 })), ...(await Service.find(filter, { _id: 1 }))].map(application => String(application._id)))
         const visibleConfigMaps = await mapIdsInScope("configMap", environment.projectId, scope)
         const visibleSecrets = await mapIdsInScope("secret", environment.projectId, scope)
+        const visibleResources = await resourceIdsInScope(environment.projectId, scope)
         for (const deployment of deployments) {
             deployment.frontends = (deployment.frontends ?? []).filter(frontend => visible.has(String(frontend._id)))
             deployment.services = (deployment.services ?? []).filter(service => visible.has(String(service._id)))
             deployment.configMaps = (deployment.configMaps ?? []).filter(map => visibleConfigMaps.has(String(map._id)))
             deployment.secrets = (deployment.secrets ?? []).filter(map => visibleSecrets.has(String(map._id)))
+            deployment.resources = (deployment.resources ?? []).filter(resource => visibleResources.has(String(resource._id)))
         }
         return deployments
     }
@@ -179,6 +184,12 @@ class DeploymentService extends BaseAuthorizedService {
         // Through the model, as GitOps reads them, so that a secret key is told set from its decrypted value.
         const configMaps = (await ConfigMap.find({ projectId: environment.projectId }).session(session || null)).map(map => deployedMap(map, String(environment._id), true))
         const secrets = (await Secret.find({ projectId: environment.projectId }).session(session || null)).map(map => deployedMap(map, String(environment._id), false))
+        // As GitOps commits them, every resource of the project; keys only, as for a secret
+        const resources: IDeployedVariableMap[] = (await Resource.find({ projectId: environment.projectId }).session(session || null)).map(resource => ({
+            _id: resource._id,
+            name: resource.name,
+            entries: Object.keys(resourceEnvironmentValues(resource, String(environment._id))).map(key => ({ key }))
+        }))
 
         const deploymentId = await this.getDeploymentId(environmentIdObj, session)
         const currentDeployment = await this.getCurrentDeployment(environmentIdObj, session)
@@ -208,6 +219,7 @@ class DeploymentService extends BaseAuthorizedService {
             services,
             configMaps,
             secrets,
+            resources,
             variables: variables,
             storages: storages,
             deploymentId,

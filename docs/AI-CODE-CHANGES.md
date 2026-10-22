@@ -161,6 +161,11 @@ handed to each network call.
   feature branch as soon as the agent is done, a pipeline that runs on every branch runs on the
   agent's code before anyone has reviewed it: limit such pipelines, or their secrets, to protected branches.
 - It cannot run anything: no install, build or test. The repository's CI checks the pull request.
+- It is told the config maps, secrets and resources attached to each service by the names of their
+  variables, never a credential (see [SECRETS](SECRETS.md#in-the-api)). When a service attaches an `api`
+  resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
+  `specUrl` from the backend with no access to private addresses, and answers with an index of the
+  operations or one operation in full.
 - At most 20 files and 500 KB written per request, 40 model rounds.
 - It never pushes. The console pushes its proposal on a feature branch only, never on the base branch:
   only the user's **Apply** writes there.

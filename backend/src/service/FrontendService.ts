@@ -93,10 +93,12 @@ export class FrontendService extends BaseAuthorizedService {
         return await Frontend.find({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) })
     }
 
-    async create(dto: FrontendDTO, projectId: string | Schema.Types.ObjectId): Promise<IFrontend> {
+    async create(body: FrontendDTO, projectId: string | Schema.Types.ObjectId): Promise<IFrontend> {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
 
+        // Resources go to backend services only: a DOCKER shares their container fields, not those
+        const { resourceIds: _resourceIds, ...dto } = body as FrontendDTO & { resourceIds?: unknown }
         ensurePlainFields(dto, "FRONTEND_INVALID")
         ensureValidKind(dto.kind)
         ensureDockerHasNoParents(dto.kind, dto.parentIds, dto.slug)
@@ -219,8 +221,14 @@ export class FrontendService extends BaseAuthorizedService {
         await this.ensureAccessToFrontend(frontend)
 
         // Never moved to another project, nor given another identity, through an update: the slug is
-        // in the upload URL the CI of the repository calls, as for a service
-        const { _id: _mongoId, projectId: _projectId, slug: _slug, ...fields } = updates as Partial<FrontendDTO> & { _id?: unknown; projectId?: unknown }
+        // in the upload URL the CI of the repository calls, as for a service. Nor given resources, which go to backend services only
+        const {
+            _id: _mongoId,
+            projectId: _projectId,
+            slug: _slug,
+            resourceIds: _resourceIds,
+            ...fields
+        } = updates as Partial<FrontendDTO> & { _id?: unknown; projectId?: unknown; resourceIds?: unknown }
         ensurePlainFields(fields, "FRONTEND_INVALID")
         ensureValidKind(fields.kind)
         const kind = fields.kind ?? frontend.kind

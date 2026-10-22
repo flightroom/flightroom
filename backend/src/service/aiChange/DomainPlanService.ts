@@ -5,6 +5,7 @@ import Domain from "../../models/DomainModel"
 import Frontend from "../../models/FrontendModel"
 import { IMarket } from "../../models/MarketModel"
 import Project from "../../models/ProjectModel"
+import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
 import { describeProjectTechnologies, IProjectTechnologies } from "../../types/ProjectTechnology"
 import { SERVICE_SLUG } from "../../types/ServiceStack"
@@ -13,6 +14,7 @@ import { aiProviderError } from "../llm"
 import MarketService from "../MarketService"
 import { defaultTemplateOf, isTemplateOfKind, matchesProjectTechnology, REPOSITORY_NAME_SUFFIXES } from "../RepositoryCreationService"
 import { isValidRepositoryName } from "../RepositoryRenameService"
+import { resourceIdsInScope } from "../ResourceService"
 import { RepositoryComponentKind } from "../workspace/repositoryComponent"
 import { AiChangeBaseService, loggable } from "./aiChangeShared"
 
@@ -53,6 +55,7 @@ const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain
 - repositoryName: the slug followed by "${REPOSITORY_NAME_SUFFIXES.frontend}" for a frontend and by "${REPOSITORY_NAME_SUFFIXES.service}" for a service, e.g. orders${REPOSITORY_NAME_SUFFIXES.frontend} and orders${REPOSITORY_NAME_SUFFIXES.service}.
 - template: the slug of one of the listed templates of the same kind. Unless the request explicitly asks for another stack, prefer one marked "project technology": it is built with the default technology the team chose for that kind (see project_technologies). Otherwise the one whose stack fits the project best; when nothing hints at a stack, the one marked default.
 - reason: one sentence, in the language of the request, on what the component does for it.
+- Shared resources of the project are listed: a service can attach them, so do not plan a component that only provides one of them.
 Follow the project and domain context: it is what the team wrote for AI agents.`
 
 const component = {
@@ -158,11 +161,16 @@ export class DomainPlanService extends AiChangeBaseService {
             throw createBusinessException({ code: "AI_DOMAIN_PLAN_HAS_MEMBERS", message: `The domain ${domain.name} already has frontends or services`, statusCode: 422 })
         }
 
-        const [project, templates, frontends, services] = await Promise.all([
+        // A domain-scoped member is told of the resources they may read only, as the console lists them
+        const scope = await this.getDomainScope(projectIdObj)
+        const visibleResources = scope ? { _id: { $in: [...(await resourceIdsInScope(projectIdObj, scope))].map(id => toObjectId(id)) } } : {}
+        const [project, templates, frontends, services, resources] = await Promise.all([
             Project.findById(projectIdObj, { name: 1, context: 1, technologies: 1 }),
             new MarketService().getAll(),
             Frontend.find({ projectId: projectIdObj }, { slug: 1 }),
-            Service.find({ projectId: projectIdObj }, { slug: 1 })
+            Service.find({ projectId: projectIdObj }, { slug: 1 }),
+            // What a service of the domain can attach instead of a component of its own: never a value of one
+            Resource.find({ projectId: projectIdObj, ...visibleResources }, { name: 1, type: 1, description: 1 })
         ])
         const taken = { frontend: new Set(frontends.map(item => item.slug)), service: new Set(services.map(item => item.slug)) }
         const technologies = project?.technologies
@@ -184,7 +192,10 @@ export class DomainPlanService extends AiChangeBaseService {
                     [`<domain_context domain="${domain.name}">`, domain.description, domain.context, "</domain_context>"].filter(Boolean).join("\n"),
                     `<frontend_templates>\n${templateList("frontend")}\n</frontend_templates>`,
                     `<service_templates>\n${templateList("service")}\n</service_templates>`,
-                    `<taken_slugs>\nfrontends: ${[...taken.frontend].join(", ") || "none"}\nservices: ${[...taken.service].join(", ") || "none"}\n</taken_slugs>`
+                    `<taken_slugs>\nfrontends: ${[...taken.frontend].join(", ") || "none"}\nservices: ${[...taken.service].join(", ") || "none"}\n</taken_slugs>`,
+                    resources.length
+                        ? `<project_resources>\n${resources.map(resource => `- ${resource.name} (${resource.type})${resource.description ? `: ${resource.description}` : ""}`).join("\n")}\n</project_resources>`
+                        : undefined
                 ]
                     .filter(Boolean)
                     .join("\n\n"),

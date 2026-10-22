@@ -185,6 +185,19 @@ describe("service tools", () => {
     })
 
     describe("service_update", () => {
+        it("given resources to attach, when updated, then their ids reach the service, more than 50 or a bad id refused", async () => {
+            getService.mockResolvedValue(ordersApi)
+            updateService.mockResolvedValue(ordersApi)
+            const resourceIds = ["ffffffffffffffffffffffff"]
+
+            await run("service_update", { serviceId: SERVICE, resourceIds })
+
+            expect(updateService).toHaveBeenCalledWith(SERVICE, { resourceIds })
+            const schema = serviceTools.find(candidate => candidate.name === "service_update")!.inputSchema
+            expect(schema.safeParse({ serviceId: SERVICE, resourceIds: ["nope"] }).success).toBe(false)
+            expect(schema.safeParse({ serviceId: SERVICE, resourceIds: Array.from({ length: 51 }, () => resourceIds[0]) }).success).toBe(false)
+        })
+
         it("given new fields, when updated, then they reach the service and the slug is dropped", async () => {
             getService.mockResolvedValue(ordersApi)
             updateService.mockResolvedValue(ordersApi)

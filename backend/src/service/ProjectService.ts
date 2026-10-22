@@ -15,6 +15,7 @@ import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Project, { IProject, IProjectPipelines } from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
@@ -582,6 +583,7 @@ export class ProjectService extends BaseAuthorizedService {
         await Service.deleteMany({ projectId: projectIdObj }, session)
         await ConfigMap.deleteMany({ projectId: projectIdObj }, { session })
         await Secret.deleteMany({ projectId: projectIdObj }, { session })
+        await Resource.deleteMany({ projectId: projectIdObj }, { session })
         await Domain.deleteMany({ projectId: projectIdObj }, { session })
         await Environment.deleteMany({ projectId: projectIdObj }, session)
 

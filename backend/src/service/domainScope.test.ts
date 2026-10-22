@@ -14,6 +14,7 @@ import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind } from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import Project from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import { IUser } from "../models/UserModel"
@@ -256,6 +257,44 @@ describe("frontends and services of a domain-scoped member", () => {
             await expect(saved).rejects.toMatchObject(refusedOutOfScope)
         }
         expect(write).toHaveBeenCalledTimes(written ? 1 : 0)
+    })
+
+    describe("resources of a service", () => {
+        const ownResource = newId()
+        const othersResource = newId()
+        const service = { _id: newId(), projectId: PROJECT_ID, slug: "orders", name: "Orders", domainId: OWN_DOMAIN, configMapIds: [], secretIds: [], resourceIds: [ownResource, othersResource] }
+
+        beforeEach(() => {
+            vi.spyOn(Service, "findById").mockResolvedValue(service as never)
+            // The resource of another domain is shared with one of its services: the scoped member does not see it
+            vi.spyOn(Service, "find").mockResolvedValue([
+                { domainId: OWN_DOMAIN, resourceIds: [ownResource, othersResource] },
+                { domainId: OTHER_DOMAIN, resourceIds: [othersResource] }
+            ] as never)
+            vi.spyOn(Resource, "find").mockImplementation(((filter: { _id: { $in: unknown[] } }) =>
+                Promise.resolve(filter._id.$in.map(id => ({ _id: id, name: sameId(id, ownResource) ? "orders-db" : "billing-db", type: "database", variant: "credentials" })))) as never)
+            vi.spyOn(ConfigMap, "find").mockResolvedValue([] as never)
+            vi.spyOn(Secret, "find").mockResolvedValue([] as never)
+        })
+
+        it.each([
+            ["the resource they see taken away", [], [String(othersResource)]],
+            ["only the resource they see", [String(ownResource)], [String(ownResource), String(othersResource)]]
+        ])("Given a service attaching a resource they cannot see, when a scoped member saves it with %s, then that one stays attached", async (_case, sent, written) => {
+            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+
+            await new ServiceService(memberOf([OWN_DOMAIN])).update(String(service._id), { name: "Orders", resourceIds: sent } as never)
+
+            expect(write.mock.calls[0][1]).toEqual({ name: "Orders", resourceIds: written })
+        })
+
+        it("Given a member of the whole project, when they save the service without a resource, then every one is detached", async () => {
+            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+
+            await new ServiceService(memberOf()).update(String(service._id), { name: "Orders", resourceIds: [] } as never)
+
+            expect(write.mock.calls[0][1]).toEqual({ name: "Orders", resourceIds: [] })
+        })
     })
 
     describe("code repository of a service", () => {
@@ -529,6 +568,7 @@ describe("deployment of a domain-scoped member", () => {
         vi.spyOn(GlobalVariable, "find").mockImplementation((() => queryResult([{ key: "API_URL", value: "unreleased" }])) as never)
         vi.spyOn(ConfigMap, "find").mockImplementation((() => queryResult([])) as never)
         vi.spyOn(Secret, "find").mockImplementation((() => queryResult([])) as never)
+        vi.spyOn(Resource, "find").mockImplementation((() => queryResult([])) as never)
         vi.spyOn(Storage, "find").mockImplementation((() => queryResult([{ toObject: () => ({ name: "unreleased-bucket" }) }])) as never)
         vi.spyOn(Deployment, "find").mockImplementation((() => queryResult([])) as never)
         vi.spyOn(Deployment, "updateMany").mockResolvedValue({} as never)
@@ -625,6 +665,52 @@ describe("deployment of a domain-scoped member", () => {
 
         expect(saved?.configMaps).toEqual([{ _id: configMapId, name: "cart", entries: [{ key: "LOG_LEVEL", value: "debug" }] }])
         expect(saved?.secrets).toEqual([{ _id: secretId, name: "cart-db", entries: [{ key: "PASSWORD" }] }])
+    })
+
+    it("Given resources of the project, when a scoped member deploys, then the snapshot records every one by key only, as GitOps commits them", async () => {
+        const attachedId = newId()
+        const unusedId = newId()
+        vi.spyOn(Resource, "find").mockImplementation((() =>
+            queryResult([
+                {
+                    _id: attachedId,
+                    name: "cart-db",
+                    type: "database",
+                    variant: "connectionString",
+                    values: [{ field: "engine", value: "POSTGRESQL" }],
+                    secrets: [{ field: "connectionString", value: "postgres://s3cret" }]
+                },
+                { _id: unusedId, name: "unused", type: "redis", variant: "connectionString", values: [], secrets: [] }
+            ])) as never)
+        serving(null)
+
+        await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
+
+        expect(saved?.resources).toEqual([
+            { _id: attachedId, name: "cart-db", entries: [{ key: "DB_CART_DB_ENGINE" }, { key: "DB_CART_DB_URL" }] },
+            { _id: unusedId, name: "unused", entries: [] }
+        ])
+        expect(JSON.stringify(saved)).not.toContain("s3cret")
+    })
+
+    it("Given a snapshot with resources of two domains, when a scoped member reads the deployments, then only the resources of theirs are answered", async () => {
+        const ownResource = newId()
+        const othersResource = newId()
+        vi.spyOn(Deployment, "find").mockImplementation((() =>
+            queryResult([{ frontends: [], services: [], configMaps: [], secrets: [], resources: [{ _id: ownResource }, { _id: othersResource }] }])) as never)
+        vi.mocked(Service.find).mockImplementation(((filter: Record<string, unknown>) =>
+            queryResult(
+                filter.resourceIds
+                    ? [
+                          { domainId: OWN_DOMAIN, resourceIds: [ownResource] },
+                          { domainId: OTHER_DOMAIN, resourceIds: [othersResource] }
+                      ]
+                    : [ownService]
+            )) as never)
+
+        const [deployment] = await new DeploymentService(memberOf([OWN_DOMAIN])).getByEnvironmentId(String(environmentId))
+
+        expect(deployment.resources).toEqual([{ _id: ownResource }])
     })
 
     it("Given backends of several domains served, when a scoped member deploys, then only their backends move and the others' stay as served", async () => {

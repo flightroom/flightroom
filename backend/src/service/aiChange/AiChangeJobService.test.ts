@@ -28,11 +28,14 @@ import AiMission from "../../models/AiMissionModel"
 import AiModel from "../../models/AiModelModel"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
 import Domain from "../../models/DomainModel"
+import Environment from "../../models/EnvironmentModel"
 import Frontend from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
+import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
 import User, { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
+import { ConfigMap, Secret } from "../../models/VariableMapModel"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import { LlmClient } from "../llm"
 import { RepositoryFileService } from "../RepositoryFileService"
@@ -72,6 +75,12 @@ interface Update {
 }
 
 /** The progress lines pushed by the recorded updates, in order. */
+/** The filter and projection of the first call of a find, its ids as text: they reach Mongo cast by toObjectId */
+const firstQuery = (find: unknown) => {
+    const [filter, projection] = vi.mocked(find as (...args: unknown[]) => unknown).mock.calls[0] as [{ _id?: { $in: unknown[] } } & Record<string, unknown>, unknown]
+    return [{ ...filter, ...(filter._id && { _id: { $in: filter._id.$in.map(String) } }) }, projection]
+}
+
 const pushed = (updates: Update[]) => updates.flatMap(({ update }) => ((update.$push as { events?: { $each: { message: string }[] } } | undefined)?.events?.$each ?? []).map(entry => entry.message))
 
 describe("AiChangeJobService", () => {
@@ -951,11 +960,258 @@ describe("AiChangeJobService", () => {
                 readinessPath: "/healthz/ready",
                 docsPath: "/docs",
                 env: [{ name: "DATABASE_URL", required: true, secret: true, description: "Postgres connection string" }],
-                context: undefined
+                context: undefined,
+                // Where the other workloads of the cluster reach it: the chart's Service is named after the slug
+                clusterUrl: "http://catalog"
             })
             expect(updates).toContainEqual(
                 expect.objectContaining({ filter: { _id: serviceRequest._id, status: AiChangeStatus.RUNNING }, update: expect.objectContaining({ status: AiChangeStatus.PROPOSED }) })
             )
+        })
+
+        describe("on services with configuration", () => {
+            const configMapId = new Types.ObjectId()
+            const secretId = new Types.ObjectId()
+            const databaseId = new Types.ObjectId()
+            const apiId = new Types.ObjectId()
+            const environmentId = new Types.ObjectId()
+            const orders = {
+                ...catalogApi,
+                _id: new Types.ObjectId(),
+                slug: "orders",
+                name: "Orders API",
+                env: [],
+                exposurePath: "/api/orders/",
+                configMapIds: [configMapId],
+                secretIds: [secretId],
+                resourceIds: [databaseId, apiId]
+            }
+            // As a careless query would read them: credentials decrypted, overrides and the pasted document included
+            const storedResources = [
+                {
+                    _id: databaseId,
+                    name: "orders",
+                    type: "database",
+                    variant: "credentials",
+                    description: "Main Postgres of orders",
+                    values: [{ field: "host", value: "db.internal", overrides: [{ environmentId, value: "override-host" }] }],
+                    secrets: [{ field: "password", value: "s3cr3t-password", overrides: [{ environmentId, value: "s3cr3t-override" }] }]
+                },
+                {
+                    _id: apiId,
+                    name: "payments",
+                    type: "api",
+                    variant: "apiKey",
+                    values: [
+                        { field: "baseUrl", value: "https://api.pay.example.com/v1", overrides: [{ environmentId, value: "https://override.example.com" }] },
+                        { field: "specUrl", value: "https://api.pay.example.com/openapi.json", overrides: [] },
+                        { field: "in", value: "header", overrides: [] },
+                        { field: "name", value: "X-API-Key", overrides: [] },
+                        // A credential stored in the wrong list must still never be shown
+                        { field: "apiKey", value: "sk-live-misplaced", overrides: [] }
+                    ],
+                    secrets: [{ field: "apiKey", value: "sk-live-SECRET", overrides: [] }],
+                    apiSpec: "pasted-spec-content",
+                    apiSpecBytes: 19
+                }
+            ]
+
+            let input: Record<string, unknown> | undefined
+            const runOn = async (service: Record<string, unknown> & { _id: Types.ObjectId }, others: Record<string, unknown>[] = []) => {
+                services = [service, ...others] as unknown as (typeof catalogApi)[]
+                const serviceRequest = { _id: new Types.ObjectId(), jobId, serviceId: service._id, baseBranch: "main" }
+                vi.spyOn(AiChangeJob, "findById").mockImplementation(((id: unknown) =>
+                    Promise.resolve(
+                        String(id) === String(jobId)
+                            ? { _id: jobId, rootJobId: jobId, projectId, userId: user._id, prompt: "Charge the order", frontendIds: [], serviceIds: [service._id], status: AiJobStatus.RUNNING }
+                            : null
+                    )) as never)
+                vi.spyOn(AiChangeRequest, "find").mockResolvedValue([serviceRequest] as never)
+                workspaces.set(String(service._id), {
+                    target: {},
+                    workingCopy: {
+                        dir: `${dir}-orders`,
+                        changes: vi.fn(async () => [{ path: "src/pay.ts", action: "create" }]),
+                        readWorkingFile: vi.fn(async () => "export const pay = 1\n"),
+                        discardChanges: vi.fn(async () => undefined)
+                    },
+                    defaultBranch: "main"
+                })
+                runAgent.mockImplementationOnce(async (_client: unknown, received: Record<string, unknown>) => {
+                    input = received
+                    return { summary: "Charges the order", stopReason: "finished" }
+                })
+                await run()
+                return input as {
+                    repositories: { service: Record<string, unknown> }[]
+                    apiSpecs?: { resource: string; specUrl?: string; loadPasted?: () => Promise<string | undefined> }[]
+                }
+            }
+
+            beforeEach(() => {
+                input = undefined
+                vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, name: "Shop", exposure: { domain: "shop.example.com", certificateIssuer: "letsencrypt" } } as never)
+                vi.spyOn(ConfigMap, "find").mockResolvedValue([{ _id: configMapId, name: "orders-config", entries: [{ key: "LOG_LEVEL" }, { key: "FEATURE_FLAGS" }] }] as never)
+                vi.spyOn(Secret, "find").mockResolvedValue([
+                    { _id: secretId, name: "orders-keys", entries: [{ key: "STRIPE_API_KEY", values: [{ environmentId, value: "sk-stripe-SECRET" }] }] }
+                ] as never)
+                vi.spyOn(Resource, "find").mockResolvedValue(storedResources as never)
+                vi.spyOn(Resource, "findOne").mockResolvedValue({ apiSpec: "pasted-spec-content" } as never)
+                vi.spyOn(Environment, "find").mockReturnValue({
+                    sort: () =>
+                        Promise.resolve([
+                            { slug: "DEV", isProduction: false },
+                            { slug: "PROD", isProduction: true }
+                        ])
+                } as never)
+            })
+
+            it("Given maps, resources and an exposure, when it runs, then the agent gets their names, keys and URLs and never a value of a credential nor of an override", async () => {
+                const received = await runOn(orders)
+
+                expect(received.repositories[0].service).toMatchObject({
+                    exposurePath: "/api/orders/",
+                    clusterUrl: "http://orders",
+                    publicUrls: [
+                        { environment: "DEV", url: "https://dev.shop.example.com/api/orders" },
+                        { environment: "PROD", url: "https://shop.example.com/api/orders" }
+                    ],
+                    configMaps: [{ name: "orders-config", keys: ["LOG_LEVEL", "FEATURE_FLAGS"] }],
+                    secrets: [{ name: "orders-keys", keys: ["STRIPE_API_KEY"] }]
+                })
+                const [database, api] = received.repositories[0].service.resources as Record<string, unknown>[]
+                expect(database).toEqual({
+                    name: "orders",
+                    type: "database",
+                    variant: "credentials",
+                    description: "Main Postgres of orders",
+                    keys: expect.arrayContaining([{ key: "DB_ORDERS_PASSWORD", field: "password", secret: true, required: true }])
+                })
+                expect(api).toMatchObject({
+                    name: "payments",
+                    variant: "apiKey",
+                    values: { baseUrl: "https://api.pay.example.com/v1", specUrl: "https://api.pay.example.com/openapi.json", in: "header", name: "X-API-Key" },
+                    apiSpec: true,
+                    keys: expect.arrayContaining([{ key: "API_PAYMENTS_AUTH", secret: false, required: true, value: "apiKey" }])
+                })
+                const serialized = JSON.stringify(received)
+                for (const value of [
+                    "s3cr3t-password",
+                    "s3cr3t-override",
+                    "sk-live-SECRET",
+                    "sk-live-misplaced",
+                    "sk-stripe-SECRET",
+                    "override-host",
+                    "override.example.com",
+                    "db.internal",
+                    "pasted-spec-content"
+                ]) {
+                    expect(serialized).not.toContain(value)
+                }
+                // Read with projections that leave the credentials, the overrides and the document out
+                expect(firstQuery(Resource.find)).toEqual([
+                    { _id: { $in: [String(databaseId), String(apiId)] }, projectId },
+                    "name type variant envPrefix description values.field values.value apiSpecBytes"
+                ])
+                expect(firstQuery(ConfigMap.find)).toEqual([{ _id: { $in: [String(configMapId)] }, projectId }, "name entries.key"])
+                expect(firstQuery(Secret.find)).toEqual([{ _id: { $in: [String(secretId)] }, projectId }, "name entries.key"])
+            })
+
+            it("Given an api resource with a pasted document, when it runs, then read_api_spec gets it from the project only when the agent asks", async () => {
+                const received = await runOn(orders)
+
+                expect(received.apiSpecs).toEqual([{ resource: "payments", specUrl: "https://api.pay.example.com/openapi.json", loadPasted: expect.any(Function) }])
+                expect(Resource.findOne).not.toHaveBeenCalled()
+                expect(await received.apiSpecs?.[0].loadPasted?.()).toBe("pasted-spec-content")
+                expect(Resource.findOne).toHaveBeenCalledWith({ _id: apiId, projectId }, { apiSpec: 1 })
+            })
+
+            it("Given an api resource with neither a spec URL nor a pasted document, when it runs, then read_api_spec is not offered for it", async () => {
+                const [database, api] = storedResources
+                vi.mocked(Resource.find).mockResolvedValue([database, { ...api, values: api.values?.filter(value => value.field !== "specUrl"), apiSpec: undefined, apiSpecBytes: undefined }] as never)
+
+                const received = await runOn(orders)
+
+                expect(received).not.toHaveProperty("apiSpecs")
+                expect((received.repositories[0].service.resources as { name: string }[]).map(resource => resource.name)).toEqual(["orders", "payments"])
+            })
+
+            it("Given a domain-scoped member whose service shares an api with a service of another domain, when their job runs, then the agent is told nothing of that api", async () => {
+                const ownDomain = new Types.ObjectId()
+                vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(ownDomain)])
+                // The service is in a domain: the job follows its context
+                vi.spyOn(Domain, "find").mockReturnValue({ sort: () => Promise.resolve([]) } as never)
+                vi.mocked(Resource.find).mockImplementation(((filter: { _id: { $in: unknown[] } }) =>
+                    Promise.resolve(storedResources.filter(resource => filter._id.$in.map(String).includes(String(resource._id))))) as never)
+
+                const received = await runOn({ ...orders, domainId: ownDomain }, [{ ...catalogApi, _id: new Types.ObjectId(), slug: "billing", domainId: new Types.ObjectId(), resourceIds: [apiId] }])
+
+                expect(firstQuery(Resource.find)[0]).toEqual({ _id: { $in: [String(databaseId)] }, projectId })
+                expect((received.repositories[0].service.resources as { name: string }[]).map(resource => resource.name)).toEqual(["orders"])
+                expect(received).not.toHaveProperty("apiSpecs")
+                expect(JSON.stringify(received)).not.toContain("payments")
+            })
+
+            it("Given a service attaching nothing in a project without exposure, when it runs, then nothing more is read and the agent gets only its cluster URL", async () => {
+                vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, name: "Shop" } as never)
+
+                const received = await runOn({ ...orders, exposurePath: undefined, configMapIds: [], secretIds: [], resourceIds: [] })
+
+                for (const model of [ConfigMap, Secret, Resource, Environment]) {
+                    expect(model.find).not.toHaveBeenCalled()
+                }
+                expect(received.repositories[0].service).not.toHaveProperty("resources")
+                expect(received.repositories[0].service).not.toHaveProperty("publicUrls")
+                expect(received.repositories[0].service.clusterUrl).toBe("http://orders")
+                expect(received).not.toHaveProperty("apiSpecs")
+            })
+        })
+
+        it("Given a job of a domain whose services attach resources, when it runs, then the domain lists each with the services using it", async () => {
+            const databaseId = new Types.ObjectId()
+            const domainId = new Types.ObjectId()
+            services = [
+                { ...catalogApi, slug: "payments", resourceIds: [databaseId] },
+                { ...catalogApi, slug: "orders", resourceIds: [databaseId] }
+            ] as never
+            const job = { _id: jobId, rootJobId: jobId, projectId, userId: user._id, prompt: "Refund an order", domainId, frontendIds, status: AiJobStatus.RUNNING }
+            vi.spyOn(AiChangeJob, "findById").mockImplementation(((id: unknown) => Promise.resolve(String(id) === String(jobId) ? job : null)) as never)
+            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ ...request, parentId: undefined }] as never)
+            vi.spyOn(Domain, "findById").mockResolvedValue({ _id: domainId, name: "Checkout" } as never)
+            vi.spyOn(Resource, "find").mockResolvedValue([{ _id: databaseId, name: "orders", type: "database", secrets: [{ field: "password", value: "s3cr3t" }] }] as never)
+            let received: { domain?: unknown } | undefined
+            runAgent.mockImplementationOnce(async (_client: unknown, input: typeof received) => {
+                received = input
+                return { summary: "Refunds", stopReason: "finished" }
+            })
+
+            await run()
+
+            expect(Service.find).toHaveBeenCalledWith({ projectId, domainId }, { slug: 1, resourceIds: 1 })
+            expect(firstQuery(Resource.find)).toEqual([{ _id: { $in: [String(databaseId)] }, projectId }, "name type description"])
+            expect(received?.domain).toEqual({ name: "Checkout", resources: [{ name: "orders", type: "database", usedBy: ["payments", "orders"] }] })
+            expect(JSON.stringify(received)).not.toContain("s3cr3t")
+        })
+
+        it("Given a job of a domain started by a member scoped to it, when it runs, then a resource shared with another domain is left out of the domain", async () => {
+            const databaseId = new Types.ObjectId()
+            const sharedId = new Types.ObjectId()
+            const domainId = new Types.ObjectId()
+            vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(domainId)])
+            services = [
+                { ...catalogApi, slug: "payments", domainId, resourceIds: [databaseId, sharedId] },
+                { ...catalogApi, _id: new Types.ObjectId(), slug: "billing", domainId: new Types.ObjectId(), resourceIds: [sharedId] }
+            ] as never
+            const job = { _id: jobId, rootJobId: jobId, projectId, userId: user._id, prompt: "Refund an order", domainId, frontendIds, status: AiJobStatus.RUNNING }
+            vi.spyOn(AiChangeJob, "findById").mockImplementation(((id: unknown) => Promise.resolve(String(id) === String(jobId) ? job : null)) as never)
+            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ ...request, parentId: undefined }] as never)
+            vi.spyOn(Domain, "findById").mockResolvedValue({ _id: domainId, name: "Checkout" } as never)
+            vi.spyOn(Resource, "find").mockResolvedValue([{ _id: databaseId, name: "orders", type: "database" }] as never)
+            runAgent.mockImplementationOnce(async () => ({ summary: "Refunds", stopReason: "finished" }))
+
+            await run()
+
+            expect(firstQuery(Resource.find)).toEqual([{ _id: { $in: [String(databaseId)] }, projectId }, "name type description"])
         })
 
         it("Given a job of a domain, when it runs, then the agent is told what the domain is for", async () => {

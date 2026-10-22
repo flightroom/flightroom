@@ -12,12 +12,14 @@ import { ApiStatusHandler } from "@/components/organisms"
 import RepositoryLink from "@/components/RepositoryLink"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import ServiceBuildDialog from "./partials/ServiceBuildDialog"
 import ServiceHeader, { isServiceAiAvailable } from "./partials/ServiceHeader"
 import ServiceReleaseDialog from "./partials/ServiceReleaseDialog"
+import ServiceResourcesSection from "./partials/ServiceResourcesSection"
 import ServiceVariableMapsSection from "./partials/ServiceVariableMapsSection"
 import ServiceVersionsTable from "./partials/ServiceVersionsTable"
 import { exposedOrigin, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
@@ -221,6 +223,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
     const environmentsQuery = useProjectEnvironmentsQuery()
     const configMapsQuery = useVariableMapsQuery("configMap")
     const secretsQuery = useVariableMapsQuery("secret")
+    const resourcesQuery = useResourcesQuery(view === "overview")
 
     const service = serviceQuery.data
     // A viewer may look, not release: the version is created by those who can write
@@ -229,7 +232,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
     if (view === "ai") return <ServiceAiSection serviceQuery={serviceQuery} />
 
     return (
-        <ApiStatusHandler queries={[serviceQuery, versionsQuery, environmentsQuery, configMapsQuery, secretsQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[serviceQuery, versionsQuery, environmentsQuery, configMapsQuery, secretsQuery, resourcesQuery]} interceptEmpty={false}>
             {service && (
                 <div className="flex min-h-full flex-col gap-6">
                     <ServiceHeader
@@ -258,6 +261,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
                     <ServiceVersionsTable versions={versionsQuery.data ?? []} />
                     <ServiceConfigurationSection service={service} environments={environmentsQuery.data ?? []} />
                     <ServiceVariableMapsSection service={service} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                    <ServiceResourcesSection service={service} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                     {!isViewer && (
                         <ServiceReleaseDialog open={releaseOpen} onOpenChange={setReleaseOpen} service={service} onSaved={() => queryClient.invalidateQueries({ queryKey: ["service", id] })} />
                     )}

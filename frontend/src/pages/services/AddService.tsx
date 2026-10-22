@@ -16,9 +16,11 @@ import useCodeRepositoriesApi, { ICodeRepository } from "@/hooks/apiClients/useC
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useMarketApi, { ServiceDefaults } from "@/hooks/apiClients/useMarketApi"
+import { Resource, useResourceErrorMessage } from "@/hooks/apiClients/useResourcesApi"
 import useServicesApi, { Service, ServiceDTO } from "@/hooks/apiClients/useServicesApi"
-import { useVariableMapErrorMessage, VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
+import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
 import { CodeRepositorySection } from "@/pages/frontends/partials/components"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -29,6 +31,7 @@ import ServiceDangerZone from "./partials/ServiceDangerZone"
 import ServiceEndpointFields from "./partials/ServiceEndpointFields"
 import ServiceEnvFields from "./partials/ServiceEnvFields"
 import ServiceHeader from "./partials/ServiceHeader"
+import ServiceResourcesFields from "./partials/ServiceResourcesFields"
 import ServiceRuntimeFields from "./partials/ServiceRuntimeFields"
 import ServiceVariableMapsFields from "./partials/ServiceVariableMapsFields"
 import { isServiceTemplate } from "./partials/serviceTemplates"
@@ -73,6 +76,8 @@ const createFormSchema = (messages: FormMessages) =>
                 .refine(value => value === "" || SERVICE_VERSION.test(value), messages.version)
                 .optional(),
             ...createServiceRuntimeShape(messages),
+            // Here and not in the runtime shape, which frontends share: a frontend never attaches a resource
+            resourceIds: z.array(z.string()),
             codeRepository: z
                 .object({
                     enabled: z.boolean().default(false),
@@ -103,7 +108,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["template", "name", "slug", "description", "domainId"],
     context: ["context"],
     runtime: ["port", "image", "version", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath"],
-    variables: ["env", "configMapIds", "secretIds"],
+    variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     repository: ["codeRepository"],
     danger: []
 }
@@ -115,18 +120,20 @@ interface AddServiceFormProps {
     environments: EnvironmentDTO[]
     configMaps: VariableMap[]
     secrets: VariableMap[]
+    resources: Resource[]
     service?: Service
 }
 
-const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environments, configMaps, secrets, service }) => {
+const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environments, configMaps, secrets, resources, service }) => {
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
     const [searchParams] = useSearchParams()
     const isEdit = Boolean(id)
     const servicesApi = useServicesApi()
     const { errorMessage: domainErrorMessage } = useDomainsApi()
-    const variableMapErrorMessage = useVariableMapErrorMessage()
-    const errorMessage = (error: Error) => variableMapErrorMessage(error) ?? domainErrorMessage(error)
+    // The refusals of the resources fall back to those of the maps
+    const resourceErrorMessage = useResourceErrorMessage()
+    const errorMessage = (error: Error) => resourceErrorMessage(error) ?? domainErrorMessage(error)
     const { getMarkets } = useMarketApi()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
@@ -173,7 +180,8 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                   env: service.env ?? [],
                   // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
                   configMapIds: (service.configMapIds ?? []).filter(id => configMaps.some(map => map._id === id)),
-                  secretIds: (service.secretIds ?? []).filter(id => secrets.some(map => map._id === id))
+                  secretIds: (service.secretIds ?? []).filter(id => secrets.some(map => map._id === id)),
+                  resourceIds: (service.resourceIds ?? []).filter(id => resources.some(resource => resource._id === id))
               }
             : {
                   slug: "",
@@ -195,6 +203,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                   env: [],
                   configMapIds: [],
                   secretIds: [],
+                  resourceIds: [],
                   codeRepository: hasRepositories
                       ? {
                             enabled: Boolean(initialTemplate),
@@ -397,7 +406,8 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                     <TabsContent value="variables" forceMount>
                         <div className="flex flex-col gap-6">
                             <ServiceEnvFields />
-                            <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                            <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
+                            <ServiceResourcesFields resources={resources} />
                         </div>
                     </TabsContent>
 
@@ -465,14 +475,16 @@ const AddServicePage: React.FC = () => {
     const environmentsQuery = useProjectEnvironmentsQuery()
     const configMapsQuery = useVariableMapsQuery("configMap")
     const secretsQuery = useVariableMapsQuery("secret")
+    const resourcesQuery = useResourcesQuery()
 
     return (
-        <ApiStatusHandler queries={[repositoriesQuery, serviceQuery, environmentsQuery, configMapsQuery, secretsQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[repositoriesQuery, serviceQuery, environmentsQuery, configMapsQuery, secretsQuery, resourcesQuery]} interceptEmpty={false}>
             <AddServiceForm
                 repositories={repositoriesQuery.data ?? []}
                 environments={environmentsQuery.data ?? []}
                 configMaps={configMapsQuery.data ?? []}
                 secrets={secretsQuery.data ?? []}
+                resources={resourcesQuery.data ?? []}
                 service={serviceQuery.data}
             />
         </ApiStatusHandler>

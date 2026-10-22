@@ -28,7 +28,13 @@ const serviceFields = {
     domainId: memberDomainId,
     context: z.string().max(CONTEXT_MAX_LENGTH).optional().describe("Markdown notes for AI agents about this service, replaced as a whole"),
     codeRepository: frontendCreateSchema.shape.codeRepository,
-    ...containerFields
+    ...containerFields,
+    // A service only: a frontend never attaches a resource
+    resourceIds: z
+        .array(objectId("Id of a resource of the project, from resources_list"))
+        .max(50)
+        .optional()
+        .describe("Resources (a database, an api, an ai...) whose variables reach the container as environment variables. Replaced as a whole")
 }
 
 export const createSchema = z.object(serviceFields)
@@ -115,7 +121,8 @@ export const serviceTools = [
     defineTool({
         name: "service_update",
         title: "Update service",
-        description: "Changes the given fields of a backend service. Nested objects (codeRepository, image) and the env list are replaced as a whole.",
+        description:
+            "Changes the given fields of a backend service. Nested objects (codeRepository, image), the env list and the configMapIds, secretIds and resourceIds (the resources it attaches, from resources_list) are replaced as a whole.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: updateSchema,

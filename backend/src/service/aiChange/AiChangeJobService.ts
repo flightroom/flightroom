@@ -9,10 +9,15 @@ import AiChangeRequest, { AI_CHANGE_MAX_EVENTS, AiChangeFileAction, AiChangeStat
 import AiMission, { AiMissionStatus, IAiMission } from "../../models/AiMissionModel"
 import CodeRepository from "../../models/CodeRepositoryModel"
 import Domain, { IDomain } from "../../models/DomainModel"
+import Environment from "../../models/EnvironmentModel"
 import Frontend from "../../models/FrontendModel"
 import Project, { IProject } from "../../models/ProjectModel"
+import Resource, { IResource } from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
 import User from "../../models/UserModel"
+import { ConfigMap, IVariableMap, Secret } from "../../models/VariableMapModel"
+import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
+import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import { isProtectedPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
@@ -21,6 +26,8 @@ import { redactSecrets } from "../assistant/assistantTools"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
 import { RepositoryFileService, repositoryNameFor, toErrorMessage } from "../RepositoryFileService"
+import { resourceIdsInScope } from "../ResourceService"
+import { keysOnly } from "../VariableMapService"
 import RepositoryWorkspaceService, { OpenedWorkspace } from "../workspace/RepositoryWorkspaceService"
 import {
     componentIdOf,
@@ -32,9 +39,10 @@ import {
     ownerFields,
     RepositoryComponent,
     RepositoryComponentKind,
-    RepositoryComponentRef
+    RepositoryComponentRef,
+    ServiceComponent
 } from "../workspace/repositoryComponent"
-import { AI_CHANGE_DEFAULT_EFFORT, AI_CHANGE_LIMITS, AiChangeAgentRepository, runAiChangeAgent } from "./aiChangeAgent"
+import { AI_CHANGE_DEFAULT_EFFORT, AI_CHANGE_LIMITS, AiChangeAgentDomain, AiChangeAgentRepository, AiChangeAgentResource, AiChangeAgentService, runAiChangeAgent } from "./aiChangeAgent"
 import {
     AiChangeBaseService,
     aiJobEnded,
@@ -53,6 +61,7 @@ import {
     storable,
     toCommitFiles
 } from "./aiChangeShared"
+import { AiChangeApiSpecSource } from "./apiSpecReader"
 
 /** Repositories one job may work on: each is a clone and a share of the model's context. */
 export const MAX_REPOSITORIES_PER_JOB = 10
@@ -235,8 +244,124 @@ const pathSlugs = (components: RepositoryComponent[]) => {
     })
 }
 
+/**
+ * The fields of a resource whose shared value the agent is told: none is a credential, each tells how to use
+ * the resource (where an api answers, which model an ai runs, which server an smtp is). A type left out, or
+ * added later, is described by the names of its variables alone. A storage's provider is a fixed variable.
+ */
+const AGENT_VISIBLE_FIELDS: Record<string, string[]> = {
+    api: ["baseUrl", "specUrl", "tokenUrl", "in", "name"],
+    ai: ["model"],
+    smtp: ["host", "port", "security", "from"]
+}
+
+/** What is read of a resource for the agent: never its credentials, an override of an environment nor its pasted document */
+const AGENT_RESOURCE_PROJECTION = "name type variant envPrefix description values.field values.value apiSpecBytes"
+
+/** What the agent is told of a resource: its variables by name, and the value every environment shares of the visible fields */
+const toAgentResource = (resource: Pick<IResource, "name" | "type" | "variant" | "envPrefix" | "description" | "values" | "apiSpecBytes">): AiChangeAgentResource => {
+    const variant = resourceVariant(resource.type, resource.variant)
+    // Checked against the catalog too: a field that is a credential is never shown, whichever list it was found in
+    const visible = new Set((AGENT_VISIBLE_FIELDS[resource.type] ?? []).filter(field => variant?.fields.some(spec => spec.name === field && !spec.secret)))
+    const values = Object.fromEntries((resource.values ?? []).flatMap(({ field, value }) => (visible.has(field) && value ? [[field, value]] : [])))
+    return {
+        name: resource.name,
+        type: resource.type,
+        variant: resource.variant,
+        ...(resource.description ? { description: resource.description } : {}),
+        keys: resourceEnvKeys(resource).map(({ key, field, secret, required, value }) => ({ key, ...(field !== undefined && { field }), secret, required, ...(value !== undefined && { value }) })),
+        ...(Object.keys(values).length ? { values } : {}),
+        ...(resource.type === "api" && resource.apiSpecBytes ? { apiSpec: true } : {})
+    }
+}
+
+/** What the services of a job get as environment variables and where they are reached, by service id; the api documents read_api_spec reads */
+interface JobServiceFacts {
+    services: Map<string, Partial<AiChangeAgentService>>
+    apiSpecs: AiChangeApiSpecSource[]
+}
+
+const uniqueIds = (services: ServiceComponent[], pick: (service: ServiceComponent) => unknown[]) => [...new Set(services.flatMap(service => (pick(service) ?? []).map(String)))]
+
+/**
+ * The configuration of the services of a job, as the agent may see it: the keys of their config maps and
+ * secrets and the variables of their resources, never a value of a secret (nothing here is decrypted), the
+ * URLs each one is reached at. A kind no service attaches is not queried. `visibleResources`, for a job of a
+ * domain-scoped member, keeps the resources they may read, as the console does: the agent is not told more.
+ */
+const serviceFactsOf = async (project: Pick<IProject, "_id" | "exposure">, components: RepositoryComponent[], visibleResources?: Set<string>): Promise<JobServiceFacts> => {
+    const services = components.filter((component): component is ServiceComponent => component.kind === "service")
+    const configMapIds = uniqueIds(services, service => service.configMapIds)
+    const secretIds = uniqueIds(services, service => service.secretIds)
+    const resourceIds = uniqueIds(services, service => service.resourceIds).filter(id => !visibleResources || visibleResources.has(id))
+    const exposure = project.exposure?.domain ? project.exposure : undefined
+    const inProject = (ids: string[]) => ({ _id: { $in: ids.map(id => toObjectId(id)) }, projectId: project._id })
+    const [configMaps, secrets, resources, environments] = await Promise.all([
+        configMapIds.length ? ConfigMap.find(inProject(configMapIds), keysOnly) : [],
+        secretIds.length ? Secret.find(inProject(secretIds), keysOnly) : [],
+        resourceIds.length ? Resource.find(inProject(resourceIds), AGENT_RESOURCE_PROJECTION) : [],
+        exposure && services.some(service => service.exposurePath) ? Environment.find({ projectId: project._id }, { slug: 1, subdomain: 1, isProduction: 1 }).sort({ order: 1, createdAt: 1 }) : []
+    ])
+    const mapsOf = (found: IVariableMap[], ids: unknown[]) =>
+        ids.flatMap(id => {
+            const map = found.find(candidate => String(candidate._id) === String(id))
+            return map ? [{ name: map.name, keys: (map.entries ?? []).map(entry => entry.key) }] : []
+        })
+    const facts = new Map<string, Partial<AiChangeAgentService>>()
+    for (const service of services) {
+        const exposurePath = service.exposurePath
+        const publicUrls =
+            exposure && exposurePath
+                ? environments.map(environment => ({ environment: environment.slug, url: `${exposedOrigin(exposure, effectiveSubdomain(environment))}${exposurePath.replace(/\/+$/, "")}` }))
+                : []
+        const serviceConfigMaps = mapsOf(configMaps, service.configMapIds ?? [])
+        const serviceSecrets = mapsOf(secrets, service.secretIds ?? [])
+        const serviceResources = (service.resourceIds ?? []).flatMap(id => resources.filter(resource => String(resource._id) === String(id)).map(toAgentResource))
+        facts.set(String(service._id), {
+            ...(exposurePath ? { exposurePath } : {}),
+            // The chart names the Kubernetes Service after the release, the slug of the service, on port 80
+            clusterUrl: `http://${service.slug}`,
+            ...(publicUrls.length ? { publicUrls } : {}),
+            ...(serviceConfigMaps.length ? { configMaps: serviceConfigMaps } : {}),
+            ...(serviceSecrets.length ? { secrets: serviceSecrets } : {}),
+            ...(serviceResources.length ? { resources: serviceResources } : {})
+        })
+    }
+    // Only an api with a document to read: read_api_spec, and the rule about it, are not offered for nothing
+    const apiSpecs = resources
+        .filter(resource => resource.type === "api")
+        .map(resource => ({ resource, specUrl: resource.values?.find(value => value.field === "specUrl")?.value || undefined }))
+        .filter(({ resource, specUrl }) => specUrl || resource.apiSpecBytes)
+        .map(({ resource, specUrl }) => ({
+            resource: resource.name,
+            specUrl,
+            // Read only if the agent asks: it can take megabytes, and only the document is read
+            loadPasted: resource.apiSpecBytes ? async () => (await Resource.findOne({ _id: resource._id, projectId: project._id }, { apiSpec: 1 }))?.apiSpec : undefined
+        }))
+    return { services: facts, apiSpecs }
+}
+
+/**
+ * The resources the services of a domain attach, each with the slugs of the services using it; none read when
+ * no service attaches one. Only those in `visibleResources` when given, as for {@link serviceFactsOf}.
+ */
+const domainResourcesOf = async (projectId: IAiChangeJob["projectId"], domain: IDomain, visibleResources?: Set<string>): Promise<NonNullable<AiChangeAgentDomain["resources"]>> => {
+    const services = await Service.find({ projectId, domainId: domain._id }, { slug: 1, resourceIds: 1 })
+    const ids = [...new Set(services.flatMap(service => (service.resourceIds ?? []).map(String)))].filter(id => !visibleResources || visibleResources.has(id))
+    if (ids.length === 0) return []
+    const resources = await Resource.find({ _id: { $in: ids.map(id => toObjectId(id)) }, projectId }, "name type description")
+    return resources
+        .map(resource => ({
+            name: resource.name,
+            type: resource.type,
+            ...(resource.description ? { description: resource.description } : {}),
+            usedBy: services.filter(service => (service.resourceIds ?? []).some(id => String(id) === String(resource._id))).map(service => service.slug)
+        }))
+        .sort((a, b) => a.name.localeCompare(b.name))
+}
+
 /** What the agent is told of a repository: a frontend's stack, or what the platform expects of a service's container. */
-const agentRepository = (component: RepositoryComponent, slug: string, rest: Omit<AiChangeAgentRepository, "frontend" | "service">): AiChangeAgentRepository =>
+const agentRepository = (component: RepositoryComponent, slug: string, rest: Omit<AiChangeAgentRepository, "frontend" | "service">, facts?: Partial<AiChangeAgentService>): AiChangeAgentRepository =>
     component.kind === "service"
         ? {
               ...rest,
@@ -251,12 +376,18 @@ const agentRepository = (component: RepositoryComponent, slug: string, rest: Omi
                   docsPath: component.docsPath,
                   openApiPath: component.openApiPath,
                   env: component.env.map(({ name, required, secret, description }) => ({ name, required, secret, description })),
-                  context: component.context
+                  context: component.context,
+                  ...facts
               }
           }
         : { ...rest, frontend: { name: component.name, slug, framework: component.framework, compiler: component.compiler, context: component.context } }
 
-const toAgentDomain = (domain: IDomain) => ({ name: domain.name, description: domain.description, context: domain.context })
+const toAgentDomain = (domain: IDomain, resources: AiChangeAgentDomain["resources"] = []): AiChangeAgentDomain => ({
+    name: domain.name,
+    description: domain.description,
+    context: domain.context,
+    ...(resources.length ? { resources } : {})
+})
 
 /** Whether two jobs work on the same repositories in the same order: the paths the agent knows then still point where they did. */
 const sameRepositories = (a: IAiChangeJob, b: IAiChangeJob) => {
@@ -720,6 +851,15 @@ export class AiChangeJobService extends AiChangeBaseService {
 
             const history = await this.historyOf(job)
             const slugs = pathSlugs(repositories.map(repository => repository.component))
+            // The job runs as whoever started it: a domain-scoped member's agent sees the resources they may read, no more
+            const scope = await this.getDomainScope(job.projectId)
+            const visibleResources = scope ? await resourceIdsInScope(job.projectId, scope) : undefined
+            const facts = await serviceFactsOf(
+                project,
+                repositories.map(repository => repository.component),
+                visibleResources
+            )
+            const domainResources = domain ? await domainResourcesOf(job.projectId, domain, visibleResources) : []
             // The agent may stop midway, the provider failing or its answer cut off: what it wrote until then is still proposed.
             let stopped: string | undefined
             const result = await runAiChangeAgent(
@@ -728,17 +868,26 @@ export class AiChangeJobService extends AiChangeBaseService {
                     prompt: job.prompt,
                     effort: job.effort,
                     project: { name: project.name, context: project.context, technologies: project.technologies },
-                    domain: domain ? toAgentDomain(domain) : undefined,
-                    memberDomains: memberDomains.map(toAgentDomain),
+                    domain: domain ? toAgentDomain(domain, domainResources) : undefined,
+                    memberDomains: memberDomains.map(memberDomain => toAgentDomain(memberDomain)),
                     repositories: repositories.map(({ component, request, workspace, previousFiles }, index) =>
-                        agentRepository(component, slugs[index], {
-                            baseBranch: request.baseBranch,
-                            workingCopy: workspace.workingCopy,
-                            previousChanges: (previousFiles ?? []).map(file => ({ path: file.path, bytes: file.proposedContent === undefined ? 0 : Buffer.byteLength(file.proposedContent, "utf8") }))
-                        })
+                        agentRepository(
+                            component,
+                            slugs[index],
+                            {
+                                baseBranch: request.baseBranch,
+                                workingCopy: workspace.workingCopy,
+                                previousChanges: (previousFiles ?? []).map(file => ({
+                                    path: file.path,
+                                    bytes: file.proposedContent === undefined ? 0 : Buffer.byteLength(file.proposedContent, "utf8")
+                                }))
+                            },
+                            facts.services.get(String(component._id))
+                        )
                     ),
                     previousRequests: history ? undefined : await this.previousRequests(job),
-                    history
+                    history,
+                    ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {})
                 },
                 {
                     onEvent: (kind, message) => this.log(jobId, kind, message),

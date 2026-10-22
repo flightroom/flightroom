@@ -40,6 +40,8 @@ interface ServiceDTO {
     configMapIds?: string[]
     /** Secrets of the project to attach, as for the config maps */
     secretIds?: string[]
+    /** Resources of the project to attach, as for the config maps: no key of theirs may be set by an attached map either */
+    resourceIds?: string[]
     createdAt?: Date
     updatedAt?: Date
 }

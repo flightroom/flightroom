@@ -14,6 +14,7 @@ import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
 import DomainHeader from "./partials/DomainHeader"
+import DomainResourcesSection from "./partials/DomainResourcesSection"
 import DomainScaffoldDialog, { repositoryNameFor, ScaffoldItem } from "./partials/DomainScaffoldDialog"
 
 /** Mirrors the backend: a job works on at most this many repositories. */
@@ -164,6 +165,7 @@ const DomainAiWorkspace: React.FC = () => {
     return (
         <div className="flex min-h-full flex-col gap-6">
             <DomainHeader domain={domain} />
+            <DomainResourcesSection services={services} />
             {aiModels.isPending ? (
                 <div className="flex min-h-[200px] items-center justify-center">
                     <Spinner size={32} />

@@ -54,6 +54,8 @@ describe("isPublicAddress", () => {
         ["an IPv6 link local address", "fe80::1"],
         ["an IPv4-mapped private address", "::ffff:10.0.0.1"],
         ["an IPv4-compatible address", "::10.0.0.1"],
+        ["an IPv4-translated loopback", "::ffff:0:7f00:1"],
+        ["an IPv4-translated private address", "::ffff:0:10.0.0.1"],
         ["a 6to4 address", "2002:a00:1::1"],
         ["a Teredo address", "2001:0:4136:e378:8000:63bf:3fff:fdd2"],
         ["a local-use NAT64 address", "64:ff9b:1::a00:1"],

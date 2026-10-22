@@ -61,6 +61,8 @@ export interface Service {
     configMapIds?: string[]
     /** Secrets of the project it receives as environment variables */
     secretIds?: string[]
+    /** Resources of the project it receives as environment variables; a frontend never has any */
+    resourceIds?: string[]
     createdAt?: Date
     updatedAt?: Date
 }

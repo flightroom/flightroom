@@ -41,6 +41,8 @@ export interface IService extends Document<ObjectId>, ServicePaths {
     configMapIds: Schema.Types.ObjectId[]
     /** Secrets of the project the service receives as environment variables, as for the config maps */
     secretIds: Schema.Types.ObjectId[]
+    /** Resources of the project (a database, a storage...) the service receives as environment variables; a frontend never attaches one */
+    resourceIds: Schema.Types.ObjectId[]
     createdAt: Date
     updatedAt: Date
 }
@@ -144,6 +146,10 @@ const serviceSchema = new Schema<IService>(
         },
         secretIds: {
             type: [{ type: Schema.Types.ObjectId, ref: "Secret" }],
+            default: []
+        },
+        resourceIds: {
+            type: [{ type: Schema.Types.ObjectId, ref: "Resource" }],
             default: []
         }
     },

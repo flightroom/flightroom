@@ -34,6 +34,7 @@ import BuiltService from "../models/BuiltServiceModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
 import Project from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
@@ -442,6 +443,50 @@ describe("ServiceService.update of the attached maps", () => {
 
         await expect(refusal).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED" })
         expect(write).not.toHaveBeenCalled()
+    })
+
+    describe("and of the resources", () => {
+        const orders = new Types.ObjectId().toString()
+        let resources: ReturnType<typeof vi.fn>
+
+        beforeEach(() => {
+            resources = vi.spyOn(Resource, "find").mockResolvedValue([{ _id: orders, name: "orders", type: "database", variant: "credentials" }] as never) as unknown as ReturnType<typeof vi.fn>
+        })
+
+        const attach = (resourceIds: string[]) => {
+            // The service attaches no secret: the read of them finds none
+            secrets.mockResolvedValue([])
+            return update({ resourceIds })
+        }
+
+        it("given the secrets only of a service with no resource, when it is updated, then no resource is read nor written", async () => {
+            await update({ secretIds: [database] })
+
+            expect(resources).not.toHaveBeenCalled()
+            expect(write.mock.calls[0][1]).not.toHaveProperty("resourceIds")
+        })
+
+        it("given a resource of the project listed twice, when the service is updated, then it is written once and checked against the maps it has", async () => {
+            await attach([orders, orders])
+
+            expect(resources.mock.calls[0][0]).toMatchObject({ projectId })
+            expect(configMaps).toHaveBeenCalled()
+            expect(write.mock.calls[0][1]).toEqual({ name: "Orders API", resourceIds: [orders] })
+        })
+
+        it("given a resource that is not one of the project, when the service is updated, then it is refused and nothing is written", async () => {
+            resources.mockResolvedValue([])
+
+            await expect(attach([new Types.ObjectId().toString()])).rejects.toMatchObject({ code: "SERVICE_RESOURCE_UNKNOWN" })
+            expect(write).not.toHaveBeenCalled()
+        })
+
+        it("given a resource setting a key a config map of the service sets, when the service is updated, then it is refused and nothing is written", async () => {
+            configMaps.mockResolvedValue([{ _id: logging, name: "logging", entries: [{ key: "DB_ORDERS_HOST" }] }])
+
+            await expect(attach([orders])).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED" })
+            expect(write).not.toHaveBeenCalled()
+        })
     })
 })
 

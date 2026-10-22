@@ -10,7 +10,9 @@ import { Badge, Button } from "@/components/atoms"
 import { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
+import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 import { Service } from "@/hooks/apiClients/useServicesApi"
+import { resourcePath, typeLabel } from "@/pages/resources/partials/resources"
 import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
 
 interface DomainGalaxyProps {
@@ -23,6 +25,8 @@ interface DomainGalaxyProps {
     onLink: (sourceDomainId: string, targetDomainId: string) => void
     /** A relation the user asked to delete */
     onUnlink: (link: DomainLink) => void
+    /** The resources of the project: drawn next to the services shown that attach them */
+    resources?: Resource[]
 }
 
 interface Point {
@@ -39,7 +43,7 @@ interface RelationSegment {
 
 interface Star {
     id: string
-    kind: "frontend" | "service"
+    kind: "frontend" | "service" | "resource"
     name: string
     slug: string
     version?: string
@@ -52,9 +56,11 @@ interface Star {
 interface Lane {
     from: string
     to: string
-    kind: "relation" | "service"
+    kind: "relation" | "service" | "resource"
     /** Between members of two different galaxies */
     bridge: boolean
+    /** To a resource services of several galaxies share: it barely pulls, or those galaxies would merge */
+    shared?: boolean
 }
 
 interface Galaxy {
@@ -98,6 +104,8 @@ interface ChargeForce {
 }
 
 const NO_DOMAIN = "no-domain"
+/** Where a resource attached by services of several galaxies sits: between them, in no galaxy, with no anchor to pull it */
+const SHARED = "shared-resources"
 
 interface Sky {
     space: string
@@ -105,6 +113,7 @@ interface Sky {
     ink: string
     dustAlpha: number
     service: string
+    resource: string
     canary: string
     bridge: string
     noDomain: string
@@ -125,6 +134,7 @@ const SKIES: Record<"dark" | "light", Sky> = {
         ink: "38 44% 96%", // foreground (dark)
         dustAlpha: 1,
         service: "162 28% 61%", // zomp-400
+        resource: "162 51% 81%", // zomp-200
         canary: "44 97% 63%", // sunglow-200
         bridge: "91 41% 69%", // olivine-300
         noDomain: "203 17% 57%", // charcoal-500
@@ -138,6 +148,7 @@ const SKIES: Record<"dark" | "light", Sky> = {
         ink: "203 37% 22%", // charcoal-900
         dustAlpha: 0.35,
         service: "163 27% 41%", // zomp-600
+        resource: "164 33% 31%", // zomp-700
         canary: "46 92% 30%", // sunglow-600
         bridge: "89 27% 40%", // olivine-600
         noDomain: "204 17% 47%", // charcoal-600
@@ -343,7 +354,7 @@ const useIsDark = () => {
  * members in no domain in a grey nebula. Links across two domains are drawn as bridges between the
  * galaxies, the ones the domain diagram has to leave out.
  */
-export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, services, links, onLink, onUnlink }) => {
+export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, services, links, onLink, onUnlink, resources = [] }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const graphRef = useRef<ForceGraphMethods<StarNode, LaneLink>>(undefined)
@@ -403,11 +414,23 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
         ]
         const galaxyById = new Map(members.map(member => [member.id, member.galaxyId]))
 
+        // A resource is drawn only when a service shown attaches it: in the galaxy of its services when they share one, between them otherwise
+        const resourceMembers = resources.flatMap(resource => {
+            const users = services.filter(service => service._id && resource._id && service.resourceIds?.includes(resource._id)).map(service => service._id!)
+            if (!users.length) return []
+            const galaxyIds = new Set(users.map(id => galaxyById.get(id) ?? NO_DOMAIN))
+            const galaxyId = galaxyIds.size === 1 ? [...galaxyIds][0] : SHARED
+            return [{ id: resource._id!, kind: "resource" as const, name: resource.name, slug: typeLabel(t, resource.type), galaxyId, users }]
+        })
+
         // Links to something that is not on the map are left out: there is no star to draw them to.
         const lanes: Lane[] = [
             ...frontends.flatMap(mfe => (mfe.parentIds ?? []).filter(parentId => galaxyById.has(parentId)).map(parentId => ({ from: parentId, to: mfe._id!, kind: "relation" as const }))),
             ...frontends.flatMap(mfe => (mfe.serviceIds ?? []).filter(serviceId => galaxyById.has(serviceId)).map(serviceId => ({ from: mfe._id!, to: serviceId, kind: "service" as const })))
         ].map(lane => ({ ...lane, bridge: galaxyById.get(lane.from) !== galaxyById.get(lane.to) }))
+        for (const resource of resourceMembers) {
+            for (const serviceId of resource.users) lanes.push({ from: serviceId, to: resource.id, kind: "resource", bridge: false, shared: resource.galaxyId === SHARED })
+        }
 
         const degree = new Map<string, number>()
         for (const lane of lanes) {
@@ -448,9 +471,24 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             }
         })
 
+        // A resource starts at the centre of the services attaching it, set a little apart so it does not cover a lone one
+        const byId = new Map(nodes.map(node => [node.id, node]))
+        resourceMembers.forEach(({ users, ...resource }, index) => {
+            const around = users.flatMap(id => byId.get(id) ?? [])
+            const x = around.reduce((sum, node) => sum + (node.x ?? 0), 0) / Math.max(1, around.length)
+            const y = around.reduce((sum, node) => sum + (node.y ?? 0), 0) / Math.max(1, around.length)
+            const before = previous.get(resource.id)
+            nodes.push({
+                ...resource,
+                radius: 3 + Math.sqrt(degree.get(resource.id) ?? 0) * 1.6,
+                x: before?.x ?? x + 12 * Math.cos(index * GOLDEN_ANGLE),
+                y: before?.y ?? y + 12 * Math.sin(index * GOLDEN_ANGLE)
+            })
+        })
+
         const membersByGalaxy = new Map(galaxies.map(galaxy => [galaxy.id, nodes.filter(node => node.galaxyId === galaxy.id)]))
         return { galaxies, membersByGalaxy, graphData: { nodes, links: lanes.map<LaneLink>(lane => ({ ...lane, source: lane.from, target: lane.to })) } }
-    }, [domains, frontends, services, t])
+    }, [domains, frontends, services, resources, t])
 
     useEffect(() => {
         previousNodesRef.current = graphData.nodes
@@ -495,6 +533,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
     }, [throttled, isGraphMounted])
 
     const hasBridges = graphData.links.some(link => link.bridge)
+    const hasResources = graphData.nodes.some(node => node.kind === "resource")
     const animated = !reducedMotion && (hasBridges || ships.length > 0 || graphData.nodes.some(node => node.canary !== undefined))
 
     useEffect(() => {
@@ -518,7 +557,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
         graph.d3Force("center", null)
         // A bridge barely pulls, or two linked domains would merge into one galaxy.
         const linkForce = graph.d3Force("link") as unknown as LinkForce | undefined
-        linkForce?.distance(link => (link.bridge ? BRIDGE_DISTANCE : LANE_DISTANCE)).strength(link => (link.bridge ? 0.01 : 0.25))
+        linkForce?.distance(link => (link.bridge ? BRIDGE_DISTANCE : LANE_DISTANCE)).strength(link => (link.bridge ? 0.01 : link.shared ? 0.03 : 0.25))
         const chargeForce = graph.d3Force("charge") as unknown as ChargeForce | undefined
         chargeForce?.strength(-45).distanceMax(220)
         engineStoppedRef.current = false
@@ -675,7 +714,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             const x = node.x ?? 0
             const y = node.y ?? 0
             const r = node.radius
-            const hue = node.kind === "service" ? sky.service : primaryHue
+            const hue = node.kind === "service" ? sky.service : node.kind === "resource" ? sky.resource : primaryHue
             const highlighted = neighbourIds?.has(node.id) ?? false
             ctx.globalAlpha = neighbourIds && !highlighted ? DIMMED_ALPHA : 1
 
@@ -687,14 +726,17 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             ctx.arc(x, y, r * 3, 0, 2 * Math.PI)
             ctx.fill()
 
+            // A resource is a rounded square: a store the services draw from, not a star of its own
+            const body = (size: number) => {
+                ctx.beginPath()
+                if (node.kind === "resource") ctx.roundRect(x - size, y - size, size * 2, size * 2, size * 0.45)
+                else ctx.arc(x, y, size, 0, 2 * Math.PI)
+                ctx.fill()
+            }
             ctx.fillStyle = `hsl(${hue})`
-            ctx.beginPath()
-            ctx.arc(x, y, r, 0, 2 * Math.PI)
-            ctx.fill()
+            body(r)
             ctx.fillStyle = `hsl(${STAR_CORE} / 0.85)`
-            ctx.beginPath()
-            ctx.arc(x, y, r * 0.4, 0, 2 * Math.PI)
-            ctx.fill()
+            body(r * 0.4)
 
             // The canary is a ring as wide as its share of the traffic, pulsing unless motion is reduced.
             if (node.canary !== undefined) {
@@ -719,18 +761,20 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
     )
 
     const paintPointerArea = useCallback((node: StarNode, color: string, ctx: CanvasRenderingContext2D) => {
+        const reach = node.radius + 2
         ctx.fillStyle = color
         ctx.beginPath()
-        ctx.arc(node.x ?? 0, node.y ?? 0, node.radius + 2, 0, 2 * Math.PI)
+        if (node.kind === "resource") ctx.rect((node.x ?? 0) - reach, (node.y ?? 0) - reach, reach * 2, reach * 2)
+        else ctx.arc(node.x ?? 0, node.y ?? 0, reach, 0, 2 * Math.PI)
         ctx.fill()
     }, [])
 
-    const laneHue = useCallback((link: LaneLink) => (link.bridge ? sky.bridge : link.kind === "service" ? sky.service : primaryHue), [primaryHue, sky])
+    const laneHue = useCallback((link: LaneLink) => (link.bridge ? sky.bridge : link.kind === "service" ? sky.service : link.kind === "resource" ? sky.resource : primaryHue), [primaryHue, sky])
     const isLit = useCallback((link: LaneLink) => neighbourIds !== null && (link.from === hovered?.node.id || link.to === hovered?.node.id), [neighbourIds, hovered])
 
     const linkColor = useCallback(
         (link: LaneLink) => {
-            const alpha = neighbourIds ? (isLit(link) ? 0.95 : 0.06) : link.bridge ? 0.75 : link.kind === "service" ? 0.35 : 0.4
+            const alpha = neighbourIds ? (isLit(link) ? 0.95 : 0.06) : link.bridge ? 0.75 : link.kind === "relation" ? 0.4 : 0.35
             return `hsl(${laneHue(link)} / ${alpha})`
         },
         [neighbourIds, isLit, laneHue]
@@ -782,7 +826,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
             const graph = graphRef.current
             const ship = graph && shipAt(graph.screen2GraphCoords(event.offsetX, event.offsetY))
             if (ship) return openAgentJob(ship.jobId, ship.fallbackPath)
-            navigate(node.kind === "service" ? `/service/${node.id}` : `/frontend/${node.id}`)
+            navigate(node.kind === "resource" ? resourcePath(node.id) : node.kind === "service" ? `/service/${node.id}` : `/frontend/${node.id}`)
         },
         [linking, pickForLink, galaxies, navigate, shipAt, openAgentJob]
     )
@@ -870,7 +914,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
                     nodePointerAreaPaint={paintPointerArea}
                     linkColor={linkColor}
                     linkWidth={link => (isLit(link) ? 1.6 : link.bridge ? 1.4 : 0.8)}
-                    linkLineDash={link => (link.kind === "service" ? [3, 2] : null)}
+                    linkLineDash={link => (link.kind === "service" ? [3, 2] : link.kind === "resource" ? [1, 1.5] : null)}
                     linkCurvature={link => (link.bridge ? 0.15 : 0)}
                     linkDirectionalParticles={link => (!reducedMotion && (link.bridge || isLit(link)) ? 2 : 0)}
                     linkDirectionalParticleSpeed={0.005}
@@ -915,6 +959,12 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
                     <span className="h-1 w-4 rounded-full bg-foreground/60" aria-hidden="true" />
                     {t("domains.galaxy.legend_relation")}
                 </span>
+                {hasResources && (
+                    <span className="flex items-center gap-1.5">
+                        <span className="size-2.5 rounded-[3px] bg-zomp-700 dark:bg-zomp-200" aria-hidden="true" />
+                        {t("domains.galaxy.legend_resource")}
+                    </span>
+                )}
                 {ships.length > 0 && (
                     <span className="flex items-center gap-1.5">
                         <Rocket className="size-3.5 text-foreground" aria-hidden="true" />
@@ -971,8 +1021,8 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends, 
                     </div>
                     <div className="text-foreground-secondary">{hovered.node.slug}</div>
                     <div className="mt-1 text-foreground-secondary">
-                        {t(hovered.node.kind === "service" ? "domains.galaxy.kind_service" : "domains.galaxy.kind_frontend")}
-                        {hoveredGalaxy && ` · ${hoveredGalaxy.name}`}
+                        {t(hovered.node.kind === "resource" ? "domains.galaxy.kind_resource" : hovered.node.kind === "service" ? "domains.galaxy.kind_service" : "domains.galaxy.kind_frontend")}
+                        {hoveredGalaxy ? ` · ${hoveredGalaxy.name}` : hovered.node.galaxyId === SHARED && ` · ${t("domains.galaxy.shared_resource")}`}
                     </div>
                     {hovered.node.canary !== undefined && <div className="mt-1 font-medium text-warning">{t("domains.galaxy.canary", { percentage: hovered.node.canary })}</div>}
                 </div>

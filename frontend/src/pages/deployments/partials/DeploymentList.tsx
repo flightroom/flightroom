@@ -52,6 +52,7 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
     const services = deployment.services ?? []
     const configMaps = deployment.configMaps ?? []
     const secrets = deployment.secrets ?? []
+    const resources = deployment.resources ?? []
     const exposure = useProjectStore(state => state.project?.exposure)
     const environment = useProjectStore(state => state.environments?.find(candidate => candidate._id === deployment.environmentId))
     // No link without a domain to expose on: the path alone does not open anything
@@ -94,6 +95,8 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
             )}
             {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} />}
             {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} secret />}
+            {/* Recorded keys only, as for a secret: the values stay with the resource */}
+            {resources.length > 0 && <DeployedMaps title={t("deployments.resources_title")} maps={resources} secret />}
         </>
     )
 }

@@ -25,6 +25,8 @@ const AddService = lazy(() => import("./pages/services/AddService"))
 const ServiceDetail = lazy(() => import("./pages/services/ServiceDetail"))
 const VariableMaps = lazy(() => import("./pages/variable-maps/VariableMaps"))
 const VariableMapForm = lazy(() => import("./pages/variable-maps/VariableMapForm"))
+const Resources = lazy(() => import("./pages/resources/Resources"))
+const ResourceForm = lazy(() => import("./pages/resources/ResourceForm"))
 const Dependencies = lazy(() => import("./pages/dependencies/Dependencies"))
 const Builds = lazy(() => import("./pages/builds/Builds"))
 const Deployments = lazy(() => import("./pages/deployments/Deployments"))
@@ -142,6 +144,8 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/config-map/:id" element={<RouteWithSuspense element={<VariableMapForm kind="configMap" />} />} />
                 <Route path="/secrets" element={<RouteWithSuspense element={<VariableMaps kind="secret" />} />} />
                 <Route path="/secret/:id" element={<RouteWithSuspense element={<VariableMapForm kind="secret" />} />} />
+                <Route path="/resources" element={<RouteWithSuspense element={<Resources />} />} />
+                <Route path="/resource/:id" element={<RouteWithSuspense element={<ResourceForm />} />} />
                 <Route path="/dependencies" element={<RouteWithSuspense element={<Dependencies />} />} />
                 <Route path="/builds" element={<RouteWithSuspense element={<Builds />} />} />
                 <Route path="/fleet" element={<RouteWithSuspense element={<FleetPage />} />} />

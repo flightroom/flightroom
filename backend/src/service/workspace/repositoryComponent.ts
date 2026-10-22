@@ -45,6 +45,12 @@ export interface ServiceComponent extends RepositoryComponentBase {
     docsPath?: string
     openApiPath?: string
     env: IServiceEnvVariable[]
+    /** Where it is exposed on the host of every environment, if it is */
+    exposurePath?: string
+    /** What reaches its container as environment variables: names and keys only are ever read from them */
+    configMapIds: IService["configMapIds"]
+    secretIds: IService["secretIds"]
+    resourceIds: IService["resourceIds"]
 }
 
 export type RepositoryComponent = FrontendComponent | ServiceComponent
@@ -78,7 +84,11 @@ export const fromService = (service: IService): ServiceComponent => ({
     readinessPath: service.readinessPath,
     docsPath: service.docsPath ?? undefined,
     openApiPath: service.openApiPath ?? undefined,
-    env: service.env ?? []
+    env: service.env ?? [],
+    exposurePath: service.exposurePath ?? undefined,
+    configMapIds: service.configMapIds ?? [],
+    secretIds: service.secretIds ?? [],
+    resourceIds: service.resourceIds ?? []
 })
 
 /** The component a request changes. */

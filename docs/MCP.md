@@ -32,8 +32,8 @@ layout it is `https://<your console>/api/mcp`.
 Two scopes, chosen on the consent page:
 
 - `mfe:read` — read the project: frontends, backend services, functional domains, environments,
-  deployments, canary users, global variables, build status, storages and repository connections
-  (credentials masked), dependency and integration plans.
+  deployments, canary users, global variables, build status, storages, resources and repository
+  connections (credentials masked), dependency and integration plans.
 - `mfe:write` — everything the console does inside a project, **deploy and rollback included**:
   create and edit frontends, services, domains and environments, trigger builds, import
   repositories, change global variables, apply dependency alignments and integrations. It also
@@ -125,6 +125,31 @@ at most.
 - `frontends_list` and `services_list` take an optional `domainId` filter: a domain id, or `none`
   for the items in no domain.
 
+## Resources
+
+A **resource** is a package of environment variables of a catalog type (`database`, `storage`, `redis`,
+`serviceAccount`, `auth0`, `api`, `ai`, `smtp`) that backend services attach by id (`resourceIds`); a
+frontend never does. Each one becomes a Kubernetes Secret named `<name>.resource` at the next GitOps deploy.
+
+- `resource_types_list` (`mfe:read`) returns the catalog: each type with its variants and their fields
+  (variable suffix, whether it is a credential, required, how it is typed).
+- `resources_list` and `resource_get` (`mfe:read`) return the resources with their fields, the value in
+  every environment and the overrides, and `env`, the variables each one sets. Credentials come back
+  masked, as `secret_get` masks values; the pasted OpenAPI document of an `api` never comes back, only
+  `apiSpec: { present, bytes }`.
+- `resource_create` and `resource_update` (`mfe:write`) write the name, type (fixed once created),
+  variant, description, `envPrefix`, the fields that are no credential and the pasted `apiSpec`. An update
+  merges by field: a field left out keeps its value, one sent as `null` is unset. **A credential field is
+  refused** ("Secret fields of a resource are set from the console"): it is typed in the console only. So is
+  an update changing the variant or where a resource with stored credentials connects (its host, base URL...):
+  those credentials must be typed again (`RESOURCE_SECRET_REENTRY_REQUIRED`, see
+  [SECRETS.md](./SECRETS.md)), which only the console does. `resource_delete` is destructive
+  and refused while a service attaches the resource.
+- `service_create` and `service_update` take `resourceIds` (at most 50, replaced as a whole); a variable
+  of a resource clashing with one of the config maps, secrets or other resources of the service is refused.
+- `domain_get` adds `resources`: the resources the services of the domain attach, each with its `env`
+  keys and `usedBy`, the slugs of those services (left out when none attaches one).
+
 ## Several projects in one connection
 
 - `projects_list` returns the shared projects with their organization and the user's role;
@@ -155,7 +180,7 @@ projects: there is no user to own them.
   organization, project).
 
 Left out on purpose: API keys, creating or editing
-storages and repository connections (their input is a secret), deleting projects, organizations,
+storages and repository connections and the credentials of a resource (their input is a secret), deleting projects, organizations,
 members, invitations, the user profile, bundle upload and the canvas layout.
 
 ## Fallback: a project API key
