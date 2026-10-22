@@ -89,7 +89,7 @@ const MicrofrontendRow: React.FC<{ mfe: Microfrontend }> = ({ mfe }) => {
     const hasRepository = Boolean(mfe.codeRepository?.enabled)
     const agents = useWorkingAgents(mfe._id)
     const aiAvailable = isAiEditAvailable(mfe, useProjectAiModels().enabled)
-    // Served by its own container: MFE Orchestrator neither hosts it nor runs a canary for it
+    // Served by its own container: Flightroom neither hosts it nor runs a canary for it
     const isFrontend = mfe.kind === MicrofrontendKind.FRONTEND
 
     return (

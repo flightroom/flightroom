@@ -74,7 +74,7 @@ const StorageAuthFields: React.FC<StorageAuthFieldsProps> = ({ storageType }) =>
                         {azureAuthType === "sharedKey" && (
                             <div className="space-y-4 p-4 bg-muted border rounded-lg">
                                 <div className="flex items-center gap-2">
-                                    <Key className="h-4 w-4 text-primary" />
+                                    <Key className="h-4 w-4 text-primary-strong" />
                                     <h4 className="text-sm font-medium text-foreground">{t("storage.sharedKeyAuthentication")}</h4>
                                 </div>
                                 <TextField name="authConfig.accountKey" label={t("storage.fields.accountKey")} required type="password" rules={{ required: true }} />
@@ -84,7 +84,7 @@ const StorageAuthFields: React.FC<StorageAuthFieldsProps> = ({ storageType }) =>
                         {azureAuthType === "aad" && (
                             <div className="space-y-4 p-4 bg-muted border rounded-lg">
                                 <div className="flex items-center gap-2">
-                                    <Key className="h-4 w-4 text-primary" />
+                                    <Key className="h-4 w-4 text-primary-strong" />
                                     <h4 className="text-sm font-medium text-foreground">{t("storage.azureAdAuthentication")}</h4>
                                 </div>
                                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -98,7 +98,7 @@ const StorageAuthFields: React.FC<StorageAuthFieldsProps> = ({ storageType }) =>
                         {azureAuthType === "connectionString" && (
                             <div className="space-y-4 p-4 bg-muted border rounded-lg">
                                 <div className="flex items-center gap-2">
-                                    <Key className="h-4 w-4 text-primary" />
+                                    <Key className="h-4 w-4 text-primary-strong" />
                                     <h4 className="text-sm font-medium text-foreground">{t("storage.connectionString")}</h4>
                                 </div>
                                 <TextField name="authConfig.connectionString" label={t("storage.fields.connectionString")} required type="password" rules={{ required: true }} />

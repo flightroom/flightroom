@@ -188,7 +188,7 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
             )}
         >
             <header className={cn("flex items-center gap-2 px-4 py-3", !isPage && "border-b border-divider")}>
-                <Sparkles className="size-5 text-primary" aria-hidden="true" />
+                <Sparkles className="size-5 text-primary-strong" aria-hidden="true" />
                 <h2 className="flex-1 font-semibold text-foreground">{t("assistant.title")}</h2>
                 {projectId && (
                     <Button variant="ghost" size="icon" aria-label={t("assistant.jobs.new_job")} title={t("assistant.jobs.new_job")} onClick={() => setNewJobOpen(true)} dataTestId="assistant-new-job">

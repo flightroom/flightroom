@@ -10,9 +10,9 @@ export const formatToolValue = (value: unknown) => (typeof value === "string" ? 
 const StatusIcon: React.FC<{ status: AssistantToolCall["status"] }> = ({ status }) => {
     const className = "size-3.5 shrink-0"
     if (status === "running") return <LoaderCircle className={`${className} animate-spin text-foreground-secondary`} aria-hidden="true" />
-    if (status === "ok") return <Check className={`${className} text-green-600`} aria-hidden="true" />
+    if (status === "ok") return <Check className={`${className} text-success`} aria-hidden="true" />
     if (status === "error") return <CircleAlert className={`${className} text-destructive`} aria-hidden="true" />
-    if (status === "awaiting_confirmation") return <Hourglass className={`${className} text-primary`} aria-hidden="true" />
+    if (status === "awaiting_confirmation") return <Hourglass className={`${className} text-primary-strong`} aria-hidden="true" />
     if (status === "declined") return <Ban className={`${className} text-foreground-secondary`} aria-hidden="true" />
     return <CircleSlash className={`${className} text-foreground-secondary`} aria-hidden="true" />
 }

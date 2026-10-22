@@ -102,7 +102,7 @@ const JobBadge: React.FC<{ request: AiChangeRequest }> = ({ request }) => {
 }
 
 const WarningAlert: React.FC<{ title: string; children: React.ReactNode }> = ({ title, children }) => (
-    <Alert className="border-amber-500/50 bg-amber-500/10 text-amber-900 dark:text-amber-200">
+    <Alert variant="warning">
         <AlertTriangle className="size-4" aria-hidden="true" />
         <AlertTitle>{title}</AlertTitle>
         <AlertDescription className="whitespace-pre-wrap break-words">{children}</AlertDescription>
@@ -112,7 +112,7 @@ const WarningAlert: React.FC<{ title: string; children: React.ReactNode }> = ({ 
 const PullRequestLink: React.FC<{ url: string }> = ({ url }) => {
     const { t } = useTranslation()
     return (
-        <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary underline-offset-4 hover:underline">
+        <a href={url} target="_blank" rel="noopener noreferrer" className="inline-flex items-center gap-1 font-medium text-primary-strong underline-offset-4 hover:underline">
             {t("microfrontend.aiChange.view_pull_request")}
             <ExternalLink className="size-3.5" aria-hidden="true" />
             <span className="sr-only">{t("microfrontend.aiChange.opens_new_tab")}</span>
@@ -124,7 +124,7 @@ const AppliedAlert: React.FC<{ baseBranch: string; commit?: string; pullRequestU
     const { t } = useTranslation()
     return (
         <Alert>
-            <CheckCircle2 className="size-4 text-green-600 dark:text-green-400" aria-hidden="true" />
+            <CheckCircle2 className="size-4 text-success" aria-hidden="true" />
             <AlertTitle>{t("microfrontend.aiChange.applied_title")}</AlertTitle>
             <AlertDescription className="flex flex-col gap-1">
                 <span>
@@ -557,7 +557,7 @@ const RepositoryTab: React.FC<{ repository: AiJobRepository }> = ({ repository }
             )}
             {isActive(repository.status) && <LoaderCircle className="shrink-0 animate-spin motion-reduce:animate-none" aria-hidden="true" />}
             {repository.status === "FAILED" && <AlertTriangle className="shrink-0 text-destructive" aria-hidden="true" />}
-            {repository.status === "APPLIED" && <CheckCircle2 className="shrink-0 text-green-600 dark:text-green-400" aria-hidden="true" />}
+            {repository.status === "APPLIED" && <CheckCircle2 className="shrink-0 text-success" aria-hidden="true" />}
             <span className="sr-only">
                 {count > 0 && `, ${t("microfrontend.aiChange.files_count", { count })}`}, {t(`microfrontend.aiChange.status.${repository.status}`)}
             </span>
@@ -1301,7 +1301,7 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
             <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
                 <CardHeader>
                     <CardTitle className="mb-0 flex items-center gap-2 break-words text-xl">
-                        <Sparkles className="size-5 shrink-0 text-primary" aria-hidden="true" />
+                        <Sparkles className="size-5 shrink-0 text-primary-strong" aria-hidden="true" />
                         {t("microfrontend.aiChange.composer_title", { name })}
                     </CardTitle>
                     <CardDescription>{t("microfrontend.aiChange.description", { context })}</CardDescription>

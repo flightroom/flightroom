@@ -23,7 +23,7 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
     // On User is an explicit enrolment, not a split: there is no traffic share to set, so asking for a
     // percentage would only suggest it does something.
     const isPercentageBased = canaryType !== CanaryType.ON_USER
-    // A FRONTEND is served by its own container, which MFE Orchestrator cannot split traffic for, and its
+    // A FRONTEND is served by its own container, which Flightroom cannot split traffic for, and its
     // pipeline sets the version: neither is edited here
     const isFrontend = watch("kind") === MicrofrontendKind.FRONTEND
 

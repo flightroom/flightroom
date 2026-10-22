@@ -18,7 +18,7 @@ const SinglePageLayout: React.FC<SinglePageHeaderProps> = ({ title, description,
             <div className={cn("mb-4", headerClassName)}>
                 <div>
                     <h1 className="text-2xl font-bold text-foreground">{title}</h1>
-                    {description && <p className="text-primary">{description}</p>}
+                    {description && <p className="text-primary-strong">{description}</p>}
                 </div>
                 {(left || right) && (
                     <div className={cn("@container mt-4 flex justify-between items-center gap-y-2 gap-x-4 flex-wrap", lrContainerClassname)}>

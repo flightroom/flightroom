@@ -20,7 +20,7 @@ export enum CanaryType {
 }
 
 /**
- * How it is served. A MICROFRONTEND is a static bundle served by MFE Orchestrator; a FRONTEND is an app
+ * How it is served. A MICROFRONTEND is a static bundle served by Flightroom; a FRONTEND is an app
  * built into a Docker image and served by its own container, like a backend service. Chosen by hand
  * only: neither the template nor the host/remote role sets it.
  */

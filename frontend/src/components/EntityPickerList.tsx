@@ -116,7 +116,7 @@ export const EntityPickerList = <T extends PickableEntity>({
                                         )}
                                     >
                                         <span
-                                            className={cn("relative flex size-14 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xl font-semibold uppercase text-primary", {
+                                            className={cn("relative flex size-14 shrink-0 items-center justify-center rounded-lg bg-primary/15 text-xl font-semibold uppercase text-primary-strong", {
                                                 "bg-accent text-accent-foreground": isActive
                                             })}
                                             aria-hidden="true"
@@ -172,7 +172,7 @@ export const EntityPickerList = <T extends PickableEntity>({
                                     )}
                                 >
                                     <span
-                                        className={cn("flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/15 text-sm font-semibold uppercase text-primary", {
+                                        className={cn("flex size-9 shrink-0 items-center justify-center rounded-md bg-primary/15 text-sm font-semibold uppercase text-primary-strong", {
                                             "bg-accent text-accent-foreground": isActive
                                         })}
                                         aria-hidden="true"

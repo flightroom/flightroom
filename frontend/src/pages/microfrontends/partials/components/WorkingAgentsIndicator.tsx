@@ -43,7 +43,11 @@ export const WorkingAgentsIndicator: React.FC<WorkingAgentsIndicatorProps> = ({ 
     const label = t("microfrontend.card.workingAgents", { count: agents })
 
     return (
-        <span role="status" title={label} className={cn("inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary", className)}>
+        <span
+            role="status"
+            title={label}
+            className={cn("inline-flex min-w-0 shrink-0 items-center gap-1.5 rounded-full bg-primary/10 px-2 py-0.5 text-xs font-semibold text-primary-strong", className)}
+        >
             <span className="relative flex size-2 shrink-0" aria-hidden="true">
                 <span className="absolute inline-flex size-full animate-ping rounded-full bg-primary opacity-75 motion-reduce:animate-none" />
                 <span className="relative inline-flex size-2 rounded-full bg-primary" />

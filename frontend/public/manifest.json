@@ -1,5 +1,7 @@
 {
     "name": "Flightroom",
+    "theme_color": "#FE7F2D",
+    "background_color": "#FFFFFF",
     "icons": [
         {
             "src": "\/android-icon-36x36.png",

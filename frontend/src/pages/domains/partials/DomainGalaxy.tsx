@@ -96,36 +96,42 @@ interface Sky {
 }
 
 /**
- * Colours as HSL components, so each use can add its own alpha. The dark theme is deep space,
- * the light one a star chart on paper, with darker tones to hold the contrast.
+ * Colours as HSL components, so each use can add its own alpha, taken from the brand scales of the
+ * design system. The dark theme is deep space on charcoal, the light one a star chart on paper,
+ * with darker steps of the same scales to hold the contrast.
  */
 const SKIES: Record<"dark" | "light", Sky> = {
     dark: {
-        space: "#070b1a",
-        ink: "0 0% 100%",
+        space: "#07202D", // charcoal-950
+        ink: "38 44% 96%", // foreground (dark)
         dustAlpha: 1,
-        service: "199 89% 60%",
-        canary: "48 96% 60%",
-        bridge: "330 85% 70%",
-        noDomain: "220 10% 60%",
-        galaxies: ["262 83% 66%", "173 80% 45%", "217 91% 60%", "142 70% 45%", "24 95% 55%", "190 90% 50%"],
+        service: "162 28% 61%", // zomp-400
+        canary: "44 97% 63%", // sunglow-200
+        bridge: "91 41% 69%", // olivine-300
+        noDomain: "203 17% 57%", // charcoal-500
+        // zomp-400, pumpkin-400, olivine-400, sunglow-200, zomp-200, pumpkin-300
+        galaxies: ["162 28% 61%", "24 99% 59%", "90 34% 63%", "44 97% 63%", "162 51% 81%", "21 98% 76%"],
         haloAlpha: [0.32, 0.12],
         glowAlpha: 0.45
     },
     light: {
-        space: "#f5f6fb",
-        ink: "232 30% 20%",
+        space: "#EFF8FE", // charcoal-50
+        ink: "203 37% 22%", // charcoal-900
         dustAlpha: 0.35,
-        service: "199 89% 42%",
-        canary: "38 92% 45%",
-        bridge: "330 75% 52%",
-        noDomain: "220 10% 50%",
-        galaxies: ["262 70% 60%", "173 80% 32%", "217 85% 52%", "142 65% 36%", "24 90% 50%", "190 85% 38%"],
+        service: "163 27% 41%", // zomp-600
+        canary: "46 92% 30%", // sunglow-600
+        bridge: "89 27% 40%", // olivine-600
+        noDomain: "204 17% 47%", // charcoal-600
+        // zomp-500, pumpkin-500, olivine-500, sunglow-400, zomp-700, pumpkin-700
+        galaxies: ["162 23% 49%", "26 92% 47%", "90 24% 50%", "45 84% 45%", "164 33% 31%", "26 96% 30%"],
         haloAlpha: [0.2, 0.07],
         glowAlpha: 0.3
     }
 }
-const FALLBACK_PRIMARY = "262 83% 66%"
+/** pumpkin-400, the primary of the design system */
+const FALLBACK_PRIMARY = "24 99% 59%"
+/** charcoal-50: the bright core of every star */
+const STAR_CORE = "204 88% 97%"
 
 const GALAXY_PULL = 0.12
 const LANE_DISTANCE = 36
@@ -516,7 +522,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
             ctx.beginPath()
             ctx.arc(x, y, r, 0, 2 * Math.PI)
             ctx.fill()
-            ctx.fillStyle = "rgba(255, 255, 255, 0.85)"
+            ctx.fillStyle = `hsl(${STAR_CORE} / 0.85)`
             ctx.beginPath()
             ctx.arc(x, y, r * 0.4, 0, 2 * Math.PI)
             ctx.fill()
@@ -699,15 +705,15 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
                     {t("domains.detail.frontend_title")}
                 </span>
                 <span className="flex items-center gap-1.5">
-                    <span className="size-2.5 rounded-full bg-sky-600 dark:bg-sky-400" aria-hidden="true" />
+                    <span className="size-2.5 rounded-full bg-zomp-600 dark:bg-zomp-400" aria-hidden="true" />
                     {t("domains.detail.backend_title")}
                 </span>
                 <span className="flex items-center gap-1.5">
-                    <span className="size-3 rounded-full border-2 border-amber-500 dark:border-yellow-400" aria-hidden="true" />
+                    <span className="size-3 rounded-full border-2 border-sunglow-600 dark:border-sunglow-200" aria-hidden="true" />
                     {t("domains.galaxy.legend_canary")}
                 </span>
                 <span className="flex items-center gap-1.5">
-                    <span className="h-0.5 w-4 rounded-full bg-pink-600 dark:bg-pink-400" aria-hidden="true" />
+                    <span className="h-0.5 w-4 rounded-full bg-olivine-600 dark:bg-olivine-300" aria-hidden="true" />
                     {t("domains.galaxy.legend_bridge")}
                 </span>
                 <span className="flex items-center gap-1.5">
@@ -767,7 +773,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, microfronte
                         {t(hovered.node.kind === "service" ? "domains.galaxy.kind_service" : "domains.galaxy.kind_microfrontend")}
                         {hoveredGalaxy && ` · ${hoveredGalaxy.name}`}
                     </div>
-                    {hovered.node.canary !== undefined && <div className="mt-1 font-medium text-amber-600 dark:text-yellow-400">{t("domains.galaxy.canary", { percentage: hovered.node.canary })}</div>}
+                    {hovered.node.canary !== undefined && <div className="mt-1 font-medium text-warning">{t("domains.galaxy.canary", { percentage: hovered.node.canary })}</div>}
                 </div>
             )}
         </div>
