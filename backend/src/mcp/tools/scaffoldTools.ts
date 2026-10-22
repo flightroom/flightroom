@@ -64,7 +64,7 @@ export const scaffoldTools = [
         name: "frontend_scaffold",
         title: "Create frontend from template",
         description:
-            "Adds a frontend whose code repository is created at the provider from a marketplace template (a frontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Use frontend_create instead to link a repository that already exists.",
+            "Adds a frontend whose code repository is created at the provider from a marketplace template (a frontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Prefer a template built with the project's default frontend technology (project.technologies from context_get, matchesProjectTechnology in templates_list) unless the user asks for another. Use frontend_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,
@@ -75,7 +75,7 @@ export const scaffoldTools = [
         name: "service_scaffold",
         title: "Create service from template",
         description:
-            "Adds a backend service whose code repository is created at the provider from a marketplace template (a service one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Port and probe paths left out come from the template. Use service_create instead to link a repository that already exists.",
+            "Adds a backend service whose code repository is created at the provider from a marketplace template (a service one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Port and probe paths left out come from the template. Prefer a template built with the project's default backend technology (project.technologies from context_get, matchesProjectTechnology in templates_list) unless the user asks for another. Use service_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,

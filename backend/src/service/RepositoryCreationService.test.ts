@@ -148,6 +148,23 @@ describe("RepositoryCreationService", () => {
         expect(saved?.set).toMatchObject({ template: "service-node-fastify", stack: { runtime: "NODE", source: "TEMPLATE" } })
     })
 
+    it("given a project whose backend technology is Python, when a service repository is created without a template, then the Python template is scaffolded instead of the default", async () => {
+        vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), technologies: { backend: "PYTHON" } } as never)
+        getAll.mockResolvedValue([fastifyTemplate, remote, { slug: "service-python-fastapi", type: "service", framework: "Python", compiler: "docker" }])
+
+        await service().createServiceRepository(String(member._id), input({ repositoryName: "checkout-be" }))
+
+        expect(saved?.set).toMatchObject({ template: "service-python-fastapi", stack: { runtime: "PYTHON" } })
+    })
+
+    it("given a project whose frontend technology no template is built with, when a frontend repository is created without a template, then the default is scaffolded", async () => {
+        vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), technologies: { frontend: "ANGULAR" } } as never)
+
+        await service().createFrontendRepository(String(member._id), input())
+
+        expect(saved?.set).toMatchObject({ template: "vite-remote-react" })
+    })
+
     it("given a member already linked to a repository, when one is created, then it is refused before anything is created", async () => {
         member = { ...member, codeRepository: { enabled: true, codeRepositoryId: connectionId, name: "checkout" } }
 

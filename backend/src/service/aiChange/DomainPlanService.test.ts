@@ -21,6 +21,8 @@ import Project from "../../models/ProjectModel"
 import Service from "../../models/ServiceModel"
 import { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
+import { FrontendFramework } from "../../types/FrontendStack"
+import { BackendTechnology } from "../../types/ProjectTechnology"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import DomainPlanService, { sanitizePlan } from "./DomainPlanService"
 
@@ -52,6 +54,22 @@ describe("sanitizePlan", () => {
         )
 
         expect(plan.frontends.map(item => item.template)).toEqual(["vite-remote-react", "vite-remote-react"])
+        expect(plan.services[0].template).toBe("service-node-fastify")
+    })
+
+    it("given an unknown template in a project with default technologies, when the plan is sanitized, then it becomes the template of the kind built with them", () => {
+        const plan = sanitizePlan({ frontends: [planned("orders", "nope", "orders-fe")], services: [planned("orders", "nope", "orders-be")] }, templates, none(), {
+            frontend: FrontendFramework.VUE,
+            backend: BackendTechnology.PYTHON
+        })
+
+        expect(plan.frontends[0].template).toBe("vite-remote-vue")
+        expect(plan.services[0].template).toBe("service-python-fastapi")
+    })
+
+    it("given a technology no template is built with, when the plan is sanitized, then the default of the kind is used", () => {
+        const plan = sanitizePlan({ frontends: [], services: [planned("orders", "nope", "orders-be")] }, templates, none(), { backend: BackendTechnology.MICRONAUT })
+
         expect(plan.services[0].template).toBe("service-node-fastify")
     })
 
@@ -154,6 +172,25 @@ describe("DomainPlanService.plan", () => {
         // A service template is never offered as a frontend, nor one coming soon
         expect(request.user.split("<service_templates>")[0]).not.toContain("service-python-fastapi")
         expect(request.user).not.toContain("soon-remote")
+    })
+
+    it("given a project with default technologies, when a plan is asked, then the model is told them and the templates built with them are marked and default", async () => {
+        vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), name: "Shop", technologies: { frontend: "VUE", backend: "PYTHON" } } as never)
+
+        await plan()
+
+        const request = json.mock.calls[0][0] as { user: string; system: string }
+        expect(request.user).toContain("<project_technologies>\nfrontend: Vue\nbackend: Python\n")
+        expect(request.user).toContain("- vite-remote-vue (default) (project technology)")
+        expect(request.user).toContain("- service-python-fastapi (default) (project technology)")
+        expect(request.user).toContain("- vite-remote-react: ")
+        expect(request.system).toContain("project technology")
+    })
+
+    it("given a project without technologies, when a plan is asked, then no technologies block is sent", async () => {
+        await plan()
+
+        expect((json.mock.calls[0][0] as { user: string }).user).not.toContain("<project_technologies>")
     })
 
     it.each(["frontend", "service"] as const)("given a domain with a %s, when a plan is asked, then it is refused without calling the model", async kind => {

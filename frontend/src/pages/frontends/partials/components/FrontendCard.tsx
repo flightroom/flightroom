@@ -6,9 +6,11 @@ import { useNavigate } from "react-router-dom"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
+import { frontendTechnologyOf } from "@/utils/technologies"
 import BuildDialog from "./BuildDialog"
 import CloneRepositoryPopover from "./CloneRepositoryPopover"
 import { isAiEditAvailable } from "./FrontendHeader"
@@ -34,12 +36,14 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
     const hasRepository = Boolean(mfe.codeRepository?.enabled)
     const agents = useWorkingAgents(mfe._id)
     const aiAvailable = isAiEditAvailable(mfe, useProjectAiModels().enabled)
+    const technology = frontendTechnologyOf(mfe)
 
     return (
         <Card className={cn("flex h-full flex-col transition-colors duration-200 hover:border-primary", agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}>
             <CardHeader className="flex-row items-start justify-between gap-3">
                 <div className="min-w-0 flex-1">
                     <div className="flex min-w-0 items-center gap-2">
+                        {technology && <TechnologyLogo technology={technology} />}
                         <CardTitle className="mb-0 truncate" title={mfe.name}>
                             {mfe.name}
                         </CardTitle>

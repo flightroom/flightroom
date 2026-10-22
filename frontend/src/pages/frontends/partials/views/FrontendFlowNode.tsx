@@ -3,8 +3,10 @@ import { LayoutDashboard } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import { Badge } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { cn } from "@/utils/styleUtils"
+import { frontendTechnologyOf } from "@/utils/technologies"
 import CloneRepositoryPopover from "../components/CloneRepositoryPopover"
 import FrontendKindBadge from "../components/FrontendKindBadge"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "../labels"
@@ -36,6 +38,7 @@ export const FrontendFlowNode: React.FC<NodeProps<FrontendFlowNodeType>> = ({ da
     const { frontend, showKind } = data
     const canary = frontend.canary?.enabled ? frontend.canary : undefined
     const agents = useWorkingAgents(frontend._id)
+    const technology = frontendTechnologyOf(frontend)
 
     // A share for the two strategies that split traffic, and who for the one that does not.
     const canaryLabel = canary && (canary.type === CanaryType.ON_USER ? t("frontend.canary_enrolled_users") : `${Math.min(100, Math.max(0, canary.percentage ?? 0))}%`)
@@ -66,6 +69,7 @@ export const FrontendFlowNode: React.FC<NodeProps<FrontendFlowNodeType>> = ({ da
 
             <div className="flex items-start gap-2 px-3 pt-2.5">
                 {showKind && <LayoutDashboard className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden="true" />}
+                {technology && <TechnologyLogo technology={technology} className="mt-0.5" />}
                 <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-card-foreground" title={frontend.name}>
                         {frontend.name}

@@ -1,5 +1,7 @@
 import { useTranslation } from "react-i18next"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { IFrontendStackDTO } from "@/hooks/apiClients/useServeApi"
+import { frontendTechnologyOf } from "@/utils/technologies"
 
 const FRAMEWORK_LABELS: Record<string, string> = {
     REACT: "React",
@@ -31,9 +33,11 @@ export const StackBadge: React.FC<{ stack: IFrontendStackDTO }> = ({ stack }) =>
 
     const parts = [stack.framework && FRAMEWORK_LABELS[stack.framework], stack.compiler && COMPILER_LABELS[stack.compiler]].filter(Boolean)
     const sourceKey = stack.source && SOURCE_KEYS[stack.source]
+    const technology = frontendTechnologyOf({ stack })
 
     return (
         <p className="text-sm text-foreground-secondary">
+            {technology && <TechnologyLogo technology={technology} decorative className="mr-1.5 inline-block align-text-bottom" />}
             <span className="font-medium">{t("integration.fe_integration_tab.detected_stack")}:</span> {parts.join(" + ")}
             {sourceKey && <span> ({t(sourceKey)})</span>}
         </p>

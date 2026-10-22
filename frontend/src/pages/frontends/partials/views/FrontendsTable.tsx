@@ -6,10 +6,12 @@ import { useNavigate } from "react-router-dom"
 import { useWorkingAgents, WorkingAgentsIndicator } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
 import { BuildDialog, CloneRepositoryPopover, FrontendKindBadge, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
+import { frontendTechnologyOf } from "@/utils/technologies"
 import { HOST_TYPE_LABEL_KEYS } from "../labels"
 
 interface FrontendsTableProps {
@@ -96,6 +98,7 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
     // Served by its own container: Flightroom neither hosts it nor runs a canary for it
     const isDocker = mfe.kind === FrontendKind.DOCKER
     const openPath = aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/settings`
+    const technology = frontendTechnologyOf(mfe)
 
     return (
         // The whole row opens the frontend, as a row of the services table does.
@@ -103,6 +106,7 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
             {/* Capped so a long name or slug cannot push the action column out of view. */}
             <TableCell className="max-w-[16rem] font-medium">
                 <div className="flex items-center gap-2">
+                    {technology && <TechnologyLogo technology={technology} />}
                     <span className="truncate" title={mfe.name}>
                         {mfe.name}
                     </span>

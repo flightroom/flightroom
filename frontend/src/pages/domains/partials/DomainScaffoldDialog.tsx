@@ -30,6 +30,7 @@ import { jobErrorMessage } from "@/components/assistant/AssistantJobThread"
 import { useEffort } from "@/components/assistant/useEffort"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import useAiJobsApi, { AiJob } from "@/hooks/apiClients/useAiJobsApi"
 import useCodeRepositoriesApi, { CodeRepositoryProvider } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
@@ -37,6 +38,7 @@ import useMarketApi, { Market } from "@/hooks/apiClients/useMarketApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
 import useProjectStore from "@/store/useProjectStore"
+import { isRecommendedTemplate, type ProjectTechnologies, technologyOfMarket } from "@/utils/technologies"
 
 export type ScaffoldKind = "frontend" | "service"
 
@@ -74,10 +76,17 @@ const isServiceTemplate = (template: Market) => template.type?.trim().toLowerCas
 
 const templatesOfKind = (templates: Market[], kind: ScaffoldKind) => templates.filter(template => !template.comingSoon && isServiceTemplate(template) === (kind === "service"))
 
-const defaultTemplateOf = (templates: Market[], kind: ScaffoldKind) =>
+const pickTemplate = (templates: Market[], kind: ScaffoldKind) =>
     templates.find(template => template.slug === DEFAULT_TEMPLATE_SLUGS[kind]) ??
     (kind === "frontend" ? templates.find(template => template.type?.trim().toLowerCase() === "remote") : undefined) ??
     templates[0]
+
+/** The project's default technology first, when a template has it; the usual default otherwise. */
+const defaultTemplateOf = (templates: Market[], kind: ScaffoldKind, technologies?: ProjectTechnologies) =>
+    pickTemplate(
+        templates.filter(template => isRecommendedTemplate(template, technologies)),
+        kind
+    ) ?? pickTemplate(templates, kind)
 
 /** Codes of the creation endpoints with a message of their own; anything else gets the generic one. */
 const CREATE_ERROR_CODES = new Set([
@@ -127,6 +136,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
     const id = useId()
     const queryClient = useQueryClient()
     const projectId = useProjectStore(state => state.project?._id)
+    const technologies = useProjectStore(state => state.project?.technologies)
     const codeRepositoriesApi = useCodeRepositoriesApi()
     const marketApi = useMarketApi()
     const frontendsApi = useFrontendsApi()
@@ -172,7 +182,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
     const connection = connections.find(candidate => candidate._id === codeRepositoryId)
     const templateOf = (item: ScaffoldItem) => {
         const ofKind = templatesOfKind(templates, item.kind)
-        return ofKind.find(template => template.slug === item.template) ?? defaultTemplateOf(ofKind, item.kind)
+        return ofKind.find(template => template.slug === item.template) ?? defaultTemplateOf(ofKind, item.kind, technologies)
     }
     const update = (key: string, changes: Partial<ScaffoldItem>) => setItems(current => current.map(item => (item.key === key ? { ...item, ...changes } : item)))
 
@@ -423,7 +433,10 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                                                             <SelectContent>
                                                                 {ofKind.map(candidate => (
                                                                     <SelectItem key={candidate.slug} value={candidate.slug}>
-                                                                        {candidate.name}
+                                                                        <span className="flex items-center gap-2">
+                                                                            <TechnologyLogo technology={technologyOfMarket(candidate)} decorative />
+                                                                            {candidate.name}
+                                                                        </span>
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>

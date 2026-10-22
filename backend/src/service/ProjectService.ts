@@ -21,6 +21,8 @@ import Storage from "../models/StorageModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposure"
+import { FrontendFramework } from "../types/FrontendStack"
+import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
 import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -56,6 +58,11 @@ export interface ProjectUpdateInput {
     pipelines?: PipelineTemplatesInput | null
     /** e.g. `ghcr.io/acme`; `null` or blank removes it, and an application with no image of its own is left out of the deploy again */
     containerRegistry?: string | null
+    /**
+     * The default technologies, side by side: `null` removes both, a side `null` removes that one only and a
+     * side left out stays as it is.
+     */
+    technologies?: { frontend?: string | null; backend?: string | null } | null
 }
 
 /** The repository of the pipeline templates as the settings screen names it: by the provider id, the backend resolves the rest */
@@ -108,6 +115,33 @@ const containerRegistryOf = (input: unknown): string => {
     return registry
 }
 
+const TECHNOLOGIES: Record<keyof IProjectTechnologies, string[]> = { frontend: Object.values(FrontendFramework), backend: Object.values(BackendTechnology) }
+
+/**
+ * What to write and unset of the technologies, by dotted path so that a side left out keeps its value:
+ * refused with a 400 rather than by the model with a 500.
+ */
+const technologiesOf = (input: unknown): { set: Record<string, string>; unset: Record<string, 1> } => {
+    const invalid = () =>
+        createBusinessException({
+            code: "PROJECT_TECHNOLOGIES_INVALID",
+            message: `The frontend technology is one of ${TECHNOLOGIES.frontend.join(", ")} and the backend one of ${TECHNOLOGIES.backend.join(", ")}`,
+            statusCode: 400
+        })
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw invalid()
+    const set: Record<string, string> = {}
+    const unset: Record<string, 1> = {}
+    for (const side of ["frontend", "backend"] as const) {
+        const value = (input as Record<string, unknown>)[side]
+        if (value === null) unset[`technologies.${side}`] = 1
+        else if (value !== undefined) {
+            if (typeof value !== "string" || !TECHNOLOGIES[side].includes(value)) throw invalid()
+            set[`technologies.${side}`] = value
+        }
+    }
+    return { set, unset }
+}
+
 interface ContextEntry {
     id: string
     slug: string
@@ -117,7 +151,8 @@ interface ContextEntry {
 
 /** What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and service that has it. */
 export interface ProjectContextDTO {
-    project: { id: string; name: string; context?: string }
+    /** The technologies come along: an agent creating a frontend or a service starts from them. */
+    project: { id: string; name: string; context?: string; technologies?: IProjectTechnologies }
     domains: ContextEntry[]
     frontends: ContextEntry[]
     services: ContextEntry[]
@@ -277,8 +312,14 @@ export class ProjectService extends BaseAuthorizedService {
             filters.frontends ? Frontend.find({ ...filters.frontends, ...withContext }, fields).sort({ slug: 1 }) : [],
             filters.services ? Service.find({ ...filters.services, ...withContext }, fields).sort({ slug: 1 }) : []
         ])
+        const { frontend, backend } = project.technologies ?? {}
         return {
-            project: { id: project._id.toString(), name: project.name, context: project.context || undefined },
+            project: {
+                id: project._id.toString(),
+                name: project.name,
+                context: project.context || undefined,
+                technologies: frontend || backend ? { ...(frontend ? { frontend } : {}), ...(backend ? { backend } : {}) } : undefined
+            },
             domains: domains.map(toContextEntry),
             frontends: frontends.map(toContextEntry),
             services: services.map(toContextEntry)
@@ -422,6 +463,13 @@ export class ProjectService extends BaseAuthorizedService {
                 updateData.$unset = { ...updateData.$unset, containerRegistry: 1 }
             } else if (containerRegistry !== undefined) {
                 updateData.containerRegistry = containerRegistryOf(containerRegistry)
+            }
+            if (projectData.technologies === null) {
+                updateData.$unset = { ...updateData.$unset, technologies: 1 }
+            } else if (projectData.technologies !== undefined) {
+                const { set, unset } = technologiesOf(projectData.technologies)
+                Object.assign(updateData, set)
+                if (Object.keys(unset).length > 0) updateData.$unset = { ...updateData.$unset, ...unset }
             }
             for (const field of ["description", "context"] as const) {
                 if (projectData[field] === null) {

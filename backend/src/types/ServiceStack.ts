@@ -76,7 +76,8 @@ const RUNTIME_BY_NAME: Record<string, ServiceRuntime> = {
     java: ServiceRuntime.JAVA,
     "spring boot": ServiceRuntime.JAVA,
     "spring-boot": ServiceRuntime.JAVA,
-    quarkus: ServiceRuntime.JAVA
+    quarkus: ServiceRuntime.JAVA,
+    micronaut: ServiceRuntime.JAVA
 }
 
 /**

@@ -11,6 +11,7 @@ import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
+import { technologyIconUrl } from "@/components/technology/technologyIcons"
 import useCodeRepositoriesApi, { ICodeRepository } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
@@ -21,6 +22,7 @@ import { CodeRepositorySection } from "@/pages/frontends/partials/components"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
+import { isRecommendedTemplate, technologyOfMarket } from "@/utils/technologies"
 import DomainSelectField from "../domains/partials/DomainSelectField"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import ServiceDangerZone from "./partials/ServiceDangerZone"
@@ -138,7 +140,12 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
 
     const marketsQuery = useQuery({ queryKey: ["markets"], queryFn: getMarkets, enabled: !isEdit })
-    const serviceTemplates = useMemo(() => (marketsQuery.data ?? []).filter(isServiceTemplate), [marketsQuery.data])
+    const technologies = useProjectStore(state => state.project?.technologies)
+    // The templates of the project's backend technology come first: the others stay in the list
+    const serviceTemplates = useMemo(
+        () => (marketsQuery.data ?? []).filter(isServiceTemplate).sort((a, b) => Number(isRecommendedTemplate(b, technologies)) - Number(isRecommendedTemplate(a, technologies))),
+        [marketsQuery.data, technologies]
+    )
 
     const formSchema = useMemo(
         () =>
@@ -212,6 +219,16 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
         }
         prefilled.current = next
     }, [selectedTemplate, serviceTemplates, isEdit, form])
+
+    // Opened without ?template: start from the template of the project's backend technology, once, and leave it free to change or clear
+    const preselected = useRef(false)
+    useEffect(() => {
+        if (isEdit || initialTemplate || preselected.current || !technologies) return
+        const recommended = serviceTemplates.find(market => !market.comingSoon && isRecommendedTemplate(market, technologies))
+        if (!recommended) return
+        preselected.current = true
+        if (!form.getValues("template")) form.setValue("template", recommended.slug)
+    }, [serviceTemplates, technologies, isEdit, initialTemplate, form])
 
     const onSubmit = async (data: FormValues) => {
         // Blank: the service is in no domain
@@ -312,7 +329,17 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                                         name="template"
                                         label={t("services.template")}
                                         placeholder={t("services.template_placeholder")}
-                                        options={serviceTemplates.map(market => ({ value: market.slug, label: `${market.name} (${market.framework})` }))}
+                                        options={serviceTemplates.map(market => {
+                                            const technology = technologyOfMarket(market)
+                                            const label = `${market.name} (${market.framework})`
+                                            return {
+                                                value: market.slug,
+                                                label: isRecommendedTemplate(market, technologies) ? `${label} · ${t("technologies.recommended")}` : label,
+                                                icon: technology ? technologyIconUrl(technology) : undefined
+                                            }
+                                        })}
+                                        addClearButton
+                                        clearLabel={t("technologies.clear_template")}
                                         className="w-full"
                                     />
                                 )}
