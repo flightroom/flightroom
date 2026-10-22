@@ -68,6 +68,9 @@ export const resourceBrand = (source: ResourceIconSource): SimpleIcon | undefine
 /** L'icona lucide del tipo, per quando non c'e' un marchio */
 export const resourceTypeIcon = (type: string): LucideIcon => TYPE_ICONS.get(type) ?? Box
 
+/** L'icona lucide del tipo come markup SVG (solo gli elementi, griglia 24x24, a tratto), per chi la disegna da se' (es. su un canvas) */
+export const resourceTypeGlyph = (type: string) => TYPE_ICON_MARKUP.get(type) ?? BOX_MARKUP
+
 /** Grigio medio leggibile su entrambi i temi, per le immagini (data URI) che non possono usare currentColor */
 const NEUTRAL_HEX = "8B8B96"
 
