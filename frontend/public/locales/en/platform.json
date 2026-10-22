@@ -5,7 +5,7 @@
         "italian": "Italiano"
     },
     "app": {
-        "name": "MFE Orchestrator",
+        "name": "Flightroom",
         "page_title": "{{page}} · {{app}}",
         "error": {
             "generic": "An error occurred. Please try again later.",
@@ -691,7 +691,7 @@
         "kind": {
             "label": "Kind",
             "microfrontend": "Microfrontend",
-            "microfrontend_description": "Served by MFE Orchestrator",
+            "microfrontend_description": "Served by Flightroom",
             "frontend": "Frontend",
             "frontend_description": "Served by its Docker container",
             "badge_microfrontend": "Microfrontend",
@@ -699,7 +699,7 @@
             "no_parents_hint": "A frontend served by Docker cannot have parents",
             "container_tab": "Container",
             "version_from_pipeline": "Set by the pipeline each time it registers an image version: it cannot be changed here.",
-            "template_pipeline_hint": "The pipeline of this template uploads a bundle to MFE Orchestrator, which a frontend served by its Docker container does not accept. Change it to build the Docker image and register its version."
+            "template_pipeline_hint": "The pipeline of this template uploads a bundle to Flightroom, which a frontend served by its Docker container does not accept. Change it to build the Docker image and register its version."
         },
         "errors": {
             "frontend_cannot_have_parents": "A frontend served by its Docker container cannot have parents",
@@ -714,7 +714,7 @@
         "host": "Host",
         "hostTypes": {
             "customUrl": "Custom URL",
-            "mfeOrchestratorHub": "MFE Orchestrator Hub",
+            "mfeOrchestratorHub": "Flightroom Hub",
             "customSource": "Custom Source"
         },
         "backendLinks": {
@@ -836,7 +836,7 @@
         "userType": "User",
         "entry_point": "Entry Point",
         "select_hosting_type": "Select hosting type",
-        "mfe_orchestrator_hub": "MFE Orchestrator Hub",
+        "mfe_orchestrator_hub": "Flightroom Hub",
         "custom_url": "Custom URL",
         "custom_source": "Custom Source",
         "release_settings": "Release",
@@ -1633,7 +1633,7 @@
             "title": "Where do we host your microfrontends?",
             "description": "Connect a storage bucket to deploy your bundles. You can skip this step and configure it later.",
             "alert_title": "This step is not essential",
-            "alert_description": "If you skip it and don't connect any cloud, microfrontend bundles will still be hosted directly by MFE Orchestrator. You can connect an external storage at any time from the project settings.",
+            "alert_description": "If you skip it and don't connect any cloud, microfrontend bundles will still be hosted directly by Flightroom. You can connect an external storage at any time from the project settings.",
             "submit": "Save and continue"
         },
         "code_repositories": {

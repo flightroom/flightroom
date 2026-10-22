@@ -21,8 +21,8 @@ export type SidebarProps = Omit<DesignSystemSidebarProps, "logo" | "title" | "ma
 }
 
 const EXTERNAL_NAV_ITEMS: SidebarNavItemProps[] = [
-    { name: "Documentation", path: "https://mfe-orchestrator.dev/documentation/", icon: <BookOpen /> },
-    { name: "Contribute", path: "https://github.com/mfe-orchestrator", icon: <GitBranch /> }
+    { name: "Documentation", path: "https://flightroom.dev/documentation/", icon: <BookOpen /> },
+    { name: "Contribute", path: "https://github.com/flightroom", icon: <GitBranch /> }
 ]
 
 /**
