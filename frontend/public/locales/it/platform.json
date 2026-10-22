@@ -2487,7 +2487,7 @@
             "title": "Versioni deployate",
             "description": "Quale versione di ogni frontend e servizio del dominio gira in ciascun ambiente. Il frontend è quello del deployment attivo, il backend quello comunicato dalla pipeline di deploy.",
             "matrix_title": "Versioni deployate per dominio",
-            "matrix_description": "Per ogni dominio e ambiente, le versioni frontend del deployment attivo e le versioni backend comunicate dalla pipeline di deploy",
+            "matrix_description": "Per ogni dominio e ambiente, le versioni del deployment attivo o, se non sono nel deployment, quelle comunicate dalla pipeline di deploy",
             "matrix_empty_title": "Niente da mostrare",
             "matrix_empty_description": "Il progetto non ha ancora domini, frontend o servizi",
             "back": "Torna ai domini",
