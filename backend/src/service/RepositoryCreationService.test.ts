@@ -34,7 +34,7 @@ import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import RepositoryCreationService from "./RepositoryCreationService"
 
-type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
+type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean>; findRoleInOrganization: () => Promise<undefined> }
 
 const user = { _id: new Types.ObjectId(), email: "ada@example.com" } as unknown as IUser
 const projectId = new Types.ObjectId()
@@ -58,6 +58,7 @@ describe("RepositoryCreationService", () => {
         const gates = BaseAuthorizedService.prototype as unknown as WithGates
         vi.spyOn(gates, "ensureAccessToProject").mockResolvedValue(undefined)
         vi.spyOn(gates, "isOrganizationAdmin").mockResolvedValue(false)
+        vi.spyOn(gates, "findRoleInOrganization").mockResolvedValue(undefined)
         vi.spyOn(UserProject, "findOne").mockImplementation((() => Promise.resolve({ role })) as never)
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId() } as never)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, projectId } as never)

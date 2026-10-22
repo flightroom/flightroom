@@ -50,6 +50,8 @@ export interface Project {
     gitOps?: ProjectGitOps
     exposure?: ProjectExposure
     pipelines?: ProjectPipelines
+    /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
+    role?: RoleInProject
     createdAt?: string
     updatedAt?: string
     _id: string

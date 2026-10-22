@@ -1,16 +1,22 @@
+import axios from "axios"
 import { isValidObjectId, ObjectId, Schema } from "mongoose"
-import { createBusinessException } from "../errors/BusinessException"
+import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Domain, { IDomain } from "../models/DomainModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Microfrontend, { ICodeRepositoryMicrofrontend } from "../models/MicrofrontendModel"
 import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
-import DomainDTO, { DomainMembersDTO } from "../types/DomainDTO"
+import DomainDTO, { DomainBuildFailure, DomainBuildRepository, DomainBuildResult, DomainMembersDTO } from "../types/DomainDTO"
+import { SERVICE_VERSION } from "../types/ServiceStack"
+import { isValidRefName } from "../utils/gitRefUtils"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import { slugify } from "../utils/slugUtils"
-import BaseAuthorizedService from "./BaseAuthorizedService"
+import BaseAuthorizedService, { DOMAIN_SCOPE_FORBIDDEN } from "./BaseAuthorizedService"
 import { deleteLinksOfDomain } from "./DomainLinkService"
+import { repositoryKeys } from "./repositoryLinks"
+import TemplateScaffoldService, { TagLookupError, TagTarget } from "./TemplateScaffoldService"
 
 /**
  * The domain a microfrontend or a service is put in, as it is stored: null when it is taken out of
@@ -68,6 +74,96 @@ const countBy = (members: { domainId?: unknown }[]): Map<string, number> => {
     }
     return counts
 }
+
+/** A repository linked to members of a domain, with every member that links to it */
+interface BuildRepository {
+    id: string
+    link: ICodeRepositoryMicrofrontend
+    /** What tells the repository, as {@link repositoryKeys} gives it: another link with any of them is the same repository */
+    keys: Set<string>
+    members: DomainBuildRepository["members"]
+}
+
+type BuildMember = { kind: "microfrontend" | "service"; _id: unknown; name: string; codeRepository?: ICodeRepositoryMicrofrontend }
+
+/**
+ * The members' repositories, once each: two members linked to the same repository would otherwise tag it twice.
+ * Two links are the same repository by the rule `linksToRepository` queries with: the same connection and any of
+ * id, name or GitLab path in common, so a link that stores a name and one that stores an id still meet.
+ */
+const repositoriesOf = (members: BuildMember[], providers: Map<string, CodeRepositoryProvider>): BuildRepository[] => {
+    let repositories: BuildRepository[] = []
+    for (const { kind, _id, name, codeRepository } of members) {
+        if (!codeRepository?.enabled) continue
+        const connection = String(codeRepository.codeRepositoryId)
+        const keys = new Set(repositoryKeys(providers.get(connection), codeRepository).map(({ field, value }) => `${connection}/${field}:${value}`))
+        const same = repositories.filter(repository => [...keys].some(key => repository.keys.has(key)))
+        const repository = same[0] ?? {
+            id: [connection, codeRepository.repositoryId || codeRepository.name, codeRepository.gitlab?.path].filter(Boolean).join("/"),
+            link: codeRepository,
+            keys: new Set<string>(),
+            members: []
+        }
+        // A link that holds the keys of two repositories found so far shows they were one
+        for (const other of same.slice(1)) {
+            for (const key of other.keys) repository.keys.add(key)
+            repository.members.push(...other.members)
+        }
+        for (const key of keys) repository.keys.add(key)
+        repository.members.push({ kind, _id: String(_id), name })
+        if (same.length === 0) {
+            repositories.push(repository)
+        } else {
+            repositories = repositories.filter(candidate => !same.slice(1).includes(candidate))
+        }
+    }
+    return repositories
+}
+
+/** How many repositories are checked at the provider at once */
+const CHECK_CONCURRENCY = 4
+
+/**
+ * `task` on each item, at most `limit` at a time, the results in the order of the items. `task` must not
+ * reject: one rejection would end the run with the other tasks still going.
+ */
+const mapWithLimit = async <Item, Result>(items: Item[], limit: number, task: (item: Item) => Promise<Result>): Promise<Result[]> => {
+    const results: Result[] = new Array(items.length)
+    let next = 0
+    const worker = async () => {
+        while (next < items.length) {
+            const index = next++
+            results[index] = await task(items[index])
+        }
+    }
+    await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+    return results
+}
+
+/** Why a repository could not be tagged, from the error of its check or of its tag */
+const toBuildFailure = (error: unknown): { reason: DomainBuildFailure; message: string } => {
+    if (error instanceof EntityNotFoundError) {
+        return { reason: "CONNECTION_NOT_FOUND", message: "The code repository connection is not one of this project" }
+    }
+    if (error instanceof BusinessException && error.code === DOMAIN_SCOPE_FORBIDDEN) {
+        return { reason: "DOMAIN_SCOPE_FORBIDDEN", message: "The repository is shared with a component outside your domains" }
+    }
+    if (error instanceof TagLookupError) {
+        return { reason: error.reason, message: error.message }
+    }
+    if (axios.isAxiosError(error)) {
+        const providerMessage = (error.response?.data as { message?: unknown } | undefined)?.message
+        return { reason: "PROVIDER_ERROR", message: typeof providerMessage === "string" ? providerMessage : error.message }
+    }
+    return { reason: "PROVIDER_ERROR", message: error instanceof Error ? error.message : String(error) }
+}
+
+const toOutcome = ({ id, link, members }: BuildRepository, outcome: Pick<DomainBuildRepository, "status" | "reason" | "message">): DomainBuildRepository => ({
+    id,
+    repository: link.name,
+    members,
+    ...outcome
+})
 
 export class DomainService extends BaseAuthorizedService {
     async getById(id: string | ObjectId): Promise<IDomain | null> {
@@ -179,6 +275,86 @@ export class DomainService extends BaseAuthorizedService {
             const services = await Service.updateMany({ _id: { $in: serviceIds }, projectId: domain.projectId }, membership, { session })
             return { microfrontends: microfrontends.matchedCount, services: services.matchedCount }
         })
+    }
+
+    /**
+     * Releases the whole domain: tags the repository of each of its microfrontends and services with the same
+     * `version`, on the same `ref` (main by default), as their own builds do one at a time. Every repository is
+     * checked first (its connection, the domain scope, the ref, a tag of that name): when one fails, none is
+     * tagged and the refusal lists each one. A tag that still fails afterwards leaves the others made, and the
+     * result says which.
+     */
+    async build(id: string | ObjectId, version: unknown, ref?: unknown): Promise<DomainBuildResult> {
+        // The rule of a service build: the tag becomes, in the pipelines, an image tag and a URL segment
+        if (typeof version !== "string" || !SERVICE_VERSION.test(version)) {
+            throw createBusinessException({ code: "DOMAIN_BUILD_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
+        }
+        // The branch goes into the URL of each provider: only a name git itself accepts
+        if (ref !== undefined && ref !== null && ref !== "" && (typeof ref !== "string" || !isValidRefName(ref))) {
+            throw createBusinessException({ code: "DOMAIN_BUILD_REF_INVALID", message: "The branch must be a valid git branch name of at most 255 characters" })
+        }
+        const branch = typeof ref === "string" && ref ? ref : "main"
+        const domain = await this.getById(id)
+        if (!domain) {
+            throw new EntityNotFoundError(String(id))
+        }
+        await this.ensureNotViewer(domain.projectId, { code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain" })
+
+        const inDomain = { projectId: domain.projectId, domainId: domain._id }
+        const [microfrontends, services] = await Promise.all([Microfrontend.find(inDomain, { name: 1, codeRepository: 1 }), Service.find(inDomain, { name: 1, codeRepository: 1 })])
+        if (microfrontends.length + services.length === 0) {
+            throw createBusinessException({ code: "DOMAIN_BUILD_EMPTY", message: "The domain has no microfrontend nor service to build" })
+        }
+        const members: BuildMember[] = [
+            ...microfrontends.map(member => ({ kind: "microfrontend" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository })),
+            ...services.map(member => ({ kind: "service" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository }))
+        ]
+        // The provider decides which of name and GitLab path tells a repository
+        const connectionIds = [...new Set(members.filter(member => member.codeRepository?.enabled).map(member => String(member.codeRepository?.codeRepositoryId)))]
+        const connections = connectionIds.length > 0 ? await CodeRepository.find({ _id: { $in: connectionIds.map(toObjectId) } }, { provider: 1 }) : []
+        const repositories = repositoriesOf(members, new Map(connections.map(connection => [String(connection._id), connection.provider])))
+        if (repositories.length === 0) {
+            throw createBusinessException({ code: "DOMAIN_BUILD_NO_REPOSITORIES", message: "No microfrontend nor service of the domain has a linked code repository to tag" })
+        }
+
+        const scaffold = new TemplateScaffoldService(this.user)
+        // A tag starts a release: half a domain released on a typo in the branch is worse than none
+        const checks = await mapWithLimit(repositories, CHECK_CONCURRENCY, async repository => {
+            try {
+                const target = await scaffold.resolveTagTarget(repository.link, domain.projectId, branch)
+                if (!target) {
+                    return { repository, failure: { reason: "PROVIDER_ERROR" as const, message: "The provider of the connection cannot be tagged" } }
+                }
+                if (await scaffold.tagExists(target, version)) {
+                    return { repository, failure: { reason: "TAG_EXISTS" as const, message: `The tag ${version} already exists in the repository` } }
+                }
+                return { repository, target }
+            } catch (error) {
+                return { repository, failure: toBuildFailure(error) }
+            }
+        })
+        if (checks.some(check => check.failure)) {
+            const outcomes = checks.map(check => toOutcome(check.repository, check.failure ? { status: "failed", ...check.failure } : { status: "ready" }))
+            const failed = outcomes.filter(outcome => outcome.status === "failed").map(outcome => `${outcome.repository}: ${outcome.message}`)
+            throw createBusinessException({
+                code: "DOMAIN_BUILD_CHECK_FAILED",
+                message: `No repository was tagged, the check failed for ${failed.join("; ")}`,
+                statusCode: 409,
+                details: { version, ref: branch, repositories: outcomes }
+            })
+        }
+
+        // One after the other: whatever was tagged stays tagged, and a failure is told with the rest
+        const outcomes: DomainBuildRepository[] = []
+        for (const { repository, target } of checks) {
+            try {
+                await scaffold.pushTag(target as TagTarget, version)
+                outcomes.push(toOutcome(repository, { status: "tagged" }))
+            } catch (error) {
+                outcomes.push(toOutcome(repository, { status: "failed", ...toBuildFailure(error) }))
+            }
+        }
+        return { version, ref: branch, repositories: outcomes }
     }
 
     /**

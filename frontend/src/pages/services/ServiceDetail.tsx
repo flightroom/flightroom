@@ -13,6 +13,7 @@ import RepositoryLink from "@/components/RepositoryLink"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
+import { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import ServiceBuildDialog from "./partials/ServiceBuildDialog"
 import ServiceHeader, { isServiceAiAvailable } from "./partials/ServiceHeader"
@@ -206,6 +207,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
     const servicesApi = useServicesApi()
     const queryClient = useQueryClient()
     const [buildOpen, setBuildOpen] = useState(false)
+    const isViewer = useIsProjectViewer()
 
     const serviceQuery = useQuery({ queryKey: ["service", id], queryFn: () => servicesApi.getSingle(id!), enabled: !!id })
     const versionsQuery = useQuery({ queryKey: ["service-versions", id], queryFn: () => servicesApi.getVersions(id!), enabled: !!id && view === "overview" })
@@ -214,7 +216,8 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
     const secretsQuery = useVariableMapsQuery("secret")
 
     const service = serviceQuery.data
-    const hasRepository = Boolean(service?.codeRepository?.enabled)
+    // A viewer may look, not release: the version is created by those who can write
+    const canBuild = Boolean(service?.codeRepository?.enabled) && !isViewer
 
     if (view === "ai") return <ServiceAiSection serviceQuery={serviceQuery} />
 
@@ -226,7 +229,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
                         service={service}
                         active="overview"
                         actions={
-                            hasRepository && (
+                            canBuild && (
                                 <Button variant="primary" onClick={() => setBuildOpen(true)}>
                                     <Hammer />
                                     {t("services.build.action")}
@@ -239,7 +242,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
                     <ServiceVersionsTable versions={versionsQuery.data ?? []} />
                     <ServiceConfigurationSection service={service} environments={environmentsQuery.data ?? []} />
                     <ServiceVariableMapsSection service={service} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
-                    {hasRepository && (
+                    {canBuild && (
                         <ServiceBuildDialog
                             open={buildOpen}
                             onOpenChange={setBuildOpen}

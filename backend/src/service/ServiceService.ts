@@ -329,6 +329,8 @@ export class ServiceService extends BaseAuthorizedService {
         if (!service) {
             throw new EntityNotFoundError(id)
         }
+        // The tag starts a release: a viewer may look, not release
+        await this.ensureNotViewer(service.projectId, { code: "SERVICE_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a service" })
         await new TemplateScaffoldService(this.user).createTag(service.codeRepository, service.projectId, version, branch)
     }
 

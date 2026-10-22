@@ -7,8 +7,10 @@ import MicrofrontendService from "../../service/MicrofrontendService"
 import ProjectService from "../../service/ProjectService"
 import ServiceService from "../../service/ServiceService"
 import DomainDTO from "../../types/DomainDTO"
+import { SERVICE_VERSION } from "../../types/ServiceStack"
+import { isValidRefName } from "../../utils/gitRefUtils"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
-import { DESTRUCTIVE, defineTool, McpToolContext, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
+import { DESTRUCTIVE, defineTool, McpToolContext, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 
 const domainId = objectId("Id of the domain, from domains_list")
 
@@ -125,6 +127,20 @@ export const domainTools = [
         }),
         // null reaches the service as is: it accepts it and stores no description nor context
         run: ({ domainId: id, ...changes }, { principal }) => new DomainService(principal).update(id, changes as DomainDTO)
+    }),
+    defineTool({
+        name: "domain_trigger_build",
+        title: "Trigger domain build",
+        description:
+            "Tags the repository of every microfrontend and service of the domain with the same version, on the same branch, which starts the CI pipeline of each. A repository shared by members is tagged once. Every repository is checked first (connection, branch, a tag of that version): when one fails, none is tagged and the error lists each. The result tells, per repository, whether it was tagged.",
+        scope: MCP_SCOPE_WRITE,
+        annotations: WRITE_EXTERNAL,
+        inputSchema: z.object({
+            domainId,
+            version: z.string().regex(SERVICE_VERSION, "letters, digits, dots, dashes and underscores, at most 128").describe("Version to tag every repository with, e.g. 1.4.0"),
+            branch: z.string().refine(isValidRefName, "a valid git branch name, at most 255 characters").optional().describe("Branch to tag in every repository, main when omitted")
+        }),
+        run: (args, { principal }) => new DomainService(principal).build(args.domainId, args.version, args.branch)
     }),
     defineTool({
         name: "domain_delete",

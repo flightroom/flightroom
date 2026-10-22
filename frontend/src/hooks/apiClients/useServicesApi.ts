@@ -1,4 +1,5 @@
-import useApiClient, { IClientRequestMetadataExtended } from "../useApiClient"
+import { useTranslation } from "react-i18next"
+import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
 import type { CreateMemberRepositoryDTO, Microfrontend } from "./useMicrofrontendsApi"
 
 export enum ServiceRuntime {
@@ -89,8 +90,16 @@ export interface BuiltService {
     updatedAt?: Date
 }
 
+/** The codes a service build is refused with, by translation key */
+const SERVICE_BUILD_ERROR_KEYS: Record<string, string> = {
+    SERVICE_BUILD_FORBIDDEN: "services.build.forbidden",
+    BUILD_REF_NOT_FOUND: "services.build.ref_not_found",
+    BUILD_REPOSITORY_NOT_FOUND: "services.build.repository_not_found"
+}
+
 const useServicesApi = () => {
     const apiClient = useApiClient()
+    const { t } = useTranslation()
 
     const getAll = async (): Promise<Service[]> => {
         const response = await apiClient.doRequest<Service[]>({ url: "/api/services" })
@@ -123,7 +132,16 @@ const useServicesApi = () => {
     }
 
     const build = async (id: string, version: string, branch?: string) => {
-        const response = await apiClient.doRequest({ url: `/api/services/${id}/build`, method: "POST", data: { version, branch } })
+        const response = await apiClient.doRequest({
+            url: `/api/services/${id}/build`,
+            method: "POST",
+            data: { version, branch },
+            // Said in the user's language, any other error as the backend tells it
+            customErrorMessage: error => {
+                const key = SERVICE_BUILD_ERROR_KEYS[errorCodeOf(error) ?? ""]
+                return key ? t(key) : undefined
+            }
+        })
         return response.data
     }
 

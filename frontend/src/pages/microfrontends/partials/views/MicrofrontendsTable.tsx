@@ -7,6 +7,7 @@ import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
 import { CanaryType, HostedOn, Microfrontend, MicrofrontendKind } from "@/hooks/apiClients/useMicrofrontendsApi"
 import { BuildDialog, CloneRepositoryPopover, isAiEditAvailable, MicrofrontendKindBadge, useWorkingAgents, WorkingAgentsIndicator } from "@/pages/microfrontends/partials/components"
+import { useIsProjectViewer } from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import { HOST_TYPE_LABEL_KEYS } from "../labels"
 
@@ -86,6 +87,8 @@ const MicrofrontendRow: React.FC<{ mfe: Microfrontend }> = ({ mfe }) => {
     const navigate = useNavigate()
 
     const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false)
+    // A viewer may look, not release
+    const isViewer = useIsProjectViewer()
     const hasRepository = Boolean(mfe.codeRepository?.enabled)
     const agents = useWorkingAgents(mfe._id)
     const aiAvailable = isAiEditAvailable(mfe, useProjectAiModels().enabled)
@@ -120,7 +123,7 @@ const MicrofrontendRow: React.FC<{ mfe: Microfrontend }> = ({ mfe }) => {
             <TableCell className="whitespace-nowrap text-right">
                 <div className="flex justify-end gap-2">
                     <CloneRepositoryPopover microfrontend={mfe} />
-                    {hasRepository && (
+                    {hasRepository && !isViewer && (
                         <Button variant="secondary" size="sm" onClick={() => setIsBuildDialogOpen(true)}>
                             <Hammer />
                             {t("microfrontend.card.build")}

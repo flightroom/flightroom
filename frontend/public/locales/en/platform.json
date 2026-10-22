@@ -738,7 +738,10 @@
             "frontend_cannot_have_parents": "A frontend served by its Docker container cannot have parents",
             "frontend_exposure_path_required": "A frontend served by its Docker container needs an exposure path: browsers reach it only there",
             "frontend_upload_not_allowed": "A frontend served by its Docker container takes no bundle upload: its pipeline registers the image of each version",
-            "version_registration_not_allowed": "Only a frontend served by its Docker container registers image versions: a microfrontend uploads its bundle"
+            "version_registration_not_allowed": "Only a frontend served by its Docker container registers image versions: a microfrontend uploads its bundle",
+            "build_forbidden": "A viewer cannot create a version of a microfrontend",
+            "build_ref_not_found": "The branch does not exist in the repository",
+            "build_repository_not_found": "The repository was not found, or the token of the connection cannot reach it"
         },
         "validation": {
             "version_required": "The version is required",
@@ -2315,7 +2318,10 @@
             "versionPlaceholder": "Enter version (e.g., 1.0.0)",
             "building": "Creating...",
             "start": "Create version",
-            "success": "Version started for {{name}}"
+            "success": "Version started for {{name}}",
+            "forbidden": "A viewer cannot create a version of a service",
+            "ref_not_found": "The branch does not exist in the repository",
+            "repository_not_found": "The repository was not found, or the token of the connection cannot reach it"
         },
         "versions": {
             "title": "Versions",
@@ -2368,6 +2374,41 @@
             "title": "Deploy {{domain}}",
             "description": "Pick the environment: only the microfrontends and services of this domain are deployed, the other domains keep the versions the environment serves now. Config maps and secrets are still deployed as they are now.",
             "success": "{{domain}} deployed to {{environment}}"
+        },
+        "build": {
+            "action": "Create version",
+            "title": "Create a version of {{domain}}",
+            "description": "Every microfrontend and service of the domain with a code repository gets the same version, tagged on the same branch: each tag starts the pipeline of its repository. A repository shared by several of them is tagged once. Every repository is checked first: if one fails, none is tagged.",
+            "result_description": "Version {{version}} on branch {{ref}}, repository by repository.",
+            "version": "Version",
+            "branch": "Branch",
+            "branch_hint": "The same branch is tagged in every repository: main when left empty.",
+            "start": "Create version",
+            "success_one": "Version {{version}} of {{domain}} started in {{count}} repository",
+            "success_other": "Version {{version}} of {{domain}} started in {{count}} repositories",
+            "partial_one": "{{count}} repository could not be tagged: the others were",
+            "partial_other": "{{count}} repositories could not be tagged: the others were",
+            "status": {
+                "tagged": "Tagged",
+                "ready": "Not tagged",
+                "failed": "Failed"
+            },
+            "reasons": {
+                "CONNECTION_NOT_FOUND": "The code repository connection is no longer one of this project",
+                "DOMAIN_SCOPE_FORBIDDEN": "The repository is shared with a microfrontend or a service outside your domains",
+                "REPOSITORY_NOT_FOUND": "The repository was not found, or the token of the connection cannot reach it",
+                "REF_NOT_FOUND": "The branch {{ref}} does not exist in this repository",
+                "TAG_EXISTS": "The tag {{version}} already exists in this repository",
+                "PROVIDER_ERROR": "The provider refused the request: {{message}}"
+            },
+            "errors": {
+                "version_invalid": "The version may hold only letters, digits, dots, dashes and underscores (at most 128)",
+                "ref_invalid": "The branch must be a valid git branch name (no spaces, no '..', none of ~^:?*[\\, no slash at either end), at most 255 characters",
+                "empty": "The domain has no microfrontend or service to build",
+                "no_repositories": "No microfrontend or service of the domain has a linked code repository",
+                "check_failed": "No repository was tagged: the check failed for at least one of them",
+                "forbidden": "A viewer cannot create a version of the domain"
+            }
         },
         "deployments": {
             "open": "Deployed versions",

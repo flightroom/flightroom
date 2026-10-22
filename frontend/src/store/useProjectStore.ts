@@ -1,7 +1,7 @@
 import { create } from "zustand"
 import { devtools } from "zustand/middleware"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
-import { Project } from "@/hooks/apiClients/useProjectApi"
+import { Project, RoleInProject } from "@/hooks/apiClients/useProjectApi"
 
 interface ProjectState {
     project?: Project
@@ -36,5 +36,8 @@ const useProjectStore = create<ProjectState>()(
         }
     )
 )
+
+/** Whether the user only views the current project: the console hides what writes, the server refuses it anyway */
+export const useIsProjectViewer = () => useProjectStore(state => state.project?.role === RoleInProject.VIEWER)
 
 export default useProjectStore

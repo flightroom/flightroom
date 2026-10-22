@@ -28,7 +28,7 @@ import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import ServiceDTO from "../types/ServiceDTO"
 import ServiceService from "./ServiceService"
 
-type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
+type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean>; findRoleInOrganization: () => Promise<string | undefined> }
 
 const projectId = new Types.ObjectId().toString()
 const codeRepositoryId = new Types.ObjectId().toString()
@@ -60,6 +60,7 @@ describe("ServiceService.create with a new repository", () => {
         const gates = service as unknown as WithGates
         vi.spyOn(gates, "ensureAccessToProject").mockResolvedValue()
         vi.spyOn(gates, "isOrganizationAdmin").mockImplementation(async () => organizationAdmin)
+        vi.spyOn(gates, "findRoleInOrganization").mockImplementation(async () => (organizationAdmin ? "ADMIN" : undefined))
         return service.create(
             {
                 name: "Orders API",

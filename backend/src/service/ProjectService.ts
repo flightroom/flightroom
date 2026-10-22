@@ -131,8 +131,9 @@ const toContextEntry = (item: { _id: unknown; slug: string; name: string; contex
 /**
  * A project as the switcher lists it, with the domains the user is confined to there: none for a member
  * of the whole project. `domainScoped` tells a scope left over nothing by deleted domains from the whole project.
+ * `role` is the one the user acts with: an administrator of the organization acts as an owner, whatever their membership.
  */
-export type ProjectOfUser = IProject & { domainIds: string[]; domainScoped: boolean }
+export type ProjectOfUser = IProject & { domainIds: string[]; domainScoped: boolean; role?: RoleInProject }
 
 export interface ProjectSummaryDTO {
     project: IProject
@@ -182,11 +183,15 @@ export class ProjectService extends BaseAuthorizedService {
                     .filter(membership => membership.domainScoped && membership.role !== RoleInProject.OWNER)
                     .map(membership => [String(membership.projectId), (membership.domainIds ?? []).map(String)])
             )
+            const roles = new Map(memberships.map(membership => [String(membership.projectId), membership.role]))
             const projects = await Project.find(filter).sort({ name: 1 })
             return projects.map(project => {
-                const scope = administered.has(String(project.organizationId)) ? undefined : scopes.get(String(project._id))
+                const isAdministered = administered.has(String(project.organizationId))
+                const scope = isAdministered ? undefined : scopes.get(String(project._id))
                 const fields = typeof project.toJSON === "function" ? project.toJSON() : project
-                return { ...fields, domainIds: scope ?? [], domainScoped: Boolean(scope) } as unknown as ProjectOfUser
+                // The console hides what the role cannot do; every write is still checked on the server
+                const role = isAdministered ? RoleInProject.OWNER : roles.get(String(project._id))
+                return { ...fields, domainIds: scope ?? [], domainScoped: Boolean(scope), role } as unknown as ProjectOfUser
             })
         } catch (error) {
             if (error instanceof BusinessException) throw error

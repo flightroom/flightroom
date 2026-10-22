@@ -6,10 +6,10 @@ import http from "isomorphic-git/http/node"
 import { tmpdir } from "os"
 import path, { join } from "path"
 import { fastify } from ".."
-import AzureDevOpsClient from "../client/AzureDevOpsClient"
+import AzureDevOpsClient, { AzureBranchNotFoundError } from "../client/AzureDevOpsClient"
 import GithubClient from "../client/GithubClient"
 import GitlabClient from "../client/GitlabClient"
-import { createBusinessException } from "../errors/BusinessException"
+import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType, ICodeRepository } from "../models/CodeRepositoryModel"
@@ -25,6 +25,28 @@ import { federationName } from "./FederationConfigService"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { isRepositoryNameTakenError } from "./RepositoryRenameService"
 import RepositoryWorkspaceService, { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
+
+/** A linked repository ready to be tagged: its connection, checked against the project, and the commit the ref points to */
+export interface TagTarget {
+    codeRepository: ICodeRepository
+    link: ICodeRepositoryMicrofrontend
+    ref: string
+    commit: string
+}
+
+/**
+ * The ref of a tag that cannot be resolved because the branch, or the whole repository, is not there: a 404
+ * the console translates by its code (BUILD_REF_NOT_FOUND, BUILD_REPOSITORY_NOT_FOUND). `reason` is what a
+ * domain build reports for the repository.
+ */
+export class TagLookupError extends BusinessException {
+    constructor(
+        readonly reason: "REF_NOT_FOUND" | "REPOSITORY_NOT_FOUND",
+        message: string
+    ) {
+        super({ code: reason === "REF_NOT_FOUND" ? "BUILD_REF_NOT_FOUND" : "BUILD_REPOSITORY_NOT_FOUND", message, statusCode: 404 })
+    }
+}
 
 const pipelinesUrl = "https://github.com/mfe-orchestrator/template-pipelines/archive/refs/heads/main.zip"
 
@@ -807,7 +829,19 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
      * to `projectId`, the project of what is built: one of another project would lend it its token.
      */
     async createTag(link: ICodeRepositoryMicrofrontend | undefined, projectId: unknown, version: string, ref?: string): Promise<void> {
-        if (!link?.enabled) return
+        const target = await this.resolveTagTarget(link, projectId, ref)
+        if (target) {
+            await this.pushTag(target, version)
+        }
+    }
+
+    /**
+     * What {@link createTag} checks before it tags: the connection of the project, the domain scope and the
+     * commit `ref` (main by default) points to. Undefined when there is nothing to tag: no repository linked,
+     * or a provider without tags. Writes nothing, so a whole domain is checked before any of its tags is made.
+     */
+    async resolveTagTarget(link: ICodeRepositoryMicrofrontend | undefined, projectId: unknown, ref?: string): Promise<TagTarget | undefined> {
+        if (!link?.enabled) return undefined
 
         const codeRepository = await CodeRepository.findById(link.codeRepositoryId)
         if (!codeRepository || String(codeRepository.projectId) !== String(projectId)) {
@@ -818,26 +852,87 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
         // component being built, so only the other links to the repository are looked at.
         await this.ensureRepositoryInDomainScope({ projectId: codeRepository.projectId }, link, codeRepository.provider)
 
-        const repositoryId = link.repositoryId
         const branchName = ref || "main"
+        let commit: string | undefined
+        try {
+            commit = await this.findCommit(codeRepository, link, branchName)
+        } catch (error) {
+            throw await this.explainMissingCommit(error, codeRepository, link, branchName)
+        }
+        return commit === undefined ? undefined : { codeRepository, link, ref: branchName, commit }
+    }
 
+    /** The commit `branchName` points to, undefined for a provider without tags */
+    private async findCommit(codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend, branchName: string): Promise<string | undefined> {
         if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
-            const githubClient = new GithubClient()
-            const commitSha = await githubClient.getBranchCommitSha(codeRepository.accessToken, link.name, branchName, codeRepository.githubData?.organizationId, codeRepository.githubData?.userName)
-            return await githubClient.createTag(codeRepository.accessToken, link.name, version, commitSha, codeRepository.githubData?.organizationId, codeRepository.githubData?.userName)
+            return new GithubClient().getBranchCommitSha(codeRepository.accessToken, link.name, branchName, codeRepository.githubData?.organizationId, codeRepository.githubData?.userName)
         } else if (codeRepository.provider === CodeRepositoryProvider.GITLAB) {
-            const gitlabClient = new GitlabClient(codeRepository.gitlabData?.url || "", codeRepository.accessToken)
-
-            const commitSha = await gitlabClient.getBranchCommitSha(repositoryId, branchName)
-            return await gitlabClient.createTag(repositoryId, version, commitSha)
+            return new GitlabClient(codeRepository.gitlabData?.url || "", codeRepository.accessToken).getBranchCommitSha(link.repositoryId, branchName)
         } else if (codeRepository.provider === CodeRepositoryProvider.AZURE_DEV_OPS) {
-            const azureClient = new AzureDevOpsClient()
             if (!codeRepository.azureData) {
                 throw new Error("Azure DevOps data not found")
             }
+            return new AzureDevOpsClient().getBranchCommitId(codeRepository.accessToken, codeRepository.azureData.organization, codeRepository.azureData.projectId, link.repositoryId, branchName)
+        }
+        return undefined
+    }
 
-            const commitId = await azureClient.getBranchCommitId(codeRepository.accessToken, codeRepository.azureData.organization, codeRepository.azureData.projectId, repositoryId, branchName)
-            return await azureClient.createTag(codeRepository.accessToken, codeRepository.azureData.organization, codeRepository.azureData.projectId, repositoryId, version, commitId)
+    /**
+     * A branch lookup the provider refused for want of something: the repository is read to tell a missing
+     * branch from a repository that is gone, renamed or out of reach of the token (providers answer 404 for
+     * both). Any other failure, or one the repository read does not explain, is passed on as it came.
+     */
+    private async explainMissingCommit(error: unknown, codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend, branchName: string): Promise<unknown> {
+        const status = axios.isAxiosError(error) ? error.response?.status : undefined
+        const branchMissing = error instanceof AzureBranchNotFoundError || status === 404
+        if (!branchMissing && status !== 401 && status !== 403) return error
+        try {
+            await this.readRepository(codeRepository, link)
+        } catch (repositoryError) {
+            const repositoryStatus = axios.isAxiosError(repositoryError) ? repositoryError.response?.status : undefined
+            if (repositoryStatus === 401 || repositoryStatus === 403 || repositoryStatus === 404) {
+                return new TagLookupError("REPOSITORY_NOT_FOUND", `The repository ${link.name} was not found, or the token of the connection cannot reach it`)
+            }
+            return error
+        }
+        return branchMissing ? new TagLookupError("REF_NOT_FOUND", `The branch ${branchName} was not found in the repository ${link.name}`) : error
+    }
+
+    private async readRepository(codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend): Promise<void> {
+        if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
+            await new GithubClient().getRepository({
+                accessToken: codeRepository.accessToken,
+                orgName: codeRepository.githubData?.organizationId,
+                userName: codeRepository.githubData?.userName,
+                repositoryName: link.name
+            })
+        } else if (codeRepository.provider === CodeRepositoryProvider.GITLAB) {
+            await new GitlabClient(codeRepository.gitlabData?.url || "", codeRepository.accessToken).getProject(link.repositoryId)
+        } else if (codeRepository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && codeRepository.azureData) {
+            await new AzureDevOpsClient().getRepository(codeRepository.accessToken, codeRepository.azureData.organization, codeRepository.azureData.projectId, link.repositoryId)
+        }
+    }
+
+    /** Whether the repository of `target` already has the tag `version`: creating it again would fail at the provider */
+    async tagExists({ codeRepository, link }: TagTarget, version: string): Promise<boolean> {
+        if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
+            return new GithubClient().tagExists(codeRepository.accessToken, link.name, version, codeRepository.githubData?.organizationId, codeRepository.githubData?.userName)
+        } else if (codeRepository.provider === CodeRepositoryProvider.GITLAB) {
+            return new GitlabClient(codeRepository.gitlabData?.url || "", codeRepository.accessToken).tagExists(link.repositoryId, version)
+        } else if (codeRepository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && codeRepository.azureData) {
+            return new AzureDevOpsClient().tagExists(codeRepository.accessToken, codeRepository.azureData.organization, codeRepository.azureData.projectId, link.repositoryId, version)
+        }
+        return false
+    }
+
+    /** Creates the tag `version` on the commit {@link resolveTagTarget} found */
+    async pushTag({ codeRepository, link, commit }: TagTarget, version: string): Promise<void> {
+        if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
+            return await new GithubClient().createTag(codeRepository.accessToken, link.name, version, commit, codeRepository.githubData?.organizationId, codeRepository.githubData?.userName)
+        } else if (codeRepository.provider === CodeRepositoryProvider.GITLAB) {
+            return await new GitlabClient(codeRepository.gitlabData?.url || "", codeRepository.accessToken).createTag(link.repositoryId, version, commit)
+        } else if (codeRepository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && codeRepository.azureData) {
+            return await new AzureDevOpsClient().createTag(codeRepository.accessToken, codeRepository.azureData.organization, codeRepository.azureData.projectId, link.repositoryId, version, commit)
         }
     }
 }

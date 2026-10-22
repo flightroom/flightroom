@@ -50,7 +50,7 @@ describe("MCP tool registry", () => {
         expect(toolNamed(name)?.annotations.destructiveHint).toBe(true)
     })
 
-    it.each(["code_repository_branches", "build_status_get", "dependencies_report", "microfrontend_trigger_build", "integration_apply"])(
+    it.each(["code_repository_branches", "build_status_get", "dependencies_report", "microfrontend_trigger_build", "domain_trigger_build", "integration_apply"])(
         "given %s, which reaches a git provider or npm, when read, then it is open world",
         name => {
             expect(toolNamed(name)?.annotations.openWorldHint).toBe(true)
