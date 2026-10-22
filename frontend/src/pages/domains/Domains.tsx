@@ -191,7 +191,7 @@ const Domains = () => {
                                             frontends={galaxy.frontends}
                                             services={galaxy.services}
                                             links={galaxy.links}
-                                            resources={resourcesQuery.data ?? []}
+                                            resources={resourcesQuery.data}
                                             onLink={(sourceDomainId, targetDomainId) => setLinkToCreate({ sourceDomainId, targetDomainId })}
                                             onUnlink={setLinkToDelete}
                                         />

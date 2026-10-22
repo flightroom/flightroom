@@ -1,22 +1,27 @@
 import { EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { CirclePlus, LayoutGrid, PackageOpen, SearchX, StretchHorizontal } from "lucide-react"
+import { CirclePlus, LayoutGrid, Orbit, PackageOpen, SearchX, StretchHorizontal } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
+import useDomainLinksApi from "@/hooks/apiClients/useDomainLinksApi"
+import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi, { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
 import { ALL_DOMAINS, DomainFilter, matchesDomain } from "../domains/partials/DomainFilter"
+import DomainGalaxy from "../domains/partials/DomainGalaxy"
 import { ServicesGrid } from "./partials/ServicesGrid"
 import { ServicesTable } from "./partials/ServicesTable"
 
 const VIEWS = [
     { value: "grid", icon: LayoutGrid, labelKey: "services.list.viewGrid" },
-    { value: "table", icon: StretchHorizontal, labelKey: "services.list.viewTable" }
+    { value: "table", icon: StretchHorizontal, labelKey: "services.list.viewTable" },
+    { value: "galaxy", icon: Orbit, labelKey: "services.list.viewGalaxy" }
 ] as const
 
 type View = (typeof VIEWS)[number]["value"]
@@ -36,6 +41,8 @@ const Services = () => {
     const projectId = useProjectStore(state => state.project?._id)
     const servicesApi = useServicesApi()
     const frontendsApi = useFrontendsApi()
+    const domainsApi = useDomainsApi()
+    const domainLinksApi = useDomainLinksApi()
     const [searchTerm, setSearchTerm] = useState("")
     const [domainFilter, setDomainFilter] = useState(ALL_DOMAINS)
     const [view, setView] = useState<View>("grid")
@@ -52,6 +59,11 @@ const Services = () => {
         queryFn: () => frontendsApi.getByProjectId(projectId),
         enabled: !!projectId
     })
+    // Only the galaxy needs the domains, their relations and the resources: the grid and the table do not wait for them.
+    const isGalaxy = view === "galaxy"
+    const domainsQuery = useQuery({ queryKey: ["domains", projectId], queryFn: domainsApi.getAll, enabled: !!projectId && isGalaxy })
+    const domainLinksQuery = useQuery({ queryKey: ["domain-links", projectId], queryFn: domainLinksApi.getAll, enabled: !!projectId && isGalaxy })
+    const resourcesQuery = useResourcesQuery(isGalaxy)
     const dockerFrontends = useMemo(() => (frontendsQuery.data ?? []).filter(frontend => frontend.kind === FrontendKind.DOCKER), [frontendsQuery.data])
 
     const { filtered, filteredFrontends } = useMemo(() => {
@@ -61,10 +73,19 @@ const Services = () => {
         return { filtered: (servicesQuery.data ?? []).filter(matches), filteredFrontends: dockerFrontends.filter(matches) }
     }, [servicesQuery.data, dockerFrontends, searchTerm, domainFilter])
 
+    const isFiltered = Boolean(searchTerm) || domainFilter !== ALL_DOMAINS
+    // The galaxy of the backends shows the services the filters leave; while filtering, only the domains they are in,
+    // and the relations between those.
+    const galaxy = useMemo(() => {
+        const allDomains = domainsQuery.data ?? []
+        const domains = isFiltered ? allDomains.filter(domain => filtered.some(service => service.domainId === domain._id)) : allDomains
+        const ids = new Set(domains.map(domain => domain._id))
+        return { domains, links: (domainLinksQuery.data ?? []).filter(link => ids.has(link.sourceDomainId) && ids.has(link.targetDomainId)) }
+    }, [domainsQuery.data, domainLinksQuery.data, filtered, isFiltered])
+
     const totalCount = (servicesQuery.data?.length ?? 0) + dockerFrontends.length
     const filteredCount = filtered.length + filteredFrontends.length
     const hasServices = totalCount > 0
-    const isFiltered = Boolean(searchTerm) || domainFilter !== ALL_DOMAINS
     const onResetFilters = () => {
         setSearchTerm("")
         setDomainFilter(ALL_DOMAINS)
@@ -157,7 +178,7 @@ const Services = () => {
                                 </Button>
                             }
                         />
-                    ) : filteredCount === 0 ? (
+                    ) : (isGalaxy ? isFiltered && filtered.length === 0 : filteredCount === 0) ? (
                         <EmptyState
                             variant="outlined"
                             size="lg"
@@ -184,6 +205,12 @@ const Services = () => {
                             </TabsContent>
                             <TabsContent value="table" className="mt-0 flex flex-col gap-6">
                                 {renderSections(<ServicesTable services={filtered} />, <ServicesTable frontends={filteredFrontends} />)}
+                            </TabsContent>
+                            {/* The backends only: the Docker frontends are frontends, on the map of the domains */}
+                            <TabsContent value="galaxy" className="mt-0">
+                                <ApiStatusHandler queries={[domainsQuery, domainLinksQuery, resourcesQuery]} interceptEmpty={false}>
+                                    <DomainGalaxy scope="backend" domains={galaxy.domains} services={filtered} links={galaxy.links} resources={resourcesQuery.data} />
+                                </ApiStatusHandler>
                             </TabsContent>
                         </>
                     )}
