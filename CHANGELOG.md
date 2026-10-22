@@ -7,6 +7,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **One Endpoint, Shared By Every Environment**: the **Endpoint** card of a service and of a DOCKER frontend is now an **Expose** switch and a single exposure path, the same on the host of every environment, instead of a base URL typed per environment. Exposed, the path is required and the card previews the resulting URL in each environment (`https://<environment host><path>`, plain HTTP when the project has no certificate issuer); off, `exposurePath` is saved as `null` and the application gets no route. The service overview and the serve API derive the URL the same way, so the URL handed out for a DOCKER frontend follows its exposure path instead of a hand-written one
+- **A DOCKER Frontend May Be Not Exposed**: like a service, it no longer needs an exposure path, through the console, the REST API and the MCP `frontend_create`, `frontend_scaffold` and `frontend_update` tools. A new DOCKER frontend still starts exposed in the console, since it is usually the shell
+
+### Removed
+
+- **Per-Environment `urls` Of Services And DOCKER Frontends**: the field is gone from the REST API, the MCP `service_*` and `frontend_*` tools and the GitOps values, which no longer carry an `ingress` block: the HTTPRoute of the exposure path covers it. Stored values are ignored
+- **`DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED`**: the error is no longer raised
+
 ---
 
 ## [5.1.0] - 2026-10-22

@@ -115,7 +115,7 @@ export const serviceTools = [
     defineTool({
         name: "service_update",
         title: "Update service",
-        description: "Changes the given fields of a backend service. Nested objects (codeRepository, image) and the env and urls lists are replaced as a whole.",
+        description: "Changes the given fields of a backend service. Nested objects (codeRepository, image) and the env list are replaced as a whole.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: updateSchema,

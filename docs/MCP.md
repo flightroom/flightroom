@@ -120,10 +120,8 @@ at most.
 - `frontend_create`, `frontend_update`, `service_create` and `service_update` take an optional
   `domainId`; `null` takes the item out of its domain. A domain of another project is refused before
   anything is written.
-- A frontend of kind `DOCKER` (served by its own Docker container) needs an `exposurePath`:
-  `frontend_create`, `frontend_scaffold` and `frontend_update` refuse with
-  `DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED` a DOCKER frontend without one, a frontend made a DOCKER frontend without one,
-  or an update that clears it. A scaffold is refused before the repository is created.
+- A service and a frontend of kind `DOCKER` (served by its own Docker container) take an optional
+  `exposurePath`, the same on the host of every environment; `null` means it is not exposed.
 - `frontends_list` and `services_list` take an optional `domainId` filter: a domain id, or `none`
   for the items in no domain.
 

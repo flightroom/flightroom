@@ -862,7 +862,6 @@
         },
         "errors": {
             "frontend_cannot_have_parents": "Un frontend servito dal suo container Docker non può avere parent",
-            "docker_exposure_path_required": "Un frontend servito dal suo container Docker ha bisogno di un path di esposizione: i browser lo raggiungono solo lì",
             "frontend_upload_not_allowed": "Un frontend servito dal suo container Docker non accetta upload di bundle: la sua pipeline registra l'immagine di ogni versione",
             "version_registration_not_allowed": "Solo un frontend servito dal suo container Docker registra versioni di immagine: un frontend carica il suo bundle",
             "build_forbidden": "Chi ha il ruolo di viewer non può creare una versione di un frontend",
@@ -871,7 +870,6 @@
         },
         "validation": {
             "version_required": "La versione è obbligatoria",
-            "exposure_path_required": "Il path di esposizione è obbligatorio per un frontend servito da Docker",
             "host_url_required": "L'URL è obbligatorio per l'hosting personalizzato",
             "canary_percentage": "La percentuale canary deve essere tra 1 e 100 quando il canary è attivo"
         },
@@ -2262,6 +2260,14 @@
         "slug_invalid": "Da 2 a 50 lettere minuscole, cifre o trattini, senza iniziare con un trattino",
         "description": "Descrizione",
         "description_placeholder": "Cosa fa questo servizio",
+        "tabs": {
+            "general": "Generale",
+            "context": "Contesto AI",
+            "runtime": "Runtime",
+            "variables": "Variabili",
+            "repository": "Repository",
+            "danger_zone": "Zona Pericolosa"
+        },
         "runtime_settings": "Runtime e immagine",
         "runtime_settings_description": "Porta, probe Kubernetes, documentazione API e repository dell'immagine Docker",
         "port": "Porta",
@@ -2274,8 +2280,8 @@
         "openapi_path": "Percorso specifica OpenAPI",
         "openapi_path_hint": "Facoltativo. Es. /openapi.json",
         "exposure_path": "Path di esposizione",
-        "exposure_path_hint": "Facoltativo. Dove risponde sull'host di ogni ambiente, es. /api/orders: il prefisso viene tolto prima di arrivare al container",
-        "exposure_path_required_hint": "Dove risponde sull'host di ogni ambiente, es. / o /shell: il prefisso viene tolto prima di arrivare al container",
+        "exposure_path_hint": "Dove risponde sull'host di ogni ambiente, es. /api/orders: il prefisso viene tolto prima di arrivare al container",
+        "exposure_path_required": "Indica il path su cui esporlo, oppure disattiva l'esposizione",
         "exposure_path_invalid": "Un path che una HTTPRoute accetta: inizia con /, lettere, numeri e -._~!$&'()*+,;=:@ o %XX, senza query, frammento, // né segmenti . o ..",
         "path_invalid": "Deve iniziare con \"/\", avere al massimo 256 caratteri e nessuno spazio",
         "image_repository": "Repository immagine",
@@ -2287,11 +2293,11 @@
         "version_invalid": "Solo lettere, numeri, punti, trattini e underscore, al massimo 128",
         "urls": {
             "title": "Endpoint",
-            "description": "L'URL base su cui il servizio è raggiungibile in ciascun ambiente. I percorsi di documentazione e OpenAPI sono relativi a questo indirizzo. Lascia vuoto dove il servizio non è esposto.",
-            "placeholder": "https://orders-api.dev.example.com",
-            "invalid": "Inserisci un URL assoluto http o https, senza spazi, credenziali, query (?) o frammento (#)",
-            "no_environments": "Il progetto non ha ancora ambienti: creane uno per indicare dove è esposto il servizio",
-            "empty": "Nessun endpoint indicato. Aggiungilo dalle impostazioni del servizio.",
+            "description": "Se è raggiungibile dall'esterno e su quale path: lo stesso sull'host di ogni ambiente. I percorsi di documentazione e OpenAPI sono relativi a questo indirizzo.",
+            "expose": "Esponi",
+            "preview": "URL per ambiente",
+            "no_domain": "Il progetto non è esposto su un dominio: impostalo nelle impostazioni del progetto per avere un URL in ogni ambiente.",
+            "no_environments": "Il progetto non ha ancora ambienti: l'URL di ognuno comparirà qui quando li crei.",
             "not_exposed": "Non esposto",
             "open_docs": "Documentazione API",
             "open_openapi": "Specifica OpenAPI"

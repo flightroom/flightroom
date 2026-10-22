@@ -1,11 +1,11 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { ServicePaths, ServiceRuntime } from "../types/ServiceStack"
-import { CONTAINER_DEFAULTS, exposurePath, IServiceEnvVariable, IServiceUrl, optionalPath, probePath, serviceEnvVariableSchema, serviceUrlSchema } from "./ContainerFields"
+import { CONTAINER_DEFAULTS, exposurePath, IServiceEnvVariable, optionalPath, probePath, serviceEnvVariableSchema } from "./ContainerFields"
 import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
-export type { IServiceEnvVariable, IServiceUrl }
+export type { IServiceEnvVariable }
 
 /** Runtime and framework of a backend service, and where that knowledge came from */
 export interface IServiceStack {
@@ -36,8 +36,6 @@ export interface IService extends Document<ObjectId>, ServicePaths {
     port: number
     /** The path it is exposed at on the host of every environment, e.g. /api/orders; null when it is not exposed */
     exposurePath?: string | null
-    /** One per environment it is exposed in; an environment left out has no known address */
-    urls: IServiceUrl[]
     env: IServiceEnvVariable[]
     /** Config maps of the project the service receives as environment variables; they live on their own and can be shared */
     configMapIds: Schema.Types.ObjectId[]
@@ -136,10 +134,6 @@ const serviceSchema = new Schema<IService>(
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,
-        urls: {
-            type: [serviceUrlSchema],
-            default: []
-        },
         env: {
             type: [serviceEnvVariableSchema],
             default: []

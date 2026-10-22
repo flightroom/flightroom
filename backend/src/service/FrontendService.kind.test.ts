@@ -71,15 +71,10 @@ describe("FrontendService.create, kind", () => {
         expect(written).not.toHaveProperty("livenessPath")
     })
 
-    it.each([[undefined], [null], ["  "]])("given a DOCKER with exposure path %j, when it is created, then it is refused before anything is written", async exposurePath => {
-        const write = vi.spyOn(Frontend, "create")
-        const service = new FrontendService()
-        vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
+    it("given a DOCKER without an exposure path, when it is created, then it is written not exposed", async () => {
+        const write = await create({ kind: FrontendKind.DOCKER, exposurePath: null })
 
-        const code = await codeOf(service.create({ name: "Shell", slug: "shell", kind: FrontendKind.DOCKER, exposurePath } as FrontendDTO, String(projectId)))
-
-        expect(code).toBe("DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED")
-        expect(write).not.toHaveBeenCalled()
+        expect(write.mock.calls[0][0]).toMatchObject({ kind: FrontendKind.DOCKER, exposurePath: null })
     })
 
     it("given a DOCKER without a version, when it is created, then it is written without one", async () => {
@@ -173,20 +168,22 @@ describe("FrontendService.update, kind", () => {
         expect(update).toMatchObject({ kind: FrontendKind.DOCKER, "canary.enabled": false })
     })
 
-    it("given a BUNDLE without an exposure path, when it is made a DOCKER, then it is refused before anything is written", async () => {
-        const write = vi.spyOn(Frontend, "findOneAndUpdate")
+    it("given a BUNDLE without an exposure path, when it is made a DOCKER, then it is written not exposed", async () => {
+        const write = vi.spyOn(Frontend, "findOneAndUpdate").mockImplementation((async (_filter: unknown, update: unknown) => update) as never)
         const frontend = existing({})
 
-        expect(await codeOf(serviceFor(frontend).update(String(frontend._id), { kind: FrontendKind.DOCKER } as FrontendDTO))).toBe("DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED")
-        expect(write).not.toHaveBeenCalled()
+        await serviceFor(frontend).update(String(frontend._id), { kind: FrontendKind.DOCKER } as FrontendDTO)
+
+        expect(write.mock.calls[0][1]).toMatchObject({ kind: FrontendKind.DOCKER })
     })
 
-    it("given a DOCKER, when its exposure path is cleared, then it is refused before anything is written", async () => {
-        const write = vi.spyOn(Frontend, "findOneAndUpdate")
+    it("given a DOCKER, when its exposure path is cleared, then it is written not exposed", async () => {
+        const write = vi.spyOn(Frontend, "findOneAndUpdate").mockImplementation((async (_filter: unknown, update: unknown) => update) as never)
         const frontend = existing({ kind: FrontendKind.DOCKER, exposurePath: "/shell" })
 
-        expect(await codeOf(serviceFor(frontend).update(String(frontend._id), { exposurePath: "" } as FrontendDTO))).toBe("DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED")
-        expect(write).not.toHaveBeenCalled()
+        await serviceFor(frontend).update(String(frontend._id), { exposurePath: null } as FrontendDTO)
+
+        expect(write.mock.calls[0][1]).toMatchObject({ exposurePath: null })
     })
 
     it("given a DOCKER, when its version is set by hand, then it is written trimmed", async () => {

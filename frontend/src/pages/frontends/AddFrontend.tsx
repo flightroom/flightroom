@@ -20,12 +20,12 @@ import useMarketApi from "@/hooks/apiClients/useMarketApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
 import { useVariableMapErrorMessage, VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
 import { CodeRepositorySection, DangerZoneRemoveFrontend, FrontendHeader, FrontendKindField, HostingSection, isAiEditAvailable, ReleaseSection } from "@/pages/frontends/partials/components"
+import ServiceEndpointFields from "@/pages/services/partials/ServiceEndpointFields"
 import ServiceEnvFields from "@/pages/services/partials/ServiceEnvFields"
 import ServiceRuntimeFields from "@/pages/services/partials/ServiceRuntimeFields"
-import ServiceUrlsFields from "@/pages/services/partials/ServiceUrlsFields"
 import ServiceVariableMapsFields from "@/pages/services/partials/ServiceVariableMapsFields"
 import ServiceVersionsTable from "@/pages/services/partials/ServiceVersionsTable"
-import { createServiceRuntimeShape, fromFormUrls, SERVICE_VERSION, toFormUrls, useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
+import { createServiceRuntimeShape, refineExposure, SERVICE_VERSION, useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -37,7 +37,6 @@ interface FormMessages {
     path: string
     exposurePath: string
     exposurePathRequired: string
-    url: string
     versionRequired: string
     versionInvalid: string
     hostUrlRequired: string
@@ -76,9 +75,9 @@ const createFormSchema = (messages: FormMessages) => {
             readinessPath: z.string().optional(),
             docsPath: z.string().optional(),
             openApiPath: z.string().optional(),
+            exposed: z.boolean().optional(),
             exposurePath: z.string().optional(),
             image: z.object({ repository: z.string().optional() }).optional(),
-            urls: z.array(z.string()).optional(),
             env: z
                 .array(
                     z.object({
@@ -135,10 +134,7 @@ const createFormSchema = (messages: FormMessages) => {
                 for (const issue of container.error?.issues ?? []) {
                     ctx.addIssue({ code: "custom", message: issue.message, path: issue.path })
                 }
-                // Optional for a service, not for a DOCKER frontend: browsers reach its container only at this path
-                if (!data.exposurePath?.trim()) {
-                    ctx.addIssue({ code: "custom", message: messages.exposurePathRequired, path: ["exposurePath"] })
-                }
+                refineExposure(data, ctx, messages)
                 // Optional, as for a service: it is the tag of the image, with the same rule
                 if (data.version?.trim() && !SERVICE_VERSION.test(data.version.trim())) {
                     ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["version"] })
@@ -175,7 +171,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["name", "slug", "description", "domainId", "kind"],
     context: ["context"],
     hosting: ["host"],
-    container: ["port", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposurePath", "image", "urls", "env", "configMapIds", "secretIds"],
+    container: ["port", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "image", "env", "configMapIds", "secretIds"],
     repository: ["codeRepository"],
     danger: []
 }
@@ -238,8 +234,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             createFormSchema({
                 path: t("services.path_invalid"),
                 exposurePath: t("services.exposure_path_invalid"),
-                exposurePathRequired: t("frontend.validation.exposure_path_required"),
-                url: t("services.urls.invalid"),
+                exposurePathRequired: t("services.exposure_path_required"),
                 versionRequired: t("frontend.validation.version_required"),
                 versionInvalid: t("services.version_invalid"),
                 hostUrlRequired: t("frontend.validation.host_url_required"),
@@ -255,9 +250,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         readinessPath: frontend?.readinessPath ?? "/health/ready",
         docsPath: frontend?.docsPath ?? "",
         openApiPath: frontend?.openApiPath ?? "",
+        // A DOCKER is usually the shell, which browsers reach: exposed until said otherwise, both a new one and a BUNDLE
+        // being made one. A DOCKER saved without a path was left unexposed on purpose, and stays so
+        exposed: frontend?.exposurePath ? true : !frontend || frontend.kind !== FrontendKind.DOCKER,
         exposurePath: frontend?.exposurePath ?? "",
         image: { repository: frontend?.image?.repository ?? "" },
-        urls: toFormUrls(frontend?.urls, environments),
         env: frontend?.env ?? [],
         // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
         configMapIds: (frontend?.configMapIds ?? []).filter(id => configMaps.some(map => map._id === id)),
@@ -335,7 +332,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     })
 
     const onSubmit = async (data: FormValues) => {
-        const { port, livenessPath, readinessPath, docsPath, openApiPath, exposurePath, image, urls, env, configMapIds, secretIds, ...rest } = data
+        const { port, livenessPath, readinessPath, docsPath, openApiPath, exposed, exposurePath, image, env, configMapIds, secretIds, ...rest } = data
         const dataToSend = {
             ...rest,
             version: data.version === "custom" ? data.customVersion : data.version,
@@ -349,9 +346,9 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                       readinessPath: readinessPath?.trim(),
                       docsPath: docsPath?.trim(),
                       openApiPath: openApiPath?.trim(),
-                      exposurePath: exposurePath?.trim(),
+                      // Null: not exposed on the host of the environments
+                      exposurePath: exposed ? exposurePath?.trim() : null,
                       image,
-                      urls: fromFormUrls(urls ?? [], environments),
                       env,
                       configMapIds,
                       secretIds,
@@ -531,8 +528,8 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                     {isDocker ? (
                         <TabsContent value="container" forceMount>
                             <div className="flex flex-col gap-6">
-                                <ServiceRuntimeFields exposureRequired />
-                                <ServiceUrlsFields environments={environments} />
+                                <ServiceRuntimeFields />
+                                <ServiceEndpointFields environments={environments} placeholder="/shell" />
                                 <ServiceEnvFields />
                                 <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} />
                             </div>
@@ -615,7 +612,7 @@ const AddNewFrontendPage: React.FC<AddNewFrontendPageProps> = () => {
         enabled: isEdit
     })
 
-    // Before the form mounts: a DOCKER frontend's default values hold one base URL per environment
+    // The endpoint of a DOCKER frontend previews its URL in every environment
     const environmentsQuery = useProjectEnvironmentsQuery()
     const configMapsQuery = useVariableMapsQuery("configMap")
     const secretsQuery = useVariableMapsQuery("secret")

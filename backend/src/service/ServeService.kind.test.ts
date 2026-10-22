@@ -9,7 +9,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import { CanaryDeploymentType, CanaryType, FrontendKind, HostedOn, IFrontend } from "../models/FrontendModel"
-import { IProject } from "../models/ProjectModel"
+import Project, { IProject } from "../models/ProjectModel"
 import ServeService from "./ServeService"
 
 afterEach(() => {
@@ -17,7 +17,7 @@ afterEach(() => {
 })
 
 const projectId = new Types.ObjectId()
-const environment = { _id: new Types.ObjectId(), projectId, slug: "dev" }
+const environment = { _id: new Types.ObjectId(), projectId, slug: "DEV", isProduction: false }
 
 const cart = {
     _id: new Types.ObjectId(),
@@ -37,10 +37,7 @@ const shell = {
     host: { type: HostedOn.MFE_ORCHESTRATOR_HUB },
     // Ignored: the orchestrator does not serve a DOCKER, so it has no version of ours to roll out
     canary: { enabled: true, percentage: 100, type: CanaryType.RANDOM, deploymentType: CanaryDeploymentType.BASED_ON_URL, url: "https://canary.acme.com" },
-    urls: [
-        { environmentId: new Types.ObjectId(), url: "https://shell.prod.acme.com" },
-        { environmentId: environment._id, url: "https://shell.dev.acme.com" }
-    ]
+    exposurePath: "/shell"
 }
 
 const deployment = { _id: new Types.ObjectId(), environmentId: environment._id, frontends: [cart, shell], variables: [] }
@@ -61,21 +58,36 @@ describe("ServeService, FRONTEND", () => {
         )
     })
 
-    it("given a DOCKER, when its configuration is served, then its URL is the one of that environment and its canary is ignored", async () => {
-        vi.spyOn(Deployment, "findOne").mockResolvedValue(deployment as never)
+    const serveShell = async (frontend: Partial<IFrontend>, exposure?: IProject["exposure"]) => {
+        vi.spyOn(Deployment, "findOne").mockResolvedValue({ ...deployment, frontends: [frontend] } as never)
         vi.spyOn(Environment, "findById").mockResolvedValue(environment as never)
+        vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, exposure } as never)
+        return new ServeService().getFrontendConfigurationByEnvironmentIdAndMfeSlug(String(environment._id), "shell")
+    }
 
-        const served = await new ServeService().getFrontendConfigurationByEnvironmentIdAndMfeSlug(String(environment._id), "shell")
+    it("given a DOCKER, when its configuration is served, then its URL is its path on the host of that environment and its canary is ignored", async () => {
+        const served = await serveShell(shell as never, { domain: "acme.com", certificateIssuer: "letsencrypt" })
 
-        expect(served).toMatchObject({ slug: "shell", url: "https://shell.dev.acme.com", version: "2.0.0" })
+        expect(served).toMatchObject({ slug: "shell", url: "https://dev.acme.com/shell", version: "2.0.0" })
+    })
+
+    it("given a project with no certificate issuer, when the configuration of a DOCKER is served, then its URL is over HTTP", async () => {
+        expect(await serveShell(shell as never, { domain: "acme.com" })).toMatchObject({ url: "http://dev.acme.com/shell" })
+    })
+
+    it.each([
+        ["/", "https://dev.acme.com"],
+        ["/shell/", "https://dev.acme.com/shell"]
+    ])("given a DOCKER exposed at %s, when its configuration is served, then its URL has no trailing slash", async (exposurePath, url) => {
+        expect(await serveShell({ ...shell, exposurePath } as never, { domain: "acme.com", certificateIssuer: "letsencrypt" })).toMatchObject({ url })
     })
 
     /** It is a host asking for its own configuration: no address of its own must not make that fail */
-    it("given a DOCKER with no URL in the environment, when its configuration is served, then it comes with an empty URL", async () => {
-        const withoutUrl: Partial<IFrontend> = { ...shell, urls: [] } as never
-        vi.spyOn(Deployment, "findOne").mockResolvedValue({ ...deployment, frontends: [withoutUrl] } as never)
-        vi.spyOn(Environment, "findById").mockResolvedValue(environment as never)
+    it("given a DOCKER that is not exposed, when its configuration is served, then it comes with an empty URL", async () => {
+        expect(await serveShell({ ...shell, exposurePath: null } as never, { domain: "acme.com" })).toMatchObject({ slug: "shell", url: "" })
+    })
 
-        expect(await new ServeService().getFrontendConfigurationByEnvironmentIdAndMfeSlug(String(environment._id), "shell")).toMatchObject({ slug: "shell", url: "" })
+    it("given a project exposed on no domain, when the configuration of a DOCKER is served, then it comes with an empty URL", async () => {
+        expect(await serveShell(shell as never)).toMatchObject({ slug: "shell", url: "" })
     })
 })

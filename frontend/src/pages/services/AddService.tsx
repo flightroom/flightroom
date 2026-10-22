@@ -1,8 +1,8 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { useEffect, useMemo, useRef } from "react"
-import { FormProvider, useForm } from "react-hook-form"
+import { useEffect, useMemo, useRef, useState } from "react"
+import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import * as z from "zod"
@@ -24,13 +24,13 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 import DomainSelectField from "../domains/partials/DomainSelectField"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import ServiceDangerZone from "./partials/ServiceDangerZone"
+import ServiceEndpointFields from "./partials/ServiceEndpointFields"
 import ServiceEnvFields from "./partials/ServiceEnvFields"
 import ServiceHeader from "./partials/ServiceHeader"
 import ServiceRuntimeFields from "./partials/ServiceRuntimeFields"
-import ServiceUrlsFields from "./partials/ServiceUrlsFields"
 import ServiceVariableMapsFields from "./partials/ServiceVariableMapsFields"
 import { isServiceTemplate } from "./partials/serviceTemplates"
-import { createServiceRuntimeShape, fromFormUrls, SERVICE_VERSION, toFormUrls, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
+import { createServiceRuntimeShape, refineExposure, SERVICE_VERSION, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
 
 /** Same rule as the backend (SERVICE_SLUG): the slug names the workspace folder and the CI registration URL */
 const SERVICE_SLUG = /^[a-z0-9][a-z0-9-]{1,49}$/
@@ -52,41 +52,61 @@ interface FormMessages {
     version: string
     path: string
     exposurePath: string
-    url: string
+    exposurePathRequired: string
 }
 
 const createFormSchema = (messages: FormMessages) =>
-    z.object({
-        slug: z.string().regex(SERVICE_SLUG, messages.slug),
-        name: z.string().min(3).max(100),
-        description: z.string().optional(),
-        domainId: z.string().nullable().optional(),
-        context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
-        template: z.string().optional(),
-        // Blank: none yet, until the pipeline registers a first one
-        version: z
-            .string()
-            .trim()
-            .refine(value => value === "" || SERVICE_VERSION.test(value), messages.version)
-            .optional(),
-        ...createServiceRuntimeShape(messages),
-        codeRepository: z
-            .object({
-                enabled: z.boolean().default(false),
-                codeRepositoryId: z.string().optional(),
-                repositoryId: z.string().optional(),
-                name: z.string().optional(),
-                cloneUrlHttps: z.string().optional(),
-                cloneUrlSsh: z.string().optional(),
-                gitlab: z.object({ groupPath: z.string().optional(), groupId: z.number().optional() }).optional(),
-                createData: z.object({ name: z.string().min(3).max(100), private: z.boolean().default(false) }).optional()
-            })
-            .optional()
-    })
+    z
+        .object({
+            slug: z.string().regex(SERVICE_SLUG, messages.slug),
+            name: z.string().min(3).max(100),
+            description: z.string().optional(),
+            domainId: z.string().nullable().optional(),
+            context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
+            template: z.string().optional(),
+            // Blank: none yet, until the pipeline registers a first one
+            version: z
+                .string()
+                .trim()
+                .refine(value => value === "" || SERVICE_VERSION.test(value), messages.version)
+                .optional(),
+            ...createServiceRuntimeShape(messages),
+            codeRepository: z
+                .object({
+                    enabled: z.boolean().default(false),
+                    codeRepositoryId: z.string().optional(),
+                    repositoryId: z.string().optional(),
+                    name: z.string().optional(),
+                    cloneUrlHttps: z.string().optional(),
+                    cloneUrlSsh: z.string().optional(),
+                    gitlab: z.object({ groupPath: z.string().optional(), groupId: z.number().optional() }).optional(),
+                    createData: z.object({ name: z.string().min(3).max(100), private: z.boolean().default(false) }).optional()
+                })
+                .optional()
+        })
+        .superRefine((data, ctx) => refineExposure(data, ctx, messages))
 
 type FormSchema = ReturnType<typeof createFormSchema>
 type FormInput = z.input<FormSchema>
 type FormValues = z.output<FormSchema>
+
+/** Tabs that own validated fields, in the order they are shown: the first one with an error is the one we jump to. */
+const FORM_TABS = ["general", "context", "runtime", "variables", "repository"] as const
+
+type FormTab = (typeof FORM_TABS)[number] | "danger"
+
+const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
+
+const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
+    general: ["template", "name", "slug", "description", "domainId"],
+    context: ["context"],
+    runtime: ["port", "image", "version", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath"],
+    variables: ["env", "configMapIds", "secretIds"],
+    repository: ["codeRepository"],
+    danger: []
+}
+
+const ErrorDot: React.FC = () => <span className="ml-2 inline-block size-1.5 rounded-full bg-destructive align-middle" aria-hidden="true" />
 
 interface AddServiceFormProps {
     repositories: ICodeRepository[]
@@ -113,6 +133,9 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
     // Opened from a domain page: the service is created in it, and the page is where we go back
     const initialDomainId = searchParams.get("domainId")
     const hasRepositories = repositories.length > 0
+    // `?tab=` opens a tab straight away.
+    const linkedTab = searchParams.get("tab")
+    const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
 
     const marketsQuery = useQuery({ queryKey: ["markets"], queryFn: getMarkets, enabled: !isEdit })
     const serviceTemplates = useMemo(() => (marketsQuery.data ?? []).filter(isServiceTemplate), [marketsQuery.data])
@@ -124,7 +147,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                 version: t("services.version_invalid"),
                 path: t("services.path_invalid"),
                 exposurePath: t("services.exposure_path_invalid"),
-                url: t("services.urls.invalid")
+                exposurePathRequired: t("services.exposure_path_required")
             }),
         [t]
     )
@@ -138,8 +161,8 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                   port: String(service.port),
                   docsPath: service.docsPath ?? "",
                   openApiPath: service.openApiPath ?? "",
+                  exposed: Boolean(service.exposurePath),
                   exposurePath: service.exposurePath ?? "",
-                  urls: toFormUrls(service.urls, environments),
                   env: service.env ?? [],
                   // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
                   configMapIds: (service.configMapIds ?? []).filter(id => configMaps.some(map => map._id === id)),
@@ -158,9 +181,10 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                   readinessPath: "/health/ready",
                   docsPath: "",
                   openApiPath: "",
+                  // Off until asked for: a new service is reached from outside only when that is decided
+                  exposed: false,
                   exposurePath: "",
                   image: { repository: "" },
-                  urls: environments.map(() => ""),
                   env: [],
                   configMapIds: [],
                   secretIds: [],
@@ -191,11 +215,13 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
 
     const onSubmit = async (data: FormValues) => {
         // Blank: the service is in no domain
+        const { exposed, ...fields } = data
         const dto = {
-            ...data,
+            ...fields,
             domainId: data.domainId || null,
             port: Number(data.port),
-            urls: fromFormUrls(data.urls, environments)
+            // Null: not exposed on the host of the environments
+            exposurePath: exposed ? data.exposurePath : null
         } as unknown as ServiceDTO
         const template = data.template || undefined
         // Sent only when typed here: saving the form must not move back a newer version the pipeline registered meanwhile
@@ -218,76 +244,148 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
         await queryClient.invalidateQueries({ queryKey: ["services"] })
     }
 
+    // Another link followed while the page is open.
+    useEffect(() => {
+        if (isFormTab(linkedTab)) setActiveTab(linkedTab)
+    }, [linkedTab])
+
+    // A linked tab may not exist on this service (no repository, or not saved yet): fall back to the first one.
+    const isTabShown = (tab: FormTab) => {
+        if (tab === "repository") return hasRepositories
+        if (tab === "danger") return isEdit
+        return true
+    }
+    const shownTab = isTabShown(activeTab) ? activeTab : "general"
+
+    /** A tab is flagged when any of the fields it owns failed validation, so an error is never hidden behind an inactive tab. */
+    const tabHasErrors = (tab: FormTab) => TAB_FIELDS[tab].some(field => Boolean(form.formState.errors[field]))
+
+    const onInvalid = (errors: FieldErrors<FormInput>) => {
+        const firstTabWithErrors = FORM_TABS.find(tab => isTabShown(tab) && TAB_FIELDS[tab].some(field => Boolean(errors[field])))
+        if (firstTabWithErrors) setActiveTab(firstTabWithErrors)
+    }
+
     const content = (
         <FormProvider {...form}>
-            <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-6">
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="mb-0">{t("services.general_information")}</CardTitle>
-                        <CardDescription>{t("services.general_information_description")}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="flex flex-col gap-2 pt-3">
-                        {!isEdit && (
-                            <SelectField
-                                name="template"
-                                label={t("services.template")}
-                                placeholder={t("services.template_placeholder")}
-                                options={serviceTemplates.map(market => ({ value: market.slug, label: `${market.name} (${market.framework})` }))}
-                                className="w-full"
-                            />
+            <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
+                <Tabs value={shownTab} onValueChange={value => setActiveTab(value as FormTab)} tabsListPosition="fullWidth">
+                    <TabsList>
+                        <TabsTrigger value="general" className="flex-1">
+                            {t("services.tabs.general")}
+                            {tabHasErrors("general") && <ErrorDot />}
+                        </TabsTrigger>
+                        <TabsTrigger value="context" className="flex-1">
+                            {t("services.tabs.context")}
+                            {tabHasErrors("context") && <ErrorDot />}
+                        </TabsTrigger>
+                        <TabsTrigger value="runtime" className="flex-1">
+                            {t("services.tabs.runtime")}
+                            {tabHasErrors("runtime") && <ErrorDot />}
+                        </TabsTrigger>
+                        <TabsTrigger value="variables" className="flex-1">
+                            {t("services.tabs.variables")}
+                            {tabHasErrors("variables") && <ErrorDot />}
+                        </TabsTrigger>
+                        {hasRepositories && (
+                            <TabsTrigger value="repository" className="flex-1">
+                                {t("services.tabs.repository")}
+                                {tabHasErrors("repository") && <ErrorDot />}
+                            </TabsTrigger>
                         )}
-                        <div className="flex flex-wrap gap-x-4 gap-y-2">
-                            <TextField
-                                name="name"
-                                label={t("services.name")}
-                                placeholder={t("services.name_placeholder")}
-                                textTransform={value => value.replace("  ", " ")}
-                                required
-                                onChange={e => {
-                                    const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
-                                    if (!isEdit) {
-                                        form.setValue("slug", slug)
-                                        form.setValue("codeRepository.createData.name", slug)
-                                    }
-                                }}
-                                containerClassName="flex-[1_1_240px]"
-                            />
-                            <TextField name="slug" disabled={isEdit} label={t("services.slug")} placeholder={t("services.slug_placeholder")} required containerClassName="flex-[1_1_240px]" />
+                        {isEdit && (
+                            <TabsTrigger value="danger" className="flex-1">
+                                {t("services.tabs.danger_zone")}
+                            </TabsTrigger>
+                        )}
+                    </TabsList>
+
+                    {/* forceMount keeps every tab registered: switching tab must not drop the values or re-run the repository lookups. */}
+                    <TabsContent value="general" forceMount>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="mb-0">{t("services.general_information")}</CardTitle>
+                                <CardDescription>{t("services.general_information_description")}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="flex flex-col gap-2 pt-3">
+                                {!isEdit && (
+                                    <SelectField
+                                        name="template"
+                                        label={t("services.template")}
+                                        placeholder={t("services.template_placeholder")}
+                                        options={serviceTemplates.map(market => ({ value: market.slug, label: `${market.name} (${market.framework})` }))}
+                                        className="w-full"
+                                    />
+                                )}
+                                <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                    <TextField
+                                        name="name"
+                                        label={t("services.name")}
+                                        placeholder={t("services.name_placeholder")}
+                                        textTransform={value => value.replace("  ", " ")}
+                                        required
+                                        onChange={e => {
+                                            const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
+                                            if (!isEdit) {
+                                                form.setValue("slug", slug)
+                                                form.setValue("codeRepository.createData.name", slug)
+                                            }
+                                        }}
+                                        containerClassName="flex-[1_1_240px]"
+                                    />
+                                    <TextField name="slug" disabled={isEdit} label={t("services.slug")} placeholder={t("services.slug_placeholder")} required containerClassName="flex-[1_1_240px]" />
+                                </div>
+                                <TextareaField name="description" label={t("services.description")} placeholder={t("services.description_placeholder")} />
+                                <DomainSelectField containerClassName="w-full" />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="context" forceMount>
+                        <Card>
+                            <CardHeader>
+                                <CardTitle className="mb-0">{t("services.context.title")}</CardTitle>
+                                <CardDescription>{t("services.context.subtitle")}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="pt-3">
+                                <TextareaField
+                                    name="context"
+                                    label={t("services.context.label")}
+                                    placeholder={t("services.context.placeholder")}
+                                    description={t("services.context.hint")}
+                                    rows={12}
+                                    className="font-mono text-sm"
+                                    dataTestId="service-context"
+                                />
+                            </CardContent>
+                        </Card>
+                    </TabsContent>
+
+                    <TabsContent value="runtime" forceMount>
+                        <div className="flex flex-col gap-6">
+                            <ServiceRuntimeFields withVersion />
+                            <ServiceEndpointFields environments={environments} />
                         </div>
-                        <TextareaField name="description" label={t("services.description")} placeholder={t("services.description_placeholder")} />
-                        <DomainSelectField containerClassName="w-full" />
-                    </CardContent>
-                </Card>
+                    </TabsContent>
 
-                <ServiceRuntimeFields withVersion />
+                    <TabsContent value="variables" forceMount>
+                        <div className="flex flex-col gap-6">
+                            <ServiceEnvFields />
+                            <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                        </div>
+                    </TabsContent>
 
-                <ServiceUrlsFields environments={environments} />
+                    {hasRepositories && (
+                        <TabsContent value="repository" forceMount>
+                            <CodeRepositorySection repositoriesData={repositories} isEdit={isEdit} forceCreation={!isEdit} />
+                        </TabsContent>
+                    )}
 
-                {hasRepositories && <CodeRepositorySection repositoriesData={repositories} isEdit={isEdit} forceCreation={!isEdit} />}
-
-                <ServiceEnvFields />
-
-                <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} />
-
-                <Card>
-                    <CardHeader>
-                        <CardTitle className="mb-0">{t("services.context.title")}</CardTitle>
-                        <CardDescription>{t("services.context.subtitle")}</CardDescription>
-                    </CardHeader>
-                    <CardContent className="pt-3">
-                        <TextareaField
-                            name="context"
-                            label={t("services.context.label")}
-                            placeholder={t("services.context.placeholder")}
-                            description={t("services.context.hint")}
-                            rows={12}
-                            className="font-mono text-sm"
-                            dataTestId="service-context"
-                        />
-                    </CardContent>
-                </Card>
-
-                {isEdit && service && <ServiceDangerZone service={service} />}
+                    {isEdit && service && (
+                        <TabsContent value="danger">
+                            <ServiceDangerZone service={service} />
+                        </TabsContent>
+                    )}
+                </Tabs>
 
                 <div className="flex justify-end gap-2">
                     <Button disabled={form.formState.isSubmitting} type="button" variant="secondary" onClick={() => navigate(-1)}>
@@ -336,7 +434,7 @@ const AddServicePage: React.FC = () => {
         enabled: isEdit
     })
 
-    // Before the form mounts: its default values hold one base URL per environment
+    // The endpoint previews its URL in every environment
     const environmentsQuery = useProjectEnvironmentsQuery()
     const configMapsQuery = useVariableMapsQuery("configMap")
     const secretsQuery = useVariableMapsQuery("secret")

@@ -29,6 +29,7 @@ import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDial
 import useEnvironmentsApi, { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useDragAndDropOrder from "@/hooks/useDragAndDropOrder"
+import { effectiveSubdomain } from "@/pages/services/partials/serviceVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import EnvironmentsGate from "@/theme/EnvironmentsGate"
@@ -47,9 +48,6 @@ interface EnvironmentDialogFormData {
 
 /** Come per il backend: etichette DNS separate da punti, oppure niente per il dominio stesso */
 const SUBDOMAIN = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)?$/
-
-/** Come il backend: il sottodominio impostato, altrimenti nessuno in produzione (il dominio stesso) e lo slug in minuscolo negli altri */
-const effectiveSubdomain = (env: { slug?: string; subdomain?: string; isProduction?: boolean }) => env.subdomain?.trim().toLowerCase() || (env.isProduction ? "" : (env.slug ?? "").toLowerCase())
 
 const exposedHost = (domain: string, subdomain: string) => (subdomain ? `${subdomain}.${domain}` : domain)
 
@@ -152,7 +150,9 @@ function EnvironmentDialog({ isOpen, onOpenChange, onSubmitSuccess, formData, id
                                 placeholder={t("environment.form.subdomain_placeholder")}
                                 description={
                                     domain
-                                        ? t("environment.form.subdomain_description", { host: exposedHost(domain, effectiveSubdomain({ slug, subdomain, isProduction })) })
+                                        ? t("environment.form.subdomain_description", {
+                                              host: exposedHost(domain, effectiveSubdomain({ slug: slug ?? "", subdomain: subdomain?.trim().toLowerCase(), isProduction }))
+                                          })
                                         : t("environment.form.subdomain_description_no_domain")
                                 }
                                 // Il backend toglie gli spazi e porta in minuscolo: qui si controlla quello che salverà

@@ -5,13 +5,12 @@ import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import BuiltService, { IBuiltService } from "../models/BuiltServiceModel"
 import CodeRepository from "../models/CodeRepositoryModel"
-import Environment from "../models/EnvironmentModel"
 import Project from "../models/ProjectModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service, { IService } from "../models/ServiceModel"
 import { FrontendStackSource } from "../types/FrontendStack"
 import ServiceDTO, { ServiceVersionRegistrationDTO } from "../types/ServiceDTO"
-import { isServiceTemplateType, isServiceUrl, parseRuntime, SERVICE_SLUG, SERVICE_URL_MAX_LENGTH, SERVICE_VERSION } from "../types/ServiceStack"
+import { isServiceTemplateType, parseRuntime, SERVICE_SLUG, SERVICE_VERSION } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
@@ -34,46 +33,6 @@ const ensureValidSlug = (slug: string) => {
     }
 }
 
-/** As for env: well past any real service, short of a document Mongo would refuse */
-const MAX_SERVICE_URLS = 200
-
-/**
- * The base URLs as they are stored: blank ones dropped (no known address in that environment), every
- * environment one of the project and at most once, every URL absolute http(s) without a trailing slash,
- * so that appending a path such as `/docs` gives a working link. The size guard counts the blank
- * entries too: it only bounds the request, the checks per entry give the precise refusal.
- */
-export const normalizeUrls = (urls: unknown, environmentIds: Set<string>): Array<{ environmentId: string; url: string }> => {
-    if (!Array.isArray(urls) || urls.length > MAX_SERVICE_URLS) {
-        throw createBusinessException({ code: "SERVICE_URLS_INVALID", message: `urls must be a list of at most ${MAX_SERVICE_URLS} entries` })
-    }
-
-    const environments = new Set<string>()
-    return urls.flatMap(item => {
-        const { environmentId, url } = (item ?? {}) as { environmentId?: unknown; url?: unknown }
-        const typed = typeof url === "string" ? url.trim() : ""
-        if (!typed) return []
-        const value = typed.replace(/\/+$/, "")
-
-        const environment = String(environmentId)
-        if (!environmentIds.has(environment)) {
-            throw createBusinessException({ code: "SERVICE_URL_ENVIRONMENT_UNKNOWN", message: `There is a URL for ${environment}, which is not an environment of the project` })
-        }
-        if (environments.has(environment)) {
-            throw createBusinessException({ code: "SERVICE_URL_ENVIRONMENT_DUPLICATED", message: `There is more than one URL for environment ${environment}` })
-        }
-        environments.add(environment)
-
-        if (!isServiceUrl(value)) {
-            throw createBusinessException({
-                code: "SERVICE_URL_INVALID",
-                message: `"${typed}" is not a valid URL: absolute http or https, at most ${SERVICE_URL_MAX_LENGTH} characters, without whitespace, credentials, query or fragment`
-            })
-        }
-        return [{ environmentId: environment, url: value }]
-    })
-}
-
 /**
  * Refuses update operators and dotted paths: `{"$set": {"secretIds": [...]}}` or `{"secretIds.0": ...}`
  * would reach Mongo past every check here, attaching a secret of another project to this service.
@@ -86,22 +45,18 @@ export const ensurePlainFields = (fields: object, code = "SERVICE_INVALID") => {
 }
 
 /**
- * The base URLs of `dto`, normalised, and the maps it attaches, checked: a caller that leaves them out
- * (an MCP update of the name, say) changes none of them and costs no query. A DOCKER frontend
- * goes through it too, since it has the same container fields.
+ * The maps `dto` attaches, checked: a caller that leaves them out (an MCP update of the name, say)
+ * changes none of them and costs no query. A DOCKER frontend goes through it too, since it has the
+ * same container fields.
  */
-export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "urls" | "configMapIds" | "secretIds">>(
+export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "configMapIds" | "secretIds">>(
     dto: T,
     projectId: Schema.Types.ObjectId,
     existing?: Partial<Pick<IService, "name" | "configMapIds" | "secretIds">>
 ): Promise<T> => {
     ensurePlainFields(dto)
     // Only the name and the attached ids of what is stored are read
-    const withMaps = await resolveAttachedMaps(dto, projectId, existing as IService | undefined)
-    if (dto.urls === undefined) return withMaps
-
-    const environmentIds = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
-    return { ...withMaps, urls: normalizeUrls(dto.urls, environmentIds) }
+    return resolveAttachedMaps(dto, projectId, existing as IService | undefined)
 }
 
 /**

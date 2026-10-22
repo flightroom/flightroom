@@ -754,7 +754,6 @@
         },
         "errors": {
             "frontend_cannot_have_parents": "A frontend served by its Docker container cannot have parents",
-            "docker_exposure_path_required": "A frontend served by its Docker container needs an exposure path: browsers reach it only there",
             "frontend_upload_not_allowed": "A frontend served by its Docker container takes no bundle upload: its pipeline registers the image of each version",
             "version_registration_not_allowed": "Only a frontend served by its Docker container registers image versions: a frontend uploads its bundle",
             "build_forbidden": "A viewer cannot create a version of a frontend",
@@ -763,7 +762,6 @@
         },
         "validation": {
             "version_required": "The version is required",
-            "exposure_path_required": "The exposure path is required for a frontend served by Docker",
             "host_url_required": "The URL is required for custom hosting",
             "canary_percentage": "The canary percentage must be between 1 and 100 when the canary is enabled"
         },
@@ -2243,6 +2241,14 @@
         "slug_invalid": "2 to 50 lowercase letters, digits or dashes, not starting with a dash",
         "description": "Description",
         "description_placeholder": "What this service does",
+        "tabs": {
+            "general": "General",
+            "context": "AI context",
+            "runtime": "Runtime",
+            "variables": "Variables",
+            "repository": "Repository",
+            "danger_zone": "Danger Zone"
+        },
         "runtime_settings": "Runtime and image",
         "runtime_settings_description": "Port, Kubernetes probes, API documentation and Docker image repository",
         "port": "Port",
@@ -2255,8 +2261,8 @@
         "openapi_path": "OpenAPI spec path",
         "openapi_path_hint": "Optional. E.g. /openapi.json",
         "exposure_path": "Exposure path",
-        "exposure_path_hint": "Optional. Where it answers on the host of every environment, e.g. /api/orders: the prefix is stripped before it reaches the container",
-        "exposure_path_required_hint": "Where it answers on the host of every environment, e.g. / or /shell: the prefix is stripped before it reaches the container",
+        "exposure_path_hint": "Where it answers on the host of every environment, e.g. /api/orders: the prefix is stripped before it reaches the container",
+        "exposure_path_required": "Enter the path to expose it at, or turn exposure off",
         "exposure_path_invalid": "A path an HTTPRoute takes: starting with /, letters, digits and -._~!$&'()*+,;=:@ or %XX, without query, fragment, // nor . or .. segments",
         "path_invalid": "Must start with \"/\", with at most 256 characters and no spaces",
         "image_repository": "Image repository",
@@ -2267,12 +2273,12 @@
         "version_hint": "The tag of the image deployed. Set it here, or the pipeline sets it when it registers a newer image.",
         "version_invalid": "Letters, digits, dots, dashes and underscores only, at most 128",
         "urls": {
-            "title": "Endpoints",
-            "description": "The base URL the service is reachable at in each environment. The docs and OpenAPI paths are relative to it. Leave it blank where the service is not exposed.",
-            "placeholder": "https://orders-api.dev.example.com",
-            "invalid": "Enter an absolute http or https URL, without spaces, credentials, query (?) or fragment (#)",
-            "no_environments": "The project has no environments yet: create one to say where the service is exposed",
-            "empty": "No endpoint set. Add one from the service settings.",
+            "title": "Endpoint",
+            "description": "Whether it is reachable from outside, and at which path: the same on the host of every environment. The docs and OpenAPI paths are relative to it.",
+            "expose": "Expose",
+            "preview": "URL per environment",
+            "no_domain": "The project is exposed on no domain: set one in the project settings to get a URL in every environment.",
+            "no_environments": "The project has no environments yet: the URL of each one will show here once you create them.",
             "not_exposed": "Not exposed",
             "open_docs": "API docs",
             "open_openapi": "OpenAPI spec"

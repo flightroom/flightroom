@@ -5,13 +5,12 @@ import TextField from "@/components/input/TextField.rhf"
 import useProjectStore from "@/store/useProjectStore"
 
 interface ServiceRuntimeFieldsProps {
-    exposureRequired?: boolean
     /** A service sets its version next to its image; a frontend served by its own container does it in its release settings */
     withVersion?: boolean
 }
 
 /** The port, the probes, the docs paths and the image repository of a container: a service's, or a frontend's served by its own. */
-export const ServiceRuntimeFields: React.FC<ServiceRuntimeFieldsProps> = ({ exposureRequired = false, withVersion = false }) => {
+export const ServiceRuntimeFields: React.FC<ServiceRuntimeFieldsProps> = ({ withVersion = false }) => {
     const { t } = useTranslation()
     const { watch } = useFormContext()
     const containerRegistry = useProjectStore(state => state.project?.containerRegistry)
@@ -41,13 +40,6 @@ export const ServiceRuntimeFields: React.FC<ServiceRuntimeFieldsProps> = ({ expo
                 <TextField name="readinessPath" label={t("services.readiness_path")} placeholder="/health/ready" description={t("services.readiness_path_hint")} required />
                 <TextField name="docsPath" label={t("services.docs_path")} placeholder="/docs" description={t("services.docs_path_hint")} />
                 <TextField name="openApiPath" label={t("services.openapi_path")} placeholder="/openapi.json" description={t("services.openapi_path_hint")} />
-                <TextField
-                    name="exposurePath"
-                    label={t("services.exposure_path")}
-                    placeholder={exposureRequired ? "/shell" : "/api/orders"}
-                    description={t(exposureRequired ? "services.exposure_path_required_hint" : "services.exposure_path_hint")}
-                    required={exposureRequired}
-                />
             </CardContent>
         </Card>
     )

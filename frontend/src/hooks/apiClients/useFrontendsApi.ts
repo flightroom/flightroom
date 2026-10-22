@@ -30,9 +30,7 @@ export enum FrontendKind {
 }
 
 /** What a DOCKER declares about its container: the same fields as a service, with the same meaning. */
-export type FrontendContainer = Partial<
-    Pick<Service, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "urls" | "env" | "configMapIds" | "secretIds">
->
+export type FrontendContainer = Partial<Pick<Service, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "env" | "configMapIds" | "secretIds">>
 
 export enum CanaryDeploymentType {
     BASED_ON_VERSION = "BASED_ON_VERSION",
@@ -134,7 +132,6 @@ export interface BuiltFrontend extends Omit<BuiltService, "serviceId" | "image">
 /** The codes the backend raises about the kind of a frontend, by translation key */
 const FRONTEND_ERROR_KEYS: Record<string, string> = {
     DOCKER_FRONTEND_CANNOT_HAVE_PARENTS: "frontend.errors.docker_cannot_have_parents",
-    DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED: "frontend.errors.docker_exposure_path_required",
     DOCKER_FRONTEND_UPLOAD_NOT_ALLOWED: "frontend.errors.docker_upload_not_allowed",
     BUNDLE_VERSION_REGISTRATION_NOT_ALLOWED: "frontend.errors.version_registration_not_allowed",
     FRONTEND_BUILD_FORBIDDEN: "frontend.errors.build_forbidden",
