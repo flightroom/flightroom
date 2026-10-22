@@ -1,8 +1,13 @@
 import { ClientSession, ObjectId, Schema } from "mongoose"
 import { EnvironmentNotFoundError } from "../errors/EnvironmentNotFoundError"
+import Deployment from "../models/DeploymentModel"
+import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Environment, { IEnvironment } from "../models/EnvironmentModel"
+import GlobalVariable from "../models/GlobalVariableModel"
+import ServiceDeployment from "../models/ServiceDeploymentModel"
 import { EnvironmentDTO } from "../types/EnvironmentDTO"
 import { toObjectId } from "../utils/mongooseUtils"
+import { runInTransaction } from "../utils/runInTransaction"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
 class EnvironmentService extends BaseAuthorizedService {
@@ -24,17 +29,20 @@ class EnvironmentService extends BaseAuthorizedService {
     async create(environmentData: EnvironmentDTO, projectId: string): Promise<IEnvironment> {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
+        // Every domain is deployed to the environments: only those reaching the whole project change them
+        await this.ensureWholeProject(projectIdObj)
         const environment = new Environment(environmentData)
         environment.projectId = projectIdObj
         if (environment.order === undefined || environment.order === null) {
             environment.order = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
         }
-        return await environment.save()
+        return environment.save()
     }
 
     async createBulk(body: EnvironmentDTO[], projectId: string) {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
+        await this.ensureWholeProject(projectIdObj)
         const environments = body.map(env => new Environment(env))
         let maxOrder = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
         environments.forEach(env => {
@@ -44,18 +52,18 @@ class EnvironmentService extends BaseAuthorizedService {
                 maxOrder++
             }
         })
-        return await Environment.insertMany(environments)
+        return Environment.insertMany(environments)
     }
 
     async update(environmentId: string | ObjectId, updateData: EnvironmentDTO) {
         await this.ensureAccessToEnvironment(environmentId)
+        await this.ensureWholeProjectOfEnvironment(environmentId)
         const environmentIdObj = toObjectId(environmentId)
         const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, updateData, { new: true })
 
         if (!updatedEnvironment) {
             throw new EnvironmentNotFoundError(environmentIdObj.toString())
         }
-
         return updatedEnvironment
     }
 
@@ -67,6 +75,7 @@ class EnvironmentService extends BaseAuthorizedService {
      */
     async updateOrder(projectId: string, ids: (string | ObjectId)[]): Promise<IEnvironment[]> {
         await this.ensureAccessToProject(projectId)
+        await this.ensureWholeProject(projectId)
         const projectIdObj = toObjectId(projectId)
 
         if (!ids || !Array.isArray(ids) || ids.length === 0) {
@@ -98,13 +107,40 @@ class EnvironmentService extends BaseAuthorizedService {
         return this.getByProjectId(projectId)
     }
 
+    /**
+     * Removes everything that belongs to the given environments, then the environments.
+     *
+     * An environment owns its deployments and its global variables, and each deployment owns the
+     * canary enrolments recorded against it, so the enrolments have to go first: once the
+     * deployments are gone there is nothing left to find them by. Nothing else in the schema
+     * points at an environment.
+     */
+    private async deleteWithContents(environmentIds: ObjectId[], session?: ClientSession) {
+        const deployments = await Deployment.find({ environmentId: { $in: environmentIds } }, null, { session })
+        const deploymentIds = deployments.map(deployment => deployment._id)
+
+        await DeploymentToCanaryUsers.deleteMany({ deploymentId: { $in: deploymentIds } }, { session })
+        await Deployment.deleteMany({ environmentId: { $in: environmentIds } }, { session })
+        await GlobalVariable.deleteMany({ environmentId: { $in: environmentIds } }, { session })
+        // The versions the deploy pipelines reported as running there
+        await ServiceDeployment.deleteMany({ environmentId: { $in: environmentIds } }, { session })
+
+        return Environment.deleteMany({ _id: { $in: environmentIds } }, { session })
+    }
+
     async deleteSingle(environmentId: string | ObjectId) {
         await this.ensureAccessToEnvironment(environmentId)
+        await this.ensureWholeProjectOfEnvironment(environmentId)
         const environmentIdObj = toObjectId(environmentId)
-        const deletedEnvironment = await Environment.findOneAndDelete({ _id: environmentIdObj })
-        if (!deletedEnvironment) {
-            throw new EnvironmentNotFoundError(environmentIdObj.toString())
-        }
+
+        await runInTransaction(async session => {
+            const environment = await Environment.findById(environmentIdObj).session(session ?? null)
+            if (!environment) {
+                throw new EnvironmentNotFoundError(environmentIdObj.toString())
+            }
+
+            await this.deleteWithContents([environmentIdObj], session)
+        })
     }
 
     // Delete multiple environments
@@ -116,11 +152,12 @@ class EnvironmentService extends BaseAuthorizedService {
         const idsObj = await Promise.all(
             ids.map(async id => {
                 await this.ensureAccessToEnvironment(id)
+                await this.ensureWholeProjectOfEnvironment(id)
                 return toObjectId(id)
             })
         )
 
-        return await Environment.deleteMany({ _id: { $in: idsObj } })
+        return runInTransaction(session => this.deleteWithContents(idsObj, session))
     }
 }
 

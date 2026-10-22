@@ -1,4 +1,5 @@
 import useApiClient from "../useApiClient"
+import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 
 export interface EnvironmentDTO {
     slug: string
@@ -10,6 +11,10 @@ export interface EnvironmentDTO {
     color?: string
     isProduction?: boolean
     domains?: string[]
+    /** Namespace Kubernetes in cui GitOps fa il commit dell'ambiente; se vuoto e' lo slug in minuscolo */
+    namespace?: string
+    /** Sotto cosa e' esposto sul dominio del progetto, es. `dev`; se vuoto, sul dominio stesso */
+    subdomain?: string
     _id?: string
 }
 
@@ -19,10 +24,14 @@ export interface CreateEnvironmentDTO {
     isProduction?: boolean
     color?: string
     domains?: string[]
+    namespace?: string
+    subdomain?: string
 }
 
 const useEnvironmentsApi = () => {
     const apiClient = useApiClient()
+    // Creare, rinominare o eliminare un ambiente riallinea il repository GitOps, quando e' attivo
+    const customErrorMessage = useGitOpsErrorMessage()
 
     const getEnvironment = async (id: string) => {
         const response = await apiClient.doRequest<EnvironmentDTO>({
@@ -35,6 +44,7 @@ const useEnvironmentsApi = () => {
         const response = await apiClient.doRequest<EnvironmentDTO>({
             url: `/api/environments`,
             method: "POST",
+            customErrorMessage,
             data
         })
         return response.data
@@ -44,6 +54,7 @@ const useEnvironmentsApi = () => {
         const response = await apiClient.doRequest<EnvironmentDTO[]>({
             url: `/api/environments/bulk`,
             method: "POST",
+            customErrorMessage,
             data
         })
         return response.data
@@ -52,7 +63,8 @@ const useEnvironmentsApi = () => {
     const deleteEnvironment = async (id: string) => {
         const response = await apiClient.doRequest({
             url: `/api/environments/${id}`,
-            method: "DELETE"
+            method: "DELETE",
+            customErrorMessage
         })
         return response.data
     }
@@ -73,6 +85,7 @@ const useEnvironmentsApi = () => {
         const response = await apiClient.doRequest<EnvironmentDTO>({
             url: `/api/environments/${id}`,
             method: "PUT",
+            customErrorMessage,
             data
         })
         return response.data

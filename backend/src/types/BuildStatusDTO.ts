@@ -34,8 +34,8 @@ export interface BuildRunDTO {
 }
 
 /**
- * Why a microfrontend carries no run at all: the console shows this instead of an
- * empty list, so "never built" is never confused with "we could not ask".
+ * Why a microfrontend or a service carries no run at all: the console shows this instead
+ * of an empty list, so "never built" is never confused with "we could not ask".
  */
 export enum BuildUnavailableReason {
     NO_REPOSITORY = "NO_REPOSITORY",
@@ -43,20 +43,31 @@ export enum BuildUnavailableReason {
     PROVIDER_ERROR = "PROVIDER_ERROR"
 }
 
-export interface MicrofrontendBuildStatusDTO {
-    microfrontendId: string
+/** What a microfrontend and a service share on the build screen: only the id they are known by differs. */
+export interface ComponentBuildStatusDTO {
     name: string
     slug: string
     provider?: CodeRepositoryProvider
     repositoryName?: string
-    /** Version the microfrontend itself currently points at. */
+    /** Version the component itself currently points at. */
     selectedVersion?: string
-    /** Most recent version whose bundle actually reached the platform. */
+    /** Most recent version the CI registered: the bundle of a microfrontend, the image of a service. */
     latestBuiltVersion?: string
-    /** Version served by each environment, taken from that environment's active deployment. */
+    /**
+     * Version served by each environment: for a microfrontend the one of that environment's
+     * active deployment, for a service the latest deploy its pipeline reported there.
+     */
     versionByEnvironmentId: Record<string, string>
     builds: BuildRunDTO[]
     unavailableReason?: BuildUnavailableReason
+}
+
+export interface MicrofrontendBuildStatusDTO extends ComponentBuildStatusDTO {
+    microfrontendId: string
+}
+
+export interface ServiceBuildStatusDTO extends ComponentBuildStatusDTO {
+    serviceId: string
 }
 
 export interface BuildStatusEnvironmentDTO {
@@ -67,10 +78,24 @@ export interface BuildStatusEnvironmentDTO {
     isProduction: boolean
 }
 
+/** A matrix build can fail dozens of jobs at once; the first few say why, the rest repeat it. */
+export const MAX_FAILED_JOBS = 5
+/** Guard against multi-megabyte logs being held in memory just to keep their last lines. */
+export const MAX_FAILED_JOB_LOG_BYTES = 20 * 1024 * 1024
+
+/** The log of one job of a run, as plain text. Only failed jobs are ever read. */
+export interface BuildJobLogDTO {
+    name: string
+    log: string
+}
+
 export interface ProjectBuildStatusDTO {
     projectId: string
     /** When this snapshot was read from the providers, not when it was sent. */
     fetchedAt: string
     environments: BuildStatusEnvironmentDTO[]
+    /** Frontend builds. */
     microfrontends: MicrofrontendBuildStatusDTO[]
+    /** Backend builds. */
+    services: ServiceBuildStatusDTO[]
 }

@@ -1,4 +1,4 @@
-import { Card, ColorSwatch, SwitchField as Switch } from "@mfe-orchestrator/design-system"
+import { Card, ColorSwatch, SwitchField as Switch } from "@flightroom/design-system"
 import { GripVertical, PencilIcon, PlusCircle, Save, TrashIcon, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"

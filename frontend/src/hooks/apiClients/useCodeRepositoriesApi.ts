@@ -221,15 +221,22 @@ export interface ImportableRepository {
     }
 }
 
+/** What a repository is imported as */
+export type ImportTarget = "microfrontend" | "service"
+
 export interface ImportRepositoriesDTO {
     /** Provider repository ids to import. When empty or omitted, every repository not imported yet is taken. */
     repositoryIds?: string[]
     groupId?: number
     version?: string
+    /** microfrontend when omitted */
+    target?: ImportTarget
+    /** The functional domain every created microfrontend or service is put in */
+    domainId?: string
 }
 
 export interface ImportRepositoriesResult {
-    imported: { repositoryId: string; name: string; slug: string; microfrontendId: string }[]
+    imported: { repositoryId: string; name: string; slug: string; microfrontendId?: string; serviceId?: string }[]
     skipped: { repositoryId: string; name: string; reason: "ALREADY_IMPORTED" | "NOT_FOUND" }[]
     failed: { repositoryId: string; name: string; error: string }[]
 }
@@ -260,10 +267,10 @@ const useCodeRepositoriesApi = () => {
         return data.data
     }
 
-    const getImportableRepositories = async (codeRepositoryId: string, groupId?: number): Promise<ImportableRepository[]> => {
+    const getImportableRepositories = async (codeRepositoryId: string, groupId?: number, target?: ImportTarget): Promise<ImportableRepository[]> => {
         const data = await apiClient.doRequest<ImportableRepository[]>({
             url: `/api/repositories/${codeRepositoryId}/importable-repositories`,
-            params: { groupId }
+            params: { groupId, target }
         })
         return data.data
     }
@@ -321,27 +328,30 @@ const useCodeRepositoriesApi = () => {
         })
     }
 
-    const addRepositoryAzure = async (data: AddRepositoryAzureDTO) => {
+    const addRepositoryAzure = async (data: AddRepositoryAzureDTO, config: IClientRequestMetadataExtended = {}) => {
         await apiClient.doRequest({
             url: `/api/repositories/azure`,
             method: "POST",
-            data
+            data,
+            ...config
         })
     }
 
-    const editRepositoryAzure = async (repositoryId: string, data: AddRepositoryAzureDTO) => {
+    const editRepositoryAzure = async (repositoryId: string, data: AddRepositoryAzureDTO, config: IClientRequestMetadataExtended = {}) => {
         await apiClient.doRequest({
             url: `/api/repositories/${repositoryId}/azure`,
             method: "PUT",
-            data
+            data,
+            ...config
         })
     }
 
-    const testConnectionAzure = async (data: TestConnectionAzureRepositoryAzureDTO): Promise<AzureDevOpsProjectsResponse> => {
+    const testConnectionAzure = async (data: TestConnectionAzureRepositoryAzureDTO, config: IClientRequestMetadataExtended = {}): Promise<AzureDevOpsProjectsResponse> => {
         const response = await apiClient.doRequest<AzureDevOpsProjectsResponse>({
             url: `/api/repositories/azure/test`,
             method: "POST",
-            data
+            data,
+            ...config
         })
         return response.data
     }

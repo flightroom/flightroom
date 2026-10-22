@@ -1,6 +1,6 @@
 # E2E Tests with Playwright
 
-This package contains end-to-end tests for the MFE Orchestrator application.
+This package contains end-to-end tests for the Flightroom application.
 
 ## Prerequisites
 
@@ -63,37 +63,37 @@ the equivalent and works from anywhere in the monorepo.
 ### Run all tests
 ```bash
 pnpm test:e2e
-pnpm --filter @mfe-orchestrator/e2e test
+pnpm --filter @flightroom/e2e test
 ```
 
 ### Run tests in UI mode
 ```bash
 pnpm test:e2e:ui
-pnpm --filter @mfe-orchestrator/e2e test:ui
+pnpm --filter @flightroom/e2e test:ui
 ```
 
 ### Run tests in headed mode (see browser)
 ```bash
 pnpm test:e2e:headed
-pnpm --filter @mfe-orchestrator/e2e test:headed
+pnpm --filter @flightroom/e2e test:headed
 ```
 
 ### Debug tests
 ```bash
 pnpm test:e2e:debug
-pnpm --filter @mfe-orchestrator/e2e test:debug
+pnpm --filter @flightroom/e2e test:debug
 ```
 
 ### Generate tests with Codegen
 ```bash
 pnpm test:e2e:codegen
-pnpm --filter @mfe-orchestrator/e2e test:codegen
+pnpm --filter @flightroom/e2e test:codegen
 ```
 
 ### View test report
 ```bash
 pnpm test:e2e:report
-pnpm --filter @mfe-orchestrator/e2e test:report
+pnpm --filter @flightroom/e2e test:report
 ```
 
 ## Configuration

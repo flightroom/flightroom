@@ -1,6 +1,6 @@
 # GitHub Actions Workflows
 
-This directory contains the CI/CD workflows for the MFE Orchestrator project.
+This directory contains the CI/CD workflows for the Flightroom project.
 
 ## Available Workflows
 

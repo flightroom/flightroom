@@ -1,4 +1,4 @@
-import { ConfirmByTypingDialog, DangerZoneCard } from "@mfe-orchestrator/design-system"
+import { ConfirmByTypingDialog, DangerZoneCard } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 import { useState } from "react"
@@ -47,7 +47,9 @@ export const DangerZoneRemoveMicrofrontend: React.FC<IDangerZoneRemoveMicrofront
                 open={opened}
                 onOpenChange={setOpened}
                 expectedText={microfrontend.name}
-                onConfirm={() => deleteMicrofrontendMutation.mutateAsync()}
+                onConfirm={async () => {
+                    await deleteMicrofrontendMutation.mutateAsync()
+                }}
                 isPending={deleteMicrofrontendMutation.isPending}
                 title={t("microfrontend.dangerZone.delete.dialog.title")}
                 warningTitle={t("microfrontend.dangerZone.delete.dialog.warning")}

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardHeader } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -11,10 +11,12 @@ interface NoEnvironmentPlaceholderProps {
     onSaveSuccess: (environments: EnvironmentDTO[]) => void
     /** Set false to suppress the success toast (e.g. inside the wizard) */
     notifyOnSuccess?: boolean
+    /** Environments to start the list from, e.g. the ones the assistant proposed in the wizard */
+    initialEnvironments?: EnvironmentPreset[]
 }
 
-export const NoEnvironmentPlaceholder: React.FC<NoEnvironmentPlaceholderProps> = ({ onSaveSuccess, notifyOnSuccess = true }) => {
-    const [customEnvironments, setCustomEnvironments] = useState<EnvironmentPreset[]>()
+export const NoEnvironmentPlaceholder: React.FC<NoEnvironmentPlaceholderProps> = ({ onSaveSuccess, notifyOnSuccess = true, initialEnvironments }) => {
+    const [customEnvironments, setCustomEnvironments] = useState<EnvironmentPreset[] | undefined>(initialEnvironments)
     const environmentsApi = useEnvironmentsApi()
     const notificationToast = useToastNotificationStore()
 

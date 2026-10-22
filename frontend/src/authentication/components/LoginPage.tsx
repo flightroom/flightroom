@@ -1,4 +1,4 @@
-import { Spinner } from "@mfe-orchestrator/design-system"
+import { Spinner } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -46,7 +46,7 @@ const LoginPage: React.FC<LoginComponentProps> = ({ onSuccessLogin }) => {
     const footer = (
         <p className="text-sm text-foreground-secondary">
             {t("auth.no_account")}{" "}
-            <Link to="/register" data-testid="register-link" className="text-primary underline underline-offset-4">
+            <Link to="/register" data-testid="register-link" className="text-primary-strong underline underline-offset-4">
                 {t("auth.register")}
             </Link>
         </p>
@@ -82,7 +82,7 @@ const LoginPage: React.FC<LoginComponentProps> = ({ onSuccessLogin }) => {
                             {parameters.getParameter("canSendEmail") && (
                                 <p className="text-sm text-foreground-secondary text-right mt-2">
                                     {t("auth.forgot_password")}{" "}
-                                    <Link to="/reset-password-request" data-testid="forgot-password-link" className="text-primary underline-offset-4 underline">
+                                    <Link to="/reset-password-request" data-testid="forgot-password-link" className="text-primary-strong underline-offset-4 underline">
                                         {t("auth.recover")}
                                     </Link>
                                 </p>

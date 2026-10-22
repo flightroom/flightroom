@@ -1,4 +1,4 @@
-import { Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { Plus, Trash2 } from "lucide-react"
@@ -53,9 +53,9 @@ export const ApiKeys = () => {
             return { variant: "destructive", label: t("apiKeys.status_expired", { defaultValue: "Expired" }), dot: "bg-destructive" }
         }
         if (daysUntilExpiration <= 30) {
-            return { variant: "default", label: t("apiKeys.status_expiring", { defaultValue: "Expiring soon" }), dot: "bg-yellow-500" }
+            return { variant: "default", label: t("apiKeys.status_expiring", { defaultValue: "Expiring soon" }), dot: "bg-warning" }
         }
-        return { variant: "accent", label: t("apiKeys.status_active", { defaultValue: "Active" }), dot: "bg-green-500" }
+        return { variant: "accent", label: t("apiKeys.status_active", { defaultValue: "Active" }), dot: "bg-success" }
     }
 
     return (

@@ -2,6 +2,7 @@ import { useAuth0 } from "@auth0/auth0-react"
 import { AccountInfo } from "@azure/msal-browser"
 import { useMsal } from "@azure/msal-react"
 import { AxiosError, AxiosResponse } from "axios"
+import { useTranslation } from "react-i18next"
 import { deleteToken, getToken as getTokenFromStorage, IToken, setToken } from "@/authentication/tokenUtils"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -16,18 +17,30 @@ interface IErrorResponse {
     message?: string
     violations?: IViolations[]
     title?: string
+    error?: {
+        code?: string
+        message?: string
+    }
 }
+
+/**
+ * The `code` of a BusinessException raised by the backend, which wraps it in
+ * `{ success: false, error: { code, message } }`. It is the stable half of that
+ * payload: the message alongside it is an English string written for the log, so a
+ * screen that wants to say something of its own keys off the code and translates it.
+ */
+export const errorCodeOf = (error?: Error): string | undefined => (error as AxiosError<IErrorResponse>)?.response?.data?.error?.code
 
 export interface IClientRequestMetadataExtended extends IClientRequestMetadata {
     silent?: boolean
-    customErrorMessage?: string | ((error: Error) => string)
+    customErrorMessage?: string | ((error: Error) => string | undefined)
 }
 
 export interface IClientRequestDataExtended<D> extends IClientRequestData<D>, IClientRequestMetadataExtended {}
 
 export interface IApiClientOptions {
     baseURL?: string
-    customErrorMessage?: string | ((error: Error) => string)
+    customErrorMessage?: string | ((error: Error) => string | undefined)
 }
 
 export const useApiClient = (options?: IApiClientOptions) => {
@@ -35,6 +48,7 @@ export const useApiClient = (options?: IApiClientOptions) => {
     const auth0Auth = useAuth0()
     const notifications = useToastNotificationStore()
     const projectStore = useProjectStore()
+    const { t } = useTranslation()
 
     const logout = () => {
         deleteToken()
@@ -204,10 +218,13 @@ export const useApiClient = (options?: IApiClientOptions) => {
         return auth0Auth.isAuthenticated || Boolean(activeAccount)
     }
 
-    const getErrorNotification = (customErrorMessage?: string | ((error: Error) => string), e?: Error): string | React.ReactNode => {
-        if (typeof customErrorMessage === "function") return customErrorMessage(e as Error)
-        if (customErrorMessage) return customErrorMessage
+    // A function that returns nothing hands the error back to the generic message below
+    const getErrorNotification = (customErrorMessage?: string | ((error: Error) => string | undefined), e?: Error): string | React.ReactNode => {
+        const custom = typeof customErrorMessage === "function" ? customErrorMessage(e as Error) : customErrorMessage
+        if (custom) return custom
         if (!e) return "Error"
+        // Any endpoint refuses a member assigned to some domains what lies outside them: said the same way everywhere
+        if (errorCodeOf(e) === "DOMAIN_SCOPE_FORBIDDEN") return t("project_users.errors.domain_scope_forbidden")
         const axiosError = e as AxiosError<IErrorResponse>
         const responseData = axiosError?.response?.data
         if (responseData) {

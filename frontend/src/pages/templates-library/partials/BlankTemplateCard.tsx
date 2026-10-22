@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
 import { Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
@@ -15,7 +15,7 @@ export const BlankTemplateCard: React.FC<BlankTemplateCardProps> = ({ onClick })
                 <div className="flex items-start gap-3">
                     <div>
                         <div className="w-8 h-8 rounded-sm bg-primary/15 flex items-center justify-center mt-1">
-                            <Plus className="w-6 h-6 text-primary/75" />
+                            <Plus className="w-6 h-6 text-primary-strong/75" />
                         </div>
                     </div>
                     <div className="flex-1">

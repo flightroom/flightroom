@@ -36,7 +36,7 @@ jobs:
           node-version: '24'
           cache: 'pnpm'
           registry-url: https://npm.pkg.github.com
-          scope: '@mfe-orchestrator'
+          scope: '@flightroom'
 
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
@@ -44,13 +44,13 @@ jobs:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Install Playwright browsers
-        run: pnpm --filter @mfe-orchestrator/e2e exec playwright install chromium --with-deps
+        run: pnpm --filter @flightroom/e2e exec playwright install chromium --with-deps
 
       - name: Run E2E tests
         run: pnpm test:e2e
         env:
           CI: true
-          BASE_URL: "https://console-dev.mfe-orchestrator.dev"
+          BASE_URL: "https://console-dev.flightroom.dev"
           # Le caselle usate dai test vivono su inbox.testmail.app: console-dev spedisce
           # con il proprio SMTP e i test leggono da li'. Senza queste due variabili i
           # test che seguono i link ricevuti via email si escludono da soli.

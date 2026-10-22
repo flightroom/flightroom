@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, StatTile } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardHeader, CardTitle, StatTile } from "@flightroom/design-system"
 import { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -14,16 +14,17 @@ interface ProjectStat {
 }
 
 interface ProjectStatsSectionProps {
+    title: string
     stats: ProjectStat[]
 }
 
-export function ProjectStatsSection({ stats }: ProjectStatsSectionProps) {
+export function ProjectStatsSection({ title, stats }: ProjectStatsSectionProps) {
     const { t } = useTranslation()
 
     return (
         <Card>
             <CardHeader className="border-none">
-                <CardTitle as="h2">{t("settings.stats.title")}</CardTitle>
+                <CardTitle as="h2">{title}</CardTitle>
             </CardHeader>
             <CardContent>
                 <div className="flex flex-wrap items-center gap-4">

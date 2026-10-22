@@ -1,4 +1,4 @@
-import { Spinner } from "@mfe-orchestrator/design-system"
+import { Spinner } from "@flightroom/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"

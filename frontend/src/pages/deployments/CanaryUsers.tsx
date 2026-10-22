@@ -14,7 +14,7 @@ import {
     TableHead,
     TableHeader,
     TableRow
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { UseQueryResult, useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Trash2, UserPlus } from "lucide-react"
 import { useState } from "react"

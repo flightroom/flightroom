@@ -1,9 +1,25 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { MicrofrontendCompiler, MicrofrontendFramework, MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { ServicePaths } from "../types/ServiceStack"
+import { exposurePath, IServiceEnvVariable, IServiceUrl, optionalPath, serviceEnvVariableSchema, serviceUrlSchema } from "./ContainerFields"
+import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
 export enum MicrofrontendType {
     HOST = "HOST",
     REMOTE = "REMOTE"
+}
+
+/**
+ * How it is built and served, independent from HOST/REMOTE: a host can itself be a remote of other hosts.
+ *
+ * A MICROFRONTEND is a static bundle the CI uploads and the orchestrator serves. A FRONTEND is an app
+ * built into an image and served by its own container, exactly like a backend service: the orchestrator
+ * neither stores its files nor deploys it, the CI registers its versions and the CD reports its deploys.
+ * A FRONTEND is the top of a tree: it loads remotes, nothing loads it, so it never has parents.
+ */
+export enum MicrofrontendKind {
+    MICROFRONTEND = "MICROFRONTEND",
+    FRONTEND = "FRONTEND"
 }
 
 /** Framework and bundler of a microfrontend, and where that knowledge came from */
@@ -49,24 +65,54 @@ export interface IPosition {
     width?: number
     height?: number
 }
-export interface IMicrofrontend extends Document<ObjectId> {
+/**
+ * The container fields of a FRONTEND, named as on a service. All optional with no default, so a
+ * MICROFRONTEND document carries none of them; MicrofrontendService fills the service defaults in
+ * when a FRONTEND is created.
+ */
+export interface IFrontendContainer extends Partial<ServicePaths> {
+    image?: {
+        /** Without tag, e.g. ghcr.io/acme/shell */
+        repository?: string
+    }
+    port?: number
+    /** The path it is exposed at on the host of every environment, as for a service */
+    exposurePath?: string | null
+    /** One per environment it is exposed in: what the serve API hands out as its URL there */
+    urls?: IServiceUrl[]
+    env?: IServiceEnvVariable[]
+    /** Config maps of the project the container receives as environment variables, as for a service */
+    configMapIds?: Schema.Types.ObjectId[]
+    /** Secrets of the project the container receives as environment variables, as for a service */
+    secretIds?: Schema.Types.ObjectId[]
+}
+
+export interface IMicrofrontend extends Document<ObjectId>, IFrontendContainer {
     type: MicrofrontendType
+    kind: MicrofrontendKind
     template: string
     stack?: IMicrofrontendStack
     slug: string
     name: string
+    /** Unset on a FRONTEND until its CI registers a first version */
     version: string
     continuousDeployment?: boolean
     path?: string
     projectId: Schema.Types.ObjectId
+    /** The functional domain it belongs to, if any */
+    domainId?: Schema.Types.ObjectId | null
     canary?: ICanaryMicrofrontend
     host: IHostMicrofrontend
     codeRepository?: ICodeRepositoryMicrofrontend
     description?: string
+    /** Markdown for AI agents about this microfrontend only; the project context covers what they share. */
+    context?: string
     createdAt: Date
     updatedAt: Date
 
     parentIds?: ObjectId[]
+    /** Backend services this microfrontend calls, linked by hand from the console */
+    serviceIds?: ObjectId[]
     position?: IPosition
 }
 
@@ -152,7 +198,8 @@ const microfrontendCanaryTypeSchema = new Schema<ICanaryMicrofrontend>({
     }
 })
 
-const microfrontendCodeRepositorySchema = new Schema<ICodeRepositoryMicrofrontend>({
+/** Shared with the backend services, which link their repository exactly the same way */
+export const microfrontendCodeRepositorySchema = new Schema<ICodeRepositoryMicrofrontend>({
     enabled: {
         type: Boolean,
         default: false
@@ -257,14 +304,28 @@ const microfrontendSchema: Schema = new Schema<IMicrofrontend>(
             type: String,
             trim: true
         },
+        context: {
+            type: String,
+            trim: true,
+            maxlength: CONTEXT_MAX_LENGTH
+        },
         version: {
             type: String,
-            required: true
+            // A FRONTEND gets its first one from the first version its CI registers, as a service
+            required: function (this: IMicrofrontend) {
+                return this.kind !== MicrofrontendKind.FRONTEND
+            }
         },
         type: {
             type: String,
             enum: [MicrofrontendType.HOST, MicrofrontendType.REMOTE],
             default: MicrofrontendType.HOST,
+            required: true
+        },
+        kind: {
+            type: String,
+            enum: Object.values(MicrofrontendKind),
+            default: MicrofrontendKind.MICROFRONTEND,
             required: true
         },
         template: {
@@ -284,6 +345,11 @@ const microfrontendSchema: Schema = new Schema<IMicrofrontend>(
             ref: "Project",
             required: true
         },
+        domainId: {
+            type: Schema.Types.ObjectId,
+            ref: "Domain",
+            required: false
+        },
         host: {
             type: microfrontendHostTypeSchema,
             required: true
@@ -297,6 +363,11 @@ const microfrontendSchema: Schema = new Schema<IMicrofrontend>(
             ref: "Microfrontend",
             required: false
         },
+        serviceIds: {
+            type: [Schema.Types.ObjectId],
+            ref: "Service",
+            required: false
+        },
         path: {
             type: String,
             required: false
@@ -304,6 +375,39 @@ const microfrontendSchema: Schema = new Schema<IMicrofrontend>(
         position: {
             type: microfrontendPositionSchema,
             required: false
+        },
+        // The arrays default to undefined, not to [], so that a MICROFRONTEND document stays without them
+        image: {
+            repository: {
+                type: String,
+                required: false,
+                trim: true
+            }
+        },
+        port: {
+            type: Number,
+            required: false
+        },
+        livenessPath: optionalPath,
+        readinessPath: optionalPath,
+        docsPath: optionalPath,
+        openApiPath: optionalPath,
+        exposurePath,
+        urls: {
+            type: [serviceUrlSchema],
+            default: undefined
+        },
+        env: {
+            type: [serviceEnvVariableSchema],
+            default: undefined
+        },
+        configMapIds: {
+            type: [{ type: Schema.Types.ObjectId, ref: "ConfigMap" }],
+            default: undefined
+        },
+        secretIds: {
+            type: [{ type: Schema.Types.ObjectId, ref: "Secret" }],
+            default: undefined
         }
     },
     {

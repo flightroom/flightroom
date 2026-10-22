@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, NumberedSteps, SelectField } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, NumberedSteps, SelectField } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { CheckCircle2, ExternalLink, Eye, EyeOff, Info } from "lucide-react"
 import { useState } from "react"
@@ -9,6 +9,7 @@ import { Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useCodeRepositoriesApi from "@/hooks/apiClients/useCodeRepositoriesApi"
+import { errorCodeOf } from "@/hooks/useApiClient"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 interface AddAzureFormValues {
@@ -45,8 +46,11 @@ const AddAzureRepositoryPage = () => {
         enabled: !!params.id
     })
 
+    // Raised by the backend when the PAT reaches the projects but not their variable groups
+    const azureErrorMessage = (error: Error) => (errorCodeOf(error) === "AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED" ? t("codeRepositories.azure.error.variableGroupsScope") : undefined)
+
     const testConnectionMutation = useMutation({
-        mutationFn: repositoryApi.testConnectionAzure
+        mutationFn: (data: Parameters<typeof repositoryApi.testConnectionAzure>[0]) => repositoryApi.testConnectionAzure(data, { customErrorMessage: azureErrorMessage })
     })
 
     const handleSubmit = async (values: AddAzureFormValues) => {
@@ -55,12 +59,12 @@ const AddAzureRepositoryPage = () => {
             projectName: testConnectionMutation.data?.value.find(project => project.id === values.projectId)?.name
         }
         if (params.id) {
-            await repositoryApi.editRepositoryAzure(params.id, realValues)
+            await repositoryApi.editRepositoryAzure(params.id, realValues, { customErrorMessage: azureErrorMessage })
             notificationStore.showSuccessNotification({
                 message: t("codeRepositories.azure.successEdit")
             })
         } else {
-            await repositoryApi.addRepositoryAzure(realValues)
+            await repositoryApi.addRepositoryAzure(realValues, { customErrorMessage: azureErrorMessage })
             notificationStore.showSuccessNotification({
                 message: t("codeRepositories.azure.successAdd")
             })
@@ -143,8 +147,8 @@ const AddAzureRepositoryPage = () => {
                                     {testConnectionMutation.data && (
                                         <CardContent className="pt-4 border-t mt-4">
                                             <div className="flex items-center gap-2 mb-2">
-                                                <CheckCircle2 className="h-4 w-4 text-green-500" />
-                                                <p className="text-sm font-medium text-green-600">{t("codeRepositories.gitlab.connectionSuccess")}</p>
+                                                <CheckCircle2 className="h-4 w-4 text-success" />
+                                                <p className="text-sm font-medium text-success">{t("codeRepositories.gitlab.connectionSuccess")}</p>
                                             </div>
                                             <p className="text-sm text-muted-foreground mb-2">
                                                 {t("codeRepositories.azure.projectsFound", {
@@ -219,7 +223,7 @@ const AddAzureRepositoryPage = () => {
                                 <div className="space-y-3">
                                     {requiredScopes.map((scope, index) => (
                                         <div key={index} className="flex items-start gap-3">
-                                            <CheckCircle2 className="h-5 w-5 text-green-500 mt-0.5 flex-shrink-0" />
+                                            <CheckCircle2 className="h-5 w-5 text-success mt-0.5 flex-shrink-0" />
                                             <div>
                                                 <p className="font-medium text-sm">{scope.scope}</p>
                                                 <p className="text-xs text-muted-foreground">{scope.description}</p>

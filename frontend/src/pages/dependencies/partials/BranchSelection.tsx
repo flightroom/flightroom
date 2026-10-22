@@ -1,4 +1,4 @@
-import { Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
 import { AlertTriangle } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
@@ -50,7 +50,7 @@ export const BranchSelection: React.FC<BranchSelectionProps> = ({ targets, selec
                                                 ))}
                                             </SelectContent>
                                         </Select>
-                                        {selected !== target.defaultBranch && <span className="text-xs text-primary">{t("dependencies.branch_not_default")}</span>}
+                                        {selected !== target.defaultBranch && <span className="text-xs text-primary-strong">{t("dependencies.branch_not_default")}</span>}
                                     </>
                                 )}
                             </div>

@@ -6,6 +6,8 @@ export interface EnvironmentDTO {
     color: string
     isProduction: boolean
     domains: string[]
+    namespace?: string
+    subdomain?: string
 }
 
 export interface EnvironmentOrderDTO {

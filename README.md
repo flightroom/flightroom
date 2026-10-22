@@ -1,35 +1,37 @@
-# MFE Orchestrator
+![Flightroom, the open-source control room for micro frontends](docs/assets/banner.png)
 
-[![License](https://img.shields.io/github/license/mfe-orchestrator/mfe-orchestrator)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/mfe-orchestrator/mfe-orchestrator)](https://github.com/mfe-orchestrator/mfe-orchestrator/releases)
-[![Docker Pulls](https://img.shields.io/docker/pulls/lory1990/mfe-orchestrator)](https://hub.docker.com/r/lory1990/mfe-orchestrator)
-[![Documentation](https://img.shields.io/badge/docs-mfe--orchestrator.dev-8b5cf6)](https://mfe-orchestrator.dev/documentation/)
+# Flightroom
+
+[![License](https://img.shields.io/github/license/flightroom/flightroom)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/flightroom/flightroom)](https://github.com/flightroom/flightroom/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/lory1990/flightroom)](https://hub.docker.com/r/lory1990/flightroom)
+[![Documentation](https://img.shields.io/badge/docs-flightroom.dev-FE7F2D)](https://flightroom.dev/documentation/)
 
 **The open-source control plane for micro frontends.** It stores every build you
 publish, decides which version each environment serves, and hands your host
 application the runtime configuration it needs — so releasing one micro
 frontend never means rebuilding the shell.
 
-![The MFE Orchestrator console assigning micro frontend versions to environments](docs/assets/promo-video.gif)
+![The Flightroom console assigning micro frontend versions to environments](docs/assets/promo-video.gif)
 
 ## Try it in 60 seconds
 
 **Hosted console — nothing to install.** Sign up free at
-[console.mfe-orchestrator.dev](https://console.mfe-orchestrator.dev) and create
+[console.flightroom.dev](https://console.flightroom.dev) and create
 your first micro frontend from a template.
 
 **Self-hosted — one container.** The all-in-one image bundles the orchestrator,
 MongoDB, Redis and Nginx:
 
 ```bash
-docker run -d --name mfe-orchestrator --restart unless-stopped \
-  -p 8080:80 -v mfe-data:/data lory1990/mfe-orchestrator:all-in-one
+docker run -d --name flightroom --restart unless-stopped \
+  -p 8080:80 -v mfe-data:/data lory1990/flightroom:all-in-one
 ```
 
 Open http://localhost:8080 and create the first user.
 
 Either way, the
-[**10-minute quick start**](https://mfe-orchestrator.dev/documentation/docs/quick-start)
+[**10-minute quick start**](https://flightroom.dev/documentation/docs/quick-start)
 takes you from an empty project to a deployed micro frontend — and back with a
 one-click rollback.
 
@@ -79,7 +81,7 @@ flowchart LR
     end
     CI1 -- "upload 2.1.0" --> ORCH
     CI2 -- "upload 4.2.0" --> ORCH
-    subgraph ORCH [MFE Orchestrator]
+    subgraph ORCH [Flightroom]
         REG[(version registry)] --> DEP[deployment snapshots per environment]
     end
     DEP -- "runtime configuration" --> HOST[Host application]
@@ -93,16 +95,16 @@ the configuration at startup and never needs to be rebuilt.
 ## Documentation 📚
 
 The full documentation lives at
-**[mfe-orchestrator.dev/documentation](https://mfe-orchestrator.dev/documentation/)**:
+**[flightroom.dev/documentation](https://flightroom.dev/documentation/)**:
 
-- **[Quick start](https://mfe-orchestrator.dev/documentation/docs/quick-start)** - zero to rollback in 10 minutes
-- **[Core concepts](https://mfe-orchestrator.dev/documentation/docs/core-concepts)** - projects, environments, deployments and how they relate
-- **[Self-hosting](https://mfe-orchestrator.dev/documentation/docs/self-hosting/docker-compose)** - Docker, Docker Compose, Terraform
-- **[Host integration](https://mfe-orchestrator.dev/documentation/docs/integration/overview)** - Wiring module federation and the global variables script into a host application
-- **[Canary releases](https://mfe-orchestrator.dev/documentation/docs/microfrontends/canary-releases)** - The three strategies, enrolled users and how a version is pinned
-- **[Build status](https://mfe-orchestrator.dev/documentation/docs/deployments/build-status)** - How pipeline runs are read from each provider and streamed to the console
-- **[Repository import](https://mfe-orchestrator.dev/documentation/docs/repositories/import-microfrontends)** - Creating one microfrontend per repository from a code repository connection
-- **[Dependency analysis](https://mfe-orchestrator.dev/documentation/docs/repositories/dependency-analysis)** - How microfrontend dependencies are scanned and peer dependencies aligned
+- **[Quick start](https://flightroom.dev/documentation/docs/quick-start)** - zero to rollback in 10 minutes
+- **[Core concepts](https://flightroom.dev/documentation/docs/core-concepts)** - projects, environments, deployments and how they relate
+- **[Self-hosting](https://flightroom.dev/documentation/docs/self-hosting/docker-compose)** - Docker, Docker Compose, Terraform
+- **[Host integration](https://flightroom.dev/documentation/docs/integration/overview)** - Wiring module federation and the global variables script into a host application
+- **[Canary releases](https://flightroom.dev/documentation/docs/microfrontends/canary-releases)** - The three strategies, enrolled users and how a version is pinned
+- **[Build status](https://flightroom.dev/documentation/docs/deployments/build-status)** - How pipeline runs are read from each provider and streamed to the console
+- **[Repository import](https://flightroom.dev/documentation/docs/repositories/import-microfrontends)** - Creating one microfrontend per repository from a code repository connection
+- **[Dependency analysis](https://flightroom.dev/documentation/docs/repositories/dependency-analysis)** - How microfrontend dependencies are scanned and peer dependencies aligned
 
 Project reference:
 
@@ -110,6 +112,8 @@ Project reference:
 - **[Changelog](CHANGELOG.md)** - Project version history
 - **[Security](SECURITY.md)** - Security policy and procedures
 - **[Anonymous telemetry](docs/TELEMETRY.md)** - What the daily ping contains and how to turn it off
+- **[Remote MCP server](docs/MCP.md)** - Letting AI clients (Claude, Cursor, VS Code) use the console through OAuth, on the projects the user picks
+- **[Argo CD](docs/ARGOCD.md)** - Handing the GitOps repositories of a project to an Argo CD on another cluster: the account, its RBAC and the read-only repository tokens
 
 ## Run with Docker
 
@@ -126,8 +130,8 @@ image: it contains the orchestrator, MongoDB, Redis and Nginx. One container,
 one volume, nothing else to start.
 
 ```bash
-docker run -d --name mfe-orchestrator --restart unless-stopped \
-  -p 8080:80 -v mfe-data:/data lory1990/mfe-orchestrator:all-in-one
+docker run -d --name flightroom --restart unless-stopped \
+  -p 8080:80 -v mfe-data:/data lory1990/flightroom:all-in-one
 ```
 
 Open http://localhost:8080 and create the first user. That is all.
@@ -152,15 +156,15 @@ What you should know about it:
   `-e REGISTRATION_ALLOWED=true -e FRONTEND_URL=https://mfe.example.com`.
 - The four processes are supervised: they are restarted when they crash and, if
   one of them cannot start at all, the container exits instead of pretending to
-  be healthy. Logs of all of them are in `docker logs mfe-orchestrator`, and
-  `docker exec mfe-orchestrator supervisorctl status` shows their state.
+  be healthy. Logs of all of them are in `docker logs flightroom`, and
+  `docker exec flightroom supervisorctl status` shows their state.
 
 Prefer a compose file? A single service is enough:
 
 ```yaml
 services:
-  mfe-orchestrator:
-    image: lory1990/mfe-orchestrator:all-in-one
+  flightroom:
+    image: lory1990/flightroom:all-in-one
     restart: unless-stopped
     ports:
       - "8080:80"
@@ -176,7 +180,7 @@ standard image does:
 
 ```bash
 pnpm install && pnpm build
-docker build -f Dockerfile.all-in-one -t mfe-orchestrator:all-in-one .
+docker build -f Dockerfile.all-in-one -t flightroom:all-in-one .
 ```
 
 > The all-in-one image trades isolation for simplicity: a single container means
@@ -246,6 +250,10 @@ falling back to it.
 | `REGISTRATION_ALLOWED`                 | `true`                                                                                            | If `true`, allows new user registration.                        |
 | `ALLOW_EMBEDDED_LOGIN`                 | `true`                                                                                            | If `true`, enables the login system within the application.     |
 | `MICROFRONTEND_HOST_FOLDER`            | `/upload-microfrontends`                                                                          | Folder containing the host microfrontends.                      |
+| `AI_PROVIDER`                          | _(empty)_ (`anthropic` when `ANTHROPIC_API_KEY` is set)                                           | Model behind the assistant and AI code changes: `anthropic`, `azure-foundry`, `gemini`, `azure-openai`. See [docs/AI-PROVIDERS.md](docs/AI-PROVIDERS.md). |
+| `REPOSITORIES_FOLDER`                  | `/repositories` (`/data/repositories` in the all-in-one image)                                    | Where repositories are cloned to be edited with AI. A cache.    |
+| `REPOSITORIES_MAX_SIZE_MB`             | `500`                                                                                             | Repositories bigger than this on disk are refused.              |
+| `REPOSITORIES_EVICT_AFTER_DAYS`        | `14`                                                                                              | Clones not used for this many days are deleted.                 |
 | `NOSQL_DATABASE_URL`                   | `mongodb://localhost:27017/microfrontend-orchestrator`                                            | MongoDB database connection URL.                                |
 | `NOSQL_DATABASE_NAME`                  | `microfrontend-orchestrator`                                                                      | MongoDB database name.                                          |
 | `NOSQL_DATABASE_USERNAME`              | `root`                                                                                            | MongoDB username.                                               |
@@ -253,7 +261,7 @@ falling back to it.
 | `REDIS_URL`                            | `redis://localhost:6379`                                                                          | Redis server connection URL.                                    |
 | `REDIS_PASSWORD`                       | _(empty)_                                                                                         | Password for Redis access (if set).                             |
 | `NODE_ENV`                             | `prod` _(development/prod/test/local)_                                                            | Node.js environment mode. Any other value stops the boot.       |
-| `EMAIL_SMTP_HOST`                      | `smtp.example.com`                                                                                | SMTP server host for sending emails.                            |
+| `EMAIL_SMTP_HOST`                      | `smtp.example.com`                                                                                | SMTP server host. Unset, the app sends nothing: registration and invitations become immediate, and the password reset is refused outright — it only exists as an emailed link. |
 | `EMAIL_SMTP_PORT`                      | `587`                                                                                             | SMTP server port (e.g., 587 for TLS).                           |
 | `EMAIL_SMTP_SECURE`                    | `false`                                                                                           | If `true`, uses secure connection (SSL/TLS).                    |
 | `EMAIL_SMTP_USER`                      | _(empty)_                                                                                         | Username for SMTP authentication.                               |
@@ -262,7 +270,7 @@ falling back to it.
 | `JWT_SECRET`                           | `your-secret-key`                                                                                 | Secret key for JWT generation and validation.                   |
 | `AUTH0_DOMAIN`                         | _(empty)_                                                                                         | Auth0 tenant domain.                                            |
 | `AUTH0_CLIENT_ID`                      | _(empty)_                                                                                         | Client ID of the Auth0 application.                             |
-| `AUTH0_AUDIENCE`                       | _(empty)_                                                                                         | API Audience configured in Auth0.                               |
+| `AUTH0_AUDIENCE`                       | _(empty)_                                                                                         | API Audience configured in Auth0. Required for Auth0 login: the backend verifies the token's signature, issuer and audience. |
 | `AUTH0_SCOPE`                          | `openid profile email`                                                                            | OAuth scopes (space-separated)                                  |
 | `AZURE_ENTRAID_TENANT_ID`              | _(empty)_                                                                                         | Azure Entra ID tenant ID.                                       |
 | `AZURE_ENTRAID_CLIENT_ID`              | _(empty)_                                                                                         | Client ID of the registered Azure application.                  |
@@ -293,6 +301,16 @@ falling back to it.
 | `GOOGLE_API_AUDIENCE`                  | _(empty)_                                                                                         | Protected API identifier for Google.                            |
 | `NPM_REGISTRY_URL`                     | `https://registry.npmjs.org`                                                                      | Registry queried by the dependency analysis for published versions. |
 | `SENTRY_DSN`                           | _(empty)_                                                                                         | Sentry DSN. Leave empty to disable error reporting.             |
+| `MCP_ENABLED`                          | `false`                                                                                           | Turns on the remote MCP server and its OAuth endpoints. Requires `FRONTEND_URL` and your own `JWT_SECRET` of at least 32 bytes (`openssl rand -hex 32`). See [docs/MCP.md](docs/MCP.md). |
+| `MCP_API_KEY_ENABLED`                  | `true`                                                                                            | Lets MCP clients that cannot do OAuth authenticate with a project API key (`Authorization: Bearer <key>` or `api-key` header). See [docs/MCP.md](docs/MCP.md#fallback-a-project-api-key). |
+| `ARGOCD_ALLOW_INSECURE_HTTP`           | `false`                                                                                           | Lets a project point Argo CD initialization at an `http://` Argo CD URL. For a local cluster only: the Argo CD token and the repository credentials would travel in the clear. See [docs/ARGOCD.md](docs/ARGOCD.md). |
+| `MCP_RATE_LIMIT_MAX`                   | `120`                                                                                             | MCP requests per minute for each OAuth grant or API key.        |
+| `MCP_DCR_ENABLED`                      | `true`                                                                                            | Lets MCP clients register themselves (RFC 7591).                |
+| `MCP_CIMD_ENABLED`                     | `true`                                                                                            | Accepts MCP clients identified by a metadata document URL.      |
+| `CIMD_ALLOWED_HOSTS`                   | _(any)_                                                                                           | Comma separated hosts allowed to publish client metadata documents. Clients from listed hosts show as verified on the consent page; with no list every CIMD client is marked unverified. |
+| `OAUTH_ISSUER_URL`                     | _(empty, falls back to `BACKEND_URL`)_                                                            | Issuer of the MCP access tokens.                                |
+| `MCP_RESOURCE_URL`                     | _(empty, falls back to the issuer + `/mcp`)_                                                      | Public URL of the MCP endpoint.                                 |
+| `TRUST_PROXY`                          | `127.0.0.1` _(in the Docker images)_                                                              | Proxies trusted for `X-Forwarded-For`: `true` or a comma separated list of addresses/CIDRs (`loopback`, `uniquelocal` work too); a hop count is refused. Behind a Kubernetes ingress add its hop, e.g. `loopback,10.0.0.0/8`, or every client shares one rate limit bucket. |
 
 ## Anonymous telemetry 📡
 
@@ -329,7 +347,7 @@ conventional commits. The **backend** is Fastify + TypeScript (layered
 models → services → controllers → plugins, MongoDB with Mongoose, Redis for
 caching, multi-auth: local JWT, Auth0, Google OAuth, Azure Entra ID). The
 **frontend** is React + TypeScript (rendered through
-`@mfe-orchestrator/design-system` on Tailwind CSS, React Query + Zustand, React
+`@flightroom/design-system` on Tailwind CSS, React Query + Zustand, React
 Router, react-hook-form, react-i18next).
 
 ### Prerequisites
@@ -343,7 +361,7 @@ Router, react-hook-form, react-i18next).
 
 ```bash
 git clone <repository-url>
-cd mfe-orchestrator
+cd flightroom
 ```
 
 2. **Install dependencies** (monorepo setup) 📦
@@ -468,6 +486,6 @@ Licensed under the [Apache License, Version 2.0](LICENSE).
 
 ---
 
-If MFE Orchestrator is useful to you, a
-[⭐ on GitHub](https://github.com/mfe-orchestrator/mfe-orchestrator) helps the
+If Flightroom is useful to you, a
+[⭐ on GitHub](https://github.com/flightroom/flightroom) helps the
 project get found.

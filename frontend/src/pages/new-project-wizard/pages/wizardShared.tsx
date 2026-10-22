@@ -1,6 +1,7 @@
 import { Check, Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
+import { ProjectDraft } from "@/hooks/apiClients/useAssistantApi"
 import { Project } from "@/hooks/apiClients/useProjectApi"
 import { cn } from "@/utils/styleUtils"
 
@@ -19,6 +20,10 @@ export interface WizardStepProps {
     onBack?: () => void
     onSkip?: () => void
     isFirst?: boolean
+    /** What the assistant proposed from the user's description, if they asked for it */
+    draft?: ProjectDraft
+    /** step 1 only: the assistant produced a draft */
+    onDraft?: (draft: ProjectDraft) => void
 }
 
 /* -------------------------------------------------------------------------- */
@@ -78,7 +83,7 @@ export const StepShell: React.FC<StepShellProps> = ({ title, description, childr
         </div>
         {skippableNote && (
             <p className="px-6 md:px-8 pb-4 -mt-2 flex items-center gap-2 text-sm text-muted-foreground">
-                <Info className="size-4 shrink-0 text-primary" />
+                <Info className="size-4 shrink-0 text-primary-strong" />
                 {skippableNote}
             </p>
         )}
