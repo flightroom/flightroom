@@ -1,7 +1,7 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
@@ -28,7 +28,7 @@ describe("VariableMapService.update of a secret", () => {
         vi.spyOn(Secret, "exists").mockResolvedValue(null as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
         write = vi.spyOn(Secret, "findByIdAndUpdate").mockResolvedValue(secret as never) as unknown as ReturnType<typeof vi.fn>
     })
 
@@ -106,7 +106,7 @@ describe("VariableMapService.update of a config map attached to services", () =>
         vi.spyOn(ConfigMap, "findById").mockResolvedValue(configMap as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }] as never)
         vi.spyOn(Service, "find").mockResolvedValue([{ name: "Orders API", configMapIds: [configMapId, otherConfigMapId], secretIds: [secretId] }] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
         vi.spyOn(ConfigMap, "find").mockResolvedValue([
             { _id: configMapId, name: "logging", entries: [{ key: "LOG_LEVEL" }] },
             { _id: otherConfigMapId, name: "features", entries: [{ key: "FEATURE_X" }] }
@@ -134,9 +134,9 @@ describe("VariableMapService.update of a config map attached to services", () =>
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("given a FRONTEND that attaches it with a secret setting the new key, when the config map is updated, then it is refused and nothing is written", async () => {
+    it("given a DOCKER that attaches it with a secret setting the new key, when the config map is updated, then it is refused and nothing is written", async () => {
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([{ name: "Storefront", configMapIds: [configMapId], secretIds: [secretId] }] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([{ name: "Storefront", configMapIds: [configMapId], secretIds: [secretId] }] as never)
 
         await expect(update("DATABASE_PASSWORD")).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED" })
         expect(write).not.toHaveBeenCalled()
@@ -149,12 +149,12 @@ describe("VariableMapService.delete", () => {
     beforeEach(() => {
         allowAccess()
         vi.spyOn(ConfigMap, "findById").mockResolvedValue({ _id: configMapId, projectId, name: "logging", entries: [] } as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
-    it("given a config map a FRONTEND microfrontend attaches, when it is deleted, then it is refused with the microfrontend named", async () => {
+    it("given a config map a DOCKER frontend attaches, when it is deleted, then it is refused with the frontend named", async () => {
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([{ name: "Storefront" }] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([{ name: "Storefront" }] as never)
         const remove = vi.spyOn(ConfigMap, "findByIdAndDelete")
 
         await expect(new VariableMapService("configMap").delete(String(configMapId))).rejects.toMatchObject({ code: "VARIABLE_MAP_IN_USE", message: expect.stringContaining("Storefront") })
@@ -248,7 +248,7 @@ describe("VariableMapService create and update of a map", () => {
         vi.spyOn(ConfigMap, "findById").mockResolvedValue(map as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
     it("given a name, when a map is created, then it is written to the database for the project", async () => {

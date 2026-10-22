@@ -73,15 +73,15 @@ import GithubClient from "../client/GithubClient"
 import GitlabClient from "../client/GitlabClient"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
+import Frontend from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
-import Microfrontend from "../models/MicrofrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
-import { MicrofrontendCompiler, MicrofrontendFramework, MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import BaseAuthorizedService from "./BaseAuthorizedService"
+import FrontendService from "./FrontendService"
 import MarketService from "./MarketService"
-import MicrofrontendService from "./MicrofrontendService"
 import ServiceService from "./ServiceService"
 import TemplateScaffoldService, { PipelineTemplates, placeholderDomain, replaceFederationName, TagLookupError } from "./TemplateScaffoldService"
 import RepositoryWorkspaceService from "./workspace/RepositoryWorkspaceService"
@@ -182,11 +182,11 @@ describe("TemplateScaffoldService, service templates", () => {
     })
 })
 
-describe("TemplateScaffoldService, microfrontend templates", () => {
+describe("TemplateScaffoldService, frontend templates", () => {
     const remoteTemplate = { slug: "vite-remote-react", type: "remote", compiler: "vite", framework: "React", zipUrl: "https://example.com/t.zip" } as IMarket
 
-    /** The pipeline overlay is the only place a microfrontend gets its placeholders replaced, as before services existed */
-    it("given GitHub, when a microfrontend template is scaffolded, then only the copied pipeline has its placeholders replaced", async () => {
+    /** The pipeline overlay is the only place a frontend gets its placeholders replaced, as before services existed */
+    it("given GitHub, when a frontend template is scaffolded, then only the copied pipeline has its placeholders replaced", async () => {
         const service = scaffoldWith(
             await templateZip({ "src/index.ts": 'export const name = "%microfrontendSlug%" // %domain%' }),
             await pipelinesZip({ "remote/vite/github/workflows/deploy.yml": "slug: %microfrontendSlug%\nurl: %domain%" })
@@ -199,7 +199,7 @@ describe("TemplateScaffoldService, microfrontend templates", () => {
         expect(committed["src/index.ts"]).toBe('export const name = "%microfrontendSlug%" // %domain%')
     })
 
-    it("given GitLab, when a microfrontend template is scaffolded, then only the copied pipeline has its placeholders replaced", async () => {
+    it("given GitLab, when a frontend template is scaffolded, then only the copied pipeline has its placeholders replaced", async () => {
         const service = scaffoldWith(
             await templateZip({ "src/index.ts": "%microfrontendSlug% %domain%" }),
             await pipelinesZip({ "remote/vite/gitlab/.gitlab-ci.yml": "slug: %microfrontendSlug%\nurl: %domain%" })
@@ -212,7 +212,7 @@ describe("TemplateScaffoldService, microfrontend templates", () => {
         expect(committed["src/index.ts"]).toBe("%microfrontendSlug% %domain%")
     })
 
-    it("given Azure DevOps, when a microfrontend template is scaffolded, then only the copied pipeline has its placeholders replaced", async () => {
+    it("given Azure DevOps, when a frontend template is scaffolded, then only the copied pipeline has its placeholders replaced", async () => {
         const service = scaffoldWith(
             await templateZip({ "src/index.ts": "%microfrontendSlug% %domain%" }),
             await pipelinesZip({ "remote/vite/azure_dev_ops/azure-pipelines.yml": "slug: %microfrontendSlug%\nurl: %domain%" })
@@ -229,7 +229,7 @@ describe("TemplateScaffoldService, microfrontend templates", () => {
 /**
  * The real pipelines of mfe-orchestrator/template-pipelines, copied under __fixtures__, scaffolded
  * on every provider: once the placeholders are in, each one has to be a pipeline the provider can
- * read and that publishes to the right microfrontend on the right console.
+ * read and that publishes to the right frontend on the right console.
  */
 describe("TemplateScaffoldService, pipelines of template-pipelines", () => {
     const fixtures = join(__dirname, "__fixtures__", "template-pipelines")
@@ -252,7 +252,7 @@ describe("TemplateScaffoldService, pipelines of template-pipelines", () => {
             gitlab: (pipeline: Pipeline) => {
                 expect(pipeline.deploy.variables).toEqual({ MICROFRONTEND_SLUG: slug, MICROFRONTEND_ORCHESTRATOR_DOMAIN: domain })
                 // The upload route the console API exposes behind nginx's /api/ prefix
-                expect(pipeline.deploy.script.join("\n")).toContain("${MICROFRONTEND_ORCHESTRATOR_DOMAIN%/}/api/microfrontends/by-slug/${MICROFRONTEND_SLUG}/upload/${CI_COMMIT_TAG}")
+                expect(pipeline.deploy.script.join("\n")).toContain("${MICROFRONTEND_ORCHESTRATOR_DOMAIN%/}/api/frontends/by-slug/${MICROFRONTEND_SLUG}/upload/${CI_COMMIT_TAG}")
             },
             azure: (pipeline: Pipeline) => {
                 expect(azureVariables(azureStage(pipeline, "Deploy")).MICROFRONTEND_ORCHESTRATOR_DOMAIN_RESOLVED).toBe(`$[coalesce(variables['MICROFRONTEND_ORCHESTRATOR_DOMAIN'], '${domain}')]`)
@@ -348,11 +348,11 @@ describe("TemplateScaffoldService, pipelines of template-pipelines", () => {
         await testCase.scaffold(service, testCase.template)
 
         const committedPipeline = committed[testCase.pipeline]
-        expect(source).toMatch(/%(microfrontendSlug|domain)%/)
+        expect(source).toMatch(/%(frontendSlug|domain)%/)
         expect(committedPipeline).not.toMatch(/%[A-Za-z_]+%/)
         for (const text of testCase.expectedText) expect(committedPipeline).toContain(text)
         testCase[testCase.check](parseYaml(committedPipeline) as Pipeline)
-        // A microfrontend gets its placeholders replaced in the pipeline only, never in its own files
+        // A frontend gets its placeholders replaced in the pipeline only, never in its own files
         expect(committed["package.json"]).toBe('{ "name": "%microfrontendSlug%" }')
     })
 })
@@ -485,7 +485,7 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         expect(committed[".github/dependabot.yml"]).toBe("version: 2")
     })
 
-    it("given a microfrontend pipeline that names %serviceSlug%, when it is scaffolded, then both slugs become the slug", async () => {
+    it("given a frontend pipeline that names %serviceSlug%, when it is scaffolded, then both slugs become the slug", async () => {
         const service = scaffoldWith(await templateZip({ "src/index.ts": "x" }), await pipelinesZip({ "remote/vite/gitlab/.gitlab-ci.yml": "%microfrontendSlug% %serviceSlug%" }))
         const remote = { slug: "vite-remote-react", type: "remote", compiler: "vite", zipUrl: "https://example.com/t.zip" } as IMarket
 
@@ -702,7 +702,7 @@ describe("replaceFederationName", () => {
     })
 })
 
-describe("TemplateScaffoldService, federation name of a webpack microfrontend template", () => {
+describe("TemplateScaffoldService, federation name of a webpack frontend template", () => {
     const webpackRemote = { slug: "webpack-remote-react", type: "remote", compiler: "webpack", framework: "React", zipUrl: "https://example.com/t.zip" } as IMarket
 
     const webpackConfig = (name: string) => `new ModuleFederationPlugin({
@@ -727,7 +727,7 @@ describe("TemplateScaffoldService, federation name of a webpack microfrontend te
     it("given GitHub, when a webpack remote is scaffolded, then its container is named federationName(slug) and the pipeline still gets its placeholders", async () => {
         const service = scaffoldWith(await templateZip(remoteFiles), await pipelinesZip({ "remote/webpack/github/workflows/deploy.yml": "slug: %microfrontendSlug%" }))
 
-        await service.injectTemplateGithub("checkout-new", "token", "https://github.com/acme/checkout-new.git", "github", webpackRemote, { microfrontendSlug: "checkout-new" })
+        await service.injectTemplateGithub("checkout-new", "token", "https://github.com/acme/checkout-new.git", "github", webpackRemote, { frontendSlug: "checkout-new" })
 
         expectRenamed()
         expect(committed[".github/workflows/deploy.yml"]).toBe("slug: checkout-new")
@@ -737,7 +737,7 @@ describe("TemplateScaffoldService, federation name of a webpack microfrontend te
         const service = scaffoldWith(await templateZip(remoteFiles), await pipelinesZip({}))
         const codeRepository = { provider: CodeRepositoryProvider.GITLAB, gitlabData: { url: "https://gitlab.com", groupPath: "acme" } } as unknown as ICodeRepository
 
-        await service.injectTemplateGitlab("checkout-new", "token", "https://gitlab.com", "checkout-new", "acme", codeRepository, "gitlab", webpackRemote, { microfrontendSlug: "checkout-new" })
+        await service.injectTemplateGitlab("checkout-new", "token", "https://gitlab.com", "checkout-new", "acme", codeRepository, "gitlab", webpackRemote, { frontendSlug: "checkout-new" })
 
         expectRenamed()
     })
@@ -746,7 +746,7 @@ describe("TemplateScaffoldService, federation name of a webpack microfrontend te
         const service = scaffoldWith(await templateZip(remoteFiles), await pipelinesZip({}))
         const codeRepository = { provider: CodeRepositoryProvider.AZURE_DEV_OPS, azureData: { organization: "acme", projectId: "p" } } as unknown as ICodeRepository
 
-        await service.injectTemplateAzureDevOps("checkout-new", "token", "checkout-new", codeRepository, "azure_dev_ops", webpackRemote, { microfrontendSlug: "checkout-new" })
+        await service.injectTemplateAzureDevOps("checkout-new", "token", "checkout-new", codeRepository, "azure_dev_ops", webpackRemote, { frontendSlug: "checkout-new" })
 
         expectRenamed()
     })
@@ -754,12 +754,12 @@ describe("TemplateScaffoldService, federation name of a webpack microfrontend te
     it.each(["webpack.config.js", "webpack.config.mjs", "webpack.config.cjs"])("given a %s, when a webpack remote is scaffolded, then it is renamed too", async file => {
         const service = scaffoldWith(await templateZip({ [file]: webpackConfig("exampleremote") }), await pipelinesZip({}))
 
-        await service.injectTemplateGithub("shop/cart", "token", "https://github.com/acme/cart.git", "github", webpackRemote, { microfrontendSlug: "shop/cart" })
+        await service.injectTemplateGithub("shop/cart", "token", "https://github.com/acme/cart.git", "github", webpackRemote, { frontendSlug: "shop/cart" })
 
         expect(committed[file]).toBe(webpackConfig("shop_cart"))
     })
 
-    it("given no microfrontend slug, when a template is scaffolded, then its webpack config is committed untouched", async () => {
+    it("given no frontend slug, when a template is scaffolded, then its webpack config is committed untouched", async () => {
         const service = scaffoldWith(await templateZip(remoteFiles), await pipelinesZip({}))
 
         await service.injectTemplateGithub("checkout-new", "token", "https://github.com/acme/checkout-new.git", "github", webpackRemote)
@@ -770,15 +770,15 @@ describe("TemplateScaffoldService, federation name of a webpack microfrontend te
 
 /**
  * The four single-spa and micro-lc templates as the marketplace declares them, scaffolded through
- * the real path a microfrontend takes: MicrofrontendService.create, the provider, the pipeline
+ * the real path a frontend takes: FrontendService.create, the provider, the pipeline
  * overlay, the initial commit. Only the network (provider APIs, zip downloads, git push) is mocked.
  */
-describe("TemplateScaffoldService, single-spa and micro-lc templates through MicrofrontendService.create", () => {
+describe("TemplateScaffoldService, single-spa and micro-lc templates through FrontendService.create", () => {
     const templates = [
-        { slug: "single-spa-host-react", type: "host", compiler: "single-spa", stack: MicrofrontendCompiler.SINGLE_SPA, entryPoint: undefined },
-        { slug: "single-spa-remote-react", type: "remote", compiler: "single-spa", stack: MicrofrontendCompiler.SINGLE_SPA, entryPoint: "index.js" },
-        { slug: "microlc-host-react", type: "host", compiler: "micro-lc", stack: MicrofrontendCompiler.MICRO_LC, entryPoint: undefined },
-        { slug: "microlc-remote-react", type: "remote", compiler: "micro-lc", stack: MicrofrontendCompiler.MICRO_LC, entryPoint: "parcel.js" }
+        { slug: "single-spa-host-react", type: "host", compiler: "single-spa", stack: FrontendCompiler.SINGLE_SPA, entryPoint: undefined },
+        { slug: "single-spa-remote-react", type: "remote", compiler: "single-spa", stack: FrontendCompiler.SINGLE_SPA, entryPoint: "index.js" },
+        { slug: "microlc-host-react", type: "host", compiler: "micro-lc", stack: FrontendCompiler.MICRO_LC, entryPoint: undefined },
+        { slug: "microlc-remote-react", type: "remote", compiler: "micro-lc", stack: FrontendCompiler.MICRO_LC, entryPoint: "parcel.js" }
     ]
 
     /** One pipeline per folder, each saying where it comes from, so the copied one is identifiable */
@@ -851,7 +851,7 @@ describe("TemplateScaffoldService, single-spa and micro-lc templates through Mic
 
     const cases = templates.flatMap(template => providers.map(provider => ({ ...template, ...provider, name: `${template.slug} on ${provider.folder}` })))
 
-    it.each(cases)("given $name, when a microfrontend is created from it, then the $type/$compiler pipeline is copied and the stack and entry point come from the template", async testCase => {
+    it.each(cases)("given $name, when a frontend is created from it, then the $type/$compiler pipeline is copied and the stack and entry point come from the template", async testCase => {
         const projectId = new Types.ObjectId()
         const marketEntry = {
             slug: testCase.slug,
@@ -870,9 +870,9 @@ describe("TemplateScaffoldService, single-spa and micro-lc templates through Mic
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId } as never)
         testCase.stub()
         // The slug is free: checked before any repository is created
-        vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
-        const write = vi.spyOn(Microfrontend, "create").mockImplementation((async (doc: unknown) => doc) as never)
-        const service = new MicrofrontendService()
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        const write = vi.spyOn(Frontend, "create").mockImplementation((async (doc: unknown) => doc) as never)
+        const service = new FrontendService()
         vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
 
         await service.create(
@@ -888,12 +888,12 @@ describe("TemplateScaffoldService, single-spa and micro-lc templates through Mic
 
         expect(committed[testCase.pipeline]?.split("\n")[0]).toBe(`from: ${testCase.type}/${testCase.compiler}/${testCase.folder}`)
         expect(committed["package.json"]).toBe('{ "name": "example" }')
-        // The pipeline overlay is the one place a microfrontend gets its placeholders replaced, on every provider
+        // The pipeline overlay is the one place a frontend gets its placeholders replaced, on every provider
         expect(committed[testCase.pipeline]).toContain("slug: cart")
 
         const stored = write.mock.calls[0][0] as unknown as { template: string; stack: object; host: { entryPoint?: string } }
         expect(stored.template).toBe(testCase.slug)
-        expect(stored.stack).toEqual({ framework: MicrofrontendFramework.REACT, compiler: testCase.stack, source: MicrofrontendStackSource.TEMPLATE })
+        expect(stored.stack).toEqual({ framework: FrontendFramework.REACT, compiler: testCase.stack, source: FrontendStackSource.TEMPLATE })
         expect(stored.host.entryPoint).toBe(testCase.entryPoint)
     })
 })
@@ -934,21 +934,21 @@ describe("TemplateScaffoldService.createTag", () => {
         expect(createTag).not.toHaveBeenCalled()
     })
 
-    it("given a microfrontend linked to a connection of another project, when it is built, then it is refused before the provider is called", async () => {
+    it("given a frontend linked to a connection of another project, when it is built, then it is refused before the provider is called", async () => {
         connectionOf(otherProjectId)
-        vi.spyOn(Microfrontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
-        vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
+        vi.spyOn(Frontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
+        vi.spyOn(FrontendService.prototype as unknown as { ensureAccessToFrontend: () => Promise<void> }, "ensureAccessToFrontend").mockResolvedValue(undefined)
 
-        await expect(new MicrofrontendService().build(String(new Types.ObjectId()), "1.2.0")).rejects.toBeInstanceOf(EntityNotFoundError)
+        await expect(new FrontendService().build(String(new Types.ObjectId()), "1.2.0")).rejects.toBeInstanceOf(EntityNotFoundError)
         expect(createTag).not.toHaveBeenCalled()
     })
 
-    it("given a microfrontend linked to a connection of its project, when it is built, then the tag is created", async () => {
+    it("given a frontend linked to a connection of its project, when it is built, then the tag is created", async () => {
         connectionOf(projectId)
-        vi.spyOn(Microfrontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
-        vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
+        vi.spyOn(Frontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
+        vi.spyOn(FrontendService.prototype as unknown as { ensureAccessToFrontend: () => Promise<void> }, "ensureAccessToFrontend").mockResolvedValue(undefined)
 
-        await new MicrofrontendService().build(String(new Types.ObjectId()), "1.2.0")
+        await new FrontendService().build(String(new Types.ObjectId()), "1.2.0")
 
         expect(createTag).toHaveBeenCalledTimes(1)
     })
@@ -956,16 +956,16 @@ describe("TemplateScaffoldService.createTag", () => {
     describe("by a member assigned to some domains", () => {
         const ownDomain = new Types.ObjectId()
 
-        /** Builds a microfrontend of their domain, whose repository is also linked to a service of another domain when `shared`. */
+        /** Builds a frontend of their domain, whose repository is also linked to a service of another domain when `shared`. */
         const build = (shared: boolean) => {
             connectionOf(projectId)
             vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(ownDomain)])
-            vi.spyOn(Microfrontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", domainId: ownDomain, codeRepository: link } as never)
-            vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
-            vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
+            vi.spyOn(Frontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", domainId: ownDomain, codeRepository: link } as never)
+            vi.spyOn(FrontendService.prototype as unknown as { ensureAccessToFrontend: () => Promise<void> }, "ensureAccessToFrontend").mockResolvedValue(undefined)
+            vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
             vi.spyOn(Service, "exists").mockResolvedValue((shared ? { _id: new Types.ObjectId() } : null) as never)
             vi.spyOn(UserProject, "findOne").mockResolvedValue({ role: "MEMBER" } as never)
-            return new MicrofrontendService({ _id: new Types.ObjectId() } as never).build(String(new Types.ObjectId()), "1.2.0")
+            return new FrontendService({ _id: new Types.ObjectId() } as never).build(String(new Types.ObjectId()), "1.2.0")
         }
 
         it("given a repository shared with a component of another domain, when it is built, then no tag is created: it would release that one too", async () => {
@@ -989,12 +989,12 @@ describe("TemplateScaffoldService.createTag", () => {
             vi.spyOn(BaseAuthorizedService.prototype as unknown as { findRoleInOrganization: () => Promise<undefined> }, "findRoleInOrganization").mockResolvedValue(undefined)
         })
 
-        it("given a microfrontend, when it is built, then it is refused before the provider is called", async () => {
-            vi.spyOn(Microfrontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
-            vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
+        it("given a frontend, when it is built, then it is refused before the provider is called", async () => {
+            vi.spyOn(Frontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
+            vi.spyOn(FrontendService.prototype as unknown as { ensureAccessToFrontend: () => Promise<void> }, "ensureAccessToFrontend").mockResolvedValue(undefined)
 
-            await expect(new MicrofrontendService({ _id: new Types.ObjectId() } as never).build(String(new Types.ObjectId()), "1.2.0")).rejects.toMatchObject({
-                code: "MICROFRONTEND_BUILD_FORBIDDEN",
+            await expect(new FrontendService({ _id: new Types.ObjectId() } as never).build(String(new Types.ObjectId()), "1.2.0")).rejects.toMatchObject({
+                code: "FRONTEND_BUILD_FORBIDDEN",
                 statusCode: 403
             })
             expect(getBranchCommitSha).not.toHaveBeenCalled()
@@ -1015,14 +1015,14 @@ describe("TemplateScaffoldService.createTag", () => {
     })
 
     /** A missing branch is the caller's to fix: a 404 the console translates, not a server error */
-    it("given a microfrontend whose branch does not exist, when it is built, then it is refused with a translatable 404", async () => {
+    it("given a frontend whose branch does not exist, when it is built, then it is refused with a translatable 404", async () => {
         connectionOf(projectId)
         getBranchCommitSha.mockRejectedValue(Object.assign(new Error("Not Found"), { isAxiosError: true, response: { status: 404 } }))
         vi.spyOn(GithubClient.prototype, "getRepository").mockResolvedValue({} as never)
-        vi.spyOn(Microfrontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
-        vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
+        vi.spyOn(Frontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
+        vi.spyOn(FrontendService.prototype as unknown as { ensureAccessToFrontend: () => Promise<void> }, "ensureAccessToFrontend").mockResolvedValue(undefined)
 
-        await expect(new MicrofrontendService().build(String(new Types.ObjectId()), "1.2.0", "release")).rejects.toMatchObject({ code: "BUILD_REF_NOT_FOUND", statusCode: 404 })
+        await expect(new FrontendService().build(String(new Types.ObjectId()), "1.2.0", "release")).rejects.toMatchObject({ code: "BUILD_REF_NOT_FOUND", statusCode: 404 })
         expect(createTag).not.toHaveBeenCalled()
     })
 

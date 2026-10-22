@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
-import type { CreateMemberRepositoryDTO, Microfrontend } from "./useMicrofrontendsApi"
+import type { CreateMemberRepositoryDTO, Frontend } from "./useFrontendsApi"
 
 export enum ServiceRuntime {
     NODE = "NODE",
@@ -24,8 +24,8 @@ export interface ServiceUrl {
     url: string
 }
 
-/** Same shape as the microfrontend repository link: the backend reuses the subdocument. */
-export type ServiceCodeRepository = Microfrontend["codeRepository"]
+/** Same shape as the frontend repository link: the backend reuses the subdocument. */
+export type ServiceCodeRepository = Frontend["codeRepository"]
 
 export interface Service {
     _id?: string

@@ -16,8 +16,8 @@ import { domainDeploymentTools } from "./tools/domainDeploymentTools"
 import { domainLinkTools } from "./tools/domainLinkTools"
 import { domainTools } from "./tools/domainTools"
 import { environmentTools } from "./tools/environmentTools"
+import { frontendTools } from "./tools/frontendTools"
 import { localChangeTools } from "./tools/localChangeTools"
-import { microfrontendTools } from "./tools/microfrontendTools"
 import { organizationAdminTools } from "./tools/organizationAdminTools"
 import { organizationTools } from "./tools/organizationTools"
 import { projectAdminTools } from "./tools/projectAdminTools"
@@ -52,7 +52,7 @@ import { variableMapTools } from "./tools/variableMapTools"
 export const MCP_TOOLS: McpToolDefinition[] = [
     ...organizationTools,
     ...projectTools,
-    ...microfrontendTools,
+    ...frontendTools,
     ...serviceTools,
     ...domainTools,
     ...domainLinkTools,
@@ -72,9 +72,9 @@ export const MCP_TOOLS: McpToolDefinition[] = [
 const SERVER_INSTRUCTIONS =
     "Tools of the Flightroom console, bound to the projects shared when this connection was authorized. " +
     "Call projects_list first: when more than one project is shared, every project tool needs its projectId. " +
-    "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one microfrontend, service or domain, pass its id to context_get, or read aiContext from microfrontend_get, service_get or domain_get: follow those notes. " +
-    "To change the code of a microfrontend or a service: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
-    "Repository naming: every repository you create or rename ends in -fe for a frontend (microfrontend or host, e.g. checkout-fe) and in -be for a backend service (e.g. orders-be). " +
+    "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one frontend, service or domain, pass its id to context_get, or read aiContext from frontend_get, service_get or domain_get: follow those notes. " +
+    "To change the code of a frontend or a service: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
+    "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend service (e.g. orders-be). " +
     "Ids are 24 character hexadecimal strings returned by the list tools. Tools marked destructive change what users are served " +
     "(deploy, rollback) or delete data: confirm with the user before calling them."
 

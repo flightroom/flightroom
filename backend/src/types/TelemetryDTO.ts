@@ -18,7 +18,7 @@ export interface TelemetryPayloadDTO {
     nodeVersion: string
     /** Total number of projects. */
     projects: number
-    /** Total number of microfrontends. */
+    /** Total number of frontends, under the name the telemetry receiver has always read. */
     microfrontends: number
     /** Total number of environments. */
     environments: number

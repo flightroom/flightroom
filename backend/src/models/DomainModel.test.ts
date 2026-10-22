@@ -1,7 +1,7 @@
 import { Types } from "mongoose"
 import { describe, expect, it } from "vitest"
 import Domain from "./DomainModel"
-import Microfrontend from "./MicrofrontendModel"
+import Frontend from "./FrontendModel"
 import Service from "./ServiceModel"
 
 describe("Domain model", () => {
@@ -32,13 +32,13 @@ describe("Domain model", () => {
         expect(Domain.schema.indexes()).toContainEqual([{ slug: 1, projectId: 1 }, expect.objectContaining({ unique: true })])
     })
 
-    it("given a microfrontend and a service without a domain, when they are validated, then they are accepted", async () => {
-        const microfrontend = new Microfrontend({ projectId: new Types.ObjectId(), slug: "shell", name: "Shell", version: "1.0.0", host: { type: "MFE_ORCHESTRATOR_HUB" } })
+    it("given a frontend and a service without a domain, when they are validated, then they are accepted", async () => {
+        const frontend = new Frontend({ projectId: new Types.ObjectId(), slug: "shell", name: "Shell", version: "1.0.0", host: { type: "MFE_ORCHESTRATOR_HUB" } })
         const service = new Service({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders" })
 
-        await expect(microfrontend.validate()).resolves.toBeUndefined()
+        await expect(frontend.validate()).resolves.toBeUndefined()
         await expect(service.validate()).resolves.toBeUndefined()
-        expect(microfrontend.domainId).toBeUndefined()
+        expect(frontend.domainId).toBeUndefined()
         expect(service.domainId).toBeUndefined()
     })
 })

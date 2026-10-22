@@ -9,7 +9,7 @@ import GitlabClient from "../client/GitlabClient"
 import { createBusinessException } from "../errors/BusinessException"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project, { IArgoCdRepositoryCredential, IProjectArgoCd } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -105,7 +105,7 @@ beforeEach(() => {
         Promise.resolve(String(filter._id) === String(gitlabConnectionId) ? gitlabConnection : githubConnection)) as never)
     vi.spyOn(CodeRepository, "find").mockResolvedValue([gitlabConnection, githubConnection] as never)
     vi.spyOn(Service, "find").mockResolvedValue([{ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, { slug: "draft" }] as never)
-    vi.spyOn(Microfrontend, "find").mockResolvedValue([{ slug: "checkout", version: "2.0.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
+    vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "checkout", version: "2.0.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
     vi.spyOn(CodeRepositoryService.prototype, "getBranches").mockImplementation(async () => {
         calls.push("branches")
         return [{ branch: "main" }, { branch: "development" }] as never
@@ -390,7 +390,7 @@ describe("ArgoCdService.initialize", () => {
             { slug: "checkout-development", projectId }
         ] as never)
         vi.mocked(Service.find).mockResolvedValue([{ slug: "orders-checkout", version: "1", image: { repository: "orders" } }] as never)
-        vi.mocked(Microfrontend.find).mockResolvedValue([{ slug: "orders", version: "1", image: { repository: "orders" } }] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([{ slug: "orders", version: "1", image: { repository: "orders" } }] as never)
         vi.mocked(CodeRepositoryService.prototype.getBranches).mockResolvedValue([{ branch: "development" }, { branch: "checkout-development" }] as never)
 
         await expect(initialize()).rejects.toMatchObject({ code: "ARGOCD_NAME_CLASH" })

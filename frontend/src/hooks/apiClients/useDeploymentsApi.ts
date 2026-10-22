@@ -1,7 +1,7 @@
 import useApiClient from "../useApiClient"
+import { Frontend } from "./useFrontendsApi"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 import { GlobalVariable } from "./useGlobalVariablesApi"
-import { Microfrontend } from "./useMicrofrontendsApi"
 
 /** A backend service as the deploy recorded it, at the version it shipped */
 export interface DeployedService {
@@ -23,7 +23,7 @@ export interface DeployedVariableMap {
 export interface DeploymentDTO {
     _id: string
     environmentId: string
-    microfrontends: Microfrontend[]
+    frontends: Frontend[]
     /** Absent from the deployments made before the services were recorded */
     services?: DeployedService[]
     /** Absent from the deployments made before the config maps and secrets were recorded */
@@ -54,7 +54,7 @@ const useDeploymentsApi = () => {
         return response.data
     }
 
-    /** With `domainId`, only the microfrontends and services of that functional domain move */
+    /** With `domainId`, only the frontends and services of that functional domain move */
     const createDeployment = async (environmentIds: string[], domainId?: string) => {
         const response = await apiClient.doRequest<DeploymentDTO>({
             url: `/api/deployment`,

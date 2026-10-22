@@ -1,14 +1,14 @@
 import { z } from "zod"
 import { createBusinessException } from "../../errors/BusinessException"
+import FrontendService from "../../service/FrontendService"
 import MarketService from "../../service/MarketService"
-import MicrofrontendService from "../../service/MicrofrontendService"
 import { isValidRepositoryName } from "../../service/RepositoryRenameService"
 import ServiceService from "../../service/ServiceService"
-import MicrofrontendDTO from "../../types/MicrofrontendDTO"
+import FrontendDTO from "../../types/FrontendDTO"
 import ServiceDTO from "../../types/ServiceDTO"
 import { MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { defineTool, McpToolContext, objectId, WRITE_EXTERNAL } from "../toolDefinition"
-import { ensureReferencesBelongToProject, createSchema as microfrontendCreateSchema } from "./microfrontendTools"
+import { ensureReferencesBelongToProject, createSchema as frontendCreateSchema } from "./frontendTools"
 import { createSchema as serviceCreateSchema } from "./serviceTools"
 
 /**
@@ -61,15 +61,15 @@ const withRepositoryToCreate = async <Fields extends { slug: string; domainId?: 
  */
 export const scaffoldTools = [
     defineTool({
-        name: "microfrontend_scaffold",
-        title: "Create microfrontend from template",
+        name: "frontend_scaffold",
+        title: "Create frontend from template",
         description:
-            "Adds a microfrontend whose code repository is created at the provider from a marketplace template (a microfrontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). A FRONTEND needs its exposurePath, checked before the repository is created. Use microfrontend_create instead to link a repository that already exists.",
+            "Adds a frontend whose code repository is created at the provider from a marketplace template (a frontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). A DOCKER needs its exposurePath, checked before the repository is created. Use frontend_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,
-        inputSchema: microfrontendCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("checkout-fe")),
-        run: async (args, context) => new MicrofrontendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as MicrofrontendDTO, context.projectId)
+        inputSchema: frontendCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("checkout-fe")),
+        run: async (args, context) => new FrontendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as FrontendDTO, context.projectId)
     }),
     defineTool({
         name: "service_scaffold",

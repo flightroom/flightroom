@@ -1,13 +1,13 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
-import Microfrontend from "../../models/MicrofrontendModel"
+import Frontend from "../../models/FrontendModel"
 import Service from "../../models/ServiceModel"
 import { LocalChangeService } from "./LocalChangeService"
 
 const HEAD = "a".repeat(40)
 const OLD = "b".repeat(40)
 const PROJECT = "cccccccccccccccccccccccc"
-const MICROFRONTEND = "dddddddddddddddddddddddd"
+const FRONTEND = "dddddddddddddddddddddddd"
 
 const { workingCopy, prepare, openPullRequest, ensureCanChangeProject, findComponent } = vi.hoisted(() => ({
     workingCopy: { dir: "/repos/cart", hasCommit: vi.fn(), blobOid: vi.fn(), commitAndPush: vi.fn() },
@@ -47,7 +47,7 @@ const allowProjectAccess = (instance: LocalChangeService) => {
     return instance
 }
 const service = () => allowProjectAccess(new LocalChangeService(user as never))
-const ref = { kind: "microfrontend" as const, id: MICROFRONTEND }
+const ref = { kind: "frontend" as const, id: FRONTEND }
 const input = (overrides: Record<string, unknown> = {}) => ({
     baseCommit: HEAD,
     title: "Add a footer",
@@ -58,7 +58,7 @@ const input = (overrides: Record<string, unknown> = {}) => ({
 
 beforeEach(() => {
     vi.clearAllMocks()
-    findComponent.mockResolvedValue({ kind: "microfrontend", _id: MICROFRONTEND, projectId: PROJECT, slug: "cart", name: "Cart" })
+    findComponent.mockResolvedValue({ kind: "frontend", _id: FRONTEND, projectId: PROJECT, slug: "cart", name: "Cart" })
     prepare.mockResolvedValue(HEAD)
     workingCopy.blobOid.mockResolvedValue("blob-1")
     workingCopy.commitAndPush.mockResolvedValue("commit-1")
@@ -68,7 +68,7 @@ beforeEach(() => {
 describe("LocalChangeService.checkout", () => {
     it("returns the clone URL without credentials, the default branch and the AI context", async () => {
         await expect(service().checkout(ref)).resolves.toEqual({
-            kind: "microfrontend",
+            kind: "frontend",
             name: "Cart",
             slug: "cart",
             cloneUrl: "https://github.com/acme/cart-fe.git",
@@ -167,8 +167,8 @@ describe("LocalChangeService by a member assigned to some domains", () => {
 
     beforeEach(() => {
         findComponent.mockResolvedValue({
-            kind: "microfrontend",
-            _id: MICROFRONTEND,
+            kind: "frontend",
+            _id: FRONTEND,
             projectId: PROJECT,
             slug: "cart",
             name: "Cart",
@@ -177,7 +177,7 @@ describe("LocalChangeService by a member assigned to some domains", () => {
         })
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ provider: CodeRepositoryProvider.GITHUB } as never)
         // The repository is also the code of a service outside their domains
-        vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
         vi.spyOn(Service, "exists").mockResolvedValue({ _id: "service-elsewhere" } as never)
     })
 

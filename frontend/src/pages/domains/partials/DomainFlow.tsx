@@ -5,17 +5,17 @@ import { useCallback, useEffect, useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { Badge } from "@/components/atoms"
-import useMicrofrontendsApi, { Microfrontend, MicrofrontendKind } from "@/hooks/apiClients/useMicrofrontendsApi"
+import useFrontendsApi, { Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { Service } from "@/hooks/apiClients/useServicesApi"
-import { MICROFRONTEND_NODE_TYPE, MicrofrontendFlowNode } from "@/pages/microfrontends/partials/views/MicrofrontendFlowNode"
+import { FRONTEND_NODE_TYPE, FrontendFlowNode } from "@/pages/frontends/partials/views/FrontendFlowNode"
 import useProjectStore from "@/store/useProjectStore"
 import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
 import "@xyflow/react/dist/style.css"
 
 interface DomainFlowProps {
-    microfrontends: Microfrontend[]
+    frontends: Frontend[]
     services: Service[]
-    onAddMicrofrontend: (parentId?: string) => void
+    onAddFrontend: (parentId?: string) => void
 }
 
 interface ServiceNodeData extends Record<string, unknown> {
@@ -24,7 +24,7 @@ interface ServiceNodeData extends Record<string, unknown> {
 
 const SERVICE_NODE_TYPE = "service"
 
-/** Zomp for the backend, against the primary pumpkin of the microfrontends; the edge needs it as a plain colour. */
+/** Zomp for the backend, against the primary pumpkin of the frontends; the edge needs it as a plain colour. */
 const SERVICE_COLOR = "#619B8A" // zomp-500
 const SERVICE_HANDLE_CLASS =
     "!h-2 !w-2 !rounded-full !border-2 !border-card !bg-foreground-secondary/60 !transition-colors group-[.is-highlighted]:!bg-zomp-500 after:absolute after:-inset-2 after:content-['']"
@@ -45,7 +45,7 @@ const ServiceFlowNode: React.FC<NodeProps<Node<ServiceNodeData>>> = ({ data }) =
                     </div>
                 </div>
             </div>
-            {/* Same height as the chip row of a microfrontend, so the two kinds line up in a row. */}
+            {/* Same height as the chip row of a frontend, so the two kinds line up in a row. */}
             <div className="mt-2 flex h-9 items-center gap-1.5 border-t border-divider px-3">
                 {service.version && <Badge variant="outline">{service.version}</Badge>}
                 {service.stack?.framework && <span className="truncate text-xs text-foreground-secondary">{service.stack.framework}</span>}
@@ -55,7 +55,7 @@ const ServiceFlowNode: React.FC<NodeProps<Node<ServiceNodeData>>> = ({ data }) =
 }
 
 /** Defined once, outside the component: React Flow remounts every node when this object changes identity. */
-const NODE_TYPES = { [MICROFRONTEND_NODE_TYPE]: MicrofrontendFlowNode, [SERVICE_NODE_TYPE]: ServiceFlowNode }
+const NODE_TYPES = { [FRONTEND_NODE_TYPE]: FrontendFlowNode, [SERVICE_NODE_TYPE]: ServiceFlowNode }
 
 const NODE_CLASS = "group"
 const NODE_HIGHLIGHTED_CLASS = "group is-highlighted"
@@ -64,7 +64,7 @@ const NODE_DIMMED_CLASS = "group is-dimmed opacity-40 transition-opacity"
 const RELATION_COLOR = "hsl(var(--primary))"
 const IDLE_COLOR = "hsl(var(--divider))"
 
-/** Fallback layout for a node that has never been dragged; the services get a row of their own under the microfrontends. */
+/** Fallback layout for a node that has never been dragged; the services get a row of their own under the frontends. */
 const NODE_COLUMN_GAP = 300
 const NODE_ROW_GAP = 180
 const SERVICE_ROW_OFFSET = 220
@@ -93,36 +93,36 @@ const edgeStyle = (kind: EdgeKind, state: "idle" | "highlighted" | "dimmed") => 
 }
 
 /**
- * The whole domain on one canvas: the microfrontends with their host/remote links and, in a row under
- * them, the backend services they call. Microfrontend positions are the ones saved on the microfrontend;
+ * The whole domain on one canvas: the frontends with their host/remote links and, in a row under
+ * them, the backend services they call. Frontend positions are the ones saved on the frontend;
  * services have nowhere to save one, so they go back to their row whenever the data reloads.
  */
-export const DomainFlow: React.FC<DomainFlowProps> = ({ microfrontends, services, onAddMicrofrontend }) => {
+export const DomainFlow: React.FC<DomainFlowProps> = ({ frontends, services, onAddFrontend }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const projectId = useProjectStore(state => state.project?._id)
-    const microfrontendsApi = useMicrofrontendsApi()
+    const frontendsApi = useFrontendsApi()
     const { theme } = useThemeStore()
 
     const [nodes, setNodes] = useState<Node[]>([])
     const [edges, setEdges] = useState<DomainEdge[]>([])
     const [hoveredNodeId, setHoveredNodeId] = useState<string | null>(null)
 
-    const microfrontendIds = useMemo(() => new Set(microfrontends.map(mfe => mfe._id!)), [microfrontends])
+    const frontendIds = useMemo(() => new Set(frontends.map(mfe => mfe._id!)), [frontends])
     const serviceIds = useMemo(() => new Set(services.map(service => service._id!)), [services])
-    const frontendIds = useMemo(() => new Set(microfrontends.filter(mfe => mfe.kind === MicrofrontendKind.FRONTEND).map(mfe => mfe._id!)), [microfrontends])
+    const dockerIds = useMemo(() => new Set(frontends.filter(mfe => mfe.kind === FrontendKind.DOCKER).map(mfe => mfe._id!)), [frontends])
 
     useEffect(() => {
-        const microfrontendNodes = microfrontends.map<Node>((mfe, index) => ({
+        const frontendNodes = frontends.map<Node>((mfe, index) => ({
             id: mfe._id!,
-            type: MICROFRONTEND_NODE_TYPE,
-            data: { microfrontend: mfe, showKind: true },
+            type: FRONTEND_NODE_TYPE,
+            data: { frontend: mfe, showKind: true },
             position: { x: mfe.position?.x ?? (index % 3) * NODE_COLUMN_GAP, y: mfe.position?.y ?? Math.floor(index / 3) * NODE_ROW_GAP },
             deletable: false
         }))
-        const left = microfrontendNodes.length ? Math.min(...microfrontendNodes.map(node => node.position.x)) : 0
-        const top = microfrontendNodes.length ? Math.max(...microfrontendNodes.map(node => node.position.y)) + SERVICE_ROW_OFFSET : 0
+        const left = frontendNodes.length ? Math.min(...frontendNodes.map(node => node.position.x)) : 0
+        const top = frontendNodes.length ? Math.max(...frontendNodes.map(node => node.position.y)) + SERVICE_ROW_OFFSET : 0
         const serviceNodes = services.map<Node>((service, index) => ({
             id: service._id!,
             type: SERVICE_NODE_TYPE,
@@ -130,22 +130,22 @@ export const DomainFlow: React.FC<DomainFlowProps> = ({ microfrontends, services
             position: { x: left + index * NODE_COLUMN_GAP, y: top },
             deletable: false
         }))
-        setNodes([...microfrontendNodes, ...serviceNodes])
+        setNodes([...frontendNodes, ...serviceNodes])
 
         // Links to something outside the domain are left out: there is no node to draw them to.
         setEdges([
-            ...microfrontends.flatMap(mfe =>
+            ...frontends.flatMap(mfe =>
                 (mfe.parentIds ?? [])
-                    .filter(parentId => microfrontendIds.has(parentId))
+                    .filter(parentId => frontendIds.has(parentId))
                     .map(parentId => ({ id: `${mfe._id}-${parentId}`, source: parentId, target: mfe._id!, data: { kind: "relation" as const } }))
             ),
-            ...microfrontends.flatMap(mfe =>
+            ...frontends.flatMap(mfe =>
                 (mfe.serviceIds ?? [])
                     .filter(serviceId => serviceIds.has(serviceId))
                     .map(serviceId => ({ id: `${mfe._id}->${serviceId}`, source: mfe._id!, target: serviceId, data: { kind: "service" as const } }))
             )
         ])
-    }, [microfrontends, services, microfrontendIds, serviceIds])
+    }, [frontends, services, frontendIds, serviceIds])
 
     // Hover styling is derived at render time, so it never fights the node and edge state React Flow mutates.
     const connectedIds = useMemo(() => {
@@ -172,18 +172,18 @@ export const DomainFlow: React.FC<DomainFlowProps> = ({ microfrontends, services
         [edges, hoveredNodeId]
     )
 
-    const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: ["microfrontends-by-project-id", projectId] }), [queryClient, projectId])
+    const refresh = useCallback(() => queryClient.invalidateQueries({ queryKey: ["frontends-by-project-id", projectId] }), [queryClient, projectId])
 
     const onNodesChange = useCallback(
         (changes: NodeChange[]) => {
             for (const change of changes) {
-                if (change.type === "position" && change.dragging === false && microfrontendIds.has(change.id)) {
-                    microfrontendsApi.setPosition({ id: change.id, ...change.position })
+                if (change.type === "position" && change.dragging === false && frontendIds.has(change.id)) {
+                    frontendsApi.setPosition({ id: change.id, ...change.position })
                 }
             }
             setNodes(snapshot => applyNodeChanges(changes, snapshot))
         },
-        [microfrontendIds, microfrontendsApi.setPosition]
+        [frontendIds, frontendsApi.setPosition]
     )
 
     const onEdgesChange = useCallback(
@@ -195,41 +195,41 @@ export const DomainFlow: React.FC<DomainFlowProps> = ({ microfrontends, services
                 for (const change of removed) {
                     const edge = edges.find(e => e.id === change.id)
                     if (!edge) continue
-                    if (edge.data?.kind === "service") await microfrontendsApi.unlinkService(edge.source, edge.target)
-                    else await microfrontendsApi.removeRelation({ remote: edge.target, host: edge.source })
+                    if (edge.data?.kind === "service") await frontendsApi.unlinkService(edge.source, edge.target)
+                    else await frontendsApi.removeRelation({ remote: edge.target, host: edge.source })
                 }
             } finally {
                 // On a failure too, so the canvas goes back to what is actually saved.
                 await refresh()
             }
         },
-        [edges, microfrontendsApi.unlinkService, microfrontendsApi.removeRelation, refresh]
+        [edges, frontendsApi.unlinkService, frontendsApi.removeRelation, refresh]
     )
 
-    // Only a microfrontend starts a link: to another microfrontend it is a host/remote relation, to a service a backend call.
-    // A FRONTEND is served by its own container and cannot have parents, so no relation may end on it.
+    // Only a frontend starts a link: to another frontend it is a host/remote relation, to a service a backend call.
+    // A DOCKER is served by its own container and cannot have parents, so no relation may end on it.
     const isValidConnection = useCallback(
-        (connection: Connection | Edge) => connection.source !== connection.target && microfrontendIds.has(connection.source) && !frontendIds.has(connection.target),
-        [microfrontendIds, frontendIds]
+        (connection: Connection | Edge) => connection.source !== connection.target && frontendIds.has(connection.source) && !dockerIds.has(connection.target),
+        [frontendIds, dockerIds]
     )
 
     const onConnect = useCallback(
         async ({ source, target }: Connection) => {
-            if (serviceIds.has(target)) await microfrontendsApi.linkService(source, target)
-            else await microfrontendsApi.setRelation({ remote: target, host: source })
+            if (serviceIds.has(target)) await frontendsApi.linkService(source, target)
+            else await frontendsApi.setRelation({ remote: target, host: source })
             await refresh()
         },
-        [serviceIds, microfrontendsApi.linkService, microfrontendsApi.setRelation, refresh]
+        [serviceIds, frontendsApi.linkService, frontendsApi.setRelation, refresh]
     )
 
     const onConnectEnd: OnConnectEnd = useCallback(
         (_event, connectionState) => {
-            // Dropped on the empty canvas: a new remote for the microfrontend the link started from.
-            if (!connectionState.toNode && connectionState.fromNode && microfrontendIds.has(connectionState.fromNode.id)) {
-                onAddMicrofrontend(connectionState.fromNode.id)
+            // Dropped on the empty canvas: a new remote for the frontend the link started from.
+            if (!connectionState.toNode && connectionState.fromNode && frontendIds.has(connectionState.fromNode.id)) {
+                onAddFrontend(connectionState.fromNode.id)
             }
         },
-        [microfrontendIds, onAddMicrofrontend]
+        [frontendIds, onAddFrontend]
     )
 
     const onNodeMouseEnter = useCallback((_event: React.MouseEvent, node: Node) => setHoveredNodeId(node.id), [])
@@ -238,7 +238,7 @@ export const DomainFlow: React.FC<DomainFlowProps> = ({ microfrontends, services
     const onNodeDoubleClick = useCallback(
         (_event: React.MouseEvent, node: Node) => {
             if (node.type === SERVICE_NODE_TYPE) navigate(`/service/${node.id}`)
-            if (node.type === MICROFRONTEND_NODE_TYPE) navigate(`/microfrontend/${node.id}`)
+            if (node.type === FRONTEND_NODE_TYPE) navigate(`/frontend/${node.id}`)
         },
         [navigate]
     )

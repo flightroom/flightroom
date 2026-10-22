@@ -17,7 +17,7 @@ export const ServicesGrid: React.FC<{ services: Service[] }> = ({ services }) =>
     return (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
             {services.map(service => {
-                // Opens on Edit with AI, as a microfrontend does, when the agent can work on the service.
+                // Opens on Edit with AI, as a frontend does, when the agent can work on the service.
                 const aiAvailable = isServiceAiAvailable(service, assistantEnabled)
                 return (
                     <Card key={service._id} className="flex h-full flex-col transition-colors duration-200 hover:border-primary">

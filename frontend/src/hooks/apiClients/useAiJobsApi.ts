@@ -16,14 +16,14 @@ export interface AiUsage {
     outputTokens: number
 }
 
-/** What the job did on one repository: the `AiChangeRequest` reviewed on the microfrontend (or service) page, without file contents. */
+/** What the job did on one repository: the `AiChangeRequest` reviewed on the frontend (or service) page, without file contents. */
 export interface AiJobRepository {
     requestId: string
-    /** Whose repository it is: the `microfrontend*` fields describe a service too. */
-    kind: "microfrontend" | "service"
-    microfrontendId: string
-    microfrontendName: string
-    microfrontendSlug: string
+    /** Whose repository it is: the `frontend*` fields describe a service too. */
+    kind: "frontend" | "service"
+    frontendId: string
+    frontendName: string
+    frontendSlug: string
     /** The repository on its provider; unset when the component has none any more. */
     repository?: { name: string; cloneUrlHttps?: string }
     status: AiChangeStatus
@@ -68,7 +68,7 @@ export interface AiJob {
 }
 
 export interface AiWorkingAgents {
-    microfrontendId: string
+    frontendId: string
     agents: number
 }
 
@@ -76,18 +76,18 @@ export interface AiWorkingAgents {
 export type CreateAiJobDTO = (
     | { prompt: string; scope: "global" }
     | { prompt: string; scope: "domain"; domainId: string }
-    | { prompt: string; scope: "selection"; microfrontendIds: string[]; serviceIds?: string[] }
+    | { prompt: string; scope: "selection"; frontendIds: string[]; serviceIds?: string[] }
 ) & {
     effort?: LlmEffort
     aiModelId?: string
-    /** The branch each repository starts from, by microfrontend or service id: its default branch when left out. */
+    /** The branch each repository starts from, by frontend or service id: its default branch when left out. */
     baseBranches?: Record<string, string>
 }
 
 export interface FollowUpAiJobDTO {
     prompt: string
     /** A subset of the parent's repositories; all of them when missing. */
-    microfrontendIds?: string[]
+    frontendIds?: string[]
     serviceIds?: string[]
     /** The parent's effort when missing. */
     effort?: LlmEffort
@@ -95,7 +95,7 @@ export interface FollowUpAiJobDTO {
     aiModelId?: string
 }
 
-/** A microfrontend or a service the AI proposes to create in a domain that has none, with the repository it would be scaffolded in. */
+/** A frontend or a service the AI proposes to create in a domain that has none, with the repository it would be scaffolded in. */
 export interface DomainPlanComponent {
     name: string
     slug: string
@@ -114,7 +114,7 @@ export interface DomainPlanDTO {
 }
 
 export interface DomainPlan {
-    microfrontends: DomainPlanComponent[]
+    frontends: DomainPlanComponent[]
     services: DomainPlanComponent[]
 }
 
@@ -172,7 +172,7 @@ const useAiJobsApi = () => {
         return response.data
     }
 
-    /** How many agents of anyone in the project are at work on each microfrontend; those with none are left out. */
+    /** How many agents of anyone in the project are at work on each frontend; those with none are left out. */
     const working = async (metadata?: IClientRequestMetadataExtended): Promise<AiWorkingAgents[]> => {
         const response = await apiClient.doRequest<AiWorkingAgents[]>({
             url: "/api/ai-jobs/working",
@@ -192,7 +192,7 @@ const useAiJobsApi = () => {
         return response.data
     }
 
-    /** What the AI proposes to create in a domain without microfrontends nor services, for the request: nothing is created yet. */
+    /** What the AI proposes to create in a domain without frontends nor services, for the request: nothing is created yet. */
     const planDomain = async (data: DomainPlanDTO, metadata?: IClientRequestMetadataExtended): Promise<DomainPlan> => {
         const response = await apiClient.doRequest<DomainPlan, DomainPlanDTO>({
             url: "/api/ai-jobs/domain-plan",

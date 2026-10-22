@@ -4,8 +4,8 @@ import { EnvironmentNotFoundError } from "../errors/EnvironmentNotFoundError"
 import Deployment, { IDeployedService, IDeployedVariableMap, IDeployment } from "../models/DeploymentModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
+import Frontend, { IFrontend } from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
-import Microfrontend, { IMicrofrontend } from "../models/MicrofrontendModel"
 import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import { ConfigMap, IVariableMap, Secret } from "../models/VariableMapModel"
@@ -45,7 +45,7 @@ class DeploymentService extends BaseAuthorizedService {
     }
 
     /**
-     * The snapshots as a domain-scoped member may read them: only the microfrontends and services of their
+     * The snapshots as a domain-scoped member may read them: only the frontends and services of their
      * domains as they are now, one deleted since being nobody's, and the config maps and secrets they may see. The documents are only answered, never
      * saved: what the environment serves stays whole.
      */
@@ -56,11 +56,11 @@ class DeploymentService extends BaseAuthorizedService {
             return deployments
         }
         const filter = { projectId: environment.projectId, ...(await this.domainScopeFilter(environment.projectId)) }
-        const visible = new Set([...(await Microfrontend.find(filter, { _id: 1 })), ...(await Service.find(filter, { _id: 1 }))].map(application => String(application._id)))
+        const visible = new Set([...(await Frontend.find(filter, { _id: 1 })), ...(await Service.find(filter, { _id: 1 }))].map(application => String(application._id)))
         const visibleConfigMaps = await mapIdsInScope("configMap", environment.projectId, scope)
         const visibleSecrets = await mapIdsInScope("secret", environment.projectId, scope)
         for (const deployment of deployments) {
-            deployment.microfrontends = (deployment.microfrontends ?? []).filter(microfrontend => visible.has(String(microfrontend._id)))
+            deployment.frontends = (deployment.frontends ?? []).filter(frontend => visible.has(String(frontend._id)))
             deployment.services = (deployment.services ?? []).filter(service => visible.has(String(service._id)))
             deployment.configMaps = (deployment.configMaps ?? []).filter(map => visibleConfigMaps.has(String(map._id)))
             deployment.secrets = (deployment.secrets ?? []).filter(map => visibleSecrets.has(String(map._id)))
@@ -165,7 +165,7 @@ class DeploymentService extends BaseAuthorizedService {
 
         const scope = await this.deployScope(environment.projectId, domainId, session)
         const inScope = { projectId: environment.projectId, ...(scope && { domainId: { $in: scope.map(id => toObjectId(id)) } }) }
-        const microfrontend = await Microfrontend.find(inScope).session(session || null)
+        const frontend = await Frontend.find(inScope).session(session || null)
         // With GitOps on, the deploy commits the values of these services at this version
         const service: IDeployedService[] = await Service.find(inScope, { slug: 1, name: 1, domainId: 1, version: 1, image: 1 })
             .session(session || null)
@@ -183,17 +183,17 @@ class DeploymentService extends BaseAuthorizedService {
         const deploymentId = await this.getDeploymentId(environmentIdObj, session)
         const currentDeployment = await this.getCurrentDeployment(environmentIdObj, session)
 
-        // A domain-scoped member, or a deploy of one domain, ships the microfrontends and services of those
+        // A domain-scoped member, or a deploy of one domain, ships the frontends and services of those
         // domains only: everything else the environment serves, the variables and the storages included, is
         // carried over from the deployment it serves now, so that their deploy cannot ship what another domain
         // has not released yet. A copy, for the same reason as the storages above: the snapshot encrypts in
         // place what it saves.
-        let microfrontends: unknown[] = microfrontend
+        let frontends: unknown[] = frontend
         let services: unknown[] = service
         if (scope && currentDeployment) {
-            const previous = currentDeployment.toObject() as { microfrontends?: IMicrofrontend[]; services?: IDeployedService[]; variables?: unknown[]; storages?: unknown[] }
-            microfrontends = await this.mergeIntoServed<{ _id?: unknown; domainId?: unknown }>(previous.microfrontends ?? [], microfrontend, scope, ids =>
-                Microfrontend.find({ _id: { $in: ids }, projectId: environment.projectId }, { _id: 1 }).session(session || null)
+            const previous = currentDeployment.toObject() as { frontends?: IFrontend[]; services?: IDeployedService[]; variables?: unknown[]; storages?: unknown[] }
+            frontends = await this.mergeIntoServed<{ _id?: unknown; domainId?: unknown }>(previous.frontends ?? [], frontend, scope, ids =>
+                Frontend.find({ _id: { $in: ids }, projectId: environment.projectId }, { _id: 1 }).session(session || null)
             )
             services = await this.mergeIntoServed<{ _id?: unknown; domainId?: unknown }>(previous.services ?? [], service, scope, ids =>
                 Service.find({ _id: { $in: ids }, projectId: environment.projectId }, { _id: 1 }).session(session || null)
@@ -204,7 +204,7 @@ class DeploymentService extends BaseAuthorizedService {
 
         const deployment = await new Deployment({
             environmentId: environment._id,
-            microfrontends,
+            frontends,
             services,
             configMaps,
             secrets,
@@ -239,7 +239,7 @@ class DeploymentService extends BaseAuthorizedService {
         return new GitOpsService(this.user).deploy([environmentId], () => runInTransaction(async session => this.createRaw(environmentId, session)))
     }
 
-    /** With `domainId`, only the microfrontends and services of that functional domain move */
+    /** With `domainId`, only the frontends and services of that functional domain move */
     async createMultiple(environmentIds: (string | Schema.Types.ObjectId)[], domainId?: string) {
         await this.ensureDeployableDomain(environmentIds, domainId)
         return new GitOpsService(this.user).deploy(environmentIds, () => runInTransaction(async session => this.createMultipleRaw(environmentIds, session, domainId)), domainId)

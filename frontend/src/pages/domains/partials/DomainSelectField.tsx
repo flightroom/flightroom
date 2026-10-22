@@ -4,7 +4,7 @@ import { useTranslation } from "react-i18next"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useProjectStore from "@/store/useProjectStore"
 
-/** The optional functional domain of a microfrontend or a service, bound to the `domainId` field of the form */
+/** The optional functional domain of a frontend or a service, bound to the `domainId` field of the form */
 export const DomainSelectField: React.FC<{ containerClassName?: string }> = ({ containerClassName }) => {
     const { t } = useTranslation()
     const domainsApi = useDomainsApi()

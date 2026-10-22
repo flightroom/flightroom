@@ -12,7 +12,7 @@ interface DomainHeaderProps {
     actions?: React.ReactNode
 }
 
-/** Shared by the two screens of a domain, in the same frame as those of a microfrontend and of a service, with the version and the deploy of the domain on both. */
+/** Shared by the two screens of a domain, in the same frame as those of a frontend and of a service, with the version and the deploy of the domain on both. */
 export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active, actions }) => {
     const { t } = useTranslation()
 

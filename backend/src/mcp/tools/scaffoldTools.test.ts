@@ -3,7 +3,7 @@ import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import { McpSession, McpToolContext, requiresConfirmation } from "../toolDefinition"
 import { scaffoldTools } from "./scaffoldTools"
 
-const createMicrofrontend = vi.fn()
+const createFrontend = vi.fn()
 const createService = vi.fn()
 const getTemplate = vi.fn()
 const findCodeRepository = vi.fn()
@@ -19,7 +19,7 @@ const { serviceClass } = vi.hoisted(() => ({
         }
 }))
 
-vi.mock("../../service/MicrofrontendService", () => ({ default: serviceClass({ create: (...args: unknown[]) => createMicrofrontend(...args) }) }))
+vi.mock("../../service/FrontendService", () => ({ default: serviceClass({ create: (...args: unknown[]) => createFrontend(...args) }) }))
 vi.mock("../../service/ServiceService", () => ({ default: serviceClass({ create: (...args: unknown[]) => createService(...args) }) }))
 vi.mock("../../service/MarketService", () => ({ default: serviceClass({ getSingle: (...args: unknown[]) => getTemplate(...args) }) }))
 vi.mock("../../service/CodeRepositoryService", () => ({ default: serviceClass({ findById: (...args: unknown[]) => findCodeRepository(...args) }) }))
@@ -27,7 +27,7 @@ vi.mock("../../service/DomainService", () => ({ default: serviceClass({ getById:
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const DOMAIN = "bbbbbbbbbbbbbbbbbbbbbbbb"
-const MICROFRONTEND = "cccccccccccccccccccccccc"
+const FRONTEND = "cccccccccccccccccccccccc"
 const CODE_REPOSITORY = "dddddddddddddddddddddddd"
 const SERVICE = "eeeeeeeeeeeeeeeeeeeeeeee"
 
@@ -48,14 +48,14 @@ const run = (name: string, args: Record<string, unknown>) => tool(name).run(tool
 
 describe("scaffold tools", () => {
     beforeEach(() => {
-        for (const mock of [createMicrofrontend, createService, getTemplate, findCodeRepository, getDomain]) {
+        for (const mock of [createFrontend, createService, getTemplate, findCodeRepository, getDomain]) {
             mock.mockReset()
         }
     })
 
     it("given their definitions, when read, then MCP clients get them and the console assistant asks before creating a repository", () => {
-        expect(scaffoldTools.map(definition => definition.name).sort()).toEqual(["microfrontend_scaffold", "service_scaffold"])
-        expect(tool("microfrontend_scaffold").inputSchema.shape.repositoryName.description).toContain("-fe")
+        expect(scaffoldTools.map(definition => definition.name).sort()).toEqual(["frontend_scaffold", "service_scaffold"])
+        expect(tool("frontend_scaffold").inputSchema.shape.repositoryName.description).toContain("-fe")
         expect(tool("service_scaffold").inputSchema.shape.repositoryName.description).toContain("-be")
         for (const definition of scaffoldTools) {
             expect(definition.consoleOnly, definition.name).toBeFalsy()
@@ -65,17 +65,17 @@ describe("scaffold tools", () => {
         }
     })
 
-    describe("microfrontend_scaffold", () => {
+    describe("frontend_scaffold", () => {
         const input = { name: "Cart", slug: "cart", version: "1.0.0", template: "react-vite", codeRepositoryId: CODE_REPOSITORY, private: true }
 
-        it("given a template and a connection of the project, when scaffolded, then the microfrontend is created with the repository to create", async () => {
+        it("given a template and a connection of the project, when scaffolded, then the frontend is created with the repository to create", async () => {
             findCodeRepository.mockResolvedValue({ _id: CODE_REPOSITORY })
             getTemplate.mockResolvedValue({ slug: "react-vite" })
-            createMicrofrontend.mockResolvedValue({ _id: MICROFRONTEND, slug: "cart" })
+            createFrontend.mockResolvedValue({ _id: FRONTEND, slug: "cart" })
 
-            expect(await run("microfrontend_scaffold", input)).toEqual({ _id: MICROFRONTEND, slug: "cart" })
+            expect(await run("frontend_scaffold", input)).toEqual({ _id: FRONTEND, slug: "cart" })
             expect(findCodeRepository).toHaveBeenCalledWith(CODE_REPOSITORY)
-            expect(createMicrofrontend).toHaveBeenCalledWith(
+            expect(createFrontend).toHaveBeenCalledWith(
                 {
                     name: "Cart",
                     slug: "cart",
@@ -95,16 +95,16 @@ describe("scaffold tools", () => {
         it("given a connection of another project, when scaffolded, then it is refused before anything is created", async () => {
             findCodeRepository.mockRejectedValue(new EntityNotFoundError(CODE_REPOSITORY))
 
-            await expect(run("microfrontend_scaffold", input)).rejects.toBeInstanceOf(EntityNotFoundError)
-            expect(createMicrofrontend).not.toHaveBeenCalled()
+            await expect(run("frontend_scaffold", input)).rejects.toBeInstanceOf(EntityNotFoundError)
+            expect(createFrontend).not.toHaveBeenCalled()
         })
 
         it("given an unknown template, when scaffolded, then it is refused before any repository is created", async () => {
             findCodeRepository.mockResolvedValue({ _id: CODE_REPOSITORY })
             getTemplate.mockResolvedValue(null)
 
-            await expect(run("microfrontend_scaffold", input)).rejects.toMatchObject({ code: "TEMPLATE_NOT_FOUND" })
-            expect(createMicrofrontend).not.toHaveBeenCalled()
+            await expect(run("frontend_scaffold", input)).rejects.toMatchObject({ code: "TEMPLATE_NOT_FOUND" })
+            expect(createFrontend).not.toHaveBeenCalled()
         })
     })
 

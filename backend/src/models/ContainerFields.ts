@@ -4,8 +4,8 @@ import { isServiceUrl, SERVICE_HTTP_PATH } from "../types/ServiceStack"
 
 /**
  * The fields of what runs as a container of its own: a backend service, or a frontend built into an
- * image. They live apart from both models because ServiceModel already imports MicrofrontendModel, so
- * the microfrontend schema could not import them from ServiceModel without a cycle.
+ * image. They live apart from both models because ServiceModel already imports FrontendModel, so
+ * the frontend schema could not import them from ServiceModel without a cycle.
  */
 
 /** A variable the image reads from its environment */

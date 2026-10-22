@@ -269,7 +269,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
     const input = () => ({
         prompt: "Add a 404 page",
         project: { name: "Shop", context: "We use TypeScript strict." },
-        repositories: [{ baseBranch: "main", workingCopy, microfrontend: { name: "Catalog", slug: "catalog", framework: "REACT", context: "Pages live in src/pages." } }]
+        repositories: [{ baseBranch: "main", workingCopy, frontend: { name: "Catalog", slug: "catalog", framework: "REACT", context: "Pages live in src/pages." } }]
     })
     const hooks = () => {
         const events: string[] = []
@@ -427,7 +427,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
                 ...input(),
                 repositories: [
                     ...input().repositories,
-                    { baseBranch: "develop", workingCopy: new GitWorkingCopy(cartDir, "http://unused", { username: "", password: "" }), microfrontend: { name: "Cart", slug: "cart" } }
+                    { baseBranch: "develop", workingCopy: new GitWorkingCopy(cartDir, "http://unused", { username: "", password: "" }), frontend: { name: "Cart", slug: "cart" } }
                 ],
                 previousRequests: [{ prompt: "Add a cart page", summary: "Added src/Cart.tsx" }]
             }
@@ -440,14 +440,14 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
             const firstMessage = sent[0].messages[0]
             const firstPrompt = firstMessage.role === "user" ? firstMessage.text : ""
             expect(firstPrompt).toContain(
-                "<repositories>\n<repository>\nname: Catalog\nslug: catalog\nframework: REACT\nbase_branch: main\n<microfrontend_context>\nPages live in src/pages.\n</microfrontend_context>\n</repository>"
+                "<repositories>\n<repository>\nname: Catalog\nslug: catalog\nframework: REACT\nbase_branch: main\n<frontend_context>\nPages live in src/pages.\n</frontend_context>\n</repository>"
             )
             expect(firstPrompt).toContain("<repository>\nname: Cart\nslug: cart\nbase_branch: develop\n</repository>\n</repositories>")
             expect(firstPrompt).toContain(
                 "<previous_requests>\n<previous_request>\n<prompt>\nAdd a cart page\n</prompt>\n<summary>\nAdded src/Cart.tsx\n</summary>\n</previous_request>\n</previous_requests>"
             )
             expect(firstPrompt).toContain("summarise the WHOLE change")
-            expect(sent[0].system).toContain("SEVERAL microfrontends")
+            expect(sent[0].system).toContain("SEVERAL frontends")
         } finally {
             fs.rmSync(cartDir, { recursive: true, force: true })
         }
@@ -486,11 +486,11 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
     it.each([
         ["SINGLE_SPA", "integration: single-spa.", "import map"],
         ["MICRO_LC", "integration: micro-lc.", "window.ReactJSXRuntime"]
-    ])("Given a %s microfrontend, then the prompt names the integration model and its shared React contract, not a bundler", async (compiler, model, contract) => {
+    ])("Given a %s frontend, then the prompt names the integration model and its shared React contract, not a bundler", async (compiler, model, contract) => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
         const base = input()
 
-        await runAiChangeAgent(client, { ...base, repositories: [{ ...base.repositories[0], microfrontend: { ...base.repositories[0].microfrontend, compiler } }] }, hooks().hooks)
+        await runAiChangeAgent(client, { ...base, repositories: [{ ...base.repositories[0], frontend: { ...base.repositories[0].frontend, compiler } }] }, hooks().hooks)
 
         const firstMessage = sent[0].messages[0]
         const text = firstMessage.role === "user" ? firstMessage.text : ""
@@ -499,14 +499,14 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(text).not.toContain(`bundler: ${compiler}`)
     })
 
-    it("Given one repository, then the prompt keeps the single microfrontend form", async () => {
+    it("Given one repository, then the prompt keeps the single frontend form", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
 
         await runAiChangeAgent(client, input(), hooks().hooks)
 
         const firstMessage = sent[0].messages[0]
-        expect(firstMessage.role === "user" && firstMessage.text.startsWith("<microfrontend>\nname: Catalog\nslug: catalog\nframework: REACT\nbase_branch: main\n</microfrontend>")).toBe(true)
-        expect(sent[0].system).toContain("ONE microfrontend")
+        expect(firstMessage.role === "user" && firstMessage.text.startsWith("<frontend>\nname: Catalog\nslug: catalog\nframework: REACT\nbase_branch: main\n</frontend>")).toBe(true)
+        expect(sent[0].system).toContain("ONE frontend")
         expect(sent[0].system).not.toContain("SEVERAL")
     })
 
@@ -540,7 +540,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
             )
         ).toBe(true)
         expect(firstPrompt).toContain("<service_context>\nRoutes live in src/routes.\n</service_context>")
-        expect(sent[0].system).toContain("microfrontends and backend services")
+        expect(sent[0].system).toContain("frontends and backend services")
         expect(sent[0].system).toContain("ONE backend service")
         expect(sent[0].system).toContain("AGENTS.md")
         expect(sent[0].system).toContain("liveness_path and readiness_path")
@@ -548,7 +548,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(sent[0].system).toContain("You cannot run commands")
     })
 
-    it("Given one microfrontend, then the agent is not sent to AGENTS.md", async () => {
+    it("Given one frontend, then the agent is not sent to AGENTS.md", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
 
         await runAiChangeAgent(client, input(), hooks().hooks)
@@ -556,7 +556,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(sent[0].system).not.toContain("AGENTS.md")
     })
 
-    it("Given a microfrontend and a service, when it runs, then the service is marked as such and paths start with its slug", async () => {
+    it("Given a frontend and a service, when it runs, then the service is marked as such and paths start with its slug", async () => {
         const ordersDir = makeRepository({ "src/routes.ts": "export const routes = []\n" })
         try {
             const { client, sent } = scriptedClient([
@@ -575,7 +575,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
             const firstPrompt = firstMessage.role === "user" ? firstMessage.text : ""
             expect(firstPrompt).toContain("<repository>\nname: Orders API\nkind: backend service\nslug: orders\nruntime: NODE")
             expect(firstPrompt).toContain("<service_context>\nRoutes live in src/routes.\n</service_context>\n</repository>")
-            expect(sent[0].system).toContain("SEVERAL microfrontends and backend services")
+            expect(sent[0].system).toContain("SEVERAL frontends and backend services")
         } finally {
             fs.rmSync(ordersDir, { recursive: true, force: true })
         }
@@ -596,7 +596,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
             const firstMessage = sent[0].messages[0]
             const firstPrompt = firstMessage.role === "user" ? firstMessage.text : ""
             expect(firstPrompt).toContain('<domain_context domain="Checkout">\nEverything between the cart and the payment.\n</domain_context>')
-            expect(firstPrompt).toContain('belong to the functional domain "Checkout", which groups its frontend (microfrontends) and its backend (services)')
+            expect(firstPrompt).toContain('belong to the functional domain "Checkout", which groups its frontends and its backend services')
             // The domain sits with the project, before the request.
             expect(firstPrompt.indexOf("<domain_context")).toBeGreaterThan(firstPrompt.indexOf("</repositories>"))
             expect(firstPrompt.indexOf("<domain_context")).toBeLessThan(firstPrompt.indexOf("<request>"))
@@ -616,7 +616,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(firstPrompt).toContain('<domain_context domain="Checkout">\nEverything between the cart and the payment.\nPrices are in cents.\n</domain_context>')
     })
 
-    it("Given a job not on a domain whose microfrontend is in one, when it runs, then the prompt carries that domain's context without asking to keep a frontend and a backend in step", async () => {
+    it("Given a job not on a domain whose frontend is in one, when it runs, then the prompt carries that domain's context without asking to keep a frontend and a backend in step", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
 
         await runAiChangeAgent(client, { ...input(), memberDomains: [{ name: "Checkout", context: "Prices are in cents." }] }, hooks().hooks)

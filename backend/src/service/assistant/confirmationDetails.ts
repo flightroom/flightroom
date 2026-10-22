@@ -2,7 +2,7 @@ import { fastify } from "../.."
 import { McpToolContext, McpToolDefinition } from "../../mcp/toolDefinition"
 import { AiChangeStatus } from "../../models/AiChangeRequestModel"
 import { IDeployment } from "../../models/DeploymentModel"
-import { IMicrofrontend } from "../../models/MicrofrontendModel"
+import { IFrontend } from "../../models/FrontendModel"
 import { ApiKeyService } from "../ApiKeyService"
 import AiChangeJobService from "../aiChange/AiChangeJobService"
 import AiChangeService from "../aiChange/AiChangeService"
@@ -10,8 +10,8 @@ import CodeRepositoryService from "../CodeRepositoryService"
 import DeploymentService from "../DeploymentService"
 import DomainService from "../DomainService"
 import EnvironmentService from "../EnvironmentService"
+import FrontendService from "../FrontendService"
 import GlobalVariablesService from "../GlobalVariablesService"
-import MicrofrontendService from "../MicrofrontendService"
 import OAuthGrantService from "../OAuthGrantService"
 import OrganizationService from "../OrganizationService"
 import ProjectService from "../ProjectService"
@@ -48,37 +48,37 @@ const once = <T>(load: () => Promise<T>) => {
     return () => (loaded ??= load())
 }
 
-type ServedMicrofrontend = Pick<IMicrofrontend, "slug" | "name" | "version"> & { host?: { type?: string; url?: string } }
+type ServedFrontend = Pick<IFrontend, "slug" | "name" | "version"> & { host?: { type?: string; url?: string } }
 interface Served {
-    microfrontends: ServedMicrofrontend[]
+    frontends: ServedFrontend[]
     variables: { key: string; value: string }[]
 }
 
-const hostOf = (microfrontend: ServedMicrofrontend) => microfrontend.host?.url || microfrontend.host?.type || "?"
-const describeMicrofrontend = (microfrontend: ServedMicrofrontend) => `${microfrontend.name ?? microfrontend.slug} ${microfrontend.version ?? "?"} (${hostOf(microfrontend)})`
-const servedOf = (deployment: Pick<IDeployment, "microfrontends" | "variables">): Served => ({
-    microfrontends: (deployment.microfrontends ?? []) as ServedMicrofrontend[],
+const hostOf = (frontend: ServedFrontend) => frontend.host?.url || frontend.host?.type || "?"
+const describeFrontend = (frontend: ServedFrontend) => `${frontend.name ?? frontend.slug} ${frontend.version ?? "?"} (${hostOf(frontend)})`
+const servedOf = (deployment: Pick<IDeployment, "frontends" | "variables">): Served => ({
+    frontends: (deployment.frontends ?? []) as ServedFrontend[],
     variables: (deployment.variables ?? []).map(variable => ({ key: variable.key, value: variable.value }))
 })
 
-/** What `next` serves that `current` does not: microfrontends added, removed or moved to another version or host, and variables. */
+/** What `next` serves that `current` does not: frontends added, removed or moved to another version or host, and variables. */
 export const describeServedChanges = (current: Served, next: Served): string[] => {
     const changes: string[] = []
-    const keyOf = (microfrontend: ServedMicrofrontend) => microfrontend.slug ?? microfrontend.name
-    const before = new Map(current.microfrontends.map(microfrontend => [keyOf(microfrontend), microfrontend]))
-    const after = new Map(next.microfrontends.map(microfrontend => [keyOf(microfrontend), microfrontend]))
-    for (const [key, microfrontend] of after) {
+    const keyOf = (frontend: ServedFrontend) => frontend.slug ?? frontend.name
+    const before = new Map(current.frontends.map(frontend => [keyOf(frontend), frontend]))
+    const after = new Map(next.frontends.map(frontend => [keyOf(frontend), frontend]))
+    for (const [key, frontend] of after) {
         const previous = before.get(key)
-        const name = microfrontend.name ?? key
+        const name = frontend.name ?? key
         if (!previous) {
-            changes.push(`+ ${describeMicrofrontend(microfrontend)}`)
+            changes.push(`+ ${describeFrontend(frontend)}`)
             continue
         }
-        if (previous.version !== microfrontend.version) changes.push(`${name}: ${previous.version} → ${microfrontend.version}`)
-        if (hostOf(previous) !== hostOf(microfrontend)) changes.push(`${name}: ${hostOf(previous)} → ${hostOf(microfrontend)}`)
+        if (previous.version !== frontend.version) changes.push(`${name}: ${previous.version} → ${frontend.version}`)
+        if (hostOf(previous) !== hostOf(frontend)) changes.push(`${name}: ${hostOf(previous)} → ${hostOf(frontend)}`)
     }
-    for (const [key, microfrontend] of before) {
-        if (!after.has(key)) changes.push(`− ${microfrontend.name ?? key}`)
+    for (const [key, frontend] of before) {
+        if (!after.has(key)) changes.push(`− ${frontend.name ?? key}`)
     }
 
     const valuesBefore = new Map(current.variables.map(variable => [variable.key, variable.value]))
@@ -93,7 +93,7 @@ export const describeServedChanges = (current: Served, next: Served): string[] =
     return changes
 }
 
-const describeServed = (served: Served) => [...served.microfrontends.map(describeMicrofrontend), ...served.variables.map(variable => `${variable.key} = ${clip(variable.value, 100)}`)]
+const describeServed = (served: Served) => [...served.frontends.map(describeFrontend), ...served.variables.map(variable => `${variable.key} = ${clip(variable.value, 100)}`)]
 
 const formatDate = (value: Date | string | undefined) => (value ? new Date(value).toISOString().slice(0, 16).replace("T", " ") : "")
 
@@ -112,15 +112,15 @@ class DetailResolver {
     }
 
     private readonly environments = once(() => new EnvironmentService(this.principal).getByProjectId(this.projectId))
-    private readonly microfrontends = once(() => new MicrofrontendService(this.principal).getByProjectId(this.projectId))
+    private readonly frontends = once(() => new FrontendService(this.principal).getByProjectId(this.projectId))
 
     private async environmentName(id: string) {
         return (await this.environments()).find(environment => String(environment._id) === id)?.name
     }
 
-    private async microfrontendLabel(id: string) {
-        const microfrontend = (await this.microfrontends()).find(candidate => String(candidate._id) === id)
-        return microfrontend && describeMicrofrontend(microfrontend)
+    private async frontendLabel(id: string) {
+        const frontend = (await this.frontends()).find(candidate => String(candidate._id) === id)
+        return frontend && describeFrontend(frontend)
     }
 
     private async userLabel(id: string) {
@@ -154,13 +154,13 @@ class DetailResolver {
             case "environmentId":
             case "environmentIds":
                 return each(key === "environmentId" ? "environment" : "environments", id => this.environmentName(id))
-            case "microfrontendId":
-            case "microfrontendIds":
-                return each(key === "microfrontendId" ? "microfrontend" : "microfrontends", id => this.microfrontendLabel(id))
+            case "frontendId":
+            case "frontendIds":
+                return each(key === "frontendId" ? "frontend" : "frontends", id => this.frontendLabel(id))
             case "hostId":
-                return each("host", id => this.microfrontendLabel(id))
+                return each("host", id => this.frontendLabel(id))
             case "remoteId":
-                return each("remote", id => this.microfrontendLabel(id))
+                return each("remote", id => this.frontendLabel(id))
             case "userId":
                 return each("user", id => this.userLabel(id))
             case "organizationId":
@@ -194,15 +194,15 @@ class DetailResolver {
         }
     }
 
-    /** An AI change: on which microfrontend, what was asked, and the files it would write. */
+    /** An AI change: on which frontend, what was asked, and the files it would write. */
     private async aiChange(id: string): Promise<ConfirmationDetail[]> {
         const change = await new AiChangeService(this.principal, fastify.config).get(id).catch(() => undefined)
         if (!change) return [{ label: "ai_change", value: id }]
         const files = (change.files ?? []).map(file => `${file.action} ${file.path}`)
-        const microfrontend = change.microfrontendId ? await this.microfrontendLabel(String(change.microfrontendId)).catch(() => undefined) : undefined
+        const frontend = change.frontendId ? await this.frontendLabel(String(change.frontendId)).catch(() => undefined) : undefined
         const service = change.serviceId ? await new ServiceService(this.principal).getById(String(change.serviceId)).catch(() => undefined) : undefined
         return [
-            change.serviceId ? { label: "service", value: service?.name ?? String(change.serviceId) } : { label: "microfrontend", value: microfrontend ?? String(change.microfrontendId) },
+            change.serviceId ? { label: "service", value: service?.name ?? String(change.serviceId) } : { label: "frontend", value: frontend ?? String(change.frontendId) },
             { label: "prompt", value: clip(change.prompt ?? "") },
             ...(files.length ? [{ label: "files", value: lines(files) }] : [])
         ]
@@ -214,8 +214,8 @@ class DetailResolver {
         if (!job) return [{ label: "jobId", value: id }]
         const proposed = job.repositories
             .filter(repository => repository.status === AiChangeStatus.PROPOSED && repository.files.length > 0)
-            .map(repository => `${repository.microfrontendName || repository.microfrontendSlug}: ${repository.files.length} ${repository.files.length === 1 ? "file" : "files"}`)
-        return [{ label: "prompt", value: clip(job.prompt) }, ...(proposed.length ? [{ label: "microfrontends", value: lines(proposed) }] : [])]
+            .map(repository => `${repository.frontendName || repository.frontendSlug}: ${repository.files.length} ${repository.files.length === 1 ? "file" : "files"}`)
+        return [{ label: "prompt", value: clip(job.prompt) }, ...(proposed.length ? [{ label: "frontends", value: lines(proposed) }] : [])]
     }
 
     /** Per environment: what the new deployment changes compared to the one served now, or all it serves when there is none. */
@@ -230,7 +230,7 @@ class DetailResolver {
                 // A domain-scoped member's deploy keeps the variables served now: the live ones would show a change it does not ship
                 const servedVariables = current && (await deploymentService.shipsServedVariables(environmentId))
                 const next: Served = {
-                    microfrontends: await this.microfrontends(),
+                    frontends: await this.frontends(),
                     variables: servedVariables
                         ? servedOf(current).variables
                         : (await new GlobalVariablesService(this.principal).getAll(environmentId)).map(variable => ({ key: variable.key, value: variable.value }))
@@ -251,7 +251,7 @@ class DetailResolver {
         const environment = await new EnvironmentService(this.principal).getById(found.environmentId)
         if (!environment) return [{ label: "deployment", value: deploymentId }]
         const deployments = await service.getByEnvironmentId(found.environmentId)
-        // The target as the principal may read it: getById answers the whole snapshot, the microfrontends of
+        // The target as the principal may read it: getById answers the whole snapshot, the frontends of
         // every domain included, while the list keeps a domain-scoped member's own only
         const target = deployments.find(deployment => String(deployment._id) === String(found._id))
         if (!target) return [{ label: "deployment", value: deploymentId }]

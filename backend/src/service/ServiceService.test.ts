@@ -38,7 +38,7 @@ import Project from "../models/ProjectModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
-import { MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { FrontendStackSource } from "../types/FrontendStack"
 import ServiceDTO from "../types/ServiceDTO"
 import { ServiceRuntime } from "../types/ServiceStack"
 import ServiceService, { imageRepositoryOf, isNewerVersion, normalizeUrls } from "./ServiceService"
@@ -212,11 +212,11 @@ describe("ServiceService.create", () => {
             placeholders: { "%serviceSlug%": "orders-api", "%domain%": "https://console.example.com" }
         })
         expect(written.template).toBe("service-node-fastify")
-        expect(written.stack).toEqual({ runtime: ServiceRuntime.NODE, framework: "Node.js", source: MicrofrontendStackSource.TEMPLATE })
+        expect(written.stack).toEqual({ runtime: ServiceRuntime.NODE, framework: "Node.js", source: FrontendStackSource.TEMPLATE })
         expect(written.codeRepository?.createData).toBeUndefined()
     })
 
-    it("given a microfrontend template, when a service is created, then it is refused before any repository is created", async () => {
+    it("given a frontend template, when a service is created, then it is refused before any repository is created", async () => {
         await expect(create({ slug: "vite-remote-react", type: "remote", compiler: "vite", framework: "React" })).rejects.toBeInstanceOf(BusinessException)
         expect(createRepository).not.toHaveBeenCalled()
     })

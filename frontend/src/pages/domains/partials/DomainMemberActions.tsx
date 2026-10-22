@@ -5,7 +5,7 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import useCodeRepositoriesApi from "@/hooks/apiClients/useCodeRepositoriesApi"
-import { ImportRepositoriesDialog } from "@/pages/microfrontends/partials/components"
+import { ImportRepositoriesDialog } from "@/pages/frontends/partials/components"
 import useProjectStore from "@/store/useProjectStore"
 import AssignDomainMembersDialog, { DomainMemberCandidate, DomainMemberKind } from "./AssignDomainMembersDialog"
 
@@ -14,7 +14,7 @@ interface DomainMemberActionsProps {
     domainId: string
     label: string
     onCreate: () => void
-    /** The microfrontends or services of the project that are not in the domain */
+    /** The frontends or services of the project that are not in the domain */
     candidates: DomainMemberCandidate[]
 }
 

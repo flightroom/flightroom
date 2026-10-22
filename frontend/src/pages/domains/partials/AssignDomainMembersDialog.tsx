@@ -8,9 +8,9 @@ import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
-export type DomainMemberKind = "microfrontend" | "service"
+export type DomainMemberKind = "frontend" | "service"
 
-/** A microfrontend or a service of the project that is not in the domain yet */
+/** A frontend or a service of the project that is not in the domain yet */
 export interface DomainMemberCandidate {
     _id: string
     name: string
@@ -59,15 +59,12 @@ export const AssignDomainMembersDialog: React.FC<AssignDomainMembersDialogProps>
     const toggleAllVisible = () => setSelectedIds(current => (allVisibleSelected ? current.filter(id => !visibleIds.includes(id)) : [...new Set([...current, ...visibleIds])]))
 
     const assignMutation = useMutation({
-        mutationFn: () => domainsApi.addMembers(domainId, kind === "service" ? { serviceIds: selectedIds } : { microfrontendIds: selectedIds }),
+        mutationFn: () => domainsApi.addMembers(domainId, kind === "service" ? { serviceIds: selectedIds } : { frontendIds: selectedIds }),
         onSuccess: async result => {
             notifications.showSuccessNotification({
-                message: t(`domains.members.assigned_${kind}`, { count: kind === "service" ? result.services : result.microfrontends })
+                message: t(`domains.members.assigned_${kind}`, { count: kind === "service" ? result.services : result.frontends })
             })
-            await Promise.all([
-                queryClient.invalidateQueries({ queryKey: kind === "service" ? ["services"] : ["microfrontends-by-project-id"] }),
-                queryClient.invalidateQueries({ queryKey: ["domains"] })
-            ])
+            await Promise.all([queryClient.invalidateQueries({ queryKey: kind === "service" ? ["services"] : ["frontends-by-project-id"] }), queryClient.invalidateQueries({ queryKey: ["domains"] })])
             onOpenChange(false)
         }
     })

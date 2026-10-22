@@ -1,4 +1,4 @@
-import { MicrofrontendCompiler, MicrofrontendFramework } from "../types/MicrofrontendStack"
+import { FrontendCompiler, FrontendFramework } from "../types/FrontendStack"
 
 /** The package a host imports remoteUrl() and configure() from */
 export const CLIENT_SDK_PACKAGE = "@mfe-orchestrator-hub/client"
@@ -56,8 +56,8 @@ interface FrameworkProfile {
     entryPoint: string
 }
 
-const FRAMEWORK_PROFILES: Record<MicrofrontendFramework, FrameworkProfile> = {
-    [MicrofrontendFramework.REACT]: {
+const FRAMEWORK_PROFILES: Record<FrontendFramework, FrameworkProfile> = {
+    [FrontendFramework.REACT]: {
         vitePluginImport: "import react from '@vitejs/plugin-react'",
         vitePluginCall: "react()",
         webpackImports: ["const HtmlWebpackPlugin = require('html-webpack-plugin');"],
@@ -68,7 +68,7 @@ const FRAMEWORK_PROFILES: Record<MicrofrontendFramework, FrameworkProfile> = {
         exposedComponent: "'./App': './src/App'",
         entryPoint: "src/main.tsx"
     },
-    [MicrofrontendFramework.VUE]: {
+    [FrontendFramework.VUE]: {
         vitePluginImport: "import vue from '@vitejs/plugin-vue'",
         vitePluginCall: "vue()",
         webpackImports: ["const HtmlWebpackPlugin = require('html-webpack-plugin');", "const { VueLoaderPlugin } = require('vue-loader');"],
@@ -79,7 +79,7 @@ const FRAMEWORK_PROFILES: Record<MicrofrontendFramework, FrameworkProfile> = {
         exposedComponent: "'./App': './src/App.vue'",
         entryPoint: "src/main.js"
     },
-    [MicrofrontendFramework.ANGULAR]: {
+    [FrontendFramework.ANGULAR]: {
         vitePluginImport: "import angular from '@analogjs/vite-plugin-angular'",
         vitePluginCall: "angular()",
         // Drops Angular's development only assertions, the way the Angular CLI does in a
@@ -97,8 +97,8 @@ const FRAMEWORK_PROFILES: Record<MicrofrontendFramework, FrameworkProfile> = {
 }
 
 /** Packages to add to package.json for a stack, beyond what the app already has */
-const REQUIRED_DEV_DEPENDENCIES: Partial<Record<MicrofrontendCompiler, string[]>> = {
-    [MicrofrontendCompiler.VITE]: ["@originjs/vite-plugin-federation"]
+const REQUIRED_DEV_DEPENDENCIES: Partial<Record<FrontendCompiler, string[]>> = {
+    [FrontendCompiler.VITE]: ["@originjs/vite-plugin-federation"]
 }
 
 /**
@@ -151,16 +151,16 @@ window.ReactJSXRuntime = ReactJSXRuntime
 */`
 
 export interface FederationConfigRequest {
-    framework?: MicrofrontendFramework
-    compiler?: MicrofrontendCompiler
-    /** Federation name of the microfrontend the config belongs to */
-    microfrontendSlug: string
+    framework?: FrontendFramework
+    compiler?: FrontendCompiler
+    /** Federation name of the frontend the config belongs to */
+    frontendSlug: string
     remotes: FederationRemote[]
     /** Hosts are consumable as remotes too, so they expose their root component */
     exposeSelf?: boolean
     /** Config file already in the repository, used to keep its extension */
     configPath?: string
-    /** Id of the project the microfrontend belongs to, written into the config */
+    /** Id of the project the frontend belongs to, written into the config */
     projectId?: string
     /** Base url of the console API, written into the config */
     backendUrl?: string
@@ -188,7 +188,7 @@ export interface IntegrationInstructions {
 }
 
 /**
- * Generates the module federation configuration of a microfrontend for its own stack.
+ * Generates the module federation configuration of a frontend for its own stack.
  *
  * One place produces both the instructions shown on the integration screen and the file the
  * integration writes into the repository, so what a user is told to do and what the platform
@@ -198,15 +198,15 @@ export class FederationConfigService {
     getInstructions(request: FederationConfigRequest): IntegrationInstructions {
         const { compiler, framework } = request
 
-        if (compiler === MicrofrontendCompiler.WEBCOMPONENT) {
+        if (compiler === FrontendCompiler.WEBCOMPONENT) {
             return this.webComponentInstructions()
         }
 
-        if (compiler === MicrofrontendCompiler.SINGLE_SPA) {
+        if (compiler === FrontendCompiler.SINGLE_SPA) {
             return this.singleSpaInstructions(request)
         }
 
-        if (compiler === MicrofrontendCompiler.MICRO_LC) {
+        if (compiler === FrontendCompiler.MICRO_LC) {
             return this.microlcInstructions(request)
         }
 
@@ -215,8 +215,8 @@ export class FederationConfigService {
         }
 
         const profile = FRAMEWORK_PROFILES[framework]
-        const config = compiler === MicrofrontendCompiler.VITE ? this.viteConfig(request, profile) : this.webpackConfig(request, profile)
-        const configPath = request.configPath || (compiler === MicrofrontendCompiler.VITE ? "vite.config.js" : "webpack.config.js")
+        const config = compiler === FrontendCompiler.VITE ? this.viteConfig(request, profile) : this.webpackConfig(request, profile)
+        const configPath = request.configPath || (compiler === FrontendCompiler.VITE ? "vite.config.js" : "webpack.config.js")
         const bootstrap = this.bootstrapSnippet(request, profile, compiler)
         const dependencies = [...(REQUIRED_DEV_DEPENDENCIES[compiler] || [])]
 
@@ -240,7 +240,7 @@ export class FederationConfigService {
     }
 
     /**
-     * single-spa: no module federation. A root config (any microfrontend consuming others, or a
+     * single-spa: no module federation. A root config (any frontend consuming others, or a
      * host) gets the file registering its applications, each loaded with `import()` of the url
      * `remoteUrl()` resolves; an application gets the library build that makes it one ES module
      * exporting lifecycles, React kept external. Modelled on template-single-spa-react-host and
@@ -283,7 +283,7 @@ export class FederationConfigService {
     private microlcInstructions(request: FederationConfigRequest): IntegrationInstructions {
         if (!this.isHost(request)) {
             const configPath = request.configPath || "vite.config.ts"
-            const config = this.microlcParcelConfig(configPath, federationName(request.microfrontendSlug))
+            const config = this.microlcParcelConfig(configPath, federationName(request.frontendSlug))
             return { configPath, config, dependencies: [], code: config }
         }
 
@@ -329,7 +329,7 @@ export class FederationConfigService {
 import { remoteUrl } from '${CLIENT_SDK_PACKAGE}'
 import { registerApplication } from 'single-spa'
 
-// One registerApplication() per microfrontend this root config mounts. The string
+// One registerApplication() per frontend this root config mounts. The string
 // passed to remoteUrl() is the slug in the orchestrator: it resolves to the url of
 // the application's entry module, already pinned to the version (stable or canary)
 // the backend picked for this page. Use it verbatim and never write a url here.
@@ -377,7 +377,7 @@ export default defineConfig({
     target: 'esnext',
     // A single-spa application is an ES module exporting bootstrap, mount and unmount
     // (src/spa.tsx, with single-spa-react). The output is dist/index.js, a fixed name:
-    // it is the entry point the orchestrator serves, so keep it as the microfrontend's
+    // it is the entry point the orchestrator serves, so keep it as the frontend's
     // entry point. Lazy chunks are imported relatively, from the versioned url.
     lib: {
       entry: 'src/spa.tsx',
@@ -411,8 +411,8 @@ export async function buildMicrolcConfig(): Promise<Config> {
   return {
     version: 2,${defaultUrl}
     applications: {
-      // One entry per microfrontend. The key is micro-lc's application id, the
-      // string passed to remoteUrl() is the slug of the microfrontend in the console.
+      // One entry per frontend. The key is micro-lc's application id, the
+      // string passed to remoteUrl() is the slug of the frontend in the console.
       // The entry is one self-contained UMD script: qiankun fetches it (CORS) and
       // evaluates it in a sandbox, so no ES modules and no federation.
 ${applications}
@@ -447,7 +447,7 @@ export default defineConfig({
     // qiankun only evaluates classic scripts exporting bootstrap, mount and unmount
     // (src/parcel.tsx), so the parcel is a UMD library build: one self-contained
     // file, dist/parcel.js. It is the entry point the orchestrator serves, so keep
-    // it as the microfrontend's entry point. No chunks and no CSS files: siblings
+    // it as the frontend's entry point. No chunks and no CSS files: siblings
     // would be requested from the shell's origin.
     lib: {
       entry: 'src/parcel.tsx',
@@ -477,7 +477,7 @@ export default defineConfig({
         ]
         const defineNote =
             define.length > 0
-                ? `\n// The backend url and the project id of this microfrontend, for the define block of\n// vite.config.ts (or the VITE_MFE_* variables of the CI):\n// define: {\n${define.join("\n")}\n// }`
+                ? `\n// The backend url and the project id of this frontend, for the define block of\n// vite.config.ts (or the VITE_MFE_* variables of the CI):\n// define: {\n${define.join("\n")}\n// }`
                 : ""
 
         return `
@@ -515,7 +515,7 @@ ${start.join("\n")}
 
         return `
 ${indent}remotes: {
-${indent}  // One entry per microfrontend this host consumes. The key is the name you import
+${indent}  // One entry per frontend this host consumes. The key is the name you import
 ${indent}  // from ("${remotes[0].name}/Button"), the string passed to ${sdkCall} is the slug in
 ${indent}  // the orchestrator. Never write a url here: the backend resolves the version.
 ${note.map(line => `${indent}  // ${line}\n`).join("")}${remotes.map(render).join(",\n")}
@@ -572,7 +572,7 @@ ${entries.map(entry => `      ${entry},`).join("\n")}
     }
 
     private viteConfig(request: FederationConfigRequest, profile: FrameworkProfile): string {
-        const { microfrontendSlug, remotes, exposeSelf } = request
+        const { frontendSlug, remotes, exposeSelf } = request
         // `externalType: 'promise'` tells the plugin that `external` is an expression resolving to
         // the url instead of the url itself, so it is awaited in the host bundle at import time
         const remotesBlock = this.remotesBlock(
@@ -593,7 +593,7 @@ ${profile.vitePluginImport ? `${profile.vitePluginImport}\n` : ""}
 export default defineConfig({
   plugins: [
     ${frameworkPlugin}federation({
-      name: '${microfrontendSlug}',
+      name: '${frontendSlug}',
       // A host is consumable as a remote too: the orchestrator serves this file at
       // assets/remoteEntry.js, which is what the catalogue entry declares.
       filename: 'remoteEntry.js',${
@@ -603,7 +603,7 @@ export default defineConfig({
         ${profile.exposedComponent}
       },`
               : ""
-}${remotesBlock}
+      }${remotesBlock}
       shared: [${profile.shared.map(dependency => `'${dependency}'`).join(", ")}]
     })
   ],
@@ -617,7 +617,7 @@ ${this.viteDefineBlock(request, profile)}  build: {
     }
 
     private webpackConfig(request: FederationConfigRequest, profile: FrameworkProfile): string {
-        const { microfrontendSlug, remotes, exposeSelf } = request
+        const { frontendSlug, remotes, exposeSelf } = request
         // `promise <expression>` is how ModuleFederationPlugin declares a remote whose url is only
         // known at runtime. The expression is pasted into the host bundle verbatim, outside of any
         // module, so it cannot import the SDK (a bare import() reaches the browser unresolved), and it
@@ -664,7 +664,7 @@ ${plugins.map(plugin => `    ${plugin},`).join("\n")}
     new ModuleFederationPlugin({
       // The global the remote entry defines its container under, which is what a host passes
       // to loadWebpackRemote(): an identifier, so it never holds a dash or a slash.
-      name: '${federationName(microfrontendSlug)}',
+      name: '${federationName(frontendSlug)}',
       filename: 'remoteEntry.js',${
           exposeSelf
               ? `
@@ -672,7 +672,7 @@ ${plugins.map(plugin => `    ${plugin},`).join("\n")}
         ${profile.exposedComponent}
       },`
               : ""
-}${remotesBlock}
+      }${remotesBlock}
       shared: {
 ${sharedBlock}
       }
@@ -694,18 +694,18 @@ ${sharedBlock}
      *
      * The logged in user is emitted commented out inside the call, because it is the one field no
      * environment variable can fill in: only the host knows it, and only a user based canary reads
-     * it. Left out, those microfrontends serve everyone the stable version, which is a silent
+     * it. Left out, those frontends serve everyone the stable version, which is a silent
      * outcome — hence the line, so that whoever pastes the block at least knows the option exists.
      *
      * It is emitted commented out because it does not belong to the bundler config but to the
      * entry point of the host app, where it has to run before anything imports a remote.
      */
-    private bootstrapSnippet({ remotes }: FederationConfigRequest, profile: FrameworkProfile, compiler: MicrofrontendCompiler): string {
+    private bootstrapSnippet({ remotes }: FederationConfigRequest, profile: FrameworkProfile, compiler: FrontendCompiler): string {
         if (remotes.length === 0) {
             return ""
         }
 
-        const isVite = compiler === MicrofrontendCompiler.VITE
+        const isVite = compiler === FrontendCompiler.VITE
         const readEnvVariable = (variable: string) => (isVite ? `import.meta.env.VITE_${variable}` : `process.env.${variable}`)
         const injectedBy = isVite ? "the `define` block" : "DefinePlugin"
         const envNote = `The backend url and the project id are already in the config above, written into\n// the bundle by ${injectedBy}: there is no .env to fill in. Only the environment is\n// left to read, and it is optional.`
@@ -730,7 +730,7 @@ configure({
   projectId: ${readEnvVariable("MFE_PROJECT_ID")},
   // Only a canary targeted on users reads this, and nothing else can supply it.
   // A getter is resolved right before the request, so an auth round trip is in
-  // time; later than that, use setUserId(). Without it those microfrontends
+  // time; later than that, use setUserId(). Without it those frontends
   // serve everyone the stable version.
   // userId: () => auth.currentUser?.id,
   ...(environment ? { environment } : {})

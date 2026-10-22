@@ -139,7 +139,7 @@ image:
 
 ## Storage
 
-Uploaded microfrontends are stored on a PersistentVolumeClaim mounted at
+Uploaded frontend bundles are stored on a PersistentVolumeClaim mounted at
 `env.MICROFRONTEND_HOST_FOLDER` (default `/upload-microfrontends`). Setting
 `persistence.mountPath` overrides the mount point and the variable is kept in sync automatically.
 
@@ -151,7 +151,7 @@ persistence:
   # existingClaim: my-claim
 ```
 
-With `persistence.enabled: false` the microfrontends live in the container filesystem and are
+With `persistence.enabled: false` the frontend bundles live in the container filesystem and are
 lost at every restart. If you scale beyond one replica, use a `ReadWriteMany` volume, otherwise
 keep `replicaCount: 1`.
 
@@ -208,7 +208,7 @@ helm install mfe-orchestrator ./helm/mfe-orchestrator \
 | `existingSecret`               | `[]`                     | Existing Secrets injected with `envFrom`                 |
 | `existingConfigMap`            | `[]`                     | Existing ConfigMaps injected with `envFrom`              |
 | `extraEnv`                     | `[]`                     | Raw container `env` entries                              |
-| `persistence.enabled`          | `true`                   | Persist uploaded microfrontends on a PVC                 |
+| `persistence.enabled`          | `true`                   | Persist uploaded frontend bundles on a PVC              |
 | `persistence.existingClaim`    | `""`                     | Use an existing PVC instead of creating one              |
 | `persistence.storageClass`     | `""`                     | StorageClass (`-` disables dynamic provisioning)         |
 | `persistence.accessModes`      | `[ReadWriteOnce]`        | PVC access modes                                         |

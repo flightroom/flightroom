@@ -160,7 +160,7 @@ const ServiceRepositorySection: React.FC<{ service: Service }> = ({ service }) =
 }
 
 /**
- * The landing screen of a service: Edit with AI on its repository, the same workspace as a microfrontend's.
+ * The landing screen of a service: Edit with AI on its repository, the same workspace as a frontend's.
  * Without AI editing, the overview takes its place. Not inside an ApiStatusHandler: it unmounts its children on every background refetch, and the workspace holds a draft prompt.
  */
 const ServiceAiSection: React.FC<{ serviceQuery: { isPending: boolean; isError: boolean; error: unknown; data?: Service } }> = ({ serviceQuery }) => {

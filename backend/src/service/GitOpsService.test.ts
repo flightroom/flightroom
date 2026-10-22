@@ -6,7 +6,7 @@ vi.mock("..", () => ({ fastify: { log: { error: vi.fn() }, config: { REPOSITORIE
 
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
@@ -211,7 +211,7 @@ describe("GitOpsService.deploy", () => {
         vi.spyOn(ConfigMap, "find").mockResolvedValue([logging] as never)
         vi.spyOn(Secret, "find").mockResolvedValue([database] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
     it("given GitOps off, when environments are deployed, then only the deploy runs", async () => {
@@ -508,7 +508,7 @@ describe("GitOpsService.deploy", () => {
             } as never)
             vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production, slug: "production", projectId }] as never)
             vi.spyOn(Service, "find").mockResolvedValue([{ slug: "orders-api", version: "1.0.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api" }] as never)
-            vi.spyOn(Microfrontend, "find").mockResolvedValue([{ slug: "shell", version: "2.0.0", image: { repository: "ghcr.io/acme/shell" }, exposurePath: "/api/" }] as never)
+            vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "shell", version: "2.0.0", image: { repository: "ghcr.io/acme/shell" }, exposurePath: "/api/" }] as never)
             const run = vi.fn()
 
             await expect(deployOf(production)(run)).rejects.toMatchObject({ code: "GITOPS_EXPOSURE_PATH_TAKEN" })
@@ -576,7 +576,7 @@ describe("GitOpsService.deploy", () => {
             await new GitOpsService().deploy([production] as never, async () => "deployed", String(domainId))
 
             expect(vi.mocked(Service.find).mock.calls[0][0]).toEqual({ projectId: String(projectId), domainId: String(domainId) })
-            expect(vi.mocked(Microfrontend.find).mock.calls[0][0]).toMatchObject({ projectId: String(projectId), domainId: String(domainId) })
+            expect(vi.mocked(Frontend.find).mock.calls[0][0]).toMatchObject({ projectId: String(projectId), domainId: String(domainId) })
         })
 
         it("given the configuration and the applications commits, when an environment is deployed, then the deploy runs after both", async () => {
