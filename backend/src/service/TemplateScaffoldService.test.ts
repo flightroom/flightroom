@@ -68,7 +68,7 @@ vi.mock("isomorphic-git", () => ({
 
 import * as git from "isomorphic-git"
 import { Types } from "mongoose"
-import AzureDevOpsClient from "../client/AzureDevOpsClient"
+import AzureDevOpsClient, { AzureBranchNotFoundError } from "../client/AzureDevOpsClient"
 import GithubClient from "../client/GithubClient"
 import GitlabClient from "../client/GitlabClient"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
@@ -77,12 +77,13 @@ import { IMarket } from "../models/MarketModel"
 import Microfrontend from "../models/MicrofrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
+import UserProject from "../models/UserProjectModel"
 import { MicrofrontendCompiler, MicrofrontendFramework, MicrofrontendStackSource } from "../types/MicrofrontendStack"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import MarketService from "./MarketService"
 import MicrofrontendService from "./MicrofrontendService"
 import ServiceService from "./ServiceService"
-import TemplateScaffoldService, { PipelineTemplates, placeholderDomain, replaceFederationName } from "./TemplateScaffoldService"
+import TemplateScaffoldService, { PipelineTemplates, placeholderDomain, replaceFederationName, TagLookupError } from "./TemplateScaffoldService"
 import RepositoryWorkspaceService from "./workspace/RepositoryWorkspaceService"
 
 const servicePlaceholders = { "%serviceSlug%": "orders-api", "%domain%": "https://console.example.com" }
@@ -963,6 +964,7 @@ describe("TemplateScaffoldService.createTag", () => {
             vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
             vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
             vi.spyOn(Service, "exists").mockResolvedValue((shared ? { _id: new Types.ObjectId() } : null) as never)
+            vi.spyOn(UserProject, "findOne").mockResolvedValue({ role: "MEMBER" } as never)
             return new MicrofrontendService({ _id: new Types.ObjectId() } as never).build(String(new Types.ObjectId()), "1.2.0")
         }
 
@@ -976,6 +978,95 @@ describe("TemplateScaffoldService.createTag", () => {
             await build(false)
 
             expect(createTag).toHaveBeenCalledTimes(1)
+        })
+    })
+
+    describe("by a viewer of the project", () => {
+        beforeEach(() => {
+            connectionOf(projectId)
+            vi.spyOn(UserProject, "findOne").mockResolvedValue({ role: "VIEWER" } as never)
+            vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId() } as never)
+            vi.spyOn(BaseAuthorizedService.prototype as unknown as { findRoleInOrganization: () => Promise<undefined> }, "findRoleInOrganization").mockResolvedValue(undefined)
+        })
+
+        it("given a microfrontend, when it is built, then it is refused before the provider is called", async () => {
+            vi.spyOn(Microfrontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
+            vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
+
+            await expect(new MicrofrontendService({ _id: new Types.ObjectId() } as never).build(String(new Types.ObjectId()), "1.2.0")).rejects.toMatchObject({
+                code: "MICROFRONTEND_BUILD_FORBIDDEN",
+                statusCode: 403
+            })
+            expect(getBranchCommitSha).not.toHaveBeenCalled()
+            expect(createTag).not.toHaveBeenCalled()
+        })
+
+        it("given a service, when it is built, then it is refused before the provider is called", async () => {
+            vi.spyOn(Service, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "orders-api", codeRepository: link } as never)
+            vi.spyOn(ServiceService.prototype as unknown as { ensureAccessToService: () => Promise<void> }, "ensureAccessToService").mockResolvedValue(undefined)
+
+            await expect(new ServiceService({ _id: new Types.ObjectId() } as never).build(String(new Types.ObjectId()), "1.2.0")).rejects.toMatchObject({
+                code: "SERVICE_BUILD_FORBIDDEN",
+                statusCode: 403
+            })
+            expect(getBranchCommitSha).not.toHaveBeenCalled()
+            expect(createTag).not.toHaveBeenCalled()
+        })
+    })
+
+    /** A missing branch is the caller's to fix: a 404 the console translates, not a server error */
+    it("given a microfrontend whose branch does not exist, when it is built, then it is refused with a translatable 404", async () => {
+        connectionOf(projectId)
+        getBranchCommitSha.mockRejectedValue(Object.assign(new Error("Not Found"), { isAxiosError: true, response: { status: 404 } }))
+        vi.spyOn(GithubClient.prototype, "getRepository").mockResolvedValue({} as never)
+        vi.spyOn(Microfrontend, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, slug: "cart", codeRepository: link } as never)
+        vi.spyOn(MicrofrontendService.prototype as unknown as { ensureAccessToMicrofrontend: () => Promise<void> }, "ensureAccessToMicrofrontend").mockResolvedValue(undefined)
+
+        await expect(new MicrofrontendService().build(String(new Types.ObjectId()), "1.2.0", "release")).rejects.toMatchObject({ code: "BUILD_REF_NOT_FOUND", statusCode: 404 })
+        expect(createTag).not.toHaveBeenCalled()
+    })
+
+    describe("when the ref cannot be resolved", () => {
+        const azureConnection = () =>
+            vi.spyOn(CodeRepository, "findById").mockResolvedValue({
+                _id: codeRepositoryId,
+                projectId,
+                provider: CodeRepositoryProvider.AZURE_DEV_OPS,
+                accessToken: "token",
+                azureData: { organization: "acme", projectId: "shop" }
+            } as never)
+
+        it("given Azure DevOps without the branch, when the target is resolved, then the branch is missing, not the repository", async () => {
+            azureConnection()
+            vi.spyOn(AzureDevOpsClient.prototype, "getBranchCommitId").mockRejectedValue(new AzureBranchNotFoundError("release"))
+            vi.spyOn(AzureDevOpsClient.prototype, "getRepository").mockResolvedValue({ id: "42" } as never)
+
+            await expect(new TemplateScaffoldService().resolveTagTarget(link as never, projectId, "release")).rejects.toMatchObject({
+                reason: "REF_NOT_FOUND",
+                code: "BUILD_REF_NOT_FOUND",
+                statusCode: 404
+            })
+        })
+
+        it("given an Azure DevOps repository that is gone, when the target is resolved, then the repository is missing", async () => {
+            azureConnection()
+            vi.spyOn(AzureDevOpsClient.prototype, "getBranchCommitId").mockRejectedValue(Object.assign(new Error("Not Found"), { isAxiosError: true, response: { status: 404 } }))
+            vi.spyOn(AzureDevOpsClient.prototype, "getRepository").mockRejectedValue(Object.assign(new Error("Not Found"), { isAxiosError: true, response: { status: 404 } }))
+
+            const lookup = new TemplateScaffoldService().resolveTagTarget(link as never, projectId, "release")
+
+            await expect(lookup).rejects.toBeInstanceOf(TagLookupError)
+            await expect(lookup).rejects.toMatchObject({ reason: "REPOSITORY_NOT_FOUND", code: "BUILD_REPOSITORY_NOT_FOUND", statusCode: 404 })
+        })
+
+        it("given a provider failure that is not a missing branch, when the target is resolved, then it is passed on as it came", async () => {
+            connectionOf(projectId)
+            const failure = Object.assign(new Error("Server Error"), { isAxiosError: true, response: { status: 500 } })
+            getBranchCommitSha.mockRejectedValue(failure)
+            const getRepository = vi.spyOn(GithubClient.prototype, "getRepository")
+
+            await expect(new TemplateScaffoldService().resolveTagTarget(link as never, projectId)).rejects.toBe(failure)
+            expect(getRepository).not.toHaveBeenCalled()
         })
     })
 

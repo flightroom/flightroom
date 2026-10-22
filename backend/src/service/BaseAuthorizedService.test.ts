@@ -29,6 +29,9 @@ class AccessProbe extends BaseAuthorizedService {
     administeredOrganizations() {
         return this.getAdministeredOrganizationIds()
     }
+    refusesViewer(projectId: ObjectId) {
+        return this.ensureNotViewer(projectId, { code: "WRITE_FORBIDDEN", message: "A viewer cannot write" })
+    }
 }
 
 interface FakeProjectMembership {
@@ -85,6 +88,7 @@ describe("access to a project and to an organization", () => {
             const { _id } = filter as Record<string, unknown>
             return queryResult(projects.find(project => sameId(project._id, _id)) ?? null)
         }) as never)
+        vi.spyOn(Project, "findById").mockImplementation(((id: unknown) => queryResult(projects.find(project => sameId(project._id, id)) ?? null)) as never)
 
         const organizationRowsMatching = (filter: Record<string, unknown>) => {
             const { userId, organizationId, role, invitationToken } = filter
@@ -236,6 +240,29 @@ describe("access to a project and to an organization", () => {
             expect(await probe.belongsTo(organizationId)).toBe(false)
             expect(await probe.administers(organizationId)).toBe(false)
             expect(await probe.administeredOrganizations()).toEqual([])
+        })
+
+        /** Over MCP an administrator builds and creates repositories as they do in the console */
+        it("Given an organization administrator with a VIEWER row bound to the project, when a write is checked, then it passes", async () => {
+            const user = aUser()
+            const projectId = newId()
+            const organizationId = anOrganization()
+            projects.push({ _id: projectId, organizationId })
+            projectMemberships.push({ userId: user._id, projectId, role: RoleInProject.VIEWER })
+            organizationMemberships.push({ userId: user._id, organizationId, role: RoleInOrganization.ADMIN })
+
+            await expect(new AccessProbe(boundTo(user, projectId)).refusesViewer(projectId)).resolves.toBeUndefined()
+        })
+
+        it("Given a VIEWER who does not administer the organization bound to the project, when a write is checked, then it is refused", async () => {
+            const user = aUser()
+            const projectId = newId()
+            const organizationId = anOrganization()
+            projects.push({ _id: projectId, organizationId })
+            projectMemberships.push({ userId: user._id, projectId, role: RoleInProject.VIEWER })
+            organizationMemberships.push({ userId: user._id, organizationId, role: RoleInOrganization.MEMBER })
+
+            await expect(new AccessProbe(boundTo(user, projectId)).refusesViewer(projectId)).rejects.toMatchObject({ code: "WRITE_FORBIDDEN", statusCode: 403 })
         })
     })
 

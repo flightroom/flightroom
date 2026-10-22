@@ -11,6 +11,7 @@ const getDomain = vi.fn()
 const createDomain = vi.fn()
 const updateDomain = vi.fn()
 const deleteDomain = vi.fn()
+const buildDomain = vi.fn()
 const listMicrofrontends = vi.fn()
 const getMicrofrontend = vi.fn()
 const createMicrofrontend = vi.fn()
@@ -37,7 +38,8 @@ vi.mock("../../service/DomainService", () => ({
         getById: (...args: unknown[]) => getDomain(...args),
         create: (...args: unknown[]) => createDomain(...args),
         update: (...args: unknown[]) => updateDomain(...args),
-        delete: (...args: unknown[]) => deleteDomain(...args)
+        delete: (...args: unknown[]) => deleteDomain(...args),
+        build: (...args: unknown[]) => buildDomain(...args)
     })
 }))
 vi.mock("../../service/MicrofrontendService", () => ({
@@ -77,7 +79,19 @@ const domain = { _id: DOMAIN, name: "Checkout", slug: "checkout", toObject: () =
 
 describe("domain tools", () => {
     beforeEach(() => {
-        for (const mock of [listDomains, getDomain, createDomain, updateDomain, deleteDomain, listMicrofrontends, getMicrofrontend, createMicrofrontend, updateMicrofrontend, listServices]) {
+        for (const mock of [
+            listDomains,
+            getDomain,
+            createDomain,
+            updateDomain,
+            deleteDomain,
+            buildDomain,
+            listMicrofrontends,
+            getMicrofrontend,
+            createMicrofrontend,
+            updateMicrofrontend,
+            listServices
+        ]) {
             mock.mockReset()
         }
         principals.length = 0
@@ -177,6 +191,38 @@ describe("domain tools", () => {
         deleteDomain.mockRejectedValue(new UserCannotAccessThisProjectError())
 
         await expect(run("domain_delete", { domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
+    })
+
+    describe("domain_trigger_build", () => {
+        it("given a version and a branch, when run, then the service tags the domain and its per-repository result comes back", async () => {
+            const result = { version: "1.4.0", ref: "release", repositories: [{ repository: "cart-fe", members: [], status: "tagged" }] }
+            buildDomain.mockResolvedValue(result)
+
+            expect(await run("domain_trigger_build", { domainId: DOMAIN, version: "1.4.0", branch: "release" })).toBe(result)
+            expect(buildDomain).toHaveBeenCalledWith(DOMAIN, "1.4.0", "release")
+        })
+
+        it("given its definition, when read, then it reaches the git providers without destroying anything", () => {
+            expect(tool("domain_trigger_build").annotations).toMatchObject({ readOnlyHint: false, openWorldHint: true, destructiveHint: false })
+        })
+
+        it.each([["1.4 beta"], [""], ["x".repeat(129)]])("given the version %j, when validated, then it is refused", version => {
+            expect(tool("domain_trigger_build").inputSchema.safeParse({ domainId: DOMAIN, version }).success).toBe(false)
+        })
+
+        it.each([["release..1"], ["has space"], ["/main"], ["main.lock"], [""]])("given the branch %j, when validated, then it is refused as git would", branch => {
+            expect(tool("domain_trigger_build").inputSchema.safeParse({ domainId: DOMAIN, version: "1.4.0", branch }).success).toBe(false)
+        })
+
+        it("given a branch with a slash, when validated, then it is accepted", () => {
+            expect(tool("domain_trigger_build").inputSchema.safeParse({ domainId: DOMAIN, version: "1.4.0", branch: "release/1.4" }).success).toBe(true)
+        })
+
+        it("given a repository failing its check, when run, then the refusal surfaces", async () => {
+            buildDomain.mockRejectedValue(Object.assign(new Error("No repository was tagged"), { code: "DOMAIN_BUILD_CHECK_FAILED" }))
+
+            await expect(run("domain_trigger_build", { domainId: DOMAIN, version: "1.4.0" })).rejects.toMatchObject({ code: "DOMAIN_BUILD_CHECK_FAILED" })
+        })
     })
 })
 

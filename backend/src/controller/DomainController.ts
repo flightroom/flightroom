@@ -38,6 +38,11 @@ export default async function domainController(fastify: FastifyInstance) {
         return reply.send(await new DomainService(request.databaseUser).addMembers(request.params.id, request.body))
     })
 
+    // Tags the repository of every member with the same version: each tag starts the pipeline of its repository
+    fastify.post<{ Params: { id: string }; Body: { version: string; ref?: string } }>("/domains/:id/build", async (request, reply) => {
+        return reply.send(await new DomainService(request.databaseUser).build(request.params.id, request.body?.version, request.body?.ref))
+    })
+
     fastify.delete<{ Params: { id: string } }>("/domains/:id", async (request, reply) => {
         return reply.send(await new DomainService(request.databaseUser).delete(request.params.id))
     })

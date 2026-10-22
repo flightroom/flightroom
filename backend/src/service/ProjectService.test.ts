@@ -36,7 +36,7 @@ interface FakeProject {
 const aUser = (): IUser => ({ _id: newId(), email: "someone@example.com" }) as unknown as IUser
 
 let projects: FakeProject[]
-let projectMemberships: { userId: ObjectId; projectId: ObjectId; invitationToken?: string }[]
+let projectMemberships: { userId: ObjectId; projectId: ObjectId; invitationToken?: string; role?: string }[]
 let organizationMemberships: { userId: ObjectId; organizationId: ObjectId; role: RoleInOrganization }[]
 
 const sameId = (left: unknown, right: unknown) => String(left) === String(right)
@@ -128,6 +128,23 @@ describe("findMine", () => {
         organizationMemberships.push({ userId, organizationId: first, role: RoleInOrganization.OWNER }, { userId, organizationId: second, role: RoleInOrganization.OWNER })
 
         expect(await namesOf(user, first)).toEqual(["in-first"])
+    })
+
+    /** The console hides what a viewer cannot do: it reads the role here */
+    it("Given a viewer membership and an administered organization, when the list is read, then each project carries the role they act with", async () => {
+        const user = aUser()
+        const administeredOrganization = newId()
+        const viewed = aProject("viewed", newId())
+        const administered = aProject("administered", administeredOrganization)
+        projectMemberships.push({ userId: user._id, projectId: viewed._id, role: "VIEWER" }, { userId: user._id, projectId: administered._id, role: "VIEWER" })
+        organizationMemberships.push({ userId: user._id, organizationId: administeredOrganization, role: RoleInOrganization.ADMIN })
+
+        const roles = (await new ProjectService(user).findMine(user._id)).map(project => [project.name, project.role])
+
+        expect(roles).toEqual([
+            ["viewed", "VIEWER"],
+            ["administered", "OWNER"]
+        ])
     })
 
     it("Given a pending invitation to a project, when the list is read, then the project is not one of theirs yet", async () => {

@@ -91,6 +91,14 @@ at most.
 - `domain_create` and `domain_update` (`mfe:write`) set the name and the description; the slug is
   derived from the name when left out and fixed after creation. `domain_delete` is destructive: the
   members are kept and end up in no domain.
+- `domain_trigger_build` (`mfe:write`) releases a whole domain: it tags the repository of every
+  microfrontend and service in it with the same version, on the same branch (`main` when left out),
+  and each tag starts the pipeline of its repository. A repository linked to two members is tagged
+  once. Every repository is checked before any tag is made (the connection belongs to the project,
+  the domain scope, the repository and the branch exist, the tag does not): when one fails nothing is
+  tagged and the error lists each failure. A VIEWER of the project cannot run it, nor the build of a
+  single microfrontend or service. The result tells, per repository, whether it was tagged. The console offers
+  the same as "Build domain" on the domain page, and the REST API as `POST /api/domains/:id/build`.
 - `domain_links_list` (`mfe:read`) returns the relations the team drew by hand between two domains,
   each from `sourceDomainId` to `targetDomainId` with an optional label; `domain_link_create` and
   `domain_link_delete` (`mfe:write`, the delete destructive) draw and remove them. A relation goes one

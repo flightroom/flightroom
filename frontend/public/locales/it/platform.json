@@ -846,7 +846,10 @@
             "frontend_cannot_have_parents": "Un frontend servito dal suo container Docker non può avere parent",
             "frontend_exposure_path_required": "Un frontend servito dal suo container Docker ha bisogno di un path di esposizione: i browser lo raggiungono solo lì",
             "frontend_upload_not_allowed": "Un frontend servito dal suo container Docker non accetta upload di bundle: la sua pipeline registra l'immagine di ogni versione",
-            "version_registration_not_allowed": "Solo un frontend servito dal suo container Docker registra versioni di immagine: un microfrontend carica il suo bundle"
+            "version_registration_not_allowed": "Solo un frontend servito dal suo container Docker registra versioni di immagine: un microfrontend carica il suo bundle",
+            "build_forbidden": "Chi ha il ruolo di viewer non può creare una versione di un microfrontend",
+            "build_ref_not_found": "Il branch non esiste nel repository",
+            "build_repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
         },
         "validation": {
             "version_required": "La versione è obbligatoria",
@@ -2334,7 +2337,10 @@
             "versionPlaceholder": "Inserisci la versione (es. 1.0.0)",
             "building": "Creazione...",
             "start": "Crea versione",
-            "success": "Versione avviata per {{name}}"
+            "success": "Versione avviata per {{name}}",
+            "forbidden": "Chi ha il ruolo di viewer non può creare una versione di un servizio",
+            "ref_not_found": "Il branch non esiste nel repository",
+            "repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
         },
         "versions": {
             "title": "Versioni",
@@ -2387,6 +2393,41 @@
             "title": "Deploy di {{domain}}",
             "description": "Scegli l'ambiente: vengono deployati solo i microfrontend e i servizi di questo dominio, gli altri domini restano con le versioni che l'ambiente serve ora. Config map e secret vengono comunque deployati come sono adesso.",
             "success": "{{domain}} deployato su {{environment}}"
+        },
+        "build": {
+            "action": "Crea versione",
+            "title": "Crea una versione di {{domain}}",
+            "description": "Ogni microfrontend e servizio del dominio con un repository di codice riceve la stessa versione, taggata sullo stesso branch: ogni tag avvia la pipeline del suo repository. Un repository condiviso da più di loro viene taggato una volta sola. Ogni repository viene verificato prima: se uno fallisce, non ne viene taggato nessuno.",
+            "result_description": "Versione {{version}} sul branch {{ref}}, repository per repository.",
+            "version": "Versione",
+            "branch": "Branch",
+            "branch_hint": "In ogni repository viene taggato lo stesso branch: main se lasciato vuoto.",
+            "start": "Crea versione",
+            "success_one": "Versione {{version}} di {{domain}} avviata in {{count}} repository",
+            "success_other": "Versione {{version}} di {{domain}} avviata in {{count}} repository",
+            "partial_one": "{{count}} repository non è stato taggato: gli altri sì",
+            "partial_other": "{{count}} repository non sono stati taggati: gli altri sì",
+            "status": {
+                "tagged": "Taggato",
+                "ready": "Non taggato",
+                "failed": "Fallito"
+            },
+            "reasons": {
+                "CONNECTION_NOT_FOUND": "La connessione al repository di codice non appartiene più a questo progetto",
+                "DOMAIN_SCOPE_FORBIDDEN": "Il repository è condiviso con un microfrontend o un servizio fuori dai tuoi domini",
+                "REPOSITORY_NOT_FOUND": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo",
+                "REF_NOT_FOUND": "Il branch {{ref}} non esiste in questo repository",
+                "TAG_EXISTS": "Il tag {{version}} esiste già in questo repository",
+                "PROVIDER_ERROR": "Il provider ha rifiutato la richiesta: {{message}}"
+            },
+            "errors": {
+                "version_invalid": "La versione può contenere solo lettere, cifre, punti, trattini e underscore (al massimo 128)",
+                "ref_invalid": "Il branch deve essere un nome di branch git valido (niente spazi, niente '..', nessuno di ~^:?*[\\, nessuna barra all'inizio o alla fine), al massimo 255 caratteri",
+                "empty": "Il dominio non ha microfrontend né servizi da buildare",
+                "no_repositories": "Nessun microfrontend o servizio del dominio ha un repository di codice collegato",
+                "check_failed": "Nessun repository è stato taggato: la verifica è fallita per almeno uno di essi",
+                "forbidden": "Chi ha il ruolo di viewer non può creare una versione del dominio"
+            }
         },
         "deployments": {
             "open": "Versioni deployate",

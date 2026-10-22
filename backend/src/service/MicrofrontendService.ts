@@ -462,6 +462,8 @@ export class MicrofrontendService extends BaseAuthorizedService {
             throw new EntityNotFoundError(microfrontendId)
         }
         await this.ensureAccessToMicrofrontend(microfrontend)
+        // The tag starts a release: a viewer may look, not release
+        await this.ensureNotViewer(microfrontend.projectId, { code: "MICROFRONTEND_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a microfrontend" })
 
         await new TemplateScaffoldService(this.user).createTag(microfrontend.codeRepository, microfrontend.projectId, version, ref)
     }

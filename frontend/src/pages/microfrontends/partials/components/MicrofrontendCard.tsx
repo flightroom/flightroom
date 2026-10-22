@@ -6,6 +6,7 @@ import { useNavigate } from "react-router-dom"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
 import { CanaryType, Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
+import { useIsProjectViewer } from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import BuildDialog from "./BuildDialog"
 import CloneRepositoryPopover from "./CloneRepositoryPopover"
@@ -22,6 +23,8 @@ export const MicrofrontendCard: React.FC<MicrofrontendCardProps> = ({ mfe }) => 
     const navigate = useNavigate()
 
     const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false)
+    // A viewer may look, not release
+    const isViewer = useIsProjectViewer()
 
     const canary = mfe.canary?.enabled ? mfe.canary : undefined
     const canaryPercentage = Math.min(100, Math.max(0, canary?.percentage ?? 0))
@@ -98,7 +101,7 @@ export const MicrofrontendCard: React.FC<MicrofrontendCardProps> = ({ mfe }) => 
                     {aiAvailable ? <Sparkles /> : <Cog />}
                     {aiAvailable ? t("microfrontend.workspace.nav_ai") : t("common.configuration")}
                 </Button>
-                {hasRepository && (
+                {hasRepository && !isViewer && (
                     <Button variant="secondary" size="sm" onClick={() => setIsBuildDialogOpen(true)} className="flex-1">
                         <Hammer />
                         {t("microfrontend.card.build")}

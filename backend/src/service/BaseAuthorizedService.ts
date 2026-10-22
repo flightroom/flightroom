@@ -479,7 +479,10 @@ export default abstract class BaseAuthorizedService {
         const membership = await UserProject.findOne({ userId: user._id, projectId: toObjectId(projectId), invitationToken: null })
         if (membership?.role !== RoleInProject.VIEWER) return
         const project = await Project.findById(projectId, { organizationId: 1 })
-        if (project && (await this.isOrganizationAdmin(project.organizationId))) return
+        // The stored role, not the guarded one: a principal bound to the project (an MCP token) of an
+        // administrator still acts there as an owner, as hasAccessToProject and the domain scope let it.
+        const role = project ? await this.findRoleInOrganization(project.organizationId) : undefined
+        if (role && ORGANIZATION_ADMIN_ROLES.includes(role)) return
         throw createBusinessException({ ...forbidden, statusCode: 403 })
     }
 
