@@ -64,7 +64,7 @@ export const scaffoldTools = [
         name: "microfrontend_scaffold",
         title: "Create microfrontend from template",
         description:
-            "Adds a microfrontend whose code repository is created at the provider from a marketplace template (a microfrontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Use microfrontend_create instead to link a repository that already exists.",
+            "Adds a microfrontend whose code repository is created at the provider from a marketplace template (a microfrontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). A FRONTEND needs its exposurePath, checked before the repository is created. Use microfrontend_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,

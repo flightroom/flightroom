@@ -112,6 +112,10 @@ at most.
 - `microfrontend_create`, `microfrontend_update`, `service_create` and `service_update` take an optional
   `domainId`; `null` takes the item out of its domain. A domain of another project is refused before
   anything is written.
+- A microfrontend of kind `FRONTEND` (served by its own Docker container) needs an `exposurePath`:
+  `microfrontend_create`, `microfrontend_scaffold` and `microfrontend_update` refuse with
+  `FRONTEND_EXPOSURE_PATH_REQUIRED` a FRONTEND without one, a microfrontend made a FRONTEND without one,
+  or an update that clears it. A scaffold is refused before the repository is created.
 - `microfrontends_list` and `services_list` take an optional `domainId` filter: a domain id, or `none`
   for the items in no domain.
 

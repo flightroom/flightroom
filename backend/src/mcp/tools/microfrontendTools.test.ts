@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { z } from "zod"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { McpSession, McpToolContext, requiresConfirmation } from "../toolDefinition"
 
@@ -34,6 +35,19 @@ const context = (): McpToolContext => {
 
 /** Runs the tool on its parsed input, as the MCP server and the assistant do. */
 const run = (name: string, args: Record<string, unknown>) => tool(name).run(tool(name).inputSchema.parse(args) as never, context())
+
+describe("exposurePath of a FRONTEND", () => {
+    it.each(["microfrontend_create", "microfrontend_update"])("given %s, when its input is read, then exposurePath is described as required for a FRONTEND", name => {
+        // What MCP clients get: the partial update schema keeps the description only in its JSON Schema
+        const description = (z.toJSONSchema(tool(name).inputSchema) as { properties: Record<string, { description?: string }> }).properties.exposurePath.description
+
+        expect(description).toContain("Required to create a FRONTEND")
+    })
+
+    it("given microfrontend_create, when its description is read, then it tells a FRONTEND needs its exposurePath", () => {
+        expect(tool("microfrontend_create").description).toContain("A FRONTEND needs its exposurePath")
+    })
+})
 
 describe("microfrontend_repository_rename", () => {
     beforeEach(() => {
