@@ -2482,7 +2482,10 @@
             "canary_without_version": "canary ({{audience}})",
             "canary_enrolled_users": "enrolled users",
             "no_environments": "The project has no environments yet",
-            "no_members_short": "No members"
+            "no_members_short": "No members",
+            "search_placeholder": "Search by domain, frontend or service...",
+            "no_results_title": "No results",
+            "no_results_description": "No domain, frontend or service matches “{{searchTerm}}”."
         },
         "viewCards": "Cards view",
         "viewGalaxy": "Galaxy view",
