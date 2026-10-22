@@ -8,6 +8,7 @@ import useProjectStore from "@/store/useProjectStore"
 import type { LlmEffort } from "@/types/ConfigResponseDTO"
 import useAiJobsApi from "./apiClients/useAiJobsApi"
 import { AVAILABLE_AI_MODELS_QUERY_KEY } from "./apiClients/useAiModelsApi"
+import { AI_USAGE_QUERY_KEY } from "./apiClients/useAiUsageApi"
 import useAssistantApi from "./apiClients/useAssistantApi"
 import useApiClient from "./useApiClient"
 import { drainFrames, parseFrame } from "./useEventStream"
@@ -255,6 +256,8 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
             abortRef.current = undefined
             setIsStreaming(false)
             if (wrote) queryClient.invalidateQueries()
+            // Every answer is counted, a stopped or failed one too: the AI usage shown on the page includes it.
+            else queryClient.invalidateQueries({ queryKey: [AI_USAGE_QUERY_KEY] })
             // Saved after every answer, so that the history can reopen it.
             if (conversationId) save(conversationId)
         }

@@ -4,6 +4,7 @@ import { AlertTriangle } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
+import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import { jobErrorMessage } from "@/components/assistant/AssistantJobThread"
@@ -190,6 +191,8 @@ const DomainAiWorkspace: React.FC = () => {
                     <AlertDescription>{t("domains.ai.unavailable")}</AlertDescription>
                 </Alert>
             )}
+            {/* Under the workspace that spends them: the domain has no other page to show them on. */}
+            <AiUsageSummary target={{ kind: "domain", id: id! }} />
             <DomainScaffoldDialog
                 open={scaffold.open}
                 onOpenChange={open => setScaffold(current => ({ ...current, open }))}

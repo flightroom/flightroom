@@ -3301,5 +3301,42 @@
         "retype": {
             "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"
         }
+    },
+    "ai_usage": {
+        "title": "AI tokens",
+        "description": {
+            "domain": "Spent by Edit with AI on the requests made from this domain.",
+            "frontend": "Its share of Edit with AI: a request on several repositories is split equally among them.",
+            "service": "Its share of Edit with AI: a request on several repositories is split equally among them.",
+            "project": "Spent on the whole project by Edit with AI and Maestro.",
+            "organization": "Spent by every project of the organization, Edit with AI and Maestro together."
+        },
+        "period": {
+            "label": "Period",
+            "30d": "Last 30 days",
+            "month": "This month",
+            "90d": "Last 90 days",
+            "all": "All time"
+        },
+        "input": "Input tokens",
+        "input_hint": "Every input token, the ones read from the cache included.",
+        "cached": "From cache",
+        "cached_hint": "The part of the input read from the prompt cache: it costs far less.",
+        "output": "Output tokens",
+        "columns": {
+            "source": "Feature",
+            "project": "Project"
+        },
+        "sources": {
+            "agent": "Edit with AI",
+            "assistant": "Maestro"
+        },
+        "deleted_project": "Deleted project",
+        "since": "Counted since {{date}}.",
+        "since_start": "Counted since AI usage started being recorded.",
+        "empty": "No AI tokens recorded in this period. Usage is counted from the release of this feature on.",
+        "errors": {
+            "load": "The AI usage could not be loaded."
+        }
     }
 }

@@ -53,6 +53,7 @@ import RepositoryLink from "@/components/RepositoryLink"
 import useAiChangesApi, { AI_CHANGE_ACTIVE_STATUSES, AiChangeFile, AiChangeRequest, AiChangeStatus, AiChangeTarget } from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob, AiJobRepository, isAiJobActive } from "@/hooks/apiClients/useAiJobsApi"
 import { effortsOf } from "@/hooks/apiClients/useAiModelsApi"
+import { AI_USAGE_QUERY_KEY } from "@/hooks/apiClients/useAiUsageApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
 import useThemeStore from "@/store/useThemeStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -851,6 +852,8 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
         else if (wasBusy.current) {
             wasBusy.current = false
             changed()
+            // What the agent spent is final now: the AI usage of the page counts it.
+            queryClient.invalidateQueries({ queryKey: [AI_USAGE_QUERY_KEY] })
         }
     }, [busy])
 
