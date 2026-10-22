@@ -7,6 +7,7 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
+import useFrontendsApi, { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
 import { ALL_DOMAINS, DomainFilter, matchesDomain } from "../domains/partials/DomainFilter"
@@ -25,6 +26,7 @@ const Services = () => {
     const navigate = useNavigate()
     const projectId = useProjectStore(state => state.project?._id)
     const servicesApi = useServicesApi()
+    const frontendsApi = useFrontendsApi()
     const [searchTerm, setSearchTerm] = useState("")
     const [domainFilter, setDomainFilter] = useState(ALL_DOMAINS)
     const [view, setView] = useState<View>("grid")
@@ -35,14 +37,23 @@ const Services = () => {
         enabled: !!projectId
     })
 
-    const filtered = useMemo(() => {
-        const term = searchTerm.toLowerCase()
-        return (servicesQuery.data ?? []).filter(
-            service => (!term || service.name.toLowerCase().includes(term) || service.slug.toLowerCase().includes(term)) && matchesDomain(service.domainId, domainFilter)
-        )
-    }, [servicesQuery.data, searchTerm, domainFilter])
+    // A frontend served by its own container runs like a service, so it is listed here too
+    const frontendsQuery = useQuery({
+        queryKey: ["frontends-by-project-id", projectId],
+        queryFn: () => frontendsApi.getByProjectId(projectId),
+        enabled: !!projectId
+    })
+    const dockerFrontends = useMemo(() => (frontendsQuery.data ?? []).filter(frontend => frontend.kind === FrontendKind.DOCKER), [frontendsQuery.data])
 
-    const totalCount = servicesQuery.data?.length ?? 0
+    const { filtered, filteredFrontends } = useMemo(() => {
+        const term = searchTerm.toLowerCase()
+        const matches = (item: { name: string; slug: string; domainId?: string | null }) =>
+            (!term || item.name.toLowerCase().includes(term) || item.slug.toLowerCase().includes(term)) && matchesDomain(item.domainId, domainFilter)
+        return { filtered: (servicesQuery.data ?? []).filter(matches), filteredFrontends: dockerFrontends.filter(matches) }
+    }, [servicesQuery.data, dockerFrontends, searchTerm, domainFilter])
+
+    const totalCount = (servicesQuery.data?.length ?? 0) + dockerFrontends.length
+    const filteredCount = filtered.length + filteredFrontends.length
     const hasServices = totalCount > 0
     const isFiltered = Boolean(searchTerm) || domainFilter !== ALL_DOMAINS
     const onResetFilters = () => {
@@ -73,7 +84,7 @@ const Services = () => {
                                 <DomainFilter value={domainFilter} onValueChange={setDomainFilter} />
                             </div>
                             <p className="text-sm text-foreground-secondary" aria-live="polite">
-                                {isFiltered ? t("services.list.filteredCount", { count: filtered.length, total: totalCount }) : t("services.list.totalCount", { count: totalCount })}
+                                {isFiltered ? t("services.list.filteredCount", { count: filteredCount, total: totalCount }) : t("services.list.totalCount", { count: totalCount })}
                             </p>
                         </div>
                     ) : null
@@ -102,7 +113,7 @@ const Services = () => {
                     </div>
                 }
             >
-                <ApiStatusHandler queries={[servicesQuery]}>
+                <ApiStatusHandler queries={[servicesQuery, frontendsQuery]}>
                     {!hasServices ? (
                         <EmptyState
                             variant="outlined"
@@ -118,7 +129,7 @@ const Services = () => {
                                 </Button>
                             }
                         />
-                    ) : filtered.length === 0 ? (
+                    ) : filteredCount === 0 ? (
                         <EmptyState
                             variant="outlined"
                             size="lg"
@@ -141,10 +152,10 @@ const Services = () => {
                     ) : (
                         <>
                             <TabsContent value="grid" className="mt-0">
-                                <ServicesGrid services={filtered} />
+                                <ServicesGrid services={filtered} frontends={filteredFrontends} />
                             </TabsContent>
                             <TabsContent value="table" className="mt-0">
-                                <ServicesTable services={filtered} />
+                                <ServicesTable services={filtered} frontends={filteredFrontends} />
                             </TabsContent>
                         </>
                     )}
