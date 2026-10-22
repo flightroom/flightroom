@@ -94,7 +94,7 @@ export const renderApplicationValues = (
 
 const CHART_YAML = `apiVersion: v2
 name: microservice-chart
-description: Helm chart the applications deployed by MFE Orchestrator are installed with
+description: Helm chart the applications deployed by Flightroom are installed with
 version: 0.1.0
 type: application
 `

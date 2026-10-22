@@ -8,7 +8,7 @@ export const buildProtectedResourceMetadata = (config: OAuthConfig) => ({
     authorization_servers: [config.issuer],
     scopes_supported: [...MCP_SCOPES],
     bearer_methods_supported: ["header"],
-    resource_name: "MFE Orchestrator"
+    resource_name: "Flightroom"
 })
 
 /** RFC 8414 authorization server metadata. Public clients with PKCE S256 only. */

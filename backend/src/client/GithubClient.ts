@@ -325,7 +325,7 @@ class GithubClient {
                 },
                 headers: {
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 },
                 data: {
                     access_token: accessToken
@@ -349,7 +349,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -372,7 +372,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -391,7 +391,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -414,7 +414,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 encrypted_value: await this.encryptValueForSecret(key, value),
@@ -433,7 +433,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -483,7 +483,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data
         })
@@ -503,7 +503,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -525,7 +525,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -538,7 +538,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -554,7 +554,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: repositoryData
         })
@@ -569,7 +569,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -589,7 +589,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -610,7 +610,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 ref: buildData.ref || "main",
@@ -638,7 +638,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -656,7 +656,7 @@ class GithubClient {
         const headers = {
             Authorization: `Bearer ${accessToken}`,
             Accept: "application/vnd.github.v3+json",
-            "User-Agent": "MFE-Orchestrator"
+            "User-Agent": "Flightroom"
         }
         const baseUrl = this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)
 
@@ -686,7 +686,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -700,7 +700,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 ref: `refs/tags/${tag}`,
@@ -717,7 +717,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -731,7 +731,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: { name: newName }
         })
@@ -751,7 +751,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -782,7 +782,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 },
                 data: {
                     ref: `refs/heads/${branchName}`,
@@ -825,7 +825,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: { head, base, title, body }
         })
@@ -839,7 +839,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 message,

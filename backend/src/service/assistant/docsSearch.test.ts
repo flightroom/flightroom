@@ -8,7 +8,7 @@ describe("searchDocs", () => {
         expect(results.length).toBeGreaterThan(0)
         expect(`${results[0].title} ${results[0].text}`.toLowerCase()).toContain("canary")
         for (const result of results) {
-            expect(result.url).toMatch(/^https:\/\/mfe-orchestrator\.dev\/documentation\/docs\//)
+            expect(result.url).toMatch(/^https:\/\/flightroom\.dev\/documentation\/docs\//)
         }
     })
 

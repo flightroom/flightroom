@@ -1,6 +1,6 @@
-# mfe-orchestrator Helm chart
+# Flightroom Helm chart (chart name: `mfe-orchestrator`)
 
-Deploys [Microfrontend Orchestrator](https://github.com/mfe-orchestrator/mfe-orchestrator) on
+Deploys [Flightroom](https://github.com/flightroom/flightroom) on
 Kubernetes. The chart installs the all-in-one image (`lory1990/mfe-orchestrator`), which serves
 the frontend and the API behind nginx on port `80`.
 

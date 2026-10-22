@@ -3,7 +3,7 @@ import { TelemetryDecisionDTO, TelemetryPayloadDTO } from "../types/TelemetryDTO
 export const TELEMETRY_DEFAULT_ENDPOINT = "https://telemetry.mfe-orchestrator.dev/api/telemetry/self-hosted"
 export const TELEMETRY_DEFAULT_INTERVAL_HOURS = 24
 export const TELEMETRY_DISABLE_VARIABLE = "TELEMETRY_DISABLED=true"
-export const TELEMETRY_DOCUMENTATION_URL = "https://github.com/mfe-orchestrator/mfe-orchestrator/blob/main/docs/TELEMETRY.md"
+export const TELEMETRY_DOCUMENTATION_URL = "https://github.com/flightroom/flightroom/blob/main/docs/TELEMETRY.md"
 
 /** Fields of the payload, listed at startup so that the log alone tells the whole truth. */
 export const TELEMETRY_PAYLOAD_FIELDS: ReadonlyArray<keyof TelemetryPayloadDTO> = Object.freeze([

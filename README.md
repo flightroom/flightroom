@@ -1,35 +1,35 @@
-# MFE Orchestrator
+# Flightroom
 
-[![License](https://img.shields.io/github/license/mfe-orchestrator/mfe-orchestrator)](LICENSE)
-[![Release](https://img.shields.io/github/v/release/mfe-orchestrator/mfe-orchestrator)](https://github.com/mfe-orchestrator/mfe-orchestrator/releases)
-[![Docker Pulls](https://img.shields.io/docker/pulls/lory1990/mfe-orchestrator)](https://hub.docker.com/r/lory1990/mfe-orchestrator)
-[![Documentation](https://img.shields.io/badge/docs-mfe--orchestrator.dev-8b5cf6)](https://mfe-orchestrator.dev/documentation/)
+[![License](https://img.shields.io/github/license/flightroom/flightroom)](LICENSE)
+[![Release](https://img.shields.io/github/v/release/flightroom/flightroom)](https://github.com/flightroom/flightroom/releases)
+[![Docker Pulls](https://img.shields.io/docker/pulls/lory1990/flightroom)](https://hub.docker.com/r/lory1990/flightroom)
+[![Documentation](https://img.shields.io/badge/docs-flightroom.dev-FE7F2D)](https://flightroom.dev/documentation/)
 
 **The open-source control plane for micro frontends.** It stores every build you
 publish, decides which version each environment serves, and hands your host
 application the runtime configuration it needs — so releasing one micro
 frontend never means rebuilding the shell.
 
-![The MFE Orchestrator console assigning micro frontend versions to environments](docs/assets/promo-video.gif)
+![The Flightroom console assigning micro frontend versions to environments](docs/assets/promo-video.gif)
 
 ## Try it in 60 seconds
 
 **Hosted console — nothing to install.** Sign up free at
-[console.mfe-orchestrator.dev](https://console.mfe-orchestrator.dev) and create
+[console.flightroom.dev](https://console.flightroom.dev) and create
 your first micro frontend from a template.
 
 **Self-hosted — one container.** The all-in-one image bundles the orchestrator,
 MongoDB, Redis and Nginx:
 
 ```bash
-docker run -d --name mfe-orchestrator --restart unless-stopped \
-  -p 8080:80 -v mfe-data:/data lory1990/mfe-orchestrator:all-in-one
+docker run -d --name flightroom --restart unless-stopped \
+  -p 8080:80 -v mfe-data:/data lory1990/flightroom:all-in-one
 ```
 
 Open http://localhost:8080 and create the first user.
 
 Either way, the
-[**10-minute quick start**](https://mfe-orchestrator.dev/documentation/docs/quick-start)
+[**10-minute quick start**](https://flightroom.dev/documentation/docs/quick-start)
 takes you from an empty project to a deployed micro frontend — and back with a
 one-click rollback.
 
@@ -79,7 +79,7 @@ flowchart LR
     end
     CI1 -- "upload 2.1.0" --> ORCH
     CI2 -- "upload 4.2.0" --> ORCH
-    subgraph ORCH [MFE Orchestrator]
+    subgraph ORCH [Flightroom]
         REG[(version registry)] --> DEP[deployment snapshots per environment]
     end
     DEP -- "runtime configuration" --> HOST[Host application]
@@ -93,16 +93,16 @@ the configuration at startup and never needs to be rebuilt.
 ## Documentation 📚
 
 The full documentation lives at
-**[mfe-orchestrator.dev/documentation](https://mfe-orchestrator.dev/documentation/)**:
+**[flightroom.dev/documentation](https://flightroom.dev/documentation/)**:
 
-- **[Quick start](https://mfe-orchestrator.dev/documentation/docs/quick-start)** - zero to rollback in 10 minutes
-- **[Core concepts](https://mfe-orchestrator.dev/documentation/docs/core-concepts)** - projects, environments, deployments and how they relate
-- **[Self-hosting](https://mfe-orchestrator.dev/documentation/docs/self-hosting/docker-compose)** - Docker, Docker Compose, Terraform
-- **[Host integration](https://mfe-orchestrator.dev/documentation/docs/integration/overview)** - Wiring module federation and the global variables script into a host application
-- **[Canary releases](https://mfe-orchestrator.dev/documentation/docs/microfrontends/canary-releases)** - The three strategies, enrolled users and how a version is pinned
-- **[Build status](https://mfe-orchestrator.dev/documentation/docs/deployments/build-status)** - How pipeline runs are read from each provider and streamed to the console
-- **[Repository import](https://mfe-orchestrator.dev/documentation/docs/repositories/import-microfrontends)** - Creating one microfrontend per repository from a code repository connection
-- **[Dependency analysis](https://mfe-orchestrator.dev/documentation/docs/repositories/dependency-analysis)** - How microfrontend dependencies are scanned and peer dependencies aligned
+- **[Quick start](https://flightroom.dev/documentation/docs/quick-start)** - zero to rollback in 10 minutes
+- **[Core concepts](https://flightroom.dev/documentation/docs/core-concepts)** - projects, environments, deployments and how they relate
+- **[Self-hosting](https://flightroom.dev/documentation/docs/self-hosting/docker-compose)** - Docker, Docker Compose, Terraform
+- **[Host integration](https://flightroom.dev/documentation/docs/integration/overview)** - Wiring module federation and the global variables script into a host application
+- **[Canary releases](https://flightroom.dev/documentation/docs/microfrontends/canary-releases)** - The three strategies, enrolled users and how a version is pinned
+- **[Build status](https://flightroom.dev/documentation/docs/deployments/build-status)** - How pipeline runs are read from each provider and streamed to the console
+- **[Repository import](https://flightroom.dev/documentation/docs/repositories/import-microfrontends)** - Creating one microfrontend per repository from a code repository connection
+- **[Dependency analysis](https://flightroom.dev/documentation/docs/repositories/dependency-analysis)** - How microfrontend dependencies are scanned and peer dependencies aligned
 
 Project reference:
 
@@ -128,8 +128,8 @@ image: it contains the orchestrator, MongoDB, Redis and Nginx. One container,
 one volume, nothing else to start.
 
 ```bash
-docker run -d --name mfe-orchestrator --restart unless-stopped \
-  -p 8080:80 -v mfe-data:/data lory1990/mfe-orchestrator:all-in-one
+docker run -d --name flightroom --restart unless-stopped \
+  -p 8080:80 -v mfe-data:/data lory1990/flightroom:all-in-one
 ```
 
 Open http://localhost:8080 and create the first user. That is all.
@@ -154,15 +154,15 @@ What you should know about it:
   `-e REGISTRATION_ALLOWED=true -e FRONTEND_URL=https://mfe.example.com`.
 - The four processes are supervised: they are restarted when they crash and, if
   one of them cannot start at all, the container exits instead of pretending to
-  be healthy. Logs of all of them are in `docker logs mfe-orchestrator`, and
-  `docker exec mfe-orchestrator supervisorctl status` shows their state.
+  be healthy. Logs of all of them are in `docker logs flightroom`, and
+  `docker exec flightroom supervisorctl status` shows their state.
 
 Prefer a compose file? A single service is enough:
 
 ```yaml
 services:
-  mfe-orchestrator:
-    image: lory1990/mfe-orchestrator:all-in-one
+  flightroom:
+    image: lory1990/flightroom:all-in-one
     restart: unless-stopped
     ports:
       - "8080:80"
@@ -178,7 +178,7 @@ standard image does:
 
 ```bash
 pnpm install && pnpm build
-docker build -f Dockerfile.all-in-one -t mfe-orchestrator:all-in-one .
+docker build -f Dockerfile.all-in-one -t flightroom:all-in-one .
 ```
 
 > The all-in-one image trades isolation for simplicity: a single container means
@@ -359,7 +359,7 @@ Router, react-hook-form, react-i18next).
 
 ```bash
 git clone <repository-url>
-cd mfe-orchestrator
+cd flightroom
 ```
 
 2. **Install dependencies** (monorepo setup) 📦
@@ -484,6 +484,6 @@ Licensed under the [Apache License, Version 2.0](LICENSE).
 
 ---
 
-If MFE Orchestrator is useful to you, a
-[⭐ on GitHub](https://github.com/mfe-orchestrator/mfe-orchestrator) helps the
+If Flightroom is useful to you, a
+[⭐ on GitHub](https://github.com/flightroom/flightroom) helps the
 project get found.

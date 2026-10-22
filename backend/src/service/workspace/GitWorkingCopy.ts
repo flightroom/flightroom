@@ -25,7 +25,7 @@ export interface GitAuthor {
 
 export class BranchNotFoundError extends Error {}
 
-export const ORCHESTRATOR_COMMITTER: GitAuthor = { name: "MFE Orchestrator", email: "noreply@mfe-orchestrator.dev" }
+export const ORCHESTRATOR_COMMITTER: GitAuthor = { name: "Flightroom", email: "noreply@flightroom.dev" }
 
 /** The remote turned a push down: not a fast-forward, a protected branch, a token without write access. */
 export const isPushRefused = (error: unknown) =>
@@ -84,7 +84,7 @@ export class GitWorkingCopy {
         }
         await fs.promises.rm(this.dir, { recursive: true, force: true })
         await fs.promises.mkdir(this.dir, { recursive: true })
-        await git.clone({ fs, http, dir: this.dir, url: this.url, ref: branch, singleBranch: true, depth: 1, onAuth: this.onAuth, headers: { "User-Agent": "mfe-orchestrator" }, corsProxy: NO_PROXY })
+        await git.clone({ fs, http, dir: this.dir, url: this.url, ref: branch, singleBranch: true, depth: 1, onAuth: this.onAuth, headers: { "User-Agent": "flightroom" }, corsProxy: NO_PROXY })
         return git.resolveRef({ fs, dir: this.dir, ref: "HEAD" })
     }
 
@@ -100,7 +100,7 @@ export class GitWorkingCopy {
             singleBranch: true,
             depth: 1,
             onAuth: this.onAuth,
-            headers: { "User-Agent": "mfe-orchestrator" },
+            headers: { "User-Agent": "flightroom" },
             corsProxy: NO_PROXY
         })
         if (!fetchHead) {
@@ -270,7 +270,7 @@ export class GitWorkingCopy {
                 remoteRef: pushTo && `refs/heads/${pushTo}`,
                 force: !pushTo,
                 onAuth: this.onAuth,
-                headers: { "User-Agent": "mfe-orchestrator" },
+                headers: { "User-Agent": "flightroom" },
                 corsProxy: NO_PROXY
             })
             return commit
@@ -282,7 +282,7 @@ export class GitWorkingCopy {
     /** True when the remote has `branch`: asked of the remote, the copy may hold none of its branches */
     async hasRemoteBranch(branch: string): Promise<boolean> {
         const ref = `refs/heads/${branch}`
-        const refs = await git.listServerRefs({ http, url: this.url, prefix: ref, onAuth: this.onAuth, headers: { "User-Agent": "mfe-orchestrator" }, corsProxy: NO_PROXY })
+        const refs = await git.listServerRefs({ http, url: this.url, prefix: ref, onAuth: this.onAuth, headers: { "User-Agent": "flightroom" }, corsProxy: NO_PROXY })
         return refs.some(candidate => candidate.ref === ref)
     }
 
@@ -311,7 +311,7 @@ export class GitWorkingCopy {
             ref: branch,
             remoteRef: `refs/heads/${branch}`,
             onAuth: this.onAuth,
-            headers: { "User-Agent": "mfe-orchestrator" },
+            headers: { "User-Agent": "flightroom" },
             corsProxy: NO_PROXY
         })
         return commit
@@ -330,7 +330,7 @@ export class GitWorkingCopy {
                 ref,
                 remoteRef: `refs/heads/${branch}`,
                 onAuth: this.onAuth,
-                headers: { "User-Agent": "mfe-orchestrator" },
+                headers: { "User-Agent": "flightroom" },
                 corsProxy: NO_PROXY
             })
         } finally {
@@ -350,7 +350,7 @@ export class GitWorkingCopy {
             remoteRef: `refs/heads/${branch}`,
             delete: true,
             onAuth: this.onAuth,
-            headers: { "User-Agent": "mfe-orchestrator" },
+            headers: { "User-Agent": "flightroom" },
             corsProxy: NO_PROXY
         })
     }

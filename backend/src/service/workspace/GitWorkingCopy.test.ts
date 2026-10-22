@@ -111,7 +111,7 @@ describe.skipIf(!hasGit)("GitWorkingCopy against a local smart HTTP remote", () 
         })
 
         run(seed, "fetch", "origin", "ai/app-test")
-        expect(run(seed, "log", "--format=%an <%ae>|%cn|%s", "-1", "FETCH_HEAD")).toBe("Ada <ada@example.com>|MFE Orchestrator|feat: add a 404 page")
+        expect(run(seed, "log", "--format=%an <%ae>|%cn|%s", "-1", "FETCH_HEAD")).toBe("Ada <ada@example.com>|Flightroom|feat: add a 404 page")
         expect(run(seed, "show", "FETCH_HEAD:README.md")).toBe("# app\n\nNow with a 404 page.")
         expect(run(seed, "rev-list", "--count", "origin/main..FETCH_HEAD")).toBe("1")
         expect(run(seed, "ls-tree", "--name-only", "FETCH_HEAD")).not.toContain(".gitignore")

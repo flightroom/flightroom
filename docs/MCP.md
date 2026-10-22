@@ -173,7 +173,7 @@ Client configuration, with `https://<your console>/api/mcp` as the URL:
 
 ```bash
 # Claude Code
-claude mcp add --transport http mfe-orchestrator https://<your console>/api/mcp \
+claude mcp add --transport http flightroom https://<your console>/api/mcp \
   --header "Authorization: Bearer <api key>"
 ```
 
@@ -181,7 +181,7 @@ claude mcp add --transport http mfe-orchestrator https://<your console>/api/mcp 
 // Gemini CLI: ~/.gemini/settings.json
 {
   "mcpServers": {
-    "mfe-orchestrator": {
+    "flightroom": {
       "httpUrl": "https://<your console>/api/mcp",
       "headers": { "Authorization": "Bearer <api key>" }
     }
@@ -193,9 +193,9 @@ claude mcp add --transport http mfe-orchestrator https://<your console>/api/mcp 
 // Cursor: ~/.cursor/mcp.json (or .cursor/mcp.json in the project)
 {
   "mcpServers": {
-    "mfe-orchestrator": {
+    "flightroom": {
       "url": "https://<your console>/api/mcp",
-      "headers": { "Authorization": "Bearer ${env:MFE_ORCHESTRATOR_API_KEY}" }
+      "headers": { "Authorization": "Bearer ${env:FLIGHTROOM_API_KEY}" }
     }
   }
 }
@@ -259,7 +259,7 @@ Trust only the hops you actually run: a trusted hop lets the caller choose its o
 
 ```bash
 # Claude Code
-claude mcp add --transport http mfe-orchestrator https://<your console>/api/mcp
+claude mcp add --transport http flightroom https://<your console>/api/mcp
 
 # MCP Inspector
 npx @modelcontextprotocol/inspector

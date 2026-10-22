@@ -1,4 +1,4 @@
-# Default values for mfe-orchestrator.
+# Default values for Flightroom.
 # Every environment variable understood by the application can be set from this
 # file: plain ones under `env`, sensitive ones under `envSecrets`.
 

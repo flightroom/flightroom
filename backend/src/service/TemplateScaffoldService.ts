@@ -87,7 +87,7 @@ const pipelineSourceUnavailable = (repository: string, reason: string, ref?: str
     })
 
 /** What `%domain%` becomes in a scaffolded repository: the console its CI talks back to */
-export const placeholderDomain = () => process.env.BACKEND_URL || "https://console.mfe-orchestrator.dev"
+export const placeholderDomain = () => process.env.BACKEND_URL || "https://console.flightroom.dev"
 
 /**
  * The placeholders of a pipeline copied from the pipeline templates, the same on every provider. Both slugs
@@ -346,8 +346,8 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
                 dir: tempDir,
                 message: "Initial commit",
                 author: {
-                    name: "MFE Orchestrator Bot",
-                    email: "bot@mfe-orchestrator.dev"
+                    name: "Flightroom Bot",
+                    email: "bot@flightroom.dev"
                 }
             })
 
@@ -359,7 +359,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
                 remote: "origin",
                 ref: "main",
                 remoteRef: "main",
-                headers: { "User-Agent": "mfe-orchestrator" },
+                headers: { "User-Agent": "flightroom" },
                 onAuth: () => ({ username: "oauth2", password: accessToken }),
                 force: true
             })
@@ -441,8 +441,8 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
                 dir: tempDir,
                 message: "Initial commit",
                 author: {
-                    name: "MFE Orchestrator Bot",
-                    email: "bot@mfe-orchestrator.dev"
+                    name: "Flightroom Bot",
+                    email: "bot@flightroom.dev"
                 }
             })
 
@@ -454,7 +454,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
                 remote: "origin",
                 ref: "main",
                 remoteRef: "main",
-                headers: { "User-Agent": "mfe-orchestrator" },
+                headers: { "User-Agent": "flightroom" },
                 onAuth: () => ({ username: accessToken, password: "x-oauth-basic" }),
                 force: true
             })
@@ -554,8 +554,8 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
                 dir: tempDir,
                 message: "Initial commit",
                 author: {
-                    name: "MFE Orchestrator Bot",
-                    email: "bot@mfe-orchestrator.dev"
+                    name: "Flightroom Bot",
+                    email: "bot@flightroom.dev"
                 }
             })
 
@@ -616,7 +616,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
                 singleBranch: true,
                 depth: 1,
                 onAuth: () => gitCredentialsFor(connection),
-                headers: { "User-Agent": "mfe-orchestrator" },
+                headers: { "User-Agent": "flightroom" },
                 // Never read from the cloned config: the token would go to whatever host it names
                 corsProxy: ""
             })

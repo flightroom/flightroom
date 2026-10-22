@@ -1,13 +1,15 @@
 //- Layout shared by every transactional email. Colors, font, radii and shadows
 //- come from the design system (design-system/src/styles/theme.css), converted
 //- to hex because email clients need literal values:
-//-   primary        hsl(262 83% 66%) -> #9560f0
-//-   primary-active hsl(262 83% 58%) -> #7c3bed
-//-   foreground     hsl(222 30% 16%) -> #1d2435
-//-   muted-fg       hsl(240 8% 46%)  -> #6c6c7f
-//-   border         hsl(262 20% 90%) -> #e4e0eb
-//-   dark surface   hsl(220 26% 14%) -> #1a212d
-//-   page bg        --color-orchestrator-light  #f1f0fb
+//-   primary            hsl(24 99% 59%)  -> #FE7F2D  (pumpkin-400)
+//-   primary-foreground hsl(201 73% 10%) -> #07202D  (testo scuro sul pumpkin: il bianco si ferma a 2.5:1)
+//-   primary-active     hsl(26 92% 47%)  -> #E4690A
+//-   primary-strong     hsl(27 97% 37%)  -> #BC5503  (link e accenti su bianco)
+//-   foreground         hsl(203 37% 22%) -> #233D4D  (charcoal-900)
+//-   muted-fg           hsl(204 19% 42%) -> #566E7E
+//-   border             hsl(206 25% 89%) -> #DCE4EA
+//-   dark surface       hsl(201 48% 13%) -> #112631
+//-   page bg            --muted           #F1F5F8
 //-   radius         0.75rem (card: +2px)
 doctype html
 html(lang="en")
@@ -21,8 +23,8 @@ html(lang="en")
         font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
         line-height: 1.5;
         letter-spacing: 0.0125em;
-        color: #1d2435;
-        background-color: #f1f0fb;
+        color: #233D4D;
+        background-color: #F1F5F8;
         margin: 0;
         padding: 0;
       }
@@ -34,12 +36,12 @@ html(lang="en")
       .card {
         background: white;
         border-radius: 0.875rem;
-        box-shadow: 0 1px 4px rgba(21, 39, 60, 0.06), 0 1px 2px rgba(21, 39, 60, 0.04);
+        box-shadow: 0 1px 4px rgba(7, 32, 45, 0.06), 0 1px 2px rgba(7, 32, 45, 0.04);
         overflow: hidden;
-        border: 1px solid #e4e0eb;
+        border: 1px solid #DCE4EA;
       }
       .header {
-        background-color: #1a212d;
+        background-color: #112631;
         color: white;
         padding: 1.5rem;
         text-align: center;
@@ -49,8 +51,8 @@ html(lang="en")
       }
       .button {
         display: inline-block;
-        background-color: #9560f0;
-        color: white !important;
+        background-color: #FE7F2D;
+        color: #07202D !important;
         text-decoration: none;
         padding: 0.75rem 1.5rem;
         border-radius: 0.75rem;
@@ -58,26 +60,26 @@ html(lang="en")
         margin: 1.5rem 0;
       }
       .button:hover {
-        background-color: #7c3bed;
+        background-color: #E4690A;
       }
       .muted {
-        color: #6c6c7f;
+        color: #566E7E;
         font-size: 0.875rem;
       }
       a.link {
-        color: #9560f0;
+        color: #BC5503;
         word-break: break-all;
         font-size: 0.875rem;
       }
       .accent {
-        color: #9560f0;
+        color: #BC5503;
       }
       .footer {
         text-align: center;
         padding: 1.5rem;
-        color: #6c6c7f;
+        color: #566E7E;
         font-size: 0.875rem;
-        border-top: 1px solid #e4e0eb;
+        border-top: 1px solid #DCE4EA;
       }
   body
     .container
@@ -95,4 +97,4 @@ html(lang="en")
             if footerText
               | #{footerText}
               br
-            | MFE Orchestrator — this is an automated message, please do not reply.
+            | Flightroom — this is an automated message, please do not reply.

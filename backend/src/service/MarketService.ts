@@ -21,7 +21,7 @@ export class MarketService extends BaseAuthorizedService {
     }
 
     async seed(): Promise<IMarket[]> {
-        const response = await fetch("https://raw.githubusercontent.com/mfe-orchestrator/documentation/refs/heads/main/marketplace/marketplace.json")
+        const response = await fetch("https://raw.githubusercontent.com/flightroom/documentation/refs/heads/main/marketplace/marketplace.json")
         const data = await response.json()
         return data
     }

@@ -1,6 +1,6 @@
 # syntax=docker/dockerfile:1
 
-# All-in-one image: MFE Orchestrator, MongoDB, Redis and Nginx inside a single
+# All-in-one image: Flightroom, MongoDB, Redis and Nginx inside a single
 # container. `docker run` it and you are done: no sidecar containers, no
 # compose file, no external database to provision.
 #
@@ -8,8 +8,8 @@
 # like the standard `Dockerfile` used by the CI:
 #
 #   pnpm install && pnpm build
-#   docker build -f Dockerfile.all-in-one -t mfe-orchestrator:all-in-one .
-#   docker run -d -p 8080:80 -v mfe-data:/data mfe-orchestrator:all-in-one
+#   docker build -f Dockerfile.all-in-one -t flightroom:all-in-one .
+#   docker run -d -p 8080:80 -v mfe-data:/data flightroom:all-in-one
 #
 # MongoDB and Redis only listen on 127.0.0.1 inside the container: they are
 # reachable by the backend and by nobody else, so nothing to secure from the
@@ -46,7 +46,7 @@ COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 COPY e2e/package.json e2e/
 
-RUN pnpm install --filter @mfe-orchestrator/backend --prod --frozen-lockfile --ignore-scripts
+RUN pnpm install --filter @flightroom/backend --prod --frozen-lockfile --ignore-scripts
 
 # ---------------------------------------------------------------------------
 # Stage 2 - runtime with every service inside

@@ -1,7 +1,7 @@
 {
-    "name": "@mfe-orchestrator/backend",
+    "name": "@flightroom/backend",
     "version": "1.0.0",
-    "description": "Backend service for micro-frontend orchestrator",
+    "description": "Backend service for Flightroom",
     "main": "index.js",
     "scripts": {
         "start": "nodemon --watch src --ext ts,json --exec tsx ./src/index.ts",

@@ -62,7 +62,7 @@ class NpmRegistryClient {
                 headers: {
                     // Abbreviated metadata: same dist-tags with a much smaller payload
                     Accept: "application/vnd.npm.install-v1+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 

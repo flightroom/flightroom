@@ -14,7 +14,7 @@ const path = require("path")
 
 const DOCS_DIR = path.resolve(process.argv[2] || path.join(__dirname, "../../../documentation/docs"))
 const OUTPUT = path.join(__dirname, "../src/service/assistant/docs-index.json")
-const DOCS_BASE_URL = "https://mfe-orchestrator.dev/documentation/docs"
+const DOCS_BASE_URL = "https://flightroom.dev/documentation/docs"
 
 const listMarkdownFiles = dir =>
     fs.readdirSync(dir, { withFileTypes: true }).flatMap(entry => {

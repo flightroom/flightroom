@@ -43,16 +43,16 @@ describe("MarketService", () => {
         const template = await new MarketService().getSingle("service-quarkus")
 
         expect(template?.type).toBe("service")
-        expect(template?.zipUrl).toBe("https://github.com/mfe-orchestrator/template-service-quarkus/archive/refs/heads/main.zip")
+        expect(template?.zipUrl).toBe("https://github.com/flightroom/template-service-quarkus/archive/refs/heads/main.zip")
         expect(fetchMock).not.toHaveBeenCalled()
     })
 
     it("ships exactly the Node.js, Python, Spring Boot and Quarkus service templates", () => {
         expect(SERVICE_TEMPLATES.map(t => [t.slug, t.name, t.framework, t.repo])).toEqual([
-            ["service-node-fastify", "Node.js & Fastify", "Node.js", "https://github.com/mfe-orchestrator/template-service-node-fastify"],
-            ["service-python-fastapi", "Python & FastAPI", "Python", "https://github.com/mfe-orchestrator/template-service-python-fastapi"],
-            ["service-spring-boot", "Spring Boot", "Spring Boot", "https://github.com/mfe-orchestrator/template-service-spring-boot"],
-            ["service-quarkus", "Quarkus", "Quarkus", "https://github.com/mfe-orchestrator/template-service-quarkus"]
+            ["service-node-fastify", "Node.js & Fastify", "Node.js", "https://github.com/flightroom/template-service-node-fastify"],
+            ["service-python-fastapi", "Python & FastAPI", "Python", "https://github.com/flightroom/template-service-python-fastapi"],
+            ["service-spring-boot", "Spring Boot", "Spring Boot", "https://github.com/flightroom/template-service-spring-boot"],
+            ["service-quarkus", "Quarkus", "Quarkus", "https://github.com/flightroom/template-service-quarkus"]
         ])
     })
 

@@ -4,7 +4,7 @@
 
 variable "frontend_url" {
   type        = string
-  description = "Public URL the console is reached at, without trailing slash (e.g. https://dev.mfe-orchestrator.dev). The MCP and OAuth URLs are derived from it."
+  description = "Public URL the console is reached at, without trailing slash (e.g. https://dev.flightroom.dev). The MCP and OAuth URLs are derived from it."
 }
 
 variable "jwt_secret" {
