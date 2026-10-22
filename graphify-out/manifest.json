@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1792677899.51853,
-    "ast_hash": "a74943f1283fe6581f138264262da8a8",
+    "mtime": 1792678694.4676619,
+    "ast_hash": "dae0053de71b77df79c7eeb833b92c1c",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1792677899.515963,
-    "ast_hash": "2dc0978ff1e448b7ef2654e5283e9990",
+    "mtime": 1792678694.4699647,
+    "ast_hash": "b0580fbf60336dc5a18ad39afe80ddf5",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -2900,13 +2900,13 @@
     "semantic_hash": ""
   },
   "backend/src/controller/AiJobController.ts": {
-    "mtime": 1792674766.4566631,
-    "ast_hash": "b742197b678ebf3379bc4cdb6b7b0adb",
+    "mtime": 1792678603.4907618,
+    "ast_hash": "f8e8ed6a10ae68b6b4feb03c592633bb",
     "semantic_hash": ""
   },
   "backend/src/models/AiChangeJobModel.ts": {
-    "mtime": 1792674766.4634624,
-    "ast_hash": "fee62c83261dbbb4e689527f219073b9",
+    "mtime": 1792678603.48963,
+    "ast_hash": "b9f0462da5efae1a559504b300d693aa",
     "semantic_hash": ""
   },
   "backend/src/models/AssistantConversationModel.ts": {
@@ -2915,13 +2915,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.test.ts": {
-    "mtime": 1792674766.4785974,
-    "ast_hash": "adb3cc1440af61c893829d9cce26caca",
+    "mtime": 1792678749.155155,
+    "ast_hash": "bf89a093e788d69de73665eb41aaa66a",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.ts": {
-    "mtime": 1792674766.4788675,
-    "ast_hash": "84b3976db618ea32427da34402f812ce",
+    "mtime": 1792678610.914064,
+    "ast_hash": "41d0b8f2c96f26a5c04650283e8f07dd",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeShared.ts": {
@@ -2955,8 +2955,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantJobThread.tsx": {
-    "mtime": 1792674766.4971333,
-    "ast_hash": "b34b5f158d56542dbdef214f905d5f94",
+    "mtime": 1792678707.7995825,
+    "ast_hash": "0676dec818bd12557e0b4ba914744e3c",
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantNewJobDialog.tsx": {
@@ -2970,8 +2970,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useAiJobsApi.ts": {
-    "mtime": 1792674766.498009,
-    "ast_hash": "3c5a2a316b1fea3dcea0d458ea86f3a0",
+    "mtime": 1792678619.4815364,
+    "ast_hash": "8310d5af3d3bbe4507c842329fc81f0a",
     "semantic_hash": ""
   },
   "frontend/src/store/useAssistantJobsStore.ts": {
@@ -3570,8 +3570,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1792674766.4963844,
-    "ast_hash": "58a39b30b964aba049a626d184657ff6",
+    "mtime": 1792678708.3666978,
+    "ast_hash": "649f2163cfd4e42c86500dd4ea8bb8b5",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
