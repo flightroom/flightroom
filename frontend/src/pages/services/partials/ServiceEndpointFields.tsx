@@ -1,4 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, SwitchField as Switch } from "@flightroom/design-system"
+import { ExternalLink } from "lucide-react"
 import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
@@ -43,12 +44,24 @@ export const ServiceEndpointFields: React.FC<ServiceEndpointFieldsProps> = ({ en
                         <div>
                             <h3 className="mb-2 text-sm font-semibold">{t("services.urls.preview")}</h3>
                             <ul className="flex flex-col gap-2">
-                                {environments.map(environment => (
-                                    <li key={environment._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                                        <Badge variant="outline">{environment.name}</Badge>
-                                        <span className="min-w-0 break-all font-mono">{`${exposedOrigin(exposure, environment)}${path}`}</span>
-                                    </li>
-                                ))}
+                                {environments.map(environment => {
+                                    const url = `${exposedOrigin(exposure, environment)}${path}`
+                                    return (
+                                        <li key={environment._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                            <Badge variant="outline">{environment.name}</Badge>
+                                            <a
+                                                href={url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="inline-flex min-w-0 items-center gap-1 break-all font-mono text-primary-strong underline-offset-4 hover:underline"
+                                            >
+                                                {url}
+                                                <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />
+                                                <span className="sr-only">{t("environment.page.opens_new_tab")}</span>
+                                            </a>
+                                        </li>
+                                    )
+                                })}
                             </ul>
                         </div>
                     )}
