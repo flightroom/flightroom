@@ -44,6 +44,7 @@ import { FetchDataTemplateCard } from "../templates-library/partials/"
 interface FormMessages {
     path: string
     exposurePath: string
+    exposurePathRequired: string
     url: string
     versionRequired: string
     hostUrlRequired: string
@@ -141,6 +142,10 @@ const createFormSchema = (messages: FormMessages) => {
                 for (const issue of container.error?.issues ?? []) {
                     ctx.addIssue({ code: "custom", message: issue.message, path: issue.path })
                 }
+                // Optional for a service, not for a FRONTEND: browsers reach its container only at this path
+                if (!data.exposurePath?.trim()) {
+                    ctx.addIssue({ code: "custom", message: messages.exposurePathRequired, path: ["exposurePath"] })
+                }
                 return
             }
             if (!data.version) {
@@ -236,6 +241,7 @@ const AddNewMicrofrontendForm: React.FC<AddNewMicrofrontendFormProps> = ({ versi
             createFormSchema({
                 path: t("services.path_invalid"),
                 exposurePath: t("services.exposure_path_invalid"),
+                exposurePathRequired: t("microfrontend.validation.exposure_path_required"),
                 url: t("services.urls.invalid"),
                 versionRequired: t("microfrontend.validation.version_required"),
                 hostUrlRequired: t("microfrontend.validation.host_url_required"),
@@ -528,7 +534,7 @@ const AddNewMicrofrontendForm: React.FC<AddNewMicrofrontendFormProps> = ({ versi
                     {isFrontend ? (
                         <TabsContent value="container" forceMount>
                             <div className="flex flex-col gap-6">
-                                <ServiceRuntimeFields />
+                                <ServiceRuntimeFields exposureRequired />
                                 <ServiceUrlsFields environments={environments} />
                                 <ServiceEnvFields />
                                 <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} />

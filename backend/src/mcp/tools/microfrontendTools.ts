@@ -102,7 +102,7 @@ const microfrontendFields = {
         .enum(MicrofrontendKind)
         .optional()
         .describe(
-            "MICROFRONTEND (default): a static bundle uploaded to and served by the orchestrator. FRONTEND: an app built into an image and served by its own container, like a backend service; it never has parentIds"
+            "MICROFRONTEND (default): a static bundle uploaded to and served by the orchestrator. FRONTEND: an app built into an image and served by its own container, like a backend service; it never has parentIds and needs an exposurePath"
         ),
     path: z.string().max(500).optional(),
     continuousDeployment: z.boolean().optional(),

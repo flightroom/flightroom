@@ -62,6 +62,23 @@ const ensureFrontendHasNoParents = (kind: MicrofrontendKind | undefined, parentI
     }
 }
 
+/**
+ * A FRONTEND is reached by browsers only through its HTTPRoute, so it needs the path it is exposed at.
+ * Checked when a write makes it a FRONTEND or clears the path of one: a FRONTEND stored without one
+ * before the rule still takes the other edits.
+ */
+const ensureFrontendExposed = (fields: Pick<MicrofrontendDTO, "kind" | "exposurePath">, existing?: IMicrofrontend) => {
+    const becomesFrontend = fields.kind === MicrofrontendKind.FRONTEND && existing?.kind !== MicrofrontendKind.FRONTEND
+    const clearsPath = (fields.kind ?? existing?.kind) === MicrofrontendKind.FRONTEND && fields.exposurePath !== undefined && !fields.exposurePath?.trim()
+    const exposurePath = fields.exposurePath !== undefined ? fields.exposurePath : existing?.exposurePath
+    if ((becomesFrontend && !exposurePath?.trim()) || clearsPath) {
+        throw createBusinessException({
+            code: "FRONTEND_EXPOSURE_PATH_REQUIRED",
+            message: "A FRONTEND is served by its own container and reached only at its exposurePath: give it one, e.g. / or /shell"
+        })
+    }
+}
+
 /** Matches a document with no parents: what a write making it a FRONTEND requires of what is stored at that moment */
 const WITHOUT_PARENTS = { $or: [{ parentIds: { $exists: false } }, { parentIds: { $size: 0 } }] }
 
@@ -100,6 +117,7 @@ export class MicrofrontendService extends BaseAuthorizedService {
         ensurePlainFields(dto, "MICROFRONTEND_INVALID")
         ensureValidKind(dto.kind)
         ensureFrontendHasNoParents(dto.kind, dto.parentIds, dto.slug)
+        ensureFrontendExposed(dto)
         const microfrontend = withFrontendDefaults(await withNormalizedReferences(dto, projectIdObj))
 
         // Both before the repository is created: a refused domain or a taken slug would leave an orphan repository behind
@@ -225,6 +243,7 @@ export class MicrofrontendService extends BaseAuthorizedService {
         const kind = fields.kind ?? microfrontend.kind
         // Both sides of the rule can change here: parents given to a FRONTEND, or a microfrontend with parents made one
         ensureFrontendHasNoParents(kind, fields.parentIds ?? microfrontend.parentIds, microfrontend.slug)
+        ensureFrontendExposed(fields, microfrontend)
         const allowed: Partial<MicrofrontendDTO> & Record<string, unknown> = withFrontendDefaults(await withNormalizedReferences(fields, microfrontend.projectId, microfrontend), microfrontend)
         // The orchestrator draws no canary for a FRONTEND: one left enabled would only mislead the console
         if (kind === MicrofrontendKind.FRONTEND && allowed.canary) {

@@ -736,11 +736,13 @@
         },
         "errors": {
             "frontend_cannot_have_parents": "A frontend served by its Docker container cannot have parents",
+            "frontend_exposure_path_required": "A frontend served by its Docker container needs an exposure path: browsers reach it only there",
             "frontend_upload_not_allowed": "A frontend served by its Docker container takes no bundle upload: its pipeline registers the image of each version",
             "version_registration_not_allowed": "Only a frontend served by its Docker container registers image versions: a microfrontend uploads its bundle"
         },
         "validation": {
             "version_required": "The version is required",
+            "exposure_path_required": "The exposure path is required for a frontend served by Docker",
             "host_url_required": "The URL is required for custom hosting",
             "canary_percentage": "The canary percentage must be between 1 and 100 when the canary is enabled"
         },
@@ -2233,6 +2235,7 @@
         "openapi_path_hint": "Optional. E.g. /openapi.json",
         "exposure_path": "Exposure path",
         "exposure_path_hint": "Optional. Where it answers on the host of every environment, e.g. /api/orders: the prefix is stripped before it reaches the container",
+        "exposure_path_required_hint": "Where it answers on the host of every environment, e.g. / or /shell: the prefix is stripped before it reaches the container",
         "exposure_path_invalid": "A path an HTTPRoute takes: starting with /, letters, digits and -._~!$&'()*+,;=:@ or %XX, without query, fragment, // nor . or .. segments",
         "path_invalid": "Must start with \"/\", with at most 256 characters and no spaces",
         "image_repository": "Image repository",

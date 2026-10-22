@@ -134,6 +134,7 @@ export interface BuiltFrontend extends Omit<BuiltService, "serviceId" | "image">
 /** The codes the backend raises about the kind of a microfrontend, by translation key */
 const MICROFRONTEND_ERROR_KEYS: Record<string, string> = {
     FRONTEND_CANNOT_HAVE_PARENTS: "microfrontend.errors.frontend_cannot_have_parents",
+    FRONTEND_EXPOSURE_PATH_REQUIRED: "microfrontend.errors.frontend_exposure_path_required",
     FRONTEND_UPLOAD_NOT_ALLOWED: "microfrontend.errors.frontend_upload_not_allowed",
     MICROFRONTEND_VERSION_REGISTRATION_NOT_ALLOWED: "microfrontend.errors.version_registration_not_allowed"
 }
