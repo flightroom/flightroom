@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import { CanaryDeploymentType, CanaryType, Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
@@ -29,7 +29,7 @@ export const DeploymentMicrofrontendCard: React.FC<DeploymentMicrofrontendCardPr
                     </div>
                 </div>
                 <Badge className="shrink-0" title={t("deployments.microfrontend_card.stable_version")}>
-                    {microfrontend.version}
+                    {microfrontend.version || "—"}
                 </Badge>
             </CardHeader>
             {canary && (

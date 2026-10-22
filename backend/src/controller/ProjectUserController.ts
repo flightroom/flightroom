@@ -1,20 +1,17 @@
 import { FastifyInstance } from "fastify"
 import { Types } from "mongoose"
-import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import { BusinessException } from "../errors/BusinessException"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
-import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
-import Project from "../models/ProjectModel"
-import User, { UserStatus } from "../models/UserModel"
+import UserOrganization, { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrganizationModel"
 import UserProject, { IUserProject, RoleInProject } from "../models/UserProjectModel"
-import UserOrganizationService from "../service/UserOrganizationService"
-import UserProjectService from "../service/UserProjectService"
+import UserProjectService, { PROJECT_LAST_OWNER } from "../service/UserProjectService"
 import AuthenticationMethod from "../types/AuthenticationMethod"
-import { toObjectId } from "../utils/mongooseUtils"
 
 interface PopulatedProject {
     _id: Types.ObjectId
     name: string
     description?: string
+    organizationId?: Types.ObjectId
 }
 
 interface UserProjectWithProject extends Omit<IUserProject, "projectId"> {
@@ -26,10 +23,14 @@ interface UserProjectWithProject extends Omit<IUserProject, "projectId"> {
 interface AddUserToProjectDTO {
     email: string
     role: RoleInProject
+    /** The domains the member is confined to; left out or empty, the whole project. */
+    domainIds?: string[]
 }
 
 interface UpdateUserRoleDTO {
     role: RoleInProject
+    /** Replaces the domain scope when given, an empty list opening the whole project; left out, it stays. */
+    domainIds?: string[]
 }
 
 interface AcceptInvitationDTO {
@@ -58,9 +59,9 @@ export default async function projectUserController(fastify: FastifyInstance) {
         if (!projectId) {
             throw new ProjectHeaderNotFoundError()
         }
-        const { email, role } = request.body
+        const { email, role, domainIds } = request.body
 
-        reply.send(await new UserProjectService(request.databaseUser).addUserToProjectByEmail(projectId, email, role))
+        reply.send(await new UserProjectService(request.databaseUser).addUserToProjectByEmail(projectId, email, role, domainIds))
     })
 
     // Resend a pending invitation email
@@ -94,34 +95,7 @@ export default async function projectUserController(fastify: FastifyInstance) {
         Body: UpdateUserRoleDTO
     }>("/projects/:projectId/users/:userId", async (request, reply) => {
         const { projectId, userId } = request.params
-        const { role } = request.body
-
-        // Verify project exists
-        const project = await Project.findById(projectId)
-        if (!project) {
-            throw new ProjectNotFoundError(projectId)
-        }
-
-        // Verify user exists
-        const user = await User.findById(new Types.ObjectId(userId))
-        if (!user) {
-            throw new EntityNotFoundError(`User with ID ${userId} not found`)
-        }
-
-        // Find and update the user's role in the project
-        const userProject = await UserProject.findOneAndUpdate(
-            {
-                userId: toObjectId(userId),
-                projectId: toObjectId(projectId)
-            },
-            { role },
-            { new: true }
-        )
-
-        if (!userProject) {
-            throw new EntityNotFoundError("User is not a member of this project")
-        }
-
+        const userProject = await new UserProjectService(request.databaseUser).updateUserRole(projectId, userId, request.body.role, request.body.domainIds)
         return reply.send({
             message: "User role updated successfully",
             userProject
@@ -131,56 +105,15 @@ export default async function projectUserController(fastify: FastifyInstance) {
     // Remove user from project
     fastify.delete<{ Params: { projectId: string; userId: string } }>("/projects/:projectId/users/:userId", async (request, reply) => {
         const { projectId, userId } = request.params
-
-        // Verify project exists
-        const project = await Project.findById(projectId)
-        if (!project) {
-            throw new ProjectNotFoundError(projectId)
+        try {
+            await new UserProjectService(request.databaseUser).removeUserFromProject(projectId, userId)
+        } catch (error) {
+            // The console shows `message` of this answer as it is: the last-owner refusal keeps that shape.
+            if (error instanceof BusinessException && error.code === PROJECT_LAST_OWNER) {
+                return reply.status(400).send({ message: error.message })
+            }
+            throw error
         }
-
-        // Verify user exists
-        const user = await User.findById(toObjectId(userId))
-        if (!user) {
-            throw new EntityNotFoundError(`User with ID ${userId} not found`)
-        }
-
-        // Prevent removing the last owner
-        const ownerCount = await UserProject.countDocuments({
-            projectId: toObjectId(projectId),
-            role: RoleInProject.OWNER
-        })
-
-        const userToRemove = await UserProject.findOne({
-            userId: toObjectId(userId),
-            projectId: toObjectId(projectId),
-            role: RoleInProject.OWNER
-        })
-
-        if (userToRemove && ownerCount <= 1) {
-            return reply.status(400).send({
-                message: "Cannot remove the last owner of the project. Please assign another owner first."
-            })
-        }
-
-        // Remove user from project
-        const result = await UserProject.findOneAndDelete({
-            userId: toObjectId(userId),
-            projectId: toObjectId(projectId)
-        })
-
-        if (!result) {
-            throw new EntityNotFoundError("User is not a member of this project")
-        }
-
-        // Clean up users that were only created to be invited and never accepted. The organization
-        // membership was created by this very invitation, so it goes first: the account is dropped
-        // only once nothing at all points at it any more.
-        if (user.status === UserStatus.INVITED) {
-            const userOrganizationService = new UserOrganizationService(request.databaseUser)
-            await userOrganizationService.pruneImplicitMembership(userId, project.organizationId)
-            await userOrganizationService.deleteUserIfOnlyEverInvited(toObjectId(userId))
-        }
-
         return reply.status(204).send()
     })
 
@@ -207,15 +140,28 @@ export default async function projectUserController(fastify: FastifyInstance) {
         // Pending invitations are not memberships yet, so they are left out
         const userProjects = (await UserProject.find({ userId, invitationToken: null }).populate<{
             projectId: PopulatedProject
-        }>("projectId", "name description")) as unknown as UserProjectWithProject[]
+        }>("projectId", "name description organizationId")) as unknown as UserProjectWithProject[]
 
-        const projects = userProjects.map(up => ({
-            projectId: up.projectId._id,
-            name: up.projectId.name,
-            description: up.projectId.description,
-            role: up.role,
-            joinedAt: up.createdAt
-        }))
+        // An owner reaches their project whole, and an organization administrator every project of it, whatever
+        // the membership says: the organizations are read only when some membership is scoped, which most users have none of
+        const administered = userProjects.some(up => up.domainScoped)
+            ? new Set(
+                  (await UserOrganization.find({ userId, role: { $in: ORGANIZATION_ADMIN_ROLES }, invitationToken: null }, { organizationId: 1 })).map(membership => String(membership.organizationId))
+              )
+            : new Set<string>()
+
+        const projects = userProjects.map(up => {
+            const domainScoped = Boolean(up.domainScoped) && up.role !== RoleInProject.OWNER && !administered.has(String(up.projectId.organizationId))
+            return {
+                projectId: up.projectId._id,
+                name: up.projectId.name,
+                description: up.projectId.description,
+                role: up.role,
+                domainIds: domainScoped ? (up.domainIds ?? []).map(String) : [],
+                domainScoped,
+                joinedAt: up.createdAt
+            }
+        })
 
         return reply.send(projects)
     })

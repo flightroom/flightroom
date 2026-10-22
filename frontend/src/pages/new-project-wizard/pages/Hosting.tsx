@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, AlertTitle } from "@flightroom/design-system"
 import { Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { StorageForm } from "@/pages/storages/AddStorage"
@@ -22,7 +22,7 @@ const Hosting: React.FC<WizardStepProps> = ({ onNext, onBack, onSkip }) => {
                 </div>
             </div>
 
-            <Alert className="border-primary/50 [&>svg]:text-primary">
+            <Alert className="border-primary/50 [&>svg]:text-primary-strong">
                 <Info className="size-5" />
                 <AlertTitle>{t("newProjectWizard.hosting.alert_title")}</AlertTitle>
                 <AlertDescription>{t("newProjectWizard.hosting.alert_description")}</AlertDescription>

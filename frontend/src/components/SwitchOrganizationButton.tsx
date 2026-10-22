@@ -10,7 +10,7 @@ import {
     DropdownMenuLabel,
     DropdownMenuSeparator,
     DropdownMenuTrigger
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { useQueryClient } from "@tanstack/react-query"
 import { Building2, ChevronDown, Plus, Repeat, Settings } from "lucide-react"
 import { useState } from "react"

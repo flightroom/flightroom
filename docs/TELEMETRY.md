@@ -1,6 +1,6 @@
 # Anonymous telemetry 📡
 
-MFE Orchestrator sends **one anonymous ping per day** from self-hosted installations. It is **enabled by default** and you can turn it off with a single environment variable:
+Flightroom sends **one anonymous ping per day** from self-hosted installations. It is **enabled by default** and you can turn it off with a single environment variable:
 
 ```yaml
 TELEMETRY_DISABLED: "true"
@@ -84,7 +84,7 @@ Any one of these is enough:
 
 | Where                  | How                                                                       |
 | ---------------------- | ------------------------------------------------------------------------- |
-| `docker-compose.yaml`  | add `TELEMETRY_DISABLED: "true"` to the `mfe-orchestrator` `environment:`  |
+| `docker-compose.yaml`  | add `TELEMETRY_DISABLED: "true"` to the `flightroom` `environment:`  |
 | `docker run`           | `-e TELEMETRY_DISABLED=true`                                              |
 | `.env` / any host      | `TELEMETRY_DISABLED=true`                                                 |
 | Machine-wide, any tool | `DO_NOT_TRACK=1` (the [consoledonottrack.com](https://consoledonottrack.com) convention) |
@@ -127,7 +127,7 @@ What we send, and nothing else: installationId, version, nodeVersion, projects, 
 No names, no emails, no URLs, no hostnames, no IPs, no project or microfrontend content
 Inspect the exact payload of this installation: GET /api/telemetry/status
 Turn it off: TELEMETRY_DISABLED=true
-Full policy: https://github.com/mfe-orchestrator/mfe-orchestrator/blob/main/docs/TELEMETRY.md
+Full policy: https://github.com/flightroom/flightroom/blob/main/docs/TELEMETRY.md
 ```
 
 When it is off, the log says so in one line, including the reason:
@@ -148,7 +148,7 @@ The first ping of each process is also logged in full, so the real bytes that le
   "intervalHours": 24,
   "payload": { "installationId": "3f2b9c14-...", "version": "1.0.0", "...": "..." },
   "disableWith": "TELEMETRY_DISABLED=true",
-  "documentationUrl": "https://github.com/mfe-orchestrator/mfe-orchestrator/blob/main/docs/TELEMETRY.md"
+  "documentationUrl": "https://github.com/flightroom/flightroom/blob/main/docs/TELEMETRY.md"
 }
 ```
 

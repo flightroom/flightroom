@@ -1,8 +1,12 @@
 import { Handle, type Node, type NodeProps, Position } from "@xyflow/react"
+import { LayoutDashboard } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
-import { CanaryType, type Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
+import { CanaryType, type Microfrontend, MicrofrontendKind } from "@/hooks/apiClients/useMicrofrontendsApi"
+import { cn } from "@/utils/styleUtils"
 import CloneRepositoryPopover from "../components/CloneRepositoryPopover"
+import MicrofrontendKindBadge from "../components/MicrofrontendKindBadge"
+import WorkingAgentsIndicator, { useWorkingAgents } from "../components/WorkingAgentsIndicator"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "../labels"
 
 /**
@@ -12,6 +16,8 @@ import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "../la
  */
 export interface MicrofrontendNodeData extends Record<string, unknown> {
     microfrontend: Microfrontend
+    /** Drawn beside backend services (the domain diagram): a primary stripe and icon tell it apart from them. */
+    showKind?: boolean
 }
 
 export type MicrofrontendFlowNodeType = Node<MicrofrontendNodeData, "microfrontend">
@@ -27,8 +33,9 @@ const HANDLE_CLASS =
 
 export const MicrofrontendFlowNode: React.FC<NodeProps<MicrofrontendFlowNodeType>> = ({ data }) => {
     const { t } = useTranslation("platform")
-    const { microfrontend } = data
+    const { microfrontend, showKind } = data
     const canary = microfrontend.canary?.enabled ? microfrontend.canary : undefined
+    const agents = useWorkingAgents(microfrontend._id)
 
     // A share for the two strategies that split traffic, and who for the one that does not.
     const canaryLabel = canary && (canary.type === CanaryType.ON_USER ? t("microfrontend.canary_enrolled_users") : `${Math.min(100, Math.max(0, canary.percentage ?? 0))}%`)
@@ -47,10 +54,18 @@ export const MicrofrontendFlowNode: React.FC<NodeProps<MicrofrontendFlowNodeType
         : undefined
 
     return (
-        <div className="w-60 overflow-hidden rounded-lg border-2 border-border bg-card text-left shadow-sm transition-colors group-[.is-highlighted]:border-primary">
-            <Handle type="target" position={Position.Top} className={HANDLE_CLASS} />
+        <div
+            className={cn(
+                "w-60 overflow-hidden rounded-lg border-2 border-border bg-card text-left shadow-sm transition-colors group-[.is-highlighted]:border-primary",
+                showKind && "border-l-4 border-l-primary",
+                agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none"
+            )}
+        >
+            {/* A FRONTEND is served by its own container and cannot be the remote of a host: nothing may link into it. */}
+            {microfrontend.kind !== MicrofrontendKind.FRONTEND && <Handle type="target" position={Position.Top} className={HANDLE_CLASS} />}
 
             <div className="flex items-start gap-2 px-3 pt-2.5">
+                {showKind && <LayoutDashboard className="mt-0.5 size-4 shrink-0 text-primary-strong" aria-hidden="true" />}
                 <div className="min-w-0 flex-1">
                     <div className="truncate text-sm font-semibold text-card-foreground" title={microfrontend.name}>
                         {microfrontend.name}
@@ -68,8 +83,9 @@ export const MicrofrontendFlowNode: React.FC<NodeProps<MicrofrontendFlowNodeType
 
             {/* A row of its own, so a canary chip cannot make one node taller than the node beside it. */}
             <div className="mt-2 flex h-9 items-center gap-1.5 border-t border-divider px-3">
-                <Badge variant="outline" title={t("microfrontend.card.version", { version: microfrontend.version })}>
-                    {microfrontend.version}
+                <MicrofrontendKindBadge microfrontend={microfrontend} className="shrink-0" />
+                <Badge variant="outline" className="shrink-0" title={t("microfrontend.card.version", { version: microfrontend.version || "—" })}>
+                    {microfrontend.version || "—"}
                 </Badge>
                 {canaryLabel && (
                     <Badge className="min-w-0" title={canaryTitle}>
@@ -78,6 +94,7 @@ export const MicrofrontendFlowNode: React.FC<NodeProps<MicrofrontendFlowNodeType
                         </span>
                     </Badge>
                 )}
+                <WorkingAgentsIndicator agents={agents} compact className="ml-auto" />
             </div>
 
             <Handle type="source" position={Position.Bottom} className={HANDLE_CLASS} />

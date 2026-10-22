@@ -1,12 +1,27 @@
 @import url("https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300..700;1,300..700&display=swap");
 @import "tailwindcss";
-@import "@mfe-orchestrator/design-system/theme.css";
-@source "../node_modules/@mfe-orchestrator/design-system/dist";
+@import "@flightroom/design-system/theme.css";
+@source "../node_modules/@flightroom/design-system/dist";
 
 /*
  * Token, tema chiaro/scuro, ombre e animazioni arrivano dal design system.
  * Qui restano solo gli scostamenti specifici dell'applicazione.
  */
+
+/* Il bordo di un microfrontend su cui sta lavorando un agente: un alone che respira. */
+@theme {
+    --animate-agent-glow: agent-glow 2s ease-in-out infinite;
+
+    @keyframes agent-glow {
+        0%,
+        100% {
+            box-shadow: 0 0 0 0 hsl(var(--primary) / 0);
+        }
+        50% {
+            box-shadow: 0 0 0 4px hsl(var(--primary) / 0.3);
+        }
+    }
+}
 
 /* Tailwind v4 non ha piu le opzioni center/padding di container: le riproduciamo. */
 @utility container {

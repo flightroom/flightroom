@@ -1,4 +1,5 @@
 import axios, { AxiosInstance } from "axios"
+import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../types/BuildStatusDTO"
 
 /** Safety net so a misbehaving pagination cursor cannot turn a repository listing into an endless loop. */
 const maxRepositoryPages = 50
@@ -110,6 +111,13 @@ export interface GitLabPipeline {
     updated_at: string
 }
 
+/** A deploy token as GitLab answers its creation: the token itself is never shown again */
+export interface GitLabDeployToken {
+    id: number
+    username: string
+    token: string
+}
+
 class GitLabClient {
     private api: AxiosInstance
 
@@ -198,8 +206,26 @@ class GitLabClient {
         return res.data || []
     }
 
+    /** Plain-text traces of the failed jobs of a pipeline. */
+    async getFailedJobLogs(projectId: string | number, pipelineId: string): Promise<BuildJobLogDTO[]> {
+        const jobs = await this.api.get<{ id: number; name: string }[]>(`/projects/${projectId}/pipelines/${encodeURIComponent(pipelineId)}/jobs`, {
+            params: { "scope[]": "failed", per_page: 100 }
+        })
+
+        return Promise.all(
+            (jobs.data || []).slice(0, MAX_FAILED_JOBS).map(async job => {
+                const trace = await this.api.get<string>(`/projects/${projectId}/jobs/${job.id}/trace`, {
+                    maxContentLength: MAX_FAILED_JOB_LOG_BYTES,
+                    // The trace is raw text: keep it as is, axios would try to parse JSON otherwise
+                    transformResponse: [data => data]
+                })
+                return { name: job.name, log: trace.data }
+            })
+        )
+    }
+
     async getBranches(projectId: string | number): Promise<GitLabBranch[]> {
-        const res = await this.api.get<GitLabBranch[]>(`/projects/${projectId}/repository/branches`)
+        const res = await this.api.get<GitLabBranch[]>(`/projects/${projectId}/repository/branches`, { params: { per_page: 100 } })
         return res.data
     }
 
@@ -218,6 +244,24 @@ class GitLabClient {
     async getProject(projectId: string | number): Promise<GitLabProject> {
         const res = await this.api.get<GitLabProject>(`/projects/${projectId}`)
         return res.data
+    }
+
+    /** Renames the project and moves its path with it: the path is what the clone URL is made of. */
+    async renameProject(projectId: string | number, name: string): Promise<GitLabProject> {
+        const res = await this.api.put<GitLabProject>(`/projects/${projectId}`, { name, path: name })
+        return res.data
+    }
+
+    /** Opens a merge request and returns its web URL. */
+    async createMergeRequest(projectId: string | number, request: { sourceBranch: string; targetBranch: string; title: string; description: string }): Promise<string> {
+        const res = await this.api.post<{ web_url: string }>(`/projects/${projectId}/merge_requests`, {
+            source_branch: request.sourceBranch,
+            target_branch: request.targetBranch,
+            title: request.title,
+            description: request.description,
+            remove_source_branch: true
+        })
+        return res.data.web_url
     }
 
     /**
@@ -250,6 +294,22 @@ class GitLabClient {
             commit_message: request.commitMessage,
             actions: request.actions
         })
+    }
+
+    /** A deploy token of the project, for git over HTTPS with the scopes given: it needs the Maintainer role */
+    async createDeployToken(projectId: string | number, request: { name: string; scopes: string[] }): Promise<GitLabDeployToken> {
+        const res = await this.api.post<GitLabDeployToken>(`/projects/${projectId}/deploy_tokens`, request)
+        return res.data
+    }
+
+    /** Revokes a deploy token of the project; one already gone is not an error */
+    async revokeDeployToken(projectId: string | number, tokenId: number): Promise<void> {
+        try {
+            await this.api.delete(`/projects/${projectId}/deploy_tokens/${tokenId}`)
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) return
+            throw error
+        }
     }
 
     async branchExists(projectId: string | number, branchName: string): Promise<boolean> {

@@ -63,5 +63,5 @@ fi
 
 wait_for "Redis" redis_ping
 
-log "starting the MFE Orchestrator backend"
+log "starting the Flightroom backend"
 exec node /var/www/backend/src/index.js

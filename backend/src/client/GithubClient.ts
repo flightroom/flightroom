@@ -1,6 +1,7 @@
 import axios from "axios"
 import sodium from "libsodium-wrappers"
 import { CodeRepositoryType } from "../models/CodeRepositoryModel"
+import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../types/BuildStatusDTO"
 
 /** Safety net so a misbehaving pagination cursor cannot turn a repository listing into an endless loop. */
 const maxRepositoryPages = 50
@@ -324,7 +325,7 @@ class GithubClient {
                 },
                 headers: {
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 },
                 data: {
                     access_token: accessToken
@@ -348,7 +349,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -371,7 +372,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -390,7 +391,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -413,7 +414,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 encrypted_value: await this.encryptValueForSecret(key, value),
@@ -432,7 +433,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -482,7 +483,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data
         })
@@ -502,7 +503,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -524,7 +525,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -537,7 +538,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -553,7 +554,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: repositoryData
         })
@@ -564,10 +565,11 @@ class GithubClient {
     async getBranches(accessToken: string, repositoryName: string, orgName?: string, userName?: string): Promise<GithubBranch[]> {
         const response = await axios.request<GithubBranch[]>({
             url: `https://api.github.com/repos/${orgName || userName}/${repositoryName}/branches`,
+            params: { per_page: 100 },
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -587,7 +589,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -608,7 +610,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 ref: buildData.ref || "main",
@@ -636,11 +638,46 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
         return response.data?.workflow_runs || []
+    }
+
+    /**
+     * Plain-text logs of the jobs of a run that did not succeed.
+     *
+     * The logs endpoint answers with a redirect to a short-lived download URL on
+     * another host; axios follows it and drops the Authorization header on the way,
+     * which is what that URL expects.
+     */
+    async getFailedJobLogs(accessToken: string, repositoryName: string, runId: string, orgName?: string, userName?: string): Promise<BuildJobLogDTO[]> {
+        const headers = {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "Flightroom"
+        }
+        const baseUrl = this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)
+
+        const jobsResponse = await axios.request<{ jobs?: { id: number; name: string; conclusion?: string | null }[] }>({
+            url: `${baseUrl}/actions/runs/${encodeURIComponent(runId)}/jobs`,
+            params: { per_page: 100 },
+            headers
+        })
+        const failedJobs = (jobsResponse.data?.jobs || []).filter(job => job.conclusion === "failure" || job.conclusion === "timed_out").slice(0, MAX_FAILED_JOBS)
+
+        return Promise.all(
+            failedJobs.map(async job => {
+                const logResponse = await axios.request<string>({
+                    url: `${baseUrl}/actions/jobs/${job.id}/logs`,
+                    headers,
+                    responseType: "text",
+                    maxContentLength: MAX_FAILED_JOB_LOG_BYTES
+                })
+                return { name: job.name, log: logResponse.data }
+            })
+        )
     }
 
     async getBranchCommitSha(accessToken: string, repositoryName: string, branchName: string, orgName?: string, userName?: string): Promise<string> {
@@ -649,7 +686,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
         })
 
@@ -663,7 +700,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 ref: `refs/tags/${tag}`,
@@ -680,8 +717,23 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             }
+        })
+
+        return response.data
+    }
+
+    async renameRepository({ accessToken, orgName, userName, repositoryName, newName }: GithubRepositoryBaseDTO & { newName: string }): Promise<GithubRepository> {
+        const response = await axios.request<GithubRepository>({
+            method: "PATCH",
+            url: this.getRepositoryBaseUrlBase(repositoryName, orgName, userName),
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: "application/vnd.github.v3+json",
+                "User-Agent": "Flightroom"
+            },
+            data: { name: newName }
         })
 
         return response.data
@@ -699,7 +751,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 }
             })
 
@@ -730,7 +782,7 @@ class GithubClient {
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
                     Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "MFE-Orchestrator"
+                    "User-Agent": "Flightroom"
                 },
                 data: {
                     ref: `refs/heads/${branchName}`,
@@ -747,6 +799,39 @@ class GithubClient {
         }
     }
 
+    /** Opens a pull request and returns its web URL. */
+    async createPullRequest({
+        accessToken,
+        orgName,
+        userName,
+        repositoryName,
+        head,
+        base,
+        title,
+        body
+    }: {
+        accessToken: string
+        orgName?: string
+        userName?: string
+        repositoryName: string
+        head: string
+        base: string
+        title: string
+        body: string
+    }): Promise<string> {
+        const response = await axios.request<{ html_url: string }>({
+            method: "POST",
+            url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/pulls`,
+            headers: {
+                Authorization: `Bearer ${accessToken}`,
+                Accept: "application/vnd.github.v3+json",
+                "User-Agent": "Flightroom"
+            },
+            data: { head, base, title, body }
+        })
+        return response.data.html_url
+    }
+
     async updateFileContent({ accessToken, orgName, userName, repositoryName, path, content, message, branch, sha }: GithubUpdateFileDTO): Promise<void> {
         await axios.request({
             method: "PUT",
@@ -754,7 +839,7 @@ class GithubClient {
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
-                "User-Agent": "MFE-Orchestrator"
+                "User-Agent": "Flightroom"
             },
             data: {
                 message,

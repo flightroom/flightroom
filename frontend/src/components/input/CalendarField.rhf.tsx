@@ -1,4 +1,4 @@
-import { CalendarField as DesignSystemCalendarField } from "@mfe-orchestrator/design-system"
+import { CalendarField as DesignSystemCalendarField } from "@flightroom/design-system"
 import type { FieldValues } from "react-hook-form"
 import useThemeStore from "@/store/useThemeStore"
 

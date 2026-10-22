@@ -1,6 +1,9 @@
 import { ObjectId, Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
+import Microfrontend from "../models/MicrofrontendModel"
 import Project from "../models/ProjectModel"
+import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
@@ -44,6 +47,9 @@ interface FakeOrganizationMembership {
 
 const anOrganization = () => newId()
 const aUser = (): IUser => ({ _id: newId(), email: "someone@example.com" }) as unknown as IUser
+
+/** The principal a MCP access token resolves to: the same user, confined to one project. */
+const boundTo = (user: IUser, ...projectIds: ObjectId[]) => ({ ...user, restrictedToProjectIds: projectIds.map(String) })
 
 let projectMemberships: FakeProjectMembership[]
 let organizationMemberships: FakeOrganizationMembership[]
@@ -172,6 +178,102 @@ describe("access to a project and to an organization", () => {
         })
     })
 
+    describe("a principal bound to one project", () => {
+        it("Given a member of two projects bound to the first, when the second is checked, then it is denied", async () => {
+            const user = aUser()
+            const bound = newId()
+            const other = newId()
+            const organizationId = anOrganization()
+            projects.push({ _id: bound, organizationId }, { _id: other, organizationId })
+            projectMemberships.push({ userId: user._id, projectId: bound, role: RoleInProject.MEMBER }, { userId: user._id, projectId: other, role: RoleInProject.MEMBER })
+
+            const probe = new AccessProbe(boundTo(user, bound))
+            expect(await probe.canOpenProject(bound)).toBe(true)
+            expect(await probe.canOpenProject(other)).toBe(false)
+        })
+
+        it("Given a member of three projects bound to two, when each is checked, then only the two are reached", async () => {
+            const user = aUser()
+            const organizationId = anOrganization()
+            const [first, second, third] = [newId(), newId(), newId()]
+            for (const projectId of [first, second, third]) {
+                projects.push({ _id: projectId, organizationId })
+                projectMemberships.push({ userId: user._id, projectId, role: RoleInProject.MEMBER })
+            }
+
+            const probe = new AccessProbe(boundTo(user, first, second))
+            expect(await probe.canOpenProject(first)).toBe(true)
+            expect(await probe.canOpenProject(second)).toBe(true)
+            expect(await probe.canOpenProject(third)).toBe(false)
+        })
+
+        it("Given a principal bound to a project the user no longer belongs to, when it is checked, then the binding alone does not open it", async () => {
+            const user = aUser()
+            const projectId = newId()
+            projects.push({ _id: projectId, organizationId: anOrganization() })
+
+            expect(await new AccessProbe(boundTo(user, projectId)).canOpenProject(projectId)).toBe(false)
+        })
+
+        it("Given an organization owner bound to one of its projects, when that project is checked, then it is still reached through the organization", async () => {
+            const user = aUser()
+            const projectId = newId()
+            const organizationId = anOrganization()
+            projects.push({ _id: projectId, organizationId })
+            organizationMemberships.push({ userId: user._id, organizationId, role: RoleInOrganization.OWNER })
+
+            expect(await new AccessProbe(boundTo(user, projectId)).canOpenProject(projectId)).toBe(true)
+        })
+
+        it("Given an organization owner bound to one project, when organization level access is checked, then it is denied", async () => {
+            const user = aUser()
+            const projectId = newId()
+            const organizationId = anOrganization()
+            projects.push({ _id: projectId, organizationId })
+            organizationMemberships.push({ userId: user._id, organizationId, role: RoleInOrganization.OWNER })
+
+            const probe = new AccessProbe(boundTo(user, projectId))
+            expect(await probe.belongsTo(organizationId)).toBe(false)
+            expect(await probe.administers(organizationId)).toBe(false)
+            expect(await probe.administeredOrganizations()).toEqual([])
+        })
+    })
+
+    describe("a principal standing for a project API key", () => {
+        /** As the MCP endpoint builds it: no user behind it, only the key's project. */
+        const anApiKeyPrincipal = (projectId: ObjectId) => {
+            const apiKeyId = newId()
+            return { _id: apiKeyId, email: `api-key:${apiKeyId}`, apiKeyId: String(apiKeyId), restrictedToProjectIds: [String(projectId)] } as unknown as IUser
+        }
+
+        it("Given a key of a project, when that project is checked, then it is reached without any membership", async () => {
+            const projectId = newId()
+            projects.push({ _id: projectId, organizationId: anOrganization() })
+
+            expect(await new AccessProbe(anApiKeyPrincipal(projectId)).canOpenProject(projectId)).toBe(true)
+        })
+
+        it("Given a key of a project, when another project of the same organization is checked, then it is denied", async () => {
+            const organizationId = anOrganization()
+            const own = newId()
+            const other = newId()
+            projects.push({ _id: own, organizationId }, { _id: other, organizationId })
+
+            expect(await new AccessProbe(anApiKeyPrincipal(own)).canOpenProject(other)).toBe(false)
+        })
+
+        it("Given a key of a project, when organization level access is checked, then it is denied", async () => {
+            const organizationId = anOrganization()
+            const projectId = newId()
+            projects.push({ _id: projectId, organizationId })
+
+            const probe = new AccessProbe(anApiKeyPrincipal(projectId))
+            expect(await probe.belongsTo(organizationId)).toBe(false)
+            expect(await probe.administers(organizationId)).toBe(false)
+            expect(await probe.administeredOrganizations()).toEqual([])
+        })
+    })
+
     describe("membership of an organization", () => {
         it("Given a plain member, when the organization is checked, then they belong to it but do not administer it", async () => {
             const user = aUser()
@@ -209,5 +311,78 @@ describe("access to a project and to an organization", () => {
 
             expect(administeredIds).toEqual([String(owned), String(administered)])
         })
+    })
+})
+
+describe("ensureRepositoryInDomainScope", () => {
+    /** Exposes the check, with the domain scope given rather than read from a membership. */
+    class RepositoryProbe extends BaseAuthorizedService {
+        constructor(private readonly scope: string[] | undefined) {
+            super(aUser())
+        }
+        protected getDomainScope() {
+            return Promise.resolve(this.scope)
+        }
+        check(...args: Parameters<BaseAuthorizedService["ensureRepositoryInDomainScope"]>) {
+            return this.ensureRepositoryInDomainScope(...args)
+        }
+    }
+
+    const projectId = newId()
+    const ownDomain = newId()
+    const connectionId = newId()
+    const service = { kind: "service" as const, _id: newId(), projectId }
+    const link = { enabled: true, codeRepositoryId: connectionId, repositoryId: "42", name: "orders", gitlab: { path: "shop/orders" } } as never
+
+    let microfrontendsOutside: ReturnType<typeof vi.spyOn>
+    let servicesOutside: ReturnType<typeof vi.spyOn>
+    let connection: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        microfrontendsOutside = vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
+        servicesOutside = vi.spyOn(Service, "exists").mockResolvedValue(null as never)
+        connection = vi.spyOn(CodeRepository, "findById").mockResolvedValue({ provider: CodeRepositoryProvider.GITHUB } as never)
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it("given a member of the whole project, when the repository is checked, then nothing is looked up", async () => {
+        await new RepositoryProbe(undefined).check(service, link)
+
+        expect(connection).not.toHaveBeenCalled()
+        expect(microfrontendsOutside).not.toHaveBeenCalled()
+        expect(servicesOutside).not.toHaveBeenCalled()
+    })
+
+    it("given a microfrontend of another domain or of none on the same repository, when a scoped member's write is checked, then it is refused", async () => {
+        microfrontendsOutside.mockResolvedValue({ _id: newId() } as never)
+
+        await expect(new RepositoryProbe([String(ownDomain)]).check(service, link)).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN", statusCode: 403 })
+        // The owner is found by its id among the services only; $nin also takes the documents of no domain
+        const sameRepository = [{ "codeRepository.repositoryId": "42" }, { "codeRepository.name": "orders" }]
+        const outside = { domainId: { $nin: [String(ownDomain)] } }
+        expect(microfrontendsOutside).toHaveBeenCalledWith({ projectId, "codeRepository.codeRepositoryId": connectionId, $or: sameRepository, ...outside })
+        expect(servicesOutside).toHaveBeenCalledWith({ projectId, "codeRepository.codeRepositoryId": connectionId, $or: [{ _id: service._id }, ...sameRepository], ...outside })
+    })
+
+    it("given a repository used only by components of the member's domains, when the write is checked, then it goes through", async () => {
+        await expect(new RepositoryProbe([String(ownDomain)]).check(service, link)).resolves.toBeUndefined()
+    })
+
+    it("given a GitLab connection, when the write is checked, then the repository is told by its path, not by a name another group may share", async () => {
+        connection.mockResolvedValue({ provider: CodeRepositoryProvider.GITLAB } as never)
+
+        await new RepositoryProbe([String(ownDomain)]).check(service, link)
+
+        expect(connection).toHaveBeenCalledWith(connectionId, { provider: 1 })
+        expect(microfrontendsOutside.mock.calls[0][0]).toMatchObject({ $or: [{ "codeRepository.repositoryId": "42" }, { "codeRepository.gitlab.path": "shop/orders" }] })
+    })
+
+    it("given the provider already known, when the write is checked, then the connection is not read again", async () => {
+        await new RepositoryProbe([String(ownDomain)]).check(service, link, CodeRepositoryProvider.AZURE_DEV_OPS)
+
+        expect(connection).not.toHaveBeenCalled()
     })
 })

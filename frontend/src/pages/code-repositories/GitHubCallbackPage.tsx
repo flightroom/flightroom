@@ -1,4 +1,4 @@
-import { Card, CardContent, Spinner } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, Spinner } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { AlertCircle, CheckCircle } from "lucide-react"
 import { useEffect, useState } from "react"
@@ -67,16 +67,16 @@ const GitHubCallbackPage = () => {
 
                         {saveRepositoryMutation.isSuccess && (
                             <>
-                                <CheckCircle className="mx-auto h-12 w-12 text-green-500" />
-                                <h2 className="mt-4 text-lg font-semibold text-green-700">{t("codeRepositories.github.callback.successTitle")}</h2>
+                                <CheckCircle className="mx-auto h-12 w-12 text-success" />
+                                <h2 className="mt-4 text-lg font-semibold text-success">{t("codeRepositories.github.callback.successTitle")}</h2>
                                 <p className="mt-2 text-sm text-muted-foreground">{t("codeRepositories.github.callback.successDescription")}</p>
                             </>
                         )}
 
                         {(validationError || saveRepositoryMutation.isError) && (
                             <>
-                                <AlertCircle className="mx-auto h-12 w-12 text-red-500" />
-                                <h2 className="mt-4 text-lg font-semibold text-red-700">{t("codeRepositories.github.callback.failedTitle")}</h2>
+                                <AlertCircle className="mx-auto h-12 w-12 text-destructive" />
+                                <h2 className="mt-4 text-lg font-semibold text-destructive">{t("codeRepositories.github.callback.failedTitle")}</h2>
                                 <p className="mt-2 text-sm text-muted-foreground">{validationError || saveRepositoryMutation.error?.message}</p>
                                 <div className="mt-4 space-x-2">
                                     <Button onClick={() => navigate("/code-repositories")} variant="secondary">

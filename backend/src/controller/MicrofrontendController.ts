@@ -1,7 +1,10 @@
 import fastifyMultipart from "@fastify/multipart"
 import { FastifyInstance } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
+import FrontendDeploymentService from "../service/FrontendDeploymentService"
 import MicrofrontendService from "../service/MicrofrontendService"
+import RepositoryCreationService, { CreateRepositoryInput } from "../service/RepositoryCreationService"
+import RepositoryRenameService from "../service/RepositoryRenameService"
 import StackDetectionService from "../service/StackDetectionService"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 import MicrofrontendDTO from "../types/MicrofrontendDTO"
@@ -30,6 +33,39 @@ export default async function microfrontendController(fastify: FastifyInstance) 
         }
     }>("/microfrontends/:id/versions", async (request, reply) => {
         return reply.send(await new MicrofrontendService(request.databaseUser).getVersionsById(request.params.id))
+    })
+
+    // The versions as records, newest first: for a FRONTEND with the image, digest and commit the CI registered
+    fastify.get<{ Params: { id: string } }>("/microfrontends/:id/builds", async (request, reply) => {
+        return reply.send(await new MicrofrontendService(request.databaseUser).getBuildsById(request.params.id))
+    })
+
+    // Called by the release pipeline of a FRONTEND with its deploy secret once the image is pushed, as for a
+    // service: the API key resolves the project, and its role is checked by the service (MANAGER only)
+    fastify.post<{
+        Params: { microfrontendSlug: string; version: string }
+        Body: unknown
+    }>("/microfrontends/by-slug/:microfrontendSlug/versions/:version", { config: { authMethod: AuthenticationMethod.API_KEY } }, async (request, reply) => {
+        const projectId = getProjectIdFromRequest(request)
+        if (!projectId) {
+            throw new ProjectHeaderNotFoundError()
+        }
+        return reply.send(await new MicrofrontendService().registerVersionWithPermissionCheck(request.params.microfrontendSlug, request.params.version, projectId, request.body, request.apiKeyRole))
+    })
+
+    // Called by the deploy pipeline of the customer once a version of a FRONTEND runs in an environment: the
+    // orchestrator does not deploy it, so this is how it learns which version each environment runs (MANAGER only)
+    fastify.post<{
+        Params: { microfrontendSlug: string; environmentSlug: string }
+        Body: unknown
+    }>("/microfrontends/by-slug/:microfrontendSlug/environments/:environmentSlug/deployments", { config: { authMethod: AuthenticationMethod.API_KEY } }, async (request, reply) => {
+        const projectId = getProjectIdFromRequest(request)
+        if (!projectId) {
+            throw new ProjectHeaderNotFoundError()
+        }
+        return reply.send(
+            await new FrontendDeploymentService().registerWithPermissionCheck(request.params.microfrontendSlug, request.params.environmentSlug, projectId, request.body, request.apiKeyRole)
+        )
     })
 
     fastify.post<{
@@ -111,6 +147,24 @@ export default async function microfrontendController(fastify: FastifyInstance) 
         return reply.send(await new MicrofrontendService(request.databaseUser).deleteRelation(request.body.host, request.body.remote))
     })
 
+    fastify.put<{
+        Params: {
+            id: string
+            serviceId: string
+        }
+    }>("/microfrontends/:id/services/:serviceId", async (request, reply) => {
+        return reply.send(await new MicrofrontendService(request.databaseUser).linkService(request.params.id, request.params.serviceId))
+    })
+
+    fastify.delete<{
+        Params: {
+            id: string
+            serviceId: string
+        }
+    }>("/microfrontends/:id/services/:serviceId", async (request, reply) => {
+        return reply.send(await new MicrofrontendService(request.databaseUser).unlinkService(request.params.id, request.params.serviceId))
+    })
+
     fastify.post<{
         Params: {
             id: string
@@ -121,6 +175,15 @@ export default async function microfrontendController(fastify: FastifyInstance) 
         }
     }>("/microfrontends/:id/build", async (request, reply) => {
         return reply.send(await new MicrofrontendService(request.databaseUser).build(request.params.id, request.body.version, request.body.branch))
+    })
+
+    fastify.post<{ Params: { id: string }; Body: { name: string } }>("/microfrontends/:id/repository/rename", async (request, reply) => {
+        return reply.send(await new RepositoryRenameService(request.databaseUser).renameMicrofrontendRepository(request.params.id, request.body?.name ?? ""))
+    })
+
+    // A new repository, scaffolded from a template, for a microfrontend that has none: the domain AI workspace offers it
+    fastify.post<{ Params: { id: string }; Body: CreateRepositoryInput }>("/microfrontends/:id/repository", async (request, reply) => {
+        return reply.send(await new RepositoryCreationService(request.databaseUser).createMicrofrontendRepository(request.params.id, request.body))
     })
 
     fastify.put<{
