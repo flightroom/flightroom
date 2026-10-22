@@ -594,6 +594,14 @@
         "title": "Builds",
         "subtitle": "Frontend and backend build status, with a link to each run on its CI platform, and the version each environment serves",
         "refresh": "Refresh",
+        "search": {
+            "placeholder": "Search by name, slug or repository...",
+            "clear": "Clear search",
+            "filtered_count_one": "{{count}} of {{total}} component",
+            "filtered_count_other": "{{count}} of {{total}} components",
+            "no_results_title": "No results",
+            "no_results_description": "No microfrontend or service matches \"{{searchTerm}}\"."
+        },
         "live": {
             "connected": "Live updates on",
             "disconnected": "Live updates unavailable",
