@@ -94,9 +94,11 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
     const aiAvailable = isAiEditAvailable(mfe, useProjectAiModels().enabled)
     // Served by its own container: Flightroom neither hosts it nor runs a canary for it
     const isDocker = mfe.kind === FrontendKind.DOCKER
+    const openPath = aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/settings`
 
     return (
-        <TableRow className={cn("border-divider hover:bg-primary/5", agents > 0 && "bg-primary/5")}>
+        // The whole row opens the frontend, as a row of the services table does.
+        <TableRow className={cn("cursor-pointer border-divider hover:bg-primary/5", agents > 0 && "bg-primary/5")} onClick={() => navigate(openPath)}>
             {/* Capped so a long name or slug cannot push the action column out of view. */}
             <TableCell className="max-w-[16rem] font-medium">
                 <div className="flex items-center gap-2">
@@ -112,15 +114,14 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
             <TableCell>
                 <FrontendKindBadge frontend={mfe} className="whitespace-nowrap" />
             </TableCell>
-            <TableCell>
-                <Badge>{mfe.version || "—"}</Badge>
-            </TableCell>
+            <TableCell>{mfe.version ? <Badge>{mfe.version}</Badge> : <span className="text-foreground-secondary">—</span>}</TableCell>
             <TableCell>{isDocker ? <span className="text-foreground-secondary">—</span> : <HostCell host={mfe.host} />}</TableCell>
             <TableCell>{isDocker ? <span className="text-foreground-secondary">—</span> : <CanaryCell canary={mfe.canary} />}</TableCell>
             <TableCell className="whitespace-nowrap">
                 <CanaryVersionCell canary={mfe.canary} />
             </TableCell>
-            <TableCell className="whitespace-nowrap text-right">
+            {/* The buttons, and the dialog rendered from here, must not also open the frontend: React bubbles portal clicks too. */}
+            <TableCell className="cursor-default whitespace-nowrap text-right" onClick={event => event.stopPropagation()}>
                 <div className="flex justify-end gap-2">
                     <CloneRepositoryPopover frontend={mfe} />
                     {hasRepository && !isViewer && (
@@ -129,7 +130,7 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
                             {t("frontend.card.build")}
                         </Button>
                     )}
-                    <Button variant={aiAvailable ? "primary" : "secondary"} size="sm" onClick={() => navigate(aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/settings`)}>
+                    <Button variant={aiAvailable ? "primary" : "secondary"} size="sm" onClick={() => navigate(openPath)}>
                         {aiAvailable ? <Sparkles /> : <Cog />}
                         {aiAvailable ? t("frontend.workspace.nav_ai") : t("common.configuration")}
                     </Button>
