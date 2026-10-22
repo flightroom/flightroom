@@ -158,6 +158,21 @@ const toBuildFailure = (error: unknown): { reason: DomainBuildFailure; message: 
     return { reason: "PROVIDER_ERROR", message: error instanceof Error ? error.message : String(error) }
 }
 
+/** Refuses, before anything is read, a version or a branch the providers would not take as a tag of a domain build */
+export function ensureBuildTarget(version: unknown, ref?: unknown): asserts version is string {
+    // The rule of a service build: the tag becomes, in the pipelines, an image tag and a URL segment
+    if (typeof version !== "string" || !SERVICE_VERSION.test(version)) {
+        throw createBusinessException({ code: "DOMAIN_BUILD_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
+    }
+    // The branch goes into the URL of each provider: only a name git itself accepts
+    if (ref !== undefined && ref !== null && ref !== "" && (typeof ref !== "string" || !isValidRefName(ref))) {
+        throw createBusinessException({ code: "DOMAIN_BUILD_REF_INVALID", message: "The branch must be a valid git branch name of at most 255 characters" })
+    }
+}
+
+/** The branch a domain build tags: main when none is given */
+export const buildBranchOf = (ref?: unknown): string => (typeof ref === "string" && ref ? ref : "main")
+
 const toOutcome = ({ id, link, members }: BuildRepository, outcome: Pick<DomainBuildRepository, "status" | "reason" | "message">): DomainBuildRepository => ({
     id,
     repository: link.name,
@@ -285,15 +300,8 @@ export class DomainService extends BaseAuthorizedService {
      * result says which.
      */
     async build(id: string | ObjectId, version: unknown, ref?: unknown): Promise<DomainBuildResult> {
-        // The rule of a service build: the tag becomes, in the pipelines, an image tag and a URL segment
-        if (typeof version !== "string" || !SERVICE_VERSION.test(version)) {
-            throw createBusinessException({ code: "DOMAIN_BUILD_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
-        }
-        // The branch goes into the URL of each provider: only a name git itself accepts
-        if (ref !== undefined && ref !== null && ref !== "" && (typeof ref !== "string" || !isValidRefName(ref))) {
-            throw createBusinessException({ code: "DOMAIN_BUILD_REF_INVALID", message: "The branch must be a valid git branch name of at most 255 characters" })
-        }
-        const branch = typeof ref === "string" && ref ? ref : "main"
+        ensureBuildTarget(version, ref)
+        const branch = buildBranchOf(ref)
         const domain = await this.getById(id)
         if (!domain) {
             throw new EntityNotFoundError(String(id))
