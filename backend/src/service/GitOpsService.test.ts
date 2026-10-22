@@ -8,11 +8,12 @@ import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import ArgoCdService from "./ArgoCdService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
-import GitOpsService, { renderManifest } from "./GitOpsService"
+import GitOpsService, { renderManifest, renderResourceManifest } from "./GitOpsService"
 import { CHART_FILES } from "./gitops/applicationManifests"
 import { TemplateScaffoldService } from "./TemplateScaffoldService"
 import { GitWorkingCopy } from "./workspace/GitWorkingCopy"
@@ -85,6 +86,52 @@ describe("renderManifest", () => {
     it("given a value YAML would read as another type, when it is rendered, then it stays a string", () => {
         const manifest = parse(renderManifest("configMap", { name: "flags", entries: [{ key: "ENABLED", values: [{ environmentId: String(production), value: "true" }] }] }, String(production)))
         expect(manifest.data.ENABLED).toBe("true")
+    })
+})
+
+describe("renderResourceManifest", () => {
+    const resource = {
+        name: "orders",
+        type: "database",
+        variant: "credentials",
+        values: [
+            { field: "engine", value: "POSTGRESQL", overrides: [] },
+            { field: "host", value: "db.internal", overrides: [{ environmentId: production, value: "db.prod.internal" }] },
+            { field: "port", value: "5432", overrides: [] }
+        ],
+        secrets: [{ field: "password", overrides: [{ environmentId: production, value: "s3cret" }] }]
+    }
+    const decoded = (manifest: { data: Record<string, string> }) => Object.fromEntries(Object.entries(manifest.data).map(([key, value]) => [key, Buffer.from(value, "base64").toString()]))
+
+    it("given a resource, when it is rendered for an environment that overrides it, then it is one Opaque Secret named after it with the overrides and the rest of all", () => {
+        const manifest = parse(renderResourceManifest(resource, String(production), "prod"))
+
+        expect(manifest).toMatchObject({
+            apiVersion: "v1",
+            kind: "Secret",
+            type: "Opaque",
+            metadata: { name: "orders.resource", namespace: "prod", labels: { "app.kubernetes.io/managed-by": "mfe-orchestrator" } }
+        })
+        expect(decoded(manifest)).toEqual({ DB_ORDERS_ENGINE: "POSTGRESQL", DB_ORDERS_HOST: "db.prod.internal", DB_ORDERS_PORT: "5432", DB_ORDERS_PASSWORD: "s3cret" })
+    })
+
+    it("given an environment that overrides nothing, when it is rendered, then the values of all are there and a field set nowhere is left out", () => {
+        expect(decoded(parse(renderResourceManifest(resource, String(development))))).toEqual({ DB_ORDERS_ENGINE: "POSTGRESQL", DB_ORDERS_HOST: "db.internal", DB_ORDERS_PORT: "5432" })
+    })
+
+    it("given a storage on AWS, when it is rendered, then the fixed provider is among its keys", () => {
+        const media = { name: "media", type: "storage", variant: "aws", values: [{ field: "region", value: "eu-west-1", overrides: [] }], secrets: [] }
+
+        expect(decoded(parse(renderResourceManifest(media, String(production))))).toEqual({ STORAGE_MEDIA_REGION: "eu-west-1", STORAGE_MEDIA_PROVIDER: "AWS" })
+    })
+
+    it("given an api with a pasted document, when it is rendered, then the document is not in the Secret", () => {
+        const payments = { name: "payments", type: "api", variant: "none", values: [{ field: "baseUrl", value: "https://payments.example.com", overrides: [] }], apiSpec: '{"openapi":"3.1.0"}' }
+
+        const content = renderResourceManifest(payments, String(production))
+
+        expect(decoded(parse(content))).toEqual({ API_PAYMENTS_BASE_URL: "https://payments.example.com", API_PAYMENTS_AUTH: "none" })
+        expect(content).not.toContain(Buffer.from('{"openapi":"3.1.0"}').toString("base64"))
     })
 })
 
@@ -210,6 +257,7 @@ describe("GitOpsService.deploy", () => {
         vi.spyOn(GitOpsService.prototype as unknown as { domainScopeFilter: () => Promise<object> }, "domainScopeFilter").mockResolvedValue({})
         vi.spyOn(ConfigMap, "find").mockResolvedValue([logging] as never)
         vi.spyOn(Secret, "find").mockResolvedValue([database] as never)
+        vi.spyOn(Resource, "find").mockResolvedValue([] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
@@ -291,6 +339,60 @@ describe("GitOpsService.deploy", () => {
         expect(prune("production/configMaps/notes.txt")).toBe(false)
         expect(prune("production/notes.yaml")).toBe(false)
         expect(prune("production/configMaps/nested/old.yaml")).toBe(false)
+    })
+
+    describe("with resources", () => {
+        const attachedId = new Types.ObjectId()
+        const attached = { _id: attachedId, name: "orders", type: "redis", variant: "connectionString", values: [], secrets: [{ field: "url", value: "redis://cache", overrides: [] }] }
+        const detached = { _id: new Types.ObjectId(), name: "unused", type: "redis", variant: "connectionString", values: [], secrets: [] }
+
+        beforeEach(() => {
+            vi.spyOn(Resource, "find").mockResolvedValue([attached, detached] as never)
+            vi.spyOn(Service, "find").mockResolvedValue([{ slug: "orders-api", resourceIds: [attachedId] }] as never)
+        })
+
+        it("given a resource a service attaches and one attached to nothing, when production is deployed, then both are committed, after the maps", async () => {
+            gitOpsOn()
+
+            await deployOf(production)()
+
+            const files = commit.mock.calls[0][1]
+            expect(files.map(file => file.path)).toEqual([
+                "production/namespace.yaml",
+                "production/configMaps/logging.yaml",
+                "production/secrets/database.yaml",
+                "production/resources/orders.yaml",
+                "production/resources/unused.yaml"
+            ])
+            expect(parse(files[3].content!)).toMatchObject({
+                kind: "Secret",
+                metadata: { name: "orders.resource", namespace: "production" },
+                data: { REDIS_ORDERS_URL: Buffer.from("redis://cache").toString("base64") }
+            })
+            expect(Resource.find).toHaveBeenCalledWith({ projectId: expect.anything() })
+        })
+
+        it("given a resource detached since the last deploy, when production is deployed, then its Secret stays: a values file not redeployed may still name it", async () => {
+            gitOpsOn()
+
+            await deployOf(production)()
+
+            expect(commit.mock.calls[0][1].map(file => file.path)).toContain("production/resources/unused.yaml")
+            // The services are not read to tell which ones are attached
+            expect(Service.find).not.toHaveBeenCalled()
+        })
+
+        it("given a resource deleted since the last deploy, when production is deployed, then its manifest is among those the commit prunes", async () => {
+            gitOpsOn()
+
+            await deployOf(production)()
+
+            const prune = commit.mock.calls[0][2]!.prune!
+            expect(commit.mock.calls[0][1].map(file => file.path)).not.toContain("production/resources/deleted.yaml")
+            expect(prune("production/resources/deleted.yaml")).toBe(true)
+            expect(prune("development/resources/deleted.yaml")).toBe(false)
+            expect(prune("production/resources/nested/deleted.yaml")).toBe(false)
+        })
     })
 
     it("given a deploy that fails after the commit, when it is run, then the files are committed back and the failure goes on", async () => {
@@ -543,6 +645,18 @@ describe("GitOpsService.deploy", () => {
             const values = files.filter(file => !file.path.startsWith("microservice-chart/"))
             expect(values.map(file => file.path)).toEqual(["orders-api.yaml"])
             expect(parse(values[0].content!)).toMatchObject({ image: { host: "ghcr.io", name: "acme/orders-api", tag: "1.4.0" }, environmentMaps: ["logging"], secrets: ["database"] })
+        })
+
+        it("given a service attaching a resource, when the applications are committed, then its values list the Secret of the resource after those of its secrets", async () => {
+            const cacheId = new Types.ObjectId()
+            vi.spyOn(Resource, "find").mockResolvedValue([{ _id: cacheId, name: "cache", type: "redis", variant: "connectionString", values: [], secrets: [] }] as never)
+            vi.spyOn(Service, "find").mockResolvedValue([{ ...orders, resourceIds: [cacheId] }] as never)
+
+            await deployOf(production)()
+
+            const values = applicationsCommit.mock.calls[0][1].filter(file => !file.path.startsWith("microservice-chart/"))
+            expect(parse(values[0].content!)).toMatchObject({ environmentMaps: ["logging"], secrets: ["database", "cache.resource"] })
+            expect(commit.mock.calls[0][1].map(file => file.path)).toContain("production/resources/cache.yaml")
         })
 
         it("given a project with a container registry, when the applications are committed, then one with a version and no image gets the slug in the registry", async () => {

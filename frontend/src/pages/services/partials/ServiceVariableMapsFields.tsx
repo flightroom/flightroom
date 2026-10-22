@@ -5,6 +5,7 @@ import { Controller, useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/atoms"
+import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 import type { VariableMap, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 
@@ -132,14 +133,20 @@ const MapChoices: React.FC<{ kind: VariableMapKind; maps: VariableMap[] }> = ({ 
 export const ServiceVariableMapsFields: React.FC<{
     configMaps: VariableMap[]
     secrets: VariableMap[]
-}> = ({ configMaps, secrets }) => {
+    /** The resources of the project: the ones attached set keys too, which no map may set again */
+    resources?: Resource[]
+}> = ({ configMaps, secrets, resources = [] }) => {
     const { t } = useTranslation()
-    const [configMapIds = [], secretIds = []] = useWatch({ name: ["configMapIds", "secretIds"] }) as [string[] | undefined, string[] | undefined]
+    const [configMapIds = [], secretIds = [], resourceIds = []] = useWatch({ name: ["configMapIds", "secretIds", "resourceIds"] }) as [string[] | undefined, string[] | undefined, string[] | undefined]
 
     // The backend refuses it as well: said here, the user sees it before saving
     const owners = new Map<string, string>()
     let clash: { key: string; first: string; second: string } | undefined
-    for (const map of [...configMaps.filter(map => configMapIds.includes(map._id!)), ...secrets.filter(map => secretIds.includes(map._id!))]) {
+    for (const map of [
+        ...configMaps.filter(map => configMapIds.includes(map._id!)),
+        ...secrets.filter(map => secretIds.includes(map._id!)),
+        ...resources.filter(resource => resourceIds.includes(resource._id!)).map(resource => ({ name: resource.name, entries: resource.env }))
+    ]) {
         for (const { key } of map.entries) {
             const owner = owners.get(key)
             if (owner !== undefined && !clash) clash = { key, first: owner, second: map.name }

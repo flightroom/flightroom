@@ -39,6 +39,7 @@ import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import GitOpsService from "./GitOpsService"
@@ -103,6 +104,7 @@ describe.skipIf(!hasGit)("GitOpsService against a local smart HTTP remote", () =
         vi.spyOn(CodeRepository, "findOne").mockResolvedValue({ _id: connectionId, provider: "GITHUB", accessToken: "token", githubData: { organizationId: "acme" } } as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production, slug: "production", projectId }] as never)
         vi.spyOn(ConfigMap, "find").mockResolvedValue([] as never)
+        vi.spyOn(Resource, "find").mockResolvedValue([] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })

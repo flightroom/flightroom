@@ -15,6 +15,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
+import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
 import TemplateScaffoldService, { placeholderDomain } from "./TemplateScaffoldService"
 import { ensureAttachableMaps, resolveAttachedMaps } from "./VariableMapService"
 import { forgetServices } from "./workspace/workspaceCleanup"
@@ -47,16 +48,17 @@ export const ensurePlainFields = (fields: object, code = "SERVICE_INVALID") => {
 /**
  * The maps `dto` attaches, checked: a caller that leaves them out (an MCP update of the name, say)
  * changes none of them and costs no query. A DOCKER frontend goes through it too, since it has the
- * same container fields.
+ * same container fields, but without `resources`: only a backend service attaches resources.
  */
-export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "configMapIds" | "secretIds">>(
+export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "configMapIds" | "secretIds" | "resourceIds">>(
     dto: T,
     projectId: Schema.Types.ObjectId,
-    existing?: Partial<Pick<IService, "name" | "configMapIds" | "secretIds">>
+    existing?: Partial<Pick<IService, "name" | "configMapIds" | "secretIds" | "resourceIds">>,
+    options: { resources?: boolean } = {}
 ): Promise<T> => {
     ensurePlainFields(dto)
     // Only the name and the attached ids of what is stored are read
-    return resolveAttachedMaps(dto, projectId, existing as IService | undefined)
+    return resolveAttachedMaps(dto, projectId, existing as IService | undefined, options)
 }
 
 /**
@@ -163,7 +165,7 @@ export class ServiceService extends BaseAuthorizedService {
         const slug = (dto.slug ?? "").trim().toLowerCase()
         ensureValidSlug(slug)
         const { id: _id, ...fields } = { ...dto, slug }
-        const service = await withNormalizedReferences(withManualVersion(fields), projectIdObj)
+        const service = await withNormalizedReferences(withManualVersion(fields), projectIdObj, undefined, { resources: true })
         if (service.domainId !== undefined) {
             service.domainId = await resolveDomainId(service.domainId, projectIdObj)
         }
@@ -171,6 +173,7 @@ export class ServiceService extends BaseAuthorizedService {
         await this.ensureInDomainScope(projectIdObj, service.domainId)
         const scope = await this.getDomainScope(projectIdObj)
         await ensureAttachableMaps(scope, projectIdObj, service)
+        await ensureAttachableResources(scope, projectIdObj, service)
         ensureOnlyNewRepositoryLinked(scope, service.codeRepository)
 
         // Both before the repository is created: a refused save would leave an orphan repository behind
@@ -243,14 +246,17 @@ export class ServiceService extends BaseAuthorizedService {
         // Never moved to another project, nor given another identity, through an update: the slug is
         // in the registration URL the CI of the repository calls
         const { id: _id, _id: _mongoId, projectId: _projectId, slug: _slug, ...fields } = updates as Partial<ServiceDTO> & { _id?: unknown; projectId?: unknown }
-        const allowed = await withNormalizedReferences(withManualVersion(fields), service.projectId, service)
+        const scope = await this.getDomainScope(service.projectId)
+        // A domain-scoped member's console lists only the resources they see: the others it attaches stay attached
+        const withHidden = await withResourcesOutOfScope(scope, service.projectId, fields, service)
+        const allowed = await withNormalizedReferences(withManualVersion(withHidden), service.projectId, service, { resources: true })
         if (allowed.domainId !== undefined) {
             allowed.domainId = await resolveDomainId(allowed.domainId, service.projectId)
             // Moved only between the domains of a domain-scoped member, never out of their reach
             await this.ensureInDomainScope(service.projectId, allowed.domainId)
         }
-        const scope = await this.getDomainScope(service.projectId)
         await ensureAttachableMaps(scope, service.projectId, allowed, service)
+        await ensureAttachableResources(scope, service.projectId, allowed, service)
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, service.codeRepository)) delete allowed.codeRepository
         if (allowed.codeRepository) {
             allowed.codeRepository = { ...allowed.codeRepository, createData: undefined }

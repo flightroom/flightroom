@@ -187,14 +187,14 @@
             "label": "Settings sections",
             "general": "General",
             "access": "Access",
-            "resources": "Resources",
+            "resources": "Infrastructure",
             "delivery": "Delivery"
         },
         "howItWorks": "How it works",
         "account": "Account",
         "stats": {
             "accessTitle": "People and access",
-            "resourcesTitle": "Project resources",
+            "resourcesTitle": "Project infrastructure",
             "viewAll": "View All",
             "teamMembers": "Team Members",
             "environments": "Environments",
@@ -598,7 +598,8 @@
                 "over_other": "Crash! You passed {{count}} towers",
                 "new_best": "New record: {{score}}!"
             }
-        }
+        },
+        "resources_title": "Resources"
     },
     "builds": {
         "title": "Builds",
@@ -2556,7 +2557,10 @@
             "agents_summary_other": "{{count}} AI agents are at work, drawn as ships.",
             "legend_agent": "Agent at work",
             "agents_list": "Agents at work",
-            "open_agent": "Open the agent on {{names}}"
+            "open_agent": "Open the agent on {{names}}",
+            "legend_resource": "Resource",
+            "kind_resource": "Resource",
+            "shared_resource": "Shared across domains"
         },
         "form": {
             "create_title": "New functional domain",
@@ -2652,6 +2656,12 @@
         },
         "workspace": {
             "nav_label": "Domain sections"
+        },
+        "resources": {
+            "title": "Resources",
+            "description": "The resources the services of this domain attach.",
+            "none": "No service of this domain attaches a resource.",
+            "used_by": "Used by {{services}}"
         }
     },
     "navigation": {
@@ -3020,6 +3030,276 @@
         "header": {
             "frontend": "Default frontend: {{name}}",
             "backend": "Default backend: {{name}}"
+        }
+    },
+    "resources": {
+        "label": "Resource",
+        "list_title": "Resources",
+        "list_description": "Packages of variables of a known type (a database, a storage, an external API...) backend services receive as environment variables. The platform names the variables and keeps the credentials encrypted. A resource belongs to the project: any number of services can attach it.",
+        "add_new": "New resource",
+        "form_description": "One value for all environments, and another for the environments that need it. Credentials are encrypted at rest and never shown again once saved.",
+        "empty_title": "No resources yet",
+        "empty_description": "Create one, then attach it to the backend services that need it.",
+        "created": "Resource created",
+        "updated": "Resource updated",
+        "general_information": "General information",
+        "name": "Name",
+        "name_hint": "Lowercase letters, digits and dashes: it names the variables, e.g. orders-db becomes DB_ORDERS_DB_HOST.",
+        "name_invalid": "At most 63 lowercase letters, digits or dashes, starting and ending with a letter or digit",
+        "description": "Description",
+        "description_placeholder": "What this resource is and who uses it",
+        "description_invalid": "At most 2000 characters",
+        "type": "Type",
+        "type_locked": "A resource does not change type: create another one for a different type.",
+        "variant": "Variant",
+        "variant_hint": "How it is reached. Changing it drops the values of the fields the new variant does not have.",
+        "env_prefix": "Variable prefix",
+        "env_prefix_hint": "Blank: derived from the type and the name. Capital letters, digits and underscores.",
+        "env_prefix_invalid": "Capital letters, digits and underscores only, not starting with a digit",
+        "gitops_hint": "The values reach the containers with the GitOps deploys: a change applies at the next deploy of the environment.",
+        "list": {
+            "search_placeholder": "Search by name, type, variable or service",
+            "clear_search": "Clear search",
+            "keys": "Variables",
+            "no_results_title": "No results",
+            "no_results_description": "Nothing matches \"{{searchTerm}}\"."
+        },
+        "keys": {
+            "title": "Environment variables",
+            "description": "What the services attaching it receive. The names follow the name, the prefix and the variant.",
+            "key": "Variable",
+            "secret": "Secret",
+            "fixed": "Fixed"
+        },
+        "values": {
+            "title": "Values",
+            "description": "A value for all environments; the environments that need another one override it.",
+            "none": "This variant has no fields.",
+            "all_environments": "All environments",
+            "not_set": "Not set",
+            "secret_keep": "Set: leave blank to keep it",
+            "set": "Set",
+            "unset": "Not set",
+            "optional": "Optional",
+            "true": "Yes",
+            "false": "No",
+            "clear_value": "Clear value",
+            "clear_secret": "Remove saved value",
+            "clear_secret_in": "Remove the saved value in {{environment}}",
+            "overrides_one": "Per-environment values ({{count}} override)",
+            "overrides_other": "Per-environment values ({{count}} overrides)",
+            "overrides_hint": "Blank: the environment takes the value of all environments.",
+            "required": "Required: give it a value for all environments, or one in each",
+            "port_invalid": "A port, from 1 to 65535",
+            "url_invalid": "An absolute http or https URL",
+            "email_invalid": "An email address",
+            "too_long": "At most 32768 characters",
+            "no_value_for_all": "No value for all environments: environments added later will not get this variable",
+            "retype_required": "Type it again: where the resource connects changed",
+            "secret_retype": "Type it again"
+        },
+        "options": {
+            "in": {
+                "header": "Header",
+                "query": "Query string"
+            },
+            "security": {
+                "none": "None",
+                "starttls": "STARTTLS",
+                "tls": "TLS"
+            }
+        },
+        "api_spec": {
+            "title": "API document",
+            "description": "The Swagger/OpenAPI document of the API, for when its URL cannot be reached. It stays with the platform: it is never an environment variable.",
+            "present": "Document saved ({{size}})",
+            "none": "No document saved",
+            "upload": "Load file",
+            "download": "Download",
+            "remove": "Remove document",
+            "removed": "The saved document will be removed when you save.",
+            "undo_remove": "Undo",
+            "label": "OpenAPI document (JSON or YAML)",
+            "placeholder": "Paste the document here, or load it from a .json, .yaml or .yml file",
+            "hint": "At most {{max}}.",
+            "hint_replace": "Blank keeps the saved document; a new one replaces it. At most {{max}}.",
+            "typed_size": "Size: {{size}}",
+            "too_large": "The document exceeds {{max}}",
+            "read_failed": "The file could not be read",
+            "download_failed": "The document could not be downloaded"
+        },
+        "used_by": {
+            "title": "Used by",
+            "description": "The backend services that receive these variables.",
+            "none": "No service"
+        },
+        "attach": {
+            "title": "Resources",
+            "description": "The resources of the project whose variables the service receives. None of their variables may be set by a map attached too.",
+            "detail_description": "What the service receives from its resources, environment by environment. Credentials are never shown.",
+            "none": "No resource attached. Attach them from the settings of the service.",
+            "manage": "Manage",
+            "add": "Add resource",
+            "search_placeholder": "Search by name, type or variable",
+            "no_results": "No resource matches \"{{searchTerm}}\".",
+            "all_attached": "All attached",
+            "detach": "Detach {{name}}",
+            "clear_search": "Clear search"
+        },
+        "danger_zone": {
+            "title": "Danger zone",
+            "subtitle": "Irreversible actions on this resource",
+            "action_title": "Delete the resource",
+            "action_description": "Removes the resource and all its values.",
+            "in_use": "Detach it from every service using it before deleting it.",
+            "button": "Delete",
+            "success": "Resource deleted",
+            "dialog": {
+                "title": "Delete resource",
+                "warning": "This action cannot be undone",
+                "description": "You are about to delete {{name}} and all its values.",
+                "confirmation": "Type {{name}} to confirm"
+            }
+        },
+        "errors": {
+            "name_taken": "A resource with this name already exists in the project",
+            "name_invalid": "At most 63 lowercase letters, digits or dashes, starting and ending with a letter or digit",
+            "description_invalid": "At most 2000 characters",
+            "type_invalid": "This type of resource does not exist",
+            "type_immutable": "A resource does not change type: create another one",
+            "variant_invalid": "This variant does not exist for the type",
+            "field_unknown": "A field is not part of the variant: reload the page",
+            "value_invalid": "A value is not valid for its field",
+            "value_required": "A required field needs a value in every environment",
+            "secret_value_required": "A saved credential is gone: type it again",
+            "environment_unknown": "A value refers to an environment that no longer exists: reload the page",
+            "env_prefix_invalid": "The prefix is not valid, or makes a variable the platform sets on every container (HTTP_PORT)",
+            "api_spec_invalid": "The document is not a valid Swagger/OpenAPI document in JSON or YAML, or exceeds 5 MiB",
+            "in_use": "It is still attached to {{services}}: detach it first",
+            "resource_unknown": "One of the selected resources no longer exists: reload the page",
+            "fields_invalid": "The values of the resource are not in the form the console sends: reload the page",
+            "environment_duplicated": "A field has more than one value for the same environment",
+            "resources_invalid": "The resources of the service must be a list of at most 50",
+            "secret_reentry_required": "Where the resource connects changed: type again {{secrets}}, the saved values are not sent to the new address"
+        },
+        "types": {
+            "database": {
+                "label": "Database",
+                "description": "An external database: by host and credentials, or by connection string."
+            },
+            "storage": {
+                "label": "Storage",
+                "description": "An object storage bucket or container on AWS, Azure or Google Cloud."
+            },
+            "redis": {
+                "label": "Redis",
+                "description": "A Redis server, for caches, queues and sessions."
+            },
+            "serviceAccount": {
+                "label": "Service account",
+                "description": "Credentials a service uses to call another system on its own behalf."
+            },
+            "auth0": {
+                "label": "Auth0",
+                "description": "An Auth0 application: domain, client and audience."
+            },
+            "api": {
+                "label": "External API",
+                "description": "An HTTP API described by Swagger/OpenAPI, with the way to authenticate to it."
+            },
+            "ai": {
+                "label": "AI provider",
+                "description": "An LLM provider the service calls: API key and model."
+            },
+            "smtp": {
+                "label": "Email (SMTP)",
+                "description": "An SMTP server the service sends email through."
+            }
+        },
+        "variants": {
+            "database": {
+                "credentials": "Host and credentials",
+                "connectionString": "Connection string"
+            },
+            "storage": {
+                "aws": "AWS S3",
+                "azureConnectionString": "Azure, connection string",
+                "azureSharedKey": "Azure, shared key",
+                "azureAad": "Azure, Entra ID app",
+                "google": "Google Cloud Storage"
+            },
+            "redis": {
+                "credentials": "Host and credentials",
+                "connectionString": "Connection URL"
+            },
+            "serviceAccount": {
+                "jsonKey": "JSON key",
+                "clientCredentials": "Client credentials"
+            },
+            "auth0": {
+                "default": "Application"
+            },
+            "api": {
+                "none": "No authentication",
+                "basic": "Basic auth",
+                "apiKey": "API key",
+                "bearer": "Bearer token",
+                "oauth2ClientCredentials": "OAuth2 client credentials"
+            },
+            "ai": {
+                "anthropic": "Anthropic",
+                "openai": "OpenAI",
+                "google": "Google Gemini",
+                "azureOpenai": "Azure OpenAI"
+            },
+            "smtp": {
+                "credentials": "With authentication",
+                "noAuth": "Relay without authentication"
+            }
+        },
+        "fields": {
+            "engine": "Engine",
+            "host": "Host",
+            "port": "Port",
+            "database": "Database name",
+            "username": "Username",
+            "password": "Password",
+            "ssl": "SSL",
+            "connectionString": "Connection string",
+            "region": "Region",
+            "bucketName": "Bucket",
+            "accessKeyId": "Access key ID",
+            "secretAccessKey": "Secret access key",
+            "containerName": "Container",
+            "accountName": "Account name",
+            "accountKey": "Account key",
+            "tenantId": "Tenant ID",
+            "clientId": "Client ID",
+            "clientSecret": "Client secret",
+            "jsonKey": "JSON key",
+            "url": "Connection URL",
+            "tls": "TLS",
+            "tokenUrl": "Token URL",
+            "scope": "Scope",
+            "domain": "Domain",
+            "audience": "Audience",
+            "baseUrl": "Base URL",
+            "specUrl": "OpenAPI document URL",
+            "in": "API key sent in",
+            "name": "API key name",
+            "apiKey": "API key",
+            "token": "Token",
+            "model": "Model",
+            "organization": "Organization",
+            "endpoint": "Endpoint",
+            "deployment": "Deployment",
+            "apiVersion": "API version",
+            "security": "Connection security",
+            "from": "Sender address",
+            "fromName": "Sender name"
+        },
+        "retype": {
+            "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"
         }
     }
 }

@@ -11,6 +11,7 @@ import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import FrontendDeployment from "../models/FrontendDeploymentModel"
 import Frontend, { CanaryType, FrontendKind, IFrontend } from "../models/FrontendModel"
 import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
 import { IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
@@ -228,7 +229,13 @@ const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<void> =>
         // beside a plaintext one would satisfy neither half on the element that still needs rewriting.
         ["deployment", Deployment as unknown as SecretHolder, { storages: { $elemMatch: anyPlaintextIn(STORAGE_SECRET_PATHS) } } as SecretFilter],
         // Nested $elemMatch for the same reason, one level deeper: a key of a secret holds a value per environment.
-        ["secret", Secret as unknown as SecretHolder, { entries: { $elemMatch: { values: { $elemMatch: { value: NOT_ENCRYPTED } } } } } as SecretFilter]
+        ["secret", Secret as unknown as SecretHolder, { entries: { $elemMatch: { values: { $elemMatch: { value: NOT_ENCRYPTED } } } } } as SecretFilter],
+        // $elemMatch again, at both levels a credential of a resource lives: its value and its overrides
+        [
+            "resource",
+            Resource as unknown as SecretHolder,
+            { $or: [{ secrets: { $elemMatch: { value: NOT_ENCRYPTED } } }, { secrets: { $elemMatch: { overrides: { $elemMatch: { value: NOT_ENCRYPTED } } } } }] } as SecretFilter
+        ]
     ]
 
     for (const [label, model, filter] of collections) {

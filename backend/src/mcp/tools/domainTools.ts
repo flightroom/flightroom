@@ -5,8 +5,10 @@ import { CONTEXT_MAX_LENGTH } from "../../models/ProjectModel"
 import DomainService from "../../service/DomainService"
 import FrontendService from "../../service/FrontendService"
 import ProjectService from "../../service/ProjectService"
+import { ResourceService } from "../../service/ResourceService"
 import ServiceService from "../../service/ServiceService"
 import DomainDTO from "../../types/DomainDTO"
+import { resourceEnvKeys } from "../../types/ResourceCatalog"
 import { SERVICE_VERSION } from "../../types/ServiceStack"
 import { isValidRefName } from "../../utils/gitRefUtils"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
@@ -59,6 +61,26 @@ export const filterByDomain = async <Member extends { domainId?: unknown }>(memb
     return members.filter(member => matchesDomain(member, filter))
 }
 
+/**
+ * The resources the services of a domain attach, each with the variables it sets and the services using it:
+ * read only when one of them attaches any, never a value.
+ */
+const domainResources = async (services: { slug: string; resourceIds?: unknown[] }[], context: McpToolContext) => {
+    const ids = new Set(services.flatMap(service => (service.resourceIds ?? []).map(String)))
+    if (ids.size === 0) return []
+    const resources = await new ResourceService(context.principal).getByProjectId(context.projectId)
+    return resources
+        .filter(resource => ids.has(String(resource._id)))
+        .map(resource => ({
+            _id: resource._id,
+            name: resource.name,
+            type: resource.type,
+            variant: resource.variant,
+            env: resourceEnvKeys(resource).map(({ key }) => key),
+            usedBy: services.filter(service => (service.resourceIds ?? []).some(id => String(id) === String(resource._id))).map(service => service.slug)
+        }))
+}
+
 /** A member of a domain as `domain_get` lists it: enough to address it with the other tools. */
 const toMember = (member: { _id: unknown; name: string; slug: string }) => ({ _id: member._id, name: member.name, slug: member.slug })
 
@@ -76,7 +98,7 @@ export const domainTools = [
         name: "domain_get",
         title: "Get domain",
         description:
-            "One functional domain of the project, with the id, name and slug of each frontend and service in it, and aiContext: what the team wrote for AI agents about the domain, each of its frontends and services, and the project. Follow it when working on the domain.",
+            "One functional domain of the project, with the id, name and slug of each frontend and service in it, the resources its services attach (with the environment variables each sets), and aiContext: what the team wrote for AI agents about the domain, each of its frontends and services, and the project. Follow it when working on the domain.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ domainId }),
@@ -88,10 +110,12 @@ export const domainTools = [
                 new ProjectService(context.principal).getContext(context.projectId, { domainId: String(domain._id) })
             ])
             const inDomain = (member: { domainId?: unknown }) => matchesDomain(member, String(domain._id))
+            const resources = await domainResources(services.filter(inDomain), context)
             return {
                 ...domain.toObject(),
                 frontends: frontends.filter(inDomain).map(toMember),
                 services: services.filter(inDomain).map(toMember),
+                ...(resources.length ? { resources } : {}),
                 aiContext
             }
         }

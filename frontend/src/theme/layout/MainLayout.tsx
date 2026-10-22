@@ -1,4 +1,5 @@
 import {
+    Boxes,
     Database,
     FileText,
     Hammer as HammerIcon,
@@ -64,7 +65,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             items: [
                 { name: t("services.title"), path: "/services", icon: <Server /> },
                 { name: t("variableMaps.configMap.list_title"), path: "/config-maps", icon: <SlidersHorizontal /> },
-                { name: t("variableMaps.secret.list_title"), path: "/secrets", icon: <KeyRound /> }
+                { name: t("variableMaps.secret.list_title"), path: "/secrets", icon: <KeyRound /> },
+                { name: t("resources.list_title"), path: "/resources", icon: <Boxes /> }
             ]
         },
         {

@@ -25,6 +25,8 @@ export interface GitOpsApplication {
     readinessPath?: string
     configMapIds?: unknown[]
     secretIds?: unknown[]
+    /** A backend service only: each one is a Secret of its own in the configuration repository */
+    resourceIds?: unknown[]
 }
 
 /** The values file of an application, at the root of the branch of each environment */
@@ -57,15 +59,16 @@ export interface ApplicationGateway {
 }
 
 /**
- * The values of one application in one environment. The config maps and the secrets go by name: the
- * configuration repository holds them, as manifests in the namespace of the environment. With a Gateway in
+ * The values of one application in one environment. The config maps, the secrets and the resources go by
+ * name: the configuration repository holds them, as manifests in the namespace of the environment. A
+ * resource is a Secret, so it goes with the secrets, after them: the chart needs no change for it. With a Gateway in
  * the environment, an application with an exposure path gets a route on it. Without an image repository of
  * its own, the image is the one in the container registry of the project.
  */
 export const renderApplicationValues = (
     application: GitOpsApplication & { version: string },
     environment: { _id: unknown; slug: string },
-    mapNames: { configMaps: Map<string, string>; secrets: Map<string, string> },
+    mapNames: { configMaps: Map<string, string>; secrets: Map<string, string>; resources?: Map<string, string> },
     gateway?: ApplicationGateway,
     containerRegistry?: string
 ): string => {
@@ -83,7 +86,7 @@ export const renderApplicationValues = (
             readiness: { active: Boolean(application.readinessPath), path: application.readinessPath ?? "/" }
         },
         environmentMaps: names(application.configMapIds, mapNames.configMaps),
-        secrets: names(application.secretIds, mapNames.secrets),
+        secrets: [...names(application.secretIds, mapNames.secrets), ...names(application.resourceIds, mapNames.resources ?? new Map())],
         ...(route ? { route } : {})
     }
     return `${MANAGED_VALUES_MARKER}\n# Written by every deploy of ${environment.slug}: a change made here is overwritten.\n${stringify(values)}`

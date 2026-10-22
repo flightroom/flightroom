@@ -11,10 +11,12 @@ import Environment, { IEnvironment } from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
 import Project, { IProjectGitOps } from "../models/ProjectModel"
+import Resource, { IResource } from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { variableMapModels } from "../models/VariableMapModel"
 import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
+import { ResourceWithValues, resourceEnvironmentValues, resourceSecretName } from "../types/ResourceCatalog"
 import { VariableMapKind } from "../types/VariableMapDTO"
 import { NormalizedRepository } from "../utils/codeRepositoryUtils"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -58,6 +60,9 @@ export interface CommittedVariableMap {
 
 /** The folder of each kind inside the folder of the environment, named as its slug at the root of the repository */
 export const GITOPS_FOLDER: Record<VariableMapKind, string> = { configMap: "configMaps", secret: "secrets" }
+
+/** The folder of the resources, beside those of the maps: each one a Secret named `<name>.resource` */
+export const RESOURCES_FOLDER = "resources"
 
 /** The Namespace manifest of every environment, in the folder of the environment */
 export const NAMESPACE_FILE = "namespace.yaml"
@@ -109,6 +114,8 @@ export const environmentNamespace = (environment: Pick<IEnvironment, "slug" | "n
 }
 
 export const gitOpsFilePath = (kind: VariableMapKind, environment: Pick<IEnvironment, "slug">, name: string) => `${environmentSlug(environment)}/${GITOPS_FOLDER[kind]}/${name}.yaml`
+
+export const resourceFilePath = (environment: Pick<IEnvironment, "slug">, resource: Pick<IResource, "name">) => `${environmentSlug(environment)}/${RESOURCES_FOLDER}/${resource.name}.yaml`
 
 export const namespaceFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${NAMESPACE_FILE}`
 
@@ -175,6 +182,23 @@ export const renderManifest = (kind: VariableMapKind, map: CommittedVariableMap,
 }
 
 /**
+ * The Kubernetes Secret of a resource in one environment, every key of it in one Opaque Secret, plain
+ * values too, so a service takes it with one secretRef: the value the environment overrides with, the one
+ * of all otherwise, the fixed ones of the variant. A field with neither is left out. Base64 encoded, not
+ * encrypted, as a secret map is. The API document of an api is not among the fields: it never comes here.
+ */
+export const renderResourceManifest = (resource: ResourceWithValues, environmentId: string, namespace?: string): string => {
+    const data = resourceEnvironmentValues(resource, environmentId)
+    return stringify({
+        apiVersion: "v1",
+        kind: "Secret",
+        metadata: { name: resourceSecretName(resource), ...(namespace ? { namespace } : {}), labels: { [MANAGED_BY_LABEL]: MANAGED_BY } },
+        type: "Opaque",
+        data: Object.fromEntries(Object.entries(data).map(([key, value]) => [key, Buffer.from(value).toString("base64")]))
+    })
+}
+
+/**
  * The Namespace of an environment, the one its config maps and secrets are meant to be applied in. Argo CD
  * never prunes nor deletes it: the applications of the environment run in it, and a configuration repository
  * emptied by mistake, or an Application deleted, must not take them down with it.
@@ -200,6 +224,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 - \`<environment>/gateway.yaml\`: when the project has a domain, the Traefik Gateway answering on the host of the environment, its cert-manager Certificate and the redirect to HTTPS
 - \`<environment>/configMaps/<name>.yaml\`: the ConfigMaps, in that namespace
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
+- \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a service attaches, in that namespace, values base64 encoded (not encrypted)
 
 Do not edit these manifests here: the next deploy of the environment overwrites them.
 `,
@@ -233,7 +258,7 @@ type Commit = (message: string, files: GitOpsFile[], options?: { branch?: string
 /** The environment slug a manifest belongs to: the folder it is in at the root */
 const environmentOfPath = (path: string): string => path.split("/")[0]
 
-const KIND_FOLDERS = new Set(Object.values(GITOPS_FOLDER))
+const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER])
 
 /** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
 const isConfigurationManifest = (path: string) => {
@@ -244,18 +269,28 @@ const isConfigurationManifest = (path: string) => {
 /** A map as it is read for a deploy: its id is how services and frontends attach it */
 type DeployedMap = CommittedVariableMap & { _id: unknown }
 
+/** A resource as it is read for a deploy, as for a map */
+type DeployedResource = ResourceWithValues & { _id: unknown }
+
 /**
- * What a deploy of one environment ships: its Namespace, its Gateway when it has one, and every config map and
- * secret of the project as they are in it. A Gateway left out is pruned, with the project's domain gone.
+ * What a deploy of one environment ships: its Namespace, its Gateway when it has one, every config map and
+ * secret of the project as they are in it, and every resource a service attaches. A Gateway left out is
+ * pruned, with the project's domain gone, and so is a resource no service attaches any longer.
  */
-const environmentFiles = (environment: Pick<IEnvironment, "_id" | "slug" | "namespace">, maps: Record<VariableMapKind, DeployedMap[]>, gateway?: EnvironmentGateway): GitOpsFile[] => {
+const environmentFiles = (
+    environment: Pick<IEnvironment, "_id" | "slug" | "namespace">,
+    maps: Record<VariableMapKind, DeployedMap[]>,
+    resources: DeployedResource[],
+    gateway?: EnvironmentGateway
+): GitOpsFile[] => {
     const namespace = environmentNamespace(environment)
     return [
         { path: namespaceFilePath(environment), action: "update", content: renderNamespace(environment) },
         ...(gateway ? [{ path: gatewayFilePath(environment), action: "update" as const, content: renderGateway(gateway) }] : []),
         ...(Object.keys(GITOPS_FOLDER) as VariableMapKind[]).flatMap(kind =>
             maps[kind].map(map => ({ path: gitOpsFilePath(kind, environment, map.name), action: "update" as const, content: renderManifest(kind, map, String(environment._id), namespace) }))
-        )
+        ),
+        ...resources.map(resource => ({ path: resourceFilePath(environment, resource), action: "update" as const, content: renderResourceManifest(resource, String(environment._id), namespace) }))
     ]
 }
 
@@ -271,9 +306,9 @@ const revertingOnFailure = async <T>(next: () => Promise<T>, revert: () => Promi
 
 /**
  * Commits what the deploys of a project ship to the repositories picked in its settings. The configuration
- * one gets the Namespace of each deployed environment, `<environment>/namespace.yaml`, and its config maps
- * and secrets, `<environment>/configMaps/<name>.yaml` and `<environment>/secrets/<name>.yaml`, on its default
- * branch. The applications one, when there is one, gets on the branch of each deployed environment the Helm
+ * one gets the Namespace of each deployed environment, `<environment>/namespace.yaml`, its config maps
+ * and secrets, `<environment>/configMaps/<name>.yaml` and `<environment>/secrets/<name>.yaml`, and its
+ * attached resources, `<environment>/resources/<name>.yaml`, on its default branch. The applications one, when there is one, gets on the branch of each deployed environment the Helm
  * values of every service and frontend, `<application>.yaml`, and the chart they are installed with. Saving a
  * map or an environment commits nothing: the repositories say what is deployed.
  *
@@ -396,13 +431,16 @@ export class GitOpsService extends BaseAuthorizedService {
         const maps = {} as Record<VariableMapKind, DeployedMap[]>
         // Read from the model, not through the API: a secret comes back decrypted only here
         for (const kind of Object.keys(GITOPS_FOLDER) as VariableMapKind[]) maps[kind] = await variableMapModels[kind].find({ projectId })
+        // Every one of the project, as the maps: a values file that still names the Secret of a resource must find it,
+        // whoever detached it. Through the model too, credentials decrypted; the API document of an api is not read
+        const resources = await Resource.find({ projectId })
 
         const applicationsLink = gitOps.applicationsCodeRepository
         if (applicationsLink && [...gateways.values()].some(Boolean)) await this.ensureDistinctExposurePaths(projectId, project.containerRegistry)
         const withApplications = applicationsLink
             ? () =>
                   this.inRepository(projectId, "applications", applicationsLink, commit =>
-                      this.commitApplications(projectId, project.containerRegistry, deployed, maps, gateways, commit, deploy, domainId)
+                      this.commitApplications(projectId, project.containerRegistry, deployed, maps, resources, gateways, commit, deploy, domainId)
                   )
             : deploy
 
@@ -412,7 +450,7 @@ export class GitOpsService extends BaseAuthorizedService {
             const message = `Deploy ${[...deployedSlugs].join(", ")}`
             const undo = await commit(
                 message,
-                deployed.flatMap(environment => environmentFiles(environment, maps, gateways.get(String(environment._id)))),
+                deployed.flatMap(environment => environmentFiles(environment, maps, resources, gateways.get(String(environment._id)))),
                 { prune: path => isConfigurationManifest(path) && (deployedSlugs.has(environmentOfPath(path)) || !existingSlugs.has(environmentOfPath(path))) }
             )
             return revertingOnFailure(withApplications, async () => {
@@ -437,6 +475,7 @@ export class GitOpsService extends BaseAuthorizedService {
         containerRegistry: string | undefined,
         deployed: Pick<IEnvironment, "_id" | "slug">[],
         maps: Record<VariableMapKind, DeployedMap[]>,
+        resources: DeployedResource[],
         gateways: Map<string, EnvironmentGateway | undefined>,
         commit: Commit,
         deploy: () => Promise<T>,
@@ -447,7 +486,8 @@ export class GitOpsService extends BaseAuthorizedService {
         const existingSlugs = new Set([...(await Service.find({ projectId }, { slug: 1 })), ...(await Frontend.find({ projectId }, { slug: 1 }))].map(application => application.slug))
         const mapNames = {
             configMaps: new Map(maps.configMap.map(map => [String(map._id), map.name])),
-            secrets: new Map(maps.secret.map(map => [String(map._id), map.name]))
+            secrets: new Map(maps.secret.map(map => [String(map._id), map.name])),
+            resources: new Map(resources.map(resource => [String(resource._id), resourceSecretName(resource)]))
         }
         const isOrphanValues = (path: string) => !path.includes("/") && path.endsWith(".yaml") && !existingSlugs.has(path.slice(0, -".yaml".length))
 

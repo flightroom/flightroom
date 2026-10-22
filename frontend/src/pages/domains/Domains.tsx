@@ -12,6 +12,7 @@ import useDomainLinksApi, { DomainLink } from "@/hooks/apiClients/useDomainLinks
 import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
 import DomainFormDialog from "./partials/DomainFormDialog"
 import DomainGalaxy from "./partials/DomainGalaxy"
@@ -55,6 +56,8 @@ const Domains = () => {
     })
     const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId && view === "galaxy" })
     const domainLinksQuery = useQuery({ queryKey: ["domain-links", projectId], queryFn: domainLinksApi.getAll, enabled: !!projectId && view === "galaxy" })
+    // The galaxy draws the resources of the services it shows
+    const resourcesQuery = useResourcesQuery(view === "galaxy")
 
     const deleteMutation = useMutation({
         mutationFn: domainsApi.deleteSingle,
@@ -182,12 +185,13 @@ const Domains = () => {
                         ) : (
                             <>
                                 <TabsContent value="galaxy" className="mt-0">
-                                    <ApiStatusHandler queries={[frontendsQuery, servicesQuery, domainLinksQuery]} interceptEmpty={false}>
+                                    <ApiStatusHandler queries={[frontendsQuery, servicesQuery, domainLinksQuery, resourcesQuery]} interceptEmpty={false}>
                                         <DomainGalaxy
                                             domains={filteredDomains}
                                             frontends={galaxy.frontends}
                                             services={galaxy.services}
                                             links={galaxy.links}
+                                            resources={resourcesQuery.data ?? []}
                                             onLink={(sourceDomainId, targetDomainId) => setLinkToCreate({ sourceDomainId, targetDomainId })}
                                             onUnlink={setLinkToDelete}
                                         />

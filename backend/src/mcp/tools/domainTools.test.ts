@@ -18,6 +18,7 @@ const createFrontend = vi.fn()
 const updateFrontend = vi.fn()
 const listServices = vi.fn()
 const getContext = vi.fn()
+const listResources = vi.fn()
 
 // Hoisted with the mocks below, which build their service classes with it
 const { principals, serviceClass } = vi.hoisted(() => {
@@ -52,6 +53,7 @@ vi.mock("../../service/FrontendService", () => ({
 }))
 vi.mock("../../service/ServiceService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => listServices(...args) }) }))
 vi.mock("../../service/ProjectService", () => ({ default: serviceClass({ getContext: (...args: unknown[]) => getContext(...args) }) }))
+vi.mock("../../service/ResourceService", () => ({ ResourceService: serviceClass({ getByProjectId: (...args: unknown[]) => listResources(...args) }) }))
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const DOMAIN = "bbbbbbbbbbbbbbbbbbbbbbbb"
@@ -79,7 +81,7 @@ const domain = { _id: DOMAIN, name: "Checkout", slug: "checkout", toObject: () =
 
 describe("domain tools", () => {
     beforeEach(() => {
-        for (const mock of [listDomains, getDomain, createDomain, updateDomain, deleteDomain, buildDomain, listFrontends, getFrontend, createFrontend, updateFrontend, listServices]) {
+        for (const mock of [listDomains, getDomain, createDomain, updateDomain, deleteDomain, buildDomain, listFrontends, getFrontend, createFrontend, updateFrontend, listServices, listResources]) {
             mock.mockReset()
         }
         principals.length = 0
@@ -122,6 +124,37 @@ describe("domain tools", () => {
             aiContext
         })
         expect(getContext).toHaveBeenCalledWith(PROJECT, { domainId: DOMAIN })
+    })
+
+    it("given a domain whose services attach resources, when read, then each is listed with its variables and the services using it, and resources are read only then", async () => {
+        getContext.mockResolvedValue({})
+        getDomain.mockResolvedValue(domain)
+        listFrontends.mockResolvedValue([])
+        const database = "abababababababababababab"
+        listServices.mockResolvedValue([
+            { _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN, resourceIds: [database] },
+            { _id: "ffffffffffffffffffffffff", name: "Search", slug: "search", domainId: null, resourceIds: ["cdcdcdcdcdcdcdcdcdcdcdcd"] }
+        ])
+        listResources.mockResolvedValue([
+            { _id: database, name: "orders", type: "database", variant: "connectionString", secrets: [{ field: "connectionString", value: "postgres://secret" }] },
+            { _id: "cdcdcdcdcdcdcdcdcdcdcdcd", name: "search", type: "redis", variant: "connectionString" }
+        ])
+
+        const result = (await run("domain_get", { domainId: DOMAIN })) as { resources?: unknown }
+
+        expect(result.resources).toEqual([{ _id: database, name: "orders", type: "database", variant: "connectionString", env: ["DB_ORDERS_ENGINE", "DB_ORDERS_URL"], usedBy: ["orders-api"] }])
+        expect(JSON.stringify(result)).not.toContain("postgres://secret")
+        expect(listResources).toHaveBeenCalledWith(PROJECT)
+    })
+
+    it("given a domain whose services attach none, when read, then no resource is read nor listed", async () => {
+        getContext.mockResolvedValue({})
+        getDomain.mockResolvedValue(domain)
+        listFrontends.mockResolvedValue([])
+        listServices.mockResolvedValue([{ _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN }])
+
+        expect(await run("domain_get", { domainId: DOMAIN })).not.toHaveProperty("resources")
+        expect(listResources).not.toHaveBeenCalled()
     })
 
     it("given a domain that does not exist, when read, then it is not found", async () => {

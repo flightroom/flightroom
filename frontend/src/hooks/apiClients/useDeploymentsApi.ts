@@ -31,6 +31,8 @@ export interface DeploymentDTO {
     /** Absent from the deployments made before the config maps and secrets were recorded */
     configMaps?: DeployedVariableMap[]
     secrets?: DeployedVariableMap[]
+    /** The resources some service attaches, keys only; absent from the deployments made before resources existed */
+    resources?: DeployedVariableMap[]
     variables: GlobalVariable[]
     storages: Storage[]
     deploymentId: string

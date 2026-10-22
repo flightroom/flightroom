@@ -24,6 +24,7 @@ import { projectAdminTools } from "./tools/projectAdminTools"
 import { projectContentTools } from "./tools/projectContentTools"
 import { projectTools } from "./tools/projectTools"
 import { repositoryTools } from "./tools/repositoryTools"
+import { resourceTools } from "./tools/resourceTools"
 import { scaffoldTools } from "./tools/scaffoldTools"
 import { serviceTools } from "./tools/serviceTools"
 import { variableMapTools } from "./tools/variableMapTools"
@@ -33,7 +34,8 @@ import { variableMapTools } from "./tools/variableMapTools"
  *
  * MCP clients get parity with the console, minus what v1 leaves out on purpose: API keys (creating
  * or showing one hands a long-lived credential to the client), creating or editing storages,
- * databases, repository connections and secrets (their input is a secret), and everything else above the project
+ * databases, repository connections and secrets, and the credential fields of a resource (their input is a secret;
+ * the other fields of a resource are written, its pasted API document never read back), and everything else above the project
  * (deleting projects, managing organizations, members, invitations, the user profile), bundle
  * upload, the canvas layout, bulk deletes and AI code changes (each one runs a paid agent).
  * Code changes made by the client's own agent are offered instead: `repository_checkout_get` says
@@ -63,6 +65,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     ...scaffoldTools,
     ...configurationTools,
     ...variableMapTools,
+    ...resourceTools,
     ...projectAdminTools,
     ...organizationAdminTools,
     ...projectContentTools,

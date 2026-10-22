@@ -187,14 +187,14 @@
             "label": "Sezioni delle impostazioni",
             "general": "Generale",
             "access": "Accessi",
-            "resources": "Risorse",
+            "resources": "Infrastruttura",
             "delivery": "Rilascio"
         },
         "howItWorks": "Come funziona",
         "account": "Account",
         "stats": {
             "accessTitle": "Persone e accessi",
-            "resourcesTitle": "Risorse del progetto",
+            "resourcesTitle": "Infrastruttura del progetto",
             "viewAll": "Visualizza Tutto",
             "teamMembers": "Membri",
             "environments": "Ambienti",
@@ -501,7 +501,8 @@
                 "over_other": "Schianto! Hai superato {{count}} torri",
                 "new_best": "Nuovo record: {{score}}!"
             }
-        }
+        },
+        "resources_title": "Risorse"
     },
     "builds": {
         "title": "Build",
@@ -2575,7 +2576,10 @@
             "agents_summary_other": "Ci sono {{count}} agenti AI al lavoro, disegnati come navi.",
             "legend_agent": "Agente al lavoro",
             "agents_list": "Agenti al lavoro",
-            "open_agent": "Apri l'agente su {{names}}"
+            "open_agent": "Apri l'agente su {{names}}",
+            "legend_resource": "Risorsa",
+            "kind_resource": "Risorsa",
+            "shared_resource": "Condivisa tra domini"
         },
         "form": {
             "create_title": "Nuovo dominio funzionale",
@@ -2671,6 +2675,12 @@
         },
         "workspace": {
             "nav_label": "Sezioni del dominio"
+        },
+        "resources": {
+            "title": "Risorse",
+            "description": "Le risorse che agganciano i service di questo dominio.",
+            "none": "Nessun service di questo dominio aggancia una risorsa.",
+            "used_by": "Usata da {{services}}"
         }
     },
     "navigation": {
@@ -3039,6 +3049,276 @@
         "header": {
             "frontend": "Frontend di default: {{name}}",
             "backend": "Backend di default: {{name}}"
+        }
+    },
+    "resources": {
+        "label": "Risorsa",
+        "list_title": "Risorse",
+        "list_description": "Pacchetti di variabili di un tipo noto (un database, uno storage, un'API esterna...) che i backend service ricevono come variabili d'ambiente. La piattaforma dà il nome alle variabili e tiene cifrate le credenziali. Una risorsa appartiene al progetto: la possono agganciare quanti service servono.",
+        "add_new": "Nuova risorsa",
+        "form_description": "Un valore per tutti gli ambienti, e un altro per gli ambienti che ne hanno bisogno. Le credenziali sono cifrate e, una volta salvate, non vengono più mostrate.",
+        "empty_title": "Ancora nessuna risorsa",
+        "empty_description": "Creane una, poi agganciala ai backend service che ne hanno bisogno.",
+        "created": "Risorsa creata",
+        "updated": "Risorsa aggiornata",
+        "general_information": "Informazioni generali",
+        "name": "Nome",
+        "name_hint": "Lettere minuscole, cifre e trattini: dà il nome alle variabili, es. orders-db diventa DB_ORDERS_DB_HOST.",
+        "name_invalid": "Al massimo 63 lettere minuscole, cifre o trattini, che iniziano e finiscono con una lettera o una cifra",
+        "description": "Descrizione",
+        "description_placeholder": "Che cos'è questa risorsa e chi la usa",
+        "description_invalid": "Al massimo 2000 caratteri",
+        "type": "Tipo",
+        "type_locked": "Una risorsa non cambia tipo: per un tipo diverso creane un'altra.",
+        "variant": "Variante",
+        "variant_hint": "Come la si raggiunge. Cambiandola si perdono i valori dei campi che la nuova variante non ha.",
+        "env_prefix": "Prefisso delle variabili",
+        "env_prefix_hint": "Vuoto: derivato dal tipo e dal nome. Lettere maiuscole, cifre e underscore.",
+        "env_prefix_invalid": "Solo lettere maiuscole, cifre e underscore, senza iniziare con una cifra",
+        "gitops_hint": "I valori arrivano ai container con i deploy GitOps: una modifica vale dal prossimo deploy dell'ambiente.",
+        "list": {
+            "search_placeholder": "Cerca per nome, tipo, variabile o service",
+            "clear_search": "Cancella ricerca",
+            "keys": "Variabili",
+            "no_results_title": "Nessun risultato",
+            "no_results_description": "Nessun elemento corrisponde a \"{{searchTerm}}\"."
+        },
+        "keys": {
+            "title": "Variabili d'ambiente",
+            "description": "Quello che ricevono i service che la agganciano. I nomi seguono il nome, il prefisso e la variante.",
+            "key": "Variabile",
+            "secret": "Segreta",
+            "fixed": "Fissa"
+        },
+        "values": {
+            "title": "Valori",
+            "description": "Un valore per tutti gli ambienti; gli ambienti che ne vogliono un altro lo sovrascrivono.",
+            "none": "Questa variante non ha campi.",
+            "all_environments": "Tutti gli ambienti",
+            "not_set": "Non impostato",
+            "secret_keep": "Impostato: lascia vuoto per mantenerlo",
+            "set": "Impostato",
+            "unset": "Non impostato",
+            "optional": "Facoltativo",
+            "true": "Sì",
+            "false": "No",
+            "clear_value": "Cancella valore",
+            "clear_secret": "Rimuovi il valore salvato",
+            "clear_secret_in": "Rimuovi il valore salvato in {{environment}}",
+            "overrides_one": "Valori per ambiente ({{count}} override)",
+            "overrides_other": "Valori per ambiente ({{count}} override)",
+            "overrides_hint": "Vuoto: l'ambiente prende il valore di tutti gli ambienti.",
+            "required": "Obbligatorio: dagli un valore per tutti gli ambienti, o uno in ciascuno",
+            "port_invalid": "Una porta, da 1 a 65535",
+            "url_invalid": "Un URL assoluto http o https",
+            "email_invalid": "Un indirizzo email",
+            "too_long": "Al massimo 32768 caratteri",
+            "no_value_for_all": "Nessun valore per tutti gli ambienti: gli ambienti aggiunti in seguito non riceveranno questa variabile",
+            "retype_required": "Digitala di nuovo: il punto a cui si collega la risorsa è cambiato",
+            "secret_retype": "Digitala di nuovo"
+        },
+        "options": {
+            "in": {
+                "header": "Header",
+                "query": "Query string"
+            },
+            "security": {
+                "none": "Nessuna",
+                "starttls": "STARTTLS",
+                "tls": "TLS"
+            }
+        },
+        "api_spec": {
+            "title": "Documento dell'API",
+            "description": "Il documento Swagger/OpenAPI dell'API, per quando il suo URL non è raggiungibile. Resta nella piattaforma: non è mai una variabile d'ambiente.",
+            "present": "Documento salvato ({{size}})",
+            "none": "Nessun documento salvato",
+            "upload": "Carica file",
+            "download": "Scarica",
+            "remove": "Rimuovi documento",
+            "removed": "Il documento salvato verrà rimosso al salvataggio.",
+            "undo_remove": "Annulla",
+            "label": "Documento OpenAPI (JSON o YAML)",
+            "placeholder": "Incolla qui il documento, o caricalo da un file .json, .yaml o .yml",
+            "hint": "Al massimo {{max}}.",
+            "hint_replace": "Vuoto mantiene il documento salvato; uno nuovo lo sostituisce. Al massimo {{max}}.",
+            "typed_size": "Dimensione: {{size}}",
+            "too_large": "Il documento supera {{max}}",
+            "read_failed": "Impossibile leggere il file",
+            "download_failed": "Non è stato possibile scaricare il documento"
+        },
+        "used_by": {
+            "title": "Usata da",
+            "description": "I backend service che ricevono queste variabili.",
+            "none": "Nessun service"
+        },
+        "attach": {
+            "title": "Risorse",
+            "description": "Le risorse del progetto di cui il service riceve le variabili. Nessuna delle loro variabili può essere impostata anche da una map agganciata.",
+            "detail_description": "Quello che il service riceve dalle sue risorse, ambiente per ambiente. Le credenziali non vengono mai mostrate.",
+            "none": "Nessuna risorsa agganciata. Agganciale dalle impostazioni del service.",
+            "manage": "Gestisci",
+            "add": "Aggiungi risorsa",
+            "search_placeholder": "Cerca per nome, tipo o variabile",
+            "no_results": "Nessuna risorsa corrisponde a \"{{searchTerm}}\".",
+            "all_attached": "Tutte agganciate",
+            "detach": "Sgancia {{name}}",
+            "clear_search": "Cancella ricerca"
+        },
+        "danger_zone": {
+            "title": "Zona pericolosa",
+            "subtitle": "Azioni irreversibili su questa risorsa",
+            "action_title": "Elimina la risorsa",
+            "action_description": "Rimuove la risorsa e tutti i suoi valori.",
+            "in_use": "Sganciala da ogni service che la usa prima di eliminarla.",
+            "button": "Elimina",
+            "success": "Risorsa eliminata",
+            "dialog": {
+                "title": "Elimina risorsa",
+                "warning": "Questa azione non può essere annullata",
+                "description": "Stai per eliminare {{name}} e tutti i suoi valori.",
+                "confirmation": "Digita {{name}} per confermare"
+            }
+        },
+        "errors": {
+            "name_taken": "Esiste già una risorsa con questo nome nel progetto",
+            "name_invalid": "Al massimo 63 lettere minuscole, cifre o trattini, che iniziano e finiscono con una lettera o una cifra",
+            "description_invalid": "Al massimo 2000 caratteri",
+            "type_invalid": "Questo tipo di risorsa non esiste",
+            "type_immutable": "Una risorsa non cambia tipo: creane un'altra",
+            "variant_invalid": "Questa variante non esiste per il tipo",
+            "field_unknown": "Un campo non fa parte della variante: ricarica la pagina",
+            "value_invalid": "Un valore non è valido per il suo campo",
+            "value_required": "Un campo obbligatorio ha bisogno di un valore in ogni ambiente",
+            "secret_value_required": "Una credenziale salvata non c'è più: digitala di nuovo",
+            "environment_unknown": "Un valore si riferisce a un ambiente che non esiste più: ricarica la pagina",
+            "env_prefix_invalid": "Il prefisso non è valido, o produce una variabile che la piattaforma imposta su ogni container (HTTP_PORT)",
+            "api_spec_invalid": "Il documento non è un documento Swagger/OpenAPI valido in JSON o YAML, o supera 5 MiB",
+            "in_use": "È ancora agganciata a {{services}}: sganciala prima",
+            "resource_unknown": "Una delle risorse selezionate non esiste più: ricarica la pagina",
+            "fields_invalid": "I valori della risorsa non sono nella forma inviata dalla console: ricarica la pagina",
+            "environment_duplicated": "Un campo ha più di un valore per lo stesso ambiente",
+            "resources_invalid": "Le risorse del servizio devono essere una lista di al massimo 50",
+            "secret_reentry_required": "Il punto a cui si collega la risorsa è cambiato: digita di nuovo {{secrets}}, i valori salvati non vengono inviati al nuovo indirizzo"
+        },
+        "types": {
+            "database": {
+                "label": "Database",
+                "description": "Un database esterno: per host e credenziali, o per stringa di connessione."
+            },
+            "storage": {
+                "label": "Storage",
+                "description": "Un bucket o un container di object storage su AWS, Azure o Google Cloud."
+            },
+            "redis": {
+                "label": "Redis",
+                "description": "Un server Redis, per cache, code e sessioni."
+            },
+            "serviceAccount": {
+                "label": "Service account",
+                "description": "Credenziali con cui un service chiama un altro sistema a nome proprio."
+            },
+            "auth0": {
+                "label": "Auth0",
+                "description": "Un'applicazione Auth0: dominio, client e audience."
+            },
+            "api": {
+                "label": "API esterna",
+                "description": "Un'API HTTP descritta da Swagger/OpenAPI, con il modo di autenticarsi."
+            },
+            "ai": {
+                "label": "Provider AI",
+                "description": "Un provider LLM che il service chiama: API key e modello."
+            },
+            "smtp": {
+                "label": "Email (SMTP)",
+                "description": "Un server SMTP attraverso cui il service invia email."
+            }
+        },
+        "variants": {
+            "database": {
+                "credentials": "Host e credenziali",
+                "connectionString": "Stringa di connessione"
+            },
+            "storage": {
+                "aws": "AWS S3",
+                "azureConnectionString": "Azure, stringa di connessione",
+                "azureSharedKey": "Azure, chiave condivisa",
+                "azureAad": "Azure, app Entra ID",
+                "google": "Google Cloud Storage"
+            },
+            "redis": {
+                "credentials": "Host e credenziali",
+                "connectionString": "URL di connessione"
+            },
+            "serviceAccount": {
+                "jsonKey": "Chiave JSON",
+                "clientCredentials": "Client credentials"
+            },
+            "auth0": {
+                "default": "Applicazione"
+            },
+            "api": {
+                "none": "Nessuna autenticazione",
+                "basic": "Basic auth",
+                "apiKey": "API key",
+                "bearer": "Bearer token",
+                "oauth2ClientCredentials": "OAuth2 client credentials"
+            },
+            "ai": {
+                "anthropic": "Anthropic",
+                "openai": "OpenAI",
+                "google": "Google Gemini",
+                "azureOpenai": "Azure OpenAI"
+            },
+            "smtp": {
+                "credentials": "Con autenticazione",
+                "noAuth": "Relay senza autenticazione"
+            }
+        },
+        "fields": {
+            "engine": "Motore",
+            "host": "Host",
+            "port": "Porta",
+            "database": "Nome del database",
+            "username": "Utente",
+            "password": "Password",
+            "ssl": "SSL",
+            "connectionString": "Stringa di connessione",
+            "region": "Regione",
+            "bucketName": "Bucket",
+            "accessKeyId": "Access key ID",
+            "secretAccessKey": "Secret access key",
+            "containerName": "Container",
+            "accountName": "Nome dell'account",
+            "accountKey": "Chiave dell'account",
+            "tenantId": "Tenant ID",
+            "clientId": "Client ID",
+            "clientSecret": "Client secret",
+            "jsonKey": "Chiave JSON",
+            "url": "URL di connessione",
+            "tls": "TLS",
+            "tokenUrl": "URL del token",
+            "scope": "Scope",
+            "domain": "Dominio",
+            "audience": "Audience",
+            "baseUrl": "URL di base",
+            "specUrl": "URL del documento OpenAPI",
+            "in": "API key inviata in",
+            "name": "Nome dell'API key",
+            "apiKey": "API key",
+            "token": "Token",
+            "model": "Modello",
+            "organization": "Organizzazione",
+            "endpoint": "Endpoint",
+            "deployment": "Deployment",
+            "apiVersion": "Versione dell'API",
+            "security": "Sicurezza della connessione",
+            "from": "Indirizzo mittente",
+            "fromName": "Nome mittente"
+        },
+        "retype": {
+            "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"
         }
     }
 }

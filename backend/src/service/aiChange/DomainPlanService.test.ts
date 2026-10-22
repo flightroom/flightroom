@@ -18,6 +18,7 @@ import AiModel from "../../models/AiModelModel"
 import Domain from "../../models/DomainModel"
 import Frontend from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
+import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
 import { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
@@ -141,6 +142,7 @@ describe("DomainPlanService.plan", () => {
         vi.spyOn(Service, "exists").mockImplementation((() => Promise.resolve(members.service ? { _id: new Types.ObjectId() } : null)) as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "catalog" }] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Resource, "find").mockResolvedValue([] as never)
         getAll.mockResolvedValue(templates)
         json.mockResolvedValue({ frontends: [planned("checkout", "vite-remote-react", "checkout-fe")], services: [planned("orders", "service-node-fastify", "orders-be")] })
     })
@@ -185,6 +187,46 @@ describe("DomainPlanService.plan", () => {
         expect(request.user).toContain("- service-python-fastapi (default) (project technology)")
         expect(request.user).toContain("- vite-remote-react: ")
         expect(request.system).toContain("project technology")
+    })
+
+    it("given resources in the project, when a plan is asked, then the model is told them by name and type and not to plan a component for one", async () => {
+        vi.spyOn(Resource, "find").mockResolvedValue([
+            { name: "orders", type: "database", description: "Main Postgres" },
+            { name: "mailer", type: "smtp" }
+        ] as never)
+
+        await plan()
+
+        const request = json.mock.calls[0][0] as { user: string; system: string }
+        expect(request.user).toContain("<project_resources>\n- orders (database): Main Postgres\n- mailer (smtp)\n</project_resources>")
+        expect(request.system).toContain("do not plan a component that only provides one of them")
+        expect(Resource.find).toHaveBeenCalledWith({ projectId: expect.anything() }, { name: 1, type: 1, description: 1 })
+    })
+
+    it("given a member scoped to the domain, when a plan is asked, then only the resources they may read are listed", async () => {
+        const own = new Types.ObjectId()
+        const shared = new Types.ObjectId()
+        vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(domain._id)])
+        vi.spyOn(Service, "find").mockImplementation(((filter: Record<string, unknown>) =>
+            Promise.resolve(
+                filter.resourceIds
+                    ? [
+                          { domainId: domain._id, resourceIds: [own, shared] },
+                          { domainId: new Types.ObjectId(), resourceIds: [shared] }
+                      ]
+                    : []
+            )) as never)
+
+        await plan()
+
+        const [filter] = vi.mocked(Resource.find).mock.calls[0] as unknown as [{ projectId: unknown; _id: { $in: unknown[] } }]
+        expect(filter._id.$in.map(String)).toEqual([String(own)])
+    })
+
+    it("given no resource in the project, when a plan is asked, then no resources block is sent", async () => {
+        await plan()
+
+        expect((json.mock.calls[0][0] as { user: string }).user).not.toContain("<project_resources>")
     })
 
     it("given a project without technologies, when a plan is asked, then no technologies block is sent", async () => {

@@ -6,8 +6,9 @@ import { IService } from "./ServiceModel"
 import { IStorage, STORAGE_SECRET_PATHS } from "./StorageModel"
 
 /**
- * A config map or a secret as the deploy recorded it in its environment: the keys set there, with their
- * values for a config map only. A secret's values are not copied here: nothing reads them back.
+ * A config map, a secret or a resource as the deploy recorded it in its environment: the keys set there,
+ * with their values for a config map only. A secret's values are not copied here, nor a resource's, which
+ * mixes credentials with the rest: nothing reads them back.
  */
 export interface IDeployedVariableMap {
     _id: ObjectId
@@ -27,6 +28,8 @@ export interface IDeployment extends Document<ObjectId> {
     /** Absent from the deployments made before the config maps and secrets were recorded, as for the services */
     configMaps?: IDeployedVariableMap[]
     secrets?: IDeployedVariableMap[]
+    /** The resources some service attaches; absent from the deployments made before resources existed */
+    resources?: IDeployedVariableMap[]
     storages?: IStorage[]
     deploymentId: string
     active: boolean
@@ -62,6 +65,10 @@ const deploymentSchema = new Schema<IDeployment>(
             required: false
         },
         secrets: {
+            type: Array,
+            required: false
+        },
+        resources: {
             type: Array,
             required: false
         },
