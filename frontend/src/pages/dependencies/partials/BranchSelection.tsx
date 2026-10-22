@@ -1,4 +1,4 @@
-import { Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
+import { Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
 import { AlertTriangle } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"

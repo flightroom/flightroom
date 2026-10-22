@@ -16,7 +16,7 @@ import {
     TabsContent,
     TabsList,
     TabsTrigger
-} from "@flightroom/design-system"
+} from "@mfe-orchestrator/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { LayoutGrid, MailCheck, RefreshCw, StretchHorizontal, Trash2, X } from "lucide-react"

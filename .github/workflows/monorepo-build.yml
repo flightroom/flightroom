@@ -27,7 +27,7 @@ jobs:
           cache-dependency-path: "./pnpm-lock.yaml"
           cache: "pnpm"
           registry-url: https://npm.pkg.github.com
-          scope: "@flightroom"
+          scope: "@mfe-orchestrator"
 
       # - name: 💾 Cache node_modules
       #   id: cache-node-modules

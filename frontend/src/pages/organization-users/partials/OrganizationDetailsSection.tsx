@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, ConfirmByTypingDialog, CopyableValue, DangerZoneCard } from "@flightroom/design-system"
+import { Card, CardContent, CardHeader, CardTitle, ConfirmByTypingDialog, CopyableValue, DangerZoneCard } from "@mfe-orchestrator/design-system"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2 } from "lucide-react"
 import { useEffect, useState } from "react"

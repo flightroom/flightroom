@@ -1,4 +1,4 @@
-import { Sidebar as DesignSystemSidebar, type SidebarProps as DesignSystemSidebarProps, type SidebarNavItemProps } from "@flightroom/design-system"
+import { Sidebar as DesignSystemSidebar, type SidebarProps as DesignSystemSidebarProps, type SidebarNavItemProps } from "@mfe-orchestrator/design-system"
 import { BookOpen, GitBranch } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"

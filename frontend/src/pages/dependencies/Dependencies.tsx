@@ -1,4 +1,4 @@
-import { Checkbox, SectionHeader, StatTile } from "@flightroom/design-system"
+import { Checkbox, SectionHeader, StatTile } from "@mfe-orchestrator/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { AlertTriangle, GitPullRequestArrow, RefreshCw } from "lucide-react"
 import React, { useMemo, useState } from "react"

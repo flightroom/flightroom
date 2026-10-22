@@ -1,4 +1,4 @@
-import { AddTile } from "@flightroom/design-system"
+import { AddTile } from "@mfe-orchestrator/design-system"
 import { Plus } from "lucide-react"
 import { useTranslation } from "react-i18next"
 

@@ -1,4 +1,4 @@
-import { Select, SelectContent, SelectControl, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
+import { Select, SelectContent, SelectControl, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"

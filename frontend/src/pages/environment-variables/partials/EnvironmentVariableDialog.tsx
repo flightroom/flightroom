@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@flightroom/design-system"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@mfe-orchestrator/design-system"
 import { useEffect } from "react"
 import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"

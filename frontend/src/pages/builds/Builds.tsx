@@ -1,4 +1,4 @@
-import { EmptyState } from "@flightroom/design-system"
+import { EmptyState } from "@mfe-orchestrator/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { PackageOpen, RadioTower, RefreshCw } from "lucide-react"
 import React, { useCallback } from "react"

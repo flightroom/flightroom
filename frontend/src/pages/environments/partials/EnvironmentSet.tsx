@@ -1,5 +1,5 @@
 import { GlobeAltIcon } from "@heroicons/react/24/outline"
-import { Card, IconTile } from "@flightroom/design-system"
+import { Card, IconTile } from "@mfe-orchestrator/design-system"
 import { Badge } from "@/components/atoms"
 import { EnvironmentPreset } from "@/utils/EnviromentsPresets"
 

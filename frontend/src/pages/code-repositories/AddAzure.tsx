@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, NumberedSteps, SelectField } from "@flightroom/design-system"
+import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, NumberedSteps, SelectField } from "@mfe-orchestrator/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { CheckCircle2, ExternalLink, Eye, EyeOff, Info } from "lucide-react"
 import { useState } from "react"

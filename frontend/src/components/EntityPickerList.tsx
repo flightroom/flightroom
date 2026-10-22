@@ -1,4 +1,4 @@
-import { AddTile, EmptyState, SearchInput } from "@flightroom/design-system"
+import { AddTile, EmptyState, SearchInput } from "@mfe-orchestrator/design-system"
 import { Check, ChevronRight, FolderPlus, Plus } from "lucide-react"
 import { useMemo, useState } from "react"
 import { Button } from "@/components/atoms"
