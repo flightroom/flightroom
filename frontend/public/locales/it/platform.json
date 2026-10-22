@@ -2371,6 +2371,16 @@
             "ref_not_found": "Il branch non esiste nel repository",
             "repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
         },
+        "release": {
+            "action": "Imposta release",
+            "title": "Imposta la release di {{name}}",
+            "description": "Il tag dell'immagine da deployare, già pubblicata nel registry. La pipeline la porta avanti quando registra una versione più recente.",
+            "version": "Versione",
+            "placeholder": "es. 1.0.0",
+            "save": "Imposta",
+            "saving": "Salvataggio...",
+            "success": "Release di {{name}} impostata a {{version}}"
+        },
         "versions": {
             "title": "Versioni",
             "description": "Le immagini pubblicate dalla pipeline a ogni tag",

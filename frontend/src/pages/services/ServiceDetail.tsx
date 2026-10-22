@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList, Spinner } from "@flightroom/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Copy, ExternalLink, Hammer } from "lucide-react"
+import { Copy, ExternalLink, Hammer, Tag } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Navigate, useParams } from "react-router-dom"
@@ -17,6 +17,7 @@ import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import ServiceBuildDialog from "./partials/ServiceBuildDialog"
 import ServiceHeader, { isServiceAiAvailable } from "./partials/ServiceHeader"
+import ServiceReleaseDialog from "./partials/ServiceReleaseDialog"
 import ServiceVariableMapsSection from "./partials/ServiceVariableMapsSection"
 import ServiceVersionsTable from "./partials/ServiceVersionsTable"
 import { exposedOrigin, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
@@ -212,6 +213,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
     const servicesApi = useServicesApi()
     const queryClient = useQueryClient()
     const [buildOpen, setBuildOpen] = useState(false)
+    const [releaseOpen, setReleaseOpen] = useState(false)
     const isViewer = useIsProjectViewer()
 
     const serviceQuery = useQuery({ queryKey: ["service", id], queryFn: () => servicesApi.getSingle(id!), enabled: !!id })
@@ -234,11 +236,20 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
                         service={service}
                         active="overview"
                         actions={
-                            canBuild && (
-                                <Button variant="primary" onClick={() => setBuildOpen(true)}>
-                                    <Hammer />
-                                    {t("services.build.action")}
-                                </Button>
+                            !isViewer && (
+                                <>
+                                    {/* For an image pushed without the CI registration call: the deploy runs the tag set here */}
+                                    <Button variant="secondary" onClick={() => setReleaseOpen(true)}>
+                                        <Tag />
+                                        {t("services.release.action")}
+                                    </Button>
+                                    {canBuild && (
+                                        <Button variant="primary" onClick={() => setBuildOpen(true)}>
+                                            <Hammer />
+                                            {t("services.build.action")}
+                                        </Button>
+                                    )}
+                                </>
                             )
                         }
                     />
@@ -247,6 +258,9 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
                     <ServiceVersionsTable versions={versionsQuery.data ?? []} />
                     <ServiceConfigurationSection service={service} environments={environmentsQuery.data ?? []} />
                     <ServiceVariableMapsSection service={service} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                    {!isViewer && (
+                        <ServiceReleaseDialog open={releaseOpen} onOpenChange={setReleaseOpen} service={service} onSaved={() => queryClient.invalidateQueries({ queryKey: ["service", id] })} />
+                    )}
                     {canBuild && (
                         <ServiceBuildDialog
                             open={buildOpen}
