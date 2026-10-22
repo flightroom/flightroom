@@ -1,4 +1,4 @@
-import { Badge, Checkbox, EmptyState, SearchInput } from "@mfe-orchestrator/design-system"
+import { Badge, Checkbox, EmptyState, SearchInput } from "@flightroom/design-system"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { OAuthProject } from "@/hooks/apiClients/useOAuthApi"

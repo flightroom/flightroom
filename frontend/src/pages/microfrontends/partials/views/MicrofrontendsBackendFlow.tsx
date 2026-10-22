@@ -1,4 +1,4 @@
-import { EmptyState } from "@mfe-orchestrator/design-system"
+import { EmptyState } from "@flightroom/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { applyEdgeChanges, Background, Connection, Controls, Edge, EdgeChange, Handle, Node, NodeProps, Panel, Position, ReactFlow } from "@xyflow/react"
 import { CirclePlus, Server } from "lucide-react"

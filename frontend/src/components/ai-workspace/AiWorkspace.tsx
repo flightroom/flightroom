@@ -14,7 +14,7 @@ import {
     TabsList,
     TabsTrigger,
     Textarea
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { AxiosError } from "axios"
 import { format } from "date-fns"

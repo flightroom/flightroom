@@ -1,4 +1,4 @@
-import { SelectField } from "@mfe-orchestrator/design-system"
+import { SelectField } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"

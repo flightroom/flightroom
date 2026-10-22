@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, SearchInput } from "@mfe-orchestrator/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, SearchInput } from "@flightroom/design-system"
 import { Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { FieldError, get, useFieldArray, useFormContext, useWatch } from "react-hook-form"

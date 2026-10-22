@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, SwitchField as Switch } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, SwitchField as Switch } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { Key, Settings } from "lucide-react"
 import React, { useEffect, useMemo, useRef } from "react"

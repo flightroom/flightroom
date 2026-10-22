@@ -1,4 +1,4 @@
-import { Checkbox, SelectField } from "@mfe-orchestrator/design-system"
+import { Checkbox, SelectField } from "@flightroom/design-system"
 import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"

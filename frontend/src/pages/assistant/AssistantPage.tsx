@@ -1,4 +1,4 @@
-import { Spinner } from "@mfe-orchestrator/design-system"
+import { Spinner } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Navigate } from "react-router-dom"
 import AssistantHistory from "@/components/assistant/AssistantHistory"

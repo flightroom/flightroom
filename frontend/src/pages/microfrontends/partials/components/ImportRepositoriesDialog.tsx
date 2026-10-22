@@ -16,7 +16,7 @@ import {
     SelectTrigger,
     SelectValue,
     Spinner
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CircleCheck, DownloadCloud } from "lucide-react"
 import { useEffect, useMemo, useState } from "react"

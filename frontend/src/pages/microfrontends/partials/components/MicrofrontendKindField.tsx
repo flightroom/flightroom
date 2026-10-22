@@ -1,4 +1,4 @@
-import { RadioGroup, RadioGroupItem } from "@mfe-orchestrator/design-system"
+import { RadioGroup, RadioGroupItem } from "@flightroom/design-system"
 import { Controller, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { MicrofrontendKind } from "@/hooks/apiClients/useMicrofrontendsApi"

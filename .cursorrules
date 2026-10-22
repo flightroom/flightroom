@@ -14,7 +14,7 @@ This is a **monorepo** microfrontend orchestrator project with:
 
 - **Backend**: Fastify (Node.js/TypeScript) with MongoDB, Redis
 - **Frontend**: React with TypeScript, React Router, TanStack Query, Zustand
-- Uses `@mfe-orchestrator/design-system` components, Tailwind CSS, i18n for internationalization
+- Uses `@flightroom/design-system` components, Tailwind CSS, i18n for internationalization
 
 ### Workspace Structure
 
@@ -64,7 +64,7 @@ This is a **monorepo** microfrontend orchestrator project with:
 ### Forms & Validation
 
 - Always use **react-hook-form** for forms
-- Use form components from `@mfe-orchestrator/design-system`
+- Use form components from `@flightroom/design-system`
 - Use input components from `src/components/input/` (TextField.rhf, SelectField.rhf, etc.)
 - Don't use `onError` callback in `useQuery` hooks
 
@@ -77,7 +77,7 @@ This is a **monorepo** microfrontend orchestrator project with:
 
 ### UI Components
 
-- Import UI components from `@mfe-orchestrator/design-system`
+- Import UI components from `@flightroom/design-system`
 - `src/components/ui/` holds only the few local leftovers (`DeleteConfirmationDialog`, `Sidebar`) - do not add to it
 - Use icons from **lucide-react** only
 - Don't create new UI components from scratch - check existing ones first

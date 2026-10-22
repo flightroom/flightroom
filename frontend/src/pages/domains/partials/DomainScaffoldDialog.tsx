@@ -19,7 +19,7 @@ import {
     SelectValue,
     Spinner,
     Switch
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
 import { AlertTriangle, CircleCheck, LayoutDashboard, Server, Sparkles } from "lucide-react"

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Badge, Switch } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, Badge, Switch } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"

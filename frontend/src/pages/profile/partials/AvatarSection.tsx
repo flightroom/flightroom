@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback, AvatarImage, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@mfe-orchestrator/design-system"
+import { Avatar, AvatarFallback, AvatarImage, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { Trash2, Upload, User as UserIcon } from "lucide-react"
 import { useRef, useState } from "react"

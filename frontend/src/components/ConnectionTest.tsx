@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, AlertTitle } from "@flightroom/design-system"
 import { CheckCircle2, Loader2, PlugZap, XCircle } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"

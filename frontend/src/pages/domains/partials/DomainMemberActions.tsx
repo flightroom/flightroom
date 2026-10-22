@@ -1,4 +1,4 @@
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@mfe-orchestrator/design-system"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { ChevronDown, CirclePlus, DownloadCloud, Link2, Plus } from "lucide-react"
 import { useState } from "react"

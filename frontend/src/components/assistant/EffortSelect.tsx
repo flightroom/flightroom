@@ -1,4 +1,4 @@
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
 import { Brain } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import type { LlmEffort } from "@/types/ConfigResponseDTO"

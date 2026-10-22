@@ -1,4 +1,4 @@
-import { EmptyState } from "@mfe-orchestrator/design-system"
+import { EmptyState } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import AskAssistantButton from "@/components/assistant/AskAssistantButton"
 import { BuildRun, BuildStatus } from "@/hooks/apiClients/useBuildsApi"

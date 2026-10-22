@@ -1,4 +1,4 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@mfe-orchestrator/design-system"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { Building2, Cpu, Users } from "lucide-react"
 import React from "react"

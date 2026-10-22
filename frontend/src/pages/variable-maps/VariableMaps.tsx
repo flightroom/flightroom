@@ -1,4 +1,4 @@
-import { EmptyState, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
+import { EmptyState, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { CirclePlus, PackageOpen, SearchX } from "lucide-react"
 import { useCallback, useMemo, useState } from "react"

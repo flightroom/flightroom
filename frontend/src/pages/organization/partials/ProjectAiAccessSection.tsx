@@ -21,7 +21,7 @@ import {
     TableHead,
     TableHeader,
     TableRow
-} from "@mfe-orchestrator/design-system"
+} from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { FolderKey, Pencil } from "lucide-react"
 import { useId, useState } from "react"

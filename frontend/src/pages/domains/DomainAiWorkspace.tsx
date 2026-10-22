@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Spinner } from "@mfe-orchestrator/design-system"
+import { Alert, AlertDescription, AlertTitle, Spinner } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { AlertTriangle } from "lucide-react"
 import { useState } from "react"
