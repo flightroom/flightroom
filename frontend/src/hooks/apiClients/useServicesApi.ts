@@ -113,7 +113,7 @@ const useServicesApi = () => {
         return response.data
     }
 
-    const update = async (id: string, service: ServiceDTO, metadata?: IClientRequestMetadataExtended): Promise<Service> => {
+    const update = async (id: string, service: Partial<ServiceDTO>, metadata?: IClientRequestMetadataExtended): Promise<Service> => {
         const response = await apiClient.doRequest<Service>({ url: `/api/services/${id}`, method: "PUT", data: service, ...metadata })
         return response.data
     }
