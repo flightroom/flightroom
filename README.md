@@ -1,3 +1,5 @@
+![Flightroom, the open-source control room for micro frontends](docs/assets/banner.png)
+
 # Flightroom
 
 [![License](https://img.shields.io/github/license/flightroom/flightroom)](LICENSE)
