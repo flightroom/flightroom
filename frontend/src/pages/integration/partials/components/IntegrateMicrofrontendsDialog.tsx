@@ -1,4 +1,4 @@
-import { Checkbox, CodeBlock, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Spinner } from "@flightroom/design-system"
+import { Checkbox, CodeBlock, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Spinner } from "@mfe-orchestrator/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { AlertTriangle, CheckCircle2, GitBranch } from "lucide-react"
 import { useState } from "react"

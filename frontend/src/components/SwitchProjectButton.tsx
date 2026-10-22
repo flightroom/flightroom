@@ -1,4 +1,4 @@
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@flightroom/design-system"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogTrigger } from "@mfe-orchestrator/design-system"
 import { Plus, Repeat } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"

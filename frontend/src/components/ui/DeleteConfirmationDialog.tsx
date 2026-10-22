@@ -1,4 +1,4 @@
-import { DeleteConfirmationDialog as DesignSystemDeleteConfirmationDialog } from "@flightroom/design-system"
+import { DeleteConfirmationDialog as DesignSystemDeleteConfirmationDialog } from "@mfe-orchestrator/design-system"
 import type { ComponentProps } from "react"
 import { useTranslation } from "react-i18next"
 

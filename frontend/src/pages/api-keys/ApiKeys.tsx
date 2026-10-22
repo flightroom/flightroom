@@ -1,4 +1,4 @@
-import { Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
+import { Card, CardContent, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { Plus, Trash2 } from "lucide-react"

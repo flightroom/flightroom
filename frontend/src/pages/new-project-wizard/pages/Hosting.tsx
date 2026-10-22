@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle } from "@flightroom/design-system"
+import { Alert, AlertDescription, AlertTitle } from "@mfe-orchestrator/design-system"
 import { Info } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { StorageForm } from "@/pages/storages/AddStorage"

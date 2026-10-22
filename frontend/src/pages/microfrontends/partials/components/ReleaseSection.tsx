@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, SliderField, SwitchField as Switch } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, SliderField, SwitchField as Switch } from "@mfe-orchestrator/design-system"
 import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"

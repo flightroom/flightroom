@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, CopyableValue, DescriptionItem, DescriptionList } from "@flightroom/design-system"
+import { Card, CardContent, CardHeader, CardTitle, CopyableValue, DescriptionItem, DescriptionList } from "@mfe-orchestrator/design-system"
 import { useEffect } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"

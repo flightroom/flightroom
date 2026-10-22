@@ -1,4 +1,4 @@
-import { CopyButton, Popover, PopoverContent, PopoverTrigger } from "@flightroom/design-system"
+import { CopyButton, Popover, PopoverContent, PopoverTrigger } from "@mfe-orchestrator/design-system"
 import { Code, GitBranch, Terminal } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"

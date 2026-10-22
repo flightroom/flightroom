@@ -1,4 +1,4 @@
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, DescriptionItem, DescriptionList, EmptyState, SectionHeader } from "@flightroom/design-system"
+import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, DescriptionItem, DescriptionList, EmptyState, SectionHeader } from "@mfe-orchestrator/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { BadgeCheck, History, PackageOpen, RefreshCw, UsersRound } from "lucide-react"
 import { useState } from "react"

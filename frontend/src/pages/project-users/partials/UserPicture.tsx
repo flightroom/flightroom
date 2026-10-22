@@ -1,4 +1,4 @@
-import { Avatar, AvatarFallback } from "@flightroom/design-system"
+import { Avatar, AvatarFallback } from "@mfe-orchestrator/design-system"
 import { useQuery } from "@tanstack/react-query"
 import axios from "axios"
 import Gravatar from "react-gravatar"

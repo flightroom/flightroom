@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, StatTile } from "@flightroom/design-system"
+import { Card, CardContent, CardHeader, CardTitle, StatTile } from "@mfe-orchestrator/design-system"
 import { ReactNode } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"

@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, EmptyState, Spinner } from "@flightroom/design-system"
+import { Alert, AlertDescription, EmptyState, Spinner } from "@mfe-orchestrator/design-system"
 import { useTranslation } from "react-i18next"
 import { IApiStatusHandlerProps } from "./IApiStatusHandlerProps"
 

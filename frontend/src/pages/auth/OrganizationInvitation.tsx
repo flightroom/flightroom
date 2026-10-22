@@ -1,4 +1,4 @@
-import { IconTile, Spinner } from "@flightroom/design-system"
+import { IconTile, Spinner } from "@mfe-orchestrator/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { AxiosError } from "axios"
 import { MailX } from "lucide-react"

@@ -1,4 +1,4 @@
-import { Card, CardContent, EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
+import { Card, CardContent, EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@mfe-orchestrator/design-system"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import { DependencyAlignmentIssue } from "@/hooks/apiClients/useDependenciesApi"

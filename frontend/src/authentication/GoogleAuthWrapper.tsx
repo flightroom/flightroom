@@ -1,4 +1,4 @@
-import { Spinner } from "@flightroom/design-system"
+import { Spinner } from "@mfe-orchestrator/design-system"
 import { GoogleOAuthProvider } from "@react-oauth/google"
 import React, { useMemo, useState } from "react"
 import { useGlobalParameters } from "@/contexts/GlobalParameterProvider"

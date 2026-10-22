@@ -1,4 +1,4 @@
-import { Button as DesignSystemButton, type IButtonProps } from "@flightroom/design-system"
+import { Button as DesignSystemButton, type IButtonProps } from "@mfe-orchestrator/design-system"
 import { forwardRef } from "react"
 import { Link } from "react-router-dom"
 

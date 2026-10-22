@@ -1,2 +1,2 @@
-export { Badge, type IBadgeProps } from "@flightroom/design-system"
+export { Badge, type IBadgeProps } from "@mfe-orchestrator/design-system"
 export * from "./button"

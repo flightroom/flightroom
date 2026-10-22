@@ -1,4 +1,4 @@
-import { EmptyState, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
+import { EmptyState, Input, Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@mfe-orchestrator/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { PackageOpen, SearchX } from "lucide-react"
 import { useMemo, useState } from "react"

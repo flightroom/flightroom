@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle, CodeBlock } from "@flightroom/design-system"
+import { Card, CardContent, CardHeader, CardTitle, CodeBlock } from "@mfe-orchestrator/design-system"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"

@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox } from "@mfe-orchestrator/design-system"
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { useTranslation } from "react-i18next"

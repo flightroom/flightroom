@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@mfe-orchestrator/design-system"
 import { ReactNode } from "react"
 import MainLogo from "@/components/MainLogo"
 import PageHead from "@/components/PageHead"

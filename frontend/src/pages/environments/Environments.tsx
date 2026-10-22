@@ -13,7 +13,7 @@ import {
     TableHeader,
     TableRow,
     TextareaChipsField
-} from "@flightroom/design-system"
+} from "@mfe-orchestrator/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { Check, GripVertical, Pencil, PlusCircle, Trash2, X } from "lucide-react"
 import { useEffect, useState } from "react"
