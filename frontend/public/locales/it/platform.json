@@ -2484,8 +2484,6 @@
         },
         "deployments": {
             "open": "Versioni deployate",
-            "title": "Versioni deployate",
-            "description": "Quale versione di ogni frontend e servizio del dominio gira in ciascun ambiente. Il frontend è quello del deployment attivo, il backend quello comunicato dalla pipeline di deploy.",
             "matrix_title": "Versioni deployate per dominio",
             "matrix_description": "Per ogni dominio e ambiente, le versioni del deployment attivo o, se non sono nel deployment, quelle comunicate dalla pipeline di deploy",
             "matrix_empty_title": "Niente da mostrare",
@@ -2503,7 +2501,6 @@
             "canary_without_version": "canary ({{audience}})",
             "canary_enrolled_users": "utenti abilitati",
             "no_environments": "Il progetto non ha ancora ambienti",
-            "no_members": "Il dominio non ha ancora frontend né servizi",
             "no_members_short": "Nessun membro"
         },
         "viewCards": "Vista schede",
@@ -2564,42 +2561,7 @@
         "detail": {
             "back": "Tutti i domini",
             "frontend_title": "Frontend",
-            "frontend_description": "I frontend di questo dominio",
-            "frontend_empty": "Nessun frontend in questo dominio.",
-            "add_frontend": "Aggiungi frontend",
-            "backend_title": "Backend",
-            "backend_description": "I servizi di questo dominio",
-            "backend_empty": "Nessun servizio in questo dominio.",
-            "add_service": "Aggiungi servizio",
-            "viewOverview": "Vista panoramica",
-            "viewFlow": "Vista diagramma",
-            "viewGrid": "Vista griglia",
-            "viewTable": "Vista tabella",
-            "flow_hint": "Trascina dal punto di un frontend a un altro frontend o a un servizio per collegarli. Seleziona un collegamento e premi Canc per rimuoverlo. Doppio clic su un blocco per aprirlo."
-        },
-        "members": {
-            "create_frontend": "Crea nuovo frontend",
-            "create_service": "Crea nuovo servizio",
-            "assign_existing": "Associa esistenti",
-            "import_repository": "Importa da repository",
-            "assign_title_frontend": "Associa frontend esistenti",
-            "assign_title_service": "Associa servizi esistenti",
-            "assign_description_frontend": "Scegli i frontend del progetto da mettere in questo dominio. Quelli che sono in un altro dominio vengono spostati qui.",
-            "assign_description_service": "Scegli i servizi del progetto da mettere in questo dominio. Quelli che sono in un altro dominio vengono spostati qui.",
-            "search_placeholder": "Cerca per nome o slug...",
-            "clear_search": "Cancella la ricerca",
-            "select_all": "Seleziona tutti",
-            "selected_count": "{{count}} di {{total}} selezionati",
-            "in_domain": "In {{name}}",
-            "empty_frontend": "Tutti i frontend del progetto sono già in questo dominio.",
-            "empty_service": "Tutti i servizi del progetto sono già in questo dominio.",
-            "no_search_results": "Nessun risultato per questa ricerca.",
-            "confirm_one": "Associa {{count}}",
-            "confirm_other": "Associa {{count}}",
-            "assigned_frontend_one": "{{count}} frontend aggiunto al dominio",
-            "assigned_frontend_other": "{{count}} frontend aggiunti al dominio",
-            "assigned_service_one": "{{count}} servizio aggiunto al dominio",
-            "assigned_service_other": "{{count}} servizi aggiunti al dominio"
+            "backend_title": "Backend"
         },
         "errors": {
             "slug_taken": "Esiste già un dominio con questo nome nel progetto",
@@ -2663,8 +2625,7 @@
             }
         },
         "workspace": {
-            "nav_label": "Sezioni del dominio",
-            "nav_structure": "Struttura"
+            "nav_label": "Sezioni del dominio"
         }
     },
     "navigation": {

@@ -163,7 +163,7 @@ const DomainAiWorkspace: React.FC = () => {
 
     return (
         <div className="flex min-h-full flex-col gap-6">
-            <DomainHeader domain={domain} active="ai" />
+            <DomainHeader domain={domain} />
             {aiModels.isPending ? (
                 <div className="flex min-h-[200px] items-center justify-center">
                     <Spinner size={32} />
