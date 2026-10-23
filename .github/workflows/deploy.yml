@@ -15,6 +15,11 @@ jobs:
   docker-build:
     uses: ./.github/workflows/docker-build.yml
     secrets: inherit
+    # A called workflow cannot ask for more than its caller grants: helm-publish
+    # needs packages: write, even though it only runs on tags.
+    permissions:
+      contents: read
+      packages: write
 
   deploy:
     needs: [docker-build]

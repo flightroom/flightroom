@@ -1,13 +1,15 @@
 apiVersion: v2
-name: mfe-orchestrator
-# NOTE: chart name and the "mfe-orchestrator.*" helpers are kept on purpose: the name feeds the immutable Deployment selector (app.kubernetes.io/name) and the resource names.
+name: flightroom
+# The name feeds the immutable Deployment selector (app.kubernetes.io/name) and the resource names:
+# 0.3.0 renamed it from mfe-orchestrator, see the README for the upgrade of an existing release.
 description: Flightroom - JSON based configuration, versioning and multi-environment delivery of frontends
 type: application
 
 # Chart version: bumped on every change to the chart itself.
-version: 0.2.0
+version: 0.3.0
 # Version of the Flightroom image shipped by default (see values.yaml image.tag).
-appVersion: "4.0.0"
+# The release workflow fails on a tag that does not match it: bump it before tagging.
+appVersion: "5.1.0"
 
 home: https://github.com/flightroom/flightroom
 sources:
@@ -16,9 +18,9 @@ icon: https://raw.githubusercontent.com/flightroom/flightroom/main/frontend/publ
 
 keywords:
   - frontend
-  - orchestrator
+  - microfrontends
   - module-federation
-  - frontend
+  - deployment
 
 maintainers:
   - name: flightroom

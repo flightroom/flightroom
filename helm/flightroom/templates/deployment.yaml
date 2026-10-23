@@ -1,9 +1,10 @@
+{{- include "flightroom.validateValues" . }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: {{ include "mfe-orchestrator.fullname" . }}
+  name: {{ include "flightroom.fullname" . }}
   labels:
-    {{- include "mfe-orchestrator.labels" . | nindent 4 }}
+    {{- include "flightroom.labels" . | nindent 4 }}
   {{- with .Values.commonAnnotations }}
   annotations:
     {{- toYaml . | nindent 4 }}
@@ -12,17 +13,16 @@ spec:
   {{- if not .Values.autoscaling.enabled }}
   replicas: {{ .Values.replicaCount }}
   {{- end }}
-  {{- with .Values.strategy }}
+  {{- $strategyType := include "flightroom.strategyType" . }}
   strategy:
-    type: {{ .type }}
-    {{- if and (eq .type "RollingUpdate") .rollingUpdate }}
+    type: {{ $strategyType }}
+    {{- if and (eq $strategyType "RollingUpdate") .Values.strategy.rollingUpdate }}
     rollingUpdate:
-      {{- toYaml .rollingUpdate | nindent 6 }}
+      {{- toYaml .Values.strategy.rollingUpdate | nindent 6 }}
     {{- end }}
-  {{- end }}
   selector:
     matchLabels:
-      {{- include "mfe-orchestrator.selectorLabels" . | nindent 6 }}
+      {{- include "flightroom.selectorLabels" . | nindent 6 }}
   template:
     metadata:
       {{- if or .Values.restartOnConfigChange .Values.commonAnnotations .Values.podAnnotations }}
@@ -39,7 +39,7 @@ spec:
         {{- end }}
       {{- end }}
       labels:
-        {{- include "mfe-orchestrator.labels" . | nindent 8 }}
+        {{- include "flightroom.labels" . | nindent 8 }}
         {{- with .Values.podLabels }}
         {{- toYaml . | nindent 8 }}
         {{- end }}
@@ -48,7 +48,7 @@ spec:
       imagePullSecrets:
         {{- toYaml . | nindent 8 }}
       {{- end }}
-      serviceAccountName: {{ include "mfe-orchestrator.serviceAccountName" . }}
+      serviceAccountName: {{ include "flightroom.serviceAccountName" . }}
       automountServiceAccountToken: {{ .Values.serviceAccount.automount }}
       {{- with .Values.priorityClassName }}
       priorityClassName: {{ . }}
@@ -76,10 +76,10 @@ spec:
               protocol: TCP
           envFrom:
             - configMapRef:
-                name: {{ include "mfe-orchestrator.fullname" . }}-env
-            {{- if include "mfe-orchestrator.hasEnvEntries" (.Values.envSecrets | default dict) }}
+                name: {{ include "flightroom.fullname" . }}-env
+            {{- if include "flightroom.hasEnvEntries" (.Values.envSecrets | default dict) }}
             - secretRef:
-                name: {{ include "mfe-orchestrator.fullname" . }}-env
+                name: {{ include "flightroom.fullname" . }}-env
             {{- end }}
             {{- range .Values.existingConfigMap }}
             - configMapRef:
@@ -135,7 +135,7 @@ spec:
               mountPath: {{ .Values.repositories.mountPath | quote }}
             {{- if .Values.persistence.enabled }}
             - name: microfrontends
-              mountPath: {{ include "mfe-orchestrator.microfrontendFolder" . | quote }}
+              mountPath: {{ include "flightroom.microfrontendFolder" . | quote }}
               {{- with .Values.persistence.subPath }}
               subPath: {{ . }}
               {{- end }}
@@ -158,7 +158,7 @@ spec:
         {{- if .Values.persistence.enabled }}
         - name: microfrontends
           persistentVolumeClaim:
-            claimName: {{ include "mfe-orchestrator.pvcName" . }}
+            claimName: {{ include "flightroom.pvcName" . }}
         {{- end }}
         {{- with .Values.extraVolumes }}
         {{- toYaml . | nindent 8 }}

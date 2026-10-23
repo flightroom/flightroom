@@ -1,36 +1,71 @@
-# Flightroom Helm chart (chart name: `mfe-orchestrator`)
+# Flightroom Helm chart
 
-Deploys [Flightroom](https://github.com/flightroom/flightroom) on
-Kubernetes. The chart installs the all-in-one image (`lory1990/mfe-orchestrator`), which serves
-the frontend and the API behind nginx on port `80`.
+Deploys [Flightroom](https://github.com/flightroom/flightroom) on Kubernetes. The chart installs
+the standard image (`lory1990/flightroom`), which serves the frontend and the API behind nginx on
+port `80`.
 
 MongoDB and Redis are **not** deployed by this chart: point the application at instances you
 already run, or install them with their own charts (example below).
 
 ## Install
 
+Every release publishes the chart to the GitHub Container Registry as an OCI artifact, so no clone
+is needed:
+
 ```bash
-helm install mfe-orchestrator ./helm/mfe-orchestrator \
-  --namespace mfe-orchestrator --create-namespace \
+helm install flightroom oci://ghcr.io/flightroom/charts/flightroom --version 0.3.0 \
+  --namespace flightroom --create-namespace \
   --set env.NOSQL_DATABASE_URL="mongodb://root:example@mongodb:27017" \
   --set env.REDIS_URL="redis://redis:6379" \
   --set envSecrets.JWT_SECRET="$(openssl rand -hex 32)"
 ```
 
-Packaging the chart for distribution:
+Without `--version` Helm takes the latest chart. `helm show values oci://ghcr.io/flightroom/charts/flightroom`
+prints the default values of a version.
+
+Argo CD reads the same registry once it is registered as a Helm repository with OCI enabled
+(`argocd repo add ghcr.io/flightroom/charts --type helm --name flightroom --enable-oci`, or the
+equivalent repository Secret with `enableOCI: "true"`). The `Application` then takes the registry
+without the `oci://` scheme and without the chart name:
+
+```yaml
+spec:
+  source:
+    repoURL: ghcr.io/flightroom/charts
+    chart: flightroom
+    targetRevision: 0.3.0
+    helm:
+      valuesObject:
+        env:
+          NOSQL_DATABASE_URL: mongodb://root:example@mongodb:27017
+```
+
+From a clone of the repository, use the path instead: `helm install flightroom ./helm/flightroom ...`.
+
+### Upgrading from the `mfe-orchestrator` chart
+
+Chart `0.3.0` renamed the chart from `mfe-orchestrator` to `flightroom`. The name is part of the
+Deployment selector and of every resource name, so `helm upgrade` of an existing release creates new
+resources and deletes the old ones — **the PersistentVolumeClaim of the uploaded bundles included**.
+To keep the bundles, tell Helm to leave the old claim in place and mount it from the new chart:
 
 ```bash
-helm package helm/mfe-orchestrator          # -> mfe-orchestrator-<version>.tgz
-helm install mfe-orchestrator mfe-orchestrator-<version>.tgz -f my-values.yaml
+kubectl annotate pvc <release>-mfe-orchestrator-microfrontends helm.sh/resource-policy=keep
+helm upgrade <release> oci://ghcr.io/flightroom/charts/flightroom --version 0.3.0 -f my-values.yaml \
+  --set persistence.existingClaim=<release>-mfe-orchestrator-microfrontends
 ```
+
+(the claim is named `mfe-orchestrator-microfrontends` when the release itself was called
+`mfe-orchestrator`). The Service changes name too: update the ingress backends, port-forwards and
+anything else that addressed it.
 
 Useful commands:
 
 ```bash
-helm lint helm/mfe-orchestrator
-helm template mfe-orchestrator helm/mfe-orchestrator -f my-values.yaml
-helm test mfe-orchestrator                   # hits /api/echo from inside the cluster
-helm upgrade mfe-orchestrator ./helm/mfe-orchestrator -f my-values.yaml
+helm lint helm/flightroom
+helm template flightroom helm/flightroom -f my-values.yaml
+helm test flightroom                   # hits /api/echo from inside the cluster
+helm upgrade flightroom oci://ghcr.io/flightroom/charts/flightroom -f my-values.yaml
 ```
 
 ## Environment variables
@@ -66,7 +101,7 @@ envSecrets:
   NOSQL_DATABASE_PASSWORD: example
 
 existingSecret:
-  - mfe-orchestrator-credentials
+  - flightroom-credentials
 
 extraEnv:
   - name: GOOGLE_CLIENT_SECRET
@@ -130,12 +165,16 @@ Observability: `SENTRY_DSN`, `TELEMETRY_ENABLED`, `TELEMETRY_DISABLED`, `TELEMET
 ### Image version
 
 `image.tag` defaults to the chart's `appVersion`, so a plain install runs the version the chart
-was released with. Override it to pin a different one:
+was released with: the release workflow refuses a tag that does not match `appVersion`. Override it
+to pin a different one:
 
 ```yaml
 image:
-  tag: "3.1.0"
+  tag: "5.1.0"
 ```
+
+Use the standard image, not the `-all-in-one` tag: the chart expects MongoDB and Redis outside the
+pod.
 
 ## Storage
 
@@ -152,8 +191,32 @@ persistence:
 ```
 
 With `persistence.enabled: false` the frontend bundles live in the container filesystem and are
-lost at every restart. If you scale beyond one replica, use a `ReadWriteMany` volume, otherwise
-keep `replicaCount: 1`.
+lost at every restart.
+
+### More than one replica
+
+A `ReadWriteOnce` volume attaches to a single node, so a second pod scheduled elsewhere never
+mounts it. The chart therefore:
+
+- **fails the render** when `replicaCount > 1` or `autoscaling.enabled` is combined with a volume
+  whose `persistence.accessModes` lack `ReadWriteMany`;
+- uses the **`Recreate` strategy** on such a volume, unless `strategy.type` is set: a rolling update
+  starts the new pod before stopping the old one, and if the new pod lands on another node it waits
+  for the volume forever and the upgrade hangs.
+
+To run several replicas, use a StorageClass that provides `ReadWriteMany` (NFS, Azure Files,
+Amazon EFS, CephFS …). The strategy then defaults to a rolling update with `maxUnavailable: 0`:
+
+```yaml
+replicaCount: 2
+persistence:
+  storageClass: azurefile-csi
+  accessModes:
+    - ReadWriteMany
+```
+
+With `persistence.existingClaim`, set `persistence.accessModes` to the access modes of that claim:
+the chart cannot read them.
 
 ## Ingress
 
@@ -169,7 +232,7 @@ ingress:
         - path: /
           pathType: Prefix
   tls:
-    - secretName: mfe-orchestrator-tls
+    - secretName: flightroom-tls
       hosts:
         - console.example.com
 ```
@@ -187,7 +250,7 @@ helm install mongodb oci://registry-1.docker.io/bitnamicharts/mongodb \
 helm install redis oci://registry-1.docker.io/bitnamicharts/redis \
   --set auth.enabled=false
 
-helm install mfe-orchestrator ./helm/mfe-orchestrator \
+helm install flightroom oci://ghcr.io/flightroom/charts/flightroom \
   --set env.NOSQL_DATABASE_URL="mongodb://root:example@mongodb:27017" \
   --set env.REDIS_URL="redis://redis-master:6379"
 ```
@@ -196,8 +259,8 @@ helm install mfe-orchestrator ./helm/mfe-orchestrator \
 
 | Key                            | Default                  | Description                                              |
 | ------------------------------ | ------------------------ | -------------------------------------------------------- |
-| `replicaCount`                 | `1`                      | Number of pods (ignored when autoscaling is enabled)     |
-| `image.repository`             | `lory1990/mfe-orchestrator` | Image repository                                      |
+| `replicaCount`                 | `1`                      | Number of pods (ignored when autoscaling is enabled); above `1` needs a `ReadWriteMany` volume |
+| `image.repository`             | `lory1990/flightroom`    | Image repository                                         |
 | `image.tag`                    | `""`                     | Image tag, defaults to the chart `appVersion`            |
 | `image.pullPolicy`             | `IfNotPresent`           | Image pull policy                                        |
 | `imagePullSecrets`             | `[]`                     | Pull secrets for private registries                      |
@@ -211,7 +274,7 @@ helm install mfe-orchestrator ./helm/mfe-orchestrator \
 | `persistence.enabled`          | `true`                   | Persist uploaded frontend bundles on a PVC              |
 | `persistence.existingClaim`    | `""`                     | Use an existing PVC instead of creating one              |
 | `persistence.storageClass`     | `""`                     | StorageClass (`-` disables dynamic provisioning)         |
-| `persistence.accessModes`      | `[ReadWriteOnce]`        | PVC access modes                                         |
+| `persistence.accessModes`      | `[ReadWriteOnce]`        | PVC access modes; `ReadWriteMany` for more than one pod  |
 | `persistence.size`             | `8Gi`                    | PVC size                                                 |
 | `persistence.mountPath`        | `""`                     | Mount point, defaults to `MICROFRONTEND_HOST_FOLDER`     |
 | `persistence.subPath`          | `""`                     | Sub path of the volume to mount                          |
@@ -222,7 +285,7 @@ helm install mfe-orchestrator ./helm/mfe-orchestrator \
 | `service.annotations`          | `{}`                     | Annotations added to the Service                         |
 | `ingress.enabled`              | `false`                  | Create an Ingress                                        |
 | `ingress.className`            | `""`                     | Ingress class                                            |
-| `ingress.hosts`                | `mfe-orchestrator.local` | Ingress hosts and paths                                  |
+| `ingress.hosts`                | `flightroom.local`       | Ingress hosts and paths                                  |
 | `ingress.tls`                  | `[]`                     | Ingress TLS configuration                                |
 | `serviceAccount.create`        | `true`                   | Create a ServiceAccount                                  |
 | `serviceAccount.automount`     | `true`                   | Automount the API credentials in the pod                 |
@@ -234,7 +297,8 @@ helm install mfe-orchestrator ./helm/mfe-orchestrator \
 | `autoscaling.minReplicas`      | `1`                      | Lower bound of the HorizontalPodAutoscaler               |
 | `autoscaling.maxReplicas`      | `5`                      | Upper bound of the HorizontalPodAutoscaler               |
 | `restartOnConfigChange`        | `true`                   | Roll the pods when env ConfigMap/Secret change           |
-| `strategy`                     | `RollingUpdate`          | Deployment strategy                                      |
+| `strategy.type`                | `""`                     | `Recreate` on a volume without `ReadWriteMany`, `RollingUpdate` otherwise |
+| `strategy.rollingUpdate`       | `maxSurge: 1`, `maxUnavailable: 0` | Rolling update parameters                      |
 | `podAnnotations` / `podLabels` | `{}`                     | Extra pod metadata                                       |
 | `commonLabels` / `commonAnnotations` | `{}`               | Metadata added to every resource                         |
 | `podSecurityContext` / `securityContext` | `{}`           | Security contexts                                        |
