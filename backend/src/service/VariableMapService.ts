@@ -114,7 +114,7 @@ export const ensureNoKeyClash = (maps: KeyedMap[], serviceName?: string) => {
 
 export const keysOnly = "name entries.key"
 /** The fields the variables of a resource are named from; never its values */
-export const resourceNaming = "name type variant envPrefix"
+export const resourceNaming = "name type variant envPrefix customFields"
 
 /** The maps of the project with these ids, refused when one is missing or of another project */
 const findAttachable = async (kind: VariableMapKind, ids: unknown, projectId: Schema.Types.ObjectId): Promise<{ ids: string[]; maps: KeyedMap[] }> => {

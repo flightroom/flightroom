@@ -46,7 +46,7 @@ upload a bundle.
 | `coderepositories` | `accessToken`, `refreshToken` |
 | `deployments` | the same storage fields, inside the snapshot a deployment freezes |
 | `secrets` | the value of every key in every environment, of the secrets backend services attach |
-| `resources` | the fields of a resource the catalog marks as a credential (`secrets.value`, `secrets.overrides.value`): a database password or connection string, the key of an api, an ai or a storage, a client secret, an SMTP password |
+| `resources` | the fields of a resource the catalog marks as a credential (`secrets.value`, `secrets.overrides.value`): a database password or connection string, the key of an api, an ai or a storage, a client secret, an SMTP password, a variable a generic resource marks secret |
 | `projects` | `argoCd.token`, `argoCd.repositories.configuration.password`, `argoCd.repositories.applications.password`: the API token of Argo CD and the read-only repository credentials handed to it |
 
 Deployments are in the list because a deployment copies the storages of its project, credentials

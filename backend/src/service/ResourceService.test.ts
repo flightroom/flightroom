@@ -8,7 +8,7 @@ import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { RESOURCE_CATALOG } from "../types/ResourceCatalog"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import { parseApiDocument } from "./aiChange/apiSpecReader"
-import ResourceService, { ensureAttachableResources, ensureValidApiSpec, normalizeResourceFields, resourceIdsInScope, withResourcesOutOfScope } from "./ResourceService"
+import ResourceService, { ensureAttachableResources, ensureValidApiSpec, normalizeCustomFields, normalizeResourceFields, resourceIdsInScope, withResourcesOutOfScope } from "./ResourceService"
 
 withNoMaintenanceAgents()
 
@@ -614,6 +614,157 @@ describe("the API document of a resource", () => {
         vi.spyOn(Resource, "findById").mockResolvedValue(api as never)
 
         await expect(new ResourceService().getApiSpec(String(resourceId))).rejects.toMatchObject({ statusCode: 404 })
+    })
+})
+
+describe("normalizeCustomFields", () => {
+    it("given names in lowercase with spaces around and no secret flag, when they are normalised, then they are in capitals and plain", () => {
+        expect(normalizeCustomFields([{ name: " token " }, { name: "API_KEY", secret: true }])).toEqual([
+            { name: "TOKEN", secret: false },
+            { name: "API_KEY", secret: true }
+        ])
+    })
+
+    it.each([
+        ["not a list", { name: "TOKEN" }],
+        ["a blank name", [{ name: " " }]],
+        ["a name that is not a variable", [{ name: "API-KEY" }]],
+        ["a name too long", [{ name: "A".repeat(62) }]],
+        ["the same name twice", [{ name: "TOKEN" }, { name: "token" }]],
+        ["a secret flag that is not a boolean", [{ name: "TOKEN", secret: "yes" }]],
+        ["more than 100", Array.from({ length: 101 }, (_, index) => ({ name: `VAR_${index}` }))]
+    ])("given %s, when they are normalised, then they are refused", (_case, sent) => {
+        expect(() => normalizeCustomFields(sent)).toThrow(expect.objectContaining({ code: "RESOURCE_CUSTOM_FIELDS_INVALID" }))
+    })
+})
+
+describe("a generic resource", () => {
+    const resourceId = new Types.ObjectId()
+    const stored = {
+        _id: resourceId,
+        projectId,
+        name: "billing",
+        type: "generic",
+        variant: "custom",
+        customFields: [
+            { name: "BASE_URL", secret: false },
+            { name: "TOKEN", secret: true }
+        ],
+        values: [{ field: "BASE_URL", value: "https://billing.example.com", overrides: [] }],
+        secrets: [{ field: "TOKEN", value: "stored-token", overrides: [] }]
+    }
+    let create: ReturnType<typeof vi.fn>
+    let write: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+        allowAccess()
+        vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
+        vi.spyOn(Resource, "findById").mockResolvedValue(stored as never)
+        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        create = vi.spyOn(Resource, "create").mockImplementation((async (document: unknown) => document) as never) as unknown as ReturnType<typeof vi.fn>
+        write = vi.spyOn(Resource, "findByIdAndUpdate").mockResolvedValue(stored as never) as unknown as ReturnType<typeof vi.fn>
+    })
+
+    const update = (changes: object) => new ResourceService().update(String(resourceId), changes)
+
+    it("given the variables it defines and their values, when it is created, then the secret one goes to the credentials and the other to the values", async () => {
+        await new ResourceService().create(
+            {
+                name: "billing",
+                type: "generic",
+                variant: "custom",
+                customFields: [{ name: "base_url" }, { name: "TOKEN", secret: true }],
+                fields: { BASE_URL: { value: "https://billing.example.com" }, TOKEN: { value: "t0ken" } }
+            } as never,
+            projectId
+        )
+
+        expect(create.mock.calls[0][0]).toMatchObject({
+            customFields: [
+                { name: "BASE_URL", secret: false },
+                { name: "TOKEN", secret: true }
+            ],
+            values: [{ field: "BASE_URL", value: "https://billing.example.com", overrides: [] }],
+            secrets: [{ field: "TOKEN", value: "t0ken", overrides: [] }]
+        })
+    })
+
+    it("given no variables, when it is created, then it is written with none", async () => {
+        await new ResourceService().create({ name: "billing", type: "generic", variant: "custom" } as never, projectId)
+
+        expect(create.mock.calls[0][0]).toMatchObject({ customFields: [], values: [], secrets: [] })
+    })
+
+    it("given a value for a variable it does not define, when it is created, then it is refused", async () => {
+        await expect(new ResourceService().create({ name: "billing", type: "generic", variant: "custom", fields: { TOKEN: { value: "t0ken" } } } as never, projectId)).rejects.toMatchObject({
+            code: "RESOURCE_FIELD_UNKNOWN"
+        })
+    })
+
+    it("given variables on a resource of another type, when it is created, then it is refused and nothing is written", async () => {
+        await expect(new ResourceService().create({ name: "cache", type: "redis", variant: "connectionString", customFields: [{ name: "TOKEN" }] } as never, projectId)).rejects.toMatchObject({
+            code: "RESOURCE_CUSTOM_FIELDS_INVALID"
+        })
+        expect(create).not.toHaveBeenCalled()
+    })
+
+    it("given a prefix and a variable that make it set HTTP_PORT, when it is created, then it is refused as the chart sets that one", async () => {
+        await expect(
+            new ResourceService().create({ name: "billing", type: "generic", variant: "custom", envPrefix: "HTTP", customFields: [{ name: "PORT" }] } as never, projectId)
+        ).rejects.toMatchObject({ code: "RESOURCE_ENV_PREFIX_INVALID" })
+    })
+
+    it("given a variable renamed and another removed, when it is updated, then the stored values of both are dropped", async () => {
+        await update({ customFields: [{ name: "URL" }] })
+
+        expect(write.mock.calls[0][1].$set).toMatchObject({ customFields: [{ name: "URL", secret: false }], values: [], secrets: [] })
+    })
+
+    it("given the variables unchanged, when only a value is sent, then the credential left out keeps what is stored", async () => {
+        await update({ fields: { BASE_URL: { value: "https://new.example.com" } } })
+
+        expect(write.mock.calls[0][1].$set).toMatchObject({
+            values: [{ field: "BASE_URL", value: "https://new.example.com", overrides: [] }],
+            secrets: [{ field: "TOKEN", value: "stored-token", overrides: [] }]
+        })
+    })
+
+    it("given a secret variable turned plain, when it is updated, then its stored credential is dropped rather than written readable", async () => {
+        await update({
+            customFields: [
+                { name: "BASE_URL", secret: false },
+                { name: "TOKEN", secret: false }
+            ]
+        })
+
+        const { $set } = write.mock.calls[0][1]
+        expect($set.secrets).toEqual([])
+        expect($set.values).toEqual([{ field: "BASE_URL", value: "https://billing.example.com", overrides: [] }])
+        expect(JSON.stringify($set)).not.toContain("stored-token")
+    })
+
+    it("given a secret variable turned plain and sent back as the placeholder, when it is updated, then it is refused and nothing is written", async () => {
+        await expect(
+            update({
+                customFields: [
+                    { name: "BASE_URL", secret: false },
+                    { name: "TOKEN", secret: false }
+                ],
+                fields: { TOKEN: { value: SECRET_PLACEHOLDER } }
+            })
+        ).rejects.toMatchObject({ code: "RESOURCE_VALUE_INVALID" })
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a plain variable turned secret, when it is updated, then its stored value is dropped", async () => {
+        await update({
+            customFields: [
+                { name: "BASE_URL", secret: true },
+                { name: "TOKEN", secret: true }
+            ]
+        })
+
+        expect(write.mock.calls[0][1].$set).toMatchObject({ values: [], secrets: [{ field: "TOKEN", value: "stored-token", overrides: [] }] })
     })
 })
 

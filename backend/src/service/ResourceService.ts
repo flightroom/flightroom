@@ -8,9 +8,12 @@ import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import {
     isResourceType,
+    MAX_RESOURCE_CUSTOM_FIELDS,
     RESERVED_ENV_KEYS,
     RESOURCE_CATALOG,
+    RESOURCE_CUSTOM_FIELD_NAME,
     RESOURCE_ENV_PREFIX,
+    ResourceCustomField,
     ResourceFieldSpec,
     ResourceNaming,
     ResourceTypeSpec,
@@ -47,7 +50,7 @@ export interface NormalizedResourceValue {
 }
 
 /** What a caller may write on a resource, checked; an apiSpec of null removes the stored one */
-type ResourceFields = Partial<Pick<IResource, "name" | "type" | "variant" | "description" | "envPrefix" | "apiSpecBytes">> & {
+type ResourceFields = Partial<Pick<IResource, "name" | "type" | "variant" | "description" | "envPrefix" | "customFields" | "apiSpecBytes">> & {
     values?: NormalizedResourceValue[]
     secrets?: NormalizedResourceValue[]
     apiSpec?: string | null
@@ -66,6 +69,31 @@ export const ensureValidApiSpec = (spec: string) => {
     } catch (error) {
         throw createBusinessException({ code: "RESOURCE_API_SPEC_INVALID", message: (error as Error).message })
     }
+}
+
+/**
+ * The variables a `generic` resource defines, checked: each named as the end of a variable, in capitals, once.
+ * Their values follow from normalizeResourceFields, which keeps a stored value only under the same name and in
+ * the same list: a field renamed or removed loses it, and one turned from a credential to a plain value (or
+ * back) does too, so a stored credential never comes back readable.
+ */
+export const normalizeCustomFields = (sent: unknown): ResourceCustomField[] => {
+    const refuse = (message: string): never => {
+        throw createBusinessException({ code: "RESOURCE_CUSTOM_FIELDS_INVALID", message })
+    }
+    if (!Array.isArray(sent)) return refuse("customFields must be a list of { name, secret }")
+    if (sent.length > MAX_RESOURCE_CUSTOM_FIELDS) refuse(`A resource defines at most ${MAX_RESOURCE_CUSTOM_FIELDS} variables`)
+    const names = new Set<string>()
+    return sent.map(item => {
+        if (!isPlainObject(item) || typeof item.name !== "string" || (item.secret !== undefined && typeof item.secret !== "boolean")) {
+            return refuse("Each custom field must be an object with a name and whether it is secret")
+        }
+        const name = item.name.trim().toUpperCase()
+        if (!RESOURCE_CUSTOM_FIELD_NAME.test(name)) refuse(`"${name}" is not a valid variable name: at most 61 capital letters, digits or underscores`)
+        if (names.has(name)) refuse(`"${name}" is defined twice`)
+        names.add(name)
+        return { name, secret: item.secret === true }
+    })
 }
 
 /** An absolute address a client can call as it is; one carrying a user or a password would put a credential in a plain value */
@@ -123,6 +151,10 @@ const normalizeField = (spec: ResourceFieldSpec, sent: unknown, environmentIds: 
             }
             onKept?.(environment)
             return kept
+        }
+        // A variable of a generic turned plain, sent back as it was masked: the mask is not a value
+        if (value === SECRET_PLACEHOLDER) {
+            throw createBusinessException({ code: "RESOURCE_VALUE_INVALID", message: `"${spec.name}" is not a credential: type its value` })
         }
         ensureValidValue(spec, value)
         return value
@@ -339,7 +371,7 @@ export class ResourceService extends BaseAuthorizedService {
      * `$push` included, never reaches Mongo, where it would skip the checks below and the encryption.
      */
     private async normalize(dto: Partial<ResourceDTO>, projectId: Schema.Types.ObjectId, existing?: IResource): Promise<ResourceFields> {
-        const { name: typedName, type, variant: typedVariant, description, envPrefix: typedPrefix, fields: typedFields } = (dto ?? {}) as Partial<ResourceDTO>
+        const { name: typedName, type, variant: typedVariant, description, envPrefix: typedPrefix, fields: typedFields, customFields: typedCustomFields } = (dto ?? {}) as Partial<ResourceDTO>
         const fields: ResourceFields = {}
 
         if (typedName !== undefined) {
@@ -383,8 +415,16 @@ export class ResourceService extends BaseAuthorizedService {
         }
 
         const resourceType = existing?.type ?? fields.type
+        if (typedCustomFields !== undefined) {
+            if (resourceType !== "generic") {
+                throw createBusinessException({ code: "RESOURCE_CUSTOM_FIELDS_INVALID", message: "Only a resource of type generic defines its own variables" })
+            }
+            fields.customFields = normalizeCustomFields(typedCustomFields)
+        } else if (!existing && resourceType === "generic") {
+            fields.customFields = []
+        }
         if (typedVariant !== undefined) fields.variant = typedVariant
-        const variant = resourceVariant(resourceType, fields.variant ?? existing?.variant)
+        const variant = resourceVariant(resourceType, fields.variant ?? existing?.variant, fields.customFields ?? existing?.customFields)
         if (!variant) {
             const variants = RESOURCE_CATALOG[resourceType as ResourceTypeSpec["type"]].variants.map(candidate => candidate.id).join(", ")
             throw createBusinessException({
@@ -408,8 +448,8 @@ export class ResourceService extends BaseAuthorizedService {
                 fields.apiSpec = null
             }
         }
-        // A change of variant drops the fields it does not have, so it goes through here even with no field sent
-        if (typedFields !== undefined || fields.variant !== undefined) {
+        // A change of variant, or of the variables a generic one defines, drops the fields it does not have, so it goes through here even with no field sent
+        if (typedFields !== undefined || fields.variant !== undefined || fields.customFields !== undefined) {
             const environmentIds = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
             const variantChanged = existing !== undefined && fields.variant !== undefined && fields.variant !== existing.variant
             Object.assign(fields, normalizeResourceFields(typedFields, variant, environmentIds, existing, { variantChanged }))
@@ -446,7 +486,8 @@ export class ResourceService extends BaseAuthorizedService {
             name: fields.name ?? resource.name,
             type: resource.type,
             variant: fields.variant ?? resource.variant,
-            envPrefix: fields.envPrefix !== undefined ? fields.envPrefix : resource.envPrefix
+            envPrefix: fields.envPrefix !== undefined ? fields.envPrefix : resource.envPrefix,
+            customFields: fields.customFields ?? resource.customFields
         }
         ensureNoReservedKey(next)
         // A rename, a prefix or a variant renames its variables: they must not clash where it is attached

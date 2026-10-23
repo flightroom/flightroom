@@ -156,9 +156,11 @@ at most.
 
 ## Resources
 
-A **resource** is a package of environment variables of a catalog type (`database`, `storage`, `redis`,
-`serviceAccount`, `auth0`, `api`, `ai`, `smtp`) that backend services attach by id (`resourceIds`); a
-frontend never does. Each one becomes a Kubernetes Secret named `<name>.resource` at the next GitOps deploy.
+A **resource** is a package of environment variables of a catalog type (`database`, `mongodb`, `bigquery`, `storage`,
+`redis`, `serviceAccount`, `auth0`, `api`, `ai`, `smtp`, `generic`) that backend services attach by id
+(`resourceIds`); a frontend never does. A `generic` resource (variant `custom`) is for anything the catalog
+lacks: it defines its own variables in `customFields` (`[{ name, secret }]`, at most 100, each set as
+`<prefix>_<name>`, all optional), whose values go in `fields` by name like any other. Each one becomes a Kubernetes Secret named `<name>.resource` at the next GitOps deploy.
 
 - `resource_types_list` (`mfe:read`) returns the catalog: each type with its variants and their fields
   (variable suffix, whether it is a credential, required, how it is typed).
@@ -167,7 +169,9 @@ frontend never does. Each one becomes a Kubernetes Secret named `<name>.resource
   masked, as `secret_get` masks values; the pasted OpenAPI document of an `api` never comes back, only
   `apiSpec: { present, bytes }`.
 - `resource_create` and `resource_update` (`mfe:write`) write the name, type (fixed once created),
-  variant, description, `envPrefix`, the fields that are no credential and the pasted `apiSpec`. An update
+  variant, description, `envPrefix`, the `customFields` of a `generic` (refused on any other type; renaming,
+  removing or turning one secret or plain drops its values), the fields that are no credential and the
+  pasted `apiSpec`. An update
   merges by field: a field left out keeps its value, one sent as `null` is unset. **A credential field is
   refused** ("Secret fields of a resource are set from the console"): it is typed in the console only. So is
   an update changing the variant or where a resource with stored credentials connects (its host, base URL...):
