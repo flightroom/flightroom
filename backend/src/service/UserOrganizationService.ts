@@ -180,7 +180,7 @@ export class UserOrganizationService extends BaseAuthorizedService {
         })
 
         const saved = await userOrganization.save()
-        await this.emailSenderService.sendOrganizationInvitationEmail(user, organization, role, userOrganization.invitationToken as string)
+        await this.emailSenderService.sendOrganizationInvitationEmail(user, organization, role, userOrganization.invitationToken as string, this.user)
         return saved
     }
 
@@ -192,7 +192,7 @@ export class UserOrganizationService extends BaseAuthorizedService {
         }
         const saved = await userOrganization.save()
         if (canSendEmail) {
-            await this.emailSenderService.sendOrganizationInvitationEmail(user, organization, role, userOrganization.invitationToken as string)
+            await this.emailSenderService.sendOrganizationInvitationEmail(user, organization, role, userOrganization.invitationToken as string, this.user)
         }
         return saved
     }

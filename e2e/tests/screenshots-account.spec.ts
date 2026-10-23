@@ -1,5 +1,5 @@
 import { APIRequestContext, Browser, expect, Page, test } from "@playwright/test"
-import { toAppPath, waitForEmailLink } from "./fixtures/emailClient"
+import { emailSubjects, toAppPath, waitForEmailLink } from "./fixtures/emailClient"
 
 /**
  * Capture script for the account documentation pages, modelled on `screenshots.spec.ts`:
@@ -91,7 +91,7 @@ const decodeHtmlEntities = (value: string) => value.replaceAll("&#x2F;", "/").re
  * are interchangeable here because the script only ever asks one question of a mailbox: which
  * link did this message carry.
  */
-const waitForLink = async (request: APIRequestContext, recipient: string, options: { subject: string; linkContains: string; timeout?: number }): Promise<string> => {
+const waitForLink = async (request: APIRequestContext, recipient: string, options: { subject: RegExp; linkContains: string; timeout?: number }): Promise<string> => {
     const mailpit = process.env.MAILPIT_URL
     if (!mailpit) {
         // On testmail the mailbox is the tag of the address, not the address itself.
@@ -107,7 +107,7 @@ const waitForLink = async (request: APIRequestContext, recipient: string, option
             seen = messages.map(message => `${message.Subject} -> ${message.To.map(to => to.Address).join(",")}`)
             for (const message of messages) {
                 if (!message.To.some(to => to.Address.toLowerCase() === recipient.toLowerCase())) continue
-                if (!message.Subject.toLowerCase().includes(options.subject.toLowerCase())) continue
+                if (!options.subject.test(message.Subject)) continue
                 const detail = await request.get(`${mailpit}/api/v1/message/${message.ID}`)
                 if (!detail.ok()) continue
                 const body = (await detail.json()) as { HTML?: string; Text?: string }
@@ -203,7 +203,7 @@ test("Given a brand new account When the activation link is followed Then the ac
         const registration = await retrying(`register ${OWNER.email}`, () => api.post("/api/users/registration", { data: { email: OWNER.email, password: OWNER.password, marketingConsent: false } }))
         console.log(`SEED ${OWNER.email}: ${registration.ok() ? "registered" : `already present (HTTP ${registration.status()})`}`)
 
-        const link = await waitForLink(api, OWNER.email, { subject: "Activate Your Account", linkContains: "/account-activation/" })
+        const link = await waitForLink(api, OWNER.email, { subject: emailSubjects.accountActivation, linkContains: "/account-activation/" })
         console.log(`ACTIVATION PATH ${toAppPath(link)}`)
 
         // The screen calls the API as it mounts and leaves for the login as soon as it answers, so
@@ -247,7 +247,7 @@ test("Given a forgotten password When the reset is requested and its link follow
         const requested = await retrying(`forgot-password ${OWNER.email}`, () => api.post("/api/users/forgot-password", { data: { email: OWNER.email } }))
         expect(requested.ok(), `Requesting the reset failed (HTTP ${requested.status()}): ${await requested.text()}`).toBeTruthy()
 
-        const link = await waitForLink(api, OWNER.email, { subject: "Reset Your Password", linkContains: "/reset-password/" })
+        const link = await waitForLink(api, OWNER.email, { subject: emailSubjects.passwordReset, linkContains: "/reset-password/" })
         console.log(`RESET PATH ${toAppPath(link)}`)
         await page.goto(toAppPath(link))
         await expect(page.getByTestId("new-password")).toBeVisible({ timeout: 60_000 })
@@ -274,7 +274,7 @@ test("Given a project invitation When its emailed link is opened Then the accept
 
     const { context, page } = await openAnonymously(browser)
     try {
-        const link = await waitForLink(api, PROJECT_INVITEE, { subject: "invited to join", linkContains: "/project-invitation/" })
+        const link = await waitForLink(api, PROJECT_INVITEE, { subject: emailSubjects.invitation(), linkContains: "/project-invitation/" })
         console.log(`PROJECT INVITATION PATH ${toAppPath(link)}`)
         await page.goto(toAppPath(link))
         // The invitee has no password yet, so the screen asks for one: waiting on that field is
@@ -305,7 +305,7 @@ test("Given an organization invitation When its emailed link is opened Then the 
 
     const { context, page } = await openAnonymously(browser)
     try {
-        const link = await waitForLink(api, ORGANIZATION_INVITEE, { subject: "invited to join", linkContains: "/organization-invitation/" })
+        const link = await waitForLink(api, ORGANIZATION_INVITEE, { subject: emailSubjects.invitation(), linkContains: "/organization-invitation/" })
         console.log(`ORGANIZATION INVITATION PATH ${toAppPath(link)}`)
         await page.goto(toAppPath(link))
         await expect(page.getByTestId("invitation-password")).toBeVisible({ timeout: 60_000 })

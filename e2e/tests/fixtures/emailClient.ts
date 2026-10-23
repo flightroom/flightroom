@@ -49,6 +49,19 @@ interface WaitForLinkOptions extends WaitForMessageOptions {
 
 const DEFAULT_TIMEOUT = 90_000
 
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")
+
+/**
+ * Oggetti delle email transazionali in inglese e in italiano: il backend scrive nella
+ * lingua salvata sul destinatario, e un utente appena creato e' in italiano.
+ */
+export const emailSubjects = {
+    accountActivation: /Activate Your Account|Attiva il tuo account/i,
+    passwordReset: /Reset Your Password|Reimposta la password/i,
+    /** Senza nome vale per qualsiasi progetto od organizzazione. */
+    invitation: (name = "") => new RegExp(`(You're invited to join|Invito a unirti ad?) ${escapeRegExp(name)}`, "i")
+}
+
 const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
 
 interface MailProvider {

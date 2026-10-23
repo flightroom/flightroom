@@ -14,7 +14,7 @@ import {
     RoleInProject,
     registerViaUi
 } from "../fixtures/appUser"
-import { waitForMessage } from "../fixtures/emailClient"
+import { emailSubjects, waitForMessage } from "../fixtures/emailClient"
 
 /**
  * Scenario 2 — invito a un utente che ha gia' un account.
@@ -76,7 +76,7 @@ test.describe
 
         test("given a sent invitation, when the mailbox is checked, then user two received the project invitation email", async ({ request }) => {
             const message = await waitForMessage(request, userTwo.inbox, {
-                subject: `You're invited to join ${projectName}`
+                subject: emailSubjects.invitation(projectName)
             })
             expect(message.subject).toContain(projectName)
         })

@@ -169,7 +169,7 @@ describe("saveAvatar", () => {
 })
 
 describe("requestPasswordReset", () => {
-    const anExistingUser = () => ({ email: "someone@example.com", save: vi.fn().mockResolvedValue(undefined) })
+    const anExistingUser = () => ({ email: "someone@example.com", language: "it", save: vi.fn().mockResolvedValue(undefined) })
 
     const userServiceWith = (canSendEmails: boolean, sendResetPasswordEmail = vi.fn().mockResolvedValue(undefined)) =>
         new UserService({ canSendEmails: () => canSendEmails, sendResetPasswordEmail } as unknown as EmailService)
@@ -178,7 +178,7 @@ describe("requestPasswordReset", () => {
         vi.restoreAllMocks()
     })
 
-    it("given an installation with SMTP, when a reset is requested, then the token is stored and the link is sent", async () => {
+    it("given an installation with SMTP, when a reset is requested, then the token is stored and the link is sent in the language of the account", async () => {
         const user = anExistingUser()
         vi.spyOn(User, "findOne").mockResolvedValue(user as never)
         const sendResetPasswordEmail = vi.fn().mockResolvedValue(undefined)
@@ -186,7 +186,7 @@ describe("requestPasswordReset", () => {
         await userServiceWith(true, sendResetPasswordEmail).requestPasswordReset(user.email)
 
         expect(user.save).toHaveBeenCalledOnce()
-        expect(sendResetPasswordEmail).toHaveBeenCalledWith(user.email, expect.any(String))
+        expect(sendResetPasswordEmail).toHaveBeenCalledWith(user.email, expect.any(String), "it")
     })
 
     it("given an installation without SMTP, when a reset is requested, then it is refused instead of reporting success", async () => {
