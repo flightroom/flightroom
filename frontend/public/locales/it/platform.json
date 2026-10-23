@@ -2600,7 +2600,7 @@
             "agents_list": "Agenti al lavoro",
             "open_agent": "Apri l'agente su {{names}}",
             "kind_resource": "Risorsa",
-            "hint_backend": "Clicca una galassia per avvicinarti e cliccala di nuovo per aprire il dominio. Clicca un mondo per aprire il servizio, una luna per aprire la sua risorsa, una nave per aprire il lavoro del suo agente. Usa la rotella per lo zoom.",
+            "hint_backend": "Clicca una galassia per avvicinarti e cliccala di nuovo per aprire il servizio più vicino. Clicca un mondo per aprire il servizio, una luna per aprire la sua risorsa, una nave per aprire il lavoro del suo agente. Usa la rotella per lo zoom.",
             "summary_backend": "Mappa dei servizi: ogni dominio è una galassia, i suoi servizi sono i mondi e le risorse collegate a un servizio gli orbitano attorno come lune.",
             "legend_moon": "Risorsa collegata",
             "moon_of": "Luna di {{name}}",

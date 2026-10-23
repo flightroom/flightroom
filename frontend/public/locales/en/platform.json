@@ -2581,7 +2581,7 @@
             "agents_list": "Agents at work",
             "open_agent": "Open the agent on {{names}}",
             "kind_resource": "Resource",
-            "hint_backend": "Click a galaxy to fly to it and click it again to open the domain. Click a world to open the service, a moon to open its resource, a ship to open the work of its agent. Scroll to zoom.",
+            "hint_backend": "Click a galaxy to fly to it and click it again to open the nearest service. Click a world to open the service, a moon to open its resource, a ship to open the work of its agent. Scroll to zoom.",
             "summary_backend": "Map of the services: every domain is a galaxy, its services are the worlds and the resources a service attaches orbit it as moons.",
             "legend_moon": "Attached resource",
             "moon_of": "Moon of {{name}}",
