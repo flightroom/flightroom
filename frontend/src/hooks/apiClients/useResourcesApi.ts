@@ -36,6 +36,12 @@ export interface ResourceTypeSpec {
     variants: ResourceVariantSpec[]
 }
 
+/** A variable a `generic` resource defines itself: `<prefix>_<name>`, optional, a credential when `secret` */
+export interface ResourceCustomField {
+    name: string
+    secret: boolean
+}
+
 /** A field as the API answers it: a credential that is set comes as the placeholder, one not set is left out */
 export interface ResourceFieldValue {
     value?: string
@@ -62,6 +68,8 @@ export interface Resource {
     variant: string
     description?: string
     envPrefix?: string | null
+    /** A `generic` only: the variables it defines */
+    customFields?: ResourceCustomField[]
     fields: Record<string, ResourceFieldValue>
     env: ResourceEnvKey[]
     /** An `api` only: whether a Swagger/OpenAPI document was pasted, never the document itself */
@@ -77,6 +85,8 @@ export interface ResourceDTO {
     description?: string
     /** Blank or null derives it from the type and the name */
     envPrefix?: string | null
+    /** A `generic` only, sent as a whole: a field renamed, removed or turned secret or plain loses its values */
+    customFields?: ResourceCustomField[]
     /** A field left out keeps what it has, one sent replaces it with its overrides */
     fields?: Record<string, { value?: string; overrides?: Array<{ environmentId: string; value?: string }> }>
     /** Left out keeps the stored document, null removes it */
@@ -99,6 +109,7 @@ const ERROR_KEYS: Record<string, string> = {
     RESOURCE_ENVIRONMENT_DUPLICATED: "resources.errors.environment_duplicated",
     RESOURCE_SECRET_REENTRY_REQUIRED: "resources.errors.secret_reentry_required",
     RESOURCE_ENV_PREFIX_INVALID: "resources.errors.env_prefix_invalid",
+    RESOURCE_CUSTOM_FIELDS_INVALID: "resources.errors.custom_fields_invalid",
     RESOURCE_API_SPEC_INVALID: "resources.errors.api_spec_invalid",
     RESOURCE_IN_USE: "resources.errors.in_use",
     SERVICE_RESOURCE_UNKNOWN: "resources.errors.resource_unknown",

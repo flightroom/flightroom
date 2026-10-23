@@ -103,7 +103,8 @@ describe("resource tools", () => {
         ["the api key of an api", { type: "api", variant: "apiKey", fields: { apiKey: { value: "sk-live" } } }, "apiKey"],
         ["the password of a database", { type: "database", variant: "credentials", fields: { host: { value: "db" }, password: { value: "pw" } } }, "password"],
         ["an override of a client secret", { type: "auth0", variant: "default", fields: { clientSecret: { overrides: [{ environmentId: ENVIRONMENT, value: "x" }] } } }, "clientSecret"],
-        ["a credential of a variant that does not exist", { type: "smtp", variant: "nope", fields: { password: { value: "pw" } } }, "password"]
+        ["a credential of a variant that does not exist", { type: "smtp", variant: "nope", fields: { password: { value: "pw" } } }, "password"],
+        ["a variable a generic defines as secret", { type: "generic", variant: "custom", customFields: [{ name: "TOKEN", secret: true }], fields: { TOKEN: { value: "t" } } }, "TOKEN"]
     ])("given %s, when created, then it is refused before anything is written", async (_case, input, field) => {
         await expect(run("resource_create", { name: "thing", ...input })).rejects.toMatchObject({
             code: "RESOURCE_SECRET_FROM_CONSOLE",
@@ -117,6 +118,28 @@ describe("resource tools", () => {
 
         await expect(run("resource_update", { resourceId: RESOURCE, fields: { apiKey: { value: "sk-new" } } })).rejects.toMatchObject({ code: "RESOURCE_SECRET_FROM_CONSOLE" })
         await expect(run("resource_update", { resourceId: RESOURCE, variant: "bearer", fields: { token: { value: "t" } } })).rejects.toMatchObject({ code: "RESOURCE_SECRET_FROM_CONSOLE" })
+        expect(update).not.toHaveBeenCalled()
+    })
+
+    it("given a generic with its variables and a plain value, when created, then they reach the service", async () => {
+        create.mockResolvedValue(storedApi())
+        const input = {
+            name: "billing",
+            type: "generic",
+            variant: "custom",
+            customFields: [{ name: "BASE_URL" }, { name: "TOKEN", secret: true }],
+            fields: { BASE_URL: { value: "https://billing.example.com" } }
+        }
+
+        await run("resource_create", input)
+
+        expect(create).toHaveBeenCalledWith(input, PROJECT)
+    })
+
+    it("given a value for a variable the stored generic defines as secret, when updated, then it is refused", async () => {
+        getById.mockResolvedValue(new Resource({ _id: RESOURCE, projectId: PROJECT, name: "billing", type: "generic", variant: "custom", customFields: [{ name: "TOKEN", secret: true }] }))
+
+        await expect(run("resource_update", { resourceId: RESOURCE, fields: { TOKEN: { value: "t" } } })).rejects.toMatchObject({ code: "RESOURCE_SECRET_FROM_CONSOLE" })
         expect(update).not.toHaveBeenCalled()
     })
 

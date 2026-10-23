@@ -1,4 +1,4 @@
-import { ResourceType } from "./ResourceCatalog"
+import { ResourceCustomField, ResourceType } from "./ResourceCatalog"
 
 /**
  * A field of a resource: its value in every environment and the environments that take another one. A
@@ -19,7 +19,12 @@ interface ResourceDTO {
     description?: string
     /** Blank or null derives it from the type and the name */
     envPrefix?: string | null
-    /** By field name of the catalog. On an update a field left out keeps what it has, one sent replaces it with its overrides */
+    /**
+     * A `generic` only, refused on any other type: the variables it defines, each `<prefix>_<name>`, sent as a
+     * whole. A field renamed, removed or turned secret or plain loses its stored values.
+     */
+    customFields?: Array<Pick<ResourceCustomField, "name"> & { secret?: boolean }>
+    /** By field name of the catalog, or of the customFields of a generic. On an update a field left out keeps what it has, one sent replaces it with its overrides */
     fields?: Record<string, ResourceFieldDTO>
     /**
      * An `api` only: its Swagger/OpenAPI document, JSON or YAML, when it cannot be fetched from its specUrl.

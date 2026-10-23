@@ -3159,6 +3159,17 @@
             "secret": "Secret",
             "fixed": "Fixed"
         },
+        "custom_fields": {
+            "title": "Variables",
+            "description": "The variables the resource sets: each one becomes <prefix>_<name>. Secret ones are encrypted and never shown again.",
+            "add": "Add variable",
+            "empty": "No variables: add one to give it a value.",
+            "name": "Name",
+            "secret": "Secret",
+            "hint": "Renaming or removing a variable, or making it secret or plain, clears its values on save.",
+            "name_invalid": "At most 61 capital letters, digits or underscores",
+            "name_duplicated": "A variable with this name already exists"
+        },
         "values": {
             "title": "Values",
             "description": "A value for all environments; the environments that need another one override it.",
@@ -3262,6 +3273,7 @@
             "secret_value_required": "A saved credential is gone: type it again",
             "environment_unknown": "A value refers to an environment that no longer exists: reload the page",
             "env_prefix_invalid": "The prefix is not valid, or makes a variable the platform sets on every container (HTTP_PORT)",
+            "custom_fields_invalid": "The variables of the resource are not valid: names in capitals with digits or underscores, each once, at most 100, and only for a generic resource",
             "api_spec_invalid": "The document is not a valid Swagger/OpenAPI document in JSON or YAML, or exceeds 5 MiB",
             "in_use": "It is still attached to {{services}}: detach it first",
             "resource_unknown": "One of the selected resources no longer exists: reload the page",
@@ -3274,6 +3286,10 @@
             "database": {
                 "label": "Database",
                 "description": "An external database: by host and credentials, by connection string, or on Azure SQL with Entra ID."
+            },
+            "mongodb": {
+                "label": "MongoDB",
+                "description": "An external MongoDB database, such as Atlas: by connection string (mongodb+srv://) or by host and credentials."
             },
             "storage": {
                 "label": "Storage",
@@ -3302,6 +3318,10 @@
             "smtp": {
                 "label": "Email (SMTP)",
                 "description": "An SMTP server the service sends email through."
+            },
+            "generic": {
+                "label": "Generic",
+                "description": "For whatever the catalog lacks: you define the variables, and which ones are secret."
             }
         },
         "variants": {
@@ -3310,6 +3330,10 @@
                 "connectionString": "Connection string",
                 "azureAad": "Azure SQL, Entra ID app",
                 "azureManagedIdentity": "Azure SQL, managed identity"
+            },
+            "mongodb": {
+                "connectionString": "Connection string",
+                "credentials": "Host and credentials"
             },
             "storage": {
                 "aws": "AWS S3",
@@ -3345,6 +3369,9 @@
             "smtp": {
                 "credentials": "With authentication",
                 "noAuth": "Relay without authentication"
+            },
+            "generic": {
+                "custom": "Custom variables"
             }
         },
         "fields": {
@@ -3387,7 +3414,9 @@
             "security": "Connection security",
             "from": "Sender address",
             "fromName": "Sender name",
-            "schema": "Schema"
+            "schema": "Schema",
+            "authSource": "Authentication database",
+            "replicaSet": "Replica set"
         },
         "retype": {
             "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"

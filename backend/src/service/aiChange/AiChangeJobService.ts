@@ -259,11 +259,11 @@ const AGENT_VISIBLE_FIELDS: Record<string, string[]> = {
 }
 
 /** What is read of a resource for the agent: never its credentials, an override of an environment nor its pasted document */
-const AGENT_RESOURCE_PROJECTION = "name type variant envPrefix description values.field values.value apiSpecBytes"
+const AGENT_RESOURCE_PROJECTION = "name type variant envPrefix customFields description values.field values.value apiSpecBytes"
 
 /** What the agent is told of a resource: its variables by name, and the value every environment shares of the visible fields */
-const toAgentResource = (resource: Pick<IResource, "name" | "type" | "variant" | "envPrefix" | "description" | "values" | "apiSpecBytes">): AiChangeAgentResource => {
-    const variant = resourceVariant(resource.type, resource.variant)
+const toAgentResource = (resource: Pick<IResource, "name" | "type" | "variant" | "envPrefix" | "customFields" | "description" | "values" | "apiSpecBytes">): AiChangeAgentResource => {
+    const variant = resourceVariant(resource.type, resource.variant, resource.customFields)
     // Checked against the catalog too: a field that is a credential is never shown, whichever list it was found in
     const visible = new Set((AGENT_VISIBLE_FIELDS[resource.type] ?? []).filter(field => variant?.fields.some(spec => spec.name === field && !spec.secret)))
     const values = Object.fromEntries((resource.values ?? []).flatMap(({ field, value }) => (visible.has(field) && value ? [[field, value]] : [])))
