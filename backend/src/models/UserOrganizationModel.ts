@@ -64,5 +64,18 @@ const userOrganizationSchema = new Schema<IUserOrganization>(
 
 userOrganizationSchema.index({ userId: 1, organizationId: 1 }, { unique: true })
 
+/**
+ * A membership without its invitation token, to the console and to the MCP tools: whoever holds the token can accept
+ * the invitation and set the password of the invited account.
+ */
+export const organizationMembershipView = (membership: IUserOrganization | undefined) =>
+    membership && {
+        userId: String(membership.userId),
+        organizationId: String(membership.organizationId),
+        role: membership.role,
+        invitationPending: Boolean(membership.invitationToken),
+        invitationExpiresAt: membership.invitationTokenExpiresAt
+    }
+
 const UserOrganization = mongoose.model<IUserOrganization>("UserOrganization", userOrganizationSchema)
 export default UserOrganization

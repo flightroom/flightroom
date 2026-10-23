@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { IUserOrganization, RoleInOrganization } from "../../models/UserOrganizationModel"
+import { organizationMembershipView, RoleInOrganization } from "../../models/UserOrganizationModel"
 import OrganizationService from "../../service/OrganizationService"
 import UserOrganizationService from "../../service/UserOrganizationService"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
@@ -9,16 +9,6 @@ import { designSystemInput } from "./frontendTools"
 const organizationId = objectId("Id of the organization, from organizations_list")
 const userId = objectId("Id of the user, from organization_members_list")
 const role = z.enum(RoleInOrganization).describe("OWNER and ADMIN administer the organization and reach every project in it; MEMBER reaches only the projects they are invited to")
-
-/** A membership without its invitation token: whoever holds the token can accept the invitation. */
-const toMembershipView = (membership: IUserOrganization | undefined) =>
-    membership && {
-        userId: String(membership.userId),
-        organizationId: String(membership.organizationId),
-        role: membership.role,
-        invitationPending: Boolean(membership.invitationToken),
-        invitationExpiresAt: membership.invitationTokenExpiresAt
-    }
 
 /**
  * Console-only tools for the organizations of the signed-in user. They act with the user's own
@@ -105,7 +95,7 @@ export const organizationAdminTools = [
         requiresConfirmation: true,
         annotations: WRITE,
         inputSchema: z.object({ organizationId, email: z.email().describe("Email address of the person to invite"), role }),
-        run: async (args, { principal }) => toMembershipView(await new UserOrganizationService(principal).addUserToOrganizationByEmail(args.organizationId, args.email, args.role))
+        run: async (args, { principal }) => organizationMembershipView(await new UserOrganizationService(principal).addUserToOrganizationByEmail(args.organizationId, args.email, args.role))
     }),
     defineTool({
         name: "organization_member_role_set",
@@ -118,7 +108,7 @@ export const organizationAdminTools = [
         // A role change can take access away (or hand out every project): the user confirms it.
         annotations: DESTRUCTIVE,
         inputSchema: z.object({ organizationId, userId, role }),
-        run: async (args, { principal }) => toMembershipView(await new UserOrganizationService(principal).updateRole(args.organizationId, args.userId, args.role))
+        run: async (args, { principal }) => organizationMembershipView(await new UserOrganizationService(principal).updateRole(args.organizationId, args.userId, args.role))
     }),
     defineTool({
         name: "organization_member_remove",
