@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [6.0.0] - 2026-10-23
+
 ### Changed
 
 - **The Helm Chart Is Now `flightroom`, Published On ghcr.io** (breaking): the chart moved from `helm/mfe-orchestrator` to `helm/flightroom` and every release pushes it to `oci://ghcr.io/flightroom/charts/flightroom`, so Helm and Argo CD install it without cloning the repository. Chart `0.3.0` defaults to `lory1990/flightroom` at the release tag instead of `lory1990/mfe-orchestrator:4.0.0`. The name is part of the Deployment selector and of every resource name, so upgrading an existing release recreates the resources and deletes the PVC of the uploaded bundles unless it is annotated `helm.sh/resource-policy=keep` and mounted back with `persistence.existingClaim`: the chart README has the steps. The release workflow fails when the chart `appVersion` is not the tag being released or the chart version is already published
