@@ -2524,7 +2524,11 @@
             "no_members_short": "No members",
             "search_placeholder": "Search by domain, frontend or service...",
             "no_results_title": "No results",
-            "no_results_description": "No domain, frontend or service matches “{{searchTerm}}”."
+            "no_results_description": "No domain, frontend or service matches “{{searchTerm}}”.",
+            "section_title": "Deployed versions",
+            "section_description": "For each environment, the version of every frontend and service of the domain in the active deployment or, when it is not in the deployment, the one the deploy pipeline reported.",
+            "member": "Frontend or service",
+            "served_by": "via {{name}}"
         },
         "viewCards": "Cards view",
         "viewGalaxy": "Galaxy view",
@@ -2672,13 +2676,29 @@
             }
         },
         "workspace": {
-            "nav_label": "Domain sections"
+            "nav_label": "Domain sections",
+            "nav_overview": "Overview"
         },
         "resources": {
             "title": "Resources",
             "description": "The resources the services of this domain attach.",
             "none": "No service of this domain attaches a resource.",
-            "used_by": "Used by {{services}}"
+            "used_by": "Used by {{services}}",
+            "attach": {
+                "action": "Attach resource",
+                "title": "Attach a resource",
+                "description": "The selected services of the domain receive its variables at the next deploy. Only backend services attach resources: a frontend would ship their secrets to the browser.",
+                "resource": "Resource",
+                "resource_placeholder": "Choose a resource",
+                "services": "Services of the domain",
+                "already_attached": "Already attached",
+                "no_resources": "The project has no resources yet.",
+                "create": "Create a resource",
+                "confirm_one": "Attach to {{count}} service",
+                "confirm_other": "Attach to {{count}} services",
+                "success_one": "{{resource}} attached to {{count}} service",
+                "success_other": "{{resource}} attached to {{count}} services"
+            }
         }
     },
     "navigation": {

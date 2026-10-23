@@ -49,7 +49,13 @@ const useDomainDeploymentsApi = () => {
         return response.data
     }
 
-    return { getByProject }
+    /** One domain, its environments in their order */
+    const getByDomain = async (domainId: string): Promise<DomainDeployments> => {
+        const response = await apiClient.doRequest<DomainDeployments>({ url: `/api/domains/${domainId}/deployments` })
+        return response.data
+    }
+
+    return { getByProject, getByDomain }
 }
 
 export default useDomainDeploymentsApi

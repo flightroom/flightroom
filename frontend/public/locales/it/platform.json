@@ -2543,7 +2543,11 @@
             "no_members_short": "Nessun membro",
             "search_placeholder": "Cerca per dominio, frontend o servizio...",
             "no_results_title": "Nessun risultato",
-            "no_results_description": "Nessun dominio, frontend o servizio corrisponde a “{{searchTerm}}”."
+            "no_results_description": "Nessun dominio, frontend o servizio corrisponde a “{{searchTerm}}”.",
+            "section_title": "Versioni deployate",
+            "section_description": "Per ogni ambiente, la versione di ciascun frontend e service del dominio nel deployment attivo o, se non è nel deployment, quella riportata dalla pipeline di deploy.",
+            "member": "Frontend o service",
+            "served_by": "tramite {{name}}"
         },
         "viewCards": "Vista schede",
         "viewGalaxy": "Vista galassia",
@@ -2691,13 +2695,29 @@
             }
         },
         "workspace": {
-            "nav_label": "Sezioni del dominio"
+            "nav_label": "Sezioni del dominio",
+            "nav_overview": "Panoramica"
         },
         "resources": {
             "title": "Risorse",
             "description": "Le risorse che agganciano i service di questo dominio.",
             "none": "Nessun service di questo dominio aggancia una risorsa.",
-            "used_by": "Usata da {{services}}"
+            "used_by": "Usata da {{services}}",
+            "attach": {
+                "action": "Attacca risorsa",
+                "title": "Attacca una risorsa",
+                "description": "I service del dominio selezionati ricevono le sue variabili al prossimo deploy. Solo i service backend agganciano risorse: un frontend porterebbe i secret nel browser.",
+                "resource": "Risorsa",
+                "resource_placeholder": "Scegli una risorsa",
+                "services": "Service del dominio",
+                "already_attached": "Già agganciata",
+                "no_resources": "Il progetto non ha ancora risorse.",
+                "create": "Crea una risorsa",
+                "confirm_one": "Attacca a {{count}} service",
+                "confirm_other": "Attacca a {{count}} service",
+                "success_one": "{{resource}} agganciata a {{count}} service",
+                "success_other": "{{resource}} agganciata a {{count}} service"
+            }
         }
     },
     "navigation": {

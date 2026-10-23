@@ -1,0 +1,67 @@
+import { Alert, AlertDescription, Spinner } from "@flightroom/design-system"
+import { useQuery } from "@tanstack/react-query"
+import { useTranslation } from "react-i18next"
+import { useParams } from "react-router-dom"
+import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import useDomainDeploymentsApi from "@/hooks/apiClients/useDomainDeploymentsApi"
+import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
+import useServicesApi from "@/hooks/apiClients/useServicesApi"
+import useProjectStore from "@/store/useProjectStore"
+import DomainDeploymentsSection from "./partials/DomainDeploymentsSection"
+import DomainHeader from "./partials/DomainHeader"
+import DomainResourcesSection from "./partials/DomainResourcesSection"
+
+/** What the domain runs and reaches, next to Edit with AI: the versions deployed in each environment, the resources of its services, the AI tokens it spent. */
+const DomainOverview: React.FC = () => {
+    const { t } = useTranslation()
+    const { id } = useParams<{ id: string }>()
+    const projectId = useProjectStore(state => state.project?._id)
+    const domainsApi = useDomainsApi()
+    const domainDeploymentsApi = useDomainDeploymentsApi()
+    const frontendsApi = useFrontendsApi()
+    const servicesApi = useServicesApi()
+
+    const domainQuery = useQuery({ queryKey: ["domain", id], queryFn: () => domainsApi.getSingle(id!), enabled: !!id })
+    const deploymentsQuery = useQuery({ queryKey: ["domain-deployments", id], queryFn: () => domainDeploymentsApi.getByDomain(id!), enabled: !!id })
+    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    // Every frontend of the project, not only the domain's: the DOCKER that serves a bundle may sit in another domain
+    const frontendsQuery = useQuery({
+        queryKey: ["frontends-by-project-id", projectId],
+        queryFn: () => frontendsApi.getByProjectId(projectId!),
+        enabled: !!projectId
+    })
+
+    // Not an ApiStatusHandler: it unmounts its children on every background refetch, and with them an open dialog of the header or of the resources.
+    const queries = [domainQuery, deploymentsQuery, servicesQuery, frontendsQuery]
+    if (queries.some(query => query.isPending)) {
+        return (
+            <div className="flex min-h-[200px] items-center justify-center">
+                <Spinner size={32} />
+            </div>
+        )
+    }
+
+    // Only a first load that failed: a background refetch that fails keeps what was loaded.
+    const failed = queries.find(query => query.isLoadingError)
+    if (failed || !domainQuery.data) {
+        return (
+            <Alert variant="destructive">
+                <AlertDescription>{failed?.error instanceof Error ? failed.error.message : t("app.error.generic")}</AlertDescription>
+            </Alert>
+        )
+    }
+
+    const services = (servicesQuery.data ?? []).filter(service => service.domainId === id && service._id)
+
+    return (
+        <div className="flex min-h-full flex-col gap-6">
+            <DomainHeader domain={domainQuery.data} active="overview" />
+            {deploymentsQuery.data && <DomainDeploymentsSection deployments={deploymentsQuery.data} frontends={frontendsQuery.data ?? []} />}
+            <DomainResourcesSection services={services} />
+            <AiUsageSummary target={{ kind: "domain", id: id! }} />
+        </div>
+    )
+}
+
+export default DomainOverview
