@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, SwitchField, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -29,7 +29,7 @@ import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMap
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import DomainSelectField from "../domains/partials/DomainSelectField"
+import DomainSection from "../domains/partials/DomainSection"
 import { DesignSystemFields, designSystemFormValues, HTTP_URL, NPM_PACKAGE_NAME, toDesignSystem } from "../settings/partials/DesignSystemFields"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import { FetchDataTemplateCard } from "../templates-library/partials/"
@@ -179,7 +179,7 @@ type FormInput = z.input<FormSchema>
 type FormValues = z.output<FormSchema>
 
 /** Tabs that own validated fields, in the order they are shown: the first one with an error is the one we jump to. */
-const FORM_TABS = ["general", "context", "hosting", "container", "repository"] as const
+const FORM_TABS = ["general", "context", "hosting", "runtime", "variables", "repository"] as const
 
 type FormTab = (typeof FORM_TABS)[number] | "danger"
 
@@ -189,7 +189,8 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["name", "slug", "description", "domainId", "kind", "version", "customVersion", "canary"],
     context: ["context", "designSystem"],
     hosting: ["host"],
-    container: ["port", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "image", "env", "configMapIds", "secretIds"],
+    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath"],
+    variables: ["env", "configMapIds", "secretIds"],
     repository: ["codeRepository"],
     danger: []
 }
@@ -221,6 +222,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const variableMapErrorMessage = useVariableMapErrorMessage()
     const errorMessage = (error: Error) => frontendsApi.errorMessage(error) ?? variableMapErrorMessage(error) ?? domainErrorMessage(error)
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const template = searchParams.get("template")
     // Created under a parent: a DOCKER cannot have one, so it is a BUNDLE
     const parentId = isEdit ? null : searchParams.get("parentId")
@@ -228,7 +230,9 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const initialDomainId = searchParams.get("domainId")
     // `#hosting` (or the older `?tab=hosting`) opens a tab straight away.
     const hashTab = location.hash.slice(1)
-    const linkedTab = isFormTab(hashTab) ? hashTab : searchParams.get("tab")
+    const requestedTab = isFormTab(hashTab) || hashTab === "container" ? hashTab : searchParams.get("tab")
+    // The runtime and the variables of a DOCKER used to share a Container tab: old links to it open the runtime
+    const linkedTab = requestedTab === "container" ? "runtime" : requestedTab
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
 
     // The open tab is written in the hash, so a reload or a copied link lands on it
@@ -415,18 +419,20 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             notificationToast.showSuccessNotification({
                 message: t("frontend.updated_success_message")
             })
+            await queryClient.invalidateQueries({ queryKey: ["mfe", id] })
+            navigate(`/frontend/${id}`)
         } else {
             if (parentId) {
                 dataToSend.parentIds = [parentId]
             }
 
-            await frontendsApi.create(dataToSend, { customErrorMessage: errorMessage })
+            const created = (await frontendsApi.create(dataToSend, { customErrorMessage: errorMessage })) as Frontend | undefined
             notificationToast.showSuccessNotification({
                 message: t("frontend.created_success_message")
             })
+            navigate(initialDomainId ? `/domain/${initialDomainId}` : created?._id ? `/frontend/${created._id}` : "/frontends")
         }
-
-        navigate(!isEdit && initialDomainId ? `/domain/${initialDomainId}` : `/frontends`)
+        await queryClient.invalidateQueries({ queryKey: ["frontends-by-project-id"] })
     }
 
     const hasRepositories = Boolean(repositories && repositories.length > 0)
@@ -442,7 +448,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         if (tab === "repository") return hasRepositories
         if (tab === "danger") return isEdit
         if (tab === "hosting") return !isDocker
-        if (tab === "container") return isDocker
+        if (tab === "runtime" || tab === "variables") return isDocker
         return true
     }
     const shownTab = isTabShown(activeTab) ? activeTab : "general"
@@ -476,11 +482,18 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                             {t("frontend.tabs.context")}
                             {tabHasErrors("context") && <ErrorDot />}
                         </TabsTrigger>
+                        {/* A DOCKER runs a container, as a backend: the same Runtime and Variables tabs */}
                         {isDocker ? (
-                            <TabsTrigger value="container" className="flex-1">
-                                {t("frontend.kind.container_tab")}
-                                {tabHasErrors("container") && <ErrorDot />}
-                            </TabsTrigger>
+                            <>
+                                <TabsTrigger value="runtime" className="flex-1">
+                                    {t("backends.tabs.runtime")}
+                                    {tabHasErrors("runtime") && <ErrorDot />}
+                                </TabsTrigger>
+                                <TabsTrigger value="variables" className="flex-1">
+                                    {t("backends.tabs.variables")}
+                                    {tabHasErrors("variables") && <ErrorDot />}
+                                </TabsTrigger>
+                            </>
                         ) : (
                             <TabsTrigger value="hosting" className="flex-1">
                                 {t("frontend.tabs.hosting")}
@@ -542,10 +555,10 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                                         />
                                     </div>
                                     <TextareaField name="description" label={t("frontend.description")} placeholder={t("frontend.description_placeholder")} />
-                                    <DomainSelectField containerClassName="w-full" />
                                 </CardContent>
                             </Card>
-                            <ReleaseSection isEdit={isEdit} versions={versions} />
+                            <DomainSection />
+                            <ReleaseSection isEdit={isEdit} versions={versions} container={isDocker} />
                         </div>
                     </TabsContent>
 
@@ -562,7 +575,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                                         label={t("frontend.context.label")}
                                         placeholder={t("frontend.context.placeholder")}
                                         description={t("frontend.context.hint")}
-                                        rows={14}
+                                        rows={12}
                                         className="font-mono text-sm"
                                         dataTestId="frontend-context"
                                     />
@@ -597,14 +610,20 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                     </TabsContent>
 
                     {isDocker ? (
-                        <TabsContent value="container" forceMount>
-                            <div className="flex flex-col gap-6">
-                                <BackendRuntimeFields />
-                                <BackendEndpointFields environments={environments} placeholder="/shell" />
-                                <BackendEnvFields />
-                                <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
-                            </div>
-                        </TabsContent>
+                        <>
+                            <TabsContent value="runtime" forceMount>
+                                <div className="flex flex-col gap-6">
+                                    <BackendRuntimeFields />
+                                    <BackendEndpointFields environments={environments} placeholder="/shell" />
+                                </div>
+                            </TabsContent>
+                            <TabsContent value="variables" forceMount>
+                                <div className="flex flex-col gap-6">
+                                    <BackendEnvFields />
+                                    <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                                </div>
+                            </TabsContent>
+                        </>
                     ) : (
                         <TabsContent value="hosting" forceMount>
                             <HostingSection storages={storages} />

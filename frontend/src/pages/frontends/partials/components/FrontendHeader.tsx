@@ -1,5 +1,6 @@
 import { Info, Settings, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import { Badge } from "@/components/atoms"
 import RepositoryLink from "@/components/RepositoryLink"
@@ -35,9 +36,10 @@ export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active
                 <>
                     <span className="font-mono">{frontend.slug}</span>
                     {technology && <TechnologyBadge technology={technology} />}
-                    <Badge variant="outline">{t("frontend.workspace.version", { version: frontend.version || "—" })}</Badge>
+                    {frontend.version && <Badge variant="outline">{t("frontend.workspace.version", { version: frontend.version })}</Badge>}
                     <RepositoryLink repository={frontend.codeRepository} />
                     <TemplateRepositoryLink slug={frontend.template} />
+                    <ComponentWorkingAgents componentId={frontend._id} live />
                 </>
             }
             navLabel={t("frontend.workspace.nav_label")}
