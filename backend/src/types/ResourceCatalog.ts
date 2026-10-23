@@ -5,7 +5,7 @@ import { DatabaseType } from "../models/DatabaseModel"
  * attaches the resource: the platform knows its fields, so it names the variables and keeps the
  * credentials among them encrypted, where a config map or a secret leaves both to whoever fills it.
  */
-export type ResourceType = "database" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp"
+export type ResourceType = "database" | "mongodb" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "generic"
 
 /** How the console asks for a field; the backend checks number, boolean, select, url and email against it too */
 export type ResourceFieldInput = "text" | "number" | "boolean" | "select" | "multiline" | "url" | "email"
@@ -68,8 +68,8 @@ const field = (name: string, envSuffix: string, options: Partial<Omit<ResourceFi
 
 const secret = (name: string, envSuffix: string, options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix" | "secret">> = {}) => field(name, envSuffix, { ...options, secret: true })
 
-/** The engines of the platform's databases, and MongoDB, which a resource can point to but the platform does not run */
-const engine = field("engine", "ENGINE", { input: "select", options: [...Object.values(DatabaseType), "MONGODB"] })
+/** The engines of the platform's databases; MongoDB is a type of its own, with the fields its drivers take */
+const engine = field("engine", "ENGINE", { input: "select", options: Object.values(DatabaseType) })
 const schema = (options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix">> = {}) => field("schema", "SCHEMA", { required: false, ...options })
 
 /** An Azure SQL database reached with an Entra ID identity: always SQL Server, always encrypted */
@@ -132,6 +132,27 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             azureSqlVariant("azureAad", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET")]),
             // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
             azureSqlVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
+        ]
+    },
+    /** Mostly reached by a mongodb+srv URI, so that comes first; by host and credentials otherwise */
+    mongodb: {
+        type: "mongodb",
+        envPrefix: "MONGO",
+        variants: [
+            { id: "connectionString", fields: [secret("connectionString", "URL"), field("database", "NAME", { required: false })] },
+            {
+                id: "credentials",
+                fields: [
+                    field("host", "HOST", { connection: true }),
+                    field("port", "PORT", { input: "number", default: "27017", connection: true }),
+                    field("database", "NAME", { connection: true }),
+                    field("username", "USER"),
+                    secret("password", "PASSWORD"),
+                    field("authSource", "AUTH_SOURCE", { required: false, default: "admin" }),
+                    field("replicaSet", "REPLICA_SET", { required: false }),
+                    field("tls", "TLS", { input: "boolean", required: false, default: "false" })
+                ]
+            }
         ]
     },
     storage: {
@@ -276,14 +297,41 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             { id: "credentials", fields: [...smtpServer, field("username", "USERNAME"), secret("password", "PASSWORD"), ...smtpSender] },
             { id: "noAuth", fields: [...smtpServer, ...smtpSender] }
         ]
+    },
+    /** Anything the catalog lacks: the resource defines its own variables (customFields), none of them a connection */
+    generic: {
+        type: "generic",
+        envPrefix: "RES",
+        variants: [{ id: "custom", fields: [] }]
     }
 }
 
 export const isResourceType = (type: unknown): type is ResourceType => typeof type === "string" && Object.hasOwn(RESOURCE_CATALOG, type)
 
-/** The variant of a type, undefined when either is not in the catalog */
-export const resourceVariant = (type: unknown, variant: unknown): ResourceVariantSpec | undefined =>
-    isResourceType(type) ? RESOURCE_CATALOG[type].variants.find(candidate => candidate.id === variant) : undefined
+/** A variable a `generic` resource defines itself: `<prefix>_<name>`, optional, a credential when `secret` */
+export interface ResourceCustomField {
+    name: string
+    secret: boolean
+}
+
+/**
+ * What the name of a custom field may be: the end of a variable name. At most 61 characters, so that with the
+ * longest prefix (RESOURCE_ENV_PREFIX) and its underscore the key stays within the 253 of a Kubernetes Secret key.
+ */
+export const RESOURCE_CUSTOM_FIELD_NAME = /^[A-Z0-9_]{1,61}$/
+
+/** Well past what a service reads from one resource */
+export const MAX_RESOURCE_CUSTOM_FIELDS = 100
+
+/**
+ * The variant of a type, undefined when either is not in the catalog. The variant of a `generic` resource
+ * takes the fields it defines, each named as its variable ends; any other type ignores them.
+ */
+export const resourceVariant = (type: unknown, variant: unknown, customFields?: ResourceCustomField[] | null): ResourceVariantSpec | undefined => {
+    const spec = isResourceType(type) ? RESOURCE_CATALOG[type].variants.find(candidate => candidate.id === variant) : undefined
+    if (!spec || type !== "generic" || !customFields?.length) return spec
+    return { ...spec, fields: [...spec.fields, ...customFields.map(custom => (custom.secret ? secret : field)(custom.name, custom.name, { required: false }))] }
+}
 
 /** What the variables of a resource are named from */
 export interface ResourceNaming {
@@ -291,6 +339,8 @@ export interface ResourceNaming {
     type: string
     variant: string
     envPrefix?: string | null
+    /** A `generic` resource only: the variables it defines */
+    customFields?: ResourceCustomField[] | null
 }
 
 /** The prefix typed for the resource, otherwise the one of its type followed by its name: `orders-db` → DB_ORDERS_DB */
@@ -313,7 +363,7 @@ export interface ResourceEnvKey {
  * resource claims all of them, so a value typed later cannot clash with a map attached in the meantime.
  */
 export const resourceEnvKeys = (resource: ResourceNaming): ResourceEnvKey[] => {
-    const variant = resourceVariant(resource.type, resource.variant)
+    const variant = resourceVariant(resource.type, resource.variant, resource.customFields)
     if (!variant) return []
     const prefix = resourceEnvPrefix(resource)
     return [

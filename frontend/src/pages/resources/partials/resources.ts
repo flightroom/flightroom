@@ -2,13 +2,17 @@ import { useQuery } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
 import { SECRET_PLACEHOLDER } from "@/hooks/apiClients/useDatabaseApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
-import useResourcesApi, { Resource, ResourceDTO, ResourceEnvKey, ResourceFieldSpec, ResourceTypeSpec, ResourceVariantSpec } from "@/hooks/apiClients/useResourcesApi"
+import useResourcesApi, { Resource, ResourceCustomField, ResourceDTO, ResourceEnvKey, ResourceFieldSpec, ResourceTypeSpec, ResourceVariantSpec } from "@/hooks/apiClients/useResourcesApi"
 import useProjectStore from "@/store/useProjectStore"
 
 export { VARIABLE_MAP_NAME as RESOURCE_NAME } from "@/pages/variable-maps/partials/variableMaps"
 
 /** Same rule as the backend (RESOURCE_ENV_PREFIX): what starts an environment variable name */
 export const RESOURCE_ENV_PREFIX = /^[A-Z_][A-Z0-9_]{0,190}$/
+
+/** Same rule and limit as the backend (RESOURCE_CUSTOM_FIELD_NAME, MAX_RESOURCE_CUSTOM_FIELDS): the end of a variable name */
+export const RESOURCE_CUSTOM_FIELD_NAME = /^[A-Z0-9_]{1,61}$/
+export const MAX_RESOURCE_CUSTOM_FIELDS = 100
 
 /** Same limit as the backend (MAX_API_SPEC_BYTES) */
 export const MAX_API_SPEC_BYTES = 5 * 1024 * 1024
@@ -20,9 +24,20 @@ export const resourcePath = (id: string) => `/resource/${id}`
 export const resourceEnvPrefix = (spec: ResourceTypeSpec | undefined, name: string, envPrefix?: string | null): string =>
     envPrefix || [spec?.envPrefix, name.toUpperCase().replace(/-/g, "_")].filter(Boolean).join("_")
 
-/** Mirror of the backend (resourceEnvKeys): every variable the variant sets, whether its field has a value or not */
-export const resourceEnvKeys = (spec: ResourceTypeSpec | undefined, variantId: string, name: string, envPrefix?: string | null): ResourceEnvKey[] => {
+/** The fields a `generic` resource defines, as the catalog would give them; none for any other type */
+const customFieldSpecs = (spec: ResourceTypeSpec | undefined, customFields?: ResourceCustomField[]): ResourceFieldSpec[] =>
+    spec?.type === "generic" ? (customFields ?? []).map(({ name, secret }) => ({ name, envSuffix: name, secret, required: false, input: "text" })) : []
+
+/** Mirror of the backend (resourceVariant): the variant of the type, with the fields a `generic` resource defines */
+export const resourceVariant = (spec: ResourceTypeSpec | undefined, variantId: string, customFields?: ResourceCustomField[]): ResourceVariantSpec | undefined => {
     const variant = spec?.variants.find(candidate => candidate.id === variantId)
+    const custom = customFieldSpecs(spec, customFields)
+    return variant && custom.length > 0 ? { ...variant, fields: [...variant.fields, ...custom] } : variant
+}
+
+/** Mirror of the backend (resourceEnvKeys): every variable the variant sets, whether its field has a value or not */
+export const resourceEnvKeys = (spec: ResourceTypeSpec | undefined, variantId: string, name: string, envPrefix?: string | null, customFields?: ResourceCustomField[]): ResourceEnvKey[] => {
+    const variant = resourceVariant(spec, variantId, customFields)
     if (!variant) return []
     const prefix = resourceEnvPrefix(spec, name, envPrefix)
     return [
@@ -56,6 +71,8 @@ export interface ResourceFormValues {
     type: string
     variant: string
     envPrefix: string
+    /** A `generic` only: the variables it defines, whose values are in `fields` by name */
+    customFields: ResourceCustomField[]
     fields: Record<string, ResourceFieldFormValue>
     /** An `api` only: a document typed or loaded here; blank keeps the stored one */
     apiSpec: string
@@ -63,12 +80,20 @@ export interface ResourceFormValues {
     apiSpecRemoved: boolean
 }
 
-/** Every field of the type, by name across its variants: switching variant keeps what the two share */
-export const typeFields = (spec: ResourceTypeSpec | undefined): ResourceFieldSpec[] => {
+/** Every field of the type, by name across its variants: switching variant keeps what the two share. A `generic` adds those it defines */
+export const typeFields = (spec: ResourceTypeSpec | undefined, customFields?: ResourceCustomField[]): ResourceFieldSpec[] => {
     const byName = new Map<string, ResourceFieldSpec>()
     for (const variant of spec?.variants ?? []) for (const field of variant.fields) if (!byName.has(field.name)) byName.set(field.name, field)
+    for (const field of customFieldSpecs(spec, customFields)) if (!byName.has(field.name)) byName.set(field.name, field)
     return [...byName.values()]
 }
+
+/** A field with no value anywhere: a variable of a `generic` just added, renamed, or turned secret or plain */
+export const emptyFormField = (environmentCount: number): ResourceFieldFormValue => ({
+    value: "",
+    saved: false,
+    overrides: Array.from({ length: environmentCount }, () => ({ value: "", saved: false }))
+})
 
 /** The default a variant gives a field: two variants sharing a field may not share its default (the model of an ai) */
 export const variantDefault = (variant: ResourceVariantSpec | undefined, field: string): string => variant?.fields.find(candidate => candidate.name === field)?.default ?? ""
@@ -79,10 +104,10 @@ export const variantDefault = (variant: ResourceVariantSpec | undefined, field: 
  * resource) starts with the default `variantId` gives it, the first variant's for a new resource.
  */
 export const toFormFields = (spec: ResourceTypeSpec | undefined, environments: EnvironmentDTO[], resource?: Resource, variantId?: string): Record<string, ResourceFieldFormValue> => {
-    const variant = resource && spec?.variants.find(candidate => candidate.id === resource.variant)
+    const variant = resource && resourceVariant(spec, resource.variant, resource.customFields)
     const defaults = spec?.variants.find(candidate => candidate.id === (variantId ?? resource?.variant)) ?? spec?.variants[0]
     return Object.fromEntries(
-        typeFields(spec).map(field => {
+        typeFields(spec, resource?.customFields).map(field => {
             const stored = resource?.fields[field.name]
             const unset = Boolean(variant?.fields.some(candidate => candidate.name === field.name))
             const base = stored?.value ?? (unset ? "" : variantDefault(defaults, field.name))
@@ -108,6 +133,7 @@ export const toFormValues = (spec: ResourceTypeSpec | undefined, environments: E
     type: resource?.type ?? spec?.type ?? "",
     variant: resource?.variant ?? spec?.variants[0]?.id ?? "",
     envPrefix: resource?.envPrefix ?? "",
+    customFields: resource?.customFields ?? [],
     fields: toFormFields(spec, environments, resource),
     apiSpec: "",
     apiSpecRemoved: false
