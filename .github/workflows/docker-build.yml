@@ -69,9 +69,29 @@ jobs:
             exit 1
           fi
 
+  # The two images are built by parallel jobs, each with its own BuildKit cache
+  # on GitHub Actions: the apt and pnpm layers are rebuilt only when the
+  # Dockerfile or the lockfile change, and the unchanged layers keep their
+  # digest, so the registry already has them and the push skips them.
   docker-build:
     needs: [monorepo-build, helm-chart-check]
     runs-on: ubuntu-24.04
+    strategy:
+      matrix:
+        include:
+          - variant: standard
+            dockerfile: Dockerfile
+            # A release only gets its version tag, :latest follows development.
+            rolling-tag: latest
+            release-suffix: ""
+            push-rolling-on-release: false
+          # Self contained image: orchestrator + MongoDB + Redis + Nginx, so that
+          # a `docker run` is enough to get a working installation.
+          - variant: all-in-one
+            dockerfile: Dockerfile.all-in-one
+            rolling-tag: all-in-one
+            release-suffix: -all-in-one
+            push-rolling-on-release: true
 
     steps:
       - name: 🔄 Checkout
@@ -95,29 +115,41 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: 🚀 Build and Push Docker Image
+      - name: 🏷️ Compute Image Tags
+        id: tags
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+          ROLLING_TAG: ${{ matrix.rolling-tag }}
+          RELEASE_SUFFIX: ${{ matrix.release-suffix }}
+          PUSH_ROLLING_ON_RELEASE: ${{ matrix.push-rolling-on-release }}
         run: |
-          docker build -t ${{ env.IMAGE }}:latest -f Dockerfile .
-
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            docker tag ${{ env.IMAGE }}:latest ${{ env.IMAGE }}:${{ github.ref_name }}
-            docker push ${{ env.IMAGE }}:${{ github.ref_name }}
+          if [[ "$REF_TYPE" == "tag" ]]; then
+            tags="${{ env.IMAGE }}:${REF_NAME}${RELEASE_SUFFIX}"
+            if [[ "$PUSH_ROLLING_ON_RELEASE" == "true" ]]; then
+              tags="$tags,${{ env.IMAGE }}:${ROLLING_TAG}"
+            fi
           else
-            docker push ${{ env.IMAGE }}:latest
+            tags="${{ env.IMAGE }}:${ROLLING_TAG}"
           fi
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
 
-      # Self contained image: orchestrator + MongoDB + Redis + Nginx, so that a
-      # `docker run` is enough to get a working installation.
-      - name: 📦 Build and Push All-in-One Docker Image
-        run: |
-          docker build -t ${{ env.IMAGE }}:all-in-one -f Dockerfile.all-in-one .
+      # The default `docker` driver cannot export the cache to GitHub Actions:
+      # a docker-container builder is needed for `type=gha`.
+      - name: 🛠️ Setup Docker Buildx
+        uses: docker/setup-buildx-action@v4
 
-          if [[ "${{ github.ref_type }}" == "tag" ]]; then
-            docker tag ${{ env.IMAGE }}:all-in-one ${{ env.IMAGE }}:${{ github.ref_name }}-all-in-one
-            docker push ${{ env.IMAGE }}:${{ github.ref_name }}-all-in-one
-          fi
-
-          docker push ${{ env.IMAGE }}:all-in-one
+      # `context: .` is required: the default Git context would not contain the
+      # frontend and backend builds downloaded above.
+      - name: 🚀 Build and Push Docker Image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ${{ matrix.dockerfile }}
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha,scope=${{ matrix.variant }}
+          cache-to: type=gha,scope=${{ matrix.variant }},mode=max
 
   # Publishes the chart once the image it points to exists, so that ArgoCD and
   # Helm can install it straight from the registry.
