@@ -9,6 +9,33 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [7.0.0] - 2026-10-23
+
+### Breaking
+
+- **Service Becomes Backend**: the `Service` entity is now `Backend` across the API, the console, the MCP tools and the docs. The routes `/api/services...` become `/api/backends...`, the by-slug ones the CI calls included (version registration, deploy report); the MCP tools `service_*` and `services_list` become `backend_*` and `backends_list`, with `serviceId`/`serviceIds` arguments renamed `backendId`/`backendIds`; the import target `service` becomes `backend` (else `400 IMPORT_TARGET_INVALID`) and the `SERVICE_*` error codes become `BACKEND_*`. GitHub Actions, Azure tasks and external pipeline templates must move to the new routes. A startup migration renames the collections and the fields; if it fails, startup fails. The old console URLs `/services` and `/service/...` redirect
+
+### Added
+
+- **AI Token Limit Per Project Member**: a project owner or an organization administrator sets the input and output tokens each member may spend in the project per calendar month (UTC), assistant and Edit with AI together; empty for no limit, 0 turns AI off. Set from the Edit access dialog, `PUT /projects/:id/users/:userId` (`aiTokenLimit`) and the `project_member_role_set` MCP tool. Past it, assistant answers, AI jobs and missions are refused with `429 AI_TOKEN_LIMIT_REACHED`
+- **Frontend Overview**: a frontend has the same three screens as a backend, Edit with AI, Overview and Details & settings; the read-only overview at `/frontend/:id/overview` shows its repository, AI usage, release and hosting, or for a Docker frontend its images, container configuration and variable maps
+- **Detach A Resource**: the "Used by" list of a resource and the resources card of a backend detach it, so it can be taken away or deleted without opening every backend's settings. The domain overview lists the resources per backend
+- **Build And Deploy From Frontends And Backends**: a frontend and a backend have the same actions as their domain, Build and deploy (the release of their domain, disabled without a domain) and Build (tags only their repository), in Edit with AI, and in the overview when Edit with AI is not available
+
+### Changed
+
+- **Domain Header Actions**: Build and deploy is always there, disabled until the environments load, next to Build, which only tags the repositories. The separate Deploy button and the backend Set release dialog are gone: a version is set in the settings
+- **Compact Settings Of Frontends And Backends**: Domain and Release sit side by side at the top of General, the repository joins General and the variables join Runtime; the open tab is kept in the URL hash and old `#container`, `#variables` and `#repository` links open the tab that now holds them. The Port field explains `HTTP_PORT`
+- **Resources List**: it no longer shows the number of variables of each resource
+- **CI**: the release is published only for tags on `main`, and the standard and all-in-one images build in parallel with a BuildKit cache
+
+### Fixed
+
+- **Invitation Token Leak**: inviting a member, resending the invitation or changing its role answered with the membership document, invitation token included, which let an administrator take over an account that never signed in. These routes now answer with a membership view
+- **Backends Map**: a second click on a galaxy opens the nearest backend instead of its domain
+
+---
+
 ## [6.2.0] - 2026-10-23
 
 ### Added
