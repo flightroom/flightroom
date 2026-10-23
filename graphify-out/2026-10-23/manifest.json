@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1792764376.0525465,
-    "ast_hash": "8da02e8c34187a4b4958cb7a266cab1b",
+    "mtime": 1792764745.6145837,
+    "ast_hash": "57d30087888d489f00741c10984ab6a7",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1792764376.0496392,
-    "ast_hash": "c7bf67cf86021454e77917a19502b96f",
+    "mtime": 1792764745.6052015,
+    "ast_hash": "aa73dddc14871ac90b611e5df1fd78dd",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1530,7 +1530,7 @@
     "semantic_hash": ""
   },
   "e2e/README.md": {
-    "mtime": 1792764398.7975087,
+    "mtime": 1792764444.300092,
     "ast_hash": "61b4ea663a28c7c39036e44dda94a33d",
     "semantic_hash": ""
   },
@@ -3280,8 +3280,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainGalaxy.tsx": {
-    "mtime": 1792738042.6390984,
-    "ast_hash": "8b2a4f26fb6260c7be05ddf1f3b11dc8",
+    "mtime": 1792764744.231139,
+    "ast_hash": "90f88b73c177e19e8579d07c777bdb2b",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainDeploymentsApi.ts": {
