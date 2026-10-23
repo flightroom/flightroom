@@ -787,14 +787,6 @@
             "mfeOrchestratorHub": "Flightroom Hub",
             "customSource": "Custom Source"
         },
-        "backendLinks": {
-            "frontendsColumn": "Frontends",
-            "backendsColumn": "Backends",
-            "hint": "Drag from a frontend’s dot to a backend to link them. Select a link and press Delete to remove it.",
-            "noBackendsTitle": "No backends",
-            "noBackendsDescription": "Create a backend to link it to your frontends.",
-            "createBackend": "Create a backend"
-        },
         "dashboard": {
             "title": "Frontends",
             "description": "Manage your project's frontends",
@@ -806,7 +798,6 @@
             "viewFlow": "Diagram view",
             "viewGrid": "Grid view",
             "viewTable": "Table view",
-            "viewBackend": "Backend links view",
             "clearSearch": "Clear search",
             "noResultsTitle": "No results",
             "noResultsDescription": "No frontend matches “{{searchTerm}}”. Try a different search term.",
@@ -2551,6 +2542,7 @@
         },
         "viewCards": "Cards view",
         "viewGalaxy": "Galaxy view",
+        "viewLinks": "Frontend to backend links view",
         "galaxy": {
             "legend_canary": "Canary on",
             "legend_bridge": "Link across domains",
@@ -2601,6 +2593,14 @@
             "ship_request": "Agent at work on a change request",
             "ship_more_one": "+{{count}} more agent at work here",
             "ship_more_other": "+{{count}} more agents at work here"
+        },
+        "links": {
+            "frontendsColumn": "Frontends",
+            "backendsColumn": "Backends",
+            "hint": "Drag from a frontend’s dot to a backend to link them: links to another domain are dashed. Select a link and press Delete to remove it. Double-click a box to open the domain.",
+            "noBackendsTitle": "No backends",
+            "noBackendsDescription": "Create a backend to link it to your frontends.",
+            "createBackend": "Create a backend"
         },
         "form": {
             "create_title": "New functional domain",
