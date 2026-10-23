@@ -12,6 +12,7 @@ import { redactDesignSystems } from "../types/DesignSystem"
 import { MCP_SCOPE_WRITE } from "../utils/oauthConfig"
 import { McpSession, McpSharedProject, McpToolContext, McpToolDefinition, objectId } from "./toolDefinition"
 import { aiChangeTools } from "./tools/aiChangeTools"
+import { backendTools } from "./tools/backendTools"
 import { configurationTools } from "./tools/configurationTools"
 import { domainDeploymentTools } from "./tools/domainDeploymentTools"
 import { domainLinkTools } from "./tools/domainLinkTools"
@@ -28,7 +29,6 @@ import { projectTools } from "./tools/projectTools"
 import { repositoryTools } from "./tools/repositoryTools"
 import { resourceTools } from "./tools/resourceTools"
 import { scaffoldTools } from "./tools/scaffoldTools"
-import { serviceTools } from "./tools/serviceTools"
 import { variableMapTools } from "./tools/variableMapTools"
 
 /**
@@ -57,7 +57,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     ...organizationTools,
     ...projectTools,
     ...frontendTools,
-    ...serviceTools,
+    ...backendTools,
     ...maintenanceAgentTools,
     ...domainTools,
     ...domainLinkTools,
@@ -78,11 +78,11 @@ export const MCP_TOOLS: McpToolDefinition[] = [
 const SERVER_INSTRUCTIONS =
     "Tools of the Flightroom console, bound to the projects shared when this connection was authorized. " +
     "Call projects_list first: when more than one project is shared, every project tool needs its projectId. " +
-    "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one frontend, service or domain, pass its id to context_get, or read aiContext from frontend_get, service_get or domain_get: follow those notes. Its project.technologies are the default frontend and backend technologies for anything new, unless the user asks otherwise. " +
+    "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one frontend, backend or domain, pass its id to context_get, or read aiContext from frontend_get, backend_get or domain_get: follow those notes. Its project.technologies are the default frontend and backend technologies for anything new, unless the user asks otherwise. " +
     "When a frontend has a designSystem in aiContext, build its UI with that package (configure the registry from the scope lines of its npmrc; credentials are never provided). " +
-    "To change the code of a frontend or a service: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
-    "A backend service container gets the port it is exposed on in the HTTP_PORT environment variable: its server must read the port from HTTP_PORT and listen on it on 0.0.0.0, never on a hardcoded port. " +
-    "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend service (e.g. orders-be). " +
+    "To change the code of a frontend or a backend: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
+    "A backend container gets the port it is exposed on in the HTTP_PORT environment variable: its server must read the port from HTTP_PORT and listen on it on 0.0.0.0, never on a hardcoded port. " +
+    "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend (e.g. orders-be). " +
     "Ids are 24 character hexadecimal strings returned by the list tools. Tools marked destructive change what users are served " +
     "(deploy, rollback) or delete data: confirm with the user before calling them."
 

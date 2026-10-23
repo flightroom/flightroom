@@ -14,7 +14,7 @@ import { DeployedVersion, EnvironmentHeading } from "./partials/DomainDeployment
 /** The frontend, then the backend, of one domain in one environment, as `slug version` lines */
 const MatrixCell: React.FC<{ entry: EnvironmentDeployment }> = ({ entry }) => {
     const { t } = useTranslation()
-    const lines = [...entry.frontends.map(frontend => ({ ...frontend, kind: "frontend" as const })), ...entry.services.map(service => ({ ...service, canary: null, kind: "backend" as const }))]
+    const lines = [...entry.frontends.map(frontend => ({ ...frontend, kind: "frontend" as const })), ...entry.backends.map(backend => ({ ...backend, canary: null, kind: "backend" as const }))]
     return (
         <ul className="flex flex-col gap-1">
             {lines.map(line => {
@@ -50,9 +50,9 @@ const filterRows = (rows: DomainDeployments[], term: string): DomainDeployments[
         const environments = row.environments.map(entry => ({
             ...entry,
             frontends: entry.frontends.filter(frontend => matches(term, frontend.name, frontend.slug)),
-            services: entry.services.filter(service => matches(term, service.name, service.slug))
+            backends: entry.backends.filter(backend => matches(term, backend.name, backend.slug))
         }))
-        return environments.some(entry => entry.frontends.length > 0 || entry.services.length > 0) ? [{ ...row, environments }] : []
+        return environments.some(entry => entry.frontends.length > 0 || entry.backends.length > 0) ? [{ ...row, environments }] : []
     })
 }
 
@@ -147,7 +147,7 @@ const DomainDeploymentsMatrix = () => {
                                         </TableCell>
                                         {row.environments.map(entry => (
                                             <TableCell key={entry.environment._id}>
-                                                {entry.frontends.length === 0 && entry.services.length === 0 ? (
+                                                {entry.frontends.length === 0 && entry.backends.length === 0 ? (
                                                     <span className="text-sm text-foreground-secondary">{t("domains.deployments.no_members_short")}</span>
                                                 ) : (
                                                     <MatrixCell entry={entry} />

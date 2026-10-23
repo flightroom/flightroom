@@ -12,13 +12,13 @@ import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { technologyIconUrl } from "@/components/technology/technologyIcons"
+import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
 import useCodeRepositoriesApi, { ICodeRepository } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi, { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useMaintenanceAgentsApi, { MaintenanceAgent, MaintenanceAgentDTO, useMaintenanceErrorMessage } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import useMarketApi from "@/hooks/apiClients/useMarketApi"
 import { Resource, useResourceErrorMessage } from "@/hooks/apiClients/useResourcesApi"
-import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
 import { CodeRepositorySection } from "@/pages/frontends/partials/components"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
@@ -26,19 +26,19 @@ import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMap
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { isRecommendedTemplate, technologyOfMarket } from "@/utils/technologies"
+import BackendEnvFields from "../backends/partials/BackendEnvFields"
+import BackendResourcesFields from "../backends/partials/BackendResourcesFields"
+import BackendVariableMapsFields from "../backends/partials/BackendVariableMapsFields"
+import { isBackendTemplate } from "../backends/partials/backendTemplates"
+import { BACKEND_HTTP_PATH, BACKEND_VERSION } from "../backends/partials/backendVariables"
 import DomainSelectField from "../domains/partials/DomainSelectField"
-import ServiceEnvFields from "../services/partials/ServiceEnvFields"
-import ServiceResourcesFields from "../services/partials/ServiceResourcesFields"
-import ServiceVariableMapsFields from "../services/partials/ServiceVariableMapsFields"
-import { isServiceTemplate } from "../services/partials/serviceTemplates"
-import { SERVICE_HTTP_PATH, SERVICE_VERSION } from "../services/partials/serviceVariables"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import MaintenanceAgentHeader from "./partials/MaintenanceAgentHeader"
 import MaintenanceDangerZone from "./partials/MaintenanceDangerZone"
 import { MaintenanceKindField, MaintenanceRuntimeFields, MaintenanceScheduleFields, MaintenanceTargetPicker } from "./partials/MaintenanceFormFields"
 import { isValidCron, isValidTimeZone, MAINTENANCE_LIST_PATH, MAINTENANCE_SLUG, maintenanceAgentPath, normalizeCron, SCHEDULE_PRESETS, type ScheduleMode, scheduleModeOf } from "./partials/maintenance"
 
-/** The fields a service template prefills: a maintenance agent is scaffolded from the same templates */
+/** The fields a backend template prefills: a maintenance agent is scaffolded from the same templates */
 const PREFILLED_FIELDS = ["port", "livenessPath", "readinessPath"] as const
 type PrefilledValues = Record<(typeof PREFILLED_FIELDS)[number], string>
 
@@ -70,7 +70,7 @@ const createFormSchema = (messages: FormMessages) =>
             version: z
                 .string()
                 .trim()
-                .refine(value => value === "" || SERVICE_VERSION.test(value), messages.version)
+                .refine(value => value === "" || BACKEND_VERSION.test(value), messages.version)
                 .optional(),
             image: z.object({ repository: z.string().optional() }).optional(),
             // A container's only: a job has neither a port nor probes, so they are checked below
@@ -89,7 +89,7 @@ const createFormSchema = (messages: FormMessages) =>
             configMapIds: z.array(z.string()),
             secretIds: z.array(z.string()),
             resourceIds: z.array(z.string()),
-            serviceIds: z.array(z.string()),
+            backendIds: z.array(z.string()),
             frontendIds: z.array(z.string()),
             codeRepository: z
                 .object({
@@ -115,7 +115,7 @@ const createFormSchema = (messages: FormMessages) =>
             if (data.kind !== "container") return
             if (!/^\d{1,5}$/.test(data.port)) ctx.addIssue({ code: "custom", message: messages.port, path: ["port"] })
             for (const field of ["runPath", "livenessPath", "readinessPath"] as const) {
-                if (!SERVICE_HTTP_PATH.test(data[field])) ctx.addIssue({ code: "custom", message: messages.path, path: [field] })
+                if (!BACKEND_HTTP_PATH.test(data[field])) ctx.addIssue({ code: "custom", message: messages.path, path: [field] })
             }
         })
 
@@ -132,7 +132,7 @@ const isFormTab = (value: string | null): value is FormTab => Boolean(value && (
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["template", "name", "slug", "description", "domainId", "context", "kind"],
-    schedule: ["scheduleMode", "schedule", "timeZone", "serviceIds", "frontendIds"],
+    schedule: ["scheduleMode", "schedule", "timeZone", "backendIds", "frontendIds"],
     runtime: ["port", "image", "version", "runPath", "livenessPath", "readinessPath"],
     variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     repository: ["codeRepository"],
@@ -146,12 +146,12 @@ interface AddMaintenanceAgentFormProps {
     configMaps: VariableMap[]
     secrets: VariableMap[]
     resources: Resource[]
-    services: Service[]
+    backends: Backend[]
     frontends: Frontend[]
     agent?: MaintenanceAgent
 }
 
-const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repositories, configMaps, secrets, resources, services, frontends, agent }) => {
+const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repositories, configMaps, secrets, resources, backends, frontends, agent }) => {
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
     const [searchParams] = useSearchParams()
@@ -173,16 +173,16 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
     const technologies = useProjectStore(state => state.project?.technologies)
     // The templates of the project's backend technology come first: the others stay in the list
     const templates = useMemo(
-        () => (marketsQuery.data ?? []).filter(isServiceTemplate).sort((a, b) => Number(isRecommendedTemplate(b, technologies)) - Number(isRecommendedTemplate(a, technologies))),
+        () => (marketsQuery.data ?? []).filter(isBackendTemplate).sort((a, b) => Number(isRecommendedTemplate(b, technologies)) - Number(isRecommendedTemplate(a, technologies))),
         [marketsQuery.data, technologies]
     )
 
     const formSchema = useMemo(
         () =>
             createFormSchema({
-                slug: t("services.slug_invalid"),
-                version: t("services.version_invalid"),
-                path: t("services.path_invalid"),
+                slug: t("backends.slug_invalid"),
+                version: t("backends.version_invalid"),
+                path: t("backends.path_invalid"),
                 port: t("maintenance.port_invalid"),
                 cronRequired: t("maintenance.schedule.cron_required"),
                 cronInvalid: t("maintenance.schedule.cron_invalid"),
@@ -212,7 +212,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   configMapIds: (agent.configMapIds ?? []).filter(mapId => configMaps.some(map => map._id === mapId)),
                   secretIds: (agent.secretIds ?? []).filter(mapId => secrets.some(map => map._id === mapId)),
                   resourceIds: (agent.resourceIds ?? []).filter(resourceId => resources.some(resource => resource._id === resourceId)),
-                  serviceIds: (agent.serviceIds ?? []).filter(serviceId => services.some(service => service._id === serviceId)),
+                  backendIds: (agent.backendIds ?? []).filter(backendId => backends.some(backend => backend._id === backendId)),
                   frontendIds: (agent.frontendIds ?? []).filter(frontendId => frontends.some(frontend => frontend._id === frontendId))
               }
             : {
@@ -236,7 +236,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   configMapIds: [],
                   secretIds: [],
                   resourceIds: [],
-                  serviceIds: [],
+                  backendIds: [],
                   frontendIds: [],
                   codeRepository: hasRepositories
                       ? {
@@ -252,7 +252,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
     const prefilled = useRef<PrefilledValues>({ port: "8080", livenessPath: "/health/live", readinessPath: "/health/ready" })
     const selectedTemplate = form.watch("template")
     useEffect(() => {
-        const defaults = templates.find(market => market.slug === selectedTemplate)?.serviceDefaults
+        const defaults = templates.find(market => market.slug === selectedTemplate)?.backendDefaults
         if (isEdit || !defaults) return
         const next: PrefilledValues = { port: String(defaults.port), livenessPath: defaults.livenessPath, readinessPath: defaults.readinessPath }
         for (const field of PREFILLED_FIELDS) {
@@ -348,7 +348,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                                     <SelectField
                                         name="template"
                                         label={t("maintenance.template")}
-                                        placeholder={t("services.template_placeholder")}
+                                        placeholder={t("backends.template_placeholder")}
                                         description={t("maintenance.template_hint")}
                                         options={templates.map(market => {
                                             const technology = technologyOfMarket(market)
@@ -367,7 +367,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                                 <div className="flex flex-wrap gap-x-4 gap-y-2">
                                     <TextField
                                         name="name"
-                                        label={t("services.name")}
+                                        label={t("backends.name")}
                                         placeholder={t("maintenance.name_placeholder")}
                                         textTransform={value => value.replace("  ", " ")}
                                         required
@@ -383,20 +383,20 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                                     <TextField
                                         name="slug"
                                         disabled={isEdit}
-                                        label={t("services.slug")}
+                                        label={t("backends.slug")}
                                         placeholder={t("maintenance.slug_placeholder")}
                                         required
                                         containerClassName="flex-[1_1_240px]"
                                     />
                                 </div>
-                                <TextareaField name="description" label={t("services.description")} placeholder={t("maintenance.description_placeholder")} />
+                                <TextareaField name="description" label={t("backends.description")} placeholder={t("maintenance.description_placeholder")} />
                                 <DomainSelectField containerClassName="w-full" />
                                 <MaintenanceKindField />
                                 <TextareaField
                                     name="context"
-                                    label={t("services.context.label")}
+                                    label={t("backends.context.label")}
                                     placeholder={t("maintenance.context_placeholder")}
-                                    description={t("services.context.hint")}
+                                    description={t("backends.context.hint")}
                                     rows={6}
                                     className="font-mono text-sm"
                                 />
@@ -413,7 +413,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                                     <CardDescription>{t("maintenance.targets.form_description")}</CardDescription>
                                 </CardHeader>
                                 <CardContent className="flex flex-wrap gap-4 pt-3">
-                                    <MaintenanceTargetPicker name="serviceIds" options={services} title={t("maintenance.targets.services")} dotClassName="bg-zomp-600 dark:bg-zomp-400" />
+                                    <MaintenanceTargetPicker name="backendIds" options={backends} title={t("maintenance.targets.backends")} dotClassName="bg-zomp-600 dark:bg-zomp-400" />
                                     <MaintenanceTargetPicker name="frontendIds" options={frontends} title={t("maintenance.targets.frontends")} dotClassName="bg-primary" />
                                 </CardContent>
                             </Card>
@@ -426,9 +426,9 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
 
                     <TabsContent value="variables" forceMount>
                         <div className="flex flex-col gap-6">
-                            <ServiceEnvFields />
-                            <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
-                            <ServiceResourcesFields resources={resources} />
+                            <BackendEnvFields />
+                            <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
+                            <BackendResourcesFields resources={resources} />
                         </div>
                     </TabsContent>
 
@@ -478,7 +478,7 @@ const AddMaintenanceAgent: React.FC = () => {
     const isEdit = Boolean(id)
     const api = useMaintenanceAgentsApi()
     const codeRepositoriesApi = useCodeRepositoriesApi()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const frontendsApi = useFrontendsApi()
     const projectId = useProjectStore(state => state.project?._id)
 
@@ -488,20 +488,20 @@ const AddMaintenanceAgent: React.FC = () => {
         enabled: !!projectId
     })
     const agentQuery = useQuery({ queryKey: ["maintenance-agent", id], queryFn: () => api.getSingle(id!), enabled: isEdit })
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
     const frontendsQuery = useQuery({ queryKey: ["frontends-by-project-id", projectId], queryFn: () => frontendsApi.getByProjectId(projectId), enabled: !!projectId })
     const configMapsQuery = useVariableMapsQuery("configMap")
     const secretsQuery = useVariableMapsQuery("secret")
     const resourcesQuery = useResourcesQuery()
 
     return (
-        <ApiStatusHandler queries={[repositoriesQuery, agentQuery, servicesQuery, frontendsQuery, configMapsQuery, secretsQuery, resourcesQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[repositoriesQuery, agentQuery, backendsQuery, frontendsQuery, configMapsQuery, secretsQuery, resourcesQuery]} interceptEmpty={false}>
             <AddMaintenanceAgentForm
                 repositories={repositoriesQuery.data ?? []}
                 configMaps={configMapsQuery.data ?? []}
                 secrets={secretsQuery.data ?? []}
                 resources={resourcesQuery.data ?? []}
-                services={servicesQuery.data ?? []}
+                backends={backendsQuery.data ?? []}
                 frontends={frontendsQuery.data ?? []}
                 agent={agentQuery.data}
             />

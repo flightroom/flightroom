@@ -7,16 +7,16 @@ import { Link, useParams } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import RepositoryLink from "@/components/RepositoryLink"
+import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useFrontendsApi, { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useMaintenanceAgentsApi, { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
-import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
+import BackendBuildDialog from "@/pages/backends/partials/BackendBuildDialog"
+import BackendResourcesSection from "@/pages/backends/partials/BackendResourcesSection"
+import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
+import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
+import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
-import ServiceBuildDialog from "@/pages/services/partials/ServiceBuildDialog"
-import ServiceResourcesSection from "@/pages/services/partials/ServiceResourcesSection"
-import ServiceVariableMapsSection from "@/pages/services/partials/ServiceVariableMapsSection"
-import ServiceVersionsTable from "@/pages/services/partials/ServiceVersionsTable"
-import { useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import MaintenanceAgentHeader from "./partials/MaintenanceAgentHeader"
@@ -67,32 +67,32 @@ const ConfigurationSection: React.FC<{ agent: MaintenanceAgent; environments: En
                             <DescriptionItem label={t("maintenance.run_path")}>
                                 <Path path={agent.runPath} />
                             </DescriptionItem>
-                            <DescriptionItem label={t("services.port")}>{agent.port ?? "—"}</DescriptionItem>
-                            <DescriptionItem label={t("services.liveness_path")}>
+                            <DescriptionItem label={t("backends.port")}>{agent.port ?? "—"}</DescriptionItem>
+                            <DescriptionItem label={t("backends.liveness_path")}>
                                 <Path path={agent.livenessPath} />
                             </DescriptionItem>
-                            <DescriptionItem label={t("services.readiness_path")}>
+                            <DescriptionItem label={t("backends.readiness_path")}>
                                 <Path path={agent.readinessPath} />
                             </DescriptionItem>
                         </>
                     )}
-                    <DescriptionItem label={t("services.image_repository")}>{agent.image?.repository ? <span className="font-mono">{agent.image.repository}</span> : "—"}</DescriptionItem>
+                    <DescriptionItem label={t("backends.image_repository")}>{agent.image?.repository ? <span className="font-mono">{agent.image.repository}</span> : "—"}</DescriptionItem>
                 </DescriptionList>
                 <div>
-                    <h3 className="mb-2 text-base font-semibold">{t("services.env.title")}</h3>
+                    <h3 className="mb-2 text-base font-semibold">{t("backends.env.title")}</h3>
                     {agent.env?.length ? (
                         <ul className="flex flex-col gap-2">
                             {agent.env.map(variable => (
                                 <li key={variable.name} className="flex flex-wrap items-center gap-2 text-sm">
                                     <span className="font-mono font-medium">{variable.name}</span>
-                                    {variable.required && <Badge variant="outline">{t("services.env.required")}</Badge>}
-                                    {variable.secret && <Badge variant="outline">{t("services.env.secret")}</Badge>}
+                                    {variable.required && <Badge variant="outline">{t("backends.env.required")}</Badge>}
+                                    {variable.secret && <Badge variant="outline">{t("backends.env.secret")}</Badge>}
                                     {variable.description && <span className="text-foreground-secondary">{variable.description}</span>}
                                 </li>
                             ))}
                         </ul>
                     ) : (
-                        <p className="text-sm text-foreground-secondary">{t("services.env.empty")}</p>
+                        <p className="text-sm text-foreground-secondary">{t("backends.env.empty")}</p>
                     )}
                 </div>
             </CardContent>
@@ -101,10 +101,10 @@ const ConfigurationSection: React.FC<{ agent: MaintenanceAgent; environments: En
 }
 
 /** The backends and the frontends it maintains, each opening on its page */
-const TargetsSection: React.FC<{ agent: MaintenanceAgent; services: Service[]; frontends: Frontend[] }> = ({ agent, services, frontends }) => {
+const TargetsSection: React.FC<{ agent: MaintenanceAgent; backends: Backend[]; frontends: Frontend[] }> = ({ agent, backends, frontends }) => {
     const { t } = useTranslation()
     const groups = [
-        { key: "services", title: t("maintenance.targets.services"), items: services.filter(service => agent.serviceIds.includes(service._id!)), path: (id: string) => `/service/${id}` },
+        { key: "backends", title: t("maintenance.targets.backends"), items: backends.filter(backend => agent.backendIds.includes(backend._id!)), path: (id: string) => `/backend/${id}` },
         { key: "frontends", title: t("maintenance.targets.frontends"), items: frontends.filter(frontend => agent.frontendIds.includes(frontend._id!)), path: (id: string) => `/frontend/${id}` }
     ]
 
@@ -126,7 +126,7 @@ const TargetsSection: React.FC<{ agent: MaintenanceAgent; services: Service[]; f
                                     <li key={item._id}>
                                         <Link to={group.path(item._id!)} className="flex items-center gap-3 px-3 py-2 text-sm hover:bg-primary/5">
                                             <span
-                                                className={group.key === "services" ? "size-2.5 shrink-0 rounded-full bg-zomp-600 dark:bg-zomp-400" : "size-2.5 shrink-0 rounded-full bg-primary"}
+                                                className={group.key === "backends" ? "size-2.5 shrink-0 rounded-full bg-zomp-600 dark:bg-zomp-400" : "size-2.5 shrink-0 rounded-full bg-primary"}
                                                 aria-hidden="true"
                                             />
                                             <span className="min-w-0 flex-1 truncate font-medium">{item.name}</span>
@@ -148,7 +148,7 @@ const MaintenanceAgentDetail: React.FC = () => {
     const { id } = useParams<{ id: string }>()
     const projectId = useProjectStore(state => state.project?._id)
     const api = useMaintenanceAgentsApi()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const frontendsApi = useFrontendsApi()
     const queryClient = useQueryClient()
     const isViewer = useIsProjectViewer()
@@ -158,7 +158,7 @@ const MaintenanceAgentDetail: React.FC = () => {
     const agentQuery = useQuery({ queryKey: ["maintenance-agent", id], queryFn: () => api.getSingle(id!), enabled: !!id })
     const runsQuery = useQuery({ queryKey: ["maintenance-agent-runs", id], queryFn: () => api.getRuns(id!), enabled: !!id })
     const versionsQuery = useQuery({ queryKey: ["maintenance-agent-versions", id], queryFn: () => api.getVersions(id!), enabled: !!id })
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
     const frontendsQuery = useQuery({ queryKey: ["frontends-by-project-id", projectId], queryFn: () => frontendsApi.getByProjectId(projectId), enabled: !!projectId })
     const environmentsQuery = useProjectEnvironmentsQuery()
     const configMapsQuery = useVariableMapsQuery("configMap")
@@ -171,7 +171,7 @@ const MaintenanceAgentDetail: React.FC = () => {
     const canBuild = Boolean(agent?.codeRepository?.enabled) && !isViewer
 
     return (
-        <ApiStatusHandler queries={[agentQuery, runsQuery, versionsQuery, servicesQuery, frontendsQuery, environmentsQuery, configMapsQuery, secretsQuery, resourcesQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[agentQuery, runsQuery, versionsQuery, backendsQuery, frontendsQuery, environmentsQuery, configMapsQuery, secretsQuery, resourcesQuery]} interceptEmpty={false}>
             {agent && (
                 <div className="flex min-h-full flex-col gap-6">
                     <MaintenanceAgentHeader
@@ -183,7 +183,7 @@ const MaintenanceAgentDetail: React.FC = () => {
                                     {canBuild && (
                                         <Button variant="secondary" onClick={() => setBuildOpen(true)}>
                                             <Hammer />
-                                            {t("services.build.action")}
+                                            {t("backends.build.action")}
                                         </Button>
                                     )}
                                     <Button variant="primary" onClick={() => setRunning(agent)}>
@@ -197,7 +197,7 @@ const MaintenanceAgentDetail: React.FC = () => {
                     <MaintenanceBay
                         variant="single"
                         agents={[agent]}
-                        services={servicesQuery.data ?? []}
+                        backends={backendsQuery.data ?? []}
                         frontends={frontendsQuery.data ?? []}
                         resources={resourcesQuery.data}
                         onRun={isViewer ? undefined : setRunning}
@@ -205,23 +205,23 @@ const MaintenanceAgentDetail: React.FC = () => {
                     {agent.description && <p className="text-sm text-foreground-secondary">{agent.description}</p>}
                     <Card>
                         <CardHeader>
-                            <CardTitle className="mb-0">{t("services.code_repository")}</CardTitle>
+                            <CardTitle className="mb-0">{t("backends.code_repository")}</CardTitle>
                         </CardHeader>
                         <CardContent className="pt-3 text-sm">
-                            {agent.codeRepository?.enabled ? <RepositoryLink repository={agent.codeRepository} /> : <p className="text-foreground-secondary">{t("services.no_repository")}</p>}
+                            {agent.codeRepository?.enabled ? <RepositoryLink repository={agent.codeRepository} /> : <p className="text-foreground-secondary">{t("backends.no_repository")}</p>}
                         </CardContent>
                     </Card>
                     <ConfigurationSection agent={agent} environments={environments} />
-                    <TargetsSection agent={agent} services={servicesQuery.data ?? []} frontends={frontendsQuery.data ?? []} />
+                    <TargetsSection agent={agent} backends={backendsQuery.data ?? []} frontends={frontendsQuery.data ?? []} />
                     <MaintenanceRunsTable runs={runsQuery.data ?? []} environments={environments} />
-                    <ServiceVersionsTable versions={versionsQuery.data ?? []} />
-                    <ServiceVariableMapsSection service={agent} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environments} />
-                    <ServiceResourcesSection service={agent} resources={resourcesQuery.data ?? []} environments={environments} />
+                    <BackendVersionsTable versions={versionsQuery.data ?? []} />
+                    <BackendVariableMapsSection backend={agent} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environments} />
+                    <BackendResourcesSection backend={agent} resources={resourcesQuery.data ?? []} environments={environments} />
                     {canBuild && (
-                        <ServiceBuildDialog
+                        <BackendBuildDialog
                             open={buildOpen}
                             onOpenChange={setBuildOpen}
-                            service={agent}
+                            backend={agent}
                             build={api.build}
                             onBuilt={() => {
                                 queryClient.invalidateQueries({ queryKey: ["maintenance-agent-versions", id] })

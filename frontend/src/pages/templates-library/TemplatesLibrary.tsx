@@ -9,7 +9,7 @@ import SinglePageLayout from "@/components/SinglePageLayout"
 import useProjectStore from "@/store/useProjectStore"
 import { isRecommendedTemplate } from "@/utils/technologies"
 import useMarketApi, { type Market } from "../../hooks/apiClients/useMarketApi"
-import { isServiceTemplate } from "../services/partials/serviceTemplates"
+import { isBackendTemplate } from "../backends/partials/backendTemplates"
 import { BlankTemplateCard, TemplateCard } from "./partials"
 
 export const TemplatesLibrary: React.FC = () => {
@@ -20,7 +20,7 @@ export const TemplatesLibrary: React.FC = () => {
     const [selectedFramework, setSelectedFramework] = useState<string>("all")
     const [selectedCompiler, setSelectedCompiler] = useState<string>("all")
     const [getParams] = useSearchParams()
-    const [hostType, setHostType] = useState<string>(getParams.get("type") === "service" ? "service" : "all") // 'all', 'remote', 'host', 'service'
+    const [hostType, setHostType] = useState<string>(getParams.get("type") === "backend" ? "backend" : "all") // 'all', 'remote', 'host', 'backend'
     const technologies = useProjectStore(state => state.project?.technologies)
     const isRecommended = (market: Market) => isRecommendedTemplate(market, technologies)
 
@@ -42,9 +42,9 @@ export const TemplatesLibrary: React.FC = () => {
     }, [marketsQuery.data])
 
     const handleCardClick = (slug: string) => {
-        // Service templates create a backend service, not a frontend.
-        if (marketsQuery.data?.some(market => market.slug === slug && isServiceTemplate(market))) {
-            navigate(`/service/new?template=${slug}`)
+        // Backend templates create a backend, not a frontend.
+        if (marketsQuery.data?.some(market => market.slug === slug && isBackendTemplate(market))) {
+            navigate(`/backend/new?template=${slug}`)
         } else if (getParams.get("parentId")) {
             navigate(`/frontend/new?template=${slug}&parentId=${getParams.get("parentId")}`)
         } else {
@@ -61,12 +61,12 @@ export const TemplatesLibrary: React.FC = () => {
 
         const markets = marketsQuery.data.filter(market => {
             // A frontend parent can only take frontend children.
-            if (getParams.get("parentId") && isServiceTemplate(market)) return false
+            if (getParams.get("parentId") && isBackendTemplate(market)) return false
             const matchesSearch = market.name.toLowerCase().includes(searchTerm.toLowerCase())
             const matchesFramework = selectedFramework === "all" || market.framework === selectedFramework
             const matchesCompiler = selectedCompiler === "all" || market.compiler === selectedCompiler
             const matchesHostType =
-                hostType === "all" || (hostType === "remote" && market.type === "remote") || (hostType === "host" && market.type === "host") || (hostType === "service" && isServiceTemplate(market))
+                hostType === "all" || (hostType === "remote" && market.type === "remote") || (hostType === "host" && market.type === "host") || (hostType === "backend" && isBackendTemplate(market))
             return matchesSearch && matchesFramework && matchesCompiler && matchesHostType
         })
         // The templates of the project's default technologies come first, the others stay one scroll away: a guide, not a filter
@@ -136,7 +136,7 @@ export const TemplatesLibrary: React.FC = () => {
                                         <SelectItem value="all">{t("market.filters.allTypes")}</SelectItem>
                                         <SelectItem value="remote">{t("market.filters.remote")}</SelectItem>
                                         <SelectItem value="host">{t("market.filters.host")}</SelectItem>
-                                        <SelectItem value="service">{t("market.filters.service")}</SelectItem>
+                                        <SelectItem value="backend">{t("market.filters.backend")}</SelectItem>
                                     </SelectContent>
                                 </Select>
                             </div>

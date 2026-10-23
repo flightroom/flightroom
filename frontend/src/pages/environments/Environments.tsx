@@ -29,7 +29,7 @@ import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDial
 import useEnvironmentsApi, { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useDragAndDropOrder from "@/hooks/useDragAndDropOrder"
-import { effectiveSubdomain } from "@/pages/services/partials/serviceVariables"
+import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import EnvironmentsGate from "@/theme/EnvironmentsGate"

@@ -14,12 +14,12 @@ import { ApiStatusHandler } from "@/components/organisms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
 import { resourceIconUrl } from "@/components/resource/resourceIcons"
 import SinglePageLayout from "@/components/SinglePageLayout"
+import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useResourcesApi, { Resource, ResourceDTO, ResourceTypeSpec } from "@/hooks/apiClients/useResourcesApi"
-import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import { useProjectEnvironmentsQuery } from "../services/partials/serviceVariables"
+import { useProjectEnvironmentsQuery } from "../backends/partials/backendVariables"
 import ResourceApiSpecFields from "./partials/ResourceApiSpecFields"
 import ResourceCustomFieldsEditor from "./partials/ResourceCustomFieldsEditor"
 import ResourceFieldsTable from "./partials/ResourceFieldsTable"
@@ -140,8 +140,8 @@ const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number,
 
 type FormSchema = ReturnType<typeof createFormSchema>
 
-/** Who receives the variables of this resource: each service attaching it, linked */
-const UsedBySection: React.FC<{ resource: Resource; services: Service[] }> = ({ resource, services }) => {
+/** Who receives the variables of this resource: each backend attaching it, linked */
+const UsedBySection: React.FC<{ resource: Resource; backends: Backend[] }> = ({ resource, backends }) => {
     const { t } = useTranslation()
     const isViewer = useIsProjectViewer()
     const detach = useDetachResource()
@@ -153,23 +153,23 @@ const UsedBySection: React.FC<{ resource: Resource; services: Service[] }> = ({ 
                 <CardDescription>{t("resources.used_by.description")}</CardDescription>
             </CardHeader>
             <CardContent className="pt-3">
-                {services.length > 0 ? (
+                {backends.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                        {services.map(service => (
-                            <span key={service._id} className="inline-flex items-center">
-                                <Link to={`/service/${service._id}`}>
-                                    <Badge variant="outline">{service.name}</Badge>
+                        {backends.map(backend => (
+                            <span key={backend._id} className="inline-flex items-center">
+                                <Link to={`/backend/${backend._id}`}>
+                                    <Badge variant="outline">{backend.name}</Badge>
                                 </Link>
-                                {/* A viewer may look, not change what the services receive */}
+                                {/* A viewer may look, not change what the backends receive */}
                                 {!isViewer && (
                                     <Button
                                         type="button"
                                         variant="ghost"
                                         size="icon-sm"
                                         disabled={detach.isPending}
-                                        aria-label={t("resources.used_by.detach", { name: service.name })}
-                                        title={t("resources.used_by.detach", { name: service.name })}
-                                        onClick={() => detach.mutate({ service, resource })}
+                                        aria-label={t("resources.used_by.detach", { name: backend.name })}
+                                        title={t("resources.used_by.detach", { name: backend.name })}
+                                        onClick={() => detach.mutate({ backend, resource })}
                                     >
                                         <X />
                                     </Button>
@@ -292,17 +292,17 @@ const KeysPreview: React.FC<{ spec?: ResourceTypeSpec; variant: string; name: st
 interface ResourceFormContentProps {
     catalog: ResourceTypeSpec[]
     environments: EnvironmentDTO[]
-    services: Service[]
+    backends: Backend[]
     resource?: Resource
 }
 
-const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, environments, services, resource }) => {
+const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, environments, backends, resource }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const notifications = useToastNotificationStore()
     const api = useResourcesApi()
-    const attaching = services.filter(service => resource?._id && service.resourceIds?.includes(resource._id))
+    const attaching = backends.filter(backend => resource?._id && backend.resourceIds?.includes(resource._id))
     const specOf = (type: string) => catalog.find(spec => spec.type === type)
 
     // The resource as saved: what a change of where it connects is told from
@@ -480,7 +480,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                         <AlertDescription>{t("resources.gitops_hint")}</AlertDescription>
                     </Alert>
 
-                    {resource && <UsedBySection resource={resource} services={attaching} />}
+                    {resource && <UsedBySection resource={resource} backends={attaching} />}
 
                     {resource && <ResourceDangerZone resource={resource} inUse={attaching.length > 0} />}
 
@@ -504,22 +504,22 @@ const ResourceForm: React.FC = () => {
     const isEdit = Boolean(id) && id !== "new"
     const projectId = useProjectStore(state => state.project?._id)
     const api = useResourcesApi()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
 
     const resourceQuery = useQuery({ queryKey: ["resource", id], queryFn: () => api.getSingle(id!), enabled: isEdit })
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
     const catalogQuery = useResourceCatalogQuery()
     // Before the form mounts: its default values hold one value per environment
     const environmentsQuery = useProjectEnvironmentsQuery()
 
     return (
-        <ApiStatusHandler queries={[resourceQuery, servicesQuery, catalogQuery, environmentsQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[resourceQuery, backendsQuery, catalogQuery, environmentsQuery]} interceptEmpty={false}>
             {/* Keyed: going from one resource to another reuses the route, and the form must start over */}
             <ResourceFormContent
                 key={resourceQuery.data?._id ?? "new"}
                 catalog={catalogQuery.data ?? []}
                 environments={environmentsQuery.data ?? []}
-                services={servicesQuery.data ?? []}
+                backends={backendsQuery.data ?? []}
                 resource={isEdit ? resourceQuery.data : undefined}
             />
         </ApiStatusHandler>

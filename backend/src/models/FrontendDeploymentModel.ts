@@ -1,9 +1,9 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { SERVICE_DEPLOYMENT_COMMIT_SHA_MAX_LENGTH, SERVICE_DEPLOYMENT_IMAGE_MAX_LENGTH } from "./ServiceDeploymentModel"
+import { BACKEND_DEPLOYMENT_COMMIT_SHA_MAX_LENGTH, BACKEND_DEPLOYMENT_IMAGE_MAX_LENGTH } from "./BackendDeploymentModel"
 
 /**
  * A version of a DOCKER the deploy pipeline of the customer reported as running in an environment,
- * as a ServiceDeployment is for a service: the orchestrator does not deploy a DOCKER either. One
+ * as a BackendDeployment is for a backend: the orchestrator does not deploy a DOCKER either. One
  * document per notification, so the history stays; the version running is the latest by `deployedAt`.
  */
 export interface IFrontendDeployment extends Document<ObjectId> {
@@ -40,13 +40,13 @@ const frontendDeploymentSchema = new Schema<IFrontendDeployment>(
             type: String,
             required: false,
             trim: true,
-            maxlength: SERVICE_DEPLOYMENT_IMAGE_MAX_LENGTH
+            maxlength: BACKEND_DEPLOYMENT_IMAGE_MAX_LENGTH
         },
         commitSha: {
             type: String,
             required: false,
             trim: true,
-            maxlength: SERVICE_DEPLOYMENT_COMMIT_SHA_MAX_LENGTH
+            maxlength: BACKEND_DEPLOYMENT_COMMIT_SHA_MAX_LENGTH
         },
         deployedAt: {
             type: Date,

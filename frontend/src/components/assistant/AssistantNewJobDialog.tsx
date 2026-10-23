@@ -5,8 +5,8 @@ import { useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
 import useAiJobsApi from "@/hooks/apiClients/useAiJobsApi"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
-import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useAssistantJobsStore from "@/store/useAssistantJobsStore"
 import AiModelSelect from "./AiModelSelect"
 import { jobErrorMessage, PROMPT_MAX_LENGTH } from "./AssistantJobThread"
@@ -28,7 +28,7 @@ const NewJobForm: React.FC<NewJobFormProps> = ({ projectId, onCreated, onCancel 
     const { t } = useTranslation()
     const aiJobsApi = useAiJobsApi()
     const frontendsApi = useFrontendsApi()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const [all, setAll] = useState(false)
     const [selected, setSelected] = useState<Set<string>>(new Set())
     const [prompt, setPrompt] = useState("")
@@ -42,25 +42,25 @@ const NewJobForm: React.FC<NewJobFormProps> = ({ projectId, onCreated, onCancel 
         queryKey: ["frontends-by-project-id", projectId],
         queryFn: () => frontendsApi.getByProjectId(projectId)
     })
-    const servicesQuery = useQuery({
-        queryKey: ["services", projectId],
-        queryFn: () => servicesApi.getAll()
+    const backendsQuery = useQuery({
+        queryKey: ["backends", projectId],
+        queryFn: () => backendsApi.getAll()
     })
-    // The agent works on code: a frontend or a service without a linked repository has nothing to offer it.
+    // The agent works on code: a frontend or a backend without a linked repository has nothing to offer it.
     const repositories = [
         ...(frontendsQuery.data ?? []).map(frontend => ({ kind: "frontend" as const, id: frontend._id, name: frontend.name, enabled: frontend.codeRepository?.enabled })),
-        ...(servicesQuery.data ?? []).map(service => ({ kind: "service" as const, id: service._id, name: service.name, enabled: service.codeRepository?.enabled }))
+        ...(backendsQuery.data ?? []).map(backend => ({ kind: "backend" as const, id: backend._id, name: backend.name, enabled: backend.codeRepository?.enabled }))
     ].filter((repository): repository is typeof repository & { id: string } => Boolean(repository.id && repository.enabled))
-    const isPending = frontendsQuery.isPending || servicesQuery.isPending
-    // Ids are unique across frontends and services: the kind only decides which list an id goes in.
-    const selectedOf = (kind: "frontend" | "service") => repositories.filter(repository => repository.kind === kind && selected.has(repository.id)).map(repository => repository.id)
+    const isPending = frontendsQuery.isPending || backendsQuery.isPending
+    // Ids are unique across frontends and backends: the kind only decides which list an id goes in.
+    const selectedOf = (kind: "frontend" | "backend") => repositories.filter(repository => repository.kind === kind && selected.has(repository.id)).map(repository => repository.id)
 
     const createMutation = useMutation({
         mutationFn: () =>
             aiJobsApi.create(
                 all
                     ? { prompt: prompt.trim(), scope: "global", effort, aiModelId: aiModel?.id }
-                    : { prompt: prompt.trim(), scope: "selection", frontendIds: selectedOf("frontend"), serviceIds: selectedOf("service"), effort, aiModelId: aiModel?.id },
+                    : { prompt: prompt.trim(), scope: "selection", frontendIds: selectedOf("frontend"), backendIds: selectedOf("backend"), effort, aiModelId: aiModel?.id },
                 {
                     customErrorMessage: error => jobErrorMessage(t, error, "create")
                 }
@@ -118,7 +118,7 @@ const NewJobForm: React.FC<NewJobFormProps> = ({ projectId, onCreated, onCancel 
                         {repositories.map(repository => {
                             const id = repository.id
                             const checkboxId = `${idPrefix}-${repository.kind}-${id}`
-                            const Icon = repository.kind === "service" ? Server : LayoutDashboard
+                            const Icon = repository.kind === "backend" ? Server : LayoutDashboard
                             const checked = all || selected.has(id)
                             return (
                                 <li key={id} className="flex items-center gap-2">
@@ -133,7 +133,7 @@ const NewJobForm: React.FC<NewJobFormProps> = ({ projectId, onCreated, onCancel 
                                     <Label htmlFor={checkboxId} className="min-w-0 flex-1 cursor-pointer truncate">
                                         {repository.name}
                                     </Label>
-                                    {repository.kind === "service" && <Badge variant="outline">{t("assistant.jobs.service_badge")}</Badge>}
+                                    {repository.kind === "backend" && <Badge variant="outline">{t("assistant.jobs.backend_badge")}</Badge>}
                                 </li>
                             )
                         })}
@@ -191,7 +191,7 @@ interface AssistantNewJobDialogProps {
     onOpenChange: (open: boolean) => void
 }
 
-/** Starts an agent job on the frontends and services the user picks, or on all of them; the job opens in a tab of its own. */
+/** Starts an agent job on the frontends and backends the user picks, or on all of them; the job opens in a tab of its own. */
 const AssistantNewJobDialog: React.FC<AssistantNewJobDialogProps> = ({ projectId, open, onOpenChange }) => {
     const { t } = useTranslation()
     return (

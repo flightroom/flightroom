@@ -24,7 +24,7 @@ export interface IAiUsage {
     domainId?: Schema.Types.ObjectId
     /** The repositories of the job: each of them counts an equal share of the usage. */
     frontendIds: Schema.Types.ObjectId[]
-    serviceIds: Schema.Types.ObjectId[]
+    backendIds: Schema.Types.ObjectId[]
     /** An id of the organization's AIs, or `system`. */
     aiModelId?: string
     /** The provider that served it, when the caller knows it. */
@@ -45,7 +45,7 @@ const aiUsageSchema = new Schema<IAiUsage>(
         jobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob" },
         domainId: { type: Schema.Types.ObjectId, ref: "Domain" },
         frontendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Frontend" }], default: [] },
-        serviceIds: { type: [{ type: Schema.Types.ObjectId, ref: "Service" }], default: [] },
+        backendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Backend" }], default: [] },
         aiModelId: { type: String },
         // No enum, as on AssistantUsage: a provider added later must not cost the usage of its answers.
         provider: { type: String },
@@ -62,7 +62,7 @@ aiUsageSchema.index({ organizationId: 1, createdAt: -1 })
 aiUsageSchema.index({ projectId: 1, createdAt: -1 })
 aiUsageSchema.index({ domainId: 1, createdAt: -1 }, { partialFilterExpression: { domainId: { $exists: true } } })
 aiUsageSchema.index({ frontendIds: 1, createdAt: -1 })
-aiUsageSchema.index({ serviceIds: 1, createdAt: -1 })
+aiUsageSchema.index({ backendIds: 1, createdAt: -1 })
 
 const AiUsage = mongoose.model<IAiUsage>("AiUsage", aiUsageSchema)
 export default AiUsage

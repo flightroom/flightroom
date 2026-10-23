@@ -25,7 +25,7 @@ const applyBodySchema = {
 }
 
 /**
- * Code changes proposed by an AI agent on the repository of a frontend or of a backend service.
+ * Code changes proposed by an AI agent on the repository of a frontend or of a backend.
  * A request is then reached by its own id, whatever owns it.
  *
  * Creating one starts a background job and answers at once; the console polls the request until
@@ -47,7 +47,7 @@ export default async function aiChangeController(fastify: FastifyInstance) {
 
     const owners: [string, RepositoryComponentKind][] = [
         ["frontends", "frontend"],
-        ["services", "service"]
+        ["backends", "backend"]
     ]
     for (const [path, kind] of owners) {
         fastify.post<{ Params: { id: string }; Body: AiChangeCreateInput }>(

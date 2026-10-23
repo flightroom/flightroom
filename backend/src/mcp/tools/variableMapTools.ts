@@ -24,7 +24,7 @@ const configMaps = (principal: ConstructorParameters<typeof VariableMapService>[
 const secrets = (principal: ConstructorParameters<typeof VariableMapService>[1]) => new VariableMapService("secret", principal)
 
 /**
- * The config maps and the secrets of the project, which its backend services and DOCKER frontends
+ * The config maps and the secrets of the project, which its backends and DOCKER frontends
  * attach (configMapIds, secretIds). A save stays in the console: with GitOps on, the maps reach the
  * project's repository when an environment is deployed. Secrets are read with their values masked, and creating or
  * editing one stays in the console: its input is a secret, as for storages and databases.
@@ -33,7 +33,7 @@ export const variableMapTools = [
     defineTool({
         name: "config_maps_list",
         title: "List config maps",
-        description: "The config maps of the project: named sets of keys with a value per environment, which services and DOCKER frontends get as environment variables.",
+        description: "The config maps of the project: named sets of keys with a value per environment, which backends and DOCKER frontends get as environment variables.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,
@@ -52,7 +52,7 @@ export const variableMapTools = [
         name: "config_map_create",
         title: "Create config map",
         description:
-            "Adds a config map to the project. Its values are readable by anyone who sees the project: put secrets in a secret, from the console. Attach it with service_update or frontend_update (configMapIds).",
+            "Adds a config map to the project. Its values are readable by anyone who sees the project: put secrets in a secret, from the console. Attach it with backend_update or frontend_update (configMapIds).",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: z.object({
@@ -79,7 +79,7 @@ export const variableMapTools = [
     defineTool({
         name: "config_map_delete",
         title: "Delete config map",
-        description: "Deletes a config map of the project. Refused while a service or a DOCKER frontend still attaches it.",
+        description: "Deletes a config map of the project. Refused while a backend or a DOCKER frontend still attaches it.",
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
         inputSchema: z.object({ configMapId }),
@@ -109,7 +109,7 @@ export const variableMapTools = [
     defineTool({
         name: "secret_delete",
         title: "Delete secret",
-        description: "Deletes a secret of the project with its values. Refused while a service or a DOCKER frontend still attaches it.",
+        description: "Deletes a secret of the project with its values. Refused while a backend or a DOCKER frontend still attaches it.",
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
         inputSchema: z.object({ secretId }),

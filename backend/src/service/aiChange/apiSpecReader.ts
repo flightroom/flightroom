@@ -7,7 +7,7 @@ import { isPublicAddress, publicOnlyLookup } from "../../utils/clientMetadataFet
 
 /**
  * What the agent's `read_api_spec` tool reads: the Swagger/OpenAPI document of an `api` resource attached to
- * a service of the job, pasted in the console or fetched from its specUrl, and shown in a form a model can
+ * a backend of the job, pasted in the console or fetched from its specUrl, and shown in a form a model can
  * use without reading megabytes of JSON: an index of the operations, or one operation in full.
  */
 
@@ -380,7 +380,7 @@ export class ApiSpecReader {
         const name = argument(input, "resource")
         if (!name) throw new Error('Missing argument "resource"')
         const source = this.sources.find(candidate => candidate.resource === name)
-        if (!source) throw new Error(`"${name}" is not an api resource of the services of this job: one of ${this.resources.join(", ")}`)
+        if (!source) throw new Error(`"${name}" is not an api resource of the backends of this job: one of ${this.resources.join(", ")}`)
         const { document, source: origin } = await this.load(source)
         const path = argument(input, "path")
         const answer = path ? describeApiOperation(document, path, argument(input, "method")) : describeApiIndex(document, origin)

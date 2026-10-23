@@ -12,7 +12,7 @@ export interface IUserProject extends Document<ObjectId> {
     role: RoleInProject
     /**
      * Set when the membership is confined to some functional domains of the project: the member then
-     * reaches only the frontends and services of `domainIds`. Kept apart from the list because
+     * reaches only the frontends and backends of `domainIds`. Kept apart from the list because
      * deleting a domain pulls its id from every list: a scope whose last domain is deleted must stay
      * a scope over nothing, never turn into the whole project because its list became empty.
      */

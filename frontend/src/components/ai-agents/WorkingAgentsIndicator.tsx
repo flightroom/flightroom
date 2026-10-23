@@ -27,10 +27,10 @@ const useWorkingAgentsQuery = <T,>(select: (working: AiWorkingJob[]) => T) => {
     })
 }
 
-/** The agents at work right now, with the frontends and services each works on. */
+/** The agents at work right now, with the frontends and backends each works on. */
 export const useWorkingAgentJobs = (): AiWorkingJob[] => useWorkingAgentsQuery(working => working).data ?? NO_JOBS
 
-/** How many agents are at work on the frontend or service right now. */
+/** How many agents are at work on the frontend or backend right now. */
 export const useWorkingAgents = (componentId?: string): number =>
     useWorkingAgentsQuery(working => (componentId ? working.filter(entry => entry.componentIds.includes(componentId)).length : 0)).data ?? 0
 

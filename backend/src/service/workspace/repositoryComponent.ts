@@ -1,17 +1,17 @@
 import { IAiChangeRequest } from "../../models/AiChangeRequestModel"
+import Backend, { IBackend, IBackendEnvVariable } from "../../models/BackendModel"
 import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../../models/FrontendModel"
-import Service, { IService, IServiceEnvVariable } from "../../models/ServiceModel"
+import { BackendRuntime } from "../../types/BackendStack"
 import { IDesignSystem } from "../../types/DesignSystem"
-import { ServiceRuntime } from "../../types/ServiceStack"
 import { toObjectId } from "../../utils/mongooseUtils"
-import { frontendWorkspacePath, serviceWorkspacePath, WorkspaceOwner } from "../../utils/workspacePaths"
+import { backendWorkspacePath, frontendWorkspacePath, WorkspaceOwner } from "../../utils/workspacePaths"
 
 /**
  * What the workspace and the AI agent need of something backed by a repository: a frontend or
- * a backend service. Its id is the document's: ObjectIds are unique across collections, so the id
+ * a backend. Its id is the document's: ObjectIds are unique across collections, so the id
  * alone names the component, the kind tells which collection it lives in.
  */
-export type RepositoryComponentKind = "frontend" | "service"
+export type RepositoryComponentKind = "frontend" | "backend"
 
 export interface RepositoryComponentRef {
     kind: RepositoryComponentKind
@@ -38,25 +38,25 @@ export interface FrontendComponent extends RepositoryComponentBase {
     designSystem?: IDesignSystem
 }
 
-export interface ServiceComponent extends RepositoryComponentBase {
-    kind: "service"
-    runtime?: ServiceRuntime
+export interface BackendComponent extends RepositoryComponentBase {
+    kind: "backend"
+    runtime?: BackendRuntime
     framework?: string
     port?: number
     livenessPath?: string
     readinessPath?: string
     docsPath?: string
     openApiPath?: string
-    env: IServiceEnvVariable[]
+    env: IBackendEnvVariable[]
     /** Where it is exposed on the host of every environment, if it is */
     exposurePath?: string
     /** What reaches its container as environment variables: names and keys only are ever read from them */
-    configMapIds: IService["configMapIds"]
-    secretIds: IService["secretIds"]
-    resourceIds: IService["resourceIds"]
+    configMapIds: IBackend["configMapIds"]
+    secretIds: IBackend["secretIds"]
+    resourceIds: IBackend["resourceIds"]
 }
 
-export type RepositoryComponent = FrontendComponent | ServiceComponent
+export type RepositoryComponent = FrontendComponent | BackendComponent
 
 export const fromFrontend = (frontend: IFrontend): FrontendComponent => ({
     kind: "frontend",
@@ -72,50 +72,50 @@ export const fromFrontend = (frontend: IFrontend): FrontendComponent => ({
     designSystem: frontend.designSystem
 })
 
-export const fromService = (service: IService): ServiceComponent => ({
-    kind: "service",
-    _id: service._id as unknown as IFrontend["_id"],
-    projectId: service.projectId,
-    slug: service.slug,
-    name: service.name,
-    codeRepository: service.codeRepository,
-    context: service.context,
-    domainId: service.domainId ?? undefined,
-    runtime: service.stack?.runtime,
-    framework: service.stack?.framework,
-    port: service.port,
-    livenessPath: service.livenessPath,
-    readinessPath: service.readinessPath,
-    docsPath: service.docsPath ?? undefined,
-    openApiPath: service.openApiPath ?? undefined,
-    env: service.env ?? [],
-    exposurePath: service.exposurePath ?? undefined,
-    configMapIds: service.configMapIds ?? [],
-    secretIds: service.secretIds ?? [],
-    resourceIds: service.resourceIds ?? []
+export const fromBackend = (backend: IBackend): BackendComponent => ({
+    kind: "backend",
+    _id: backend._id as unknown as IFrontend["_id"],
+    projectId: backend.projectId,
+    slug: backend.slug,
+    name: backend.name,
+    codeRepository: backend.codeRepository,
+    context: backend.context,
+    domainId: backend.domainId ?? undefined,
+    runtime: backend.stack?.runtime,
+    framework: backend.stack?.framework,
+    port: backend.port,
+    livenessPath: backend.livenessPath,
+    readinessPath: backend.readinessPath,
+    docsPath: backend.docsPath ?? undefined,
+    openApiPath: backend.openApiPath ?? undefined,
+    env: backend.env ?? [],
+    exposurePath: backend.exposurePath ?? undefined,
+    configMapIds: backend.configMapIds ?? [],
+    secretIds: backend.secretIds ?? [],
+    resourceIds: backend.resourceIds ?? []
 })
 
 /** The component a request changes. */
-export const componentOf = (request: Pick<IAiChangeRequest, "frontendId" | "serviceId">): RepositoryComponentRef =>
-    request.serviceId ? { kind: "service", id: String(request.serviceId) } : { kind: "frontend", id: String(request.frontendId) }
+export const componentOf = (request: Pick<IAiChangeRequest, "frontendId" | "backendId">): RepositoryComponentRef =>
+    request.backendId ? { kind: "backend", id: String(request.backendId) } : { kind: "frontend", id: String(request.frontendId) }
 
 /** The id of the component a request changes, whichever its kind. */
-export const componentIdOf = (request: Pick<IAiChangeRequest, "frontendId" | "serviceId">) => String(request.serviceId ?? request.frontendId)
+export const componentIdOf = (request: Pick<IAiChangeRequest, "frontendId" | "backendId">) => String(request.backendId ?? request.frontendId)
 
 /** The field of a request that names its component. */
-export const ownerFields = (component: Pick<RepositoryComponent, "kind" | "_id">) => (component.kind === "service" ? { serviceId: component._id } : { frontendId: component._id })
+export const ownerFields = (component: Pick<RepositoryComponent, "kind" | "_id">) => (component.kind === "backend" ? { backendId: component._id } : { frontendId: component._id })
 
-/** The components of a job in the order they are shown: its frontends, then its services. */
-export const componentsOfJob = (job: { frontendIds: unknown[]; serviceIds?: unknown[] }): RepositoryComponentRef[] => [
+/** The components of a job in the order they are shown: its frontends, then its backends. */
+export const componentsOfJob = (job: { frontendIds: unknown[]; backendIds?: unknown[] }): RepositoryComponentRef[] => [
     ...job.frontendIds.map(id => ({ kind: "frontend" as const, id: String(id) })),
-    ...(job.serviceIds ?? []).map(id => ({ kind: "service" as const, id: String(id) }))
+    ...(job.backendIds ?? []).map(id => ({ kind: "backend" as const, id: String(id) }))
 ]
 
 /** One component, or null when it no longer exists. Authorization is up to the caller. */
 export const findComponent = async (ref: RepositoryComponentRef): Promise<RepositoryComponent | null> => {
-    if (ref.kind === "service") {
-        const service = await Service.findById(ref.id)
-        return service ? fromService(service) : null
+    if (ref.kind === "backend") {
+        const backend = await Backend.findById(ref.id)
+        return backend ? fromBackend(backend) : null
     }
     const frontend = await Frontend.findById(ref.id)
     return frontend ? fromFrontend(frontend) : null
@@ -125,16 +125,16 @@ export const findComponent = async (ref: RepositoryComponentRef): Promise<Reposi
 export const findComponents = async (refs: RepositoryComponentRef[], projection?: Record<string, 0 | 1>): Promise<RepositoryComponent[]> => {
     const idsOf = (kind: RepositoryComponentKind) => refs.filter(ref => ref.kind === kind).map(ref => toObjectId(ref.id))
     const frontendIds = idsOf("frontend")
-    const serviceIds = idsOf("service")
+    const backendIds = idsOf("backend")
     // A kind the job does not use is not queried at all.
-    const [frontends, services] = await Promise.all([
+    const [frontends, backends] = await Promise.all([
         frontendIds.length ? Frontend.find({ _id: { $in: frontendIds } }, projection) : [],
-        serviceIds.length ? Service.find({ _id: { $in: serviceIds } }, projection) : []
+        backendIds.length ? Backend.find({ _id: { $in: backendIds } }, projection) : []
     ])
-    const found: RepositoryComponent[] = [...frontends.map(fromFrontend), ...services.map(fromService)]
+    const found: RepositoryComponent[] = [...frontends.map(fromFrontend), ...backends.map(fromBackend)]
     return refs.flatMap(ref => found.filter(component => component.kind === ref.kind && String(component._id) === ref.id))
 }
 
-/** Where the working copy of a component lives: a frontend and a service of the same slug never share it. */
+/** Where the working copy of a component lives: a frontend and a backend of the same slug never share it. */
 export const componentWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "organization" | "project">, component: Pick<RepositoryComponent, "kind" | "slug">) =>
-    component.kind === "service" ? serviceWorkspacePath(root, { ...owner, serviceSlug: component.slug }) : frontendWorkspacePath(root, { ...owner, frontendSlug: component.slug })
+    component.kind === "backend" ? backendWorkspacePath(root, { ...owner, backendSlug: component.slug }) : frontendWorkspacePath(root, { ...owner, frontendSlug: component.slug })

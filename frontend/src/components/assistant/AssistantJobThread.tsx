@@ -85,19 +85,19 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
         <li className="flex flex-col gap-1 rounded-md border border-divider px-3 py-2 text-sm">
             <div className="flex items-center gap-2">
                 <span className="min-w-0 flex-1 truncate font-medium text-foreground">{repository.frontendName}</span>
-                {repository.kind === "service" && (
+                {repository.kind === "backend" && (
                     <Badge variant="outline">
                         <Server className="size-3" aria-hidden="true" />
-                        {t("assistant.jobs.service_badge")}
+                        {t("assistant.jobs.backend_badge")}
                     </Badge>
                 )}
                 <StatusBadge status={repository.status} />
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-secondary">
                 <span>{t("assistant.jobs.files", { count: repository.files.length })}</span>
-                {/* The review happens on the frontend (or service) page: diff, file selection, apply and discard. */}
+                {/* The review happens on the frontend (or backend) page: diff, file selection, apply and discard. */}
                 <Link
-                    to={repository.kind === "service" ? `/service/${repository.frontendId}?change=${repository.requestId}` : `/frontend/${repository.frontendId}?change=${repository.requestId}`}
+                    to={repository.kind === "backend" ? `/backend/${repository.frontendId}?change=${repository.requestId}` : `/frontend/${repository.frontendId}?change=${repository.requestId}`}
                     aria-label={t("assistant.jobs.diff_label", { name: repository.frontendName })}
                     className="font-medium text-primary-strong underline-offset-4 hover:underline"
                 >

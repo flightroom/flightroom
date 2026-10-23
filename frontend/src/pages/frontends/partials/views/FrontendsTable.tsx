@@ -101,7 +101,7 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
     const technology = frontendTechnologyOf(mfe)
 
     return (
-        // The whole row opens the frontend, as a row of the services table does.
+        // The whole row opens the frontend, as a row of the backends table does.
         <TableRow className={cn("cursor-pointer border-divider hover:bg-primary/5", agents > 0 && "bg-primary/5")} onClick={() => navigate(openPath)}>
             {/* Capped so a long name or slug cannot push the action column out of view. */}
             <TableCell className="max-w-[16rem] font-medium">

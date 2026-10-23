@@ -56,7 +56,7 @@ needed in the image, and no repository hook is ever run.
 
 ## Changing a whole domain
 
-**Edit with AI** on a functional domain starts one agent on every frontend and service of the
+**Edit with AI** on a functional domain starts one agent on every frontend and backend of the
 domain that has a code repository (at most 10), with the project and domain context. It sees them all
 at once, so one change can span an API and the screens that call it, and it still proposes one diff
 per repository, each on its own feature branch, applied or opened as a pull request on its own. Each
@@ -67,7 +67,7 @@ a repository are left out and listed under the request.
 
 When the domain has nothing for the agent to work on yet, **Generate** first offers to create it:
 
-- **No frontend and no service:** one model call proposes the components the request needs
+- **No frontend and no backend:** one model call proposes the components the request needs
   (usually a frontend and a backend, at most 3 of each), each with a name, a slug, a template and a
   repository name ending in `-fe` or `-be`. The user reviews and edits the proposal; on confirmation
   the console creates each one in the domain with a new repository scaffolded from its template, then
@@ -77,13 +77,13 @@ When the domain has nothing for the agent to work on yet, **Generate** first off
   starts the job.
 
 Both need a code repository connection on the project. Creating a repository for an existing member
-is also available as `POST /frontends/:id/repository` and `POST /services/:id/repository`;
+is also available as `POST /frontends/:id/repository` and `POST /backends/:id/repository`;
 viewers cannot use it.
 
 ## Fleet: missions on many repositories
 
 The **Fleet** page sends one request ("upgrade React to 19") to many repositories at once: every
-frontend and service of the project with a code repository, or the ones picked from the list. This is
+frontend and backend of the project with a code repository, or the ones picked from the list. This is
 a **mission**. A mission runs no agent of its own. It starts ordinary jobs, and each job proposes one
 diff per repository, reviewed, applied or opened as a pull request like any other.
 
@@ -161,8 +161,8 @@ handed to each network call.
   feature branch as soon as the agent is done, a pipeline that runs on every branch runs on the
   agent's code before anyone has reviewed it: limit such pipelines, or their secrets, to protected branches.
 - It cannot run anything: no install, build or test. The repository's CI checks the pull request.
-- It is told the config maps, secrets and resources attached to each service by the names of their
-  variables, never a credential (see [SECRETS](SECRETS.md#in-the-api)). When a service attaches an `api`
+- It is told the config maps, secrets and resources attached to each backend by the names of their
+  variables, never a credential (see [SECRETS](SECRETS.md#in-the-api)). When a backend attaches an `api`
   resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
   `specUrl` from the backend with no access to private addresses, and answers with an index of the
   operations or one operation in full.

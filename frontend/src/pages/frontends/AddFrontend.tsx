@@ -20,13 +20,13 @@ import useFrontendsApi, { CanaryDeploymentType, CanaryType, Frontend, FrontendKi
 import useMarketApi from "@/hooks/apiClients/useMarketApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
 import { useVariableMapErrorMessage, VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
+import BackendEndpointFields from "@/pages/backends/partials/BackendEndpointFields"
+import BackendEnvFields from "@/pages/backends/partials/BackendEnvFields"
+import BackendRuntimeFields from "@/pages/backends/partials/BackendRuntimeFields"
+import BackendVariableMapsFields from "@/pages/backends/partials/BackendVariableMapsFields"
+import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
+import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import { CodeRepositorySection, DangerZoneRemoveFrontend, FrontendHeader, FrontendKindField, HostingSection, isAiEditAvailable, ReleaseSection } from "@/pages/frontends/partials/components"
-import ServiceEndpointFields from "@/pages/services/partials/ServiceEndpointFields"
-import ServiceEnvFields from "@/pages/services/partials/ServiceEnvFields"
-import ServiceRuntimeFields from "@/pages/services/partials/ServiceRuntimeFields"
-import ServiceVariableMapsFields from "@/pages/services/partials/ServiceVariableMapsFields"
-import ServiceVersionsTable from "@/pages/services/partials/ServiceVersionsTable"
-import { createServiceRuntimeShape, refineExposure, SERVICE_VERSION, useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
@@ -50,8 +50,8 @@ interface FormMessages {
 }
 
 const createFormSchema = (messages: FormMessages) => {
-    // What a DOCKER declares about its container, with the same rules as a service
-    const containerSchema = z.object(createServiceRuntimeShape(messages))
+    // What a DOCKER declares about its container, with the same rules as a backend
+    const containerSchema = z.object(createBackendRuntimeShape(messages))
 
     return z
         .object({
@@ -149,14 +149,14 @@ const createFormSchema = (messages: FormMessages) => {
                 }
             }
             if (data.kind === FrontendKind.DOCKER) {
-                // Its container, with the same rules as a service: every issue lands on the field it is about
+                // Its container, with the same rules as a backend: every issue lands on the field it is about
                 const container = containerSchema.safeParse(data)
                 for (const issue of container.error?.issues ?? []) {
                     ctx.addIssue({ code: "custom", message: issue.message, path: issue.path })
                 }
                 refineExposure(data, ctx, messages)
-                // Optional, as for a service: it is the tag of the image, with the same rule
-                if (data.version?.trim() && !SERVICE_VERSION.test(data.version.trim())) {
+                // Optional, as for a backend: it is the tag of the image, with the same rule
+                if (data.version?.trim() && !BACKEND_VERSION.test(data.version.trim())) {
                     ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["version"] })
                 }
                 return
@@ -263,11 +263,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const formSchema = useMemo(
         () =>
             createFormSchema({
-                path: t("services.path_invalid"),
-                exposurePath: t("services.exposure_path_invalid"),
-                exposurePathRequired: t("services.exposure_path_required"),
+                path: t("backends.path_invalid"),
+                exposurePath: t("backends.exposure_path_invalid"),
+                exposurePathRequired: t("backends.exposure_path_required"),
                 versionRequired: t("frontend.validation.version_required"),
-                versionInvalid: t("services.version_invalid"),
+                versionInvalid: t("backends.version_invalid"),
                 hostUrlRequired: t("frontend.validation.host_url_required"),
                 canaryPercentage: t("frontend.validation.canary_percentage"),
                 designSystemPackageRequired: t("designSystem.fields.packageNameRequired"),
@@ -277,7 +277,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         [t]
     )
 
-    // The service defaults until it declares its own: a BUNDLE holds them only in case it is switched to DOCKER
+    // The backend defaults until it declares its own: a BUNDLE holds them only in case it is switched to DOCKER
     const containerDefaults = {
         port: String(frontend?.port ?? 8080),
         livenessPath: frontend?.livenessPath ?? "/health/live",
@@ -475,7 +475,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
                 <FetchDataTemplateCard slug={template} />
 
-                {isEdit && frontend?.kind === FrontendKind.DOCKER && <ServiceVersionsTable versions={buildsQuery.data ?? []} />}
+                {isEdit && frontend?.kind === FrontendKind.DOCKER && <BackendVersionsTable versions={buildsQuery.data ?? []} />}
 
                 <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)} tabsListPosition="fullWidth">
                     <TabsList>
@@ -610,10 +610,10 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                     {isDocker ? (
                         <TabsContent value="container" forceMount>
                             <div className="flex flex-col gap-6">
-                                <ServiceRuntimeFields />
-                                <ServiceEndpointFields environments={environments} placeholder="/shell" />
-                                <ServiceEnvFields />
-                                <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                                <BackendRuntimeFields />
+                                <BackendEndpointFields environments={environments} placeholder="/shell" />
+                                <BackendEnvFields />
+                                <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
                             </div>
                         </TabsContent>
                     ) : (

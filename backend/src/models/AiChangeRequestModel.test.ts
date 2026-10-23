@@ -20,15 +20,15 @@ describe("AiChangeRequest", () => {
 
     it.each([
         ["a frontend", { frontendId: new Types.ObjectId() }],
-        ["a service", { serviceId: new Types.ObjectId() }]
+        ["a backend", { backendId: new Types.ObjectId() }]
     ])("Given a request on %s, when it is validated, then it is valid", async (_owner, owner) => {
         await expect(request(owner).validate()).resolves.toBeUndefined()
     })
 
     it.each([
         ["neither", {}],
-        ["both", { frontendId: new Types.ObjectId(), serviceId: new Types.ObjectId() }]
-    ])("Given a request on %s a frontend nor a service, when it is validated, then it is refused", async (_owner, owner) => {
-        await expect(request(owner).validate()).rejects.toThrow(/Exactly one of frontendId and serviceId/)
+        ["both", { frontendId: new Types.ObjectId(), backendId: new Types.ObjectId() }]
+    ])("Given a request on %s a frontend nor a backend, when it is validated, then it is refused", async (_owner, owner) => {
+        await expect(request(owner).validate()).rejects.toThrow(/Exactly one of frontendId and backendId/)
     })
 })

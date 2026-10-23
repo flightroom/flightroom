@@ -60,9 +60,9 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             ]
         },
         {
-            title: t("navigation.sections.services"),
+            title: t("navigation.sections.backends"),
             items: [
-                { name: t("services.title"), path: "/services", icon: <Server /> },
+                { name: t("backends.title"), path: "/backends", icon: <Server /> },
                 { name: t("variableMaps.configMap.list_title"), path: "/config-maps", icon: <SlidersHorizontal /> },
                 { name: t("variableMaps.secret.list_title"), path: "/secrets", icon: <KeyRound /> },
                 { name: t("resources.list_title"), path: "/resources", icon: <Boxes /> }

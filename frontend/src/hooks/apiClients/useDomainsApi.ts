@@ -2,7 +2,7 @@ import type { AxiosError } from "axios"
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf } from "../useApiClient"
 
-/** A functional domain: a named group of frontends and services of the project */
+/** A functional domain: a named group of frontends and backends of the project */
 export interface Domain {
     _id: string
     projectId: string
@@ -14,7 +14,7 @@ export interface Domain {
     /** Only on the list */
     frontendsCount?: number
     /** Only on the list */
-    servicesCount?: number
+    backendsCount?: number
     createdAt?: Date
     updatedAt?: Date
 }
@@ -25,10 +25,10 @@ export interface DomainDTO {
     context?: string
 }
 
-/** Frontends and services of the project to put in a domain */
+/** Frontends and backends of the project to put in a domain */
 export interface DomainMembersDTO {
     frontendIds?: string[]
-    serviceIds?: string[]
+    backendIds?: string[]
 }
 
 /** Why a repository of a domain build was not tagged */
@@ -39,7 +39,7 @@ export interface DomainBuildRepository {
     /** Stable across builds: the connection, the repository id or name, and the GitLab path when there is one */
     id: string
     repository: string
-    members: { kind: "frontend" | "service"; _id: string; name: string }[]
+    members: { kind: "frontend" | "backend"; _id: string; name: string }[]
     /** ready: checked, but left untagged because another repository failed its check */
     status: "tagged" | "ready" | "failed"
     reason?: DomainBuildFailure
@@ -57,9 +57,9 @@ export interface DomainBuildResult {
 /** Where a build and deploy of a domain stands: building, then the console waits for the CI, sets the versions and deploys */
 export type DomainReleaseStatus = "building" | "waiting_ci" | "updating_versions" | "deploying" | "deployed" | "failed"
 
-/** A frontend or a service of the domain, as the release found it when it started */
+/** A frontend or a backend of the domain, as the release found it when it started */
 export interface DomainReleaseMember {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     _id: string
     name: string
     /** Its repository was tagged: without one it is left out of the release, its version untouched */
@@ -146,8 +146,8 @@ const useDomainsApi = () => {
     }
 
     /** Moves the members into the domain, out of the one they were in; answers how many it now groups of each */
-    const addMembers = async (id: string, members: DomainMembersDTO): Promise<{ frontends: number; services: number }> => {
-        const response = await apiClient.doRequest<{ frontends: number; services: number }>({
+    const addMembers = async (id: string, members: DomainMembersDTO): Promise<{ frontends: number; backends: number }> => {
+        const response = await apiClient.doRequest<{ frontends: number; backends: number }>({
             url: `/api/domains/${id}/members`,
             method: "POST",
             data: members,

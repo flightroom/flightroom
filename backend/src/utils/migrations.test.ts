@@ -2,9 +2,9 @@ import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import AiChangeJob from "../models/AiChangeJobModel"
 import AiChangeRequest from "../models/AiChangeRequestModel"
-import Service from "../models/ServiceModel"
+import Backend from "../models/BackendModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
-import { backfillAiChangeConversations, moveServiceVariablesToMaps, removeAssistantConversationExpiry } from "./migrations"
+import { backfillAiChangeConversations, moveBackendVariablesToMaps, removeAssistantConversationExpiry } from "./migrations"
 import { encryptSecret, resetSecretEncryptionKeyCache } from "./secretCrypto"
 
 const dropIndex = vi.fn()
@@ -48,17 +48,17 @@ describe("removeAssistantConversationExpiry", () => {
     })
 })
 
-describe("moveServiceVariablesToMaps", () => {
+describe("moveBackendVariablesToMaps", () => {
     const originalKey = process.env.SECRETS_ENCRYPTION_KEY
     const projectId = new Types.ObjectId()
-    const serviceId = new Types.ObjectId()
+    const backendId = new Types.ObjectId()
     const environmentId = new Types.ObjectId()
     const configMapId = new Types.ObjectId()
     const secretId = new Types.ObjectId()
     let updateOne: ReturnType<typeof vi.fn>
 
     const holding = (fields: object) => {
-        vi.spyOn(Service.collection, "find").mockReturnValue([{ _id: serviceId, projectId, slug: "orders-", ...fields }] as never)
+        vi.spyOn(Backend.collection, "find").mockReturnValue([{ _id: backendId, projectId, slug: "orders-", ...fields }] as never)
     }
     const duplicateKey = () => Object.assign(new Error("E11000"), { code: 11000 })
     const migrationLogger = { info: vi.fn(), error: vi.fn() }
@@ -71,7 +71,7 @@ describe("moveServiceVariablesToMaps", () => {
         vi.spyOn(Secret, "findOne").mockResolvedValue(null)
         vi.spyOn(ConfigMap, "create").mockResolvedValue({ _id: configMapId } as never)
         vi.spyOn(Secret, "create").mockResolvedValue({ _id: secretId } as never)
-        updateOne = vi.spyOn(Service.collection, "updateOne").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
+        updateOne = vi.spyOn(Backend.collection, "updateOne").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
     })
 
     afterEach(() => {
@@ -81,27 +81,27 @@ describe("moveServiceVariablesToMaps", () => {
         resetSecretEncryptionKeyCache()
     })
 
-    it("Given a service holding a config map and secrets encrypted inside it, when it runs, then both become maps named after it, readable again, attached, and the fields go", async () => {
+    it("Given a backend holding a config map and secrets encrypted inside it, when it runs, then both become maps named after it, readable again, attached, and the fields go", async () => {
         const encrypted = encryptSecret("hunter2", "Service:secrets.values.value")
         holding({
             configMap: [{ key: "LOG_LEVEL", values: [{ environmentId, value: "debug" }] }],
             secrets: [{ key: "DATABASE_PASSWORD", values: [{ environmentId, value: encrypted }] }]
         })
 
-        await moveServiceVariablesToMaps(migrationLogger as never)
+        await moveBackendVariablesToMaps(migrationLogger as never)
 
         expect(ConfigMap.create).toHaveBeenCalledWith(expect.objectContaining({ projectId, name: "orders", entries: [{ key: "LOG_LEVEL", values: [{ environmentId, value: "debug" }] }] }))
         expect(Secret.create).toHaveBeenCalledWith(expect.objectContaining({ name: "orders", entries: [{ key: "DATABASE_PASSWORD", values: [{ environmentId, value: "hunter2" }] }] }))
-        expect(updateOne).toHaveBeenCalledWith({ _id: serviceId }, { $addToSet: { configMapIds: { $each: [configMapId] }, secretIds: { $each: [secretId] } }, $unset: { configMap: "", secrets: "" } })
+        expect(updateOne).toHaveBeenCalledWith({ _id: backendId }, { $addToSet: { configMapIds: { $each: [configMapId] }, secretIds: { $each: [secretId] } }, $unset: { configMap: "", secrets: "" } })
     })
 
-    it("Given a rerun after the map was created but before the service was updated, when it runs, then the existing map is attached and no other is created", async () => {
+    it("Given a rerun after the map was created but before the backend was updated, when it runs, then the existing map is attached and no other is created", async () => {
         holding({ configMap: [{ key: "LOG_LEVEL", values: [] }], secrets: [] })
         vi.spyOn(ConfigMap, "findOne").mockResolvedValue({ _id: configMapId } as never)
 
-        await moveServiceVariablesToMaps(migrationLogger as never)
+        await moveBackendVariablesToMaps(migrationLogger as never)
 
-        expect(ConfigMap.findOne).toHaveBeenCalledWith({ projectId, description: `Moved from the service orders- (${serviceId})` }, { _id: 1 })
+        expect(ConfigMap.findOne).toHaveBeenCalledWith({ projectId, description: `Moved from the service orders- (${backendId})` }, { _id: 1 })
         expect(ConfigMap.create).not.toHaveBeenCalled()
         expect(Secret.create).not.toHaveBeenCalled()
         expect(updateOne.mock.calls[0][1].$addToSet).toEqual({ configMapIds: { $each: [configMapId] }, secretIds: { $each: [] } })
@@ -112,20 +112,20 @@ describe("moveServiceVariablesToMaps", () => {
         const create = vi.fn().mockRejectedValueOnce(duplicateKey()).mockResolvedValueOnce({ _id: configMapId })
         vi.spyOn(ConfigMap, "create").mockImplementation(create as never)
 
-        await moveServiceVariablesToMaps(migrationLogger as never)
+        await moveBackendVariablesToMaps(migrationLogger as never)
 
-        expect(create.mock.calls.map(([map]) => map.name)).toEqual(["orders", `orders-${String(serviceId).slice(-6)}`])
+        expect(create.mock.calls.map(([map]) => map.name)).toEqual(["orders", `orders-${String(backendId).slice(-6)}`])
         expect(updateOne.mock.calls[0][1].$addToSet.configMapIds).toEqual({ $each: [configMapId] })
     })
 
-    it("Given a secret the key cannot read, when it runs, then that service keeps its values and the next one is still moved", async () => {
+    it("Given a secret the key cannot read, when it runs, then that backend keeps its values and the next one is still moved", async () => {
         const otherId = new Types.ObjectId()
-        vi.spyOn(Service.collection, "find").mockReturnValue([
-            { _id: serviceId, projectId, slug: "broken", secrets: [{ key: "A", values: [{ environmentId, value: "enc:v1:a:b:c" }] }] },
+        vi.spyOn(Backend.collection, "find").mockReturnValue([
+            { _id: backendId, projectId, slug: "broken", secrets: [{ key: "A", values: [{ environmentId, value: "enc:v1:a:b:c" }] }] },
             { _id: otherId, projectId, slug: "orders", configMap: [{ key: "LOG_LEVEL", values: [] }] }
         ] as never)
 
-        await moveServiceVariablesToMaps(migrationLogger as never)
+        await moveBackendVariablesToMaps(migrationLogger as never)
 
         expect(migrationLogger.error).toHaveBeenCalledTimes(1)
         expect(updateOne).toHaveBeenCalledTimes(1)

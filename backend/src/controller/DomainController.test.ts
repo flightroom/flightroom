@@ -35,7 +35,7 @@ describe("DomainController build", () => {
         await app.close()
     })
 
-    it("Given a version and a ref, when the domain is built, then both reach the service with the domain id and the result comes back", async () => {
+    it("Given a version and a ref, when the domain is built, then both reach the backend with the domain id and the result comes back", async () => {
         const result = { version: "1.4.0", ref: "release/1.4", repositories: [] }
         build.mockResolvedValue(result)
 
@@ -46,7 +46,7 @@ describe("DomainController build", () => {
         expect(build).toHaveBeenCalledWith(DOMAIN, "1.4.0", "release/1.4")
     })
 
-    it("Given no body, when the domain is built, then the service decides: it gets no version and no ref", async () => {
+    it("Given no body, when the domain is built, then the backend decides: it gets no version and no ref", async () => {
         build.mockResolvedValue({})
 
         await app.inject({ method: "POST", url: `/domains/${DOMAIN}/build` })
@@ -70,7 +70,7 @@ describe("DomainController build and deploy", () => {
         await app.close()
     })
 
-    it("Given a version, a ref and an environment, when the domain is built and deployed, then all three reach the service with the domain id and the release comes back", async () => {
+    it("Given a version, a ref and an environment, when the domain is built and deployed, then all three reach the backend with the domain id and the release comes back", async () => {
         const release = { _id: "r1", status: "waiting_ci", version: "1.4.0" }
         start.mockResolvedValue(release)
 

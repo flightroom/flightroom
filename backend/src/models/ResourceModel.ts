@@ -18,9 +18,9 @@ export interface IResourceValue {
 }
 
 /**
- * A package of variables of a catalog type (a database, a storage...) that backend services receive
+ * A package of variables of a catalog type (a database, a storage...) that backends receive
  * once they attach it. One value holds in every environment of the project unless an environment
- * overrides it. A resource belongs to the project, as a config map does: services attach it by id.
+ * overrides it. A resource belongs to the project, as a config map does: backends attach it by id.
  */
 export interface IResource extends Document<ObjectId> {
     projectId: Schema.Types.ObjectId

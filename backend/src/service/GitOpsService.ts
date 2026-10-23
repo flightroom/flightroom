@@ -6,6 +6,7 @@ import { stringify } from "yaml"
 import { fastify } from ".."
 import { createBusinessException } from "../errors/BusinessException"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
+import Backend from "../models/BackendModel"
 import CodeRepository, { ICodeRepository } from "../models/CodeRepositoryModel"
 import Environment, { IEnvironment } from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
@@ -13,7 +14,6 @@ import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Organization from "../models/OrganizationModel"
 import Project, { IProjectGitOps } from "../models/ProjectModel"
 import Resource, { IResource } from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { variableMapModels } from "../models/VariableMapModel"
 import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
@@ -185,7 +185,7 @@ export const renderManifest = (kind: VariableMapKind, map: CommittedVariableMap,
 
 /**
  * The Kubernetes Secret of a resource in one environment, every key of it in one Opaque Secret, plain
- * values too, so a service takes it with one secretRef: the value the environment overrides with, the one
+ * values too, so a backend takes it with one secretRef: the value the environment overrides with, the one
  * of all otherwise, the fixed ones of the variant. A field with neither is left out. Base64 encoded, not
  * encrypted, as a secret map is. The API document of an api is not among the fields: it never comes here.
  */
@@ -226,7 +226,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 - \`<environment>/gateway.yaml\`: when the project has a domain, the Traefik Gateway answering on the host of the environment, its cert-manager Certificate and the redirect to HTTPS
 - \`<environment>/configMaps/<name>.yaml\`: the ConfigMaps, in that namespace
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
-- \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a service attaches, in that namespace, values base64 encoded (not encrypted)
+- \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a backend attaches, in that namespace, values base64 encoded (not encrypted)
 
 Do not edit these manifests here: the next deploy of the environment overwrites them.
 `,
@@ -234,7 +234,7 @@ Do not edit these manifests here: the next deploy of the environment overwrites 
 
 One branch per environment, named as its slug, committed by Flightroom every time the environment is deployed:
 
-- \`<application>.yaml\`: the Helm values of each backend service and frontend, with the version deployed and, when it has an exposure path, its HTTPRoute on the Gateway of the environment
+- \`<application>.yaml\`: the Helm values of each backend and frontend, with the version deployed and, when it has an exposure path, its HTTPRoute on the Gateway of the environment
 - \`microservice-chart/\`: the Helm chart they are installed with, written once: change it as the cluster needs
 
 Point an Argo CD Application per application and environment at \`microservice-chart\` on the branch of the
@@ -268,7 +268,7 @@ const isConfigurationManifest = (path: string) => {
     return rest.length === 0 && (third === undefined ? second === NAMESPACE_FILE || second === GATEWAY_FILE : KIND_FOLDERS.has(second) && third.endsWith(".yaml"))
 }
 
-/** A map as it is read for a deploy: its id is how services and frontends attach it */
+/** A map as it is read for a deploy: its id is how backends and frontends attach it */
 type DeployedMap = CommittedVariableMap & { _id: unknown }
 
 /** A resource as it is read for a deploy, as for a map */
@@ -276,8 +276,8 @@ type DeployedResource = ResourceWithValues & { _id: unknown }
 
 /**
  * What a deploy of one environment ships: its Namespace, its Gateway when it has one, every config map and
- * secret of the project as they are in it, and every resource a service attaches. A Gateway left out is
- * pruned, with the project's domain gone, and so is a resource no service attaches any longer.
+ * secret of the project as they are in it, and every resource a backend attaches. A Gateway left out is
+ * pruned, with the project's domain gone, and so is a resource no backend attaches any longer.
  */
 const environmentFiles = (
     environment: Pick<IEnvironment, "_id" | "slug" | "namespace">,
@@ -311,7 +311,7 @@ const revertingOnFailure = async <T>(next: () => Promise<T>, revert: () => Promi
  * one gets the Namespace of each deployed environment, `<environment>/namespace.yaml`, its config maps
  * and secrets, `<environment>/configMaps/<name>.yaml` and `<environment>/secrets/<name>.yaml`, and its
  * attached resources, `<environment>/resources/<name>.yaml`, on its default branch. The applications one, when there is one, gets on the branch of each deployed environment the Helm
- * values of every service and frontend, `<application>.yaml`, and the chart they are installed with. Saving a
+ * values of every backend and frontend, `<application>.yaml`, and the chart they are installed with. Saving a
  * map or an environment commits nothing: the repositories say what is deployed.
  *
  * The commits go before the deployments are saved, under the locks of the repositories: a deploy whose commits
@@ -459,13 +459,13 @@ export class GitOpsService extends BaseAuthorizedService {
                 if (undo.length > 0) await commit(`Revert: ${message.toLowerCase()}`, undo)
             })
         })
-        // Once the values are on the branches, outside the locks: a service or a branch new to Argo CD gets its Applications
+        // Once the values are on the branches, outside the locks: a backend or a branch new to Argo CD gets its Applications
         if (applicationsLink) await new ArgoCdService(this.user).alignApplications(projectId)
         return result
     }
 
     /**
-     * Commits on the branch of each deployed environment the values of the services, frontends and maintenance agents that can be
+     * Commits on the branch of each deployed environment the values of the backends, frontends and maintenance agents that can be
      * installed, with the container registry of the project for those with no image of their own, and the chart
      * when the branch has none, then runs `deploy`. A domain-scoped member writes the
      * values of their own applications only, a deploy of one domain those of that domain; the values of an
@@ -485,12 +485,12 @@ export class GitOpsService extends BaseAuthorizedService {
     ): Promise<T> {
         const scope = domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectId)
         const applications: GitOpsApplication[] = [
-            ...(await Service.find({ projectId, ...scope })),
+            ...(await Backend.find({ projectId, ...scope })),
             ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, ...scope })),
             ...(await maintenanceApplications(await MaintenanceAgent.find({ projectId, ...scope })))
         ]
         const existingSlugs = new Set(
-            [...(await Service.find({ projectId }, { slug: 1 })), ...(await Frontend.find({ projectId }, { slug: 1 })), ...(await MaintenanceAgent.find({ projectId }, { slug: 1 }))].map(
+            [...(await Backend.find({ projectId }, { slug: 1 })), ...(await Frontend.find({ projectId }, { slug: 1 })), ...(await MaintenanceAgent.find({ projectId }, { slug: 1 }))].map(
                 application => application.slug
             )
         )
@@ -507,7 +507,7 @@ export class GitOpsService extends BaseAuthorizedService {
         if (clash) {
             throw createBusinessException({
                 code: "GITOPS_APPLICATION_SLUG_CLASH",
-                message: `Two services, frontends or maintenance agents share the slug "${clash}", which names their values file: rename one of them`,
+                message: `Two backends, frontends or maintenance agents share the slug "${clash}", which names their values file: rename one of them`,
                 statusCode: 409,
                 details: { slug: clash }
             })
@@ -549,7 +549,7 @@ export class GitOpsService extends BaseAuthorizedService {
     private async ensureDistinctExposurePaths(projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<void> {
         const fields = { slug: 1, version: 1, image: 1, exposurePath: 1 }
         const applications: GitOpsApplication[] = [
-            ...(await Service.find({ projectId, exposurePath: { $ne: null } }, fields)),
+            ...(await Backend.find({ projectId, exposurePath: { $ne: null } }, fields)),
             ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, exposurePath: { $ne: null } }, fields))
         ]
         const exposed = applications.filter(application => isDeployable(application, containerRegistry) && application.exposurePath)

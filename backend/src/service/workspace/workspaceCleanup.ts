@@ -1,16 +1,16 @@
 import fs from "node:fs/promises"
 import { fastify } from "../.."
 import AiChangeRequest from "../../models/AiChangeRequestModel"
+import { IBackend } from "../../models/BackendModel"
 import { IFrontend } from "../../models/FrontendModel"
 import Organization from "../../models/OrganizationModel"
 import Project, { IProject } from "../../models/ProjectModel"
-import { IService } from "../../models/ServiceModel"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { projectWorkspacePath } from "../../utils/workspacePaths"
-import { componentWorkspacePath, fromFrontend, fromService, RepositoryComponent } from "./repositoryComponent"
+import { componentWorkspacePath, fromBackend, fromFrontend, RepositoryComponent } from "./repositoryComponent"
 
 /**
- * What goes away with a frontend, a service or a project besides its documents: the local clones of its
+ * What goes away with a frontend, a backend or a project besides its documents: the local clones of its
  * repositories and the AI change requests made on them.
  *
  * Kept apart from the workspace service so the services that delete things can call it without
@@ -34,7 +34,7 @@ const forgetComponents = async (components: RepositoryComponent[]) => {
             if (owner) await removeFolder(componentWorkspacePath(fastify.config.REPOSITORIES_FOLDER, owner, component))
         }
         const idsOf = (kind: RepositoryComponent["kind"]) => components.filter(component => component.kind === kind).map(component => component._id)
-        await AiChangeRequest.deleteMany({ $or: [{ frontendId: { $in: idsOf("frontend") } }, { serviceId: { $in: idsOf("service") } }] })
+        await AiChangeRequest.deleteMany({ $or: [{ frontendId: { $in: idsOf("frontend") } }, { backendId: { $in: idsOf("backend") } }] })
     } catch (error) {
         fastify.log.warn({ err: error }, "Could not clean up after deleted components")
     }
@@ -42,7 +42,7 @@ const forgetComponents = async (components: RepositoryComponent[]) => {
 
 export const forgetFrontends = (frontends: IFrontend[]) => forgetComponents(frontends.map(fromFrontend))
 
-export const forgetServices = (services: IService[]) => forgetComponents(services.map(fromService))
+export const forgetBackends = (backends: IBackend[]) => forgetComponents(backends.map(fromBackend))
 
 /** Resolves the folder before the project is deleted, removes it once the deletion went through. */
 export const prepareProjectCleanup = async (projectId: string) => {

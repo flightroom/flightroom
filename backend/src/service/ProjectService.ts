@@ -5,8 +5,10 @@ import CustomError from "../errors/CustomError"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import ApiKey from "../models/ApiKeyModel"
+import BackendDeployment from "../models/BackendDeploymentModel"
+import Backend from "../models/BackendModel"
+import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
-import BuiltService from "../models/BuiltServiceModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Database from "../models/DatabaseModel"
 import Deployment from "../models/DeploymentModel"
@@ -19,16 +21,14 @@ import MaintenanceRun from "../models/MaintenanceRunModel"
 import Organization from "../models/OrganizationModel"
 import Project, { IProject, IProjectPipelines } from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
-import ServiceDeployment from "../models/ServiceDeploymentModel"
-import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { CONTAINER_REGISTRY } from "../types/BackendStack"
 import { designSystemOf, effectiveDesignSystem, IDesignSystem, redactDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
-import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import { slugify } from "../utils/slugUtils"
@@ -160,11 +160,11 @@ interface ContextEntry {
 export type DesignSystemSource = "frontend" | "project" | "organization"
 
 /**
- * What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and service that has it.
+ * What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and backend that has it.
  * Every design system is the one that applies, with the level it comes from.
  */
 export interface ProjectContextDTO {
-    /** The technologies and the design system of the frontends come along: an agent creating a frontend or a service starts from them. */
+    /** The technologies and the design system of the frontends come along: an agent creating a frontend or a backend starts from them. */
     project: {
         id: string
         name: string
@@ -176,7 +176,7 @@ export interface ProjectContextDTO {
     }
     domains: ContextEntry[]
     frontends: ContextEntry[]
-    services: ContextEntry[]
+    backends: ContextEntry[]
     /** With a frontend focus: the design system its UI is built with, its own, else the project's, else the organization's, whether it has a context or not */
     designSystem?: IDesignSystem
     designSystemSource?: DesignSystemSource
@@ -196,17 +196,17 @@ export const projectDesignSystemOf = async (
 }
 
 /**
- * The piece of work a context is read for. A frontend or a service reads its own context and
- * the one of its domain; a domain reads its own and the one of each of its frontends and services.
+ * The piece of work a context is read for. A frontend or a backend reads its own context and
+ * the one of its domain; a domain reads its own and the one of each of its frontends and backends.
  * The project context always comes along.
  */
-export type ContextFocus = { frontendId: string } | { serviceId: string } | { domainId: string }
+export type ContextFocus = { frontendId: string } | { backendId: string } | { domainId: string }
 
-/** Which domains, frontends and services a focus reads the context of: a list left out is read for none. */
+/** Which domains, frontends and backends a focus reads the context of: a list left out is read for none. */
 interface ContextFilters {
     domains?: Record<string, unknown>
     frontends?: Record<string, unknown>
-    services?: Record<string, unknown>
+    backends?: Record<string, unknown>
     /** The frontend of a frontend focus */
     frontend?: Pick<IFrontend, "designSystem">
 }
@@ -346,10 +346,10 @@ export class ProjectService extends BaseAuthorizedService {
         const filters = await this.contextFilters(projectIdObj, focus)
         const withContext = { projectId: projectIdObj, context: { $nin: [null, ""] } }
         const fields = { slug: 1, name: 1, context: 1 }
-        const [domains, frontends, services] = await Promise.all([
+        const [domains, frontends, backends] = await Promise.all([
             filters.domains ? Domain.find({ ...filters.domains, ...withContext }, fields).sort({ slug: 1 }) : [],
             filters.frontends ? Frontend.find({ ...filters.frontends, ...withContext }, fields).sort({ slug: 1 }) : [],
-            filters.services ? Service.find({ ...filters.services, ...withContext }, fields).sort({ slug: 1 }) : []
+            filters.backends ? Backend.find({ ...filters.backends, ...withContext }, fields).sort({ slug: 1 }) : []
         ])
         const { frontend, backend } = project.technologies ?? {}
         const projectDesignSystem = await projectDesignSystemOf(project)
@@ -366,7 +366,7 @@ export class ProjectService extends BaseAuthorizedService {
             },
             domains: domains.map(toContextEntry),
             frontends: frontends.map(toContextEntry),
-            services: services.map(toContextEntry),
+            backends: backends.map(toContextEntry),
             designSystem: filters.frontend ? redactDesignSystem(effectiveDesignSystem(ownDesignSystem, projectDesignSystem.designSystem)) : undefined,
             designSystemSource: filters.frontend ? (ownDesignSystem ? "frontend" : projectDesignSystem.source) : undefined
         }
@@ -381,7 +381,7 @@ export class ProjectService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(projectId)
         if (!focus) {
             const members = await this.domainScopeFilter(projectId)
-            return { domains: await this.domainScopeFilter(projectId, "_id"), frontends: members, services: members }
+            return { domains: await this.domainScopeFilter(projectId, "_id"), frontends: members, backends: members }
         }
         const domainOf = (domainId?: unknown) => (domainId ? { _id: domainId } : undefined)
         const ensureInScope = (domainId: unknown) => {
@@ -391,7 +391,7 @@ export class ProjectService extends BaseAuthorizedService {
             const domain = await Domain.findOne({ _id: toObjectId(focus.domainId), projectId }, { _id: 1 })
             if (!domain) throw new EntityNotFoundError(focus.domainId)
             ensureInScope(domain._id)
-            return { domains: { _id: domain._id }, frontends: { domainId: domain._id }, services: { domainId: domain._id } }
+            return { domains: { _id: domain._id }, frontends: { domainId: domain._id }, backends: { domainId: domain._id } }
         }
         if ("frontendId" in focus) {
             const frontend = await Frontend.findOne({ _id: toObjectId(focus.frontendId), projectId }, { domainId: 1, designSystem: 1 })
@@ -399,10 +399,10 @@ export class ProjectService extends BaseAuthorizedService {
             ensureInScope(frontend.domainId)
             return { domains: domainOf(frontend.domainId), frontends: { _id: frontend._id }, frontend }
         }
-        const service = await Service.findOne({ _id: toObjectId(focus.serviceId), projectId }, { domainId: 1 })
-        if (!service) throw new EntityNotFoundError(focus.serviceId)
-        ensureInScope(service.domainId)
-        return { domains: domainOf(service.domainId), services: { _id: service._id } }
+        const backend = await Backend.findOne({ _id: toObjectId(focus.backendId), projectId }, { domainId: 1 })
+        if (!backend) throw new EntityNotFoundError(focus.backendId)
+        ensureInScope(backend.domainId)
+        return { domains: domainOf(backend.domainId), backends: { _id: backend._id } }
     }
 
     async create(projectData: ProjectCreateInput, creatorUserId: ObjectId): Promise<IProject> {
@@ -616,14 +616,14 @@ export class ProjectService extends BaseAuthorizedService {
         const mfeIds = frontends.map(mfe => mfe._id)
         await BuiltFrontend.deleteMany({ frontendId: { $in: mfeIds } }, session)
 
-        const services = await Service.find({ projectId: projectIdObj }, { _id: 1 }, { session })
-        await BuiltService.deleteMany({ serviceId: { $in: services.map(service => service._id) } }, session)
-        await ServiceDeployment.deleteMany({ serviceId: { $in: services.map(service => service._id) } }, { session })
+        const backends = await Backend.find({ projectId: projectIdObj }, { _id: 1 }, { session })
+        await BuiltBackend.deleteMany({ backendId: { $in: backends.map(backend => backend._id) } }, session)
+        await BackendDeployment.deleteMany({ backendId: { $in: backends.map(backend => backend._id) } }, { session })
 
-        // The versions and deploys an agent's CI registers are kept as a service's, under its id
+        // The versions and deploys an agent's CI registers are kept as a backend's, under its id
         const agents = await MaintenanceAgent.find({ projectId: projectIdObj }, { _id: 1 }, { session })
-        await BuiltService.deleteMany({ serviceId: { $in: agents.map(agent => agent._id) } }, { session })
-        await ServiceDeployment.deleteMany({ serviceId: { $in: agents.map(agent => agent._id) } }, { session })
+        await BuiltBackend.deleteMany({ backendId: { $in: agents.map(agent => agent._id) } }, { session })
+        await BackendDeployment.deleteMany({ backendId: { $in: agents.map(agent => agent._id) } }, { session })
         await MaintenanceRun.deleteMany({ projectId: projectIdObj }, { session })
         await MaintenanceAgent.deleteMany({ projectId: projectIdObj }, { session })
 
@@ -637,7 +637,7 @@ export class ProjectService extends BaseAuthorizedService {
 
         await Deployment.deleteMany({ projectId: projectIdObj }, session)
         await Frontend.deleteMany({ projectId: projectIdObj }, session)
-        await Service.deleteMany({ projectId: projectIdObj }, session)
+        await Backend.deleteMany({ projectId: projectIdObj }, session)
         await ConfigMap.deleteMany({ projectId: projectIdObj }, { session })
         await Secret.deleteMany({ projectId: projectIdObj }, { session })
         await Resource.deleteMany({ projectId: projectIdObj }, { session })

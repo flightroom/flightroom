@@ -27,6 +27,7 @@ import AiChangeRequest, { AiChangeStatus } from "../../models/AiChangeRequestMod
 import AiMission from "../../models/AiMissionModel"
 import AiModel from "../../models/AiModelModel"
 import AiUsage from "../../models/AiUsageModel"
+import Backend from "../../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
 import Domain from "../../models/DomainModel"
 import Environment from "../../models/EnvironmentModel"
@@ -34,7 +35,6 @@ import Frontend from "../../models/FrontendModel"
 import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
 import Resource from "../../models/ResourceModel"
-import Service from "../../models/ServiceModel"
 import User, { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import { ConfigMap, Secret } from "../../models/VariableMapModel"
@@ -58,7 +58,7 @@ const frontend = (slug: string, name: string) => ({ _id: new Types.ObjectId(), p
 const catalog = frontend("catalog", "Catalog")
 const cart = frontend("cart", "Cart")
 const connectionId = new Types.ObjectId()
-// Shares its slug with the catalog frontend: a service and a frontend may.
+// Shares its slug with the catalog frontend: a backend and a frontend may.
 const catalogApi = {
     _id: new Types.ObjectId(),
     projectId,
@@ -92,7 +92,7 @@ describe("AiChangeJobService", () => {
     let role: RoleInProject
     let frontends: ReturnType<typeof frontend>[]
     let withRepository: ReturnType<typeof frontend>[]
-    let services: (typeof catalogApi)[]
+    let backends: (typeof catalogApi)[]
     let activeJobs: number
     let updates: Update[]
 
@@ -100,7 +100,7 @@ describe("AiChangeJobService", () => {
         role = RoleInProject.MEMBER
         frontends = [catalog, cart]
         withRepository = [catalog, cart]
-        services = []
+        backends = []
         activeJobs = 0
         updates = []
         const gates = BaseAuthorizedService.prototype as unknown as WithGates
@@ -116,9 +116,9 @@ describe("AiChangeJobService", () => {
         )
         vi.spyOn(Frontend, "find").mockImplementation(((filter: { _id: { $in: unknown[] } }) =>
             Promise.resolve(frontends.filter(candidate => filter._id.$in.map(String).includes(String(candidate._id))))) as never)
-        // By id for the components of a job, by project for the services a global job covers.
-        vi.spyOn(Service, "find").mockImplementation(((filter: { _id?: { $in: unknown[] } }) =>
-            Promise.resolve(filter._id ? services.filter(candidate => filter._id!.$in.map(String).includes(String(candidate._id))) : services)) as never)
+        // By id for the components of a job, by project for the backends a global job covers.
+        vi.spyOn(Backend, "find").mockImplementation(((filter: { _id?: { $in: unknown[] } }) =>
+            Promise.resolve(filter._id ? backends.filter(candidate => filter._id!.$in.map(String).includes(String(candidate._id))) : backends)) as never)
         vi.spyOn(CodeRepository, "find").mockResolvedValue([{ _id: connectionId, projectId, provider: CodeRepositoryProvider.GITHUB }] as never)
         vi.spyOn(AiChangeJob, "exists").mockResolvedValue(null as never)
         vi.spyOn(AiChangeRequest, "exists").mockResolvedValue(null as never)
@@ -311,26 +311,26 @@ describe("AiChangeJobService", () => {
             expect(AiChangeRequest.hydrate({ _id: new Types.ObjectId(), prompt: "Rename the price API" }).effort).toBe("high")
         })
 
-        it("Given a frontend and a service selected, when the job is started, then the job lists each under its kind and each gets its request", async () => {
-            services = [catalogApi]
+        it("Given a frontend and a backend selected, when the job is started, then the job lists each under its kind and each gets its request", async () => {
+            backends = [catalogApi]
 
-            await service().create(projectId, { prompt: "Expose the price", scope: "selection", frontendIds: [String(cart._id)], serviceIds: [String(catalogApi._id)] })
+            await service().create(projectId, { prompt: "Expose the price", scope: "selection", frontendIds: [String(cart._id)], backendIds: [String(catalogApi._id)] })
 
-            expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ frontendIds: [cart._id], serviceIds: [catalogApi._id] }))
+            expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ frontendIds: [cart._id], backendIds: [catalogApi._id] }))
             const requests = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([document]) => document as Record<string, unknown>)
             expect(requests).toEqual([
                 expect.objectContaining({ frontendId: cart._id, jobRepositoryCount: 2 }),
-                expect.objectContaining({ serviceId: catalogApi._id, jobRepositoryCount: 2, baseBranch: "main" })
+                expect.objectContaining({ backendId: catalogApi._id, jobRepositoryCount: 2, baseBranch: "main" })
             ])
             expect(requests[1].frontendId).toBeUndefined()
         })
 
-        it("Given a service with a repository, when a global job is started, then it works on the service too", async () => {
-            services = [catalogApi]
+        it("Given a backend with a repository, when a global job is started, then it works on the backend too", async () => {
+            backends = [catalogApi]
 
             await service().create(projectId, { prompt: "Expose the price", scope: "global" })
 
-            expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ scope: "global", frontendIds: [catalog._id, cart._id], serviceIds: [catalogApi._id] }))
+            expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ scope: "global", frontendIds: [catalog._id, cart._id], backendIds: [catalogApi._id] }))
         })
 
         describe("on a domain", () => {
@@ -342,40 +342,40 @@ describe("AiChangeJobService", () => {
                     Promise.resolve(String(filter._id) === String(checkoutId) && String(filter.projectId) === projectId ? checkout : null)) as never)
             })
 
-            it("Given a domain with a frontend and a service, when its job is started, then it works on its members only and remembers the domain", async () => {
+            it("Given a domain with a frontend and a backend, when its job is started, then it works on its members only and remembers the domain", async () => {
                 withRepository = [{ ...cart, domainId: checkoutId } as never, catalog]
-                services = [{ ...catalogApi, domainId: checkoutId } as never]
+                backends = [{ ...catalogApi, domainId: checkoutId } as never]
 
                 const job = await service().create(projectId, { prompt: "Show the shipping cost", scope: "domain", domainId: String(checkoutId) })
 
-                expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ scope: "domain", domainId: checkoutId, frontendIds: [cart._id], serviceIds: [catalogApi._id] }))
+                expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ scope: "domain", domainId: checkoutId, frontendIds: [cart._id], backendIds: [catalogApi._id] }))
                 expect(job).toMatchObject({ scope: "domain", domainId: String(checkoutId) })
             })
 
             it("Given a base branch picked for one member, when its job is started, then that repository starts from it and the others from their default", async () => {
                 withRepository = [{ ...cart, domainId: checkoutId } as never]
-                services = [{ ...catalogApi, domainId: checkoutId } as never]
+                backends = [{ ...catalogApi, domainId: checkoutId } as never]
 
                 await service().create(projectId, { prompt: "Show the shipping cost", scope: "domain", domainId: String(checkoutId), baseBranches: { [String(catalogApi._id)]: " develop " } })
 
                 const requests = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([document]) => document as Record<string, unknown>)
-                expect(requests).toEqual([expect.objectContaining({ frontendId: cart._id, baseBranch: "main" }), expect.objectContaining({ serviceId: catalogApi._id, baseBranch: "develop" })])
+                expect(requests).toEqual([expect.objectContaining({ frontendId: cart._id, baseBranch: "main" }), expect.objectContaining({ backendId: catalogApi._id, baseBranch: "develop" })])
             })
 
             describe("by a member assigned to it", () => {
-                let servicesOutside: ReturnType<typeof vi.spyOn>
+                let backendsOutside: ReturnType<typeof vi.spyOn>
 
                 beforeEach(() => {
                     vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(checkoutId)])
                     withRepository = [{ ...cart, domainId: checkoutId } as never]
-                    services = [{ ...catalogApi, domainId: checkoutId } as never]
+                    backends = [{ ...catalogApi, domainId: checkoutId } as never]
                     vi.spyOn(CodeRepository, "findById").mockResolvedValue({ provider: CodeRepositoryProvider.GITHUB } as never)
                     vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
-                    servicesOutside = vi.spyOn(Service, "exists").mockResolvedValue(null as never)
+                    backendsOutside = vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
                 })
 
-                it("Given a member's repository shared with a service of another domain, when its job is started, then it is refused before anything is created", async () => {
-                    servicesOutside.mockResolvedValue({ _id: new Types.ObjectId() } as never)
+                it("Given a member's repository shared with a backend of another domain, when its job is started, then it is refused before anything is created", async () => {
+                    backendsOutside.mockResolvedValue({ _id: new Types.ObjectId() } as never)
 
                     await expect(service().create(projectId, { prompt: "Show the shipping cost", scope: "domain", domainId: String(checkoutId) })).rejects.toMatchObject({
                         code: "DOMAIN_SCOPE_FORBIDDEN",
@@ -419,10 +419,10 @@ describe("AiChangeJobService", () => {
             })
         })
 
-        it("Given a selected service of another project, when the job is started, then it is not found", async () => {
-            services = [{ ...catalogApi, projectId: new Types.ObjectId().toString() }]
+        it("Given a selected backend of another project, when the job is started, then it is not found", async () => {
+            backends = [{ ...catalogApi, projectId: new Types.ObjectId().toString() }]
 
-            await expect(service().create(projectId, { prompt: "Expose the price", scope: "selection", serviceIds: [String(catalogApi._id)] })).rejects.toMatchObject({
+            await expect(service().create(projectId, { prompt: "Expose the price", scope: "selection", backendIds: [String(catalogApi._id)] })).rejects.toMatchObject({
                 message: expect.stringContaining(String(catalogApi._id))
             })
             expect(AiChangeJob.create).not.toHaveBeenCalled()
@@ -929,9 +929,9 @@ describe("AiChangeJobService", () => {
             })
         })
 
-        it("Given a job on a frontend and a service of the same slug, when it runs, then the agent sees both under distinct slugs and the service with its container facts", async () => {
-            services = [catalogApi]
-            const serviceRequest = { _id: new Types.ObjectId(), jobId, serviceId: catalogApi._id, baseBranch: "main" }
+        it("Given a job on a frontend and a backend of the same slug, when it runs, then the agent sees both under distinct slugs and the backend with its container facts", async () => {
+            backends = [catalogApi]
+            const backendRequest = { _id: new Types.ObjectId(), jobId, backendId: catalogApi._id, baseBranch: "main" }
             vi.spyOn(AiChangeJob, "findById").mockImplementation(((id: unknown) =>
                 Promise.resolve(
                     String(id) === String(jobId)
@@ -942,23 +942,23 @@ describe("AiChangeJobService", () => {
                               userId: user._id,
                               prompt: "Expose the price",
                               frontendIds: [catalog._id],
-                              serviceIds: [catalogApi._id],
+                              backendIds: [catalogApi._id],
                               status: AiJobStatus.RUNNING
                           }
                         : null
                 )) as never)
-            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ ...request, parentId: undefined }, serviceRequest] as never)
+            vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ ...request, parentId: undefined }, backendRequest] as never)
             workspaces.set(String(catalogApi._id), {
                 target: {},
                 workingCopy: {
-                    dir: `${dir}-service`,
+                    dir: `${dir}-backend`,
                     changes: vi.fn(async () => [{ path: "src/routes/price.ts", action: "create" }]),
                     readWorkingFile: vi.fn(async () => "export const price = 1\n"),
                     discardChanges: vi.fn(async () => undefined)
                 },
                 defaultBranch: "main"
             })
-            let input: { repositories: { frontend?: { slug: string }; service?: Record<string, unknown> }[] } | undefined
+            let input: { repositories: { frontend?: { slug: string }; backend?: Record<string, unknown> }[] } | undefined
             runAgent.mockImplementationOnce(async (_client: unknown, received: typeof input) => {
                 input = received
                 return { summary: "Exposed the price", stopReason: "finished" }
@@ -966,10 +966,10 @@ describe("AiChangeJobService", () => {
 
             await run()
 
-            expect(input?.repositories.map(repository => repository.frontend?.slug ?? repository.service?.slug)).toEqual(["catalog", "catalog-service"])
-            expect(input?.repositories[1].service).toEqual({
+            expect(input?.repositories.map(repository => repository.frontend?.slug ?? repository.backend?.slug)).toEqual(["catalog", "catalog-backend"])
+            expect(input?.repositories[1].backend).toEqual({
                 name: "Catalog API",
-                slug: "catalog-service",
+                slug: "catalog-backend",
                 runtime: "NODE",
                 framework: "Express",
                 port: 3000,
@@ -982,11 +982,11 @@ describe("AiChangeJobService", () => {
                 clusterUrl: "http://catalog"
             })
             expect(updates).toContainEqual(
-                expect.objectContaining({ filter: { _id: serviceRequest._id, status: AiChangeStatus.RUNNING }, update: expect.objectContaining({ status: AiChangeStatus.PROPOSED }) })
+                expect.objectContaining({ filter: { _id: backendRequest._id, status: AiChangeStatus.RUNNING }, update: expect.objectContaining({ status: AiChangeStatus.PROPOSED }) })
             )
         })
 
-        describe("on services with configuration", () => {
+        describe("on backends with configuration", () => {
             const configMapId = new Types.ObjectId()
             const secretId = new Types.ObjectId()
             const databaseId = new Types.ObjectId()
@@ -1034,17 +1034,17 @@ describe("AiChangeJobService", () => {
             ]
 
             let input: Record<string, unknown> | undefined
-            const runOn = async (service: Record<string, unknown> & { _id: Types.ObjectId }, others: Record<string, unknown>[] = []) => {
-                services = [service, ...others] as unknown as (typeof catalogApi)[]
-                const serviceRequest = { _id: new Types.ObjectId(), jobId, serviceId: service._id, baseBranch: "main" }
+            const runOn = async (backend: Record<string, unknown> & { _id: Types.ObjectId }, others: Record<string, unknown>[] = []) => {
+                backends = [backend, ...others] as unknown as (typeof catalogApi)[]
+                const backendRequest = { _id: new Types.ObjectId(), jobId, backendId: backend._id, baseBranch: "main" }
                 vi.spyOn(AiChangeJob, "findById").mockImplementation(((id: unknown) =>
                     Promise.resolve(
                         String(id) === String(jobId)
-                            ? { _id: jobId, rootJobId: jobId, projectId, userId: user._id, prompt: "Charge the order", frontendIds: [], serviceIds: [service._id], status: AiJobStatus.RUNNING }
+                            ? { _id: jobId, rootJobId: jobId, projectId, userId: user._id, prompt: "Charge the order", frontendIds: [], backendIds: [backend._id], status: AiJobStatus.RUNNING }
                             : null
                     )) as never)
-                vi.spyOn(AiChangeRequest, "find").mockResolvedValue([serviceRequest] as never)
-                workspaces.set(String(service._id), {
+                vi.spyOn(AiChangeRequest, "find").mockResolvedValue([backendRequest] as never)
+                workspaces.set(String(backend._id), {
                     target: {},
                     workingCopy: {
                         dir: `${dir}-orders`,
@@ -1060,7 +1060,7 @@ describe("AiChangeJobService", () => {
                 })
                 await run()
                 return input as {
-                    repositories: { service: Record<string, unknown> }[]
+                    repositories: { backend: Record<string, unknown> }[]
                     apiSpecs?: { resource: string; specUrl?: string; loadPasted?: () => Promise<string | undefined> }[]
                 }
             }
@@ -1086,7 +1086,7 @@ describe("AiChangeJobService", () => {
             it("Given maps, resources and an exposure, when it runs, then the agent gets their names, keys and URLs and never a value of a credential nor of an override", async () => {
                 const received = await runOn(orders)
 
-                expect(received.repositories[0].service).toMatchObject({
+                expect(received.repositories[0].backend).toMatchObject({
                     exposurePath: "/api/orders/",
                     clusterUrl: "http://orders",
                     publicUrls: [
@@ -1096,7 +1096,7 @@ describe("AiChangeJobService", () => {
                     configMaps: [{ name: "orders-config", keys: ["LOG_LEVEL", "FEATURE_FLAGS"] }],
                     secrets: [{ name: "orders-keys", keys: ["STRIPE_API_KEY"] }]
                 })
-                const [database, api] = received.repositories[0].service.resources as Record<string, unknown>[]
+                const [database, api] = received.repositories[0].backend.resources as Record<string, unknown>[]
                 expect(database).toEqual({
                     name: "orders",
                     type: "database",
@@ -1150,13 +1150,13 @@ describe("AiChangeJobService", () => {
                 const received = await runOn(orders)
 
                 expect(received).not.toHaveProperty("apiSpecs")
-                expect((received.repositories[0].service.resources as { name: string }[]).map(resource => resource.name)).toEqual(["orders", "payments"])
+                expect((received.repositories[0].backend.resources as { name: string }[]).map(resource => resource.name)).toEqual(["orders", "payments"])
             })
 
-            it("Given a domain-scoped member whose service shares an api with a service of another domain, when their job runs, then the agent is told nothing of that api", async () => {
+            it("Given a domain-scoped member whose backend shares an api with a backend of another domain, when their job runs, then the agent is told nothing of that api", async () => {
                 const ownDomain = new Types.ObjectId()
                 vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(ownDomain)])
-                // The service is in a domain: the job follows its context
+                // The backend is in a domain: the job follows its context
                 vi.spyOn(Domain, "find").mockReturnValue({ sort: () => Promise.resolve([]) } as never)
                 vi.mocked(Resource.find).mockImplementation(((filter: { _id: { $in: unknown[] } }) =>
                     Promise.resolve(storedResources.filter(resource => filter._id.$in.map(String).includes(String(resource._id))))) as never)
@@ -1164,12 +1164,12 @@ describe("AiChangeJobService", () => {
                 const received = await runOn({ ...orders, domainId: ownDomain }, [{ ...catalogApi, _id: new Types.ObjectId(), slug: "billing", domainId: new Types.ObjectId(), resourceIds: [apiId] }])
 
                 expect(firstQuery(Resource.find)[0]).toEqual({ _id: { $in: [String(databaseId)] }, projectId })
-                expect((received.repositories[0].service.resources as { name: string }[]).map(resource => resource.name)).toEqual(["orders"])
+                expect((received.repositories[0].backend.resources as { name: string }[]).map(resource => resource.name)).toEqual(["orders"])
                 expect(received).not.toHaveProperty("apiSpecs")
                 expect(JSON.stringify(received)).not.toContain("payments")
             })
 
-            it("Given a service attaching nothing in a project without exposure, when it runs, then nothing more is read and the agent gets only its cluster URL", async () => {
+            it("Given a backend attaching nothing in a project without exposure, when it runs, then nothing more is read and the agent gets only its cluster URL", async () => {
                 vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, name: "Shop" } as never)
 
                 const received = await runOn({ ...orders, exposurePath: undefined, configMapIds: [], secretIds: [], resourceIds: [] })
@@ -1177,17 +1177,17 @@ describe("AiChangeJobService", () => {
                 for (const model of [ConfigMap, Secret, Resource, Environment]) {
                     expect(model.find).not.toHaveBeenCalled()
                 }
-                expect(received.repositories[0].service).not.toHaveProperty("resources")
-                expect(received.repositories[0].service).not.toHaveProperty("publicUrls")
-                expect(received.repositories[0].service.clusterUrl).toBe("http://orders")
+                expect(received.repositories[0].backend).not.toHaveProperty("resources")
+                expect(received.repositories[0].backend).not.toHaveProperty("publicUrls")
+                expect(received.repositories[0].backend.clusterUrl).toBe("http://orders")
                 expect(received).not.toHaveProperty("apiSpecs")
             })
         })
 
-        it("Given a job of a domain whose services attach resources, when it runs, then the domain lists each with the services using it", async () => {
+        it("Given a job of a domain whose backends attach resources, when it runs, then the domain lists each with the backends using it", async () => {
             const databaseId = new Types.ObjectId()
             const domainId = new Types.ObjectId()
-            services = [
+            backends = [
                 { ...catalogApi, slug: "payments", resourceIds: [databaseId] },
                 { ...catalogApi, slug: "orders", resourceIds: [databaseId] }
             ] as never
@@ -1204,7 +1204,7 @@ describe("AiChangeJobService", () => {
 
             await run()
 
-            expect(Service.find).toHaveBeenCalledWith({ projectId, domainId }, { slug: 1, resourceIds: 1 })
+            expect(Backend.find).toHaveBeenCalledWith({ projectId, domainId }, { slug: 1, resourceIds: 1 })
             expect(firstQuery(Resource.find)).toEqual([{ _id: { $in: [String(databaseId)] }, projectId }, "name type description"])
             expect(received?.domain).toEqual({ name: "Checkout", resources: [{ name: "orders", type: "database", usedBy: ["payments", "orders"] }] })
             expect(JSON.stringify(received)).not.toContain("s3cr3t")
@@ -1215,7 +1215,7 @@ describe("AiChangeJobService", () => {
             const sharedId = new Types.ObjectId()
             const domainId = new Types.ObjectId()
             vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(domainId)])
-            services = [
+            backends = [
                 { ...catalogApi, slug: "payments", domainId, resourceIds: [databaseId, sharedId] },
                 { ...catalogApi, _id: new Types.ObjectId(), slug: "billing", domainId: new Types.ObjectId(), resourceIds: [sharedId] }
             ] as never
@@ -1475,7 +1475,7 @@ describe("AiChangeJobService", () => {
             vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(ownDomain)])
             vi.spyOn(CodeRepository, "findById").mockResolvedValue({ provider: CodeRepositoryProvider.GITHUB } as never)
             vi.spyOn(Frontend, "exists").mockResolvedValue({ _id: new Types.ObjectId() } as never)
-            vi.spyOn(Service, "exists").mockResolvedValue(null as never)
+            vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
             const applyClaimed = vi.spyOn(AiChangeJobService.prototype as unknown as WithApplyClaimed, "applyClaimed")
 
             await expect(service().apply(String(jobId))).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN", statusCode: 403 })
@@ -1620,7 +1620,7 @@ describe("AiChangeJobService", () => {
         it("Given two jobs, one of a mission, and a change on the cart alone, when the project is asked, then each agent is listed with what it works on", async () => {
             const missionId = new Types.ObjectId()
             const jobs = [
-                { _id: new Types.ObjectId(), frontendIds: [catalog._id, cart._id], serviceIds: [catalogApi._id] },
+                { _id: new Types.ObjectId(), frontendIds: [catalog._id, cart._id], backendIds: [catalogApi._id] },
                 { _id: new Types.ObjectId(), missionId, frontendIds: [catalog._id] }
             ]
             const requestId = new Types.ObjectId()
@@ -1657,7 +1657,7 @@ describe("AiChangeJobService", () => {
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue(requests as never)
             // Only the catalog is in the member's domain.
             vi.spyOn(Frontend, "find").mockResolvedValue([{ _id: catalog._id, domainId: ownDomain }] as never)
-            vi.spyOn(Service, "find").mockResolvedValue([] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([] as never)
 
             expect(await service().working(projectId)).toEqual([
                 { jobId: String(jobs[1]._id), kind: "job", componentIds: [String(catalog._id)] },
@@ -1688,7 +1688,7 @@ describe("AiChangeJobService", () => {
                     domainId,
                     status: AiJobStatus.DONE,
                     frontendIds: [],
-                    serviceIds: [],
+                    backendIds: [],
                     createdAt: new Date(Date.UTC(2026, 9, 19, 10, minutes)),
                     updatedAt: new Date()
                 }
@@ -1724,7 +1724,7 @@ describe("AiChangeJobService", () => {
                 domainId,
                 status: AiJobStatus.DONE,
                 frontendIds: [],
-                serviceIds: [],
+                backendIds: [],
                 createdAt: new Date(Date.UTC(2026, 9, 19, 10, minutes)),
                 updatedAt: new Date()
             })
@@ -1770,7 +1770,7 @@ describe("AiChangeJobService", () => {
                 domainId: new Types.ObjectId(),
                 status: AiJobStatus.DONE,
                 frontendIds: [],
-                serviceIds: [],
+                backendIds: [],
                 createdAt: new Date(),
                 updatedAt: new Date()
             })

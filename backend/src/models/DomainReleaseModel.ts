@@ -19,9 +19,9 @@ export enum DomainReleaseStatus {
 /** The steps a release can fail in: whatever it was doing when it stopped */
 export type DomainReleaseStep = DomainReleaseStatus.BUILDING | DomainReleaseStatus.WAITING_CI | DomainReleaseStatus.UPDATING_VERSIONS | DomainReleaseStatus.DEPLOYING
 
-/** A frontend or a service of the domain, as the release found it when it started */
+/** A frontend or a backend of the domain, as the release found it when it started */
 export interface IDomainReleaseMember {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     _id: ObjectId
     name: string
     /** Its repository was tagged: without one it is left out of the release, its version untouched */
@@ -62,7 +62,7 @@ export interface IDomainRelease extends Document<ObjectId> {
 
 const domainReleaseMemberSchema = new Schema<IDomainReleaseMember>(
     {
-        kind: { type: String, enum: ["frontend", "service"], required: true },
+        kind: { type: String, enum: ["frontend", "backend"], required: true },
         _id: { type: Schema.Types.ObjectId, required: true },
         name: { type: String, required: true },
         tagged: { type: Boolean, default: false },

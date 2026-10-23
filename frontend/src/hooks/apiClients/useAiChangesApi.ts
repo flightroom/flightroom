@@ -22,20 +22,20 @@ export interface AiChangeEvent {
     message: string
 }
 
-/** What owns the repository an AI change works on: a frontend or a backend service. */
+/** What owns the repository an AI change works on: a frontend or a backend. */
 export interface AiChangeTarget {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     id: string
 }
 
-const targetPath = (target: AiChangeTarget) => `/api/${target.kind === "service" ? "services" : "frontends"}/${target.id}/ai-changes`
+const targetPath = (target: AiChangeTarget) => `/api/${target.kind === "backend" ? "backends" : "frontends"}/${target.id}/ai-changes`
 
 export interface AiChangeRequest {
     _id: string
     projectId: string
     /** Exactly one of the two is set. */
     frontendId?: string
-    serviceId?: string
+    backendId?: string
     userId: string
     prompt: string
     baseBranch: string

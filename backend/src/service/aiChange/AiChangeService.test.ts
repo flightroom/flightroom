@@ -31,10 +31,10 @@ vi.mock("../workspace/RepositoryWorkspaceService", () => ({
 import AiChangeJob from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus } from "../../models/AiChangeRequestModel"
 import AiModel from "../../models/AiModelModel"
+import Backend from "../../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
 import Frontend from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
-import Service from "../../models/ServiceModel"
 import { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
@@ -50,7 +50,7 @@ type WithGates = { ensureAccessToProject: () => Promise<void>; ensureAccessToFro
 const user = { _id: new Types.ObjectId(), email: "ada@example.com", name: "Ada" } as unknown as IUser
 const projectId = new Types.ObjectId()
 const frontendId = new Types.ObjectId()
-const serviceId = new Types.ObjectId()
+const backendId = new Types.ObjectId()
 
 const proposal = (overrides: Record<string, unknown> = {}) => ({
     _id: new Types.ObjectId(),
@@ -136,9 +136,9 @@ describe("AiChangeService", () => {
         expect(start).toHaveBeenCalledWith(expect.objectContaining({ effort: "low" }), expect.anything())
     })
 
-    it("Given a service, when a change is requested on it, then the job runs on the service's repository", async () => {
-        vi.spyOn(Service, "findById").mockResolvedValue({
-            _id: serviceId,
+    it("Given a backend, when a change is requested on it, then the job runs on the backend's repository", async () => {
+        vi.spyOn(Backend, "findById").mockResolvedValue({
+            _id: backendId,
             projectId,
             slug: "orders-api",
             name: "Orders API",
@@ -147,40 +147,40 @@ describe("AiChangeService", () => {
             readinessPath: "/health/ready",
             env: []
         } as never)
-        const request = { _id: new Types.ObjectId(), jobId: new Types.ObjectId(), serviceId, status: AiChangeStatus.PENDING }
+        const request = { _id: new Types.ObjectId(), jobId: new Types.ObjectId(), backendId, status: AiChangeStatus.PENDING }
         const start = vi.spyOn(AiChangeJobService.prototype, "start").mockResolvedValue({ job: {}, requests: [request] } as never)
 
-        const created = await service().create({ kind: "service", id: serviceId.toString() }, { prompt: "Add a /ready endpoint" })
+        const created = await service().create({ kind: "backend", id: backendId.toString() }, { prompt: "Add a /ready endpoint" })
 
         expect(created).toBe(request)
-        expect(workspaceService.open).toHaveBeenCalledWith(expect.objectContaining({ kind: "service", slug: "orders-api" }))
+        expect(workspaceService.open).toHaveBeenCalledWith(expect.objectContaining({ kind: "backend", slug: "orders-api" }))
         expect(start).toHaveBeenCalledWith(
-            expect.objectContaining({ repositories: [{ component: expect.objectContaining({ kind: "service", _id: serviceId }), baseBranch: "main" }] }),
+            expect.objectContaining({ repositories: [{ component: expect.objectContaining({ kind: "backend", _id: backendId }), baseBranch: "main" }] }),
             expect.anything()
         )
     })
 
-    it("Given a service, when its changes are listed, then its latest conversations come back whole", async () => {
-        vi.spyOn(Service, "findById").mockResolvedValue({ _id: serviceId, projectId, slug: "orders-api", name: "Orders API", env: [] } as never)
+    it("Given a backend, when its changes are listed, then its latest conversations come back whole", async () => {
+        vi.spyOn(Backend, "findById").mockResolvedValue({ _id: backendId, projectId, slug: "orders-api", name: "Orders API", env: [] } as never)
         const conversationIds = [new Types.ObjectId(), new Types.ObjectId()]
         const aggregate = vi.spyOn(AiChangeRequest, "aggregate").mockResolvedValue(conversationIds.map(_id => ({ _id })) as never)
         const find = vi.spyOn(AiChangeRequest, "find").mockReturnValue({ sort: async () => [] } as never)
 
-        await service().list({ kind: "service", id: serviceId.toString() })
+        await service().list({ kind: "backend", id: backendId.toString() })
 
-        expect(aggregate.mock.calls[0][0]).toEqual(expect.arrayContaining([{ $match: { serviceId } }, { $limit: 20 }]))
+        expect(aggregate.mock.calls[0][0]).toEqual(expect.arrayContaining([{ $match: { backendId } }, { $limit: 20 }]))
         // Every request of those conversations, not only the newest ones: the queue shows each conversation once.
-        expect(find).toHaveBeenCalledWith({ serviceId, conversationId: { $in: conversationIds } }, expect.anything())
+        expect(find).toHaveBeenCalledWith({ backendId, conversationId: { $in: conversationIds } }, expect.anything())
     })
 
-    it("Given a proposal on a service never pushed on its branch, when it is applied, then it is committed under an ai/ branch named after the service", async () => {
-        vi.spyOn(Service, "findById").mockResolvedValue({ _id: serviceId, projectId, slug: "orders-api", name: "Orders API", env: [] } as never)
-        vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(proposal({ frontendId: undefined, serviceId }) as never)
+    it("Given a proposal on a backend never pushed on its branch, when it is applied, then it is committed under an ai/ branch named after the backend", async () => {
+        vi.spyOn(Backend, "findById").mockResolvedValue({ _id: backendId, projectId, slug: "orders-api", name: "Orders API", env: [] } as never)
+        vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(proposal({ frontendId: undefined, backendId }) as never)
         vi.spyOn(AiChangeRequest, "findOneAndUpdate").mockResolvedValue({ status: AiChangeStatus.APPLYING } as never)
 
         await service().apply(new Types.ObjectId().toString())
 
-        expect(workspaceService.open).toHaveBeenCalledWith(expect.objectContaining({ kind: "service" }))
+        expect(workspaceService.open).toHaveBeenCalledWith(expect.objectContaining({ kind: "backend" }))
         expect(workingCopy.commitAndPush.mock.calls[0][0].branch).toMatch(/^ai\/orders-api-\d{8}-\d{6}$/)
     })
 
@@ -433,7 +433,7 @@ describe("AiChangeService", () => {
             vi.spyOn(CodeRepository, "findById").mockResolvedValue({ provider: CodeRepositoryProvider.GITHUB } as never)
             // The repository is also the code of a frontend outside their domains
             frontendsOutside = vi.spyOn(Frontend, "exists").mockResolvedValue({ _id: new Types.ObjectId() } as never)
-            vi.spyOn(Service, "exists").mockResolvedValue(null as never)
+            vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         })
 
         it("Given a repository shared with another domain, when a change is requested, then it is refused before the workspace is opened", async () => {

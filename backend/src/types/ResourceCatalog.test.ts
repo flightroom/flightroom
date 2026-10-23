@@ -1,8 +1,8 @@
 import { describe, expect, it } from "vitest"
 import { DATABASE_SECRET_KEYS } from "../models/DatabaseModel"
 import { STORAGE_SECRET_KEYS } from "../models/StorageModel"
+import { BACKEND_VARIABLE_KEY } from "./BackendStack"
 import { RESERVED_ENV_KEYS, RESOURCE_CATALOG, resourceEnvironmentValues, resourceEnvKeys, resourceEnvPrefix, resourceSecretName, resourceVariant } from "./ResourceCatalog"
-import { SERVICE_VARIABLE_KEY } from "./ServiceStack"
 
 const variants = Object.values(RESOURCE_CATALOG).flatMap(spec => spec.variants.map(variant => [spec.type, variant.id] as const))
 
@@ -12,7 +12,7 @@ describe("RESOURCE_CATALOG", () => {
         const keys = resourceEnvKeys({ name: `a-${"b".repeat(61)}`, type, variant, customFields: [{ name: "T".repeat(61), secret: true }] }).map(({ key }) => key)
 
         expect(keys.length).toBeGreaterThan(0)
-        expect(keys.every(key => SERVICE_VARIABLE_KEY.test(key))).toBe(true)
+        expect(keys.every(key => BACKEND_VARIABLE_KEY.test(key))).toBe(true)
         expect(new Set(keys).size).toBe(keys.length)
         expect(keys.some(key => RESERVED_ENV_KEYS.includes(key))).toBe(false)
     })

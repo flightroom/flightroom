@@ -1,9 +1,9 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { DEFAULT_RUN_PATH, MaintenanceAgentKind } from "../types/MaintenanceAgent"
-import { CONTAINER_DEFAULTS, IServiceEnvVariable, probePath, serviceEnvVariableSchema } from "./ContainerFields"
+import { IBackendStack } from "./BackendModel"
+import { backendEnvVariableSchema, CONTAINER_DEFAULTS, IBackendEnvVariable, probePath } from "./ContainerFields"
 import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
-import { IServiceStack } from "./ServiceModel"
 
 /** The last time someone pressed Play, in whichever environment */
 export interface IMaintenanceAgentLastRun {
@@ -14,9 +14,9 @@ export interface IMaintenanceAgentLastRun {
 }
 
 /**
- * A container that looks after backend services and frontends of the project: it has a repository, an image and
- * versions as a service does, and is deployed the same way, but is started by a schedule or by Play rather than
- * serving requests. Its slug names its values file in the GitOps repository, next to those of the services and
+ * A container that looks after backends and frontends of the project: it has a repository, an image and
+ * versions as a backend does, and is deployed the same way, but is started by a schedule or by Play rather than
+ * serving requests. Its slug names its values file in the GitOps repository, next to those of the backends and
  * the frontends: no two of them share one.
  */
 export interface IMaintenanceAgent extends Document<ObjectId> {
@@ -28,7 +28,7 @@ export interface IMaintenanceAgent extends Document<ObjectId> {
     /** Markdown for AI agents about this maintenance agent only */
     context?: string
     template?: string
-    stack?: IServiceStack
+    stack?: IBackendStack
     version?: string
     codeRepository?: ICodeRepositoryFrontend
     image?: {
@@ -43,12 +43,12 @@ export interface IMaintenanceAgent extends Document<ObjectId> {
     port: number
     livenessPath?: string
     readinessPath?: string
-    env: IServiceEnvVariable[]
+    env: IBackendEnvVariable[]
     configMapIds: Schema.Types.ObjectId[]
     secretIds: Schema.Types.ObjectId[]
     resourceIds: Schema.Types.ObjectId[]
-    /** The backend services it maintains */
-    serviceIds: Schema.Types.ObjectId[]
+    /** The backends it maintains */
+    backendIds: Schema.Types.ObjectId[]
     /** The frontends it maintains */
     frontendIds: Schema.Types.ObjectId[]
     lastRun?: IMaintenanceAgentLastRun
@@ -86,11 +86,11 @@ const maintenanceAgentSchema = new Schema<IMaintenanceAgent>(
         port: { type: Number, default: CONTAINER_DEFAULTS.port },
         livenessPath: probePath(CONTAINER_DEFAULTS.livenessPath),
         readinessPath: probePath(CONTAINER_DEFAULTS.readinessPath),
-        env: { type: [serviceEnvVariableSchema], default: [] },
+        env: { type: [backendEnvVariableSchema], default: [] },
         configMapIds: { type: [{ type: Schema.Types.ObjectId, ref: "ConfigMap" }], default: [] },
         secretIds: { type: [{ type: Schema.Types.ObjectId, ref: "Secret" }], default: [] },
         resourceIds: { type: [{ type: Schema.Types.ObjectId, ref: "Resource" }], default: [] },
-        serviceIds: { type: [{ type: Schema.Types.ObjectId, ref: "Service" }], default: [] },
+        backendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Backend" }], default: [] },
         frontendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Frontend" }], default: [] },
         lastRun: {
             type: new Schema<IMaintenanceAgentLastRun>(
@@ -104,7 +104,7 @@ const maintenanceAgentSchema = new Schema<IMaintenanceAgent>(
 )
 
 maintenanceAgentSchema.index({ slug: 1, projectId: 1 }, { unique: true })
-maintenanceAgentSchema.index({ projectId: 1, serviceIds: 1 })
+maintenanceAgentSchema.index({ projectId: 1, backendIds: 1 })
 maintenanceAgentSchema.index({ projectId: 1, frontendIds: 1 })
 
 const MaintenanceAgent = mongoose.model<IMaintenanceAgent>("MaintenanceAgent", maintenanceAgentSchema)

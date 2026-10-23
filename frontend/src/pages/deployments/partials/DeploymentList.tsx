@@ -7,12 +7,12 @@ import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
 import { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
-import { exposedOrigin } from "@/pages/services/partials/serviceVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
+import DeploymentBackendCard from "./DeploymentBackendCard"
 import DeploymentFrontendCard from "./DeploymentFrontendCard"
-import DeploymentServiceCard from "./DeploymentServiceCard"
 
 /** The config maps or the secrets of a deployment, each with the keys it set in the environment */
 const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secret?: boolean; icon?: (map: DeployedVariableMap) => React.ReactNode }> = ({ title, maps, secret, icon }) => {
@@ -54,7 +54,7 @@ const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secre
 /** What a deployment shipped: the same summary for the active one and for the history */
 const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment }) => {
     const { t } = useTranslation()
-    const services = deployment.services ?? []
+    const backends = deployment.backends ?? []
     const configMaps = deployment.configMaps ?? []
     const secrets = deployment.secrets ?? []
     const resources = deployment.resources ?? []
@@ -82,12 +82,12 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
                     </div>
                 </div>
             )}
-            {services.length > 0 && (
+            {backends.length > 0 && (
                 <div className={deployment.frontends.length > 0 ? "mt-4" : undefined}>
-                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.services_title")}</h4>
+                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.backends_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {services.map(service => (
-                            <DeploymentServiceCard key={service._id} service={service} url={exposedUrl(service.exposurePath)} />
+                        {backends.map(backend => (
+                            <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
                         ))}
                     </div>
                 </div>

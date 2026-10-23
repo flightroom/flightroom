@@ -113,11 +113,11 @@ export const placeholderDomain = () => process.env.BACKEND_URL || "https://conso
 
 /**
  * The placeholders of a pipeline copied from the pipeline templates, the same on every provider. Both slugs
- * are the slug of what is scaffolded, so one pipeline can serve frontends and services alike.
+ * are the slug of what is scaffolded, so one pipeline can serve frontends and backends alike.
  */
 const pipelinePlaceholders = (slug: string): Record<string, string> => ({ "%microfrontendSlug%": slug, "%serviceSlug%": slug, "%domain%": placeholderDomain() })
 
-/** The repository part of a frontend or service DTO, filled in once the repository exists */
+/** The repository part of a frontend or backend DTO, filled in once the repository exists */
 export type CodeRepositoryTarget = FrontendDTO["codeRepository"]
 
 /**
@@ -161,7 +161,7 @@ export interface ScaffoldOptions {
 
 /**
  * Creates code repositories from marketplace templates and tags their releases, for whatever is
- * built from one: frontends and backend services go through exactly the same steps.
+ * built from one: frontends and backends go through exactly the same steps.
  */
 export class TemplateScaffoldService extends BaseAuthorizedService {
     /**

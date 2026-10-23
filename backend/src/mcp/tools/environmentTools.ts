@@ -125,7 +125,7 @@ export const environmentTools = [
         annotations: DESTRUCTIVE_EXTERNAL,
         inputSchema: z.object({
             environmentIds: z.array(environmentId).min(1),
-            domainId: objectId("Id of a functional domain: only its frontends and services are deployed, the others keep what the environments serve now").optional()
+            domainId: objectId("Id of a functional domain: only its frontends and backends are deployed, the others keep what the environments serve now").optional()
         }),
         run: async (args, { principal }) => (await new DeploymentService(principal).createMultiple(args.environmentIds, args.domainId)).map(toDeploymentView)
     }),

@@ -1,8 +1,8 @@
 import { Document, model, ObjectId, Schema } from "mongoose"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
+import { IBackend } from "./BackendModel"
 import { IFrontend } from "./FrontendModel"
 import { IGlobalVariable } from "./GlobalVariableModel"
-import { IService } from "./ServiceModel"
 import { IStorage, STORAGE_SECRET_PATHS } from "./StorageModel"
 
 /**
@@ -16,19 +16,19 @@ export interface IDeployedVariableMap {
     entries: Array<{ key: string; value?: string }>
 }
 
-/** A backend service as the deploy recorded it: only what tells which one, at which version and where it is exposed, never its env */
-export type IDeployedService = Pick<IService, "_id" | "slug" | "name" | "domainId" | "version" | "image" | "exposurePath">
+/** A backend as the deploy recorded it: only what tells which one, at which version and where it is exposed, never its env */
+export type IDeployedBackend = Pick<IBackend, "_id" | "slug" | "name" | "domainId" | "version" | "image" | "exposurePath">
 
 export interface IDeployment extends Document<ObjectId> {
     environmentId: ObjectId
     variables?: IGlobalVariable[]
     frontends?: IFrontend[]
-    /** Absent from the deployments made before the services were recorded */
-    services?: IDeployedService[]
-    /** Absent from the deployments made before the config maps and secrets were recorded, as for the services */
+    /** Absent from the deployments made before the backends were recorded */
+    backends?: IDeployedBackend[]
+    /** Absent from the deployments made before the config maps and secrets were recorded, as for the backends */
     configMaps?: IDeployedVariableMap[]
     secrets?: IDeployedVariableMap[]
-    /** The resources some service attaches; absent from the deployments made before resources existed */
+    /** The resources some backend attaches; absent from the deployments made before resources existed */
     resources?: IDeployedVariableMap[]
     storages?: IStorage[]
     deploymentId: string
@@ -56,7 +56,7 @@ const deploymentSchema = new Schema<IDeployment>(
             type: Array,
             required: false
         },
-        services: {
+        backends: {
             type: Array,
             required: false
         },

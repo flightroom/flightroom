@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import Backend from "../../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
 import Frontend from "../../models/FrontendModel"
-import Service from "../../models/ServiceModel"
 import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
 import { LocalChangeService } from "./LocalChangeService"
 
@@ -49,7 +49,7 @@ const allowProjectAccess = (instance: LocalChangeService) => {
     vi.spyOn(instance as unknown as { getDomainScope: () => Promise<string[] | undefined> }, "getDomainScope").mockResolvedValue(undefined)
     return instance
 }
-const service = () => allowProjectAccess(new LocalChangeService(user as never))
+const backend = () => allowProjectAccess(new LocalChangeService(user as never))
 const ref = { kind: "frontend" as const, id: FRONTEND }
 const input = (overrides: Record<string, unknown> = {}) => ({
     baseCommit: HEAD,
@@ -70,7 +70,7 @@ beforeEach(() => {
 
 describe("LocalChangeService.checkout", () => {
     it("returns the clone URL without credentials, the default branch and the AI context", async () => {
-        await expect(service().checkout(ref)).resolves.toEqual({
+        await expect(backend().checkout(ref)).resolves.toEqual({
             kind: "frontend",
             name: "Cart",
             slug: "cart",
@@ -83,7 +83,7 @@ describe("LocalChangeService.checkout", () => {
 
 describe("LocalChangeService.submit", () => {
     it("pushes a new branch from the latest base and opens a pull request", async () => {
-        const result = await service().submit(ref, input())
+        const result = await backend().submit(ref, input())
 
         expect(ensureCanChangeProject).toHaveBeenCalledWith(PROJECT)
         expect(prepare).toHaveBeenCalledWith(expect.anything(), "main")
@@ -105,25 +105,25 @@ describe("LocalChangeService.submit", () => {
 
     it("keeps the pushed branch when the pull request cannot be opened", async () => {
         openPullRequest.mockRejectedValue(new Error("rate limited"))
-        await expect(service().submit(ref, input())).resolves.toMatchObject({ commit: "commit-1", pullRequestUrl: undefined, pullRequestError: "rate limited" })
+        await expect(backend().submit(ref, input())).resolves.toMatchObject({ commit: "commit-1", pullRequestUrl: undefined, pullRequestError: "rate limited" })
     })
 
     it("refuses when the base moved and the clone's commit cannot be checked", async () => {
         workingCopy.hasCommit.mockResolvedValue(false)
-        await expect(service().submit(ref, input({ baseCommit: OLD }))).rejects.toMatchObject({ code: "LOCAL_CHANGE_BASE_MOVED", statusCode: 409 })
+        await expect(backend().submit(ref, input({ baseCommit: OLD }))).rejects.toMatchObject({ code: "LOCAL_CHANGE_BASE_MOVED", statusCode: 409 })
         expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
     })
 
     it("refuses a file that changed on the base after the clone", async () => {
         workingCopy.hasCommit.mockResolvedValue(true)
         workingCopy.blobOid.mockImplementation(async (commit: string) => (commit === OLD ? "blob-old" : "blob-new"))
-        await expect(service().submit(ref, input({ baseCommit: OLD }))).rejects.toMatchObject({ code: "LOCAL_CHANGE_CONFLICT", details: { conflicts: ["src/Footer.tsx"], head: HEAD } })
+        await expect(backend().submit(ref, input({ baseCommit: OLD }))).rejects.toMatchObject({ code: "LOCAL_CHANGE_CONFLICT", details: { conflicts: ["src/Footer.tsx"], head: HEAD } })
         expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
     })
 
     it("accepts a moved base when none of the files changed there", async () => {
         workingCopy.hasCommit.mockResolvedValue(true)
-        await expect(service().submit(ref, input({ baseCommit: OLD }))).resolves.toMatchObject({ baseCommit: HEAD })
+        await expect(backend().submit(ref, input({ baseCommit: OLD }))).resolves.toMatchObject({ baseCommit: HEAD })
     })
 
     it.each([
@@ -132,7 +132,7 @@ describe("LocalChangeService.submit", () => {
         ["../other/secret.ts", "outside the repository"],
         [".git/config", "inside .git"]
     ])("refuses %s", async (path, message) => {
-        await expect(service().submit(ref, input({ files: [{ path, action: "update", content: "x" }] }))).rejects.toThrow(message)
+        await expect(backend().submit(ref, input({ files: [{ path, action: "update", content: "x" }] }))).rejects.toThrow(message)
         expect(prepare).not.toHaveBeenCalled()
     })
 
@@ -141,15 +141,15 @@ describe("LocalChangeService.submit", () => {
             { path: "src/a.ts", action: "update", content: "1" },
             { path: "./src/a.ts", action: "update", content: "2" }
         ]
-        await expect(service().submit(ref, input({ files: twice }))).rejects.toThrow("listed twice")
-        await expect(service().submit(ref, input({ files: [{ path: "src/a.ts", action: "create" }] }))).rejects.toThrow("has no content")
-        await expect(service().submit(ref, input({ files: [{ path: "logo.png", action: "create", content: "PNG\0" }] }))).rejects.toThrow("binary")
+        await expect(backend().submit(ref, input({ files: twice }))).rejects.toThrow("listed twice")
+        await expect(backend().submit(ref, input({ files: [{ path: "src/a.ts", action: "create" }] }))).rejects.toThrow("has no content")
+        await expect(backend().submit(ref, input({ files: [{ path: "logo.png", action: "create", content: "PNG\0" }] }))).rejects.toThrow("binary")
     })
 
     it("refuses an action that does not match the base", async () => {
-        await expect(service().submit(ref, input({ files: [{ path: "src/Footer.tsx", action: "create", content: "x" }] }))).rejects.toThrow("already exists")
+        await expect(backend().submit(ref, input({ files: [{ path: "src/Footer.tsx", action: "create", content: "x" }] }))).rejects.toThrow("already exists")
         workingCopy.blobOid.mockResolvedValue(undefined)
-        await expect(service().submit(ref, input({ files: [{ path: "src/Footer.tsx", action: "delete" }] }))).rejects.toThrow("does not exist")
+        await expect(backend().submit(ref, input({ files: [{ path: "src/Footer.tsx", action: "delete" }] }))).rejects.toThrow("does not exist")
     })
 
     it("signs as the orchestrator for an API key", async () => {
@@ -179,9 +179,9 @@ describe("LocalChangeService by a member assigned to some domains", () => {
             codeRepository: { enabled: true, codeRepositoryId: "ffffffffffffffffffffffff", name: "shop-fe" }
         })
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ provider: CodeRepositoryProvider.GITHUB } as never)
-        // The repository is also the code of a service outside their domains
+        // The repository is also the code of a backend outside their domains
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
-        vi.spyOn(Service, "exists").mockResolvedValue({ _id: "service-elsewhere" } as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue({ _id: "backend-elsewhere" } as never)
     })
 
     afterEach(() => {

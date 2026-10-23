@@ -4,13 +4,13 @@ import UserCannotAccessThisDeploymentError from "../errors/UserCannotAccessThisD
 import UserCannotAccessThisEnvironmentError from "../errors/UserCannotAccessThisEnvironmentError"
 import UserCannotAccessThisOrganizationError from "../errors/UserCannotAccessThisOrganizationError"
 import UserCannotAccessThisProjectError from "../errors/UserCannotAccessThisProjectError"
+import Backend, { IBackend } from "../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
-import Service, { IService } from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { ORGANIZATION_ADMIN_ROLES, RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
@@ -42,7 +42,7 @@ export const domainScopeForbidden = () => createBusinessException({ code: DOMAIN
 
 /**
  * Whether something of `domainId` lies inside `scope`. No scope is the whole project; a frontend or
- * a service in no domain is outside every scope, since nobody assigned it to the member.
+ * a backend in no domain is outside every scope, since nobody assigned it to the member.
  */
 export const isInDomainScope = (scope: string[] | undefined, domainId: unknown): boolean =>
     !scope || (domainId !== undefined && domainId !== null && domainId !== "" && scope.includes(String(domainId)))
@@ -74,7 +74,7 @@ const carriesOnlyStored = (given: unknown, stored: unknown): boolean => {
 }
 
 /*
- * Linking a frontend or a service to a code repository is an act on the whole project: a repository
+ * Linking a frontend or a backend to a code repository is an act on the whole project: a repository
  * can be the code of components of other domains, and every field that names it (the id at the provider,
  * the name, the clone URLs, the GitLab path, the provider data, the connection) can point the link
  * elsewhere. So a domain-scoped member never chooses an existing repository: they keep the stored link, or
@@ -354,11 +354,11 @@ export default abstract class BaseAuthorizedService {
         return this.ensureAccessToDomainMember(frontend)
     }
 
-    protected async ensureAccessToService(service: IService) {
-        return this.ensureAccessToDomainMember(service)
+    protected async ensureAccessToBackend(backend: IBackend) {
+        return this.ensureAccessToDomainMember(backend)
     }
 
-    /** The access to the project of a frontend or a service, then to its domain for a domain-scoped member. */
+    /** The access to the project of a frontend or a backend, then to its domain for a domain-scoped member. */
     protected async ensureAccessToDomainMember(member: DomainMember) {
         await this.ensureAccessToProject(member.projectId)
         await this.ensureInDomainScope(member.projectId, member.domainId)
@@ -418,7 +418,7 @@ export default abstract class BaseAuthorizedService {
 
     /**
      * Refuses a domain-scoped member a write to the repository `link` points to (a commit, a branch, a pull
-     * request, a tag) when a frontend or a service of another domain, or of none, is linked to the same
+     * request, a tag) when a frontend or a backend of another domain, or of none, is linked to the same
      * repository: what they write there becomes the code of components nobody assigned to them. `owner` is
      * the component the write is for; `provider` spares reading the connection when the caller holds it. A
      * member of the whole project passes without a query.
@@ -430,13 +430,13 @@ export default abstract class BaseAuthorizedService {
         const links = linksToRepository(owner, provider ?? (await CodeRepository.findById(link.codeRepositoryId, { provider: 1 }))?.provider, link)
         // $nin also matches a document with no domain at all
         const outside = { domainId: { $nin: scope.map(id => toObjectId(id)) } }
-        // A maintenance agent links its repository as a service does
-        const [frontendOutside, serviceOutside, agentOutside] = await Promise.all([
+        // A maintenance agent links its repository as a backend does
+        const [frontendOutside, backendOutside, agentOutside] = await Promise.all([
             links.frontends ? Frontend.exists({ ...links.frontends, ...outside }) : null,
-            links.services ? Service.exists({ ...links.services, ...outside }) : null,
-            links.services ? MaintenanceAgent.exists({ ...links.services, ...outside }) : null
+            links.backends ? Backend.exists({ ...links.backends, ...outside }) : null,
+            links.backends ? MaintenanceAgent.exists({ ...links.backends, ...outside }) : null
         ])
-        if (frontendOutside || serviceOutside || agentOutside) {
+        if (frontendOutside || backendOutside || agentOutside) {
             throw domainScopeForbidden()
         }
     }

@@ -31,7 +31,7 @@ describe("ProjectUserController", () => {
         await app.close()
     })
 
-    it("Given a role change, when it succeeds, then the service's membership comes back with the usual message", async () => {
+    it("Given a role change, when it succeeds, then the backend's membership comes back with the usual message", async () => {
         updateUserRole.mockResolvedValue({ userId: MEMBER, role: "VIEWER" })
 
         const response = await app.inject({ method: "PUT", url: `/projects/${PROJECT}/users/${MEMBER}`, payload: { role: "VIEWER" } })
