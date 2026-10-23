@@ -1323,13 +1323,22 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             setSelectedLinkId(relation ? relation.link._id : null)
             if (relation) return
             if (!hit) return fitAll()
+            // On the map of the backends a second click opens the service nearest to it, not the domain:
+            // a click on the name of a world, just outside its star, is for that service.
+            if (hit.id === focusedGalaxyId && isBackend) {
+                const nearest = (membersByGalaxy.get(hit.id) ?? [])
+                    .map(node => ({ node, distance: Math.hypot(point.x - (node.x ?? 0), point.y - (node.y ?? 0)) }))
+                    .sort((a, b) => a.distance - b.distance)[0]
+                if (nearest) navigate(`/service/${nearest.node.id}`)
+                return
+            }
             if (hit.id === focusedGalaxyId && hit.domainId) return navigate(`/domain/${hit.domainId}`)
             const geometry = geometryRef.current.get(hit.id)!
             setFocusedGalaxyId(hit.id)
             graph.centerAt(geometry.x, geometry.y, FIT_MS)
             graph.zoom(Math.min(MAX_GALAXY_ZOOM, Math.min(size.width, size.height) / (2.6 * geometry.r)), FIT_MS)
         },
-        [galaxies, focusedGalaxyId, fitAll, navigate, size, linking, pickForLink, openBody, onUnlink]
+        [galaxies, membersByGalaxy, isBackend, focusedGalaxyId, fitAll, navigate, size, linking, pickForLink, openBody, onUnlink]
     )
 
     // The dashed line of a relation being drawn follows the pointer; otherwise the pointer looks for a moon or a ship,
