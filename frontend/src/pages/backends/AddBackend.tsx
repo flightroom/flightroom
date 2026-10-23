@@ -19,13 +19,13 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useMarketApi, { BackendDefaults } from "@/hooks/apiClients/useMarketApi"
 import { Resource, useResourceErrorMessage } from "@/hooks/apiClients/useResourcesApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
-import { CodeRepositorySection } from "@/pages/frontends/partials/components"
+import { CodeRepositorySection, ReleaseSection } from "@/pages/frontends/partials/components"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { isRecommendedTemplate, technologyOfMarket } from "@/utils/technologies"
-import DomainSelectField from "../domains/partials/DomainSelectField"
+import DomainSection from "../domains/partials/DomainSection"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import BackendDangerZone from "./partials/BackendDangerZone"
 import BackendEndpointFields from "./partials/BackendEndpointFields"
@@ -335,54 +335,64 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
 
                     {/* forceMount keeps every tab registered: switching tab must not drop the values or re-run the repository lookups. */}
                     <TabsContent value="general" forceMount>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="mb-0">{t("backends.general_information")}</CardTitle>
-                                <CardDescription>{t("backends.general_information_description")}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-2 pt-3">
-                                {!isEdit && (
-                                    <SelectField
-                                        name="template"
-                                        label={t("backends.template")}
-                                        placeholder={t("backends.template_placeholder")}
-                                        options={backendTemplates.map(market => {
-                                            const technology = technologyOfMarket(market)
-                                            const label = `${market.name} (${market.framework})`
-                                            return {
-                                                value: market.slug,
-                                                label: isRecommendedTemplate(market, technologies) ? `${label} · ${t("technologies.recommended")}` : label,
-                                                icon: technology ? technologyIconUrl(technology) : undefined
-                                            }
-                                        })}
-                                        addClearButton
-                                        clearLabel={t("technologies.clear_template")}
-                                        className="w-full"
-                                    />
-                                )}
-                                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                    <TextField
-                                        name="name"
-                                        label={t("backends.name")}
-                                        placeholder={t("backends.name_placeholder")}
-                                        textTransform={value => value.replace("  ", " ")}
-                                        required
-                                        onChange={e => {
-                                            const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
-                                            if (!isEdit) {
-                                                form.setValue("slug", slug)
-                                                form.setValue("codeRepository.createData.name", slug)
-                                            }
-                                        }}
-                                        containerClassName="flex-[1_1_240px]"
-                                    />
-                                    <TextField name="slug" disabled={isEdit} label={t("backends.slug")} placeholder={t("backends.slug_placeholder")} required containerClassName="flex-[1_1_240px]" />
-                                </div>
-                                <TextField name="version" label={t("backends.version")} placeholder="1.0.0" description={t("backends.version_hint")} />
-                                <TextareaField name="description" label={t("backends.description")} placeholder={t("backends.description_placeholder")} />
-                                <DomainSelectField containerClassName="w-full" />
-                            </CardContent>
-                        </Card>
+                        <div className="flex flex-col gap-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="mb-0">{t("backends.general_information")}</CardTitle>
+                                    <CardDescription>{t("backends.general_information_description")}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-2 pt-3">
+                                    {!isEdit && (
+                                        <SelectField
+                                            name="template"
+                                            label={t("backends.template")}
+                                            placeholder={t("backends.template_placeholder")}
+                                            options={backendTemplates.map(market => {
+                                                const technology = technologyOfMarket(market)
+                                                const label = `${market.name} (${market.framework})`
+                                                return {
+                                                    value: market.slug,
+                                                    label: isRecommendedTemplate(market, technologies) ? `${label} · ${t("technologies.recommended")}` : label,
+                                                    icon: technology ? technologyIconUrl(technology) : undefined
+                                                }
+                                            })}
+                                            addClearButton
+                                            clearLabel={t("technologies.clear_template")}
+                                            className="w-full"
+                                        />
+                                    )}
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                        <TextField
+                                            name="name"
+                                            label={t("backends.name")}
+                                            placeholder={t("backends.name_placeholder")}
+                                            textTransform={value => value.replace("  ", " ")}
+                                            required
+                                            onChange={e => {
+                                                const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
+                                                if (!isEdit) {
+                                                    form.setValue("slug", slug)
+                                                    form.setValue("codeRepository.createData.name", slug)
+                                                }
+                                            }}
+                                            containerClassName="flex-[1_1_240px]"
+                                        />
+                                        <TextField
+                                            name="slug"
+                                            disabled={isEdit}
+                                            label={t("backends.slug")}
+                                            placeholder={t("backends.slug_placeholder")}
+                                            required
+                                            containerClassName="flex-[1_1_240px]"
+                                        />
+                                    </div>
+                                    <TextareaField name="description" label={t("backends.description")} placeholder={t("backends.description_placeholder")} />
+                                </CardContent>
+                            </Card>
+                            <DomainSection />
+                            {/* The same card as a DOCKER frontend's: the version is the tag of the image */}
+                            <ReleaseSection container />
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="context" forceMount>

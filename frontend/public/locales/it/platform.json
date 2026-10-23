@@ -860,7 +860,6 @@
             "badge_bundle": "Bundle",
             "badge_docker": "Docker",
             "no_parents_hint": "Un frontend servito da Docker non può avere parent",
-            "container_tab": "Container",
             "version_from_pipeline": "Il tag dell'immagine deployata. Puoi impostarla qui, oppure la imposta la pipeline quando registra un'immagine più recente.",
             "template_pipeline_hint": "La pipeline di questo template carica un bundle su Flightroom, che un frontend servito dal suo container Docker non accetta. Modificala perché costruisca l'immagine Docker e ne registri la versione."
         },
@@ -1006,6 +1005,7 @@
         "custom_source": "Sorgente Personalizzata",
         "release_settings": "Rilascio",
         "release_settings_description": "La versione servita ai tuoi utenti e come viene distribuita la canary",
+        "release_settings_container_description": "La versione deployata: il tag dell'immagine del container",
         "tabs": {
             "general": "Generale",
             "hosting": "Hosting",
@@ -2642,7 +2642,8 @@
             "label": "Dominio",
             "hint": "Il dominio funzionale a cui appartiene. Facoltativo.",
             "clear": "Rimuovi dal dominio",
-            "no_options": "Nessun dominio nel progetto"
+            "no_options": "Nessun dominio nel progetto",
+            "section_description": "L'area funzionale a cui appartiene, raggruppato con gli altri frontend e backend che ne fanno parte"
         },
         "detail": {
             "back": "Tutti i domini",
