@@ -2,7 +2,7 @@ import { AuthenticationType } from "@/api/apiClient"
 import useApiClient from "../useApiClient"
 import { GlobalVariable } from "./useGlobalVariablesApi"
 
-export interface IServeMicrofrontend {
+export interface IServeFrontend {
     url: string
     slug: string
     continuousDevelopment: boolean
@@ -10,18 +10,19 @@ export interface IServeMicrofrontend {
 
 export interface IServe {
     globalVariables: GlobalVariable[]
-    microfrontends: IServeMicrofrontend[]
+    /** Under its old name, as the serve API sends it */
+    microfrontends: IServeFrontend[]
 }
 
-export type MicrofrontendFramework = "REACT" | "VUE" | "ANGULAR"
+export type FrontendFramework = "REACT" | "VUE" | "ANGULAR"
 /** Bundlers, or integration models (WEBCOMPONENT, SINGLE_SPA, MICRO_LC) that load remotes at runtime */
-export type MicrofrontendCompiler = "VITE" | "WEBPACK" | "WEBCOMPONENT" | "SINGLE_SPA" | "MICRO_LC"
-export type MicrofrontendStackSource = "TEMPLATE" | "DETECTED" | "MANUAL"
+export type FrontendCompiler = "VITE" | "WEBPACK" | "WEBCOMPONENT" | "SINGLE_SPA" | "MICRO_LC"
+export type FrontendStackSource = "TEMPLATE" | "DETECTED" | "MANUAL"
 
-export interface IMicrofrontendStackDTO {
-    framework?: MicrofrontendFramework
-    compiler?: MicrofrontendCompiler
-    source?: MicrofrontendStackSource
+export interface IFrontendStackDTO {
+    framework?: FrontendFramework
+    compiler?: FrontendCompiler
+    source?: FrontendStackSource
 }
 
 export interface ICodeIntegrationDTO {
@@ -35,15 +36,15 @@ export interface ICodeIntegrationDTO {
     /** True when the stack integrates at runtime instead of through module federation */
     runtimeIntegration?: boolean
     /** The stack the instructions were generated for */
-    stack: IMicrofrontendStackDTO
+    stack: IFrontendStackDTO
 }
 
 export interface ICodeIntegrationRequestDTO {
-    microfrontendId: string
+    frontendId: string
     deploymentId: string
-    /** Both default to the stack stored on the microfrontend */
-    framework?: MicrofrontendFramework
-    compiler?: MicrofrontendCompiler
+    /** Both default to the stack stored on the frontend */
+    framework?: FrontendFramework
+    compiler?: FrontendCompiler
 }
 
 const useServeApi = () => {

@@ -2,7 +2,8 @@ import { Schema } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ICodeRepository } from "../models/CodeRepositoryModel"
-import Microfrontend, { HostedOn, ICodeRepositoryMicrofrontend, IHostMicrofrontend, IMicrofrontend } from "../models/MicrofrontendModel"
+import Frontend, { HostedOn, ICodeRepositoryFrontend, IFrontend, IHostFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Service, { IService } from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import ImportRepositoriesDTO, { ImportTarget } from "../types/ImportRepositoriesDTO"
@@ -16,21 +17,21 @@ import { resolveDomainId } from "./DomainService"
 const defaultEntryPoint = "assets/remoteEntry.js"
 const defaultVersion = "1.0.0"
 
-/** What a repository can already be linked to: a microfrontend or a service */
-type LinkedMember = Pick<IMicrofrontend | IService, "_id" | "slug" | "name" | "codeRepository" | "domainId">
+/** What a repository can already be linked to: a frontend or a service */
+type LinkedMember = Pick<IFrontend | IService, "_id" | "slug" | "name" | "codeRepository" | "domainId">
 
-/** Anything but the two targets is refused: a typo must not quietly import microfrontends */
+/** Anything but the two targets is refused: a typo must not quietly import frontends */
 const ensureTarget = (target: unknown) => {
-    if (target !== undefined && target !== "microfrontend" && target !== "service") {
-        throw createBusinessException({ code: "IMPORT_TARGET_INVALID", message: `target must be "microfrontend" or "service", not ${JSON.stringify(target)}`, statusCode: 400 })
+    if (target !== undefined && target !== "frontend" && target !== "service") {
+        throw createBusinessException({ code: "IMPORT_TARGET_INVALID", message: `target must be "frontend" or "service", not ${JSON.stringify(target)}`, statusCode: 400 })
     }
 }
 
 export interface ImportableRepository extends NormalizedRepository {
-    /** Slug the microfrontend or the service would get, already deduplicated against the project. */
+    /** Slug the frontend or the service would get, already deduplicated against the project. */
     slug: string
     alreadyImported: boolean
-    /** Set when the repository is already linked to a microfrontend or a service of this project. */
+    /** Set when the repository is already linked to a frontend or a service of this project. */
     importedAs?: {
         _id: string
         slug: string
@@ -42,8 +43,8 @@ export interface ImportedRepositoryResult {
     repositoryId: string
     name: string
     slug: string
-    /** Set when imported as a microfrontend */
-    microfrontendId?: string
+    /** Set when imported as a frontend */
+    frontendId?: string
     /** Set when imported as a service */
     serviceId?: string
 }
@@ -69,7 +70,7 @@ export interface ImportRepositoriesResult {
 export class CodeRepositoryImportService extends BaseAuthorizedService {
     /**
      * Lists every repository reachable through a code repository connection, flagging the ones already
-     * linked to a microfrontend or a service so the caller can offer a "import all the missing ones" action.
+     * linked to a frontend or a service so the caller can offer a "import all the missing ones" action.
      */
     async getImportableRepositories(codeRepositoryId: string, groupId?: number, target?: ImportTarget): Promise<ImportableRepository[]> {
         ensureTarget(target)
@@ -86,7 +87,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
 
         return repositories.map(repository => {
             const linked = this.findLinkedMember(linkedMembers, repository)
-            // A domain-scoped member learns that a repository is taken, not by what: the microfrontend or the
+            // A domain-scoped member learns that a repository is taken, not by what: the frontend or the
             // service of another domain stays out of their sight, as everywhere else
             const member = linked && isInDomainScope(scope, linked.domainId) ? linked : undefined
 
@@ -107,7 +108,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
     }
 
     /**
-     * Creates one microfrontend, or one service with the service target, per selected repository, all in the
+     * Creates one frontend, or one service with the service target, per selected repository, all in the
      * domain given. Repositories are imported independently: a single failure is reported back instead of
      * rolling back the whole batch.
      */
@@ -170,7 +171,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
                     description: repository.description,
                     projectId: toObjectId(codeRepository.projectId),
                     domainId,
-                    codeRepository: this.buildMicrofrontendCodeRepository(codeRepository, repository, body.groupId)
+                    codeRepository: this.buildFrontendCodeRepository(codeRepository, repository, body.groupId)
                 }
                 const imported = { repositoryId: repository.repositoryId, name: repository.name, slug }
 
@@ -179,8 +180,8 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
                     const service = await Service.create(common as unknown as IService)
                     result.imported.push({ ...imported, serviceId: service._id.toString() })
                 } else {
-                    const microfrontend = await Microfrontend.create({ ...common, version: body.version || defaultVersion, host } as unknown as IMicrofrontend)
-                    result.imported.push({ ...imported, microfrontendId: microfrontend._id.toString() })
+                    const frontend = await Frontend.create({ ...common, version: body.version || defaultVersion, host } as unknown as IFrontend)
+                    result.imported.push({ ...imported, frontendId: frontend._id.toString() })
                 }
             } catch (error) {
                 // The slug is not used after all, so give it back to the next repository of the batch.
@@ -213,31 +214,32 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
             .sort((a, b) => a.name.localeCompare(b.name))
     }
 
-    /** Whatever the target: a repository is the code of one microfrontend or of one service, never of both */
+    /** Whatever the target: a repository is the code of one frontend or of one service, never of both */
     private async getLinkedMembers(codeRepository: ICodeRepository): Promise<LinkedMember[]> {
         const linked = {
             projectId: toObjectId(codeRepository.projectId),
             "codeRepository.codeRepositoryId": toObjectId(codeRepository._id)
         }
-        const [microfrontends, services] = await Promise.all([Microfrontend.find(linked), Service.find(linked)])
-        return [...microfrontends, ...services]
+        const [frontends, services] = await Promise.all([Frontend.find(linked), Service.find(linked)])
+        return [...frontends, ...services]
     }
 
-    /** Microfrontends and services have a slug space each, so only the target's is taken */
+    /** Frontends and services have a slug space each, so only the target's is taken; the maintenance agents share both */
     private async getTakenSlugs(projectId: Schema.Types.ObjectId, target?: ImportTarget): Promise<Set<string>> {
         const filter = { projectId: toObjectId(projectId) }
-        const members = target === "service" ? await Service.find(filter, { slug: 1 }) : await Microfrontend.find(filter, { slug: 1 })
-        return new Set(members.map(member => member.slug))
+        const members = target === "service" ? await Service.find(filter, { slug: 1 }) : await Frontend.find(filter, { slug: 1 })
+        const agents = await MaintenanceAgent.find(filter, { slug: 1 })
+        return new Set([...members, ...agents].map(member => member.slug))
     }
 
-    private reserveSlug(name: string, takenSlugs: Set<string>, target: ImportTarget = "microfrontend"): string {
+    private reserveSlug(name: string, takenSlugs: Set<string>, target: ImportTarget = "frontend"): string {
         const slug = buildUniqueSlug(name, takenSlugs, target)
         takenSlugs.add(slug)
         return slug
     }
 
     /**
-     * Microfrontends and services created through the UI do not always carry the provider id (it is only known
+     * Frontends and services created through the UI do not always carry the provider id (it is only known
      * once the repository exists), so the name is used as a fallback to recognize an already imported repository.
      */
     private findLinkedMember(members: LinkedMember[], repository: NormalizedRepository): LinkedMember | undefined {
@@ -249,7 +251,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
         })
     }
 
-    buildMicrofrontendCodeRepository(codeRepository: ICodeRepository, repository: NormalizedRepository, groupId?: number): ICodeRepositoryMicrofrontend {
+    buildFrontendCodeRepository(codeRepository: ICodeRepository, repository: NormalizedRepository, groupId?: number): ICodeRepositoryFrontend {
         return {
             enabled: true,
             codeRepositoryId: codeRepository._id,
@@ -264,11 +266,11 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
                       path: repository.gitlab.path ?? codeRepository.gitlabData?.groupPath
                   }
                 : undefined
-        } as ICodeRepositoryMicrofrontend
+        } as ICodeRepositoryFrontend
     }
 
-    /** Same defaults as the "add microfrontend" form: the project default storage when there is one, the hub otherwise. */
-    private async resolveHost(projectId: Schema.Types.ObjectId): Promise<IHostMicrofrontend> {
+    /** Same defaults as the "add frontend" form: the project default storage when there is one, the hub otherwise. */
+    private async resolveHost(projectId: Schema.Types.ObjectId): Promise<IHostFrontend> {
         const defaultStorage = await Storage.findOne({ projectId: toObjectId(projectId), default: true })
 
         if (defaultStorage) {

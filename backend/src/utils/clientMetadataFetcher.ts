@@ -37,6 +37,8 @@ for (const [network, prefix] of [
     ["::1", 128],
     // IPv4-compatible (deprecated) addresses embed an IPv4 host the same way the mapped ones do
     ["::", 96],
+    // IPv4-translated addresses (SIIT, RFC 2765: ::ffff:0:a.b.c.d, e.g. ::ffff:0:7f00:1) reach the IPv4 host too
+    ["::ffff:0:0:0", 96],
     // NAT64 prefixes translate to an arbitrary IPv4 address, private ones included
     ["64:ff9b::", 96],
     ["64:ff9b:1::", 48],

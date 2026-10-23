@@ -39,6 +39,7 @@ import { describeToolError, MCP_TOOLS } from "../../mcp/server"
 import { credentialLogFields, McpSession, McpToolContext, McpToolDefinition, requiresConfirmation } from "../../mcp/toolDefinition"
 import { IUser } from "../../models/UserModel"
 import { RoleInProject } from "../../models/UserProjectModel"
+import { redactDesignSystems } from "../../types/DesignSystem"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { AuthorizedPrincipal } from "../BaseAuthorizedService"
 import { LlmMessage, LlmTool, LlmToolCall, LlmToolResult } from "../llm"
@@ -161,7 +162,8 @@ export const parkableTurn = (turn: LlmMessage[]): LlmMessage[] | undefined => {
 }
 
 const toModelContent = (value: unknown): string => {
-    const json = JSON.stringify(value ?? null)
+    // The model reads the design systems of the projects and frontends it is handed without the credentials of their npmrc
+    const json = JSON.stringify(value ?? null, redactDesignSystems)
     return json.length > MAX_RESULT_CHARS_FOR_MODEL ? `${json.slice(0, MAX_RESULT_CHARS_FOR_MODEL)}… [cut at ${MAX_RESULT_CHARS_FOR_MODEL} of ${json.length} characters]` : json
 }
 

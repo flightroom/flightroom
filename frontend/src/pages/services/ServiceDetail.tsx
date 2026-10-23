@@ -1,9 +1,10 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList, Spinner } from "@flightroom/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Copy, ExternalLink, Hammer } from "lucide-react"
+import { Copy, ExternalLink, Hammer, Tag } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Navigate, useParams } from "react-router-dom"
+import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
@@ -12,13 +13,17 @@ import { ApiStatusHandler } from "@/components/organisms"
 import RepositoryLink from "@/components/RepositoryLink"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
+import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import ServiceBuildDialog from "./partials/ServiceBuildDialog"
 import ServiceHeader, { isServiceAiAvailable } from "./partials/ServiceHeader"
+import ServiceReleaseDialog from "./partials/ServiceReleaseDialog"
+import ServiceResourcesSection from "./partials/ServiceResourcesSection"
 import ServiceVariableMapsSection from "./partials/ServiceVariableMapsSection"
 import ServiceVersionsTable from "./partials/ServiceVersionsTable"
-import { useProjectEnvironmentsQuery } from "./partials/serviceVariables"
+import { exposedOrigin, useProjectEnvironmentsQuery } from "./partials/serviceVariables"
 
 /** A path of the service, as declared: no URL is made up from it, the host depends on where the service runs */
 const ServicePath: React.FC<{ path?: string | null }> = ({ path }) => {
@@ -53,39 +58,44 @@ const ServiceLink: React.FC<{ href: string; label: string }> = ({ href, label })
     </a>
 )
 
-/** Where the service answers in each environment, with the docs and the OpenAPI spec reached from there */
+/** A path of the service under the URL it is exposed at: the exposure path may end with a slash, the paths start with one */
+const joinPath = (base: string, path: string) => base.replace(/\/+$/, "") + path
+
+/** Where the service answers in each environment, its exposure path on their host, with the docs and the OpenAPI spec reached from there */
 const ServiceUrls: React.FC<{ service: Service; environments: EnvironmentDTO[] }> = ({ service, environments }) => {
     const { t } = useTranslation()
-    // A URL left behind by a deleted environment has no row to show
-    const exposed = environments.some(environment => service.urls?.some(url => url.environmentId === environment._id))
+    const exposure = useProjectStore(state => state.project?.exposure)
+    const path = service.exposurePath
 
     return (
         <div>
             <h3 className="mb-2 text-base font-semibold">{t("services.urls.title")}</h3>
-            {exposed ? (
+            {!path ? (
+                <p className="text-sm text-foreground-secondary">{t("services.urls.not_exposed")}</p>
+            ) : !exposure?.domain ? (
+                // No host to put it on: the path is all there is to show
+                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                    <span className="font-mono">{path}</span>
+                    <span className="text-foreground-secondary">{t("services.urls.no_domain")}</span>
+                </p>
+            ) : environments.length === 0 ? (
+                <p className="text-sm text-foreground-secondary">{t("services.urls.no_environments")}</p>
+            ) : (
                 <ul className="flex flex-col gap-2">
                     {environments.map(environment => {
-                        const url = service.urls?.find(candidate => candidate.environmentId === environment._id)?.url
+                        const url = exposedOrigin(exposure, environment) + path
                         return (
                             <li key={environment._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                                 <Badge variant="outline">{environment.name}</Badge>
-                                {url ? (
-                                    <>
-                                        <span className="min-w-0 break-all font-mono">
-                                            <ServiceLink href={url} label={url} />
-                                        </span>
-                                        {service.docsPath && <ServiceLink href={url + service.docsPath} label={t("services.urls.open_docs")} />}
-                                        {service.openApiPath && <ServiceLink href={url + service.openApiPath} label={t("services.urls.open_openapi")} />}
-                                    </>
-                                ) : (
-                                    <span className="text-foreground-secondary">{t("services.urls.not_exposed")}</span>
-                                )}
+                                <span className="min-w-0 break-all font-mono">
+                                    <ServiceLink href={url} label={url} />
+                                </span>
+                                {service.docsPath && <ServiceLink href={joinPath(url, service.docsPath)} label={t("services.urls.open_docs")} />}
+                                {service.openApiPath && <ServiceLink href={joinPath(url, service.openApiPath)} label={t("services.urls.open_openapi")} />}
                             </li>
                         )
                     })}
                 </ul>
-            ) : (
-                <p className="text-sm text-foreground-secondary">{t("services.urls.empty")}</p>
             )}
         </div>
     )
@@ -159,7 +169,7 @@ const ServiceRepositorySection: React.FC<{ service: Service }> = ({ service }) =
 }
 
 /**
- * The landing screen of a service: Edit with AI on its repository, the same workspace as a microfrontend's.
+ * The landing screen of a service: Edit with AI on its repository, the same workspace as a frontend's.
  * Without AI editing, the overview takes its place. Not inside an ApiStatusHandler: it unmounts its children on every background refetch, and the workspace holds a draft prompt.
  */
 const ServiceAiSection: React.FC<{ serviceQuery: { isPending: boolean; isError: boolean; error: unknown; data?: Service } }> = ({ serviceQuery }) => {
@@ -206,40 +216,58 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
     const servicesApi = useServicesApi()
     const queryClient = useQueryClient()
     const [buildOpen, setBuildOpen] = useState(false)
+    const [releaseOpen, setReleaseOpen] = useState(false)
+    const isViewer = useIsProjectViewer()
 
     const serviceQuery = useQuery({ queryKey: ["service", id], queryFn: () => servicesApi.getSingle(id!), enabled: !!id })
     const versionsQuery = useQuery({ queryKey: ["service-versions", id], queryFn: () => servicesApi.getVersions(id!), enabled: !!id && view === "overview" })
     const environmentsQuery = useProjectEnvironmentsQuery()
     const configMapsQuery = useVariableMapsQuery("configMap")
     const secretsQuery = useVariableMapsQuery("secret")
+    const resourcesQuery = useResourcesQuery(view === "overview")
 
     const service = serviceQuery.data
-    const hasRepository = Boolean(service?.codeRepository?.enabled)
+    // A viewer may look, not release: the version is created by those who can write
+    const canBuild = Boolean(service?.codeRepository?.enabled) && !isViewer
 
     if (view === "ai") return <ServiceAiSection serviceQuery={serviceQuery} />
 
     return (
-        <ApiStatusHandler queries={[serviceQuery, versionsQuery, environmentsQuery, configMapsQuery, secretsQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[serviceQuery, versionsQuery, environmentsQuery, configMapsQuery, secretsQuery, resourcesQuery]} interceptEmpty={false}>
             {service && (
                 <div className="flex min-h-full flex-col gap-6">
                     <ServiceHeader
                         service={service}
                         active="overview"
                         actions={
-                            hasRepository && (
-                                <Button variant="primary" onClick={() => setBuildOpen(true)}>
-                                    <Hammer />
-                                    {t("services.build.action")}
-                                </Button>
+                            !isViewer && (
+                                <>
+                                    {/* For an image pushed without the CI registration call: the deploy runs the tag set here */}
+                                    <Button variant="secondary" onClick={() => setReleaseOpen(true)}>
+                                        <Tag />
+                                        {t("services.release.action")}
+                                    </Button>
+                                    {canBuild && (
+                                        <Button variant="primary" onClick={() => setBuildOpen(true)}>
+                                            <Hammer />
+                                            {t("services.build.action")}
+                                        </Button>
+                                    )}
+                                </>
                             )
                         }
                     />
                     {/* Sections are siblings so further ones (e.g. AI) can be added next to them. */}
                     <ServiceRepositorySection service={service} />
+                    <AiUsageSummary target={{ kind: "service", id: service._id! }} />
                     <ServiceVersionsTable versions={versionsQuery.data ?? []} />
                     <ServiceConfigurationSection service={service} environments={environmentsQuery.data ?? []} />
                     <ServiceVariableMapsSection service={service} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
-                    {hasRepository && (
+                    <ServiceResourcesSection service={service} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                    {!isViewer && (
+                        <ServiceReleaseDialog open={releaseOpen} onOpenChange={setReleaseOpen} service={service} onSaved={() => queryClient.invalidateQueries({ queryKey: ["service", id] })} />
+                    )}
+                    {canBuild && (
                         <ServiceBuildDialog
                             open={buildOpen}
                             onOpenChange={setBuildOpen}

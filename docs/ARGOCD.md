@@ -29,7 +29,7 @@ project id>`, so two projects with the same slug, in two organizations, never me
 | AppProject | `<project>` | Lets the applications of the project read its two repositories only, and write only to the namespaces of its environments. Namespace is the one cluster-wide kind it may create. |
 | Repository credentials | one per repository | Read-only, over HTTPS. Those of the configuration repository, which holds the secrets in plaintext, are scoped to the AppProject. Those of the applications repository, which holds Helm values only, are global: the git generator of an ApplicationSet reads the repository outside of any AppProject. |
 | ApplicationSet | `<project>.environments` | Lists the environments of the project. Argo CD makes from it an Application per environment, `<project>.<environment>`, syncing the folder `<environment>/` (its `namespace.yaml`, `configMaps/*.yaml` and `secrets/*.yaml`) from the default branch of the configuration repository into the namespace of the environment. Automated, with prune and self-heal. The environments are listed rather than found in the repository: a git generator would read the configuration repository outside of the AppProject, and it holds the secrets. |
-| ApplicationSet | `<project>.<application>` | Only with an applications repository, one per backend service and per frontend that runs as a container, once it has an image and a version. Makes an Application per environment, `<project>.<application>-<environment>`, for every environment whose branch holds `<application>.yaml`, installed with `microservice-chart/` of that branch and `../<application>.yaml` as values file. An environment whose branch does not exist yet is left out of the list: Argo CD fails an ApplicationSet that names a revision it cannot find. Labelled `mfe-orchestrator/application: <application>`. |
+| ApplicationSet | `<project>.<application>` | Only with an applications repository, one per backend service and per frontend that runs as a container, once it has a version and an image: its own, or `<containerRegistry>/<application>` when the project has a container registry. Makes an Application per environment, `<project>.<application>-<environment>`, for every environment whose branch holds `<application>.yaml`, installed with `microservice-chart/` of that branch and `../<application>.yaml` as values file. An environment whose branch does not exist yet is left out of the list: Argo CD fails an ApplicationSet that names a revision it cannot find. Labelled `mfe-orchestrator/application: <application>`. |
 
 > **Never put a secret in the Helm values.** The applications repository is registered globally, so
 > every AppProject of the Argo CD instance may read it. Secrets belong in the secrets of the project,
@@ -115,6 +115,25 @@ because the console no longer trusts an instance it was moved away from: remove 
 Applications, the ApplicationSets and the repository credentials by hand. The GitLab deploy tokens the
 old instance read with are revoked anyway, on GitLab, so the old instance can no longer clone; a GitHub
 or Azure DevOps token you pasted is yours to revoke.
+
+### Maintenance agents
+
+A maintenance agent is deployed like a service, with its values file on the branch of each environment,
+and gets a CronJob from `templates/cronjob.yaml` of the chart. The template is written as a file of its
+own, so the branches whose chart predates it get it with their next deploy; the rest of the chart is left
+as the team changed it.
+
+- **job**: the CronJob runs the image of the agent, and its Deployment has no replicas.
+- **container**: the Deployment runs as for a service, and the CronJob POSTs to the run path of the agent
+  (`http://<slug>/run` by default) with `curlimages/curl`.
+
+Without a schedule the CronJob is suspended. Play in the console asks Argo CD to run the `create-job`
+action on it, which creates a Job right away, for both kinds and whatever the schedule. The rule
+`applications, *, mfe-*/*` below already allows it. An account given narrower rules needs
+`applications, action/batch/CronJob/create-job, mfe-*/*`.
+
+The services and frontends the agent maintains reach its container as JSON in `MAINTAINED_TARGETS`, with
+the URL inside the namespace of those that run as a container.
 
 ## Network
 

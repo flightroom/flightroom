@@ -121,6 +121,14 @@ export interface AzureDevOpsBranch {
     url: string
 }
 
+/** The repository answered, without the branch: told apart from a repository the token cannot reach */
+export class AzureBranchNotFoundError extends Error {
+    constructor(branchName: string) {
+        super(`Branch ${branchName} not found`)
+        this.name = "AzureBranchNotFoundError"
+    }
+}
+
 export interface AzureDevOpsBranchDTO {
     count: number
     value: AzureDevOpsBranch[]
@@ -370,20 +378,22 @@ class AzureDevOpsClient {
     }
 
     async getBranchCommitId(token: string, organization: string, project: string, repositoryName: string, branchName: string): Promise<string> {
-        const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryName}/refs?filter=heads/${branchName}&api-version=7.1-preview.1`
         const response = await axios.request<AzureDevOpsBranchDTO>({
-            url,
+            url: `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryName}/refs`,
+            params: { filter: `heads/${branchName}`, "api-version": "7.1-preview.1" },
             headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json"
             }
         })
 
-        if (response.data.count === 0) {
-            throw new Error(`Branch ${branchName} not found`)
+        // The filter matches every branch that starts with the name: release finds release-2 too
+        const branch = (response.data.value ?? []).find(ref => ref.name === `refs/heads/${branchName}`)
+        if (!branch) {
+            throw new AzureBranchNotFoundError(branchName)
         }
 
-        return response.data.value[0].objectId
+        return branch.objectId
     }
 
     async createPipeline(
@@ -556,6 +566,19 @@ class AzureDevOpsClient {
                 }
             }
         })
+    }
+
+    /** Whether the repository has the tag. The filter matches every ref that starts with it: only the exact name counts */
+    async tagExists(token: string, organization: string, project: string, repositoryId: string, tagName: string): Promise<boolean> {
+        const response = await axios.request<AzureDevOpsBranchDTO>({
+            url: `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/refs`,
+            params: { filter: `tags/${tagName}`, "api-version": "7.1-preview.1" },
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            }
+        })
+        return (response.data.value ?? []).some(ref => ref.name === `refs/tags/${tagName}`)
     }
 
     async createTag(token: string, organization: string, project: string, repositoryId: string, tagName: string, objectId: string): Promise<void> {

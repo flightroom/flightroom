@@ -10,7 +10,7 @@ import useApiClient from "../useApiClient"
 export interface CanaryUser {
     _id: string
     deploymentId: string
-    microfrontendId?: string
+    frontendId?: string
     userId: string
     enabled: boolean
     createdAt?: string

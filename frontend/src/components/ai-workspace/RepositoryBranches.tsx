@@ -5,24 +5,24 @@ import { useId } from "react"
 import { useTranslation } from "react-i18next"
 import RepositoryLink from "@/components/RepositoryLink"
 import useCodeRepositoriesApi, { UnifiedBranch } from "@/hooks/apiClients/useCodeRepositoriesApi"
-import type { Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
+import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 
-type CodeRepository = NonNullable<Microfrontend["codeRepository"]>
+type CodeRepository = NonNullable<Frontend["codeRepository"]>
 
-/** A repository the agent works on: the one of a microfrontend or of a service. */
+/** A repository the agent works on: the one of a frontend or of a service. */
 export interface AiWorkspaceRepository {
-    /** The microfrontend's or the service's. */
+    /** The frontend's or the service's. */
     id: string
-    kind: "microfrontend" | "service"
+    kind: "frontend" | "service"
     name: string
     codeRepository: CodeRepository
 }
 
-/** The branch each repository starts from, by microfrontend or service id: one left out starts from its default branch. */
+/** The branch each repository starts from, by frontend or service id: one left out starts from its default branch. */
 export type BaseBranches = Record<string, string>
 
-/** The repository of a microfrontend or a service, as a list: empty when it has none connected. */
-export const workspaceRepositoriesOf = (kind: AiWorkspaceRepository["kind"], component: { _id?: string; name: string; codeRepository?: Microfrontend["codeRepository"] }): AiWorkspaceRepository[] =>
+/** The repository of a frontend or a service, as a list: empty when it has none connected. */
+export const workspaceRepositoriesOf = (kind: AiWorkspaceRepository["kind"], component: { _id?: string; name: string; codeRepository?: Frontend["codeRepository"] }): AiWorkspaceRepository[] =>
     component._id && component.codeRepository?.enabled ? [{ id: component._id, kind, name: component.name, codeRepository: component.codeRepository }] : []
 
 /** The branches picked, trimmed, of the given repositories only. */
@@ -47,14 +47,14 @@ interface BranchSelectProps {
 /** Where one repository starts from: its branches once known, free text when the provider cannot list them. */
 const BranchSelect: React.FC<BranchSelectProps> = ({ repository, branches, failed, value, onChange, disabled }) => {
     const { t } = useTranslation()
-    const label = t("microfrontend.aiChange.base_branch_of", { name: repository.name })
+    const label = t("frontend.aiChange.base_branch_of", { name: repository.name })
 
     if (failed) {
         return (
             <Input
                 aria-label={label}
                 value={value}
-                placeholder={t("microfrontend.aiChange.base_branch_placeholder")}
+                placeholder={t("frontend.aiChange.base_branch_placeholder")}
                 disabled={disabled}
                 onChange={event => onChange(event.target.value)}
                 className="w-48"
@@ -72,12 +72,12 @@ const BranchSelect: React.FC<BranchSelectProps> = ({ repository, branches, faile
         // The default branch is kept as no choice at all: the server resolves it when the job starts.
         <Select layoutSize="sm" value={value} onValueChange={branch => onChange(branch === defaultBranch ? "" : branch)} disabled={disabled || !branches}>
             <SelectTrigger aria-label={label} className="w-48 shrink-0" dataTestId="ai-change-base-branch">
-                <SelectValue placeholder={branches ? t("microfrontend.aiChange.base_branch_default", { branch: defaultBranch ?? "" }) : t("common.loading")} />
+                <SelectValue placeholder={branches ? t("frontend.aiChange.base_branch_default", { branch: defaultBranch ?? "" }) : t("common.loading")} />
             </SelectTrigger>
             <SelectContent>
                 {names.map(name => (
                     <SelectItem key={name} value={name}>
-                        {name === defaultBranch ? t("microfrontend.aiChange.base_branch_default", { branch: name }) : name}
+                        {name === defaultBranch ? t("frontend.aiChange.base_branch_default", { branch: name }) : name}
                     </SelectItem>
                 ))}
             </SelectContent>
@@ -122,7 +122,7 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
         <section className="flex flex-col gap-2" aria-labelledby={headingId}>
             <div className="flex flex-wrap items-center justify-between gap-2">
                 <h3 id={headingId} className="text-sm font-medium">
-                    {t("microfrontend.aiChange.repositories_title", { count: repositories.length })}
+                    {t("frontend.aiChange.repositories_title", { count: repositories.length })}
                 </h3>
                 {repositories.length > 1 && (
                     <Select
@@ -131,14 +131,14 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
                         onValueChange={branch => onChange(branch === EACH_DEFAULT ? {} : Object.fromEntries(repositories.map(({ id }) => [id, branch])))}
                         disabled={disabled}
                     >
-                        <SelectTrigger aria-label={t("microfrontend.aiChange.base_branch_all")} className="w-60" dataTestId="ai-change-base-branch-all">
-                            <SelectValue placeholder={t("microfrontend.aiChange.base_branch_mixed")} />
+                        <SelectTrigger aria-label={t("frontend.aiChange.base_branch_all")} className="w-60" dataTestId="ai-change-base-branch-all">
+                            <SelectValue placeholder={t("frontend.aiChange.base_branch_mixed")} />
                         </SelectTrigger>
                         <SelectContent>
-                            <SelectItem value={EACH_DEFAULT}>{t("microfrontend.aiChange.base_branch_each_default")}</SelectItem>
+                            <SelectItem value={EACH_DEFAULT}>{t("frontend.aiChange.base_branch_each_default")}</SelectItem>
                             {common.map(name => (
                                 <SelectItem key={name} value={name}>
-                                    {t("microfrontend.aiChange.base_branch_everywhere", { branch: name })}
+                                    {t("frontend.aiChange.base_branch_everywhere", { branch: name })}
                                 </SelectItem>
                             ))}
                         </SelectContent>
@@ -154,14 +154,14 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
                                 <span className="flex min-w-0 items-center gap-2 font-medium">
                                     <Icon className="size-4 shrink-0 text-foreground-secondary" aria-hidden="true" />
                                     <span className="truncate">{repository.name}</span>
-                                    <span className="sr-only"> ({t(`microfrontend.aiChange.kind.${repository.kind}`)})</span>
+                                    <span className="sr-only"> ({t(`frontend.aiChange.kind.${repository.kind}`)})</span>
                                 </span>
                                 <span className="min-w-0 text-xs text-foreground-secondary">
                                     <RepositoryLink repository={repository.codeRepository} />
                                 </span>
                             </span>
                             <span className="flex items-center gap-2">
-                                <span className="text-xs text-foreground-secondary">{t("microfrontend.aiChange.starts_from")}</span>
+                                <span className="text-xs text-foreground-secondary">{t("frontend.aiChange.starts_from")}</span>
                                 <BranchSelect
                                     repository={repository}
                                     branches={branchQueries[index]?.data}
@@ -175,7 +175,7 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
                     )
                 })}
             </ul>
-            <p className="text-xs text-foreground-secondary">{t("microfrontend.aiChange.base_branch_hint")}</p>
+            <p className="text-xs text-foreground-secondary">{t("frontend.aiChange.base_branch_hint")}</p>
         </section>
     )
 }

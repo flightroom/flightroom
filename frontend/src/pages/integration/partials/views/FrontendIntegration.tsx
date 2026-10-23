@@ -19,21 +19,21 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { DeploymentDTO } from "@/hooks/apiClients/useDeploymentsApi"
-import { Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
-import { MicrofrontendCompiler, MicrofrontendFramework } from "@/hooks/apiClients/useServeApi"
-import IntegrateMicrofrontendsDialog from "@/pages/integration/partials/components/IntegrateMicrofrontendsDialog"
-import MicrofrontendSelector from "@/pages/integration/partials/components/MicrofrontendSelector"
+import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
+import { FrontendCompiler, FrontendFramework } from "@/hooks/apiClients/useServeApi"
+import FrontendSelector from "@/pages/integration/partials/components/FrontendSelector"
+import IntegrateFrontendsDialog from "@/pages/integration/partials/components/IntegrateFrontendsDialog"
 import { CodeIntegration } from "../index"
 
 const AUTO = "AUTO"
 
-const FRAMEWORK_OPTIONS: { value: MicrofrontendFramework; label: string }[] = [
+const FRAMEWORK_OPTIONS: { value: FrontendFramework; label: string }[] = [
     { value: "REACT", label: "React" },
     { value: "VUE", label: "Vue" },
     { value: "ANGULAR", label: "Angular" }
 ]
 
-const COMPILER_OPTIONS: { value: MicrofrontendCompiler; label: string }[] = [
+const COMPILER_OPTIONS: { value: FrontendCompiler; label: string }[] = [
     { value: "VITE", label: "Vite" },
     { value: "WEBPACK", label: "Webpack" },
     { value: "WEBCOMPONENT", label: "Web Component" },
@@ -49,17 +49,17 @@ export const FrontendIntegration = ({ deployment }: { deployment: DeploymentDTO 
     const curlExample = `# Example CURL request to fetch a remote module
   curl -X GET https://${window.location.host}/api/serve/all/${activeDeployment.environmentId}`
 
-    const [selectedMicrofrontend, setSelectedMicrofrontend] = useState<Microfrontend>(activeDeployment.microfrontends[0])
-    // Undefined means "use the stack stored on the microfrontend", which is the normal case:
+    const [selectedFrontend, setSelectedFrontend] = useState<Frontend>(activeDeployment.frontends[0])
+    // Undefined means "use the stack stored on the frontend", which is the normal case:
     // these are here for when detection got it wrong, or for reading another stack's instructions
-    const [framework, setFramework] = useState<MicrofrontendFramework | undefined>()
-    const [compiler, setCompiler] = useState<MicrofrontendCompiler | undefined>()
-    // Undefined opens the dialog on the whole project, an id narrows it to one microfrontend
+    const [framework, setFramework] = useState<FrontendFramework | undefined>()
+    const [compiler, setCompiler] = useState<FrontendCompiler | undefined>()
+    // Undefined opens the dialog on the whole project, an id narrows it to one frontend
     const [integrateOnly, setIntegrateOnly] = useState<string | undefined>()
     const [isIntegrateDialogOpen, setIsIntegrateDialogOpen] = useState(false)
 
-    const openIntegrateDialog = (onlyMicrofrontendId?: string) => {
-        setIntegrateOnly(onlyMicrofrontendId)
+    const openIntegrateDialog = (onlyFrontendId?: string) => {
+        setIntegrateOnly(onlyFrontendId)
         setIsIntegrateDialogOpen(true)
     }
 
@@ -72,16 +72,16 @@ export const FrontendIntegration = ({ deployment }: { deployment: DeploymentDTO 
 
             <CardContent>
                 <div className="flex gap-2 flex-wrap items-end mb-4">
-                    <MicrofrontendSelector microfrontends={activeDeployment.microfrontends} selectedMicrofrontend={selectedMicrofrontend} onSelect={setSelectedMicrofrontend} />
+                    <FrontendSelector frontends={activeDeployment.frontends} selectedFrontend={selectedFrontend} onSelect={setSelectedFrontend} />
                     <Button onClick={() => openIntegrateDialog()}>{t("integration.fe_integration_tab.integrate_all_button")}</Button>
-                    <Button variant="secondary" onClick={() => openIntegrateDialog(selectedMicrofrontend?._id)} disabled={!selectedMicrofrontend}>
+                    <Button variant="secondary" onClick={() => openIntegrateDialog(selectedFrontend?._id)} disabled={!selectedFrontend}>
                         {t("integration.fe_integration_tab.integrate_one_button")}
                     </Button>
                 </div>
 
-                <IntegrateMicrofrontendsDialog isOpen={isIntegrateDialogOpen} onOpenChange={setIsIntegrateDialogOpen} onlyMicrofrontendId={integrateOnly} />
+                <IntegrateFrontendsDialog isOpen={isIntegrateDialogOpen} onOpenChange={setIsIntegrateDialogOpen} onlyFrontendId={integrateOnly} />
 
-                {selectedMicrofrontend ? (
+                {selectedFrontend ? (
                     <Tabs value={activeTab} onValueChange={setActiveTab} tabsListPosition="fullWidth">
                         <TabsList>
                             <TabsTrigger className="flex-[1_1_120px]" value="federation">
@@ -95,7 +95,7 @@ export const FrontendIntegration = ({ deployment }: { deployment: DeploymentDTO 
                         <TabsContent value="federation">
                             <div className="flex gap-2 flex-wrap items-end mb-4">
                                 <SelectControl label={t("integration.fe_integration_tab.framework_label")} className="w-full max-w-60">
-                                    <Select value={framework ?? AUTO} onValueChange={value => setFramework(value === AUTO ? undefined : (value as MicrofrontendFramework))}>
+                                    <Select value={framework ?? AUTO} onValueChange={value => setFramework(value === AUTO ? undefined : (value as FrontendFramework))}>
                                         <SelectTrigger className="w-full">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -111,7 +111,7 @@ export const FrontendIntegration = ({ deployment }: { deployment: DeploymentDTO 
                                 </SelectControl>
 
                                 <SelectControl label={t("integration.fe_integration_tab.compiler_label")} className="w-full max-w-60">
-                                    <Select value={compiler ?? AUTO} onValueChange={value => setCompiler(value === AUTO ? undefined : (value as MicrofrontendCompiler))}>
+                                    <Select value={compiler ?? AUTO} onValueChange={value => setCompiler(value === AUTO ? undefined : (value as FrontendCompiler))}>
                                         <SelectTrigger className="w-full">
                                             <SelectValue />
                                         </SelectTrigger>
@@ -127,7 +127,7 @@ export const FrontendIntegration = ({ deployment }: { deployment: DeploymentDTO 
                                 </SelectControl>
                             </div>
 
-                            <CodeIntegration microfrontendId={selectedMicrofrontend._id} deploymentId={activeDeployment._id} framework={framework} compiler={compiler} />
+                            <CodeIntegration frontendId={selectedFrontend._id} deploymentId={activeDeployment._id} framework={framework} compiler={compiler} />
                         </TabsContent>
 
                         <TabsContent value="curl">
@@ -141,7 +141,7 @@ export const FrontendIntegration = ({ deployment }: { deployment: DeploymentDTO 
                         </TabsContent>
                     </Tabs>
                 ) : (
-                    <p>{t("integration.microfrontend_select_placeholder")}</p>
+                    <p>{t("integration.frontend_select_placeholder")}</p>
                 )}
             </CardContent>
         </Card>

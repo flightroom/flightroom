@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { createBusinessException } from "../../errors/BusinessException"
 import EnvironmentService from "../../service/EnvironmentService"
-import MicrofrontendService from "../../service/MicrofrontendService"
+import FrontendService from "../../service/FrontendService"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
 import { MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, objectId, WRITE } from "../toolDefinition"
@@ -33,24 +33,24 @@ export const projectContentTools = [
         }
     }),
     defineTool({
-        name: "microfrontends_delete_bulk",
-        title: "Delete microfrontends",
-        description: "Removes several microfrontends from the project. Deployments already made keep their snapshot.",
+        name: "frontends_delete_bulk",
+        title: "Delete frontends",
+        description: "Removes several frontends from the project. Deployments already made keep their snapshot.",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         annotations: DESTRUCTIVE,
-        inputSchema: z.object({ microfrontendIds: z.array(objectId("Id of a microfrontend, from microfrontends_list")).min(1).max(50) }),
-        run: async (args, { principal }) => ({ deletedCount: await new MicrofrontendService(principal).bulkDelete(args.microfrontendIds) })
+        inputSchema: z.object({ frontendIds: z.array(objectId("Id of a frontend, from frontends_list")).min(1).max(50) }),
+        run: async (args, { principal }) => ({ deletedCount: await new FrontendService(principal).bulkDelete(args.frontendIds) })
     }),
     defineTool({
-        name: "microfrontend_canvas_set",
-        title: "Move microfrontend on the canvas",
-        description: "Moves a microfrontend's box on the project canvas, resizes it, or both. Coordinates and sizes are canvas pixels.",
+        name: "frontend_canvas_set",
+        title: "Move frontend on the canvas",
+        description: "Moves a frontend's box on the project canvas, resizes it, or both. Coordinates and sizes are canvas pixels.",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
-            microfrontendId: objectId("Id of the microfrontend, from microfrontends_list"),
+            frontendId: objectId("Id of the frontend, from frontends_list"),
             position: z.object({ x: z.number(), y: z.number() }).optional().describe("New top-left corner of the box"),
             size: z.object({ width: z.number().positive(), height: z.number().positive() }).optional().describe("New size of the box")
         }),
@@ -58,12 +58,12 @@ export const projectContentTools = [
             if (!args.position && !args.size) {
                 throw createBusinessException({ code: "CANVAS_NOTHING_TO_SET", message: "Pass position, size or both" })
             }
-            const service = new MicrofrontendService(principal)
-            let microfrontend = args.position ? await service.setPosition(args.microfrontendId, args.position.x, args.position.y) : undefined
+            const service = new FrontendService(principal)
+            let frontend = args.position ? await service.setPosition(args.frontendId, args.position.x, args.position.y) : undefined
             if (args.size) {
-                microfrontend = await service.setDimension(args.microfrontendId, args.size.width, args.size.height)
+                frontend = await service.setDimension(args.frontendId, args.size.width, args.size.height)
             }
-            return { id: args.microfrontendId, position: microfrontend?.position }
+            return { id: args.frontendId, position: frontend?.position }
         }
     })
 ]

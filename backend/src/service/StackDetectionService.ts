@@ -1,7 +1,7 @@
 import { Schema } from "mongoose"
 import { fastify } from ".."
-import Microfrontend, { IMicrofrontend } from "../models/MicrofrontendModel"
-import { MicrofrontendCompiler, MicrofrontendFramework, MicrofrontendStackSource, parseCompiler, parseFramework } from "../types/MicrofrontendStack"
+import Frontend, { IFrontend } from "../models/FrontendModel"
+import { FrontendCompiler, FrontendFramework, FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import RepositoryFileService, { mapWithConcurrency, REPOSITORY_CONCURRENCY, RepositoryTarget, toErrorMessage } from "./RepositoryFileService"
 
@@ -11,8 +11,8 @@ const PACKAGE_JSON_PATH = "package.json"
  * The extra package a bundler needs to do module federation. Webpack ships
  * ModuleFederationPlugin inside `webpack.container`, so there is nothing to add there.
  */
-export const FEDERATION_PLUGIN_BY_COMPILER: Partial<Record<MicrofrontendCompiler, string>> = {
-    [MicrofrontendCompiler.VITE]: "@originjs/vite-plugin-federation"
+export const FEDERATION_PLUGIN_BY_COMPILER: Partial<Record<FrontendCompiler, string>> = {
+    [FrontendCompiler.VITE]: "@originjs/vite-plugin-federation"
 }
 
 /** The client package a host imports remoteUrl() from */
@@ -22,20 +22,20 @@ export const CLIENT_PACKAGE = "@mfe-orchestrator-hub/client"
  * Config files probed in order, so a repository carrying both a vite and a webpack config is
  * reported as the one its dependencies point at rather than as whichever file was looked at first.
  */
-const CONFIG_CANDIDATES: { path: string; compiler: MicrofrontendCompiler }[] = [
-    { path: "vite.config.ts", compiler: MicrofrontendCompiler.VITE },
-    { path: "vite.config.js", compiler: MicrofrontendCompiler.VITE },
-    { path: "vite.config.mjs", compiler: MicrofrontendCompiler.VITE },
-    { path: "webpack.config.js", compiler: MicrofrontendCompiler.WEBPACK },
-    { path: "webpack.config.ts", compiler: MicrofrontendCompiler.WEBPACK },
-    { path: "webpack.config.mjs", compiler: MicrofrontendCompiler.WEBPACK }
+const CONFIG_CANDIDATES: { path: string; compiler: FrontendCompiler }[] = [
+    { path: "vite.config.ts", compiler: FrontendCompiler.VITE },
+    { path: "vite.config.js", compiler: FrontendCompiler.VITE },
+    { path: "vite.config.mjs", compiler: FrontendCompiler.VITE },
+    { path: "webpack.config.js", compiler: FrontendCompiler.WEBPACK },
+    { path: "webpack.config.ts", compiler: FrontendCompiler.WEBPACK },
+    { path: "webpack.config.mjs", compiler: FrontendCompiler.WEBPACK }
 ]
 
 /** Most specific first: an Angular app also declares rxjs, a Vue one never declares react */
-const FRAMEWORK_MARKERS: { dependency: string; framework: MicrofrontendFramework }[] = [
-    { dependency: "@angular/core", framework: MicrofrontendFramework.ANGULAR },
-    { dependency: "vue", framework: MicrofrontendFramework.VUE },
-    { dependency: "react", framework: MicrofrontendFramework.REACT }
+const FRAMEWORK_MARKERS: { dependency: string; framework: FrontendFramework }[] = [
+    { dependency: "@angular/core", framework: FrontendFramework.ANGULAR },
+    { dependency: "vue", framework: FrontendFramework.VUE },
+    { dependency: "react", framework: FrontendFramework.REACT }
 ]
 
 /**
@@ -43,11 +43,11 @@ const FRAMEWORK_MARKERS: { dependency: string; framework: MicrofrontendFramework
  * the single-spa and micro-lc templates are built with Vite too, and reading them as VITE would
  * hand out module federation instructions for an app that loads its remotes at runtime.
  */
-const INTEGRATION_MARKERS: { dependency: string; compiler: MicrofrontendCompiler }[] = [
-    { dependency: "single-spa", compiler: MicrofrontendCompiler.SINGLE_SPA },
-    { dependency: "single-spa-react", compiler: MicrofrontendCompiler.SINGLE_SPA },
-    { dependency: "@micro-lc/orchestrator", compiler: MicrofrontendCompiler.MICRO_LC },
-    { dependency: "@micro-lc/interfaces", compiler: MicrofrontendCompiler.MICRO_LC }
+const INTEGRATION_MARKERS: { dependency: string; compiler: FrontendCompiler }[] = [
+    { dependency: "single-spa", compiler: FrontendCompiler.SINGLE_SPA },
+    { dependency: "single-spa-react", compiler: FrontendCompiler.SINGLE_SPA },
+    { dependency: "@micro-lc/orchestrator", compiler: FrontendCompiler.MICRO_LC },
+    { dependency: "@micro-lc/interfaces", compiler: FrontendCompiler.MICRO_LC }
 ]
 
 /**
@@ -57,15 +57,15 @@ const INTEGRATION_MARKERS: { dependency: string; compiler: MicrofrontendCompiler
  */
 const isMicrolcParcelConfig = (configContent: string): boolean => /['"]umd['"]/.test(configContent) && /parcel/i.test(configContent)
 
-const COMPILER_MARKERS: { dependency: string; compiler: MicrofrontendCompiler }[] = [
-    { dependency: "@originjs/vite-plugin-federation", compiler: MicrofrontendCompiler.VITE },
-    { dependency: "vite", compiler: MicrofrontendCompiler.VITE },
-    { dependency: "webpack", compiler: MicrofrontendCompiler.WEBPACK }
+const COMPILER_MARKERS: { dependency: string; compiler: FrontendCompiler }[] = [
+    { dependency: "@originjs/vite-plugin-federation", compiler: FrontendCompiler.VITE },
+    { dependency: "vite", compiler: FrontendCompiler.VITE },
+    { dependency: "webpack", compiler: FrontendCompiler.WEBPACK }
 ]
 
 export interface DetectedStack {
-    framework?: MicrofrontendFramework
-    compiler?: MicrofrontendCompiler
+    framework?: FrontendFramework
+    compiler?: FrontendCompiler
     /** Path of the bundler config found in the repository, when there is one */
     configPath?: string
     /** Whether the bundler config already mentions module federation */
@@ -76,8 +76,8 @@ export interface DetectedStack {
     clientPackageInstalled: boolean
 }
 
-export interface MicrofrontendStackDetectionDTO extends Partial<DetectedStack> {
-    microfrontendId: string
+export interface FrontendStackDetectionDTO extends Partial<DetectedStack> {
+    frontendId: string
     slug: string
     name: string
     branch?: string
@@ -92,7 +92,7 @@ interface PackageManifest {
 }
 
 /**
- * Works out the framework and bundler of a microfrontend by reading its repository.
+ * Works out the framework and bundler of a frontend by reading its repository.
  *
  * Web components are deliberately never inferred: a Vite project without the federation plugin
  * looks exactly like one that has simply not been integrated yet, which is the case this whole
@@ -105,20 +105,20 @@ export class StackDetectionService extends BaseAuthorizedService {
     private readonly repositoryFiles = new RepositoryFileService(this.user)
 
     /**
-     * Detects the stack of every microfrontend of the project backed by a repository and stores
+     * Detects the stack of every frontend of the project backed by a repository and stores
      * what it found, leaving alone the ones whose stack came from a template or from the user.
      */
-    async detectForProject(projectId: string | Schema.Types.ObjectId): Promise<MicrofrontendStackDetectionDTO[]> {
-        // Stores what it finds on every microfrontend of the project: those reaching the whole project
+    async detectForProject(projectId: string | Schema.Types.ObjectId): Promise<FrontendStackDetectionDTO[]> {
+        // Stores what it finds on every frontend of the project: those reaching the whole project
         // only. The access to the project itself is checked when the repositories are resolved.
         await this.ensureWholeProject(projectId)
         const targets = await this.repositoryFiles.resolveTargets(projectId)
 
         return mapWithConcurrency(targets, REPOSITORY_CONCURRENCY, async target => {
             const base = {
-                microfrontendId: target.microfrontend._id.toString(),
-                slug: target.microfrontend.slug,
-                name: target.microfrontend.name
+                frontendId: target.frontend._id.toString(),
+                slug: target.frontend.slug,
+                name: target.frontend.name
             }
 
             if (!target.codeRepository) {
@@ -128,11 +128,11 @@ export class StackDetectionService extends BaseAuthorizedService {
             try {
                 const branch = await this.repositoryFiles.getDefaultBranch(target)
                 const detected = await this.detect(target, branch)
-                await this.persist(target.microfrontend, detected)
+                await this.persist(target.frontend, detected)
 
                 return { ...base, branch, ...detected }
             } catch (error) {
-                fastify.log.error(error, `Unable to detect the stack of ${target.microfrontend.slug}`)
+                fastify.log.error(error, `Unable to detect the stack of ${target.frontend.slug}`)
                 return { ...base, error: toErrorMessage(error) }
             }
         })
@@ -148,7 +148,7 @@ export class StackDetectionService extends BaseAuthorizedService {
         const compilerFromManifest = COMPILER_MARKERS.find(marker => declared.has(marker.dependency))?.compiler
 
         const config = await this.findConfig(target, branch, compilerFromManifest)
-        const integration = INTEGRATION_MARKERS.find(marker => declared.has(marker.dependency))?.compiler || (config && isMicrolcParcelConfig(config.raw) ? MicrofrontendCompiler.MICRO_LC : undefined)
+        const integration = INTEGRATION_MARKERS.find(marker => declared.has(marker.dependency))?.compiler || (config && isMicrolcParcelConfig(config.raw) ? FrontendCompiler.MICRO_LC : undefined)
         const compiler = integration || compilerFromManifest || config?.compiler
 
         return {
@@ -165,7 +165,7 @@ export class StackDetectionService extends BaseAuthorizedService {
      * The bundler config of the repository. When package.json already says which bundler is in
      * use, only that bundler's candidates are read, which also keeps the number of API calls down.
      */
-    private async findConfig(target: RepositoryTarget, branch: string, compiler?: MicrofrontendCompiler): Promise<{ path: string; compiler: MicrofrontendCompiler; raw: string } | null> {
+    private async findConfig(target: RepositoryTarget, branch: string, compiler?: FrontendCompiler): Promise<{ path: string; compiler: FrontendCompiler; raw: string } | null> {
         const candidates = compiler ? CONFIG_CANDIDATES.filter(candidate => candidate.compiler === compiler) : CONFIG_CANDIDATES
 
         for (const candidate of candidates) {
@@ -178,7 +178,7 @@ export class StackDetectionService extends BaseAuthorizedService {
         return null
     }
 
-    private isFederationPluginInstalled(compiler: MicrofrontendCompiler | undefined, declared: Set<string>): boolean {
+    private isFederationPluginInstalled(compiler: FrontendCompiler | undefined, declared: Set<string>): boolean {
         if (!compiler) {
             return false
         }
@@ -206,26 +206,26 @@ export class StackDetectionService extends BaseAuthorizedService {
     }
 
     /**
-     * Stores a detected stack, unless the microfrontend already carries one that did not come
+     * Stores a detected stack, unless the frontend already carries one that did not come
      * from detection: a template declared it, or the user picked it by hand.
      */
-    private async persist(microfrontend: IMicrofrontend, detected: DetectedStack): Promise<void> {
+    private async persist(frontend: IFrontend, detected: DetectedStack): Promise<void> {
         if (!detected.framework && !detected.compiler) {
             return
         }
 
-        if (microfrontend.stack && microfrontend.stack.source !== MicrofrontendStackSource.DETECTED) {
+        if (frontend.stack && frontend.stack.source !== FrontendStackSource.DETECTED) {
             return
         }
 
-        await Microfrontend.updateOne(
-            { _id: microfrontend._id },
+        await Frontend.updateOne(
+            { _id: frontend._id },
             {
                 $set: {
                     stack: {
                         framework: detected.framework,
                         compiler: detected.compiler,
-                        source: MicrofrontendStackSource.DETECTED,
+                        source: FrontendStackSource.DETECTED,
                         detectedAt: new Date()
                     }
                 }
@@ -234,22 +234,22 @@ export class StackDetectionService extends BaseAuthorizedService {
     }
 
     /** Records a stack the user chose, which detection then stops overwriting. */
-    async setManualStack(microfrontendId: string, framework?: string, compiler?: string): Promise<IMicrofrontend | null> {
-        const microfrontend = await Microfrontend.findById(microfrontendId)
+    async setManualStack(frontendId: string, framework?: string, compiler?: string): Promise<IFrontend | null> {
+        const frontend = await Frontend.findById(frontendId)
 
-        if (!microfrontend) {
+        if (!frontend) {
             return null
         }
 
-        await this.ensureAccessToMicrofrontend(microfrontend)
+        await this.ensureAccessToFrontend(frontend)
 
-        microfrontend.stack = {
+        frontend.stack = {
             framework: parseFramework(framework),
             compiler: parseCompiler(compiler),
-            source: MicrofrontendStackSource.MANUAL
+            source: FrontendStackSource.MANUAL
         }
 
-        return microfrontend.save()
+        return frontend.save()
     }
 }
 

@@ -24,7 +24,7 @@ export interface Market {
     repo?: string
     type?: string
     compiler?: string
-    /** File of the build output a microfrontend created from the template is served by */
+    /** File of the build output a frontend created from the template is served by */
     entryPoint?: string
     /** Service templates only */
     serviceDefaults?: ServiceDefaults

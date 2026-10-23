@@ -9,14 +9,17 @@ import GitlabClient from "../client/GitlabClient"
 import { createBusinessException } from "../errors/BusinessException"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project, { IArgoCdRepositoryCredential, IProjectArgoCd } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { renderNamespace } from "./GitOpsService"
 import { applicationName, applicationSetName, appProjectName, environmentApplicationName, environmentsApplicationSetName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 const gitlabConnectionId = new Types.ObjectId()
@@ -105,7 +108,7 @@ beforeEach(() => {
         Promise.resolve(String(filter._id) === String(gitlabConnectionId) ? gitlabConnection : githubConnection)) as never)
     vi.spyOn(CodeRepository, "find").mockResolvedValue([gitlabConnection, githubConnection] as never)
     vi.spyOn(Service, "find").mockResolvedValue([{ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, { slug: "draft" }] as never)
-    vi.spyOn(Microfrontend, "find").mockResolvedValue([{ slug: "checkout", version: "2.0.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
+    vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "checkout", version: "2.0.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
     vi.spyOn(CodeRepositoryService.prototype, "getBranches").mockImplementation(async () => {
         calls.push("branches")
         return [{ branch: "main" }, { branch: "development" }] as never
@@ -390,7 +393,7 @@ describe("ArgoCdService.initialize", () => {
             { slug: "checkout-development", projectId }
         ] as never)
         vi.mocked(Service.find).mockResolvedValue([{ slug: "orders-checkout", version: "1", image: { repository: "orders" } }] as never)
-        vi.mocked(Microfrontend.find).mockResolvedValue([{ slug: "orders", version: "1", image: { repository: "orders" } }] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([{ slug: "orders", version: "1", image: { repository: "orders" } }] as never)
         vi.mocked(CodeRepositoryService.prototype.getBranches).mockResolvedValue([{ branch: "development" }, { branch: "checkout-development" }] as never)
 
         await expect(initialize()).rejects.toMatchObject({ code: "ARGOCD_NAME_CLASH" })
@@ -500,6 +503,16 @@ describe("ArgoCdService.alignApplications", () => {
 
         expect(calls.filter(call => call.startsWith("argo:"))).toEqual([`argo:upsertApplicationSet:${applicationSetNameOf("orders")}`, `argo:upsertApplicationSet:${applicationSetNameOf("checkout")}`])
         expect(storedError()).toBeUndefined()
+    })
+
+    it("given a container registry in the project, when a deploy aligns it, then a service with a version and no image gets its ApplicationSet too", async () => {
+        previous = initialized()
+        vi.mocked(Project.findById).mockImplementation(() => ({ _id: projectId, slug: "shop", gitOps, argoCd: previous, containerRegistry: "ghcr.io/acme" }) as never)
+        vi.mocked(Service.find).mockResolvedValue([{ slug: "draft", version: "0.1.0" }] as never)
+
+        await align()
+
+        expect(calls).toContain(`argo:upsertApplicationSet:${applicationSetNameOf("draft")}`)
     })
 
     it("given an environment added since the initialization, when a deploy aligns it, then the ApplicationSets leave it out until its namespace is in the AppProject", async () => {

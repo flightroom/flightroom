@@ -6,7 +6,9 @@ import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import useMarketApi from "../../hooks/apiClients/useMarketApi"
+import useProjectStore from "@/store/useProjectStore"
+import { isRecommendedTemplate } from "@/utils/technologies"
+import useMarketApi, { type Market } from "../../hooks/apiClients/useMarketApi"
 import { isServiceTemplate } from "../services/partials/serviceTemplates"
 import { BlankTemplateCard, TemplateCard } from "./partials"
 
@@ -19,6 +21,8 @@ export const TemplatesLibrary: React.FC = () => {
     const [selectedCompiler, setSelectedCompiler] = useState<string>("all")
     const [getParams] = useSearchParams()
     const [hostType, setHostType] = useState<string>(getParams.get("type") === "service" ? "service" : "all") // 'all', 'remote', 'host', 'service'
+    const technologies = useProjectStore(state => state.project?.technologies)
+    const isRecommended = (market: Market) => isRecommendedTemplate(market, technologies)
 
     const marketsQuery = useQuery({
         queryKey: ["markets"],
@@ -38,25 +42,25 @@ export const TemplatesLibrary: React.FC = () => {
     }, [marketsQuery.data])
 
     const handleCardClick = (slug: string) => {
-        // Service templates create a backend service, not a microfrontend.
+        // Service templates create a backend service, not a frontend.
         if (marketsQuery.data?.some(market => market.slug === slug && isServiceTemplate(market))) {
             navigate(`/service/new?template=${slug}`)
         } else if (getParams.get("parentId")) {
-            navigate(`/microfrontend/new?template=${slug}&parentId=${getParams.get("parentId")}`)
+            navigate(`/frontend/new?template=${slug}&parentId=${getParams.get("parentId")}`)
         } else {
-            navigate(`/microfrontend/new?template=${slug}`)
+            navigate(`/frontend/new?template=${slug}`)
         }
     }
 
     const handleBlankCardClick = () => {
-        navigate("/microfrontend/new")
+        navigate("/frontend/new")
     }
 
     const filteredMarkets = useMemo(() => {
         if (!marketsQuery.data) return []
 
-        return marketsQuery.data.filter(market => {
-            // A microfrontend parent can only take microfrontend children.
+        const markets = marketsQuery.data.filter(market => {
+            // A frontend parent can only take frontend children.
             if (getParams.get("parentId") && isServiceTemplate(market)) return false
             const matchesSearch = market.name.toLowerCase().includes(searchTerm.toLowerCase())
             const matchesFramework = selectedFramework === "all" || market.framework === selectedFramework
@@ -65,7 +69,9 @@ export const TemplatesLibrary: React.FC = () => {
                 hostType === "all" || (hostType === "remote" && market.type === "remote") || (hostType === "host" && market.type === "host") || (hostType === "service" && isServiceTemplate(market))
             return matchesSearch && matchesFramework && matchesCompiler && matchesHostType
         })
-    }, [marketsQuery.data, searchTerm, selectedFramework, selectedCompiler, hostType, getParams])
+        // The templates of the project's default technologies come first, the others stay one scroll away: a guide, not a filter
+        return markets.sort((a, b) => Number(isRecommendedTemplate(b, technologies)) - Number(isRecommendedTemplate(a, technologies)))
+    }, [marketsQuery.data, searchTerm, selectedFramework, selectedCompiler, hostType, getParams, technologies])
 
     const groupedByFramework = useMemo(() => {
         const grouped = filteredMarkets.reduce(
@@ -145,6 +151,8 @@ export const TemplatesLibrary: React.FC = () => {
                         />
                     </div>
 
+                    {filteredMarkets.some(isRecommended) && <p className="mb-4 text-sm text-foreground-secondary">{t("technologies.templates_hint")}</p>}
+
                     {filteredMarkets.length > 0 || (!searchTerm && selectedFramework === "all" && selectedCompiler === "all" && hostType === "all") ? (
                         shouldShowFramework ? (
                             <div className="space-y-8">
@@ -155,7 +163,7 @@ export const TemplatesLibrary: React.FC = () => {
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                             <BlankTemplateCard onClick={handleBlankCardClick} />
                                             {groupedByFramework[frameworksFetched[0]].map(market => (
-                                                <TemplateCard key={market._id} market={market} onClick={handleCardClick} />
+                                                <TemplateCard key={market._id} market={market} onClick={handleCardClick} recommended={isRecommended(market)} />
                                             ))}
                                         </div>
                                     </div>
@@ -166,7 +174,7 @@ export const TemplatesLibrary: React.FC = () => {
                                         <h3 className="text-xl font-semibold mb-4 capitalize">{singleFramework}</h3>
                                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                                             {groupedByFramework[singleFramework].map(market => (
-                                                <TemplateCard key={market._id} market={market} onClick={handleCardClick} />
+                                                <TemplateCard key={market._id} market={market} onClick={handleCardClick} recommended={isRecommended(market)} />
                                             ))}
                                         </div>
                                     </div>
@@ -177,7 +185,7 @@ export const TemplatesLibrary: React.FC = () => {
                                 {/* Show blank card as first item if no filters */}
                                 {!searchTerm && selectedFramework === "all" && selectedCompiler === "all" && hostType === "all" && <BlankTemplateCard onClick={handleBlankCardClick} />}
                                 {filteredMarkets.map(market => (
-                                    <TemplateCard key={market._id} market={market} onClick={handleCardClick} />
+                                    <TemplateCard key={market._id} market={market} onClick={handleCardClick} recommended={isRecommended(market)} />
                                 ))}
                             </div>
                         )

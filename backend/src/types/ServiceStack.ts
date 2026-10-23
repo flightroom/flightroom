@@ -1,6 +1,6 @@
-import { MicrofrontendStackSource } from "./MicrofrontendStack"
+import { FrontendStackSource } from "./FrontendStack"
 
-/** The marketplace `type` of a template that scaffolds a backend service rather than a microfrontend */
+/** The marketplace `type` of a template that scaffolds a backend service rather than a frontend */
 export const SERVICE_TEMPLATE_TYPE = "service"
 
 /** Whether a marketplace `type` is the service one: the marketplace is hand edited, so its case is not trusted */
@@ -17,23 +17,17 @@ export const SERVICE_SLUG = /^[a-z0-9][a-z0-9-]{1,49}$/
 export const SERVICE_VERSION = /^[A-Za-z0-9._-]{1,128}$/
 
 /**
+ * A container registry as an image reference starts with it: a host, with a port if any, then a namespace
+ * if any, e.g. `ghcr.io/acme` or `registry.example.com:5000`. No scheme, no trailing slash: the slug of an
+ * application follows it after a slash.
+ */
+export const CONTAINER_REGISTRY = /^(?=.{1,255}$)[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)*(:[0-9]{1,5})?(\/[a-z0-9]+((\.|_|__|-+)[a-z0-9]+)*)*$/
+
+/**
  * What an HTTP path of a service may be (probes, API docs, OpenAPI spec): absolute, at most 256
  * characters and without whitespace, since it becomes a Kubernetes probe path and a link.
  */
 export const SERVICE_HTTP_PATH = /^\/\S{0,255}$/
-
-export const SERVICE_URL_MAX_LENGTH = 2048
-
-/**
- * What a base URL of a service may be: absolute http(s), no whitespace, and nothing a path could not
- * follow (no query, no fragment), so that appending `/docs` gives a working link. No credentials: the
- * URL is shown to whoever reads the service, unlike its secrets.
- */
-export const isServiceUrl = (value: string): boolean => {
-    if (value.length > SERVICE_URL_MAX_LENGTH || /\s/.test(value) || !URL.canParse(value)) return false
-    const url = new URL(value)
-    return ["http:", "https:"].includes(url.protocol) && !url.search && !url.hash && !url.username && !url.password
-}
 
 /** What a key of the config map or of the secrets may be: it reaches the container as an environment variable name */
 export const SERVICE_VARIABLE_KEY = /^[A-Za-z_][A-Za-z0-9_]{0,254}$/
@@ -66,7 +60,7 @@ export enum ServiceRuntime {
 export interface ServiceStackDTO {
     runtime?: ServiceRuntime
     framework?: string
-    source: MicrofrontendStackSource
+    source: FrontendStackSource
     detectedAt?: Date
 }
 
@@ -82,7 +76,8 @@ const RUNTIME_BY_NAME: Record<string, ServiceRuntime> = {
     java: ServiceRuntime.JAVA,
     "spring boot": ServiceRuntime.JAVA,
     "spring-boot": ServiceRuntime.JAVA,
-    quarkus: ServiceRuntime.JAVA
+    quarkus: ServiceRuntime.JAVA,
+    micronaut: ServiceRuntime.JAVA
 }
 
 /**

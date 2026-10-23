@@ -13,14 +13,22 @@ import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend, { IFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import MaintenanceRun from "../models/MaintenanceRunModel"
+import Organization from "../models/OrganizationModel"
 import Project, { IProject, IProjectPipelines } from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { designSystemOf, effectiveDesignSystem, IDesignSystem, redactDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposure"
+import { FrontendFramework } from "../types/FrontendStack"
+import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
+import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import { slugify } from "../utils/slugUtils"
@@ -53,6 +61,15 @@ export interface ProjectUpdateInput {
     exposure?: { domain: string; certificateIssuer?: string | null; httpPort?: number | null; httpsPort?: number | null } | null
     /** Replaced as a whole, `null` goes back to the official template-pipelines */
     pipelines?: PipelineTemplatesInput | null
+    /** e.g. `ghcr.io/acme`; `null` or blank removes it, and an application with no image of its own is left out of the deploy again */
+    containerRegistry?: string | null
+    /**
+     * The default technologies, side by side: `null` removes both, a side `null` removes that one only and a
+     * side left out stays as it is.
+     */
+    technologies?: { frontend?: string | null; backend?: string | null } | null
+    /** The default design system of the frontends, replaced as a whole: `null` removes it */
+    designSystem?: IDesignSystem | null
 }
 
 /** The repository of the pipeline templates as the settings screen names it: by the provider id, the backend resolves the rest */
@@ -92,6 +109,46 @@ const exposureOf = (input: unknown): { domain: string; certificateIssuer?: strin
     }
 }
 
+/** The container registry to store, trimmed and without a trailing slash: refused with a 400 rather than by the model with a 500 */
+const containerRegistryOf = (input: unknown): string => {
+    const registry = typeof input === "string" ? input.trim().replace(/\/+$/, "") : ""
+    if (!CONTAINER_REGISTRY.test(registry)) {
+        throw createBusinessException({
+            code: "PROJECT_CONTAINER_REGISTRY_INVALID",
+            message: "The container registry is a host, with a port and a namespace if any, without scheme, e.g. ghcr.io/acme or registry.example.com:5000",
+            statusCode: 400
+        })
+    }
+    return registry
+}
+
+const TECHNOLOGIES: Record<keyof IProjectTechnologies, string[]> = { frontend: Object.values(FrontendFramework), backend: Object.values(BackendTechnology) }
+
+/**
+ * What to write and unset of the technologies, by dotted path so that a side left out keeps its value:
+ * refused with a 400 rather than by the model with a 500.
+ */
+const technologiesOf = (input: unknown): { set: Record<string, string>; unset: Record<string, 1> } => {
+    const invalid = () =>
+        createBusinessException({
+            code: "PROJECT_TECHNOLOGIES_INVALID",
+            message: `The frontend technology is one of ${TECHNOLOGIES.frontend.join(", ")} and the backend one of ${TECHNOLOGIES.backend.join(", ")}`,
+            statusCode: 400
+        })
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw invalid()
+    const set: Record<string, string> = {}
+    const unset: Record<string, 1> = {}
+    for (const side of ["frontend", "backend"] as const) {
+        const value = (input as Record<string, unknown>)[side]
+        if (value === null) unset[`technologies.${side}`] = 1
+        else if (value !== undefined) {
+            if (typeof value !== "string" || !TECHNOLOGIES[side].includes(value)) throw invalid()
+            set[`technologies.${side}`] = value
+        }
+    }
+    return { set, unset }
+}
+
 interface ContextEntry {
     id: string
     slug: string
@@ -99,26 +156,59 @@ interface ContextEntry {
     context: string
 }
 
-/** What the team wrote for AI agents in one project: the shared context and the one of each domain, microfrontend and service that has it. */
+/** The level a design system is set at: the most specific one that has it wins */
+export type DesignSystemSource = "frontend" | "project" | "organization"
+
+/**
+ * What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and service that has it.
+ * Every design system is the one that applies, with the level it comes from.
+ */
 export interface ProjectContextDTO {
-    project: { id: string; name: string; context?: string }
+    /** The technologies and the design system of the frontends come along: an agent creating a frontend or a service starts from them. */
+    project: {
+        id: string
+        name: string
+        context?: string
+        technologies?: IProjectTechnologies
+        /** Its own, else the organization's */
+        designSystem?: IDesignSystem
+        designSystemSource?: Exclude<DesignSystemSource, "frontend">
+    }
     domains: ContextEntry[]
-    microfrontends: ContextEntry[]
+    frontends: ContextEntry[]
     services: ContextEntry[]
+    /** With a frontend focus: the design system its UI is built with, its own, else the project's, else the organization's, whether it has a context or not */
+    designSystem?: IDesignSystem
+    designSystemSource?: DesignSystemSource
 }
 
 /**
- * The piece of work a context is read for. A microfrontend or a service reads its own context and
- * the one of its domain; a domain reads its own and the one of each of its microfrontends and services.
+ * The design system of the frontends of a project: its own, else the one of its organization, read only when
+ * the project has none. Not redacted: whoever hands it to an AI does.
+ */
+export const projectDesignSystemOf = async (
+    project: Pick<IProject, "designSystem" | "organizationId">
+): Promise<{ designSystem?: IDesignSystem; source?: Exclude<DesignSystemSource, "frontend"> }> => {
+    if (project.designSystem?.packageName) return { designSystem: project.designSystem, source: "project" }
+    const organization = await Organization.findById(project.organizationId, { designSystem: 1 })
+    const designSystem = effectiveDesignSystem(organization?.designSystem)
+    return designSystem ? { designSystem, source: "organization" } : {}
+}
+
+/**
+ * The piece of work a context is read for. A frontend or a service reads its own context and
+ * the one of its domain; a domain reads its own and the one of each of its frontends and services.
  * The project context always comes along.
  */
-export type ContextFocus = { microfrontendId: string } | { serviceId: string } | { domainId: string }
+export type ContextFocus = { frontendId: string } | { serviceId: string } | { domainId: string }
 
-/** Which domains, microfrontends and services a focus reads the context of: a list left out is read for none. */
+/** Which domains, frontends and services a focus reads the context of: a list left out is read for none. */
 interface ContextFilters {
     domains?: Record<string, unknown>
-    microfrontends?: Record<string, unknown>
+    frontends?: Record<string, unknown>
     services?: Record<string, unknown>
+    /** The frontend of a frontend focus */
+    frontend?: Pick<IFrontend, "designSystem">
 }
 
 const toContextEntry = (item: { _id: unknown; slug: string; name: string; context?: string }): ContextEntry => ({
@@ -131,15 +221,16 @@ const toContextEntry = (item: { _id: unknown; slug: string; name: string; contex
 /**
  * A project as the switcher lists it, with the domains the user is confined to there: none for a member
  * of the whole project. `domainScoped` tells a scope left over nothing by deleted domains from the whole project.
+ * `role` is the one the user acts with: an administrator of the organization acts as an owner, whatever their membership.
  */
-export type ProjectOfUser = IProject & { domainIds: string[]; domainScoped: boolean }
+export type ProjectOfUser = IProject & { domainIds: string[]; domainScoped: boolean; role?: RoleInProject }
 
 export interface ProjectSummaryDTO {
     project: IProject
     count: {
         environments: number
         users: number
-        microfrontends: number
+        frontends: number
         apiKeys: number
         storages: number
         databases: number
@@ -182,11 +273,15 @@ export class ProjectService extends BaseAuthorizedService {
                     .filter(membership => membership.domainScoped && membership.role !== RoleInProject.OWNER)
                     .map(membership => [String(membership.projectId), (membership.domainIds ?? []).map(String)])
             )
+            const roles = new Map(memberships.map(membership => [String(membership.projectId), membership.role]))
             const projects = await Project.find(filter).sort({ name: 1 })
             return projects.map(project => {
-                const scope = administered.has(String(project.organizationId)) ? undefined : scopes.get(String(project._id))
+                const isAdministered = administered.has(String(project.organizationId))
+                const scope = isAdministered ? undefined : scopes.get(String(project._id))
                 const fields = typeof project.toJSON === "function" ? project.toJSON() : project
-                return { ...fields, domainIds: scope ?? [], domainScoped: Boolean(scope) } as unknown as ProjectOfUser
+                // The console hides what the role cannot do; every write is still checked on the server
+                const role = isAdministered ? RoleInProject.OWNER : roles.get(String(project._id))
+                return { ...fields, domainIds: scope ?? [], domainScoped: Boolean(scope), role } as unknown as ProjectOfUser
             })
         } catch (error) {
             if (error instanceof BusinessException) throw error
@@ -232,7 +327,7 @@ export class ProjectService extends BaseAuthorizedService {
             count: {
                 environments: await Environment.countDocuments({ projectId: projectIdObj }),
                 users: await UserProject.countDocuments({ projectId: projectIdObj }),
-                microfrontends: await Microfrontend.countDocuments({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) }),
+                frontends: await Frontend.countDocuments({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) }),
                 apiKeys: await ApiKey.countDocuments({ projectId: projectIdObj }),
                 storages: await Storage.countDocuments({ projectId: projectIdObj }),
                 databases: await Database.countDocuments({ projectId: projectIdObj }),
@@ -251,16 +346,29 @@ export class ProjectService extends BaseAuthorizedService {
         const filters = await this.contextFilters(projectIdObj, focus)
         const withContext = { projectId: projectIdObj, context: { $nin: [null, ""] } }
         const fields = { slug: 1, name: 1, context: 1 }
-        const [domains, microfrontends, services] = await Promise.all([
+        const [domains, frontends, services] = await Promise.all([
             filters.domains ? Domain.find({ ...filters.domains, ...withContext }, fields).sort({ slug: 1 }) : [],
-            filters.microfrontends ? Microfrontend.find({ ...filters.microfrontends, ...withContext }, fields).sort({ slug: 1 }) : [],
+            filters.frontends ? Frontend.find({ ...filters.frontends, ...withContext }, fields).sort({ slug: 1 }) : [],
             filters.services ? Service.find({ ...filters.services, ...withContext }, fields).sort({ slug: 1 }) : []
         ])
+        const { frontend, backend } = project.technologies ?? {}
+        const projectDesignSystem = await projectDesignSystemOf(project)
+        const ownDesignSystem = filters.frontend?.designSystem?.packageName ? filters.frontend.designSystem : undefined
+        // Read by agents only: the credentials of the npmrc never come along
         return {
-            project: { id: project._id.toString(), name: project.name, context: project.context || undefined },
+            project: {
+                id: project._id.toString(),
+                name: project.name,
+                context: project.context || undefined,
+                technologies: frontend || backend ? { ...(frontend ? { frontend } : {}), ...(backend ? { backend } : {}) } : undefined,
+                designSystem: redactDesignSystem(projectDesignSystem.designSystem),
+                designSystemSource: projectDesignSystem.source
+            },
             domains: domains.map(toContextEntry),
-            microfrontends: microfrontends.map(toContextEntry),
-            services: services.map(toContextEntry)
+            frontends: frontends.map(toContextEntry),
+            services: services.map(toContextEntry),
+            designSystem: filters.frontend ? redactDesignSystem(effectiveDesignSystem(ownDesignSystem, projectDesignSystem.designSystem)) : undefined,
+            designSystemSource: filters.frontend ? (ownDesignSystem ? "frontend" : projectDesignSystem.source) : undefined
         }
     }
 
@@ -273,7 +381,7 @@ export class ProjectService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(projectId)
         if (!focus) {
             const members = await this.domainScopeFilter(projectId)
-            return { domains: await this.domainScopeFilter(projectId, "_id"), microfrontends: members, services: members }
+            return { domains: await this.domainScopeFilter(projectId, "_id"), frontends: members, services: members }
         }
         const domainOf = (domainId?: unknown) => (domainId ? { _id: domainId } : undefined)
         const ensureInScope = (domainId: unknown) => {
@@ -283,13 +391,13 @@ export class ProjectService extends BaseAuthorizedService {
             const domain = await Domain.findOne({ _id: toObjectId(focus.domainId), projectId }, { _id: 1 })
             if (!domain) throw new EntityNotFoundError(focus.domainId)
             ensureInScope(domain._id)
-            return { domains: { _id: domain._id }, microfrontends: { domainId: domain._id }, services: { domainId: domain._id } }
+            return { domains: { _id: domain._id }, frontends: { domainId: domain._id }, services: { domainId: domain._id } }
         }
-        if ("microfrontendId" in focus) {
-            const microfrontend = await Microfrontend.findOne({ _id: toObjectId(focus.microfrontendId), projectId }, { domainId: 1 })
-            if (!microfrontend) throw new EntityNotFoundError(focus.microfrontendId)
-            ensureInScope(microfrontend.domainId)
-            return { domains: domainOf(microfrontend.domainId), microfrontends: { _id: microfrontend._id } }
+        if ("frontendId" in focus) {
+            const frontend = await Frontend.findOne({ _id: toObjectId(focus.frontendId), projectId }, { domainId: 1, designSystem: 1 })
+            if (!frontend) throw new EntityNotFoundError(focus.frontendId)
+            ensureInScope(frontend.domainId)
+            return { domains: domainOf(frontend.domainId), frontends: { _id: frontend._id }, frontend }
         }
         const service = await Service.findOne({ _id: toObjectId(focus.serviceId), projectId }, { domainId: 1 })
         if (!service) throw new EntityNotFoundError(focus.serviceId)
@@ -374,7 +482,7 @@ export class ProjectService extends BaseAuthorizedService {
             // One field at a time rather than a spread of the request body. The route carries no
             // schema, so a spread would write whatever the caller decides to send: `slug` included,
             // and that one is part of the path already uploaded bundles live under
-            // (`<slug>-<id>/<microfrontend>/<version>`). Moving it would orphan every deployed file.
+            // (`<slug>-<id>/<frontend>/<version>`). Moving it would orphan every deployed file.
             // biome-ignore lint/suspicious/noExplicitAny: updateData needs to support MongoDB update operators dynamically
             const updateData: any = {}
             if (projectData.name !== undefined) {
@@ -395,6 +503,24 @@ export class ProjectService extends BaseAuthorizedService {
                 updateData.$unset = { ...updateData.$unset, exposure: 1 }
             } else if (projectData.exposure !== undefined) {
                 updateData.exposure = exposureOf(projectData.exposure)
+            }
+            const { containerRegistry } = projectData
+            if (containerRegistry === null || (typeof containerRegistry === "string" && !containerRegistry.trim())) {
+                updateData.$unset = { ...updateData.$unset, containerRegistry: 1 }
+            } else if (containerRegistry !== undefined) {
+                updateData.containerRegistry = containerRegistryOf(containerRegistry)
+            }
+            if (projectData.technologies === null) {
+                updateData.$unset = { ...updateData.$unset, technologies: 1 }
+            } else if (projectData.technologies !== undefined) {
+                const { set, unset } = technologiesOf(projectData.technologies)
+                Object.assign(updateData, set)
+                if (Object.keys(unset).length > 0) updateData.$unset = { ...updateData.$unset, ...unset }
+            }
+            if (projectData.designSystem === null) {
+                updateData.$unset = { ...updateData.$unset, designSystem: 1 }
+            } else if (projectData.designSystem !== undefined) {
+                updateData.designSystem = designSystemOf(projectData.designSystem)
             }
             for (const field of ["description", "context"] as const) {
                 if (projectData[field] === null) {
@@ -465,7 +591,7 @@ export class ProjectService extends BaseAuthorizedService {
         if (!repository) {
             throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: `The connection "${codeRepository.name}" cannot reach the repository ${input.repositoryId}` })
         }
-        return { codeRepository: importService.buildMicrofrontendCodeRepository(codeRepository, repository), ...(ref ? { ref } : {}) }
+        return { codeRepository: importService.buildFrontendCodeRepository(codeRepository, repository), ...(ref ? { ref } : {}) }
     }
 
     async delete(projectId: string): Promise<DeleteResult> {
@@ -486,13 +612,20 @@ export class ProjectService extends BaseAuthorizedService {
         await Database.deleteMany({ projectId: projectIdObj }, { session })
         await CodeRepository.deleteMany({ projectId: projectIdObj }, session)
 
-        const microfrontends = await Microfrontend.find({ projectId: projectIdObj }, {}, { session })
-        const mfeIds = microfrontends.map(mfe => mfe._id)
-        await BuiltFrontend.deleteMany({ microfrontendId: { $in: mfeIds } }, session)
+        const frontends = await Frontend.find({ projectId: projectIdObj }, {}, { session })
+        const mfeIds = frontends.map(mfe => mfe._id)
+        await BuiltFrontend.deleteMany({ frontendId: { $in: mfeIds } }, session)
 
         const services = await Service.find({ projectId: projectIdObj }, { _id: 1 }, { session })
         await BuiltService.deleteMany({ serviceId: { $in: services.map(service => service._id) } }, session)
         await ServiceDeployment.deleteMany({ serviceId: { $in: services.map(service => service._id) } }, { session })
+
+        // The versions and deploys an agent's CI registers are kept as a service's, under its id
+        const agents = await MaintenanceAgent.find({ projectId: projectIdObj }, { _id: 1 }, { session })
+        await BuiltService.deleteMany({ serviceId: { $in: agents.map(agent => agent._id) } }, { session })
+        await ServiceDeployment.deleteMany({ serviceId: { $in: agents.map(agent => agent._id) } }, { session })
+        await MaintenanceRun.deleteMany({ projectId: projectIdObj }, { session })
+        await MaintenanceAgent.deleteMany({ projectId: projectIdObj }, { session })
 
         const deployments = await Deployment.find({ projectId: projectIdObj }, {}, { session })
         const deploymentsIds = deployments.map(deployment => deployment._id)
@@ -503,10 +636,11 @@ export class ProjectService extends BaseAuthorizedService {
         await Deployment.deleteMany({ environmentId: { $in: environmentIds } }, session)
 
         await Deployment.deleteMany({ projectId: projectIdObj }, session)
-        await Microfrontend.deleteMany({ projectId: projectIdObj }, session)
+        await Frontend.deleteMany({ projectId: projectIdObj }, session)
         await Service.deleteMany({ projectId: projectIdObj }, session)
         await ConfigMap.deleteMany({ projectId: projectIdObj }, { session })
         await Secret.deleteMany({ projectId: projectIdObj }, { session })
+        await Resource.deleteMany({ projectId: projectIdObj }, { session })
         await Domain.deleteMany({ projectId: projectIdObj }, { session })
         await Environment.deleteMany({ projectId: projectIdObj }, session)
 

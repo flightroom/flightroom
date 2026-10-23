@@ -1,5 +1,5 @@
 import useApiClient from "../useApiClient"
-import { IMicrofrontendStackDTO } from "./useServeApi"
+import { IFrontendStackDTO } from "./useServeApi"
 
 export type FederationIntegrationStatus = "ALREADY_INTEGRATED" | "CONFIG_TO_CREATE" | "CONFIG_TO_REPLACE" | "NO_REMOTES" | "STACK_UNKNOWN" | "RUNTIME_INTEGRATION" | "NO_DOCUMENT" | "ERROR"
 
@@ -17,14 +17,14 @@ export interface FederationFileChange {
     proposedContent: string
 }
 
-export interface MicrofrontendIntegrationPlan {
-    microfrontendId: string
+export interface FrontendIntegrationPlan {
+    frontendId: string
     slug: string
     name: string
     provider?: string
     repositoryName: string
     branch?: string
-    stack: IMicrofrontendStackDTO
+    stack: IFrontendStackDTO
     status: FederationIntegrationStatus
     remotes: { name: string; slug: string }[]
     changes: FederationFileChange[]
@@ -33,11 +33,11 @@ export interface MicrofrontendIntegrationPlan {
 
 export interface FederationIntegrationPlan {
     projectId: string
-    microfrontends: MicrofrontendIntegrationPlan[]
+    frontends: FrontendIntegrationPlan[]
 }
 
-export interface MicrofrontendIntegrationResult {
-    microfrontendId: string
+export interface FrontendIntegrationResult {
+    frontendId: string
     slug: string
     name: string
     branch?: string
@@ -48,7 +48,7 @@ export interface MicrofrontendIntegrationResult {
 
 export interface FederationIntegrationApplyResult {
     projectId: string
-    results: MicrofrontendIntegrationResult[]
+    results: FrontendIntegrationResult[]
 }
 
 function useIntegrationApi() {
@@ -68,11 +68,11 @@ function useIntegrationApi() {
         return response.data
     }
 
-    const apply = async (scope: IntegrationScope, microfrontendIds: string[]): Promise<FederationIntegrationApplyResult> => {
+    const apply = async (scope: IntegrationScope, frontendIds: string[]): Promise<FederationIntegrationApplyResult> => {
         const response = await apiClient.doRequest<FederationIntegrationApplyResult>({
             method: "POST",
             url: `/api/integration/${SCOPE_PATHS[scope]}/apply`,
-            data: { microfrontendIds }
+            data: { frontendIds }
         })
         return response.data
     }

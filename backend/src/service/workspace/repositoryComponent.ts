@@ -1,16 +1,17 @@
 import { IAiChangeRequest } from "../../models/AiChangeRequestModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend, IMicrofrontend } from "../../models/MicrofrontendModel"
+import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../../models/FrontendModel"
 import Service, { IService, IServiceEnvVariable } from "../../models/ServiceModel"
+import { IDesignSystem } from "../../types/DesignSystem"
 import { ServiceRuntime } from "../../types/ServiceStack"
 import { toObjectId } from "../../utils/mongooseUtils"
-import { microfrontendWorkspacePath, serviceWorkspacePath, WorkspaceOwner } from "../../utils/workspacePaths"
+import { frontendWorkspacePath, serviceWorkspacePath, WorkspaceOwner } from "../../utils/workspacePaths"
 
 /**
- * What the workspace and the AI agent need of something backed by a repository: a microfrontend or
+ * What the workspace and the AI agent need of something backed by a repository: a frontend or
  * a backend service. Its id is the document's: ObjectIds are unique across collections, so the id
  * alone names the component, the kind tells which collection it lives in.
  */
-export type RepositoryComponentKind = "microfrontend" | "service"
+export type RepositoryComponentKind = "frontend" | "service"
 
 export interface RepositoryComponentRef {
     kind: RepositoryComponentKind
@@ -18,21 +19,23 @@ export interface RepositoryComponentRef {
 }
 
 interface RepositoryComponentBase {
-    _id: IMicrofrontend["_id"]
-    projectId: IMicrofrontend["projectId"]
+    _id: IFrontend["_id"]
+    projectId: IFrontend["projectId"]
     slug: string
     name: string
-    codeRepository?: ICodeRepositoryMicrofrontend
+    codeRepository?: ICodeRepositoryFrontend
     /** Markdown for AI agents about this component only. */
     context?: string
     /** The functional domain it belongs to, if any. */
-    domainId?: IMicrofrontend["domainId"]
+    domainId?: IFrontend["domainId"]
 }
 
-export interface MicrofrontendComponent extends RepositoryComponentBase {
-    kind: "microfrontend"
+export interface FrontendComponent extends RepositoryComponentBase {
+    kind: "frontend"
     framework?: string
     compiler?: string
+    /** Its own, when it replaces the one of the project */
+    designSystem?: IDesignSystem
 }
 
 export interface ServiceComponent extends RepositoryComponentBase {
@@ -45,26 +48,33 @@ export interface ServiceComponent extends RepositoryComponentBase {
     docsPath?: string
     openApiPath?: string
     env: IServiceEnvVariable[]
+    /** Where it is exposed on the host of every environment, if it is */
+    exposurePath?: string
+    /** What reaches its container as environment variables: names and keys only are ever read from them */
+    configMapIds: IService["configMapIds"]
+    secretIds: IService["secretIds"]
+    resourceIds: IService["resourceIds"]
 }
 
-export type RepositoryComponent = MicrofrontendComponent | ServiceComponent
+export type RepositoryComponent = FrontendComponent | ServiceComponent
 
-export const fromMicrofrontend = (microfrontend: IMicrofrontend): MicrofrontendComponent => ({
-    kind: "microfrontend",
-    _id: microfrontend._id,
-    projectId: microfrontend.projectId,
-    slug: microfrontend.slug,
-    name: microfrontend.name,
-    codeRepository: microfrontend.codeRepository,
-    context: microfrontend.context,
-    domainId: microfrontend.domainId ?? undefined,
-    framework: microfrontend.stack?.framework,
-    compiler: microfrontend.stack?.compiler
+export const fromFrontend = (frontend: IFrontend): FrontendComponent => ({
+    kind: "frontend",
+    _id: frontend._id,
+    projectId: frontend.projectId,
+    slug: frontend.slug,
+    name: frontend.name,
+    codeRepository: frontend.codeRepository,
+    context: frontend.context,
+    domainId: frontend.domainId ?? undefined,
+    framework: frontend.stack?.framework,
+    compiler: frontend.stack?.compiler,
+    designSystem: frontend.designSystem
 })
 
 export const fromService = (service: IService): ServiceComponent => ({
     kind: "service",
-    _id: service._id as unknown as IMicrofrontend["_id"],
+    _id: service._id as unknown as IFrontend["_id"],
     projectId: service.projectId,
     slug: service.slug,
     name: service.name,
@@ -78,22 +88,26 @@ export const fromService = (service: IService): ServiceComponent => ({
     readinessPath: service.readinessPath,
     docsPath: service.docsPath ?? undefined,
     openApiPath: service.openApiPath ?? undefined,
-    env: service.env ?? []
+    env: service.env ?? [],
+    exposurePath: service.exposurePath ?? undefined,
+    configMapIds: service.configMapIds ?? [],
+    secretIds: service.secretIds ?? [],
+    resourceIds: service.resourceIds ?? []
 })
 
 /** The component a request changes. */
-export const componentOf = (request: Pick<IAiChangeRequest, "microfrontendId" | "serviceId">): RepositoryComponentRef =>
-    request.serviceId ? { kind: "service", id: String(request.serviceId) } : { kind: "microfrontend", id: String(request.microfrontendId) }
+export const componentOf = (request: Pick<IAiChangeRequest, "frontendId" | "serviceId">): RepositoryComponentRef =>
+    request.serviceId ? { kind: "service", id: String(request.serviceId) } : { kind: "frontend", id: String(request.frontendId) }
 
 /** The id of the component a request changes, whichever its kind. */
-export const componentIdOf = (request: Pick<IAiChangeRequest, "microfrontendId" | "serviceId">) => String(request.serviceId ?? request.microfrontendId)
+export const componentIdOf = (request: Pick<IAiChangeRequest, "frontendId" | "serviceId">) => String(request.serviceId ?? request.frontendId)
 
 /** The field of a request that names its component. */
-export const ownerFields = (component: Pick<RepositoryComponent, "kind" | "_id">) => (component.kind === "service" ? { serviceId: component._id } : { microfrontendId: component._id })
+export const ownerFields = (component: Pick<RepositoryComponent, "kind" | "_id">) => (component.kind === "service" ? { serviceId: component._id } : { frontendId: component._id })
 
-/** The components of a job in the order they are shown: its microfrontends, then its services. */
-export const componentsOfJob = (job: { microfrontendIds: unknown[]; serviceIds?: unknown[] }): RepositoryComponentRef[] => [
-    ...job.microfrontendIds.map(id => ({ kind: "microfrontend" as const, id: String(id) })),
+/** The components of a job in the order they are shown: its frontends, then its services. */
+export const componentsOfJob = (job: { frontendIds: unknown[]; serviceIds?: unknown[] }): RepositoryComponentRef[] => [
+    ...job.frontendIds.map(id => ({ kind: "frontend" as const, id: String(id) })),
     ...(job.serviceIds ?? []).map(id => ({ kind: "service" as const, id: String(id) }))
 ]
 
@@ -103,24 +117,24 @@ export const findComponent = async (ref: RepositoryComponentRef): Promise<Reposi
         const service = await Service.findById(ref.id)
         return service ? fromService(service) : null
     }
-    const microfrontend = await Microfrontend.findById(ref.id)
-    return microfrontend ? fromMicrofrontend(microfrontend) : null
+    const frontend = await Frontend.findById(ref.id)
+    return frontend ? fromFrontend(frontend) : null
 }
 
 /** Several components, in the order of `refs`; those that no longer exist are left out. Authorization is up to the caller. */
 export const findComponents = async (refs: RepositoryComponentRef[], projection?: Record<string, 0 | 1>): Promise<RepositoryComponent[]> => {
     const idsOf = (kind: RepositoryComponentKind) => refs.filter(ref => ref.kind === kind).map(ref => toObjectId(ref.id))
-    const microfrontendIds = idsOf("microfrontend")
+    const frontendIds = idsOf("frontend")
     const serviceIds = idsOf("service")
     // A kind the job does not use is not queried at all.
-    const [microfrontends, services] = await Promise.all([
-        microfrontendIds.length ? Microfrontend.find({ _id: { $in: microfrontendIds } }, projection) : [],
+    const [frontends, services] = await Promise.all([
+        frontendIds.length ? Frontend.find({ _id: { $in: frontendIds } }, projection) : [],
         serviceIds.length ? Service.find({ _id: { $in: serviceIds } }, projection) : []
     ])
-    const found: RepositoryComponent[] = [...microfrontends.map(fromMicrofrontend), ...services.map(fromService)]
+    const found: RepositoryComponent[] = [...frontends.map(fromFrontend), ...services.map(fromService)]
     return refs.flatMap(ref => found.filter(component => component.kind === ref.kind && String(component._id) === ref.id))
 }
 
-/** Where the working copy of a component lives: a microfrontend and a service of the same slug never share it. */
+/** Where the working copy of a component lives: a frontend and a service of the same slug never share it. */
 export const componentWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "organization" | "project">, component: Pick<RepositoryComponent, "kind" | "slug">) =>
-    component.kind === "service" ? serviceWorkspacePath(root, { ...owner, serviceSlug: component.slug }) : microfrontendWorkspacePath(root, { ...owner, microfrontendSlug: component.slug })
+    component.kind === "service" ? serviceWorkspacePath(root, { ...owner, serviceSlug: component.slug }) : frontendWorkspacePath(root, { ...owner, frontendSlug: component.slug })

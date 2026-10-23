@@ -7,9 +7,9 @@ const snapshot = {
     projectId: "project-1",
     fetchedAt: "2026-08-16T10:00:00.000Z",
     environments: [{ _id: "env-1", name: "Production", slug: "prod", isProduction: true }],
-    microfrontends: [
+    frontends: [
         {
-            microfrontendId: "mfe-1",
+            frontendId: "mfe-1",
             name: "Checkout",
             slug: "checkout",
             versionByEnvironmentId: { "env-1": "1.2.0" },
@@ -86,7 +86,7 @@ describe("BuildController", () => {
 
         expect(frame).toContain("event: snapshot")
         const data = JSON.parse(frame.split("data: ")[1].split("\n\n")[0])
-        expect(data.microfrontends[0].versionByEnvironmentId["env-1"]).toBe("1.2.0")
+        expect(data.frontends[0].versionByEnvironmentId["env-1"]).toBe("1.2.0")
 
         await reader.cancel()
         abortController.abort()

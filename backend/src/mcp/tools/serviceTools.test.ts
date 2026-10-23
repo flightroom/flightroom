@@ -117,7 +117,7 @@ describe("service tools", () => {
             const aiContext = {
                 project: { id: PROJECT, name: "Shop" },
                 domains: [],
-                microfrontends: [],
+                frontends: [],
                 services: [{ id: SERVICE, slug: "orders-api", name: "Orders API", context: "Routes live in src/routes" }]
             }
             getContext.mockResolvedValue(aiContext)
@@ -182,20 +182,22 @@ describe("service tools", () => {
             expect(schema.safeParse({ ...input, port: 70000 }).success).toBe(false)
             expect(schema.safeParse({ ...input, env: [{ name: "1BAD" }] }).success).toBe(false)
         })
-
-        it("given base URLs, when validated, then an http(s) one per environment is accepted and any other scheme or a bad environment id is refused", () => {
-            const schema = tool("service_create").inputSchema
-
-            expect(schema.safeParse({ ...input, urls: [{ environmentId: DOMAIN, url: "https://orders.dev.acme.com" }] }).success).toBe(true)
-            expect(schema.safeParse({ ...input, urls: [{ environmentId: DOMAIN, url: "ftp://orders.acme.com" }] }).success).toBe(false)
-            expect(schema.safeParse({ ...input, urls: [{ environmentId: DOMAIN, url: "orders.acme.com" }] }).success).toBe(false)
-            expect(schema.safeParse({ ...input, urls: [{ environmentId: DOMAIN, url: "https://orders.acme.com?tenant=a" }] }).success).toBe(false)
-            expect(schema.safeParse({ ...input, urls: [{ environmentId: DOMAIN, url: "https://user:pass@orders.acme.com" }] }).success).toBe(false)
-            expect(schema.safeParse({ ...input, urls: [{ environmentId: "dev", url: "https://orders.dev.acme.com" }] }).success).toBe(false)
-        })
     })
 
     describe("service_update", () => {
+        it("given resources to attach, when updated, then their ids reach the service, more than 50 or a bad id refused", async () => {
+            getService.mockResolvedValue(ordersApi)
+            updateService.mockResolvedValue(ordersApi)
+            const resourceIds = ["ffffffffffffffffffffffff"]
+
+            await run("service_update", { serviceId: SERVICE, resourceIds })
+
+            expect(updateService).toHaveBeenCalledWith(SERVICE, { resourceIds })
+            const schema = serviceTools.find(candidate => candidate.name === "service_update")!.inputSchema
+            expect(schema.safeParse({ serviceId: SERVICE, resourceIds: ["nope"] }).success).toBe(false)
+            expect(schema.safeParse({ serviceId: SERVICE, resourceIds: Array.from({ length: 51 }, () => resourceIds[0]) }).success).toBe(false)
+        })
+
         it("given new fields, when updated, then they reach the service and the slug is dropped", async () => {
             getService.mockResolvedValue(ordersApi)
             updateService.mockResolvedValue(ordersApi)

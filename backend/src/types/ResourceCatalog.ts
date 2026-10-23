@@ -1,0 +1,352 @@
+import { DatabaseType } from "../models/DatabaseModel"
+
+/**
+ * What a resource can be. Each type is a package of variables a backend service receives once it
+ * attaches the resource: the platform knows its fields, so it names the variables and keeps the
+ * credentials among them encrypted, where a config map or a secret leaves both to whoever fills it.
+ */
+export type ResourceType = "database" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp"
+
+/** How the console asks for a field; the backend checks number, boolean, select, url and email against it too */
+export type ResourceFieldInput = "text" | "number" | "boolean" | "select" | "multiline" | "url" | "email"
+
+export interface ResourceFieldSpec {
+    name: string
+    /** The variable is `<prefix>_<envSuffix>`, e.g. DB_ORDERS_PASSWORD */
+    envSuffix: string
+    /** Encrypted at rest and never sent back once written */
+    secret: boolean
+    /**
+     * A required field that is not secret must have a value in every environment to be saved. A
+     * required secret is not held to it: like the values of a secret map, it can be typed later.
+     */
+    required: boolean
+    input: ResourceFieldInput
+    /** The values a select takes */
+    options?: string[]
+    /** What the console fills in for a new resource; the backend never applies it on its own */
+    default?: string
+    /**
+     * Where the credentials of the resource are sent: changing it would send the stored ones somewhere
+     * else, so the credentials kept there must be typed again (ResourceService, normalizeResourceFields)
+     */
+    connection?: boolean
+}
+
+/** One way of reaching the same kind of resource, e.g. a database by host and password or by connection string */
+export interface ResourceVariantSpec {
+    id: string
+    fields: ResourceFieldSpec[]
+    /** Variables the variant always sets, by suffix, e.g. the provider of a storage */
+    fixed?: Record<string, string>
+}
+
+export interface ResourceTypeSpec {
+    type: ResourceType
+    /** The start of the variables of a resource of this type, before its name */
+    envPrefix: string
+    variants: ResourceVariantSpec[]
+}
+
+/** A prefix typed by hand in place of the one derived from the name: what starts an environment variable name */
+export const RESOURCE_ENV_PREFIX = /^[A-Z_][A-Z0-9_]{0,190}$/
+
+/** Set by the chart on every container (applicationManifests.ts): a resource setting it too would be there twice */
+export const RESERVED_ENV_KEYS = ["HTTP_PORT"]
+
+/** The Kubernetes Secret a resource becomes: a map name cannot hold a dot, so it never collides with a secret map */
+export const resourceSecretName = (resource: { name: string }): string => `${resource.name}.resource`
+
+const field = (name: string, envSuffix: string, options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix">> = {}): ResourceFieldSpec => ({
+    name,
+    envSuffix,
+    secret: false,
+    required: true,
+    input: "text",
+    ...options
+})
+
+const secret = (name: string, envSuffix: string, options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix" | "secret">> = {}) => field(name, envSuffix, { ...options, secret: true })
+
+/** The engines of the platform's databases, and MongoDB, which a resource can point to but the platform does not run */
+const engine = field("engine", "ENGINE", { input: "select", options: [...Object.values(DatabaseType), "MONGODB"] })
+const schema = (options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix">> = {}) => field("schema", "SCHEMA", { required: false, ...options })
+
+/** An Azure SQL database reached with an Entra ID identity: always SQL Server, always encrypted */
+const azureSqlVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
+    id,
+    fields: [
+        field("host", "HOST", { connection: true }),
+        field("port", "PORT", { input: "number", default: "1433", connection: true }),
+        field("database", "NAME", { connection: true }),
+        schema({ default: "dbo" }),
+        ...fields
+    ],
+    // The variant is the way to authenticate: the client reads it rather than guessing from the keys set
+    fixed: { ENGINE: DatabaseType.SQLSERVER, AUTH: id }
+})
+
+/** An SMTP server, by the fields both variants share: where it is, how the connection is secured, who mail comes from */
+const smtpServer = [
+    field("host", "HOST", { connection: true }),
+    field("port", "PORT", { input: "number", default: "587", connection: true }),
+    field("security", "SECURITY", { input: "select", options: ["none", "starttls", "tls"], default: "starttls" })
+]
+const smtpSender = [field("from", "FROM", { input: "email" }), field("fromName", "FROM_NAME", { required: false })]
+
+/**
+ * An external HTTP API: where it answers and where its Swagger/OpenAPI document is, in every variant. A
+ * document that cannot be reached is pasted instead, into the apiSpec of the resource: it is no field
+ * and no variable, so it never reaches a container nor the Kubernetes Secret.
+ */
+const apiVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
+    id,
+    fields: [field("baseUrl", "BASE_URL", { input: "url", connection: true }), field("specUrl", "SPEC_URL", { input: "url", required: false, connection: true }), ...fields],
+    // The variant is the way to authenticate: the client reads it rather than guessing from the keys set
+    fixed: { AUTH: id }
+})
+
+/**
+ * The secret fields keep the names they have on a storage and on a database of the platform
+ * (STORAGE_SECRET_KEYS, DATABASE_SECRET_KEYS), so the same credential is called the same everywhere.
+ */
+export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
+    database: {
+        type: "database",
+        envPrefix: "DB",
+        variants: [
+            {
+                id: "credentials",
+                fields: [
+                    engine,
+                    field("host", "HOST", { connection: true }),
+                    field("port", "PORT", { input: "number", connection: true }),
+                    field("database", "NAME", { connection: true }),
+                    schema(),
+                    field("username", "USER"),
+                    secret("password", "PASSWORD"),
+                    field("ssl", "SSL", { input: "boolean", required: false, default: "false" })
+                ]
+            },
+            { id: "connectionString", fields: [engine, secret("connectionString", "URL"), schema()] },
+            azureSqlVariant("azureAad", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET")]),
+            // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
+            azureSqlVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
+        ]
+    },
+    storage: {
+        type: "storage",
+        envPrefix: "STORAGE",
+        variants: [
+            {
+                id: "aws",
+                fields: [
+                    field("region", "REGION", { connection: true }),
+                    field("bucketName", "BUCKET", { connection: true }),
+                    field("accessKeyId", "ACCESS_KEY_ID"),
+                    secret("secretAccessKey", "SECRET_ACCESS_KEY")
+                ],
+                fixed: { PROVIDER: "AWS" }
+            },
+            {
+                id: "azureConnectionString",
+                fields: [field("containerName", "CONTAINER", { connection: true }), secret("connectionString", "CONNECTION_STRING")],
+                fixed: { PROVIDER: "AZURE" }
+            },
+            {
+                id: "azureSharedKey",
+                fields: [field("accountName", "ACCOUNT_NAME", { connection: true }), field("containerName", "CONTAINER", { connection: true }), secret("accountKey", "ACCOUNT_KEY")],
+                fixed: { PROVIDER: "AZURE" }
+            },
+            {
+                id: "azureAad",
+                fields: [
+                    field("accountName", "ACCOUNT_NAME", { connection: true }),
+                    field("containerName", "CONTAINER", { connection: true }),
+                    field("tenantId", "TENANT_ID"),
+                    field("clientId", "CLIENT_ID"),
+                    secret("clientSecret", "CLIENT_SECRET")
+                ],
+                fixed: { PROVIDER: "AZURE" }
+            },
+            {
+                id: "google",
+                fields: [field("bucketName", "BUCKET", { connection: true }), secret("jsonKey", "CREDENTIALS_JSON", { input: "multiline" })],
+                fixed: { PROVIDER: "GOOGLE" }
+            }
+        ]
+    },
+    redis: {
+        type: "redis",
+        envPrefix: "REDIS",
+        variants: [
+            {
+                id: "credentials",
+                fields: [
+                    field("host", "HOST", { connection: true }),
+                    field("port", "PORT", { input: "number", default: "6379", connection: true }),
+                    field("username", "USER", { required: false }),
+                    secret("password", "PASSWORD", { required: false }),
+                    field("tls", "TLS", { input: "boolean", required: false, default: "false" })
+                ]
+            },
+            { id: "connectionString", fields: [secret("url", "URL")] }
+        ]
+    },
+    serviceAccount: {
+        type: "serviceAccount",
+        envPrefix: "SA",
+        variants: [
+            { id: "jsonKey", fields: [secret("jsonKey", "JSON", { input: "multiline" })] },
+            {
+                id: "clientCredentials",
+                fields: [
+                    field("clientId", "CLIENT_ID"),
+                    secret("clientSecret", "CLIENT_SECRET"),
+                    field("tokenUrl", "TOKEN_URL", { required: false, connection: true }),
+                    field("scope", "SCOPE", { required: false })
+                ]
+            }
+        ]
+    },
+    auth0: {
+        type: "auth0",
+        envPrefix: "AUTH0",
+        variants: [
+            {
+                id: "default",
+                fields: [field("domain", "DOMAIN", { connection: true }), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET"), field("audience", "AUDIENCE", { required: false })]
+            }
+        ]
+    },
+    api: {
+        type: "api",
+        envPrefix: "API",
+        variants: [
+            apiVariant("none", []),
+            apiVariant("basic", [field("username", "USERNAME"), secret("password", "PASSWORD")]),
+            apiVariant("apiKey", [
+                field("in", "API_KEY_IN", { input: "select", options: ["header", "query"], default: "header" }),
+                field("name", "API_KEY_NAME", { default: "X-API-Key" }),
+                secret("apiKey", "API_KEY")
+            ]),
+            apiVariant("bearer", [secret("token", "TOKEN")]),
+            apiVariant("oauth2ClientCredentials", [
+                field("tokenUrl", "TOKEN_URL", { input: "url", connection: true }),
+                field("clientId", "CLIENT_ID"),
+                secret("clientSecret", "CLIENT_SECRET"),
+                field("scope", "SCOPE", { required: false }),
+                field("audience", "AUDIENCE", { required: false })
+            ])
+        ]
+    },
+    /** An LLM provider the service calls: the variant is the provider, which the client reads rather than guesses */
+    ai: {
+        type: "ai",
+        envPrefix: "AI",
+        variants: [
+            {
+                id: "anthropic",
+                fields: [secret("apiKey", "API_KEY"), field("model", "MODEL", { default: "claude-opus-5-5" }), field("baseUrl", "BASE_URL", { input: "url", required: false, connection: true })],
+                fixed: { PROVIDER: "anthropic" }
+            },
+            {
+                id: "openai",
+                fields: [
+                    secret("apiKey", "API_KEY"),
+                    field("model", "MODEL"),
+                    field("organization", "ORGANIZATION", { required: false }),
+                    field("baseUrl", "BASE_URL", { input: "url", required: false, connection: true })
+                ],
+                fixed: { PROVIDER: "openai" }
+            },
+            { id: "google", fields: [secret("apiKey", "API_KEY"), field("model", "MODEL")], fixed: { PROVIDER: "google" } },
+            {
+                id: "azureOpenai",
+                fields: [field("endpoint", "ENDPOINT", { input: "url", connection: true }), field("deployment", "DEPLOYMENT"), field("apiVersion", "API_VERSION"), secret("apiKey", "API_KEY")],
+                fixed: { PROVIDER: "azureOpenai" }
+            }
+        ]
+    },
+    /** An email channel the service sends mail through; a relay inside the network may take no account */
+    smtp: {
+        type: "smtp",
+        envPrefix: "SMTP",
+        variants: [
+            { id: "credentials", fields: [...smtpServer, field("username", "USERNAME"), secret("password", "PASSWORD"), ...smtpSender] },
+            { id: "noAuth", fields: [...smtpServer, ...smtpSender] }
+        ]
+    }
+}
+
+export const isResourceType = (type: unknown): type is ResourceType => typeof type === "string" && Object.hasOwn(RESOURCE_CATALOG, type)
+
+/** The variant of a type, undefined when either is not in the catalog */
+export const resourceVariant = (type: unknown, variant: unknown): ResourceVariantSpec | undefined =>
+    isResourceType(type) ? RESOURCE_CATALOG[type].variants.find(candidate => candidate.id === variant) : undefined
+
+/** What the variables of a resource are named from */
+export interface ResourceNaming {
+    name: string
+    type: string
+    variant: string
+    envPrefix?: string | null
+}
+
+/** The prefix typed for the resource, otherwise the one of its type followed by its name: `orders-db` → DB_ORDERS_DB */
+export const resourceEnvPrefix = (resource: ResourceNaming): string =>
+    resource.envPrefix || `${isResourceType(resource.type) ? RESOURCE_CATALOG[resource.type].envPrefix : ""}_${resource.name.toUpperCase().replace(/-/g, "_")}`
+
+/** A variable a resource sets on the containers attaching it */
+export interface ResourceEnvKey {
+    key: string
+    /** The field it carries; none for a variable the variant always sets */
+    field?: string
+    secret: boolean
+    required: boolean
+    /** The value of a variable the variant always sets */
+    value?: string
+}
+
+/**
+ * Every variable the variant of the resource sets, whether its field has a value or not: an attached
+ * resource claims all of them, so a value typed later cannot clash with a map attached in the meantime.
+ */
+export const resourceEnvKeys = (resource: ResourceNaming): ResourceEnvKey[] => {
+    const variant = resourceVariant(resource.type, resource.variant)
+    if (!variant) return []
+    const prefix = resourceEnvPrefix(resource)
+    return [
+        ...variant.fields.map(({ name, envSuffix, secret, required }) => ({ key: `${prefix}_${envSuffix}`, field: name, secret, required })),
+        ...Object.entries(variant.fixed ?? {}).map(([envSuffix, value]) => ({ key: `${prefix}_${envSuffix}`, secret: false, required: true, value }))
+    ]
+}
+
+/** A field as the model stores it, or as a deploy reads it: the environment id a string or an ObjectId */
+interface ResourceStoredValue {
+    field: string
+    value?: string
+    overrides?: Array<{ environmentId: unknown; value?: string }>
+}
+
+/** A resource with the values of its fields, credentials decrypted */
+export interface ResourceWithValues extends ResourceNaming {
+    values?: ResourceStoredValue[]
+    secrets?: ResourceStoredValue[]
+}
+
+/**
+ * The variables a resource sets in one environment, by key: the value the environment overrides with,
+ * the one of all otherwise, and the fixed ones of its variant. A field with neither is left out, as the
+ * container would not get it. What a deploy ships, to the repository and to its snapshot alike.
+ */
+export const resourceEnvironmentValues = (resource: ResourceWithValues, environmentId: string): Record<string, string> => {
+    const byField = new Map([...(resource.values ?? []), ...(resource.secrets ?? [])].map(stored => [stored.field, stored]))
+    const data: Record<string, string> = {}
+    for (const { key, field, value } of resourceEnvKeys(resource)) {
+        const stored = field === undefined ? undefined : byField.get(field)
+        const resolved = field === undefined ? value : stored?.overrides?.find(override => String(override.environmentId) === environmentId)?.value || stored?.value
+        if (resolved) data[key] = resolved
+    }
+    return data
+}

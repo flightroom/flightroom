@@ -1,15 +1,20 @@
-import { Alert, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
+import { Alert, Badge, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { Market } from "@/hooks/apiClients/useMarketApi"
+import { technologyOfMarket } from "@/utils/technologies"
 
 interface TemplateCardProps {
     market: Market
     onClick?: (slug: string) => void
+    /** Uses the default technology of the project for its kind */
+    recommended?: boolean
 }
 
-export const TemplateCard: React.FC<TemplateCardProps> = ({ market, onClick }) => {
+export const TemplateCard: React.FC<TemplateCardProps> = ({ market, onClick, recommended }) => {
     const { t } = useTranslation()
+    const technology = technologyOfMarket(market)
 
     const handleCardClick = (e: React.MouseEvent) => {
         if (market.comingSoon || !onClick) {
@@ -46,7 +51,15 @@ export const TemplateCard: React.FC<TemplateCardProps> = ({ market, onClick }) =
                     </div>
                     <div className="flex-1">
                         <CardTitle className="text-lg/6 mb-1">{market.name}</CardTitle>
-                        <div className="text-sm text-foreground-secondary">{market.framework}</div>
+                        <div className="flex flex-wrap items-center gap-1.5 text-sm text-foreground-secondary">
+                            {technology && <TechnologyLogo technology={technology} decorative />}
+                            <span>{market.framework}</span>
+                            {recommended && (
+                                <Badge variant="accent" title={t("technologies.recommended_title")} dataTestId={`template-recommended-${market.slug}`}>
+                                    {t("technologies.recommended")}
+                                </Badge>
+                            )}
+                        </div>
                     </div>
                 </div>
             </CardHeader>

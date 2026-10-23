@@ -1,7 +1,7 @@
-# Editing a microfrontend with AI
+# Editing a frontend with AI
 
-From **Edit with AI**, the screen a microfrontend opens on, a user describes a change ("add a 404 page"). An
-AI agent works on a local clone of the microfrontend's repository and proposes the change as a diff.
+From **Edit with AI**, the screen a frontend opens on, a user describes a change ("add a 404 page"). An
+AI agent works on a local clone of the frontend's repository and proposes the change as a diff.
 Under the prompt, the console shows the repository it works on, linked to its page on the provider, and the
 branch it starts from: the repository's default branch unless another one is picked from its branches.
 Once the agent is done, the console commits the proposal on a feature branch of its own and pushes it:
@@ -22,20 +22,20 @@ starts from the base branch. The commit and the pull request are named after the
 request description quotes every message of the conversation. Once a proposal is applied, the whole conversation is kept, not removed
 with the proposals.
 
-It is available when an [AI provider](AI-PROVIDERS.md) is configured and the microfrontend has a
+It is available when an [AI provider](AI-PROVIDERS.md) is configured and the frontend has a
 code repository connected (GitHub, GitLab or Azure DevOps).
 
 ## How it works
 
 1. The request is stored and a background job starts; the console follows it by polling.
-2. The job takes a lock on the microfrontend's working copy (Redis, or in-process without Redis), so
+2. The job takes a lock on the frontend's working copy (Redis, or in-process without Redis), so
    two requests on the same repository queue instead of sharing a checkout.
 3. The working copy is cloned if missing, otherwise fetched and reset to `origin/<base branch>`:
    every run starts from exactly what the remote has.
-4. The agent explores and edits the files. It receives the [project and microfrontend context](MCP.md#project-context)
+4. The agent explores and edits the files. It receives the [project and frontend context](MCP.md#project-context)
    and the detected stack.
 5. The changed files are committed on the conversation's feature branch,
-   `ai/<microfrontend>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
+   `ai/<frontend>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
    the base the agent started from, and force-pushed. A follow-up that only answers a question, without
    changing a file, pushes nothing. A push that fails does not lose the proposal: the console shows the
    error, and applying it or opening its pull request pushes it again.
@@ -56,7 +56,7 @@ needed in the image, and no repository hook is ever run.
 
 ## Changing a whole domain
 
-**Edit with AI** on a functional domain starts one agent on every microfrontend and service of the
+**Edit with AI** on a functional domain starts one agent on every frontend and service of the
 domain that has a code repository (at most 10), with the project and domain context. It sees them all
 at once, so one change can span an API and the screens that call it, and it still proposes one diff
 per repository, each on its own feature branch, applied or opened as a pull request on its own. Each
@@ -67,7 +67,7 @@ a repository are left out and listed under the request.
 
 When the domain has nothing for the agent to work on yet, **Generate** first offers to create it:
 
-- **No microfrontend and no service:** one model call proposes the components the request needs
+- **No frontend and no service:** one model call proposes the components the request needs
   (usually a frontend and a backend, at most 3 of each), each with a name, a slug, a template and a
   repository name ending in `-fe` or `-be`. The user reviews and edits the proposal; on confirmation
   the console creates each one in the domain with a new repository scaffolded from its template, then
@@ -77,13 +77,63 @@ When the domain has nothing for the agent to work on yet, **Generate** first off
   starts the job.
 
 Both need a code repository connection on the project. Creating a repository for an existing member
-is also available as `POST /microfrontends/:id/repository` and `POST /services/:id/repository`;
+is also available as `POST /frontends/:id/repository` and `POST /services/:id/repository`;
 viewers cannot use it.
+
+## Fleet: missions on many repositories
+
+The **Fleet** page sends one request ("upgrade React to 19") to many repositories at once: every
+frontend and service of the project with a code repository, or the ones picked from the list. This is
+a **mission**. A mission runs no agent of its own. It starts ordinary jobs, and each job proposes one
+diff per repository, reviewed, applied or opened as a pull request like any other.
+
+A mission runs in one of two modes:
+
+- **Global**: one agent sees several repositories together, so a change can span an API and the screens
+  that call it, as on a domain.
+- **Per repository**: each repository gets its own agent with the same prompt. The agents do not see each
+  other's work, so one failure stays in its own repository.
+
+The repositories are split into **batches of 10**, in the order they are listed, and the batches run one
+after the other: batch 2 starts only once every job of batch 1 has finished or failed. In global mode a
+batch is one job on its 10 repositories, so with more than 10 the agent only sees the repositories of its own
+batch. In per-repository mode a batch is up to 10 jobs on one repository each. At most `concurrency` of
+them run at once (1 to 10, 3 by default), and as one finishes the next repository of the batch starts. A
+repository whose job cannot start (its repository was disconnected in the meantime, say) is marked failed
+and the mission goes on without it. The mission is done once the last batch is over, and failed if every
+one of its jobs failed.
+
+**Stop** stops the jobs at work, which are dropped like a stopped job, and the repositories still queued
+never start. **Apply all** applies the proposals of every finished job, one job after the other, as each
+job's own **Apply** would. A proposal can also be applied on its own from the job, before the mission ends.
+A follow-up asked on one of its jobs (from the Fleet page or the assistant) stays part of the mission: the
+mission shows the follow-up's proposal in place of the one it refines, and **Apply all** applies that one.
+A follow-up takes no place of its own among the active jobs, and never holds up the next batch.
+
+Limits:
+
+- At most 200 repositories per mission.
+- A running mission takes one of the 3 places for AI work at once in a project, however many jobs it
+  runs. Its jobs do not take places of their own.
+- While a mission runs, its jobs and their proposals do not expire, however long ago they finished. Once it
+  ends, the mission, its jobs and the proposals nobody applied are removed 7 days later. Applied work is
+  kept, and branches stay.
+- A mission waiting for a job that died with the server (a restart, say) moves on by itself: the server
+  checks the running missions when it starts and every few minutes, and a job silent for 20 minutes counts
+  as failed.
+
+Who can use it: any member of the project sees everyone's missions. A member assigned to some domains
+only sees the missions whose repositories are all in those domains. Such a member can start a mission on
+repositories they pick from their domains, but never on every repository of the project. Viewers can
+neither start, stop nor apply a mission; organization administrators can. Only the user who started a
+mission, or an organization administrator, can stop or apply it: everyone else sees it read only. Starting and applying a mission
+count against `ASSISTANT_RATE_LIMIT_MAX`, per user. Every job runs as the user who started the mission,
+whoever's visit to the Fleet page moves it on, so its commits are authored by that user.
 
 ## Where the repositories are cloned
 
 ```
-$REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<microfrontend-slug>/
+$REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<frontend-slug>/
 ```
 
 | Variable                        | Default                                              | What it does                                         |
@@ -93,7 +143,7 @@ $REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<microfrontend
 | `REPOSITORIES_EVICT_AFTER_DAYS` | `14`                                                 | Clones not used for this long are deleted.           |
 
 The folder is a **cache**: deleting it only costs a new clone. Clones are also removed when their
-microfrontend or project is deleted. On Kubernetes the chart mounts an `emptyDir` there
+frontend or project is deleted. On Kubernetes the chart mounts an `emptyDir` there
 (`repositories.sizeLimit`, 10Gi by default); set `repositories.existingClaim` to keep the clones across
 restarts. Each replica can have its own folder: there is no state to share.
 
@@ -111,6 +161,11 @@ handed to each network call.
   feature branch as soon as the agent is done, a pipeline that runs on every branch runs on the
   agent's code before anyone has reviewed it: limit such pipelines, or their secrets, to protected branches.
 - It cannot run anything: no install, build or test. The repository's CI checks the pull request.
+- It is told the config maps, secrets and resources attached to each service by the names of their
+  variables, never a credential (see [SECRETS](SECRETS.md#in-the-api)). When a service attaches an `api`
+  resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
+  `specUrl` from the backend with no access to private addresses, and answers with an index of the
+  operations or one operation in full.
 - At most 20 files and 500 KB written per request, 40 model rounds.
 - It never pushes. The console pushes its proposal on a feature branch only, never on the base branch:
   only the user's **Apply** writes there.
@@ -118,5 +173,7 @@ handed to each network call.
 ## Who can use it
 
 Any member of the project can see the requests. Viewers can neither ask for a change nor apply or
-discard one; organization administrators can. Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
+discard one; organization administrators can. A request, a job and its follow-ups belong to the user who
+started them: only they, or an organization administrator, can apply, discard, stop or follow them up, or
+open their pull request. Other members see them read only (`AI_JOB_NOT_OWNER`). Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
 per user, like the assistant. The token usage of each request is stored and shown in the console.

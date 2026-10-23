@@ -12,17 +12,14 @@ interface BuildStatusTableProps {
     data: ProjectBuildStatus
 }
 
-/** One row of the table: a microfrontend (frontend build) or a service (backend build). */
+/** One row of the table: a frontend or a service. */
 interface BuildStatusRow extends ComponentBuildStatus {
     kind: BuildComponentKind
     id: string
 }
 
-/** Microfrontends and services share one id space only once the kind is part of the key. */
+/** Frontends and services share one id space only once the kind is part of the key. */
 const rowKey = (row: BuildStatusRow) => `${row.kind}-${row.id}`
-
-/** Renders a version, or a dash when that environment serves none. */
-const VersionCell: React.FC<{ version?: string }> = ({ version }) => (version ? <span className="font-mono text-sm">{version}</span> : <span className="text-foreground-secondary">—</span>)
 
 const KindBadge: React.FC<{ kind: BuildComponentKind }> = ({ kind }) => {
     const { t } = useTranslation()
@@ -43,15 +40,13 @@ const BuildStatusTable: React.FC<BuildStatusTableProps> = ({ data }) => {
         setExpandedKeys(current => (current.includes(key) ? current.filter(expandedKey => expandedKey !== key) : [...current, key]))
     }
 
-    const environments = data.environments || []
     // Frontends first, then backends: each list already comes sorted by name.
     const rows: BuildStatusRow[] = [
-        ...(data.microfrontends || []).map(({ microfrontendId, ...row }) => ({ ...row, kind: BuildComponentKind.FRONTEND, id: microfrontendId })),
+        ...(data.frontends || []).map(({ frontendId, ...row }) => ({ ...row, kind: BuildComponentKind.FRONTEND, id: frontendId })),
         ...(data.services || []).map(({ serviceId, ...row }) => ({ ...row, kind: BuildComponentKind.BACKEND, id: serviceId }))
     ]
-    // Header cells before the environment block: expander, name, type, last build,
-    // tag of that build, last built version.
-    const leadingColumns = 6
+    // Header cells: expander, name, type, last build, tag of that build.
+    const columnCount = 5
 
     const renderLastBuild = (row: BuildStatusRow) => {
         if (row.unavailableReason) {
@@ -78,15 +73,6 @@ const BuildStatusTable: React.FC<BuildStatusTableProps> = ({ data }) => {
                     <TableHead>{t("builds.table.kind")}</TableHead>
                     <TableHead>{t("builds.table.last_build")}</TableHead>
                     <TableHead>{t("builds.table.build_ref")}</TableHead>
-                    <TableHead>{t("builds.table.last_built_version")}</TableHead>
-                    {environments.map(environment => (
-                        <TableHead key={environment._id}>
-                            <div className="flex items-center gap-2">
-                                <span>{environment.name}</span>
-                                {environment.isProduction && <Badge variant="accent">{t("builds.table.production")}</Badge>}
-                            </div>
-                        </TableHead>
-                    ))}
                 </TableRow>
             </TableHeader>
             <TableBody>
@@ -119,25 +105,12 @@ const BuildStatusTable: React.FC<BuildStatusTableProps> = ({ data }) => {
                             </TableCell>
                             <TableCell>{renderLastBuild(row)}</TableCell>
                             <TableCell>{lastBuild?.ref ? <span className="font-mono text-sm">{lastBuild.ref}</span> : <span className="text-foreground-secondary">—</span>}</TableCell>
-                            <TableCell>
-                                <VersionCell version={row.latestBuiltVersion} />
-                            </TableCell>
-                            {environments.map(environment => (
-                                <TableCell key={environment._id}>
-                                    <VersionCell version={row.versionByEnvironmentId?.[environment._id]} />
-                                </TableCell>
-                            ))}
                         </TableRow>,
                         isExpanded && (
                             <TableRow key={`${key}-history`} className={cn("bg-primary/5")}>
-                                <TableCell colSpan={leadingColumns + environments.length}>
+                                <TableCell colSpan={columnCount}>
                                     <div className="flex flex-col gap-3 py-2">
-                                        {row.repositoryName && (
-                                            <p className="text-sm text-foreground-secondary">
-                                                {t("builds.table.repository", { name: row.repositoryName })}
-                                                {row.selectedVersion ? ` · ${t("builds.table.selected_version", { version: row.selectedVersion })}` : ""}
-                                            </p>
-                                        )}
+                                        {row.repositoryName && <p className="text-sm text-foreground-secondary">{t("builds.table.repository", { name: row.repositoryName })}</p>}
                                         {row.unavailableReason === BuildUnavailableReason.PROVIDER_ERROR ? (
                                             <p className="text-sm">{t("builds.unavailable.PROVIDER_ERROR")}</p>
                                         ) : (

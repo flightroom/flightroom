@@ -155,6 +155,19 @@ class ArgoCdClient {
         await this.call(`delete the ApplicationSet ${name}`, () => this.api.delete(`/applicationsets/${encodeURIComponent(name)}`))
     }
 
+    /**
+     * Creates a Job from the CronJob `name` the Application deployed, with the `create-job` action Argo CD ships
+     * for CronJobs: the run goes through Argo CD, which reaches the cluster, as everything else the console does.
+     */
+    async createJobFromCronJob(application: string, project: string, namespace: string, name: string): Promise<void> {
+        await this.call(`start a run of the CronJob ${name}`, () =>
+            this.api.post(`/applications/${encodeURIComponent(application)}/resource/actions`, JSON.stringify("create-job"), {
+                params: { namespace, resourceName: name, group: "batch", version: "v1", kind: "CronJob", project },
+                headers: { "Content-Type": "application/json" }
+            })
+        )
+    }
+
     /** What `request` answers, null when Argo CD has no such object */
     private async find<T>(action: string, request: () => Promise<{ data: T }>): Promise<T | null> {
         try {

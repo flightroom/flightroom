@@ -5,17 +5,18 @@ import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import BuiltService, { IBuiltService } from "../models/BuiltServiceModel"
 import CodeRepository from "../models/CodeRepositoryModel"
-import Environment from "../models/EnvironmentModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service, { IService } from "../models/ServiceModel"
-import { MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { FrontendStackSource } from "../types/FrontendStack"
 import ServiceDTO, { ServiceVersionRegistrationDTO } from "../types/ServiceDTO"
-import { isServiceTemplateType, isServiceUrl, parseRuntime, SERVICE_SLUG, SERVICE_URL_MAX_LENGTH, SERVICE_VERSION } from "../types/ServiceStack"
+import { isServiceTemplateType, parseRuntime, SERVICE_SLUG, SERVICE_VERSION } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
+import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
 import TemplateScaffoldService, { placeholderDomain } from "./TemplateScaffoldService"
 import { ensureAttachableMaps, resolveAttachedMaps } from "./VariableMapService"
 import { forgetServices } from "./workspace/workspaceCleanup"
@@ -34,46 +35,6 @@ const ensureValidSlug = (slug: string) => {
     }
 }
 
-/** As for env: well past any real service, short of a document Mongo would refuse */
-const MAX_SERVICE_URLS = 200
-
-/**
- * The base URLs as they are stored: blank ones dropped (no known address in that environment), every
- * environment one of the project and at most once, every URL absolute http(s) without a trailing slash,
- * so that appending a path such as `/docs` gives a working link. The size guard counts the blank
- * entries too: it only bounds the request, the checks per entry give the precise refusal.
- */
-export const normalizeUrls = (urls: unknown, environmentIds: Set<string>): Array<{ environmentId: string; url: string }> => {
-    if (!Array.isArray(urls) || urls.length > MAX_SERVICE_URLS) {
-        throw createBusinessException({ code: "SERVICE_URLS_INVALID", message: `urls must be a list of at most ${MAX_SERVICE_URLS} entries` })
-    }
-
-    const environments = new Set<string>()
-    return urls.flatMap(item => {
-        const { environmentId, url } = (item ?? {}) as { environmentId?: unknown; url?: unknown }
-        const typed = typeof url === "string" ? url.trim() : ""
-        if (!typed) return []
-        const value = typed.replace(/\/+$/, "")
-
-        const environment = String(environmentId)
-        if (!environmentIds.has(environment)) {
-            throw createBusinessException({ code: "SERVICE_URL_ENVIRONMENT_UNKNOWN", message: `There is a URL for ${environment}, which is not an environment of the project` })
-        }
-        if (environments.has(environment)) {
-            throw createBusinessException({ code: "SERVICE_URL_ENVIRONMENT_DUPLICATED", message: `There is more than one URL for environment ${environment}` })
-        }
-        environments.add(environment)
-
-        if (!isServiceUrl(value)) {
-            throw createBusinessException({
-                code: "SERVICE_URL_INVALID",
-                message: `"${typed}" is not a valid URL: absolute http or https, at most ${SERVICE_URL_MAX_LENGTH} characters, without whitespace, credentials, query or fragment`
-            })
-        }
-        return [{ environmentId: environment, url: value }]
-    })
-}
-
 /**
  * Refuses update operators and dotted paths: `{"$set": {"secretIds": [...]}}` or `{"secretIds.0": ...}`
  * would reach Mongo past every check here, attaching a secret of another project to this service.
@@ -86,22 +47,32 @@ export const ensurePlainFields = (fields: object, code = "SERVICE_INVALID") => {
 }
 
 /**
- * The base URLs of `dto`, normalised, and the maps it attaches, checked: a caller that leaves them out
- * (an MCP update of the name, say) changes none of them and costs no query. A FRONTEND microfrontend
- * goes through it too, since it has the same container fields.
+ * The maps `dto` attaches, checked: a caller that leaves them out (an MCP update of the name, say)
+ * changes none of them and costs no query. A DOCKER frontend goes through it too, since it has the
+ * same container fields, but without `resources`: only a backend service attaches resources.
  */
-export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "urls" | "configMapIds" | "secretIds">>(
+export const withNormalizedReferences = async <T extends Pick<ServiceDTO, "configMapIds" | "secretIds" | "resourceIds">>(
     dto: T,
     projectId: Schema.Types.ObjectId,
-    existing?: Partial<Pick<IService, "name" | "configMapIds" | "secretIds">>
+    existing?: Partial<Pick<IService, "name" | "configMapIds" | "secretIds" | "resourceIds">>,
+    options: { resources?: boolean } = {}
 ): Promise<T> => {
     ensurePlainFields(dto)
     // Only the name and the attached ids of what is stored are read
-    const withMaps = await resolveAttachedMaps(dto, projectId, existing as IService | undefined)
-    if (dto.urls === undefined) return withMaps
+    return resolveAttachedMaps(dto, projectId, existing as IService | undefined, options)
+}
 
-    const environmentIds = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
-    return { ...withMaps, urls: normalizeUrls(dto.urls, environmentIds) }
+/**
+ * A version set by hand rather than registered by the CI, held to the same rule: the deploy pulls it as the
+ * tag of the image. Left out, the stored one stays; the CI still moves it on to a newer one it registers.
+ */
+export const withManualVersion = <T extends { version?: string }>(fields: T): T => {
+    if (fields.version === undefined) return fields
+    const version = typeof fields.version === "string" ? fields.version.trim() : ""
+    if (!SERVICE_VERSION.test(version)) {
+        throw createBusinessException({ code: "SERVICE_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
+    }
+    return { ...fields, version }
 }
 
 /**
@@ -195,7 +166,7 @@ export class ServiceService extends BaseAuthorizedService {
         const slug = (dto.slug ?? "").trim().toLowerCase()
         ensureValidSlug(slug)
         const { id: _id, ...fields } = { ...dto, slug }
-        const service = await withNormalizedReferences(fields, projectIdObj)
+        const service = await withNormalizedReferences(withManualVersion(fields), projectIdObj, undefined, { resources: true })
         if (service.domainId !== undefined) {
             service.domainId = await resolveDomainId(service.domainId, projectIdObj)
         }
@@ -203,11 +174,13 @@ export class ServiceService extends BaseAuthorizedService {
         await this.ensureInDomainScope(projectIdObj, service.domainId)
         const scope = await this.getDomainScope(projectIdObj)
         await ensureAttachableMaps(scope, projectIdObj, service)
+        await ensureAttachableResources(scope, projectIdObj, service)
         ensureOnlyNewRepositoryLinked(scope, service.codeRepository)
 
         // Both before the repository is created: a refused save would leave an orphan repository behind
-        if (await Service.exists({ slug, projectId: projectIdObj })) {
-            throw createBusinessException({ code: "SERVICE_SLUG_TAKEN", message: `A service with slug "${slug}" already exists in this project`, statusCode: 409 })
+        // A maintenance agent's values file is named after its slug as well, next to the service's
+        if ((await Service.exists({ slug, projectId: projectIdObj })) || (await MaintenanceAgent.exists({ slug, projectId: projectIdObj }))) {
+            throw createBusinessException({ code: "SERVICE_SLUG_TAKEN", message: `A service or a maintenance agent with slug "${slug}" already exists in this project`, statusCode: 409 })
         }
         try {
             await new Service({ ...service, projectId: projectIdObj }).validate()
@@ -232,8 +205,8 @@ export class ServiceService extends BaseAuthorizedService {
                 }
                 if (template && !isServiceTemplateType(template.type)) {
                     throw createBusinessException({
-                        code: "MICROFRONTEND_TEMPLATE_NOT_ALLOWED",
-                        message: `"${template.slug}" is a microfrontend template: create a microfrontend from it, not a service`
+                        code: "FRONTEND_TEMPLATE_NOT_ALLOWED",
+                        message: `"${template.slug}" is a frontend template: create a frontend from it, not a service`
                     })
                 }
 
@@ -255,7 +228,7 @@ export class ServiceService extends BaseAuthorizedService {
                     service.stack = {
                         runtime: parseRuntime(template.framework),
                         framework: template.framework,
-                        source: MicrofrontendStackSource.TEMPLATE
+                        source: FrontendStackSource.TEMPLATE
                     }
                 }
 
@@ -275,14 +248,17 @@ export class ServiceService extends BaseAuthorizedService {
         // Never moved to another project, nor given another identity, through an update: the slug is
         // in the registration URL the CI of the repository calls
         const { id: _id, _id: _mongoId, projectId: _projectId, slug: _slug, ...fields } = updates as Partial<ServiceDTO> & { _id?: unknown; projectId?: unknown }
-        const allowed = await withNormalizedReferences(fields, service.projectId, service)
+        const scope = await this.getDomainScope(service.projectId)
+        // A domain-scoped member's console lists only the resources they see: the others it attaches stay attached
+        const withHidden = await withResourcesOutOfScope(scope, service.projectId, fields, service)
+        const allowed = await withNormalizedReferences(withManualVersion(withHidden), service.projectId, service, { resources: true })
         if (allowed.domainId !== undefined) {
             allowed.domainId = await resolveDomainId(allowed.domainId, service.projectId)
             // Moved only between the domains of a domain-scoped member, never out of their reach
             await this.ensureInDomainScope(service.projectId, allowed.domainId)
         }
-        const scope = await this.getDomainScope(service.projectId)
         await ensureAttachableMaps(scope, service.projectId, allowed, service)
+        await ensureAttachableResources(scope, service.projectId, allowed, service)
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, service.codeRepository)) delete allowed.codeRepository
         if (allowed.codeRepository) {
             allowed.codeRepository = { ...allowed.codeRepository, createData: undefined }
@@ -305,7 +281,8 @@ export class ServiceService extends BaseAuthorizedService {
         await BuiltService.deleteMany({ serviceId: service._id })
         await ServiceDeployment.deleteMany({ serviceId: service._id })
         const deleted = await Service.findByIdAndDelete(service._id)
-        // The local clone and the AI change requests go with it, as for a microfrontend.
+        await MaintenanceAgent.updateMany({ projectId: service.projectId, serviceIds: service._id }, { $pull: { serviceIds: service._id } })
+        // The local clone and the AI change requests go with it, as for a frontend.
         await forgetServices([service])
         return deleted
     }
@@ -329,6 +306,8 @@ export class ServiceService extends BaseAuthorizedService {
         if (!service) {
             throw new EntityNotFoundError(id)
         }
+        // The tag starts a release: a viewer may look, not release
+        await this.ensureNotViewer(service.projectId, { code: "SERVICE_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a service" })
         await new TemplateScaffoldService(this.user).createTag(service.codeRepository, service.projectId, version, branch)
     }
 
@@ -352,7 +331,14 @@ export class ServiceService extends BaseAuthorizedService {
         if (!project) {
             throw new ProjectNotFoundError(projectId)
         }
-        const service = await Service.findOne({ slug: serviceSlug.trim().toLowerCase(), projectId: toObjectId(projectId) })
+        const slug = serviceSlug.trim().toLowerCase()
+        // A maintenance agent is scaffolded from the templates of the services: its CI registers here too, by its slug
+        let model = Service
+        let service: IService | null = await Service.findOne({ slug, projectId: toObjectId(projectId) })
+        if (!service) {
+            model = MaintenanceAgent as unknown as typeof Service
+            service = (await MaintenanceAgent.findOne({ slug, projectId: toObjectId(projectId) })) as unknown as IService | null
+        }
         if (!service) {
             throw new EntityNotFoundError(serviceSlug)
         }
@@ -392,9 +378,9 @@ export class ServiceService extends BaseAuthorizedService {
             if (isNewerVersion(trimmedVersion, current.version)) updates.version = trimmedVersion
             if (!current.image?.repository?.trim()) updates["image.repository"] = imageRepositoryOf(registration.image)
             if (Object.keys(updates).length === 0) break
-            const result = await Service.updateOne({ _id: service._id, version: current.version ?? null }, { $set: updates })
+            const result = await model.updateOne({ _id: service._id, version: current.version ?? null }, { $set: updates })
             if (result.matchedCount > 0) break
-            current = await Service.findById(service._id)
+            current = await model.findById(service._id)
         }
 
         return built as IBuiltService

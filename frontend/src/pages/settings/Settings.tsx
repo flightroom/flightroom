@@ -1,37 +1,55 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Bot, Database, FolderCog, GitBranch, HardDrive, Key, Rocket, Server, Settings2, Users } from "lucide-react"
+import { Bot, Database, FolderCog, GitBranch, HardDrive, Key, Palette, Rocket, Server, Settings2, Sparkles, Users } from "lucide-react"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 // Components
+import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useGitOpsErrorMessage from "@/hooks/apiClients/useGitOpsErrorMessage"
 // Hooks & Stores
-import useProjectApi from "@/hooks/apiClients/useProjectApi"
+import useProjectApi, { type DesignSystem } from "@/hooks/apiClients/useProjectApi"
+import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import { ArgoCdSection, DangerZone, GitOpsSection, PipelineTemplatesSection, ProjectContextSection, ProjectExposureSection, ProjectInfoSection, ProjectStatsSection } from "./partials"
+import {
+    ArgoCdSection,
+    DangerZone,
+    GitOpsSection,
+    PipelineTemplatesSection,
+    ProjectContainerRegistrySection,
+    ProjectContextSection,
+    ProjectDesignSystemSection,
+    ProjectExposureSection,
+    ProjectInfoSection,
+    ProjectStatsSection,
+    ProjectTechnologiesSection
+} from "./partials"
 import type { GitOpsFormValues } from "./partials/GitOpsSection"
 import type { PipelineTemplatesFormValues } from "./partials/PipelineTemplatesSection"
+import type { ProjectContainerRegistryFormValues } from "./partials/ProjectContainerRegistrySection"
 import type { ProjectContextFormValues } from "./partials/ProjectContextSection"
 import type { ProjectExposureFormValues } from "./partials/ProjectExposureSection"
 import type { ProjectInfoFormValues } from "./partials/ProjectInfoSection"
+import type { ProjectTechnologiesFormValues } from "./partials/ProjectTechnologiesSection"
 
-const TABS = ["general", "access", "resources", "delivery"] as const
+const TABS = ["general", "context", "designSystem", "access", "resources", "delivery"] as const
 type Tab = (typeof TABS)[number]
 
-const TAB_ICONS: Record<Tab, React.ComponentType> = { general: Settings2, access: Users, resources: FolderCog, delivery: Rocket }
+const TAB_ICONS: Record<Tab, React.ComponentType> = { general: Settings2, context: Sparkles, designSystem: Palette, access: Users, resources: FolderCog, delivery: Rocket }
 
 /**
- * Le impostazioni del progetto, un tema per scheda: i dati e il contesto AI, chi vi accede, le sue risorse, come arriva
- * nei cluster. La scheda sta nell'URL (`?tab=delivery`) cosi' un link puo' puntare dritto a una di esse.
+ * Le impostazioni del progetto, un tema per scheda: i dati e le tecnologie, il contesto AI, il design system, chi vi
+ * accede, le sue risorse, come arriva nei cluster. La scheda sta nell'URL (`?tab=delivery`) cosi' un link puo' puntare dritto a una di esse.
  */
 export const Settings: React.FC = () => {
     const notifications = useToastNotificationStore()
     const { t } = useTranslation()
     const { project, setProject } = useProjectStore()
+    // Il design system che il progetto eredita quando non ne ha uno proprio
+    const organizationDesignSystem = useOrganizationStore().organization?.designSystem
     const projectApi = useProjectApi()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
@@ -86,6 +104,36 @@ export const Settings: React.FC = () => {
         }
     })
 
+    const updateTechnologiesMutation = useMutation({
+        // Una tecnologia lasciata a "nessuna" va tolta, che l'API esprime con un null esplicito
+        mutationFn: (values: ProjectTechnologiesFormValues) => projectApi.updateProject(project._id, { technologies: { frontend: values.frontend ?? null, backend: values.backend ?? null } }),
+        onSuccess: updated => {
+            // Template, servizi e header leggono le tecnologie dallo store
+            setProject({ ...project, technologies: updated.technologies })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            queryClient.invalidateQueries({ queryKey: ["projects-mine"] })
+            notifications.showSuccessNotification({ message: t("technologies.settings.saved") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("technologies.settings.save_failed") })
+        }
+    })
+
+    const updateDesignSystemMutation = useMutation({
+        // Null: il progetto torna a ereditare il design system dell'organizzazione
+        mutationFn: (designSystem: DesignSystem | null) => projectApi.updateProject(project._id, { designSystem }),
+        onSuccess: updated => {
+            // Il form dei frontend legge dallo store il design system che ereditano
+            setProject({ ...project, designSystem: updated.designSystem })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            queryClient.invalidateQueries({ queryKey: ["projects-mine"] })
+            notifications.showSuccessNotification({ message: t("designSystem.settings.saved") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("designSystem.settings.save_failed") })
+        }
+    })
+
     const updateExposureMutation = useMutation({
         mutationFn: (values: ProjectExposureFormValues) =>
             projectApi.updateProject(project._id, {
@@ -102,6 +150,20 @@ export const Settings: React.FC = () => {
         },
         onError: () => {
             notifications.showErrorNotification({ message: t("settings.notifications.exposureUpdateFailed") })
+        }
+    })
+
+    const updateContainerRegistryMutation = useMutation({
+        // Un registry svuotato vuol dire "nessuno", che l'API esprime con un null esplicito
+        mutationFn: (values: ProjectContainerRegistryFormValues) => projectApi.updateProject(project._id, { containerRegistry: values.containerRegistry.trim() || null }),
+        onSuccess: updated => {
+            // Il form dei servizi e dei frontend Docker legge il registry dallo store per mostrare l'immagine deployata
+            setProject({ ...project, containerRegistry: updated.containerRegistry })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            notifications.showSuccessNotification({ message: t("settings.notifications.containerRegistryUpdated") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("settings.notifications.containerRegistryUpdateFailed") })
         }
     })
 
@@ -144,9 +206,32 @@ export const Settings: React.FC = () => {
                     <TabsContent value="general" className="mt-6 flex flex-col gap-6">
                         {projectData && <ProjectInfoSection {...projectData} onUpdate={values => updateProjectMutation.mutate(values)} isUpdating={updateProjectMutation.isPending} />}
 
-                        {projectData && <ProjectContextSection context={projectData.context} onUpdate={values => updateContextMutation.mutate(values)} isUpdating={updateContextMutation.isPending} />}
+                        {projectData && (
+                            <ProjectTechnologiesSection
+                                key={projectData._id}
+                                technologies={projectData.technologies}
+                                onUpdate={values => updateTechnologiesMutation.mutate(values)}
+                                isUpdating={updateTechnologiesMutation.isPending}
+                            />
+                        )}
 
                         <DangerZone projectName={projectData?.name} projectId={projectData?._id} onDeleteSuccess={handleDeleteProjectSuccess} />
+                    </TabsContent>
+
+                    <TabsContent value="context" className="mt-6 flex flex-col gap-6">
+                        {projectData && <ProjectContextSection context={projectData.context} onUpdate={values => updateContextMutation.mutate(values)} isUpdating={updateContextMutation.isPending} />}
+                    </TabsContent>
+
+                    <TabsContent value="designSystem" className="mt-6 flex flex-col gap-6">
+                        {projectData && (
+                            <ProjectDesignSystemSection
+                                key={`design-system-${projectData._id}`}
+                                designSystem={projectData.designSystem}
+                                organizationDesignSystem={organizationDesignSystem}
+                                onUpdate={designSystem => updateDesignSystemMutation.mutate(designSystem)}
+                                isUpdating={updateDesignSystemMutation.isPending}
+                            />
+                        )}
                     </TabsContent>
 
                     <TabsContent value="access" className="mt-6">
@@ -176,7 +261,7 @@ export const Settings: React.FC = () => {
                         />
                     </TabsContent>
 
-                    <TabsContent value="resources" className="mt-6">
+                    <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
                         <ProjectStatsSection
                             title={t("settings.stats.resourcesTitle")}
                             stats={[
@@ -206,6 +291,8 @@ export const Settings: React.FC = () => {
                                 }
                             ]}
                         />
+                        {/* I token spesi da Modifica con AI e da Maestro: una risorsa del progetto come le altre di questa scheda. Non per chi vede solo alcuni domini: il totale e' di tutto il progetto, il server lo rifiuta */}
+                        {project._id && !project.domainScoped && <AiUsageSummary target={{ kind: "project", id: project._id }} />}
                     </TabsContent>
 
                     {/* Nell'ordine in cui si configurano: Exposure e Argo CD lavorano su cio' che GitOps committa */}
@@ -222,6 +309,14 @@ export const Settings: React.FC = () => {
 
                         {projectData?.gitOps?.enabled && projectData.gitOps.codeRepository && (
                             <ProjectExposureSection exposure={projectData.exposure} onUpdate={values => updateExposureMutation.mutate(values)} isUpdating={updateExposureMutation.isPending} />
+                        )}
+
+                        {projectData?.gitOps?.enabled && projectData.gitOps.codeRepository && (
+                            <ProjectContainerRegistrySection
+                                containerRegistry={projectData.containerRegistry}
+                                onUpdate={values => updateContainerRegistryMutation.mutate(values)}
+                                isUpdating={updateContainerRegistryMutation.isPending}
+                            />
                         )}
 
                         {/* Argo CD deploya cio che il GitOps salvato committa: senza repository di configurazione non c'e' niente da consegnargli */}

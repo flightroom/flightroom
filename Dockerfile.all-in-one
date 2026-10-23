@@ -131,7 +131,7 @@ ENV NODE_ENV=prod \
     TRUST_PROXY=127.0.0.1
 
 # Single volume with everything that must survive the container: database,
-# Redis dump, uploaded microfrontends, repository clones and the generated JWT secret.
+# Redis dump, uploaded frontend bundles, repository clones and the generated JWT secret.
 VOLUME ["/data"]
 
 # Only the web interface is published: MongoDB and Redis stay on the loopback.

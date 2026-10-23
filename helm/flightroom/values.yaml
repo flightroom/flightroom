@@ -1,0 +1,361 @@
+# Default values for Flightroom.
+# Every environment variable understood by the application can be set from this
+# file: plain ones under `env`, sensitive ones under `envSecrets`.
+
+replicaCount: 1
+
+image:
+  repository: lory1990/flightroom
+  pullPolicy: IfNotPresent
+  # Overrides the image tag, which defaults to the chart appVersion.
+  tag: ""
+
+imagePullSecrets: []
+nameOverride: ""
+fullnameOverride: ""
+
+## ---------------------------------------------------------------------------
+## Environment variables
+## ---------------------------------------------------------------------------
+## `env` is rendered into a ConfigMap and injected with envFrom, so any key you
+## add here reaches the container - the list below is only the set of variables
+## the application documents. Leave a value empty (or null) to not set the
+## variable at all and let the application fall back to its own default; the
+## commented "default:" notes are those application defaults.
+##
+## Values are quoted automatically, so numbers and booleans can be written
+## natively (EMAIL_SMTP_PORT: 587, REGISTRATION_ALLOWED: true).
+env:
+  ## --- Core ------------------------------------------------------------------
+  # Node environment: development | prod | test | local. default: prod
+  NODE_ENV: prod
+  # Port the backend listens on, behind the in-container nginx. default: 3000
+  PORT: 3000
+  # Public URL of the frontend. default: http://localhost:3000
+  FRONTEND_URL: ""
+  # Public URL of the API. default: <FRONTEND_URL>/api
+  BACKEND_URL: ""
+  # Comma separated list of origins allowed for cross-origin requests.
+  ALLOWED_ORIGINS: ""
+  # Same list, but applied only to the /serve/* endpoints consumed by the host
+  # applications. Falls back to ALLOWED_ORIGINS when empty.
+  ALLOWED_SERVE_ORIGINS: ""
+  # Folder the uploaded frontend bundles are served from. Kept in sync with
+  # persistence.mountPath below. default: /upload-microfrontends
+  MICROFRONTEND_HOST_FOLDER: /upload-microfrontends
+  # Allow new users to sign up. default: true
+  REGISTRATION_ALLOWED: false
+  # Enable the built-in email/password login. default: true
+  ALLOW_EMBEDDED_LOGIN: true
+  # Requests per IP per minute. Raise it on environments an e2e suite runs
+  # against: a single page of the app fires a group of calls, so 100 is quickly
+  # exhausted and the API starts answering 429. default: 100
+  # Leave commented out to keep the default: an empty value fails validation.
+  # RATE_LIMIT_MAX: 300
+  # Collect a marketing consent on the registration form. The platform never
+  # sends commercial email itself: it only records that the consent was given.
+  # default: false
+  MARKETING_OPT_IN_ENABLED: ""
+  # Version of the consent text shown at registration, stored together with the
+  # consent, so an old consent stays attributable to the wording accepted.
+  # default: 1
+  MARKETING_OPT_IN_VERSION: ""
+
+  # Proxies whose X-Forwarded-For the backend trusts: true or a
+  # comma separated list of addresses/CIDRs ("loopback", "uniquelocal" work too).
+  # The image trusts its own nginx (127.0.0.1). Behind an ingress controller the
+  # request reaches nginx from the controller's pod IP, so that hop has to be
+  # trusted too, or every client shares one rate limit bucket (and the MCP client
+  # registration limit of 10/hour per IP becomes 10/hour for everyone). Trust
+  # exactly the hops you run, never "true" on a pod reachable from outside:
+  #   TRUST_PROXY: "loopback,10.0.0.0/8"   # nginx + ingress pods in the pod CIDR
+  # A hop count ("2") is refused: list the proxies.
+  # default: 127.0.0.1
+  TRUST_PROXY: ""
+
+  ## --- Remote MCP server -----------------------------------------------------
+  ## Lets AI clients (Claude, Cursor, VS Code...) use the console through MCP,
+  ## after the user consents in the browser. Requires FRONTEND_URL and
+  ## envSecrets.JWT_SECRET. See docs/MCP.md.
+  # default: false
+  MCP_ENABLED: ""
+  # Dynamic client registration (RFC 7591). default: true
+  MCP_DCR_ENABLED: ""
+  # Fallback for clients that cannot do OAuth: a project API key as
+  # "Authorization: Bearer <key>" or "api-key" header on /api/mcp. default: true
+  MCP_API_KEY_ENABLED: ""
+  # MCP requests per minute per OAuth grant or API key. Leave commented out to
+  # keep the default (an empty value fails validation). default: 120
+  # MCP_RATE_LIMIT_MAX: 120
+  # Client ID metadata documents (client_id is an https URL). default: true
+  MCP_CIMD_ENABLED: ""
+  # Comma separated hosts allowed to publish client metadata. default: any
+  CIMD_ALLOWED_HOSTS: ""
+  # Only when the public URLs cannot be derived from BACKEND_URL/FRONTEND_URL.
+  # default: <BACKEND_URL> and <BACKEND_URL>/mcp
+  OAUTH_ISSUER_URL: ""
+  MCP_RESOURCE_URL: ""
+
+  ## --- MongoDB ---------------------------------------------------------------
+  ## The chart does not deploy MongoDB: point these at your own instance or at
+  ## a MongoDB deployed by another chart (see the chart README for an example).
+  # default: mongodb://localhost:27017/microfrontend-orchestrator
+  NOSQL_DATABASE_URL: ""
+  NOSQL_DATABASE_NAME: microfrontend-orchestrator
+  NOSQL_DATABASE_USERNAME: ""
+  # NOSQL_DATABASE_PASSWORD -> envSecrets
+
+  ## --- Redis -----------------------------------------------------------------
+  # default: redis://localhost:6379
+  REDIS_URL: ""
+  # REDIS_PASSWORD -> envSecrets
+
+  ## --- SMTP ------------------------------------------------------------------
+  EMAIL_SMTP_HOST: ""
+  # default: 587
+  EMAIL_SMTP_PORT: ""
+  # Use an SSL/TLS connection. default: false
+  EMAIL_SMTP_SECURE: ""
+  EMAIL_SMTP_USER: ""
+  EMAIL_SMTP_FROM: ""
+  # EMAIL_SMTP_PASSWORD -> envSecrets
+
+  ## --- Auth0 -----------------------------------------------------------------
+  ## AUTH0_AUDIENCE is required for Auth0 login: the console requests access
+  ## tokens for that API, and the backend verifies their signature and audience.
+  AUTH0_DOMAIN: ""
+  AUTH0_CLIENT_ID: ""
+  AUTH0_AUDIENCE: ""
+  # default: openid profile email
+  AUTH0_SCOPE: ""
+
+  ## --- Azure Entra ID --------------------------------------------------------
+  AZURE_ENTRAID_TENANT_ID: ""
+  AZURE_ENTRAID_CLIENT_ID: ""
+  AZURE_ENTRAID_REDIRECT_URI: ""
+  # default: https://login.microsoftonline.com
+  AZURE_ENTRAID_AUTHORITY: ""
+  # default: openid profile email
+  AZURE_ENTRAID_SCOPES: ""
+  AZURE_ENTRAID_API_AUDIENCE: ""
+
+  ## --- Google ----------------------------------------------------------------
+  GOOGLE_CLIENT_ID: ""
+  GOOGLE_REDIRECT_URI: ""
+  GOOGLE_API_AUDIENCE: ""
+  # Restrict the login to a single Google Workspace domain.
+  GOOGLE_AUTH_HOSTED_DOMAIN: ""
+  # default: https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile
+  GOOGLE_AUTH_SCOPE: ""
+  # GOOGLE_CLIENT_SECRET -> envSecrets
+
+  ## --- Code repositories -----------------------------------------------------
+  CODE_REPOSITORY_GITHUB_CLIENT_ID: ""
+  # CODE_REPOSITORY_GITHUB_CLIENT_SECRET -> envSecrets
+
+  ## --- Dependencies ----------------------------------------------------------
+  # Registry the cross-repository dependency analysis queries for published
+  # versions. default: https://registry.npmjs.org
+  NPM_REGISTRY_URL: ""
+
+  ## --- Observability and telemetry -------------------------------------------
+  # Anonymous, opt-out telemetry of the self-hosted install. Set TELEMETRY_ENABLED
+  # to false (or DO_NOT_TRACK to 1) to turn it off. See docs/TELEMETRY.md.
+  TELEMETRY_ENABLED: ""
+  TELEMETRY_DISABLED: ""
+  TELEMETRY_ENDPOINT: ""
+  TELEMETRY_INTERVAL_HOURS: ""
+  DO_NOT_TRACK: ""
+  # Sentry DSN of the backend. Leave empty to disable error reporting.
+  SENTRY_DSN: ""
+
+## Sensitive environment variables. Rendered into a Secret owned by this
+## release and injected with envFrom, exactly like `env`. Any key can be added.
+## Empty values are skipped, so unset ones keep the application default.
+## For secrets you do not want in values.yaml, use `existingSecret` below.
+envSecrets:
+  # Signing key of the JWT tokens - ALWAYS override this in production.
+  # With env.MCP_ENABLED it must be at least 32 bytes: openssl rand -hex 32
+  JWT_SECRET: ""
+  # Encrypts the credentials the console stores for a project (bucket keys,
+  # connection strings, repository tokens). 32 bytes, base64 or hex:
+  # openssl rand -base64 32. Left empty they are stored unencrypted.
+  # Back it up apart from the database. See docs/SECRETS.md.
+  SECRETS_ENCRYPTION_KEY: ""
+  NOSQL_DATABASE_PASSWORD: ""
+  REDIS_PASSWORD: ""
+  EMAIL_SMTP_PASSWORD: ""
+  GOOGLE_CLIENT_SECRET: ""
+  CODE_REPOSITORY_GITHUB_CLIENT_SECRET: ""
+
+## Names of Secrets and ConfigMaps that already exist in the namespace and hold
+## further environment variables (all of their keys are injected as-is).
+existingSecret: []
+# - flightroom-credentials
+existingConfigMap: []
+# - flightroom-extra-config
+
+## Raw container env entries, for values that must come from somewhere else
+## (another Secret key, a field ref, ...). These win over `env`/`envSecrets`.
+extraEnv: []
+# - name: JWT_SECRET
+#   valueFrom:
+#     secretKeyRef:
+#       name: my-secret
+#       key: jwt-secret
+# - name: POD_IP
+#   valueFrom:
+#     fieldRef:
+#       fieldPath: status.podIP
+
+## ---------------------------------------------------------------------------
+## Storage of the uploaded frontend bundles
+## ---------------------------------------------------------------------------
+persistence:
+  enabled: true
+  # Use an already existing PersistentVolumeClaim instead of creating one.
+  existingClaim: ""
+  # "" uses the cluster default StorageClass, "-" disables dynamic provisioning.
+  storageClass: ""
+  # Also describe existingClaim here. More than one pod (replicaCount > 1 or
+  # autoscaling) needs ReadWriteMany: the render fails otherwise.
+  accessModes:
+    - ReadWriteOnce
+  size: 8Gi
+  annotations: {}
+  # Defaults to env.MICROFRONTEND_HOST_FOLDER.
+  mountPath: ""
+  subPath: ""
+
+## ---------------------------------------------------------------------------
+## Local clones of the repositories edited with AI
+## ---------------------------------------------------------------------------
+## A cache: every use resets the clone to the remote and a missing one is cloned
+## again, so it does not need to be shared between replicas. emptyDir by default;
+## point existingClaim at a PVC to keep the clones across restarts.
+repositories:
+  mountPath: /repositories
+  # Upper bound of the emptyDir. Also see env.REPOSITORIES_MAX_SIZE_MB, the cap per repository.
+  sizeLimit: 10Gi
+  existingClaim: ""
+
+## ---------------------------------------------------------------------------
+## Service and ingress
+## ---------------------------------------------------------------------------
+service:
+  type: ClusterIP
+  port: 80
+  # Node port when type is NodePort.
+  nodePort: ""
+  annotations: {}
+
+ingress:
+  enabled: false
+  className: ""
+  annotations: {}
+    # nginx.ingress.kubernetes.io/proxy-body-size: 50m
+  hosts:
+    - host: flightroom.local
+      paths:
+        - path: /
+          pathType: Prefix
+  tls: []
+  # - secretName: flightroom-tls
+  #   hosts:
+  #     - flightroom.local
+
+## ---------------------------------------------------------------------------
+## Workload settings
+## ---------------------------------------------------------------------------
+serviceAccount:
+  create: true
+  automount: true
+  annotations: {}
+  # Uses the generated name when empty.
+  name: ""
+
+resources: {}
+  # limits:
+  #   cpu: 1
+  #   memory: 1Gi
+  # requests:
+  #   cpu: 200m
+  #   memory: 512Mi
+
+## Probes hit /api/echo, the public health endpoint of the backend.
+livenessProbe:
+  enabled: true
+  initialDelaySeconds: 30
+  periodSeconds: 20
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+readinessProbe:
+  enabled: true
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 6
+  successThreshold: 1
+
+startupProbe:
+  enabled: false
+  initialDelaySeconds: 10
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 30
+  successThreshold: 1
+
+autoscaling:
+  enabled: false
+  minReplicas: 1
+  maxReplicas: 5
+  targetCPUUtilizationPercentage: 80
+  targetMemoryUtilizationPercentage: ""
+
+## Roll the pods when the rendered ConfigMap/Secret changes.
+restartOnConfigChange: true
+
+## Deployment strategy. Left empty, the type is Recreate when persistence is on
+## a volume without ReadWriteMany (a ReadWriteOnce claim attaches to one node,
+## so a surge pod scheduled elsewhere never starts and the rollout hangs), and
+## RollingUpdate otherwise. rollingUpdate applies only to RollingUpdate.
+strategy:
+  type: ""
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+podAnnotations: {}
+podLabels: {}
+commonLabels: {}
+commonAnnotations: {}
+
+podSecurityContext: {}
+  # fsGroup: 101
+
+## The image runs nginx as root inside the container, so it cannot run as a
+## non-root user without a custom nginx configuration.
+securityContext: {}
+  # readOnlyRootFilesystem: false
+  # capabilities:
+  #   drop:
+  #     - ALL
+
+nodeSelector: {}
+tolerations: []
+affinity: {}
+topologySpreadConstraints: []
+priorityClassName: ""
+terminationGracePeriodSeconds: 30
+
+extraVolumes: []
+# - name: extra-config
+#   configMap:
+#     name: my-config
+extraVolumeMounts: []
+# - name: extra-config
+#   mountPath: /etc/extra
+extraInitContainers: []
+extraContainers: []

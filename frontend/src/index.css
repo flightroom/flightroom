@@ -8,7 +8,7 @@
  * Qui restano solo gli scostamenti specifici dell'applicazione.
  */
 
-/* Il bordo di un microfrontend su cui sta lavorando un agente: un alone che respira. */
+/* Il bordo di un frontend su cui sta lavorando un agente: un alone che respira. */
 @theme {
     --animate-agent-glow: agent-glow 2s ease-in-out infinite;
 

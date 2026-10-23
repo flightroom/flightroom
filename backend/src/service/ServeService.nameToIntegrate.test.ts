@@ -7,7 +7,7 @@ vi.mock("..", () => ({
 
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
-import { HostedOn } from "../models/MicrofrontendModel"
+import { HostedOn } from "../models/FrontendModel"
 import { federationName } from "./FederationConfigService"
 import ServeService from "./ServeService"
 import { replaceFederationName } from "./TemplateScaffoldService"
@@ -19,7 +19,7 @@ afterEach(() => {
 describe("ServeService manifest, nameToIntegrate", () => {
     const serve = async (slug: string) => {
         const environmentId = new Types.ObjectId()
-        const microfrontend = {
+        const frontend = {
             _id: new Types.ObjectId(),
             projectId: new Types.ObjectId(),
             name: "Checkout",
@@ -27,18 +27,18 @@ describe("ServeService manifest, nameToIntegrate", () => {
             version: "1.0.0",
             host: { type: HostedOn.MFE_ORCHESTRATOR_HUB, entryPoint: "remoteEntry.js" }
         }
-        vi.spyOn(Deployment, "findOne").mockResolvedValue({ _id: new Types.ObjectId(), microfrontends: [microfrontend], variables: [] } as never)
+        vi.spyOn(Deployment, "findOne").mockResolvedValue({ _id: new Types.ObjectId(), frontends: [frontend], variables: [] } as never)
         vi.spyOn(Environment, "findById").mockResolvedValue({ _id: environmentId, slug: "dev" } as never)
 
-        const { microfrontends } = await new ServeService().getAllByEnvironmentId(environmentId.toString())
-        return microfrontends?.[0]
+        const { microfrontends: frontends } = await new ServeService().getAllByEnvironmentId(environmentId.toString())
+        return frontends?.[0]
     }
 
     /**
      * loadWebpackRemote(slug) falls back to the manifest's nameToIntegrate for the container name:
      * it has to be the name the scaffolder wrote in the remote's webpack config
      */
-    it("given a microfrontend scaffolded from a webpack template, when the manifest is served, then nameToIntegrate is the container name the scaffolder wrote", async () => {
+    it("given a frontend scaffolded from a webpack template, when the manifest is served, then nameToIntegrate is the container name the scaffolder wrote", async () => {
         const scaffolded = replaceFederationName("name: 'exampleremote', // mfe-orchestrator:federation-name", federationName("checkout-new"))
 
         const served = await serve("checkout-new")

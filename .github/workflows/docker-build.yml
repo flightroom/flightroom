@@ -12,15 +12,53 @@ on:
 
 env:
   IMAGE: lory1990/flightroom
+  CHART_PATH: helm/flightroom
+  CHART_REGISTRY: oci://ghcr.io/flightroom/charts
 
 jobs:
   monorepo-build:
     uses: ./.github/workflows/monorepo-build.yml
     secrets: inherit
 
+  # Lints the Helm chart on every push. On a tag it also stops the release before
+  # anything is published when the chart does not ship the tagged image
+  # (appVersion != tag) or when its version is already in the registry.
+  helm-chart-check:
+    runs-on: ubuntu-24.04
+
+    steps:
+      - name: 🔄 Checkout
+        uses: actions/checkout@v7
+
+      - name: ⎈ Setup Helm
+        uses: azure/setup-helm@v5
+
+      - name: 🔍 Lint Chart
+        run: helm lint ${{ env.CHART_PATH }}
+
+      - name: 🏷️ Check Chart Against The Release Tag
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          app_version=$(helm show chart ${{ env.CHART_PATH }} | sed -n 's/^appVersion: //p' | tr -d '"')
+          chart_version=$(helm show chart ${{ env.CHART_PATH }} | sed -n 's/^version: //p')
+
+          if [[ "$app_version" != "$TAG" ]]; then
+            echo "::error file=${{ env.CHART_PATH }}/Chart.yaml::appVersion is $app_version but the release tag is $TAG. Set appVersion to \"$TAG\", bump version and tag again."
+            exit 1
+          fi
+
+          echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          if helm show chart ${{ env.CHART_REGISTRY }}/flightroom --version "$chart_version" > /dev/null 2>&1; then
+            echo "::error file=${{ env.CHART_PATH }}/Chart.yaml::Chart version $chart_version is already published. Bump version in Chart.yaml and tag again."
+            exit 1
+          fi
+
   docker-build:
-    needs: [monorepo-build]
-    runs-on: ubuntu-latest
+    needs: [monorepo-build, helm-chart-check]
+    runs-on: ubuntu-24.04
 
     steps:
       - name: 🔄 Checkout
@@ -67,3 +105,28 @@ jobs:
           fi
 
           docker push ${{ env.IMAGE }}:all-in-one
+
+  # Publishes the chart once the image it points to exists, so that ArgoCD and
+  # Helm can install it straight from the registry.
+  helm-publish:
+    needs: [docker-build]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: 🔄 Checkout
+        uses: actions/checkout@v7
+
+      - name: ⎈ Setup Helm
+        uses: azure/setup-helm@v5
+
+      - name: 📦 Package And Push Chart
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+          helm package ${{ env.CHART_PATH }} --destination dist
+          helm push dist/flightroom-*.tgz ${{ env.CHART_REGISTRY }}

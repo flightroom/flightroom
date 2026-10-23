@@ -11,9 +11,10 @@ import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
+import Frontend, { FrontendKind } from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
-import Microfrontend, { MicrofrontendKind } from "../models/MicrofrontendModel"
 import Project from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import { IUser } from "../models/UserModel"
@@ -21,7 +22,8 @@ import UserOrganization, { RoleInOrganization } from "../models/UserOrganization
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import WizardProjectState from "../models/WizardProjectState"
-import MicrofrontendDTO from "../types/MicrofrontendDTO"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
+import FrontendDTO from "../types/FrontendDTO"
 import { ApiKeyService } from "./ApiKeyService"
 import BaseAuthorizedService, { AuthorizedPrincipal, ensureOnlyNewRepositoryLinked } from "./BaseAuthorizedService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
@@ -30,12 +32,14 @@ import DeploymentCanaryUsersService from "./DeploymentCanaryUsersService"
 import DeploymentService from "./DeploymentService"
 import DomainService from "./DomainService"
 import EnvironmentService from "./EnvironmentService"
+import FrontendService from "./FrontendService"
 import GitOpsService from "./GitOpsService"
 import MarketService from "./MarketService"
-import MicrofrontendService from "./MicrofrontendService"
 import ProjectWizardService from "./ProjectWizardService"
 import ServiceService from "./ServiceService"
 import VariableMapService, { ensureAttachableMaps, mapIdsInScope } from "./VariableMapService"
+
+withNoMaintenanceAgents()
 
 /**
  * The id flavour the service signatures speak: mongoose's schema type, not the runtime one the driver
@@ -158,8 +162,8 @@ describe("domain scope of a principal", () => {
     })
 })
 
-describe("microfrontends and services of a domain-scoped member", () => {
-    const microfrontendIn = (domainId: ObjectId | null) => ({ _id: newId(), projectId: PROJECT_ID, slug: "cart", name: "Cart", domainId })
+describe("frontends and services of a domain-scoped member", () => {
+    const frontendIn = (domainId: ObjectId | null) => ({ _id: newId(), projectId: PROJECT_ID, slug: "cart", name: "Cart", domainId })
 
     beforeEach(grantProjectAccess)
 
@@ -167,31 +171,31 @@ describe("microfrontends and services of a domain-scoped member", () => {
         ["of their domain", OWN_DOMAIN, true],
         ["of another domain", OTHER_DOMAIN, false],
         ["in no domain", null, false]
-    ])("Given a microfrontend %s, when a scoped member opens it, then it is reached only inside the scope", async (_case, domainId, reached) => {
-        const microfrontend = microfrontendIn(domainId)
-        vi.spyOn(Microfrontend, "findById").mockResolvedValue(microfrontend as never)
+    ])("Given a frontend %s, when a scoped member opens it, then it is reached only inside the scope", async (_case, domainId, reached) => {
+        const frontend = frontendIn(domainId)
+        vi.spyOn(Frontend, "findById").mockResolvedValue(frontend as never)
 
-        const read = new MicrofrontendService(memberOf([OWN_DOMAIN])).getById(String(microfrontend._id))
+        const read = new FrontendService(memberOf([OWN_DOMAIN])).getById(String(frontend._id))
 
         if (reached) {
-            await expect(read).resolves.toBe(microfrontend)
+            await expect(read).resolves.toBe(frontend)
         } else {
             await expect(read).rejects.toMatchObject(refusedOutOfScope)
         }
     })
 
-    it("Given a scoped member, when the microfrontends are listed, then only those of their domains are read", async () => {
-        const find = vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+    it("Given a scoped member, when the frontends are listed, then only those of their domains are read", async () => {
+        const find = vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
 
-        await new MicrofrontendService(memberOf([OWN_DOMAIN])).getByProjectId(String(PROJECT_ID))
+        await new FrontendService(memberOf([OWN_DOMAIN])).getByProjectId(String(PROJECT_ID))
 
         expect(find).toHaveBeenCalledWith({ projectId: String(PROJECT_ID), domainId: { $in: [String(OWN_DOMAIN)] } })
     })
 
-    it("Given a member of the whole project, when the microfrontends are listed, then every one is read", async () => {
-        const find = vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+    it("Given a member of the whole project, when the frontends are listed, then every one is read", async () => {
+        const find = vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
 
-        await new MicrofrontendService(memberOf()).getByProjectId(String(PROJECT_ID))
+        await new FrontendService(memberOf()).getByProjectId(String(PROJECT_ID))
 
         expect(find).toHaveBeenCalledWith({ projectId: String(PROJECT_ID) })
     })
@@ -207,30 +211,30 @@ describe("microfrontends and services of a domain-scoped member", () => {
     it.each([
         ["another domain", String(OTHER_DOMAIN)],
         ["no domain", null]
-    ])("Given a microfrontend of their domain, when a scoped member moves it to %s, then it is refused and nothing is written", async (_case, target) => {
-        const microfrontend = microfrontendIn(OWN_DOMAIN)
-        vi.spyOn(Microfrontend, "findById").mockResolvedValue(microfrontend as never)
+    ])("Given a frontend of their domain, when a scoped member moves it to %s, then it is refused and nothing is written", async (_case, target) => {
+        const frontend = frontendIn(OWN_DOMAIN)
+        vi.spyOn(Frontend, "findById").mockResolvedValue(frontend as never)
         vi.spyOn(Domain, "exists").mockResolvedValue({ _id: OTHER_DOMAIN } as never)
-        const write = vi.spyOn(Microfrontend, "findByIdAndUpdate")
+        const write = vi.spyOn(Frontend, "findByIdAndUpdate")
 
-        await expect(new MicrofrontendService(memberOf([OWN_DOMAIN])).update(String(microfrontend._id), { domainId: target } as MicrofrontendDTO)).rejects.toMatchObject(refusedOutOfScope)
+        await expect(new FrontendService(memberOf([OWN_DOMAIN])).update(String(frontend._id), { domainId: target } as FrontendDTO)).rejects.toMatchObject(refusedOutOfScope)
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("Given a scoped member, when they create a microfrontend in no domain, then it is refused before anything is written", async () => {
-        const write = vi.spyOn(Microfrontend, "create")
+    it("Given a scoped member, when they create a frontend in no domain, then it is refused before anything is written", async () => {
+        const write = vi.spyOn(Frontend, "create")
 
-        await expect(new MicrofrontendService(memberOf([OWN_DOMAIN])).create({ name: "Cart", slug: "cart" } as MicrofrontendDTO, String(PROJECT_ID))).rejects.toMatchObject(refusedOutOfScope)
+        await expect(new FrontendService(memberOf([OWN_DOMAIN])).create({ name: "Cart", slug: "cart" } as FrontendDTO, String(PROJECT_ID))).rejects.toMatchObject(refusedOutOfScope)
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("Given a host of another domain, when a scoped member creates a microfrontend of theirs as its remote, then it is refused before anything is written", async () => {
+    it("Given a host of another domain, when a scoped member creates a frontend of theirs as its remote, then it is refused before anything is written", async () => {
         vi.spyOn(Domain, "exists").mockResolvedValue({ _id: OWN_DOMAIN } as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([{ _id: newId(), domainId: OTHER_DOMAIN }] as never)
-        const write = vi.spyOn(Microfrontend, "create")
+        vi.spyOn(Frontend, "find").mockResolvedValue([{ _id: newId(), domainId: OTHER_DOMAIN }] as never)
+        const write = vi.spyOn(Frontend, "create")
 
-        const created = new MicrofrontendService(memberOf([OWN_DOMAIN])).create(
-            { name: "Cart", slug: "cart", version: "1.0.0", domainId: String(OWN_DOMAIN), parentIds: [String(newId())] } as MicrofrontendDTO,
+        const created = new FrontendService(memberOf([OWN_DOMAIN])).create(
+            { name: "Cart", slug: "cart", version: "1.0.0", domainId: String(OWN_DOMAIN), parentIds: [String(newId())] } as FrontendDTO,
             String(PROJECT_ID)
         )
 
@@ -241,21 +245,59 @@ describe("microfrontends and services of a domain-scoped member", () => {
     it.each([
         ["a service of another domain it does not call yet", [], false],
         ["the services it already calls, one of another domain among them", ["linked"], true]
-    ])("Given %s, when a scoped member saves their microfrontend with it, then it is written only when nothing new is out of their reach", async (_case, stored, written) => {
+    ])("Given %s, when a scoped member saves their frontend with it, then it is written only when nothing new is out of their reach", async (_case, stored, written) => {
         const othersService = newId()
-        const microfrontend = { ...microfrontendIn(OWN_DOMAIN), serviceIds: stored.map(() => othersService) }
-        vi.spyOn(Microfrontend, "findById").mockResolvedValue(microfrontend as never)
+        const frontend = { ...frontendIn(OWN_DOMAIN), serviceIds: stored.map(() => othersService) }
+        vi.spyOn(Frontend, "findById").mockResolvedValue(frontend as never)
         vi.spyOn(Service, "find").mockResolvedValue([{ _id: othersService, domainId: OTHER_DOMAIN }] as never)
-        const write = vi.spyOn(Microfrontend, "findByIdAndUpdate").mockResolvedValue(microfrontend as never)
+        const write = vi.spyOn(Frontend, "findByIdAndUpdate").mockResolvedValue(frontend as never)
 
-        const saved = new MicrofrontendService(memberOf([OWN_DOMAIN])).update(String(microfrontend._id), { serviceIds: [String(othersService)] } as unknown as MicrofrontendDTO)
+        const saved = new FrontendService(memberOf([OWN_DOMAIN])).update(String(frontend._id), { serviceIds: [String(othersService)] } as unknown as FrontendDTO)
 
         if (written) {
-            await expect(saved).resolves.toBe(microfrontend)
+            await expect(saved).resolves.toBe(frontend)
         } else {
             await expect(saved).rejects.toMatchObject(refusedOutOfScope)
         }
         expect(write).toHaveBeenCalledTimes(written ? 1 : 0)
+    })
+
+    describe("resources of a service", () => {
+        const ownResource = newId()
+        const othersResource = newId()
+        const service = { _id: newId(), projectId: PROJECT_ID, slug: "orders", name: "Orders", domainId: OWN_DOMAIN, configMapIds: [], secretIds: [], resourceIds: [ownResource, othersResource] }
+
+        beforeEach(() => {
+            vi.spyOn(Service, "findById").mockResolvedValue(service as never)
+            // The resource of another domain is shared with one of its services: the scoped member does not see it
+            vi.spyOn(Service, "find").mockResolvedValue([
+                { domainId: OWN_DOMAIN, resourceIds: [ownResource, othersResource] },
+                { domainId: OTHER_DOMAIN, resourceIds: [othersResource] }
+            ] as never)
+            vi.spyOn(Resource, "find").mockImplementation(((filter: { _id: { $in: unknown[] } }) =>
+                Promise.resolve(filter._id.$in.map(id => ({ _id: id, name: sameId(id, ownResource) ? "orders-db" : "billing-db", type: "database", variant: "credentials" })))) as never)
+            vi.spyOn(ConfigMap, "find").mockResolvedValue([] as never)
+            vi.spyOn(Secret, "find").mockResolvedValue([] as never)
+        })
+
+        it.each([
+            ["the resource they see taken away", [], [String(othersResource)]],
+            ["only the resource they see", [String(ownResource)], [String(ownResource), String(othersResource)]]
+        ])("Given a service attaching a resource they cannot see, when a scoped member saves it with %s, then that one stays attached", async (_case, sent, written) => {
+            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+
+            await new ServiceService(memberOf([OWN_DOMAIN])).update(String(service._id), { name: "Orders", resourceIds: sent } as never)
+
+            expect(write.mock.calls[0][1]).toEqual({ name: "Orders", resourceIds: written })
+        })
+
+        it("Given a member of the whole project, when they save the service without a resource, then every one is detached", async () => {
+            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+
+            await new ServiceService(memberOf()).update(String(service._id), { name: "Orders", resourceIds: [] } as never)
+
+            expect(write.mock.calls[0][1]).toEqual({ name: "Orders", resourceIds: [] })
+        })
     })
 
     describe("code repository of a service", () => {
@@ -353,28 +395,28 @@ describe("microfrontends and services of a domain-scoped member", () => {
         })
     })
 
-    describe("code repository of a microfrontend", () => {
+    describe("code repository of a frontend", () => {
         const link = { enabled: true, codeRepositoryId: String(newId()), repositoryId: "42", name: "cart-fe", cloneUrlHttps: "https://github.com/acme/cart-fe.git" }
 
-        it("Given a microfrontend linked to a repository, when a scoped member saves it with the link unchanged, then the link is left out of the update", async () => {
-            const microfrontend = { ...microfrontendIn(OWN_DOMAIN), codeRepository: link }
-            vi.spyOn(Microfrontend, "findById").mockResolvedValue(microfrontend as never)
-            const write = vi.spyOn(Microfrontend, "findByIdAndUpdate").mockResolvedValue(microfrontend as never)
+        it("Given a frontend linked to a repository, when a scoped member saves it with the link unchanged, then the link is left out of the update", async () => {
+            const frontend = { ...frontendIn(OWN_DOMAIN), codeRepository: link }
+            vi.spyOn(Frontend, "findById").mockResolvedValue(frontend as never)
+            const write = vi.spyOn(Frontend, "findByIdAndUpdate").mockResolvedValue(frontend as never)
 
-            await new MicrofrontendService(memberOf([OWN_DOMAIN])).update(String(microfrontend._id), { name: "Cart page", codeRepository: { ...link } } as unknown as MicrofrontendDTO)
+            await new FrontendService(memberOf([OWN_DOMAIN])).update(String(frontend._id), { name: "Cart page", codeRepository: { ...link } } as unknown as FrontendDTO)
 
             expect(write).toHaveBeenCalledTimes(1)
             expect(write.mock.calls[0][1]).toEqual({ name: "Cart page" })
         })
 
-        it("Given a microfrontend linked to a repository, when a scoped member saves it linked to another one, then it is refused and nothing is written", async () => {
-            const microfrontend = { ...microfrontendIn(OWN_DOMAIN), codeRepository: link }
-            vi.spyOn(Microfrontend, "findById").mockResolvedValue(microfrontend as never)
-            const writes = [vi.spyOn(Microfrontend, "findByIdAndUpdate"), vi.spyOn(Microfrontend, "findOneAndUpdate")]
+        it("Given a frontend linked to a repository, when a scoped member saves it linked to another one, then it is refused and nothing is written", async () => {
+            const frontend = { ...frontendIn(OWN_DOMAIN), codeRepository: link }
+            vi.spyOn(Frontend, "findById").mockResolvedValue(frontend as never)
+            const writes = [vi.spyOn(Frontend, "findByIdAndUpdate"), vi.spyOn(Frontend, "findOneAndUpdate")]
 
-            const saved = new MicrofrontendService(memberOf([OWN_DOMAIN])).update(String(microfrontend._id), {
+            const saved = new FrontendService(memberOf([OWN_DOMAIN])).update(String(frontend._id), {
                 codeRepository: { ...link, repositoryId: "43", name: "catalog-fe" }
-            } as unknown as MicrofrontendDTO)
+            } as unknown as FrontendDTO)
 
             await expect(saved).rejects.toMatchObject(refusedOutOfScope)
             for (const write of writes) expect(write).not.toHaveBeenCalled()
@@ -388,7 +430,7 @@ describe("repository created by a domain-scoped member", () => {
     beforeEach(() => {
         grantProjectAccess()
         vi.spyOn(Domain, "exists").mockResolvedValue({ _id: OWN_DOMAIN } as never)
-        vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
         vi.spyOn(Storage, "findOne").mockResolvedValue(null as never)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({
             _id: connectionId,
@@ -413,18 +455,18 @@ describe("repository created by a domain-scoped member", () => {
     it.each([
         ["the console form", { repositoryId: "create_new", gitlab: { groupId: 7, groupPath: "acme" }, createData: { name: "cart-fe", private: false } }],
         ["the domain scaffold", { repositoryId: "", name: "cart-fe", createData: { name: "cart-fe", private: true, template: "vite-react" } }]
-    ])("Given a microfrontend of their domain, when a scoped member creates it with a new repository from %s, then the deploy key is minted and the repository is linked", async (_case, fields) => {
-        vi.spyOn(Microfrontend, "create").mockImplementation(((document: unknown) => Promise.resolve(document)) as never)
+    ])("Given a frontend of their domain, when a scoped member creates it with a new repository from %s, then the deploy key is minted and the repository is linked", async (_case, fields) => {
+        vi.spyOn(Frontend, "create").mockImplementation(((document: unknown) => Promise.resolve(document)) as never)
         vi.spyOn(MarketService.prototype, "getSingle").mockResolvedValue(null as never)
 
-        const created = await new MicrofrontendService(memberOf([OWN_DOMAIN])).create(
+        const created = await new FrontendService(memberOf([OWN_DOMAIN])).create(
             {
                 name: "Cart",
                 slug: "cart",
                 version: "1.0.0",
                 domainId: String(OWN_DOMAIN),
                 codeRepository: { enabled: true, codeRepositoryId: String(connectionId), ...fields }
-            } as MicrofrontendDTO,
+            } as FrontendDTO,
             String(PROJECT_ID)
         )
 
@@ -481,7 +523,7 @@ describe("project-level writes of a domain-scoped member", () => {
         expect(read).not.toHaveBeenCalled()
     })
 
-    it("Given repositories linked to microfrontends of several domains, when a scoped member lists the importable ones, then those of another domain are taken without saying by what", async () => {
+    it("Given repositories linked to frontends of several domains, when a scoped member lists the importable ones, then those of another domain are taken without saying by what", async () => {
         const cart = { _id: newId(), slug: "cart", name: "Cart", domainId: OWN_DOMAIN, codeRepository: { repositoryId: "1", name: "cart-fe" } }
         const catalog = { _id: newId(), slug: "catalog", name: "Catalog", domainId: OTHER_DOMAIN, codeRepository: { repositoryId: "2", name: "catalog-fe" } }
         vi.spyOn(CodeRepositoryService.prototype, "findById").mockResolvedValue({ _id: newId(), projectId: PROJECT_ID } as never)
@@ -489,7 +531,7 @@ describe("project-level writes of a domain-scoped member", () => {
             { repositoryId: "1", name: "cart-fe" },
             { repositoryId: "2", name: "catalog-fe" }
         ] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([cart, catalog] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([cart, catalog] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
 
         const repositories = await new CodeRepositoryImportService(memberOf([OWN_DOMAIN])).getImportableRepositories(String(newId()))
@@ -509,17 +551,17 @@ describe("deployment of a domain-scoped member", () => {
     const ownServed = { _id: own._id, slug: "cart", version: "1.0.0" }
     const ownService = { _id: newId(), slug: "cart-be", version: "3.0.0", domainId: OWN_DOMAIN }
     let saved: Record<string, unknown> | undefined
-    let readMicrofrontends: Record<string, unknown> | undefined
+    let readFrontends: Record<string, unknown> | undefined
     let readServices: Record<string, unknown> | undefined
 
     beforeEach(() => {
         grantProjectAccess()
         saved = undefined
-        readMicrofrontends = undefined
+        readFrontends = undefined
         readServices = undefined
         vi.spyOn(Environment, "findById").mockImplementation((() => queryResult({ _id: environmentId, projectId: PROJECT_ID })) as never)
-        vi.spyOn(Microfrontend, "find").mockImplementation(((filter: Record<string, unknown>) => {
-            readMicrofrontends = filter
+        vi.spyOn(Frontend, "find").mockImplementation(((filter: Record<string, unknown>) => {
+            readFrontends = filter
             return queryResult([own])
         }) as never)
         vi.spyOn(Service, "find").mockImplementation(((filter: Record<string, unknown>) => {
@@ -529,6 +571,7 @@ describe("deployment of a domain-scoped member", () => {
         vi.spyOn(GlobalVariable, "find").mockImplementation((() => queryResult([{ key: "API_URL", value: "unreleased" }])) as never)
         vi.spyOn(ConfigMap, "find").mockImplementation((() => queryResult([])) as never)
         vi.spyOn(Secret, "find").mockImplementation((() => queryResult([])) as never)
+        vi.spyOn(Resource, "find").mockImplementation((() => queryResult([])) as never)
         vi.spyOn(Storage, "find").mockImplementation((() => queryResult([{ toObject: () => ({ name: "unreleased-bucket" }) }])) as never)
         vi.spyOn(Deployment, "find").mockImplementation((() => queryResult([])) as never)
         vi.spyOn(Deployment, "updateMany").mockResolvedValue({} as never)
@@ -539,8 +582,8 @@ describe("deployment of a domain-scoped member", () => {
         vi.spyOn(DeploymentCanaryUsersService.prototype, "copyCanaryUsersRaw").mockResolvedValue(undefined as never)
     })
 
-    /** What the saved snapshot serves, by slug and version: enough to tell a carried over microfrontend from a redeployed one */
-    const served = () => ((saved?.microfrontends ?? []) as { slug: string; version: string }[]).map(microfrontend => `${microfrontend.slug}@${microfrontend.version}`)
+    /** What the saved snapshot serves, by slug and version: enough to tell a carried over frontend from a redeployed one */
+    const served = () => ((saved?.frontends ?? []) as { slug: string; version: string }[]).map(frontend => `${frontend.slug}@${frontend.version}`)
 
     /** As mongoose's toObject: a copy of every item, the ids kept as ids */
     const copyOf = (document: Record<string, unknown>) => Object.fromEntries(Object.entries(document).map(([field, value]) => [field, Array.isArray(value) ? value.map(item => ({ ...item })) : value]))
@@ -548,29 +591,29 @@ describe("deployment of a domain-scoped member", () => {
     const serving = (current: Record<string, unknown> | null) =>
         vi.spyOn(Deployment, "findOne").mockImplementation((() => queryResult(current && { _id: newId(), ...current, toObject: () => copyOf(current) })) as never)
 
-    it("Given an environment serving several domains, when a scoped member deploys, then only their microfrontends move and everything else stays as served", async () => {
-        serving({ microfrontends: [ownServed, othersServed], variables: [{ key: "API_URL", value: "released" }], storages: [{ name: "released-bucket" }] })
+    it("Given an environment serving several domains, when a scoped member deploys, then only their frontends move and everything else stays as served", async () => {
+        serving({ frontends: [ownServed, othersServed], variables: [{ key: "API_URL", value: "released" }], storages: [{ name: "released-bucket" }] })
 
         await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
 
-        expect(readMicrofrontends).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
+        expect(readFrontends).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
         expect(served()).toEqual(["cart@2.0.0", "catalog@1.0.0"])
         expect(saved?.variables).toEqual([{ key: "API_URL", value: "released" }])
         expect(saved?.storages).toEqual([{ name: "released-bucket" }])
     })
 
-    it("Given microfrontends of their domains added, deleted, or moved out of their reach since, when a scoped member deploys, then the new one ships, the deleted one goes and the moved one keeps its version", async () => {
+    it("Given frontends of their domains added, deleted, or moved out of their reach since, when a scoped member deploys, then the new one ships, the deleted one goes and the moved one keeps its version", async () => {
         const added = { _id: newId(), slug: "reviews", version: "1.0.0" }
         const deleted = { _id: newId(), slug: "wishlist", version: "1.0.0", domainId: OWN_DOMAIN }
         const moved = { _id: newId(), slug: "search", version: "1.0.0", domainId: OWN_DOMAIN }
         // Moved by someone of the whole project to a domain out of the scope: it still exists, unlike the deleted one
         const lookedUp: unknown[][] = []
-        vi.spyOn(Microfrontend, "find").mockImplementation(((filter: { _id?: { $in: unknown[] } }) => {
+        vi.spyOn(Frontend, "find").mockImplementation(((filter: { _id?: { $in: unknown[] } }) => {
             if (!filter._id) return queryResult([own, added])
             lookedUp.push(filter._id.$in)
             return queryResult(filter._id.$in.filter(id => sameId(id, moved._id)).map(id => ({ _id: id })))
         }) as never)
-        serving({ microfrontends: [ownServed, deleted, moved, othersServed], variables: [], storages: [] })
+        serving({ frontends: [ownServed, deleted, moved, othersServed], variables: [], storages: [] })
 
         await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
 
@@ -579,7 +622,7 @@ describe("deployment of a domain-scoped member", () => {
         expect(lookedUp).toEqual([[deleted._id, moved._id]])
     })
 
-    it("Given an environment that serves nothing yet, when a scoped member deploys, then their microfrontends ship with the current variables and storages", async () => {
+    it("Given an environment that serves nothing yet, when a scoped member deploys, then their frontends ship with the current variables and storages", async () => {
         serving(null)
 
         await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
@@ -590,11 +633,11 @@ describe("deployment of a domain-scoped member", () => {
     })
 
     it("Given a member of the whole project, when they deploy, then the snapshot is the project as it is now", async () => {
-        serving({ microfrontends: [ownServed, othersServed], variables: [{ key: "API_URL", value: "released" }], storages: [{ name: "released-bucket" }] })
+        serving({ frontends: [ownServed, othersServed], variables: [{ key: "API_URL", value: "released" }], storages: [{ name: "released-bucket" }] })
 
         await new DeploymentService(memberOf()).createRaw(String(environmentId))
 
-        expect(readMicrofrontends).toEqual({ projectId: PROJECT_ID })
+        expect(readFrontends).toEqual({ projectId: PROJECT_ID })
         expect(served()).toEqual(["cart@2.0.0"])
         expect(saved?.services).toEqual([ownService])
         expect(saved?.variables).toEqual([{ key: "API_URL", value: "unreleased" }])
@@ -627,9 +670,55 @@ describe("deployment of a domain-scoped member", () => {
         expect(saved?.secrets).toEqual([{ _id: secretId, name: "cart-db", entries: [{ key: "PASSWORD" }] }])
     })
 
+    it("Given resources of the project, when a scoped member deploys, then the snapshot records every one by key only, as GitOps commits them", async () => {
+        const attachedId = newId()
+        const unusedId = newId()
+        vi.spyOn(Resource, "find").mockImplementation((() =>
+            queryResult([
+                {
+                    _id: attachedId,
+                    name: "cart-db",
+                    type: "database",
+                    variant: "connectionString",
+                    values: [{ field: "engine", value: "POSTGRESQL" }],
+                    secrets: [{ field: "connectionString", value: "postgres://s3cret" }]
+                },
+                { _id: unusedId, name: "unused", type: "redis", variant: "connectionString", values: [], secrets: [] }
+            ])) as never)
+        serving(null)
+
+        await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
+
+        expect(saved?.resources).toEqual([
+            { _id: attachedId, name: "cart-db", entries: [{ key: "DB_CART_DB_ENGINE" }, { key: "DB_CART_DB_URL" }] },
+            { _id: unusedId, name: "unused", entries: [] }
+        ])
+        expect(JSON.stringify(saved)).not.toContain("s3cret")
+    })
+
+    it("Given a snapshot with resources of two domains, when a scoped member reads the deployments, then only the resources of theirs are answered", async () => {
+        const ownResource = newId()
+        const othersResource = newId()
+        vi.spyOn(Deployment, "find").mockImplementation((() =>
+            queryResult([{ frontends: [], services: [], configMaps: [], secrets: [], resources: [{ _id: ownResource }, { _id: othersResource }] }])) as never)
+        vi.mocked(Service.find).mockImplementation(((filter: Record<string, unknown>) =>
+            queryResult(
+                filter.resourceIds
+                    ? [
+                          { domainId: OWN_DOMAIN, resourceIds: [ownResource] },
+                          { domainId: OTHER_DOMAIN, resourceIds: [othersResource] }
+                      ]
+                    : [ownService]
+            )) as never)
+
+        const [deployment] = await new DeploymentService(memberOf([OWN_DOMAIN])).getByEnvironmentId(String(environmentId))
+
+        expect(deployment.resources).toEqual([{ _id: ownResource }])
+    })
+
     it("Given backends of several domains served, when a scoped member deploys, then only their backends move and the others' stay as served", async () => {
         const othersService = { _id: newId(), slug: "catalog-be", version: "1.0.0", domainId: OTHER_DOMAIN }
-        serving({ microfrontends: [], services: [{ ...ownService, version: "2.0.0" }, othersService], variables: [], storages: [] })
+        serving({ frontends: [], services: [{ ...ownService, version: "2.0.0" }, othersService], variables: [], storages: [] })
 
         await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
 
@@ -644,13 +733,13 @@ describe("deployment of a domain-scoped member", () => {
                 .mockImplementation(((filter: { _id: unknown; projectId: unknown }) =>
                     queryResult(sameId(filter.projectId, PROJECT_ID) && domainIds.some(id => sameId(id, filter._id)) ? { _id: filter._id } : null)) as never)
 
-        it("Given a member of the whole project, when they deploy one domain, then only its microfrontends and services move and everything else stays as served", async () => {
+        it("Given a member of the whole project, when they deploy one domain, then only its frontends and services move and everything else stays as served", async () => {
             domainsOfProject(OWN_DOMAIN, OTHER_DOMAIN)
-            serving({ microfrontends: [ownServed, othersServed], variables: [{ key: "API_URL", value: "released" }], storages: [{ name: "released-bucket" }] })
+            serving({ frontends: [ownServed, othersServed], variables: [{ key: "API_URL", value: "released" }], storages: [{ name: "released-bucket" }] })
 
             await new DeploymentService(memberOf()).createRaw(String(environmentId), undefined, String(OWN_DOMAIN))
 
-            expect(readMicrofrontends).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
+            expect(readFrontends).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
             expect(readServices).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
             expect(served()).toEqual(["cart@2.0.0", "catalog@1.0.0"])
             expect(saved?.variables).toEqual([{ key: "API_URL", value: "released" }])
@@ -695,23 +784,23 @@ describe("config maps of a domain-scoped member", () => {
             { domainId: OWN_DOMAIN, configMapIds: [ownMap, sharedMap] },
             { domainId: OTHER_DOMAIN, configMapIds: [sharedMap] }
         ] as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
-    it("Given a map of their service also attached to a FRONTEND of another domain, when the scope is applied, then it is out of it", async () => {
-        vi.mocked(Microfrontend.find).mockResolvedValue([{ domainId: OTHER_DOMAIN, configMapIds: [ownMap] }] as never)
+    it("Given a map of their service also attached to a DOCKER of another domain, when the scope is applied, then it is out of it", async () => {
+        vi.mocked(Frontend.find).mockResolvedValue([{ domainId: OTHER_DOMAIN, configMapIds: [ownMap] }] as never)
 
         expect(await mapIdsInScope("configMap", PROJECT_ID, [String(OWN_DOMAIN)])).toEqual(new Set())
     })
 
-    it("Given a map shared with another domain, when a scoped member creates a FRONTEND attaching it, then it is refused before anything is written", async () => {
+    it("Given a map shared with another domain, when a scoped member creates a DOCKER attaching it, then it is refused before anything is written", async () => {
         vi.spyOn(Domain, "exists").mockResolvedValue({ _id: OWN_DOMAIN } as never)
         vi.spyOn(ConfigMap, "find").mockResolvedValue([{ _id: sharedMap, name: "shared", entries: [] }] as never)
         vi.spyOn(Secret, "find").mockResolvedValue([] as never)
-        const write = vi.spyOn(Microfrontend, "create")
+        const write = vi.spyOn(Frontend, "create")
 
-        const created = new MicrofrontendService(memberOf([OWN_DOMAIN])).create(
-            { name: "Shop", slug: "shop", kind: MicrofrontendKind.FRONTEND, domainId: String(OWN_DOMAIN), configMapIds: [String(sharedMap)] } as MicrofrontendDTO,
+        const created = new FrontendService(memberOf([OWN_DOMAIN])).create(
+            { name: "Shop", slug: "shop", kind: FrontendKind.DOCKER, exposurePath: "/shop", domainId: String(OWN_DOMAIN), configMapIds: [String(sharedMap)] } as FrontendDTO,
             String(PROJECT_ID)
         )
 
@@ -743,7 +832,7 @@ describe("config maps of a domain-scoped member", () => {
         await expect(new VariableMapService("configMap", memberOf([OWN_DOMAIN])).create({ name: "settings", entries: [] } as never, String(PROJECT_ID))).rejects.toMatchObject(refusedOutOfScope)
     })
 
-    /** The check of create and update of services and microfrontends, reached directly: the rest of an update has tests of its own. */
+    /** The check of create and update of services and frontends, reached directly: the rest of an update has tests of its own. */
     const attach = async (user: IUser, configMapIds: ObjectId[], alreadyAttached: ObjectId[] = []) =>
         ensureAttachableMaps(await new ScopeProbe(user).scopeOf(PROJECT_ID), PROJECT_ID, { configMapIds: configMapIds.map(String) }, { configMapIds: alreadyAttached })
 

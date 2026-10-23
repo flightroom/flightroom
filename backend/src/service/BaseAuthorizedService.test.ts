@@ -1,13 +1,16 @@
 import { ObjectId, Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "./BaseAuthorizedService"
+
+withNoMaintenanceAgents()
 
 /**
  * The id flavour the service signatures speak: mongoose's schema type, not the runtime one the driver
@@ -28,6 +31,9 @@ class AccessProbe extends BaseAuthorizedService {
     }
     administeredOrganizations() {
         return this.getAdministeredOrganizationIds()
+    }
+    refusesViewer(projectId: ObjectId) {
+        return this.ensureNotViewer(projectId, { code: "WRITE_FORBIDDEN", message: "A viewer cannot write" })
     }
 }
 
@@ -85,6 +91,7 @@ describe("access to a project and to an organization", () => {
             const { _id } = filter as Record<string, unknown>
             return queryResult(projects.find(project => sameId(project._id, _id)) ?? null)
         }) as never)
+        vi.spyOn(Project, "findById").mockImplementation(((id: unknown) => queryResult(projects.find(project => sameId(project._id, id)) ?? null)) as never)
 
         const organizationRowsMatching = (filter: Record<string, unknown>) => {
             const { userId, organizationId, role, invitationToken } = filter
@@ -237,6 +244,29 @@ describe("access to a project and to an organization", () => {
             expect(await probe.administers(organizationId)).toBe(false)
             expect(await probe.administeredOrganizations()).toEqual([])
         })
+
+        /** Over MCP an administrator builds and creates repositories as they do in the console */
+        it("Given an organization administrator with a VIEWER row bound to the project, when a write is checked, then it passes", async () => {
+            const user = aUser()
+            const projectId = newId()
+            const organizationId = anOrganization()
+            projects.push({ _id: projectId, organizationId })
+            projectMemberships.push({ userId: user._id, projectId, role: RoleInProject.VIEWER })
+            organizationMemberships.push({ userId: user._id, organizationId, role: RoleInOrganization.ADMIN })
+
+            await expect(new AccessProbe(boundTo(user, projectId)).refusesViewer(projectId)).resolves.toBeUndefined()
+        })
+
+        it("Given a VIEWER who does not administer the organization bound to the project, when a write is checked, then it is refused", async () => {
+            const user = aUser()
+            const projectId = newId()
+            const organizationId = anOrganization()
+            projects.push({ _id: projectId, organizationId })
+            projectMemberships.push({ userId: user._id, projectId, role: RoleInProject.VIEWER })
+            organizationMemberships.push({ userId: user._id, organizationId, role: RoleInOrganization.MEMBER })
+
+            await expect(new AccessProbe(boundTo(user, projectId)).refusesViewer(projectId)).rejects.toMatchObject({ code: "WRITE_FORBIDDEN", statusCode: 403 })
+        })
     })
 
     describe("a principal standing for a project API key", () => {
@@ -334,12 +364,12 @@ describe("ensureRepositoryInDomainScope", () => {
     const service = { kind: "service" as const, _id: newId(), projectId }
     const link = { enabled: true, codeRepositoryId: connectionId, repositoryId: "42", name: "orders", gitlab: { path: "shop/orders" } } as never
 
-    let microfrontendsOutside: ReturnType<typeof vi.spyOn>
+    let frontendsOutside: ReturnType<typeof vi.spyOn>
     let servicesOutside: ReturnType<typeof vi.spyOn>
     let connection: ReturnType<typeof vi.spyOn>
 
     beforeEach(() => {
-        microfrontendsOutside = vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
+        frontendsOutside = vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
         servicesOutside = vi.spyOn(Service, "exists").mockResolvedValue(null as never)
         connection = vi.spyOn(CodeRepository, "findById").mockResolvedValue({ provider: CodeRepositoryProvider.GITHUB } as never)
     })
@@ -352,18 +382,18 @@ describe("ensureRepositoryInDomainScope", () => {
         await new RepositoryProbe(undefined).check(service, link)
 
         expect(connection).not.toHaveBeenCalled()
-        expect(microfrontendsOutside).not.toHaveBeenCalled()
+        expect(frontendsOutside).not.toHaveBeenCalled()
         expect(servicesOutside).not.toHaveBeenCalled()
     })
 
-    it("given a microfrontend of another domain or of none on the same repository, when a scoped member's write is checked, then it is refused", async () => {
-        microfrontendsOutside.mockResolvedValue({ _id: newId() } as never)
+    it("given a frontend of another domain or of none on the same repository, when a scoped member's write is checked, then it is refused", async () => {
+        frontendsOutside.mockResolvedValue({ _id: newId() } as never)
 
         await expect(new RepositoryProbe([String(ownDomain)]).check(service, link)).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN", statusCode: 403 })
         // The owner is found by its id among the services only; $nin also takes the documents of no domain
         const sameRepository = [{ "codeRepository.repositoryId": "42" }, { "codeRepository.name": "orders" }]
         const outside = { domainId: { $nin: [String(ownDomain)] } }
-        expect(microfrontendsOutside).toHaveBeenCalledWith({ projectId, "codeRepository.codeRepositoryId": connectionId, $or: sameRepository, ...outside })
+        expect(frontendsOutside).toHaveBeenCalledWith({ projectId, "codeRepository.codeRepositoryId": connectionId, $or: sameRepository, ...outside })
         expect(servicesOutside).toHaveBeenCalledWith({ projectId, "codeRepository.codeRepositoryId": connectionId, $or: [{ _id: service._id }, ...sameRepository], ...outside })
     })
 
@@ -377,7 +407,7 @@ describe("ensureRepositoryInDomainScope", () => {
         await new RepositoryProbe([String(ownDomain)]).check(service, link)
 
         expect(connection).toHaveBeenCalledWith(connectionId, { provider: 1 })
-        expect(microfrontendsOutside.mock.calls[0][0]).toMatchObject({ $or: [{ "codeRepository.repositoryId": "42" }, { "codeRepository.gitlab.path": "shop/orders" }] })
+        expect(frontendsOutside.mock.calls[0][0]).toMatchObject({ $or: [{ "codeRepository.repositoryId": "42" }, { "codeRepository.gitlab.path": "shop/orders" }] })
     })
 
     it("given the provider already known, when the write is checked, then the connection is not read again", async () => {

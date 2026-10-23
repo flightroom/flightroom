@@ -16,14 +16,14 @@ export interface AiUsage {
     outputTokens: number
 }
 
-/** What the job did on one repository: the `AiChangeRequest` reviewed on the microfrontend (or service) page, without file contents. */
+/** What the job did on one repository: the `AiChangeRequest` reviewed on the frontend (or service) page, without file contents. */
 export interface AiJobRepository {
     requestId: string
-    /** Whose repository it is: the `microfrontend*` fields describe a service too. */
-    kind: "microfrontend" | "service"
-    microfrontendId: string
-    microfrontendName: string
-    microfrontendSlug: string
+    /** Whose repository it is: the `frontend*` fields describe a service too. */
+    kind: "frontend" | "service"
+    frontendId: string
+    frontendName: string
+    frontendSlug: string
     /** The repository on its provider; unset when the component has none any more. */
     repository?: { name: string; cloneUrlHttps?: string }
     status: AiChangeStatus
@@ -56,6 +56,8 @@ export interface AiJob {
     events?: AiChangeEvent[]
     summary?: string
     error?: string
+    /** Set when a user stopped the agent before it finished: the job is FAILED, its requests DISCARDED. */
+    stoppedAt?: string
     /** The cost of this job alone, every model round summed. */
     usage: AiUsage
     /** The reasoning effort the agent worked at. */
@@ -63,31 +65,41 @@ export interface AiJob {
     /** The AI of the organization the agent worked with; missing on jobs made before AIs were per organization. */
     aiModelId?: string
     repositories: AiJobRepository[]
+    /** Whether the current user may apply, stop or follow it up: who started it, or an organization administrator. */
+    canAct: boolean
+    /** Who started it, sent only when the current user cannot act on it. */
+    userName?: string
     createdAt: string
     updatedAt: string
 }
 
-export interface AiWorkingAgents {
-    microfrontendId: string
-    agents: number
+/** An agent at work: a job (of a mission or not) or a change request started on a frontend or service page. */
+export interface AiWorkingJob {
+    /** A job id, or the id of a change request that has no job. */
+    jobId: string
+    /** A job opens in the assistant; a request has no job, it is shown on its frontend or service page. */
+    kind: "job" | "request"
+    missionId?: string
+    /** The frontends and services it works on. */
+    componentIds: string[]
 }
 
 /** Without `effort`, the backend works at `high`; without `aiModelId`, with the default AI of the project. */
 export type CreateAiJobDTO = (
     | { prompt: string; scope: "global" }
     | { prompt: string; scope: "domain"; domainId: string }
-    | { prompt: string; scope: "selection"; microfrontendIds: string[]; serviceIds?: string[] }
+    | { prompt: string; scope: "selection"; frontendIds: string[]; serviceIds?: string[] }
 ) & {
     effort?: LlmEffort
     aiModelId?: string
-    /** The branch each repository starts from, by microfrontend or service id: its default branch when left out. */
+    /** The branch each repository starts from, by frontend or service id: its default branch when left out. */
     baseBranches?: Record<string, string>
 }
 
 export interface FollowUpAiJobDTO {
     prompt: string
     /** A subset of the parent's repositories; all of them when missing. */
-    microfrontendIds?: string[]
+    frontendIds?: string[]
     serviceIds?: string[]
     /** The parent's effort when missing. */
     effort?: LlmEffort
@@ -95,7 +107,7 @@ export interface FollowUpAiJobDTO {
     aiModelId?: string
 }
 
-/** A microfrontend or a service the AI proposes to create in a domain that has none, with the repository it would be scaffolded in. */
+/** A frontend or a service the AI proposes to create in a domain that has none, with the repository it would be scaffolded in. */
 export interface DomainPlanComponent {
     name: string
     slug: string
@@ -114,7 +126,7 @@ export interface DomainPlanDTO {
 }
 
 export interface DomainPlan {
-    microfrontends: DomainPlanComponent[]
+    frontends: DomainPlanComponent[]
     services: DomainPlanComponent[]
 }
 
@@ -172,9 +184,9 @@ const useAiJobsApi = () => {
         return response.data
     }
 
-    /** How many agents of anyone in the project are at work on each microfrontend; those with none are left out. */
-    const working = async (metadata?: IClientRequestMetadataExtended): Promise<AiWorkingAgents[]> => {
-        const response = await apiClient.doRequest<AiWorkingAgents[]>({
+    /** The agents of anyone in the project at work right now, with the frontends and services each works on. */
+    const working = async (metadata?: IClientRequestMetadataExtended): Promise<AiWorkingJob[]> => {
+        const response = await apiClient.doRequest<AiWorkingJob[]>({
             url: "/api/ai-jobs/working",
             ...metadata
         })
@@ -192,7 +204,19 @@ const useAiJobsApi = () => {
         return response.data
     }
 
-    /** What the AI proposes to create in a domain without microfrontends nor services, for the request: nothing is created yet. */
+    /** Stops the agent at once: what it did so far is dropped, nothing is pushed. */
+    const stop = async (id: string, metadata?: IClientRequestMetadataExtended): Promise<AiJob> => {
+        const response = await apiClient.doRequest<AiJob>({
+            url: `/api/ai-jobs/${id}/stop`,
+            method: "POST",
+            // The client always sends a JSON content type, and Fastify rejects an empty JSON body.
+            data: {},
+            ...metadata
+        })
+        return response.data
+    }
+
+    /** What the AI proposes to create in a domain without frontends nor services, for the request: nothing is created yet. */
     const planDomain = async (data: DomainPlanDTO, metadata?: IClientRequestMetadataExtended): Promise<DomainPlan> => {
         const response = await apiClient.doRequest<DomainPlan, DomainPlanDTO>({
             url: "/api/ai-jobs/domain-plan",
@@ -211,7 +235,8 @@ const useAiJobsApi = () => {
         chain,
         list,
         working,
-        apply
+        apply,
+        stop
     }
 }
 

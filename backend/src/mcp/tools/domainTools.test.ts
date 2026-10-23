@@ -4,19 +4,21 @@ import UserCannotAccessThisProjectError from "../../errors/UserCannotAccessThisP
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { McpSession, McpToolContext } from "../toolDefinition"
 import { domainTools } from "./domainTools"
-import { microfrontendTools } from "./microfrontendTools"
+import { frontendTools } from "./frontendTools"
 
 const listDomains = vi.fn()
 const getDomain = vi.fn()
 const createDomain = vi.fn()
 const updateDomain = vi.fn()
 const deleteDomain = vi.fn()
-const listMicrofrontends = vi.fn()
-const getMicrofrontend = vi.fn()
-const createMicrofrontend = vi.fn()
-const updateMicrofrontend = vi.fn()
+const buildDomain = vi.fn()
+const listFrontends = vi.fn()
+const getFrontend = vi.fn()
+const createFrontend = vi.fn()
+const updateFrontend = vi.fn()
 const listServices = vi.fn()
 const getContext = vi.fn()
+const listResources = vi.fn()
 
 // Hoisted with the mocks below, which build their service classes with it
 const { principals, serviceClass } = vi.hoisted(() => {
@@ -37,27 +39,29 @@ vi.mock("../../service/DomainService", () => ({
         getById: (...args: unknown[]) => getDomain(...args),
         create: (...args: unknown[]) => createDomain(...args),
         update: (...args: unknown[]) => updateDomain(...args),
-        delete: (...args: unknown[]) => deleteDomain(...args)
+        delete: (...args: unknown[]) => deleteDomain(...args),
+        build: (...args: unknown[]) => buildDomain(...args)
     })
 }))
-vi.mock("../../service/MicrofrontendService", () => ({
+vi.mock("../../service/FrontendService", () => ({
     default: serviceClass({
-        getByProjectId: (...args: unknown[]) => listMicrofrontends(...args),
-        getById: (...args: unknown[]) => getMicrofrontend(...args),
-        create: (...args: unknown[]) => createMicrofrontend(...args),
-        update: (...args: unknown[]) => updateMicrofrontend(...args)
+        getByProjectId: (...args: unknown[]) => listFrontends(...args),
+        getById: (...args: unknown[]) => getFrontend(...args),
+        create: (...args: unknown[]) => createFrontend(...args),
+        update: (...args: unknown[]) => updateFrontend(...args)
     })
 }))
 vi.mock("../../service/ServiceService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => listServices(...args) }) }))
 vi.mock("../../service/ProjectService", () => ({ default: serviceClass({ getContext: (...args: unknown[]) => getContext(...args) }) }))
+vi.mock("../../service/ResourceService", () => ({ ResourceService: serviceClass({ getByProjectId: (...args: unknown[]) => listResources(...args) }) }))
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const DOMAIN = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const FOREIGN_DOMAIN = "cccccccccccccccccccccccc"
-const MICROFRONTEND = "dddddddddddddddddddddddd"
+const FRONTEND = "dddddddddddddddddddddddd"
 const SERVICE = "eeeeeeeeeeeeeeeeeeeeeeee"
 
-const tools = [...domainTools, ...microfrontendTools]
+const tools = [...domainTools, ...frontendTools]
 const tool = (name: string) => tools.find(candidate => candidate.name === name)!
 
 const context = (): McpToolContext => {
@@ -77,7 +81,7 @@ const domain = { _id: DOMAIN, name: "Checkout", slug: "checkout", toObject: () =
 
 describe("domain tools", () => {
     beforeEach(() => {
-        for (const mock of [listDomains, getDomain, createDomain, updateDomain, deleteDomain, listMicrofrontends, getMicrofrontend, createMicrofrontend, updateMicrofrontend, listServices]) {
+        for (const mock of [listDomains, getDomain, createDomain, updateDomain, deleteDomain, buildDomain, listFrontends, getFrontend, createFrontend, updateFrontend, listServices, listResources]) {
             mock.mockReset()
         }
         principals.length = 0
@@ -93,7 +97,7 @@ describe("domain tools", () => {
     })
 
     it("given domains with members, when listed, then the counts the service returns come back from the project of the token", async () => {
-        const domains = [{ _id: DOMAIN, name: "Checkout", microfrontendsCount: 2, servicesCount: 1 }]
+        const domains = [{ _id: DOMAIN, name: "Checkout", frontendsCount: 2, servicesCount: 1 }]
         listDomains.mockResolvedValue(domains)
 
         expect(await run("domains_list", {})).toEqual(domains)
@@ -101,12 +105,12 @@ describe("domain tools", () => {
         expect(principals[0]).toMatchObject({ restrictedToProjectIds: [PROJECT] })
     })
 
-    it("given a domain, when read, then its microfrontends and services are listed by id, name and slug, with the AI context of the domain", async () => {
-        const aiContext = { project: { id: PROJECT, name: "Shop" }, domains: [{ id: DOMAIN, slug: "checkout", name: "Checkout", context: "Prices are in cents" }], microfrontends: [], services: [] }
+    it("given a domain, when read, then its frontends and services are listed by id, name and slug, with the AI context of the domain", async () => {
+        const aiContext = { project: { id: PROJECT, name: "Shop" }, domains: [{ id: DOMAIN, slug: "checkout", name: "Checkout", context: "Prices are in cents" }], frontends: [], services: [] }
         getContext.mockResolvedValue(aiContext)
         getDomain.mockResolvedValue(domain)
-        listMicrofrontends.mockResolvedValue([
-            { _id: MICROFRONTEND, name: "Cart", slug: "cart", domainId: DOMAIN, version: "1.0.0" },
+        listFrontends.mockResolvedValue([
+            { _id: FRONTEND, name: "Cart", slug: "cart", domainId: DOMAIN, version: "1.0.0" },
             { _id: "ffffffffffffffffffffffff", name: "Search", slug: "search", domainId: null }
         ])
         listServices.mockResolvedValue([{ _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN, port: 8080 }])
@@ -115,11 +119,44 @@ describe("domain tools", () => {
             _id: DOMAIN,
             name: "Checkout",
             slug: "checkout",
-            microfrontends: [{ _id: MICROFRONTEND, name: "Cart", slug: "cart" }],
+            frontends: [{ _id: FRONTEND, name: "Cart", slug: "cart" }],
             services: [{ _id: SERVICE, name: "Orders API", slug: "orders-api" }],
             aiContext
         })
         expect(getContext).toHaveBeenCalledWith(PROJECT, { domainId: DOMAIN })
+    })
+
+    it("given a domain whose services attach resources, when read, then each is listed with its variables and the services using it, and resources are read only then", async () => {
+        getContext.mockResolvedValue({})
+        getDomain.mockResolvedValue(domain)
+        listFrontends.mockResolvedValue([])
+        const database = "abababababababababababab"
+        listServices.mockResolvedValue([
+            { _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN, resourceIds: [database] },
+            { _id: "ffffffffffffffffffffffff", name: "Search", slug: "search", domainId: null, resourceIds: ["cdcdcdcdcdcdcdcdcdcdcdcd"] }
+        ])
+        listResources.mockResolvedValue([
+            { _id: database, name: "orders", type: "database", variant: "connectionString", secrets: [{ field: "connectionString", value: "postgres://secret" }] },
+            { _id: "cdcdcdcdcdcdcdcdcdcdcdcd", name: "search", type: "redis", variant: "connectionString" }
+        ])
+
+        const result = (await run("domain_get", { domainId: DOMAIN })) as { resources?: unknown }
+
+        expect(result.resources).toEqual([
+            { _id: database, name: "orders", type: "database", variant: "connectionString", env: ["DB_ORDERS_ENGINE", "DB_ORDERS_URL", "DB_ORDERS_SCHEMA"], usedBy: ["orders-api"] }
+        ])
+        expect(JSON.stringify(result)).not.toContain("postgres://secret")
+        expect(listResources).toHaveBeenCalledWith(PROJECT)
+    })
+
+    it("given a domain whose services attach none, when read, then no resource is read nor listed", async () => {
+        getContext.mockResolvedValue({})
+        getDomain.mockResolvedValue(domain)
+        listFrontends.mockResolvedValue([])
+        listServices.mockResolvedValue([{ _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN }])
+
+        expect(await run("domain_get", { domainId: DOMAIN })).not.toHaveProperty("resources")
+        expect(listResources).not.toHaveBeenCalled()
     })
 
     it("given a domain that does not exist, when read, then it is not found", async () => {
@@ -178,82 +215,114 @@ describe("domain tools", () => {
 
         await expect(run("domain_delete", { domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
     })
+
+    describe("domain_trigger_build", () => {
+        it("given a version and a branch, when run, then the service tags the domain and its per-repository result comes back", async () => {
+            const result = { version: "1.4.0", ref: "release", repositories: [{ repository: "cart-fe", members: [], status: "tagged" }] }
+            buildDomain.mockResolvedValue(result)
+
+            expect(await run("domain_trigger_build", { domainId: DOMAIN, version: "1.4.0", branch: "release" })).toBe(result)
+            expect(buildDomain).toHaveBeenCalledWith(DOMAIN, "1.4.0", "release")
+        })
+
+        it("given its definition, when read, then it reaches the git providers without destroying anything", () => {
+            expect(tool("domain_trigger_build").annotations).toMatchObject({ readOnlyHint: false, openWorldHint: true, destructiveHint: false })
+        })
+
+        it.each([["1.4 beta"], [""], ["x".repeat(129)]])("given the version %j, when validated, then it is refused", version => {
+            expect(tool("domain_trigger_build").inputSchema.safeParse({ domainId: DOMAIN, version }).success).toBe(false)
+        })
+
+        it.each([["release..1"], ["has space"], ["/main"], ["main.lock"], [""]])("given the branch %j, when validated, then it is refused as git would", branch => {
+            expect(tool("domain_trigger_build").inputSchema.safeParse({ domainId: DOMAIN, version: "1.4.0", branch }).success).toBe(false)
+        })
+
+        it("given a branch with a slash, when validated, then it is accepted", () => {
+            expect(tool("domain_trigger_build").inputSchema.safeParse({ domainId: DOMAIN, version: "1.4.0", branch: "release/1.4" }).success).toBe(true)
+        })
+
+        it("given a repository failing its check, when run, then the refusal surfaces", async () => {
+            buildDomain.mockRejectedValue(Object.assign(new Error("No repository was tagged"), { code: "DOMAIN_BUILD_CHECK_FAILED" }))
+
+            await expect(run("domain_trigger_build", { domainId: DOMAIN, version: "1.4.0" })).rejects.toMatchObject({ code: "DOMAIN_BUILD_CHECK_FAILED" })
+        })
+    })
 })
 
-describe("microfrontend tools and domains", () => {
+describe("frontend tools and domains", () => {
     beforeEach(() => {
-        for (const mock of [getDomain, listMicrofrontends, getMicrofrontend, createMicrofrontend, updateMicrofrontend]) {
+        for (const mock of [getDomain, listFrontends, getFrontend, createFrontend, updateFrontend]) {
             mock.mockReset()
         }
     })
 
-    const microfrontends = [
-        { _id: MICROFRONTEND, slug: "cart", domainId: DOMAIN },
+    const frontends = [
+        { _id: FRONTEND, slug: "cart", domainId: DOMAIN },
         { _id: "ffffffffffffffffffffffff", slug: "search", domainId: null },
         { _id: "999999999999999999999999", slug: "legacy" }
     ]
 
-    it("given microfrontends in and out of domains, when listed by domain, then only the matching ones come back", async () => {
-        listMicrofrontends.mockResolvedValue(microfrontends)
+    it("given frontends in and out of domains, when listed by domain, then only the matching ones come back", async () => {
+        listFrontends.mockResolvedValue(frontends)
         getDomain.mockResolvedValue(domain)
 
-        expect(((await run("microfrontends_list", { domainId: DOMAIN })) as { slug: string }[]).map(item => item.slug)).toEqual(["cart"])
+        expect(((await run("frontends_list", { domainId: DOMAIN })) as { slug: string }[]).map(item => item.slug)).toEqual(["cart"])
         expect(getDomain).toHaveBeenCalledWith(DOMAIN)
-        expect(((await run("microfrontends_list", { domainId: "none" })) as { slug: string }[]).map(item => item.slug)).toEqual(["search", "legacy"])
-        expect(((await run("microfrontends_list", {})) as unknown[]).length).toBe(3)
+        expect(((await run("frontends_list", { domainId: "none" })) as { slug: string }[]).map(item => item.slug)).toEqual(["search", "legacy"])
+        expect(((await run("frontends_list", {})) as unknown[]).length).toBe(3)
         expect(getDomain).toHaveBeenCalledTimes(1)
     })
 
-    it("given a domain id in uppercase, when listed by it, then the same microfrontends come back", async () => {
-        listMicrofrontends.mockResolvedValue(microfrontends)
+    it("given a domain id in uppercase, when listed by it, then the same frontends come back", async () => {
+        listFrontends.mockResolvedValue(frontends)
         getDomain.mockResolvedValue(domain)
 
-        expect(((await run("microfrontends_list", { domainId: DOMAIN.toUpperCase() })) as { slug: string }[]).map(item => item.slug)).toEqual(["cart"])
+        expect(((await run("frontends_list", { domainId: DOMAIN.toUpperCase() })) as { slug: string }[]).map(item => item.slug)).toEqual(["cart"])
     })
 
     it("given an unknown domain or one of another project, when listed by it, then it is not found rather than an empty list", async () => {
-        listMicrofrontends.mockResolvedValue(microfrontends)
+        listFrontends.mockResolvedValue(frontends)
         getDomain.mockResolvedValueOnce(null).mockRejectedValueOnce(new UserCannotAccessThisProjectError())
 
-        await expect(run("microfrontends_list", { domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(EntityNotFoundError)
-        await expect(run("microfrontends_list", { domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
+        await expect(run("frontends_list", { domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(EntityNotFoundError)
+        await expect(run("frontends_list", { domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
     })
 
     it("given a domain filter that is neither an id nor none, when validated, then it is refused", () => {
-        expect(tool("microfrontends_list").inputSchema.safeParse({ domainId: "all" }).success).toBe(false)
+        expect(tool("frontends_list").inputSchema.safeParse({ domainId: "all" }).success).toBe(false)
     })
 
-    it("given a domain of the project, when a microfrontend is created in it, then the domain reaches the service", async () => {
+    it("given a domain of the project, when a frontend is created in it, then the domain reaches the service", async () => {
         getDomain.mockResolvedValue(domain)
-        createMicrofrontend.mockResolvedValue({ _id: MICROFRONTEND })
+        createFrontend.mockResolvedValue({ _id: FRONTEND })
 
-        await run("microfrontend_create", { name: "Cart", slug: "cart", version: "1.0.0", domainId: DOMAIN })
+        await run("frontend_create", { name: "Cart", slug: "cart", version: "1.0.0", domainId: DOMAIN })
 
         expect(getDomain).toHaveBeenCalledWith(DOMAIN)
-        expect(createMicrofrontend).toHaveBeenCalledWith(expect.objectContaining({ domainId: DOMAIN }), PROJECT)
+        expect(createFrontend).toHaveBeenCalledWith(expect.objectContaining({ domainId: DOMAIN }), PROJECT)
     })
 
-    it("given a domain of another project, when a microfrontend is created in it, then it is refused before anything is written", async () => {
+    it("given a domain of another project, when a frontend is created in it, then it is refused before anything is written", async () => {
         getDomain.mockRejectedValue(new UserCannotAccessThisProjectError())
 
-        await expect(run("microfrontend_create", { name: "Cart", slug: "cart", version: "1.0.0", domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
-        expect(createMicrofrontend).not.toHaveBeenCalled()
+        await expect(run("frontend_create", { name: "Cart", slug: "cart", version: "1.0.0", domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
+        expect(createFrontend).not.toHaveBeenCalled()
     })
 
-    it("given a domain that does not exist, when a microfrontend is moved to it, then it is refused before anything is written", async () => {
-        getMicrofrontend.mockResolvedValue({ _id: MICROFRONTEND })
+    it("given a domain that does not exist, when a frontend is moved to it, then it is refused before anything is written", async () => {
+        getFrontend.mockResolvedValue({ _id: FRONTEND })
         getDomain.mockResolvedValue(null)
 
-        await expect(run("microfrontend_update", { microfrontendId: MICROFRONTEND, domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(EntityNotFoundError)
-        expect(updateMicrofrontend).not.toHaveBeenCalled()
+        await expect(run("frontend_update", { frontendId: FRONTEND, domainId: FOREIGN_DOMAIN })).rejects.toBeInstanceOf(EntityNotFoundError)
+        expect(updateFrontend).not.toHaveBeenCalled()
     })
 
-    it("given null as domain, when a microfrontend is updated, then it is taken out of its domain without a lookup", async () => {
-        getMicrofrontend.mockResolvedValue({ _id: MICROFRONTEND })
-        updateMicrofrontend.mockResolvedValue({ _id: MICROFRONTEND, domainId: null })
-        await run("microfrontend_update", { microfrontendId: MICROFRONTEND, domainId: null })
+    it("given null as domain, when a frontend is updated, then it is taken out of its domain without a lookup", async () => {
+        getFrontend.mockResolvedValue({ _id: FRONTEND })
+        updateFrontend.mockResolvedValue({ _id: FRONTEND, domainId: null })
+        await run("frontend_update", { frontendId: FRONTEND, domainId: null })
 
         expect(getDomain).not.toHaveBeenCalled()
-        expect(updateMicrofrontend).toHaveBeenCalledWith(MICROFRONTEND, { domainId: null })
+        expect(updateFrontend).toHaveBeenCalledWith(FRONTEND, { domainId: null })
     })
 })

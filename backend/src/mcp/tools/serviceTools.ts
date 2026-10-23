@@ -9,14 +9,14 @@ import { SERVICE_SLUG, SERVICE_VERSION } from "../../types/ServiceStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
-import { containerFields, ensureReferencesBelongToProject, createSchema as microfrontendCreateSchema } from "./microfrontendTools"
+import { containerFields, ensureReferencesBelongToProject, createSchema as frontendCreateSchema } from "./frontendTools"
 
 const serviceId = objectId("Id of the service, from services_list")
 
 /**
  * The fields a backend service can be created or edited with.
  *
- * Deliberately narrower than the console route, as for microfrontends: no `projectId` (the token's
+ * Deliberately narrower than the console route, as for frontends: no `projectId` (the token's
  * project is the only one), no `codeRepository.createData` (scaffolding a repository at the provider
  * is `service_scaffold`'s), and nothing the CI or a template sets (`version`, `template`, `stack`).
  * Linking an existing repository is allowed, checked against the project first.
@@ -27,8 +27,14 @@ const serviceFields = {
     description: z.string().max(2000).optional(),
     domainId: memberDomainId,
     context: z.string().max(CONTEXT_MAX_LENGTH).optional().describe("Markdown notes for AI agents about this service, replaced as a whole"),
-    codeRepository: microfrontendCreateSchema.shape.codeRepository,
-    ...containerFields
+    codeRepository: frontendCreateSchema.shape.codeRepository,
+    ...containerFields,
+    // A service only: a frontend never attaches a resource
+    resourceIds: z
+        .array(objectId("Id of a resource of the project, from resources_list"))
+        .max(50)
+        .optional()
+        .describe("Resources (a database, an api, an ai...) whose variables reach the container as environment variables. Replaced as a whole")
 }
 
 export const createSchema = z.object(serviceFields)
@@ -115,7 +121,8 @@ export const serviceTools = [
     defineTool({
         name: "service_update",
         title: "Update service",
-        description: "Changes the given fields of a backend service. Nested objects (codeRepository, image) and the env and urls lists are replaced as a whole.",
+        description:
+            "Changes the given fields of a backend service. Nested objects (codeRepository, image), the env list and the configMapIds, secretIds and resourceIds (the resources it attaches, from resources_list) are replaced as a whole.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: updateSchema,

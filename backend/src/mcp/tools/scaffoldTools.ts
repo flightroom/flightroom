@@ -1,14 +1,14 @@
 import { z } from "zod"
 import { createBusinessException } from "../../errors/BusinessException"
+import FrontendService from "../../service/FrontendService"
 import MarketService from "../../service/MarketService"
-import MicrofrontendService from "../../service/MicrofrontendService"
 import { isValidRepositoryName } from "../../service/RepositoryRenameService"
 import ServiceService from "../../service/ServiceService"
-import MicrofrontendDTO from "../../types/MicrofrontendDTO"
+import FrontendDTO from "../../types/FrontendDTO"
 import ServiceDTO from "../../types/ServiceDTO"
 import { MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { defineTool, McpToolContext, objectId, WRITE_EXTERNAL } from "../toolDefinition"
-import { ensureReferencesBelongToProject, createSchema as microfrontendCreateSchema } from "./microfrontendTools"
+import { ensureReferencesBelongToProject, createSchema as frontendCreateSchema } from "./frontendTools"
 import { createSchema as serviceCreateSchema } from "./serviceTools"
 
 /**
@@ -61,21 +61,21 @@ const withRepositoryToCreate = async <Fields extends { slug: string; domainId?: 
  */
 export const scaffoldTools = [
     defineTool({
-        name: "microfrontend_scaffold",
-        title: "Create microfrontend from template",
+        name: "frontend_scaffold",
+        title: "Create frontend from template",
         description:
-            "Adds a microfrontend whose code repository is created at the provider from a marketplace template (a microfrontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Use microfrontend_create instead to link a repository that already exists.",
+            "Adds a frontend whose code repository is created at the provider from a marketplace template (a frontend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Prefer a template built with the project's default frontend technology (project.technologies from context_get, matchesProjectTechnology in templates_list) unless the user asks for another. Use frontend_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,
-        inputSchema: microfrontendCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("checkout-fe")),
-        run: async (args, context) => new MicrofrontendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as MicrofrontendDTO, context.projectId)
+        inputSchema: frontendCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("checkout-fe")),
+        run: async (args, context) => new FrontendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as FrontendDTO, context.projectId)
     }),
     defineTool({
         name: "service_scaffold",
         title: "Create service from template",
         description:
-            "Adds a backend service whose code repository is created at the provider from a marketplace template (a service one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Port and probe paths left out come from the template. Use service_create instead to link a repository that already exists.",
+            "Adds a backend service whose code repository is created at the provider from a marketplace template (a service one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Port and probe paths left out come from the template. Prefer a template built with the project's default backend technology (project.technologies from context_get, matchesProjectTechnology in templates_list) unless the user asks for another. Use service_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,

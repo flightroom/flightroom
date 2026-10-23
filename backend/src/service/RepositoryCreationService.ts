@@ -2,15 +2,17 @@ import { Types } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository, { ICodeRepository } from "../models/CodeRepositoryModel"
+import Frontend, { IFrontend } from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
-import Microfrontend, { IMicrofrontend } from "../models/MicrofrontendModel"
+import Project from "../models/ProjectModel"
 import Service, { IService } from "../models/ServiceModel"
-import { MicrofrontendStackSource, parseCompiler, parseFramework } from "../types/MicrofrontendStack"
+import { FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
+import { IProjectTechnologies, parseBackendTechnology } from "../types/ProjectTechnology"
 import { isServiceTemplateType, parseRuntime } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
+import { DEFAULT_ENTRY_POINT, withEntryPoint } from "./FrontendService"
 import MarketService from "./MarketService"
-import { DEFAULT_ENTRY_POINT, withEntryPoint } from "./MicrofrontendService"
 import { isValidRepositoryName } from "./RepositoryRenameService"
 import TemplateScaffoldService, { CodeRepositoryTarget, placeholderDomain } from "./TemplateScaffoldService"
 import { RepositoryComponentKind } from "./workspace/repositoryComponent"
@@ -27,22 +29,36 @@ export interface CreateRepositoryInput {
 }
 
 /** The template a repository created by the console starts from when none is picked: a Vite React remote, a Fastify service. */
-export const DEFAULT_TEMPLATE_SLUGS: Record<RepositoryComponentKind, string> = { microfrontend: "vite-remote-react", service: "service-node-fastify" }
+export const DEFAULT_TEMPLATE_SLUGS: Record<RepositoryComponentKind, string> = { frontend: "vite-remote-react", service: "service-node-fastify" }
 
 /** What a repository name ends with, so the frontend and the backend of the same slug never clash: `checkout-fe`, `orders-be`. */
-export const REPOSITORY_NAME_SUFFIXES: Record<RepositoryComponentKind, string> = { microfrontend: "-fe", service: "-be" }
+export const REPOSITORY_NAME_SUFFIXES: Record<RepositoryComponentKind, string> = { frontend: "-fe", service: "-be" }
 
-/** Whether a template scaffolds that kind: a service template builds a Docker image, which nothing can load as a microfrontend. */
+/** Whether a template scaffolds that kind: a service template builds a Docker image, which nothing can load as a frontend. */
 export const isTemplateOfKind = (template: Pick<IMarket, "type" | "comingSoon">, kind: RepositoryComponentKind) => !template.comingSoon && isServiceTemplateType(template.type) === (kind === "service")
 
-/** The default template of a kind among the available ones: by slug, otherwise the first remote for a microfrontend, the first of the kind for a service. */
-export const defaultTemplateOf = <T extends Pick<IMarket, "slug" | "type" | "comingSoon">>(templates: T[], kind: RepositoryComponentKind): T | undefined => {
+/** Whether a template is built with the technology the project picked for its kind; never when it picked none. */
+export const matchesProjectTechnology = (template: Pick<IMarket, "framework">, kind: RepositoryComponentKind, technologies?: IProjectTechnologies): boolean => {
+    const chosen = kind === "frontend" ? technologies?.frontend : technologies?.backend
+    return Boolean(chosen) && (kind === "frontend" ? parseFramework(template.framework) : parseBackendTechnology(template.framework)) === chosen
+}
+
+/**
+ * The default template of a kind among the available ones: by slug, otherwise the first remote for a frontend, the
+ * first of the kind for a service. Picked among the ones matching the technologies of the project first, so that a
+ * Vue project starts from a Vue remote; among all of them when none does.
+ */
+export const defaultTemplateOf = <T extends Pick<IMarket, "slug" | "type" | "comingSoon" | "framework">>(
+    templates: T[],
+    kind: RepositoryComponentKind,
+    technologies?: IProjectTechnologies
+): T | undefined => {
     const ofKind = templates.filter(template => isTemplateOfKind(template, kind))
-    return (
-        ofKind.find(template => template.slug === DEFAULT_TEMPLATE_SLUGS[kind]) ??
-        (kind === "microfrontend" ? ofKind.find(template => template.type?.trim().toLowerCase() === "remote") : undefined) ??
-        ofKind[0]
-    )
+    const pick = (candidates: T[]) =>
+        candidates.find(template => template.slug === DEFAULT_TEMPLATE_SLUGS[kind]) ??
+        (kind === "frontend" ? candidates.find(template => template.type?.trim().toLowerCase() === "remote") : undefined) ??
+        candidates[0]
+    return pick(ofKind.filter(template => matchesProjectTechnology(template, kind, technologies))) ?? pick(ofKind)
 }
 
 const alreadyLinked = (kind: RepositoryComponentKind) => createBusinessException({ code: "REPOSITORY_ALREADY_LINKED", message: `The ${kind} already has a code repository linked`, statusCode: 409 })
@@ -50,38 +66,38 @@ const alreadyLinked = (kind: RepositoryComponentKind) => createBusinessException
 /** Saved only while no repository is linked: two creations at once must not both link theirs. */
 const NOT_LINKED = { "codeRepository.enabled": { $ne: true } }
 
-/** What a microfrontend and a service share of what creating their repository reads. */
-type Member = Pick<IMicrofrontend, "projectId" | "slug" | "codeRepository" | "domainId"> & { template?: string }
+/** What a frontend and a service share of what creating their repository reads. */
+type Member = Pick<IFrontend, "projectId" | "slug" | "codeRepository" | "domainId"> & { template?: string }
 
 /**
- * Creates the code repository of a microfrontend or a service that has none yet, scaffolded from a
+ * Creates the code repository of a frontend or a service that has none yet, scaffolded from a
  * template, as creating one with a new repository does. The domain AI workspace offers it when no
  * member of the domain has a repository for the agent to work on.
  */
 export class RepositoryCreationService extends BaseAuthorizedService {
-    async createMicrofrontendRepository(microfrontendId: string, input: CreateRepositoryInput): Promise<IMicrofrontend | null> {
-        const microfrontend = Types.ObjectId.isValid(microfrontendId) ? await Microfrontend.findById(toObjectId(microfrontendId)) : null
-        if (!microfrontend) throw new EntityNotFoundError(microfrontendId)
-        const { connection, template, target } = await this.prepare(microfrontend, "microfrontend", input)
+    async createFrontendRepository(frontendId: string, input: CreateRepositoryInput): Promise<IFrontend | null> {
+        const frontend = Types.ObjectId.isValid(frontendId) ? await Frontend.findById(toObjectId(frontendId)) : null
+        if (!frontend) throw new EntityNotFoundError(frontendId)
+        const { connection, template, target } = await this.prepare(frontend, "frontend", input)
 
-        await new TemplateScaffoldService(this.user).createRepository(connection, target, microfrontend.slug, template, { microfrontendSlug: microfrontend.slug })
+        await new TemplateScaffoldService(this.user).createRepository(connection, target, frontend.slug, template, { frontendSlug: frontend.slug })
         target.createData = undefined
 
         // As on create, the template is the stack the repository starts with: kept only where nothing is known yet
         const set: Record<string, unknown> = { codeRepository: target }
-        if (!microfrontend.template) set.template = template.slug
-        if (!microfrontend.stack?.framework) {
-            set.stack = { framework: parseFramework(template.framework), compiler: parseCompiler(template.compiler), source: MicrofrontendStackSource.TEMPLATE }
+        if (!frontend.template) set.template = template.slug
+        if (!frontend.stack?.framework) {
+            set.stack = { framework: parseFramework(template.framework), compiler: parseCompiler(template.compiler), source: FrontendStackSource.TEMPLATE }
         }
         // Served by what the template builds, unless an entry point other than the platform default was chosen
-        if (microfrontend.host) {
-            const chosen = microfrontend.host.entryPoint === DEFAULT_ENTRY_POINT ? undefined : microfrontend.host.entryPoint
-            const { entryPoint } = withEntryPoint({ type: microfrontend.host.type, entryPoint: chosen }, template.entryPoint)
-            if (entryPoint && entryPoint !== microfrontend.host.entryPoint) set["host.entryPoint"] = entryPoint
+        if (frontend.host) {
+            const chosen = frontend.host.entryPoint === DEFAULT_ENTRY_POINT ? undefined : frontend.host.entryPoint
+            const { entryPoint } = withEntryPoint({ type: frontend.host.type, entryPoint: chosen }, template.entryPoint)
+            if (entryPoint && entryPoint !== frontend.host.entryPoint) set["host.entryPoint"] = entryPoint
         }
         // Linked meanwhile by another request: the repository just created stays at the provider, unlinked
-        const saved = await Microfrontend.findOneAndUpdate({ _id: microfrontend._id, ...NOT_LINKED }, set, { new: true })
-        if (!saved) throw alreadyLinked("microfrontend")
+        const saved = await Frontend.findOneAndUpdate({ _id: frontend._id, ...NOT_LINKED }, set, { new: true })
+        if (!saved) throw alreadyLinked("frontend")
         return saved
     }
 
@@ -97,7 +113,7 @@ export class RepositoryCreationService extends BaseAuthorizedService {
 
         const set: Record<string, unknown> = { codeRepository: target }
         if (!service.template) set.template = template.slug
-        if (!service.stack?.framework) set.stack = { runtime: parseRuntime(template.framework), framework: template.framework, source: MicrofrontendStackSource.TEMPLATE }
+        if (!service.stack?.framework) set.stack = { runtime: parseRuntime(template.framework), framework: template.framework, source: FrontendStackSource.TEMPLATE }
         // Linked meanwhile by another request: the repository just created stays at the provider, unlinked
         const saved = await Service.findOneAndUpdate({ _id: service._id, ...NOT_LINKED }, set, { new: true })
         if (!saved) throw alreadyLinked("service")
@@ -125,7 +141,7 @@ export class RepositoryCreationService extends BaseAuthorizedService {
             throw new EntityNotFoundError(String(input.codeRepositoryId))
         }
 
-        const template = await this.templateFor(kind, (typeof input.template === "string" && input.template.trim()) || member.template)
+        const template = await this.templateFor(kind, (typeof input.template === "string" && input.template.trim()) || member.template, member.projectId)
         const groupId = input.gitlab?.groupId
         return {
             connection,
@@ -140,17 +156,18 @@ export class RepositoryCreationService extends BaseAuthorizedService {
         }
     }
 
-    /** The template asked for, or the default of the kind; one of the other kind is refused, as on create. */
-    private async templateFor(kind: RepositoryComponentKind, slug?: string): Promise<IMarket> {
+    /** The template asked for, or the default of the kind for the project's technologies; one of the other kind is refused, as on create. */
+    private async templateFor(kind: RepositoryComponentKind, slug: string | undefined, projectId: Member["projectId"]): Promise<IMarket> {
         const market = new MarketService()
-        const template = slug ? await market.getSingle(slug) : (defaultTemplateOf(await market.getAll(), kind) ?? null)
+        const technologies = slug ? undefined : (await Project.findById(projectId, { technologies: 1 }))?.technologies
+        const template = slug ? await market.getSingle(slug) : (defaultTemplateOf(await market.getAll(), kind, technologies) ?? null)
         if (!template) {
             throw createBusinessException({ code: "TEMPLATE_NOT_FOUND", message: slug ? `There is no template "${slug}"` : `There is no ${kind} template` })
         }
         if (!isTemplateOfKind(template, kind)) {
             throw kind === "service"
-                ? createBusinessException({ code: "MICROFRONTEND_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a microfrontend template: a service cannot be scaffolded from it` })
-                : createBusinessException({ code: "SERVICE_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a backend service template: a microfrontend cannot be scaffolded from it` })
+                ? createBusinessException({ code: "FRONTEND_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a frontend template: a service cannot be scaffolded from it` })
+                : createBusinessException({ code: "SERVICE_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a backend service template: a frontend cannot be scaffolded from it` })
         }
         return template
     }

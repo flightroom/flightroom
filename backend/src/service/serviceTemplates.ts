@@ -23,7 +23,7 @@ const serviceTemplate = (slug: string, name: string, framework: string, descript
 /**
  * The backend service templates ship with the backend instead of the shared marketplace.json:
  * every installation reads that manifest live, and one without services would offer these as
- * microfrontend templates.
+ * frontend templates.
  */
 export const SERVICE_TEMPLATES: IMarket[] = [
     serviceTemplate("service-node-fastify", "Node.js & Fastify", "Node.js", "Backend service with Node.js, TypeScript and Fastify, packaged as a Docker image", {

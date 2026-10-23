@@ -1,22 +1,20 @@
-import { EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
+import { EmptyState, SearchInput, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { ArrowLeft, LayoutDashboard, Rocket, Server } from "lucide-react"
+import { ArrowLeft, LayoutDashboard, Rocket, SearchX, Server } from "lucide-react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import useDomainDeploymentsApi, { EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
+import useDomainDeploymentsApi, { DomainDeployments, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { DeployedVersion, EnvironmentHeading } from "./partials/DomainDeploymentsSection"
 
 /** The frontend, then the backend, of one domain in one environment, as `slug version` lines */
 const MatrixCell: React.FC<{ entry: EnvironmentDeployment }> = ({ entry }) => {
     const { t } = useTranslation()
-    const lines = [
-        ...entry.microfrontends.map(microfrontend => ({ ...microfrontend, kind: "frontend" as const })),
-        ...entry.services.map(service => ({ ...service, canary: null, kind: "backend" as const }))
-    ]
+    const lines = [...entry.frontends.map(frontend => ({ ...frontend, kind: "frontend" as const })), ...entry.services.map(service => ({ ...service, canary: null, kind: "backend" as const }))]
     return (
         <ul className="flex flex-col gap-1">
             {lines.map(line => {
@@ -39,38 +37,88 @@ const MatrixCell: React.FC<{ entry: EnvironmentDeployment }> = ({ entry }) => {
     )
 }
 
+const matches = (term: string, ...values: (string | undefined)[]) => values.some(value => value?.toLowerCase().includes(term))
+
+/**
+ * The rows whose domain or one of its members matches the term. A row kept for its domain shows every member;
+ * one kept for its members shows only those that match.
+ */
+const filterRows = (rows: DomainDeployments[], term: string): DomainDeployments[] => {
+    if (!term) return rows
+    return rows.flatMap(row => {
+        if (row.domain && matches(term, row.domain.name, row.domain.slug)) return [row]
+        const environments = row.environments.map(entry => ({
+            ...entry,
+            frontends: entry.frontends.filter(frontend => matches(term, frontend.name, frontend.slug)),
+            services: entry.services.filter(service => matches(term, service.name, service.slug))
+        }))
+        return environments.some(entry => entry.frontends.length > 0 || entry.services.length > 0) ? [{ ...row, environments }] : []
+    })
+}
+
 /** Rows are the domains of the project, then the members in no domain; columns are its environments */
 const DomainDeploymentsMatrix = () => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const projectId = useProjectStore(state => state.project?._id)
     const domainDeploymentsApi = useDomainDeploymentsApi()
-    const matrixQuery = useQuery({ queryKey: ["domain-deployments-matrix", projectId], queryFn: domainDeploymentsApi.getByProject, enabled: !!projectId })
+    const matrixQuery = useQuery({
+        queryKey: ["domain-deployments-matrix", projectId],
+        queryFn: domainDeploymentsApi.getByProject,
+        enabled: !!projectId
+    })
+    const [searchTerm, setSearchTerm] = useState("")
 
-    const rows = matrixQuery.data ?? []
+    const allRows = matrixQuery.data ?? []
     // Every row has the same environments, in the same order
-    const environments = rows[0]?.environments ?? []
+    const environments = allRows[0]?.environments ?? []
+    const term = searchTerm.trim().toLowerCase()
+    const rows = useMemo(() => filterRows(matrixQuery.data ?? [], term), [matrixQuery.data, term])
 
     return (
         <SinglePageLayout
             title={t("domains.deployments.matrix_title")}
             description={t("domains.deployments.matrix_description")}
+            lrContainerClassname="items-end"
             left={
-                <Button variant="ghost" size="sm" onClick={() => navigate("/domains")}>
-                    <ArrowLeft />
-                    {t("domains.deployments.back")}
-                </Button>
+                <div className="flex min-w-0 flex-[1_1_280px] flex-col items-start gap-2">
+                    <Button variant="ghost" size="sm" onClick={() => navigate("/domains")}>
+                        <ArrowLeft />
+                        {t("domains.deployments.back")}
+                    </Button>
+                    {allRows.length > 0 && environments.length > 0 && (
+                        <SearchInput
+                            className="w-full max-w-sm"
+                            placeholder={t("domains.deployments.search_placeholder")}
+                            value={searchTerm}
+                            onValueChange={setSearchTerm}
+                            onClear={() => setSearchTerm("")}
+                            clearLabel={t("domains.clear_search")}
+                        />
+                    )}
+                </div>
             }
         >
             <ApiStatusHandler queries={[matrixQuery]}>
-                {rows.length === 0 || environments.length === 0 ? (
+                {allRows.length === 0 || environments.length === 0 ? (
                     <EmptyState
                         variant="outlined"
                         size="lg"
                         tone="primary"
                         icon={<Rocket />}
                         title={t("domains.deployments.matrix_empty_title")}
-                        description={environments.length === 0 && rows.length > 0 ? t("domains.deployments.no_environments") : t("domains.deployments.matrix_empty_description")}
+                        description={environments.length === 0 && allRows.length > 0 ? t("domains.deployments.no_environments") : t("domains.deployments.matrix_empty_description")}
+                    />
+                ) : rows.length === 0 ? (
+                    <EmptyState
+                        variant="outlined"
+                        size="lg"
+                        tone="primary"
+                        icon={<SearchX />}
+                        title={t("domains.deployments.no_results_title")}
+                        description={t("domains.deployments.no_results_description", {
+                            searchTerm: searchTerm.trim()
+                        })}
                     />
                 ) : (
                     <div className="overflow-x-auto rounded-md border border-divider">
@@ -99,7 +147,7 @@ const DomainDeploymentsMatrix = () => {
                                         </TableCell>
                                         {row.environments.map(entry => (
                                             <TableCell key={entry.environment._id}>
-                                                {entry.microfrontends.length === 0 && entry.services.length === 0 ? (
+                                                {entry.frontends.length === 0 && entry.services.length === 0 ? (
                                                     <span className="text-sm text-foreground-secondary">{t("domains.deployments.no_members_short")}</span>
                                                 ) : (
                                                     <MatrixCell entry={entry} />

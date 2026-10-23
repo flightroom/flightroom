@@ -2,9 +2,10 @@ import { FastifyInstance, FastifyRequest } from "fastify"
 import { createBusinessException } from "../errors/BusinessException"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import AssistantUsage from "../models/AssistantUsageModel"
-import AssistantService from "../service/assistant/AssistantService"
+import { recordAiUsage } from "../service/AiUsageService"
+import AssistantService, { AssistantSpentOn } from "../service/assistant/AssistantService"
 import { deleteConversation, getConversation, listConversations, saveConversation } from "../service/assistant/conversations"
-import { isRateLimitError, LLM_EFFORTS, LlmEffort, LlmProvider, LlmUsage } from "../service/llm"
+import { addUsage, isRateLimitError, LLM_EFFORTS, LlmEffort, LlmProvider, LlmUsage, NO_USAGE } from "../service/llm"
 import { AssistantChatRequestDTO, AssistantConversationSaveDTO, AssistantProjectDraftRequestDTO } from "../types/AssistantDTO"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 import { openEventStream, sendEvent } from "../utils/eventStream"
@@ -193,6 +194,8 @@ export default async function assistantController(fastify: FastifyInstance) {
         const heartbeat = setInterval(() => reply.raw.write(HEARTBEAT), HEARTBEAT_INTERVAL_MS)
 
         let answered: { stopReason: string; usage: LlmUsage; effort: LlmEffort; aiModelId: string; provider: LlmProvider } | undefined
+        // What the rounds spent so far: an answer stopped or failing midway returns no outcome, its tokens still count.
+        let spent: { usage: LlmUsage; spentOn?: AssistantSpentOn } = { usage: NO_USAGE }
         try {
             const { stopReason, wrote, usage, effort, aiModelId, provider } = await service.chat(
                 projectId,
@@ -202,7 +205,10 @@ export default async function assistantController(fastify: FastifyInstance) {
                     onThinking: delta => sendEvent(reply, "thinking", { delta }),
                     onToolCall: frame => sendEvent(reply, "tool_call", frame),
                     onToolResult: frame => sendEvent(reply, "tool_result", frame),
-                    onConfirm: frame => sendEvent(reply, "confirm", frame)
+                    onConfirm: frame => sendEvent(reply, "confirm", frame),
+                    onUsage: (usage, spentOn) => {
+                        spent = { usage: addUsage(spent.usage, usage), spentOn }
+                    }
                 },
                 abortController.signal,
                 action && confirmation ? { action, approved: confirmation.approved } : undefined
@@ -231,6 +237,15 @@ export default async function assistantController(fastify: FastifyInstance) {
                     fastify.log.error({ err: error, projectId }, "Assistant usage not saved")
                 }
             })()
+        }
+        // The ledger counts every answer, stopped and failed ones included, apart from the document above: one failing
+        // must not lose the other. No component is credited, the assistant works on the whole project.
+        const ledger = answered ?? (spent.spentOn && { ...spent.spentOn, usage: spent.usage })
+        if (ledger) {
+            const { usage, effort, aiModelId, provider } = ledger
+            void recordAiUsage({ userId: request.databaseUser?._id, projectId, source: "assistant", aiModelId, provider, effort, ...usage }).catch(error =>
+                fastify.log.error({ err: error, projectId }, "Assistant usage not recorded")
+            )
         }
     })
 

@@ -1,13 +1,14 @@
 import { Document, model, ObjectId, Schema } from "mongoose"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
+import { IFrontend } from "./FrontendModel"
 import { IGlobalVariable } from "./GlobalVariableModel"
-import { IMicrofrontend } from "./MicrofrontendModel"
 import { IService } from "./ServiceModel"
 import { IStorage, STORAGE_SECRET_PATHS } from "./StorageModel"
 
 /**
- * A config map or a secret as the deploy recorded it in its environment: the keys set there, with their
- * values for a config map only. A secret's values are not copied here: nothing reads them back.
+ * A config map, a secret or a resource as the deploy recorded it in its environment: the keys set there,
+ * with their values for a config map only. A secret's values are not copied here, nor a resource's, which
+ * mixes credentials with the rest: nothing reads them back.
  */
 export interface IDeployedVariableMap {
     _id: ObjectId
@@ -15,18 +16,20 @@ export interface IDeployedVariableMap {
     entries: Array<{ key: string; value?: string }>
 }
 
-/** A backend service as the deploy recorded it: only what tells which one and at which version, never its env */
-export type IDeployedService = Pick<IService, "_id" | "slug" | "name" | "domainId" | "version" | "image">
+/** A backend service as the deploy recorded it: only what tells which one, at which version and where it is exposed, never its env */
+export type IDeployedService = Pick<IService, "_id" | "slug" | "name" | "domainId" | "version" | "image" | "exposurePath">
 
 export interface IDeployment extends Document<ObjectId> {
     environmentId: ObjectId
     variables?: IGlobalVariable[]
-    microfrontends?: IMicrofrontend[]
+    frontends?: IFrontend[]
     /** Absent from the deployments made before the services were recorded */
     services?: IDeployedService[]
     /** Absent from the deployments made before the config maps and secrets were recorded, as for the services */
     configMaps?: IDeployedVariableMap[]
     secrets?: IDeployedVariableMap[]
+    /** The resources some service attaches; absent from the deployments made before resources existed */
+    resources?: IDeployedVariableMap[]
     storages?: IStorage[]
     deploymentId: string
     active: boolean
@@ -49,7 +52,7 @@ const deploymentSchema = new Schema<IDeployment>(
             type: Array,
             required: false
         },
-        microfrontends: {
+        frontends: {
             type: Array,
             required: false
         },
@@ -62,6 +65,10 @@ const deploymentSchema = new Schema<IDeployment>(
             required: false
         },
         secrets: {
+            type: Array,
+            required: false
+        },
+        resources: {
             type: Array,
             required: false
         },

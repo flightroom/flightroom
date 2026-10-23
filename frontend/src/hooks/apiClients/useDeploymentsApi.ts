@@ -1,7 +1,7 @@
 import useApiClient from "../useApiClient"
+import { Frontend } from "./useFrontendsApi"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 import { GlobalVariable } from "./useGlobalVariablesApi"
-import { Microfrontend } from "./useMicrofrontendsApi"
 
 /** A backend service as the deploy recorded it, at the version it shipped */
 export interface DeployedService {
@@ -11,6 +11,8 @@ export interface DeployedService {
     domainId?: string | null
     version?: string
     image?: { repository?: string }
+    /** Absent from the deployments made before it was recorded, null when the service is not exposed */
+    exposurePath?: string | null
 }
 
 /** A config map or a secret as the deploy recorded it in its environment: a secret's keys come without values */
@@ -23,12 +25,14 @@ export interface DeployedVariableMap {
 export interface DeploymentDTO {
     _id: string
     environmentId: string
-    microfrontends: Microfrontend[]
+    frontends: Frontend[]
     /** Absent from the deployments made before the services were recorded */
     services?: DeployedService[]
     /** Absent from the deployments made before the config maps and secrets were recorded */
     configMaps?: DeployedVariableMap[]
     secrets?: DeployedVariableMap[]
+    /** The resources some service attaches, keys only; absent from the deployments made before resources existed */
+    resources?: DeployedVariableMap[]
     variables: GlobalVariable[]
     storages: Storage[]
     deploymentId: string
@@ -37,6 +41,9 @@ export interface DeploymentDTO {
     updatedAt: string
     deployedAt: string
 }
+
+/** Shared by every mutation that deploys, so that the deploy overlay sees each of them */
+export const DEPLOY_MUTATION_KEY = ["deploy"]
 
 const useDeploymentsApi = () => {
     const apiClient = useApiClient()
@@ -51,7 +58,7 @@ const useDeploymentsApi = () => {
         return response.data
     }
 
-    /** With `domainId`, only the microfrontends and services of that functional domain move */
+    /** With `domainId`, only the frontends and services of that functional domain move */
     const createDeployment = async (environmentIds: string[], domainId?: string) => {
         const response = await apiClient.doRequest<DeploymentDTO>({
             url: `/api/deployment`,

@@ -77,7 +77,7 @@ class DeploymentCanaryUsersService extends BaseAuthorizedService {
         return DeploymentToCanaryUsers.insertMany(
             canaryUsers.map(canaryUser => ({
                 deploymentId: toObjectId(toDeploymentId),
-                microfrontendId: canaryUser.microfrontendId,
+                frontendId: canaryUser.frontendId,
                 userId: canaryUser.userId,
                 enabled: canaryUser.enabled
             })),
@@ -86,7 +86,7 @@ class DeploymentCanaryUsersService extends BaseAuthorizedService {
     }
 
     /**
-     * Who is on the canary of a deployment is decided for every microfrontend it serves at once, those of
+     * Who is on the canary of a deployment is decided for every frontend it serves at once, those of
      * every domain: not for a member assigned to only some of them.
      */
     private async ensureWholeProjectOfDeployment(deploymentId: string | ObjectId) {

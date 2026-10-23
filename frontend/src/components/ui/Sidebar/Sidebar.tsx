@@ -27,7 +27,7 @@ const EXTERNAL_NAV_ITEMS: SidebarNavItemProps[] = [
 
 /**
  * A section stays highlighted on its detail pages: `/services` also covers `/service/:id/...`, and
- * `/microfrontends` covers `/microfrontend/:id/...` (detail routes use the singular path).
+ * `/frontends` covers `/frontend/:id/...` (detail routes use the singular path).
  */
 const isActivePath = (pathname: string, path: string) => pathname === path || (path.endsWith("s") && pathname.startsWith(`${path.slice(0, -1)}/`))
 

@@ -1,7 +1,7 @@
 import { GitBranch } from "lucide-react"
-import type { Microfrontend } from "@/hooks/apiClients/useMicrofrontendsApi"
+import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 
-type CodeRepository = Microfrontend["codeRepository"]
+type CodeRepository = Frontend["codeRepository"]
 
 /**
  * The page of a repository on its provider, from the clone url over https: GitHub and GitLab drop the `.git`,

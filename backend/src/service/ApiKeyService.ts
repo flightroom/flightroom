@@ -23,7 +23,7 @@ const insertApiKey = async (projectId: string, apiKeyData: ApiKeyDTO, session?: 
 }
 
 /**
- * The deploy key of a repository the console creates for a microfrontend or a service, minted as a system
+ * The deploy key of a repository the console creates for a frontend or a service, minted as a system
  * action: a function of the module rather than a method of the service, so that no endpoint reaches it with
  * a principal. Nothing about the principal is checked here, the callers checked the access to the project
  * and to the domain of the component before creating anything at the provider.

@@ -63,7 +63,7 @@ export const slugifyRepositoryName = (name: string): string =>
         .replace(/^-+|-+$/g, "")
 
 /** Slugs are unique per project, so already taken ones get a numeric suffix instead of failing the whole import. */
-export const buildUniqueSlug = (name: string, takenSlugs: Set<string>, fallback = "microfrontend"): string => {
+export const buildUniqueSlug = (name: string, takenSlugs: Set<string>, fallback = "frontend"): string => {
     const base = slugifyRepositoryName(name) || fallback
 
     if (!takenSlugs.has(base)) return base

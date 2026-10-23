@@ -126,5 +126,19 @@
   "124": "projectContentTools.test.ts",
   "125": "NpmRegistryClient.ts",
   "126": "LocalChangeService.test.ts",
-  "127": "ServiceService.repository.test.ts"
+  "127": "ServiceService.repository.test.ts",
+  "128": "ResourceService.test.ts",
+  "129": "compilerOptions",
+  "130": "IStorage",
+  "131": "resourceTools.test.ts",
+  "132": "aiChangeAgent.test.ts",
+  "133": "transcript.ts",
+  "134": "clientMetadataFetcher.ts",
+  "135": "DomainController.ts",
+  "136": "BuildController.ts",
+  "137": "ResourceModel.ts",
+  "138": "AiMissionController.ts",
+  "139": "AccessProbe",
+  "140": "tsconfig.test.json",
+  "141": "GoogleStorageClient"
 }

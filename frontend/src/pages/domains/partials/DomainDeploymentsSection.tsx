@@ -1,17 +1,18 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, ColorSwatch } from "@flightroom/design-system"
-import { useQuery } from "@tanstack/react-query"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, ColorSwatch, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { format } from "date-fns"
-import { LayoutDashboard, Rocket, Server } from "lucide-react"
+import { ExternalLink, LayoutDashboard, Server } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
-import { ApiStatusHandler } from "@/components/organisms"
-import useDomainDeploymentsApi, { DeployedMicrofrontend, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
-import { CanaryType } from "@/hooks/apiClients/useMicrofrontendsApi"
+import { DeployedFrontend, DomainDeployments, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
+import { CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { exposedOrigin } from "@/pages/services/partials/serviceVariables"
+import useProjectStore from "@/store/useProjectStore"
 import useThemeStore from "@/store/useThemeStore"
 
 interface DeployedVersionProps {
     version: string | null
-    canary?: DeployedMicrofrontend["canary"]
+    canary?: DeployedFrontend["canary"]
     /** Shown when there is no version: the frontend was not deployed, the backend was not reported */
     emptyLabel: string
 }
@@ -55,84 +56,130 @@ export const EnvironmentHeading: React.FC<{ entry: EnvironmentDeployment }> = ({
     )
 }
 
-interface MemberListProps {
-    title: string
-    icon: React.ReactNode
-    emptyLabel: string
-    members: { _id: string; slug: string; name: string; version: string | null; canary?: DeployedMicrofrontend["canary"] }[]
+/**
+ * The DOCKER frontends that serve a frontend: itself when it is one, else the first DOCKER up each line of its
+ * parents, since a bundle is loaded by the host that mounts it. A loop in the relations is walked once.
+ */
+export const servingContainers = (frontend: Frontend, frontends: Frontend[]): Frontend[] => {
+    const byId = new Map(frontends.map(candidate => [candidate._id, candidate]))
+    const found: Frontend[] = []
+    const seen = new Set<string>()
+    const visit = (current: Frontend) => {
+        if (!current._id || seen.has(current._id)) return
+        seen.add(current._id)
+        if (current.kind === FrontendKind.DOCKER) {
+            found.push(current)
+            return
+        }
+        for (const parentId of current.parentIds ?? []) {
+            const parent = byId.get(parentId)
+            if (parent) visit(parent)
+        }
+    }
+    visit(frontend)
+    return found
 }
 
-const MemberList: React.FC<MemberListProps> = ({ title, icon, emptyLabel, members }) =>
-    members.length === 0 ? null : (
-        <div className="flex flex-col gap-1">
-            <h4 className="flex items-center gap-1.5 text-xs font-semibold uppercase text-foreground-secondary">
-                {icon}
-                {title}
-            </h4>
-            <ul className="divide-y divide-divider">
-                {members.map(member => (
-                    <li key={member._id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
-                        <span className="min-w-0 truncate" title={member.slug}>
-                            {member.name}
-                        </span>
-                        <span className="shrink-0 text-right">
-                            <DeployedVersion version={member.version} canary={member.canary} emptyLabel={emptyLabel} />
-                        </span>
-                    </li>
-                ))}
-            </ul>
-        </div>
-    )
-
-/**
- * Which version of each microfrontend and service of the domain runs in each environment: the
- * frontend from the deployment the environment serves, the backend from what the deploy pipeline reported.
- */
-const DomainDeploymentsSection: React.FC<{ domainId: string }> = ({ domainId }) => {
+/** Where a frontend is reached in an environment: the URL of each DOCKER serving it, with the parent named when it is not the frontend itself */
+const FrontendUrls: React.FC<{ frontend: Frontend; frontends: Frontend[]; origin?: string }> = ({ frontend, frontends, origin }) => {
     const { t } = useTranslation()
-    const domainDeploymentsApi = useDomainDeploymentsApi()
-    const deploymentsQuery = useQuery({ queryKey: ["domain-deployments", domainId], queryFn: () => domainDeploymentsApi.getByDomainId(domainId) })
+    // No link without a domain to expose on, nor for a container exposed on no path: the path alone does not open anything
+    const urls = origin ? servingContainers(frontend, frontends).flatMap(container => (container.exposurePath ? [{ container, url: origin + container.exposurePath }] : [])) : []
+    if (urls.length === 0) return null
+    return (
+        <ul className="mt-1 flex flex-col gap-0.5">
+            {urls.map(({ container, url }) => (
+                <li key={container._id} className="flex min-w-0 flex-col">
+                    <a href={url} target="_blank" rel="noreferrer" className="inline-flex min-w-0 items-center gap-1 text-xs text-primary underline-offset-4 hover:underline">
+                        <ExternalLink className="size-3 shrink-0" aria-hidden="true" />
+                        <span className="truncate">{url.replace(/^https?:\/\//, "")}</span>
+                    </a>
+                    {container._id !== frontend._id && <span className="text-xs text-foreground-secondary">{t("domains.deployments.served_by", { name: container.name })}</span>}
+                </li>
+            ))}
+        </ul>
+    )
+}
 
-    const environments = deploymentsQuery.data?.environments ?? []
-    const hasMembers = environments.some(entry => entry.microfrontends.length > 0 || entry.services.length > 0)
+/** Rows are the frontends, then the backends, of the domain; columns are the environments of the project */
+export const DomainDeploymentsSection: React.FC<{ deployments: DomainDeployments; frontends: Frontend[] }> = ({ deployments, frontends }) => {
+    const { t } = useTranslation()
+    const exposure = useProjectStore(state => state.project?.exposure)
+    const projectEnvironments = useProjectStore(state => state.environments)
+    const originOf = (environmentId: string) => {
+        const environment = projectEnvironments?.find(candidate => candidate._id === environmentId)
+        return exposure?.domain && environment ? exposedOrigin(exposure, environment) : undefined
+    }
+    const environments = deployments.environments
+    // Every environment lists the same members, in the same order
+    const members = [
+        ...(environments[0]?.frontends ?? []).map(frontend => ({ ...frontend, kind: "frontend" as const })),
+        ...(environments[0]?.services ?? []).map(service => ({ ...service, kind: "backend" as const }))
+    ]
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="mb-0 flex items-center gap-2">
-                    <Rocket className="size-5" aria-hidden="true" />
-                    {t("domains.deployments.title")}
-                </CardTitle>
-                <CardDescription>{t("domains.deployments.description")}</CardDescription>
+                <CardTitle className="mb-0">{t("domains.deployments.section_title")}</CardTitle>
+                <CardDescription>{t("domains.deployments.section_description")}</CardDescription>
             </CardHeader>
             <CardContent className="pt-3">
-                <ApiStatusHandler queries={[deploymentsQuery]}>
-                    {environments.length === 0 ? (
-                        <p className="text-sm text-foreground-secondary">{t("domains.deployments.no_environments")}</p>
-                    ) : !hasMembers ? (
-                        <p className="text-sm text-foreground-secondary">{t("domains.deployments.no_members")}</p>
-                    ) : (
-                        <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,280px),1fr))] gap-4">
-                            {environments.map(entry => (
-                                <div key={entry.environment._id} className="flex flex-col gap-3 rounded-md border border-divider p-3" data-testid={`domain-deployments-${entry.environment.slug}`}>
-                                    <EnvironmentHeading entry={entry} />
-                                    <MemberList
-                                        title={t("domains.deployments.frontend")}
-                                        icon={<LayoutDashboard className="size-3.5" aria-hidden="true" />}
-                                        emptyLabel={t("domains.deployments.not_deployed")}
-                                        members={entry.microfrontends}
-                                    />
-                                    <MemberList
-                                        title={t("domains.deployments.backend")}
-                                        icon={<Server className="size-3.5" aria-hidden="true" />}
-                                        emptyLabel={t("domains.deployments.not_reported")}
-                                        members={entry.services}
-                                    />
-                                </div>
-                            ))}
-                        </div>
-                    )}
-                </ApiStatusHandler>
+                {environments.length === 0 ? (
+                    <p className="text-sm text-foreground-secondary">{t("domains.deployments.no_environments")}</p>
+                ) : members.length === 0 ? (
+                    <p className="text-sm text-foreground-secondary">{t("domains.deployments.no_members_short")}</p>
+                ) : (
+                    <div className="overflow-x-auto rounded-md border border-divider">
+                        <Table>
+                            <TableHeader>
+                                <TableRow className="bg-muted/60 hover:bg-muted/60">
+                                    <TableHead>{t("domains.deployments.member")}</TableHead>
+                                    {environments.map(entry => (
+                                        <TableHead key={entry.environment._id} className="min-w-[12rem] py-2 align-top">
+                                            <EnvironmentHeading entry={entry} />
+                                        </TableHead>
+                                    ))}
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {members.map(member => {
+                                    const Icon = member.kind === "frontend" ? LayoutDashboard : Server
+                                    return (
+                                        <TableRow key={`${member.kind}-${member._id}`} className="border-divider align-top hover:bg-primary/5">
+                                            <TableCell>
+                                                <span className="flex items-center gap-1.5 text-sm">
+                                                    <Icon className="size-3.5 shrink-0 text-foreground-secondary" aria-hidden="true" />
+                                                    <span className="sr-only">{t(`domains.deployments.${member.kind}`)}</span>
+                                                    <Link to={`/${member.kind === "frontend" ? "frontend" : "service"}/${member._id}`} title={member.slug} className="font-medium hover:underline">
+                                                        {member.name}
+                                                    </Link>
+                                                </span>
+                                            </TableCell>
+                                            {environments.map(entry => {
+                                                const deployed =
+                                                    member.kind === "frontend"
+                                                        ? entry.frontends.find(frontend => frontend._id === member._id)
+                                                        : entry.services.find(service => service._id === member._id)
+                                                const frontend = member.kind === "frontend" ? frontends.find(candidate => candidate._id === member._id) : undefined
+                                                return (
+                                                    <TableCell key={entry.environment._id}>
+                                                        <DeployedVersion
+                                                            version={deployed?.version ?? null}
+                                                            canary={deployed && "canary" in deployed ? deployed.canary : null}
+                                                            emptyLabel={t(member.kind === "frontend" ? "domains.deployments.not_deployed" : "domains.deployments.not_reported")}
+                                                        />
+                                                        {/* Only where it runs: an environment that never got it has nothing at that URL */}
+                                                        {frontend && deployed?.version && <FrontendUrls frontend={frontend} frontends={frontends} origin={originOf(entry.environment._id)} />}
+                                                    </TableCell>
+                                                )
+                                            })}
+                                        </TableRow>
+                                    )
+                                })}
+                            </TableBody>
+                        </Table>
+                    </div>
+                )}
             </CardContent>
         </Card>
     )

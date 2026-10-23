@@ -9,7 +9,7 @@ import VariableEntriesTable from "@/pages/variable-maps/partials/VariableEntries
 import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 
 /** What the service receives from the config maps and the secrets it attaches, a table per map */
-export const ServiceVariableMapsSection: React.FC<{ service: Service; configMaps: VariableMap[]; secrets: VariableMap[]; environments: EnvironmentDTO[] }> = ({
+export const ServiceVariableMapsSection: React.FC<{ service: Pick<Service, "configMapIds" | "secretIds">; configMaps: VariableMap[]; secrets: VariableMap[]; environments: EnvironmentDTO[] }> = ({
     service,
     configMaps,
     secrets,

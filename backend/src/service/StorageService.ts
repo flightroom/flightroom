@@ -144,7 +144,7 @@ export class StorageService extends BaseAuthorizedService {
     async createRaw(projectId: string, storageData: StorageDTO, session?: ClientSession): Promise<IStorage> {
         await this.ensureAccessToProject(projectId, session)
         await this.ensureNotViewer(projectId, WRITE_FORBIDDEN)
-        // Every microfrontend of the project may be served from a storage: they are no domain's own
+        // Every frontend of the project may be served from a storage: they are no domain's own
         await this.ensureWholeProject(projectId)
 
         const storage = new Storage({

@@ -1,4 +1,4 @@
-import MicrofrontendDTO from "./MicrofrontendDTO"
+import FrontendDTO from "./FrontendDTO"
 import { ServiceStackDTO } from "./ServiceStack"
 
 export interface ServiceEnvVariableDTO {
@@ -21,8 +21,8 @@ interface ServiceDTO {
     template?: string
     stack?: ServiceStackDTO
     version?: string
-    /** Same shape as a microfrontend's: `createData` creates the repository from a template */
-    codeRepository?: MicrofrontendDTO["codeRepository"]
+    /** Same shape as a frontend's: `createData` creates the repository from a template */
+    codeRepository?: FrontendDTO["codeRepository"]
     image?: {
         repository?: string
     }
@@ -35,13 +35,13 @@ interface ServiceDTO {
     openApiPath?: string | null
     /** The path on the host of every environment, e.g. /api/orders; blank or null when it is not exposed */
     exposurePath?: string | null
-    /** The base URL per environment, e.g. https://orders.dev.acme.com; a blank one means it is not exposed there */
-    urls?: Array<{ environmentId: string; url?: string }>
     env?: ServiceEnvVariableDTO[]
     /** Config maps of the project to attach; replaced as a whole, and no key may be set by two attached maps */
     configMapIds?: string[]
     /** Secrets of the project to attach, as for the config maps */
     secretIds?: string[]
+    /** Resources of the project to attach, as for the config maps: no key of theirs may be set by an attached map either */
+    resourceIds?: string[]
     createdAt?: Date
     updatedAt?: Date
 }

@@ -41,7 +41,7 @@ test("Given the docs account When the builds and integration screens are opened 
 
     // ---------- INTEGRATION ----------
     await page.goto("/integration")
-    await page.getByRole("button", { name: "Integrate my microfrontends" }).click({ timeout: 60_000 })
+    await page.getByRole("button", { name: "Integrate my frontends" }).click({ timeout: 60_000 })
     const dialog = page.getByRole("dialog")
     await expect(dialog).toContainText("Config to replace", { timeout: 60_000 })
     await page.waitForTimeout(2_000)

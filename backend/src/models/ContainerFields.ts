@@ -1,11 +1,11 @@
 import { Schema } from "mongoose"
 import { isExposurePath } from "../types/Exposure"
-import { isServiceUrl, SERVICE_HTTP_PATH } from "../types/ServiceStack"
+import { SERVICE_HTTP_PATH } from "../types/ServiceStack"
 
 /**
  * The fields of what runs as a container of its own: a backend service, or a frontend built into an
- * image. They live apart from both models because ServiceModel already imports MicrofrontendModel, so
- * the microfrontend schema could not import them from ServiceModel without a cycle.
+ * image. They live apart from both models because ServiceModel already imports FrontendModel, so
+ * the frontend schema could not import them from ServiceModel without a cycle.
  */
 
 /** A variable the image reads from its environment */
@@ -14,12 +14,6 @@ export interface IServiceEnvVariable {
     required: boolean
     secret: boolean
     description?: string
-}
-
-/** Where the container answers in one environment of the project: the base its probe, docs and OpenAPI paths hang off */
-export interface IServiceUrl {
-    environmentId: Schema.Types.ObjectId
-    url: string
 }
 
 /** What a container gets when neither the caller nor a template says otherwise */
@@ -44,24 +38,6 @@ export const serviceEnvVariableSchema = new Schema<IServiceEnvVariable>(
             type: String,
             required: false,
             trim: true
-        }
-    },
-    { _id: false }
-)
-
-export const serviceUrlSchema = new Schema<IServiceUrl>(
-    {
-        environmentId: {
-            type: Schema.Types.ObjectId,
-            ref: "Environment",
-            required: true
-        },
-        url: {
-            type: String,
-            required: true,
-            trim: true,
-            // ServiceService normalises it first; this keeps any other write path from storing an href the console would render
-            validate: { validator: isServiceUrl, message: (props: { value: unknown }) => `"${String(props.value)}" is not a valid service URL` }
         }
     },
     { _id: false }

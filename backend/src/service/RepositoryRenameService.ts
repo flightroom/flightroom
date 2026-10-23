@@ -5,7 +5,7 @@ import GitlabClient from "../client/GitlabClient"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend, IMicrofrontend } from "../models/MicrofrontendModel"
+import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
@@ -49,12 +49,12 @@ const isNameTaken = ({ status, message }: { status?: number; message: string }) 
 export const isRepositoryNameTakenError = (error: unknown): boolean => axios.isAxiosError(error) && isNameTaken(describeProviderError(error))
 
 /**
- * Renames the repository of a microfrontend at its provider, then updates what the console keeps
- * about it. The microfrontend itself keeps its name and slug: those are what deployments and
+ * Renames the repository of a frontend at its provider, then updates what the console keeps
+ * about it. The frontend itself keeps its name and slug: those are what deployments and
  * uploaded bundles are addressed by.
  */
 export class RepositoryRenameService extends BaseAuthorizedService {
-    async renameMicrofrontendRepository(microfrontendId: string, name: unknown): Promise<IMicrofrontend | null> {
+    async renameFrontendRepository(frontendId: string, name: unknown): Promise<IFrontend | null> {
         const newName = typeof name === "string" ? name.trim() : ""
         if (!isValidRepositoryName(newName)) {
             throw createBusinessException({
@@ -63,27 +63,27 @@ export class RepositoryRenameService extends BaseAuthorizedService {
             })
         }
 
-        const microfrontend = await Microfrontend.findById(toObjectId(microfrontendId))
-        if (!microfrontend) {
-            throw new EntityNotFoundError(microfrontendId)
+        const frontend = await Frontend.findById(toObjectId(frontendId))
+        if (!frontend) {
+            throw new EntityNotFoundError(frontendId)
         }
-        await this.ensureCanChangeRepository(microfrontend.projectId)
-        await this.ensureInDomainScope(microfrontend.projectId, microfrontend.domainId)
+        await this.ensureCanChangeRepository(frontend.projectId)
+        await this.ensureInDomainScope(frontend.projectId, frontend.domainId)
 
-        const link = microfrontend.codeRepository
+        const link = frontend.codeRepository
         if (!link?.enabled || !link.codeRepositoryId) {
-            throw createBusinessException({ code: "REPOSITORY_NOT_LINKED", message: "The microfrontend has no code repository linked", statusCode: 422 })
+            throw createBusinessException({ code: "REPOSITORY_NOT_LINKED", message: "The frontend has no code repository linked", statusCode: 422 })
         }
 
         const codeRepository = await new CodeRepositoryService(this.user).findById(link.codeRepositoryId.toString())
-        if (!codeRepository || codeRepository.projectId.toString() !== microfrontend.projectId.toString()) {
+        if (!codeRepository || codeRepository.projectId.toString() !== frontend.projectId.toString()) {
             throw new EntityNotFoundError(link.codeRepositoryId.toString())
         }
 
         if (link.name === newName) {
-            return microfrontend
+            return frontend
         }
-        await this.ensureEveryLinkInScope(microfrontend, codeRepository, link)
+        await this.ensureEveryLinkInScope(frontend, codeRepository, link)
 
         let renamed: NormalizedRepository | undefined
         try {
@@ -100,23 +100,23 @@ export class RepositoryRenameService extends BaseAuthorizedService {
         }
 
         try {
-            await this.recordRename(microfrontend, codeRepository, link, renamed)
+            await this.recordRename(frontend, codeRepository, link, renamed)
         } catch (error) {
             throw createBusinessException({
                 code: "REPOSITORY_RENAMED_NOT_RECORDED",
-                message: `The repository is now named "${renamed.name}" at the provider, but the console could not record it: select it again on the microfrontend. ${toErrorMessage(error)}`,
+                message: `The repository is now named "${renamed.name}" at the provider, but the console could not record it: select it again on the frontend. ${toErrorMessage(error)}`,
                 statusCode: 500
             })
         }
 
-        return Microfrontend.findById(microfrontend._id)
+        return Frontend.findById(frontend._id)
     }
 
     /**
      * Same rule as for the AI changes: renaming a repository moves the URL every clone and pipeline
      * of the team uses, so a VIEWER may not. Organization administrators reach every project.
      */
-    private async ensureCanChangeRepository(projectId: IMicrofrontend["projectId"]) {
+    private async ensureCanChangeRepository(projectId: IFrontend["projectId"]) {
         await this.ensureAccessToProject(projectId)
         const user = this.getUser()
         if (!user) throw createBusinessException({ code: "REPOSITORY_RENAME_FORBIDDEN", message: "Not allowed", statusCode: 403 })
@@ -124,15 +124,15 @@ export class RepositoryRenameService extends BaseAuthorizedService {
         if (membership?.role !== RoleInProject.VIEWER) return
         const project = await Project.findById(projectId, { organizationId: 1 })
         if (project && (await this.isOrganizationAdmin(project.organizationId))) return
-        throw createBusinessException({ code: "REPOSITORY_RENAME_FORBIDDEN", message: "A viewer cannot rename the repository of a microfrontend", statusCode: 403 })
+        throw createBusinessException({ code: "REPOSITORY_RENAME_FORBIDDEN", message: "A viewer cannot rename the repository of a frontend", statusCode: 403 })
     }
 
     /**
      * The new name is written into every link to the repository: a domain-scoped member renames it only
-     * when every microfrontend and service linked to it is of their domains, none of another or of none.
+     * when every frontend and service linked to it is of their domains, none of another or of none.
      */
-    private async ensureEveryLinkInScope(microfrontend: IMicrofrontend, codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend) {
-        await this.ensureRepositoryInDomainScope({ kind: "microfrontend", _id: microfrontend._id, projectId: microfrontend.projectId }, link, codeRepository.provider)
+    private async ensureEveryLinkInScope(frontend: IFrontend, codeRepository: ICodeRepository, link: ICodeRepositoryFrontend) {
+        await this.ensureRepositoryInDomainScope({ kind: "frontend", _id: frontend._id, projectId: frontend.projectId }, link, codeRepository.provider)
     }
 
     /**
@@ -140,17 +140,17 @@ export class RepositoryRenameService extends BaseAuthorizedService {
      * console then shows one repository and the id points to another. Renaming would hit the one
      * the user did not see, so the two must agree first.
      */
-    private ensureSameRepository(foundName: string, link: ICodeRepositoryMicrofrontend) {
+    private ensureSameRepository(foundName: string, link: ICodeRepositoryFrontend) {
         if (link.name && foundName.toLowerCase() !== link.name.toLowerCase()) {
             throw createBusinessException({
                 code: "REPOSITORY_LINK_INCONSISTENT",
-                message: `The microfrontend shows "${link.name}" but its link points to "${foundName}": select the repository again and save before renaming it`,
+                message: `The frontend shows "${link.name}" but its link points to "${foundName}": select the repository again and save before renaming it`,
                 statusCode: 409
             })
         }
     }
 
-    private async renameAtProvider(codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend, newName: string): Promise<Record<string, unknown>> {
+    private async renameAtProvider(codeRepository: ICodeRepository, link: ICodeRepositoryFrontend, newName: string): Promise<Record<string, unknown>> {
         switch (codeRepository.provider) {
             case CodeRepositoryProvider.GITHUB:
                 // GitHub addresses a repository by its name: there is nothing else to disagree with.
@@ -185,11 +185,11 @@ export class RepositoryRenameService extends BaseAuthorizedService {
     }
 
     /**
-     * Writes the new name into every link of the project to that repository, microfrontends and
+     * Writes the new name into every link of the project to that repository, frontends and
      * services alike: a stale one would keep cloning from the old URL, which Azure DevOps does not
      * redirect. Field by field, so an edit saved meanwhile on the rest of a document is kept.
      */
-    private async recordRename(microfrontend: IMicrofrontend, codeRepository: ICodeRepository, link: ICodeRepositoryMicrofrontend, renamed: NormalizedRepository) {
+    private async recordRename(frontend: IFrontend, codeRepository: ICodeRepository, link: ICodeRepositoryFrontend, renamed: NormalizedRepository) {
         const set: Record<string, unknown> = {
             "codeRepository.name": renamed.name,
             // The provider id, even where a name was kept until now: every API accepts it, and
@@ -203,11 +203,8 @@ export class RepositoryRenameService extends BaseAuthorizedService {
         if (renamed.cloneUrlSsh) set["codeRepository.cloneUrlSsh"] = renamed.cloneUrlSsh
         if (renamed.gitlab?.path) set["codeRepository.gitlab.path"] = renamed.gitlab.path
 
-        const links = linksToRepository({ kind: "microfrontend", _id: microfrontend._id, projectId: microfrontend.projectId }, codeRepository.provider, link)
-        await Promise.all([
-            links.microfrontends ? Microfrontend.updateMany(links.microfrontends, { $set: set }) : undefined,
-            links.services ? Service.updateMany(links.services, { $set: set }) : undefined
-        ])
+        const links = linksToRepository({ kind: "frontend", _id: frontend._id, projectId: frontend.projectId }, codeRepository.provider, link)
+        await Promise.all([links.frontends ? Frontend.updateMany(links.frontends, { $set: set }) : undefined, links.services ? Service.updateMany(links.services, { $set: set }) : undefined])
     }
 }
 

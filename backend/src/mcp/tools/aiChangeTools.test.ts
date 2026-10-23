@@ -58,7 +58,7 @@ vi.mock("../../service/aiChange/AiChangeJobService", () => ({
 }))
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
-const MICROFRONTEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
+const FRONTEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const SERVICE = "eeeeeeeeeeeeeeeeeeeeeeee"
 const CHANGE = "cccccccccccccccccccccccc"
 const JOB = "dddddddddddddddddddddddd"
@@ -80,7 +80,7 @@ const run = (name: string, args: Record<string, unknown>) => tool(name).run(args
 const changeDocument = (status: string) => ({
     _id: { toString: () => CHANGE },
     jobId: JOB,
-    microfrontendId: MICROFRONTEND,
+    frontendId: FRONTEND,
     status,
     prompt: "Add a footer",
     baseBranch: "main",
@@ -105,10 +105,10 @@ const jobView = (status: string) => ({
     repositories: [
         {
             requestId: CHANGE,
-            kind: "microfrontend",
-            microfrontendId: MICROFRONTEND,
-            microfrontendName: "Cart",
-            microfrontendSlug: "cart",
+            kind: "frontend",
+            frontendId: FRONTEND,
+            frontendName: "Cart",
+            frontendSlug: "cart",
             status: "PROPOSED",
             files: [{ path: "src/Price.ts", action: "update" }]
         }
@@ -117,7 +117,7 @@ const jobView = (status: string) => ({
     updatedAt: new Date(0)
 })
 
-const forbidden = () => createBusinessException({ code: "AI_CHANGE_FORBIDDEN", message: "A viewer cannot change the code of a microfrontend", statusCode: 403 })
+const forbidden = () => createBusinessException({ code: "AI_CHANGE_FORBIDDEN", message: "A viewer cannot change the code of a frontend", statusCode: 403 })
 
 describe("AI change tools", () => {
     beforeEach(() => {
@@ -140,9 +140,9 @@ describe("AI change tools", () => {
         it("given a prompt, when started, then the service gets the project-bound principal and the configuration, and the view leaves file contents out", async () => {
             createChange.mockResolvedValue(changeDocument("PENDING"))
 
-            const result = (await run("ai_change_start", { microfrontendId: MICROFRONTEND, prompt: "Add a footer" })) as Record<string, unknown>
+            const result = (await run("ai_change_start", { frontendId: FRONTEND, prompt: "Add a footer" })) as Record<string, unknown>
 
-            expect(createChange).toHaveBeenCalledWith({ kind: "microfrontend", id: MICROFRONTEND }, { prompt: "Add a footer", baseBranch: undefined })
+            expect(createChange).toHaveBeenCalledWith({ kind: "frontend", id: FRONTEND }, { prompt: "Add a footer", baseBranch: undefined })
             expect(constructed[0]).toEqual([expect.objectContaining({ restrictedToProjectIds: [PROJECT] }), { AI_PROVIDER: "anthropic" }])
             expect(result).toMatchObject({ id: CHANGE, jobId: JOB, status: "PENDING", files: [{ path: "src/Footer.tsx", action: "create" }], usage: { cachedInputTokens: 800 } })
             expect(JSON.stringify(result)).not.toContain("export const Footer")
@@ -150,36 +150,36 @@ describe("AI change tools", () => {
         })
 
         it("given an empty prompt, when the input is validated, then it is refused", () => {
-            expect(tool("ai_change_start").inputSchema.safeParse({ microfrontendId: MICROFRONTEND, prompt: "  " }).success).toBe(false)
+            expect(tool("ai_change_start").inputSchema.safeParse({ frontendId: FRONTEND, prompt: "  " }).success).toBe(false)
         })
 
         it("given a service, when started, then the change works on the repository of the service", async () => {
-            createChange.mockResolvedValue({ ...changeDocument("PENDING"), microfrontendId: undefined, serviceId: SERVICE })
+            createChange.mockResolvedValue({ ...changeDocument("PENDING"), frontendId: undefined, serviceId: SERVICE })
 
             await run("ai_change_start", { serviceId: SERVICE, prompt: "Add a health check" })
 
             expect(createChange).toHaveBeenCalledWith({ kind: "service", id: SERVICE }, expect.objectContaining({ prompt: "Add a health check" }))
         })
 
-        it("given both a microfrontend and a service, or neither, when the input is validated, then it is refused", () => {
+        it("given both a frontend and a service, or neither, when the input is validated, then it is refused", () => {
             const schema = tool("ai_change_start").inputSchema
-            expect(schema.safeParse({ microfrontendId: MICROFRONTEND, serviceId: SERVICE, prompt: "Add a footer" }).success).toBe(false)
+            expect(schema.safeParse({ frontendId: FRONTEND, serviceId: SERVICE, prompt: "Add a footer" }).success).toBe(false)
             expect(schema.safeParse({ prompt: "Add a footer" }).success).toBe(false)
         })
 
         it("given a viewer, when started, then the service's refusal surfaces", async () => {
             createChange.mockRejectedValue(forbidden())
 
-            await expect(run("ai_change_start", { microfrontendId: MICROFRONTEND, prompt: "Add a footer" })).rejects.toMatchObject({ code: "AI_CHANGE_FORBIDDEN" })
+            await expect(run("ai_change_start", { frontendId: FRONTEND, prompt: "Add a footer" })).rejects.toMatchObject({ code: "AI_CHANGE_FORBIDDEN" })
         })
     })
 
     describe("ai_changes_list", () => {
-        it("given a microfrontend, when listed, then each change is a view", async () => {
+        it("given a frontend, when listed, then each change is a view", async () => {
             listChanges.mockResolvedValue([changeDocument("PROPOSED")])
 
-            expect(await run("ai_changes_list", { microfrontendId: MICROFRONTEND })).toEqual([expect.objectContaining({ id: CHANGE, status: "PROPOSED" })])
-            expect(listChanges).toHaveBeenCalledWith({ kind: "microfrontend", id: MICROFRONTEND })
+            expect(await run("ai_changes_list", { frontendId: FRONTEND })).toEqual([expect.objectContaining({ id: CHANGE, status: "PROPOSED" })])
+            expect(listChanges).toHaveBeenCalledWith({ kind: "frontend", id: FRONTEND })
         })
 
         it("given a service, when listed, then the changes of the service are", async () => {
@@ -195,15 +195,15 @@ describe("AI change tools", () => {
             const { events: _events, ...withoutEvents } = changeDocument("PROPOSED")
             listChanges.mockResolvedValue([withoutEvents])
 
-            const [change] = (await run("ai_changes_list", { microfrontendId: MICROFRONTEND })) as Record<string, unknown>[]
+            const [change] = (await run("ai_changes_list", { frontendId: FRONTEND })) as Record<string, unknown>[]
 
             expect(change).not.toHaveProperty("recentEvents")
         })
 
-        it("given a microfrontend of another project, when listed, then the refusal surfaces", async () => {
+        it("given a frontend of another project, when listed, then the refusal surfaces", async () => {
             listChanges.mockRejectedValue(new UserCannotAccessThisProjectError())
 
-            await expect(run("ai_changes_list", { microfrontendId: MICROFRONTEND })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
+            await expect(run("ai_changes_list", { frontendId: FRONTEND })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
         })
     })
 
@@ -270,19 +270,16 @@ describe("AI change tools", () => {
         it("given services and base branches, when started, then the job is a selection of them starting from those branches", async () => {
             createJob.mockResolvedValue(jobView("PENDING"))
 
-            await run("ai_job_start", { prompt: "Rename the price API", microfrontendIds: [MICROFRONTEND], serviceIds: [SERVICE], baseBranches: { [SERVICE]: "develop" } })
+            await run("ai_job_start", { prompt: "Rename the price API", frontendIds: [FRONTEND], serviceIds: [SERVICE], baseBranches: { [SERVICE]: "develop" } })
 
-            expect(createJob).toHaveBeenCalledWith(
-                PROJECT,
-                expect.objectContaining({ scope: "selection", microfrontendIds: [MICROFRONTEND], serviceIds: [SERVICE], baseBranches: { [SERVICE]: "develop" } })
-            )
+            expect(createJob).toHaveBeenCalledWith(PROJECT, expect.objectContaining({ scope: "selection", frontendIds: [FRONTEND], serviceIds: [SERVICE], baseBranches: { [SERVICE]: "develop" } }))
         })
 
         it("given a domain with services, when the input is validated, then it is refused", () => {
             expect(tool("ai_job_start").inputSchema.safeParse({ prompt: "Rename", domainId: PROJECT, serviceIds: [SERVICE] }).success).toBe(false)
         })
 
-        it("given no microfrontend, when started, then the job is global on the tool's project and the view carries its id, usage and repositories", async () => {
+        it("given no frontend, when started, then the job is global on the tool's project and the view carries its id, usage and repositories", async () => {
             createJob.mockResolvedValue(jobView("PENDING"))
 
             const result = (await run("ai_job_start", { prompt: "Rename the price API" })) as Record<string, unknown>
@@ -292,35 +289,33 @@ describe("AI change tools", () => {
                 jobId: JOB,
                 status: "PENDING",
                 usage: { inputTokens: 1200, cachedInputTokens: 800, outputTokens: 300 },
-                repositories: [
-                    { changeId: CHANGE, kind: "microfrontend", microfrontendId: MICROFRONTEND, microfrontend: "Cart", status: "PROPOSED", files: [{ path: "src/Price.ts", action: "update" }] }
-                ]
+                repositories: [{ changeId: CHANGE, kind: "frontend", frontendId: FRONTEND, frontend: "Cart", status: "PROPOSED", files: [{ path: "src/Price.ts", action: "update" }] }]
             })
             expect(result.recentEvents).toHaveLength(10)
         })
 
-        /** A global job takes the services too: their id must not read as a microfrontend's */
+        /** A global job takes the services too: their id must not read as a frontend's */
         it("given a job on a service, when it is viewed, then the repository is named a service with its serviceId", async () => {
             const view = jobView("PENDING")
-            createJob.mockResolvedValue({ ...view, repositories: [{ ...view.repositories[0], kind: "service", microfrontendName: "Orders API", microfrontendSlug: "orders-api" }] })
+            createJob.mockResolvedValue({ ...view, repositories: [{ ...view.repositories[0], kind: "service", frontendName: "Orders API", frontendSlug: "orders-api" }] })
 
             const result = (await run("ai_job_start", { prompt: "Rename the price API" })) as { repositories: Record<string, unknown>[] }
 
-            expect(result.repositories[0]).toMatchObject({ kind: "service", serviceId: MICROFRONTEND, service: "Orders API" })
-            expect(result.repositories[0]).not.toHaveProperty("microfrontendId")
-            expect(result.repositories[0]).not.toHaveProperty("microfrontend")
+            expect(result.repositories[0]).toMatchObject({ kind: "service", serviceId: FRONTEND, service: "Orders API" })
+            expect(result.repositories[0]).not.toHaveProperty("frontendId")
+            expect(result.repositories[0]).not.toHaveProperty("frontend")
         })
 
-        it("given microfrontends, when started, then the job works on those alone", async () => {
+        it("given frontends, when started, then the job works on those alone", async () => {
             createJob.mockResolvedValue(jobView("PENDING"))
 
-            await run("ai_job_start", { prompt: "Rename the price API", microfrontendIds: [MICROFRONTEND] })
+            await run("ai_job_start", { prompt: "Rename the price API", frontendIds: [FRONTEND] })
 
-            expect(createJob).toHaveBeenCalledWith(PROJECT, { prompt: "Rename the price API", scope: "selection", microfrontendIds: [MICROFRONTEND] })
+            expect(createJob).toHaveBeenCalledWith(PROJECT, { prompt: "Rename the price API", scope: "selection", frontendIds: [FRONTEND] })
         })
 
-        it("given more than 10 microfrontends, when the input is validated, then it is refused", () => {
-            expect(tool("ai_job_start").inputSchema.safeParse({ prompt: "x", microfrontendIds: Array.from({ length: 11 }, () => MICROFRONTEND) }).success).toBe(false)
+        it("given more than 10 frontends, when the input is validated, then it is refused", () => {
+            expect(tool("ai_job_start").inputSchema.safeParse({ prompt: "x", frontendIds: Array.from({ length: 11 }, () => FRONTEND) }).success).toBe(false)
         })
     })
 
@@ -330,7 +325,7 @@ describe("AI change tools", () => {
 
             const result = await run("ai_job_follow_up", { jobId: JOB, prompt: "Also rename the tests" })
 
-            expect(followUpJob).toHaveBeenCalledWith(JOB, { prompt: "Also rename the tests", microfrontendIds: undefined })
+            expect(followUpJob).toHaveBeenCalledWith(JOB, { prompt: "Also rename the tests", frontendIds: undefined })
             expect(result).toMatchObject({ jobId: CHANGE, parentJobId: JOB, rootJobId: JOB })
         })
 
@@ -356,11 +351,11 @@ describe("AI change tools", () => {
             createJob.mockResolvedValue({ ...jobView("PENDING"), aiModelId: "system" })
             followUpJob.mockResolvedValue({ ...jobView("PENDING"), aiModelId: "system" })
 
-            const change = await run("ai_change_start", { microfrontendId: MICROFRONTEND, prompt: "Add a footer", aiModelId: "system" })
+            const change = await run("ai_change_start", { frontendId: FRONTEND, prompt: "Add a footer", aiModelId: "system" })
             const job = await run("ai_job_start", { prompt: "Rename the price API", aiModelId: "system" })
             const followUp = await run("ai_job_follow_up", { jobId: JOB, prompt: "Also rename the tests", aiModelId: "system" })
 
-            expect(createChange).toHaveBeenCalledWith({ kind: "microfrontend", id: MICROFRONTEND }, expect.objectContaining({ aiModelId: "system" }))
+            expect(createChange).toHaveBeenCalledWith({ kind: "frontend", id: FRONTEND }, expect.objectContaining({ aiModelId: "system" }))
             expect(createJob).toHaveBeenCalledWith(PROJECT, { prompt: "Rename the price API", scope: "global", aiModelId: "system" })
             expect(followUpJob).toHaveBeenCalledWith(JOB, expect.objectContaining({ aiModelId: "system" }))
             expect([change, job, followUp].map(view => (view as { aiModelId?: string }).aiModelId)).toEqual(["system", "system", "system"])
@@ -373,11 +368,11 @@ describe("AI change tools", () => {
             createJob.mockResolvedValue({ ...jobView("PENDING"), effort: "xhigh" })
             followUpJob.mockResolvedValue({ ...jobView("PENDING"), effort: "max" })
 
-            const change = await run("ai_change_start", { microfrontendId: MICROFRONTEND, prompt: "Add a footer", effort: "low" })
+            const change = await run("ai_change_start", { frontendId: FRONTEND, prompt: "Add a footer", effort: "low" })
             const job = await run("ai_job_start", { prompt: "Rename the price API", domainId: PROJECT, effort: "xhigh" })
             const followUp = await run("ai_job_follow_up", { jobId: JOB, prompt: "Also rename the tests", effort: "max" })
 
-            expect(createChange).toHaveBeenCalledWith({ kind: "microfrontend", id: MICROFRONTEND }, expect.objectContaining({ effort: "low" }))
+            expect(createChange).toHaveBeenCalledWith({ kind: "frontend", id: FRONTEND }, expect.objectContaining({ effort: "low" }))
             expect(createJob).toHaveBeenCalledWith(PROJECT, { prompt: "Rename the price API", scope: "domain", domainId: PROJECT, effort: "xhigh" })
             expect(followUpJob).toHaveBeenCalledWith(JOB, expect.objectContaining({ effort: "max" }))
             expect([change, job, followUp]).toEqual([expect.objectContaining({ effort: "low" }), expect.objectContaining({ effort: "xhigh" }), expect.objectContaining({ effort: "max" })])
@@ -437,11 +432,11 @@ describe("AI change tools", () => {
 
     describe("ai_domain_plan", () => {
         it("given a domain and a request, when planned, then the plan comes back and nothing is written", async () => {
-            const plan = { microfrontends: [{ name: "Orders", slug: "orders", template: "vite-react", repositoryName: "orders-fe" }], services: [] }
+            const plan = { frontends: [{ name: "Orders", slug: "orders", template: "vite-react", repositoryName: "orders-fe" }], services: [] }
             planDomain.mockResolvedValue(plan)
 
-            expect(await run("ai_domain_plan", { domainId: MICROFRONTEND, prompt: "Track orders" })).toEqual(plan)
-            expect(planDomain).toHaveBeenCalledWith(PROJECT, { domainId: MICROFRONTEND, prompt: "Track orders" })
+            expect(await run("ai_domain_plan", { domainId: FRONTEND, prompt: "Track orders" })).toEqual(plan)
+            expect(planDomain).toHaveBeenCalledWith(PROJECT, { domainId: FRONTEND, prompt: "Track orders" })
             expect(tool("ai_domain_plan").annotations).toMatchObject({ destructiveHint: false })
         })
     })

@@ -15,20 +15,27 @@ import SelectProjectWrapper from "./theme/SelectProjectWrapper"
 // Lazy load all page components
 const AssistantPage = lazy(() => import("./pages/assistant/AssistantPage"))
 const Domains = lazy(() => import("./pages/domains/Domains"))
-const DomainDetail = lazy(() => import("./pages/domains/DomainDetail"))
 const DomainAiWorkspace = lazy(() => import("./pages/domains/DomainAiWorkspace"))
+const DomainOverview = lazy(() => import("./pages/domains/DomainOverview"))
 const DomainDeploymentsMatrix = lazy(() => import("./pages/domains/DomainDeploymentsMatrix"))
-const Microfrontends = lazy(() => import("./pages/microfrontends/Microfrontends"))
-const AddMicrofrontend = lazy(() => import("./pages/microfrontends/AddMicrofrontend"))
-const MicrofrontendAiWorkspace = lazy(() => import("./pages/microfrontends/MicrofrontendAiWorkspace"))
+const Frontends = lazy(() => import("./pages/frontends/Frontends"))
+const AddFrontend = lazy(() => import("./pages/frontends/AddFrontend"))
+const FrontendAiWorkspace = lazy(() => import("./pages/frontends/FrontendAiWorkspace"))
 const Services = lazy(() => import("./pages/services/Services"))
 const AddService = lazy(() => import("./pages/services/AddService"))
 const ServiceDetail = lazy(() => import("./pages/services/ServiceDetail"))
+const MaintenanceAgents = lazy(() => import("./pages/maintenance-agents/MaintenanceAgents"))
+const AddMaintenanceAgent = lazy(() => import("./pages/maintenance-agents/AddMaintenanceAgent"))
+const MaintenanceAgentDetail = lazy(() => import("./pages/maintenance-agents/MaintenanceAgentDetail"))
 const VariableMaps = lazy(() => import("./pages/variable-maps/VariableMaps"))
 const VariableMapForm = lazy(() => import("./pages/variable-maps/VariableMapForm"))
+const Resources = lazy(() => import("./pages/resources/Resources"))
+const ResourceForm = lazy(() => import("./pages/resources/ResourceForm"))
 const Dependencies = lazy(() => import("./pages/dependencies/Dependencies"))
 const Builds = lazy(() => import("./pages/builds/Builds"))
 const Deployments = lazy(() => import("./pages/deployments/Deployments"))
+const FleetPage = lazy(() => import("./pages/fleet/FleetPage"))
+const FleetMissionPage = lazy(() => import("./pages/fleet/FleetMissionPage"))
 const CanaryUsers = lazy(() => import("./pages/deployments/CanaryUsers"))
 const Integration = lazy(() => import("./pages/integration/Integration"))
 const Environments = lazy(() => import("./pages/environments/Environments"))
@@ -102,7 +109,7 @@ const OAuthRoutes: React.FC = () => {
 }
 
 /**
- * The console opens on the AI agent; without an AI provider its page sends on to /microfrontends.
+ * The console opens on the AI agent; without an AI provider its page sends on to /frontends.
  * Safety net: a login that lands on "/" instead of the consent page resumes the pending consent.
  */
 const RootRedirect: React.FC = () => <Navigate to={readOAuthResume() ?? ASSISTANT_PAGE_PATH} replace />
@@ -127,23 +134,31 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/domains/deployments" element={<RouteWithSuspense element={<DomainDeploymentsMatrix />} />} />
                 <Route path="/domain/:id" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
                 <Route path="/domain/:id/ai" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
-                <Route path="/domain/:id/structure" element={<RouteWithSuspense element={<DomainDetail />} />} />
-                <Route path="/microfrontends" element={<RouteWithSuspense element={<Microfrontends />} />} />
-                <Route path="/microfrontend/new" element={<RouteWithSuspense element={<AddMicrofrontend />} />} />
-                <Route path="/microfrontend/:id" element={<RouteWithSuspense element={<MicrofrontendAiWorkspace />} />} />
-                <Route path="/microfrontend/:id/settings" element={<RouteWithSuspense element={<AddMicrofrontend />} />} />
+                <Route path="/domain/:id/overview" element={<RouteWithSuspense element={<DomainOverview />} />} />
+                <Route path="/frontends" element={<RouteWithSuspense element={<Frontends />} />} />
+                <Route path="/frontend/new" element={<RouteWithSuspense element={<AddFrontend />} />} />
+                <Route path="/frontend/:id" element={<RouteWithSuspense element={<FrontendAiWorkspace />} />} />
+                <Route path="/frontend/:id/settings" element={<RouteWithSuspense element={<AddFrontend />} />} />
                 <Route path="/services" element={<RouteWithSuspense element={<Services />} />} />
                 <Route path="/service/new" element={<RouteWithSuspense element={<AddService />} />} />
                 <Route path="/service/:id" element={<RouteWithSuspense element={<ServiceDetail view="ai" />} />} />
                 <Route path="/service/:id/ai" element={<RouteWithSuspense element={<ServiceDetail view="ai" />} />} />
                 <Route path="/service/:id/overview" element={<RouteWithSuspense element={<ServiceDetail />} />} />
                 <Route path="/service/:id/settings" element={<RouteWithSuspense element={<AddService />} />} />
+                <Route path="/maintenance-agents" element={<RouteWithSuspense element={<MaintenanceAgents />} />} />
+                <Route path="/maintenance-agent/new" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
+                <Route path="/maintenance-agent/:id" element={<RouteWithSuspense element={<MaintenanceAgentDetail />} />} />
+                <Route path="/maintenance-agent/:id/settings" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
                 <Route path="/config-maps" element={<RouteWithSuspense element={<VariableMaps kind="configMap" />} />} />
                 <Route path="/config-map/:id" element={<RouteWithSuspense element={<VariableMapForm kind="configMap" />} />} />
                 <Route path="/secrets" element={<RouteWithSuspense element={<VariableMaps kind="secret" />} />} />
                 <Route path="/secret/:id" element={<RouteWithSuspense element={<VariableMapForm kind="secret" />} />} />
+                <Route path="/resources" element={<RouteWithSuspense element={<Resources />} />} />
+                <Route path="/resource/:id" element={<RouteWithSuspense element={<ResourceForm />} />} />
                 <Route path="/dependencies" element={<RouteWithSuspense element={<Dependencies />} />} />
                 <Route path="/builds" element={<RouteWithSuspense element={<Builds />} />} />
+                <Route path="/fleet" element={<RouteWithSuspense element={<FleetPage />} />} />
+                <Route path="/fleet/:id" element={<RouteWithSuspense element={<FleetMissionPage />} />} />
                 <Route path="/deployments">
                     <Route index element={<RouteWithSuspense element={<Deployments />} />} />
                     <Route path=":deploymentId/canary-users" element={<RouteWithSuspense element={<CanaryUsers />} />} />

@@ -1,6 +1,6 @@
 import { FastifyInstance } from "fastify"
 import EnvironmentService from "../service/EnvironmentService"
-import MicrofrontendService from "../service/MicrofrontendService"
+import FrontendService from "../service/FrontendService"
 import ProjectService, { ProjectCreateInput, ProjectUpdateInput } from "../service/ProjectService"
 
 export default async function projectController(fastify: FastifyInstance) {
@@ -38,8 +38,8 @@ export default async function projectController(fastify: FastifyInstance) {
         return reply.send(await new EnvironmentService(request.databaseUser).getByProjectId(request.params.projectId))
     })
 
-    fastify.get<{ Params: { projectId: string } }>("/projects/:projectId/microfrontends", async (request, reply) => {
-        return reply.send(await new MicrofrontendService(request.databaseUser).getByProjectId(request.params.projectId))
+    fastify.get<{ Params: { projectId: string } }>("/projects/:projectId/frontends", async (request, reply) => {
+        return reply.send(await new FrontendService(request.databaseUser).getByProjectId(request.params.projectId))
     })
 
     // Create new project

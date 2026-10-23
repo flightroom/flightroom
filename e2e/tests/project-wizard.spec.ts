@@ -134,6 +134,6 @@ test.describe
 
             await page.getByTestId("wizard-close").click()
 
-            await expect(page).toHaveURL(/\/microfrontends/)
+            await expect(page).toHaveURL(/\/frontends/)
         })
     })

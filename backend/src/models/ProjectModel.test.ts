@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from "vitest"
 import { transformDocument, transformUpdate } from "../utils/encryptedFieldsPlugin"
 import { decryptSecret, encryptSecret, isEncryptedSecret, resetSecretEncryptionKeyCache } from "../utils/secretCrypto"
-import { PROJECT_SECRET_PATHS } from "./ProjectModel"
+import Project, { PROJECT_SECRET_PATHS } from "./ProjectModel"
 
 const originalKey = process.env.SECRETS_ENCRYPTION_KEY
 
@@ -48,5 +48,19 @@ describe("Project encrypted fields", () => {
         transformDocument(document, PROJECT, decryptSecret)
 
         expect(document.argoCd).toEqual(argoCd())
+    })
+})
+
+describe("Project technologies", () => {
+    it("given a technology of each side the console knows, when the project is validated, then it passes", async () => {
+        const project = new Project({ organizationId: "aaaaaaaaaaaaaaaaaaaaaaaa", name: "Shop", slug: "shop", technologies: { frontend: "ANGULAR", backend: "MICRONAUT" } })
+
+        await expect(project.validate()).resolves.toBeUndefined()
+    })
+
+    it("given a technology the console does not know, when the project is validated, then it is refused", async () => {
+        const project = new Project({ organizationId: "aaaaaaaaaaaaaaaaaaaaaaaa", name: "Shop", slug: "shop", technologies: { backend: "RUST" } })
+
+        await expect(project.validate()).rejects.toMatchObject({ errors: { "technologies.backend": expect.anything() } })
     })
 })
