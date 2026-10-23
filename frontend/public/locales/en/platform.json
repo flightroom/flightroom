@@ -2689,9 +2689,9 @@
         },
         "resources": {
             "title": "Resources",
-            "description": "The resources the services of this domain attach.",
-            "none": "No service of this domain attaches a resource.",
-            "used_by": "Used by {{services}}",
+            "description": "The resources each backend service of this domain attaches.",
+            "service_none": "No resource attached.",
+            "detach": "Detach {{resource}} from {{service}}",
             "attach": {
                 "action": "Attach resource",
                 "title": "Attach a resource",

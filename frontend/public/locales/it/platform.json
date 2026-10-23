@@ -2708,9 +2708,9 @@
         },
         "resources": {
             "title": "Risorse",
-            "description": "Le risorse che agganciano i service di questo dominio.",
-            "none": "Nessun service di questo dominio aggancia una risorsa.",
-            "used_by": "Usata da {{services}}",
+            "description": "Le risorse che aggancia ciascun backend service di questo dominio.",
+            "service_none": "Nessuna risorsa agganciata.",
+            "detach": "Sgancia {{resource}} da {{service}}",
             "attach": {
                 "action": "Attacca risorsa",
                 "title": "Attacca una risorsa",
