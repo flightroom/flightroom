@@ -82,14 +82,26 @@ An agent always gets the contexts of what it works on, the project one included:
 
 ### Design system
 
-A project can name the **design system** its frontends are built with (Settings → Design system):
-the npm package, a version range, the documentation URL, the `.npmrc` the package installs with and
-notes for agents. A frontend may replace it with its own in its "AI context" tab; otherwise it
-inherits the project's. `project.designSystem` in `context_get` is the project default and, with a
-`frontendId`, `designSystem` is the one that frontend builds with, its own or else the project's.
-The AI change jobs put it in the prompt of each frontend repository, telling the agent to build the
-UI with that package and no other UI library. `project_update`, `frontend_create` and
-`frontend_update` set it, replaced as a whole; `null` removes it.
+The **design system** the frontends are built with (the npm package, a version range, the
+documentation URL, the `.npmrc` the package installs with and notes for agents) is set at three
+levels, the most specific winning:
+
+1. **Organization** (Organization settings → Design system): the one of every project that does not
+   set its own. Only its owners and admins change it.
+2. **Project** (Settings → Design system, "Use a project-specific design system"): replaces the
+   organization's for its frontends; turned off, the project inherits it again.
+3. **Frontend** (its "AI context" tab, "Use its own design system"): replaces the one the project
+   resolves to.
+
+`project.designSystem` in `context_get` is the one of the project, its own or else the
+organization's, and `project.designSystemSource` says which (`project` or `organization`). With a
+`frontendId`, `designSystem` is the one that frontend builds with and `designSystemSource` the level
+it comes from (`frontend`, `project` or `organization`). The AI change jobs put the frontend's in the
+prompt of each frontend repository, telling the agent to build the UI with that package and no other
+UI library; the domain planner is told the project's by name, to pick a frontend template that can
+use it. `project_update`, `frontend_create` and `frontend_update` set it, replaced as a whole; `null`
+goes back to the level above. The organization's is set from the console, and by its assistant
+through `organization_update`, which MCP clients do not get.
 
 The `.npmrc` is stored as pasted and the console shows it whole, but every response that reaches an
 AI (MCP tools, the assistant, the agent prompt) masks its credentials: the value of `_authToken`,

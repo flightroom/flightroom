@@ -28,6 +28,7 @@ import ServiceVariableMapsFields from "@/pages/services/partials/ServiceVariable
 import ServiceVersionsTable from "@/pages/services/partials/ServiceVersionsTable"
 import { createServiceRuntimeShape, refineExposure, SERVICE_VERSION, useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
+import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import DomainSelectField from "../domains/partials/DomainSelectField"
@@ -61,7 +62,7 @@ const createFormSchema = (messages: FormMessages) => {
             domainId: z.string().nullable().optional(),
             kind: z.enum(FrontendKind),
             context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
-            // Off, the frontend builds with the design system of the project
+            // Off, the frontend builds with the design system of the project, else the organization's
             designSystemOverride: z.boolean().default(false),
             designSystem: z.object({ packageName: z.string(), version: z.string(), docsUrl: z.string(), npmrc: z.string(), notes: z.string() }).partial().optional(),
             // Required below for a BUNDLE only: a DOCKER frontend's is set here or by its pipeline on the first registration
@@ -230,8 +231,9 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const linkedTab = searchParams.get("tab")
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
     const assistantEnabled = useProjectAiModels().enabled
-    // The design system a frontend without its own builds with
+    // The design system a frontend without its own builds with: the project's, else the organization's
     const projectDesignSystem = useProjectStore().project?.designSystem
+    const organizationDesignSystem = useOrganizationStore().organization?.designSystem
 
     const getStandardHost = (): FormInput["host"] => {
         const standardHost: FormInput["host"] = {
@@ -370,7 +372,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         const { port, livenessPath, readinessPath, docsPath, openApiPath, exposed, exposurePath, image, env, configMapIds, secretIds, designSystemOverride, designSystem, ...rest } = data
         const dataToSend = {
             ...rest,
-            // Null: it builds with the design system of the project
+            // Null: it builds with the design system of the project, else the organization's
             designSystem: designSystemOverride ? toDesignSystem(designSystem) : null,
             version: data.version === "custom" ? data.customVersion : data.version,
             // Blank: the frontend is in no domain
@@ -579,7 +581,9 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                                         <p className="text-sm text-muted-foreground" data-testid="frontend-design-system-inherited">
                                             {projectDesignSystem?.packageName
                                                 ? t("designSystem.frontend.inherited", { packageName: projectDesignSystem.packageName })
-                                                : t("designSystem.frontend.noProjectDefault")}
+                                                : organizationDesignSystem?.packageName
+                                                  ? t("designSystem.frontend.inheritedFromOrganization", { packageName: organizationDesignSystem.packageName })
+                                                  : t("designSystem.frontend.noProjectDefault")}
                                         </p>
                                     )}
                                 </CardContent>

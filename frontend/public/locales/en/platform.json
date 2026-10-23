@@ -186,6 +186,8 @@
         "tabs": {
             "label": "Settings sections",
             "general": "General",
+            "context": "AI context",
+            "designSystem": "Design system",
             "access": "Access",
             "resources": "Infrastructure",
             "delivery": "Delivery"
@@ -1824,6 +1826,7 @@
             "label": "Settings sections",
             "general": "General",
             "members": "Members",
+            "designSystem": "Design system",
             "ai": "AI"
         },
         "switch": "Switch organization",
@@ -3040,9 +3043,23 @@
         "settings": {
             "title": "Design system",
             "subtitle": "The UI library the frontends of the project are built with, unless one picks its own.",
-            "details": "Users and AI agents (MCP clients, the assistant, Edit with AI) build the UI of each frontend with this package. The .npmrc is stored as you paste it so the team can install the package: agents read it with every credential masked (tokens, passwords, usernames, emails, certificates), and only the registry lines stay readable. Leave the package empty to remove the design system.",
+            "details": "Users and AI agents (MCP clients, the assistant, Edit with AI) build the UI of each frontend with this package. The .npmrc is stored as you paste it so the team can install the package: agents read it with every credential masked (tokens, passwords, usernames, emails, certificates), and only the registry lines stay readable. Turn off the project's design system to go back to the organization's.",
+            "override": "Use a project-specific design system",
+            "overrideHint": "Off, the project inherits the design system of the organization.",
+            "inherited": "Inherits from the organization: {{packageName}}",
+            "noOrganizationDefault": "The organization defines no design system: one of its administrators can set it in the organization settings.",
             "saved": "Design system saved",
             "save_failed": "The design system could not be saved"
+        },
+        "organization": {
+            "title": "Design system",
+            "subtitle": "The UI library the frontends of every project are built with, unless the project picks its own.",
+            "details": "Each project may replace it with its own, and each frontend with its own again: the most specific one wins. The .npmrc is stored as you paste it; AI agents read it with its credentials masked. Leave the package empty to remove the design system.",
+            "none": "The organization defines no design system.",
+            "adminOnly": "Only the administrators of the organization can change it.",
+            "docs": "Documentation",
+            "saved": "Organization design system saved",
+            "save_failed": "The design system of the organization could not be saved"
         },
         "fields": {
             "packageName": "npm package",
@@ -3063,9 +3080,10 @@
             "title": "Design system",
             "subtitle": "The UI library this frontend is built with.",
             "override": "Use its own design system",
-            "overrideHint": "Off, the frontend builds with the design system of the project.",
+            "overrideHint": "Off, the frontend builds with the design system of the project or, when the project has none, the organization's.",
             "inherited": "Inherits from the project: {{packageName}}",
-            "noProjectDefault": "The project has no default design system: set one in the project settings."
+            "inheritedFromOrganization": "Inherits from the organization: {{packageName}}",
+            "noProjectDefault": "Neither the project nor the organization has a design system: set one in the project or organization settings."
         }
     },
     "technologies": {

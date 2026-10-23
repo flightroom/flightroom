@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { Building2, Cpu, Users } from "lucide-react"
+import { Building2, Cpu, Palette, Users } from "lucide-react"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
@@ -9,16 +9,16 @@ import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useOrganizationApi, { canAdministerOrganization } from "@/hooks/apiClients/useOrganizationApi"
 import useOrganizationStore from "@/store/useOrganizationStore"
-import { ORGANIZATION_USERS_QUERY_KEY, OrganizationAiModelsSection, OrganizationDetailsSection, OrganizationMembersSection } from "./partials"
+import { ORGANIZATION_USERS_QUERY_KEY, OrganizationAiModelsSection, OrganizationDesignSystemSection, OrganizationDetailsSection, OrganizationMembersSection } from "./partials"
 
-const TABS = ["general", "members", "ai"] as const
+const TABS = ["general", "members", "designSystem", "ai"] as const
 type Tab = (typeof TABS)[number]
 
-const TAB_ICONS: Record<Tab, React.ComponentType> = { general: Building2, members: Users, ai: Cpu }
+const TAB_ICONS: Record<Tab, React.ComponentType> = { general: Building2, members: Users, designSystem: Palette, ai: Cpu }
 
 /**
- * The settings of the organization, one concern per tab: its details and deletion, the people in it, the AIs its
- * projects use. The tab lives in the URL (`?tab=members`) so that a link can point straight to one of them.
+ * The settings of the organization, one concern per tab: its details and deletion, the people in it, the design system
+ * its projects inherit, the AIs its projects use. The tab lives in the URL (`?tab=members`) so that a link can point straight to one of them.
  */
 const OrganizationSettings: React.FC = () => {
     const { t } = useTranslation()
@@ -70,6 +70,10 @@ const OrganizationSettings: React.FC = () => {
 
                         <TabsContent value="members" className="mt-6">
                             <OrganizationMembersSection organization={organization} users={usersQuery.data ?? []} canAdminister={canAdminister} />
+                        </TabsContent>
+
+                        <TabsContent value="designSystem" className="mt-6">
+                            <OrganizationDesignSystemSection organization={organization} canAdminister={canAdminister} />
                         </TabsContent>
 
                         <TabsContent value="ai" className="mt-6 flex flex-col gap-6">

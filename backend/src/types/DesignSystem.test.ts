@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest"
 import Frontend from "../models/FrontendModel"
+import Organization from "../models/OrganizationModel"
 import { describeDesignSystem, designSystemOf, effectiveDesignSystem, redactDesignSystems, redactNpmrc } from "./DesignSystem"
 
 describe("redactNpmrc", () => {
@@ -53,17 +54,27 @@ describe("designSystemOf", () => {
 
 describe("effectiveDesignSystem", () => {
     const project = { packageName: "@acme/ui" }
+    const organization = { packageName: "@acme/brand" }
 
-    it("Given a frontend with its own, then its own wins over the project's", () => {
-        expect(effectiveDesignSystem({ packageName: "@acme/legacy-ui" }, project)).toEqual({ packageName: "@acme/legacy-ui" })
+    it("Given a frontend with its own, then its own wins over the project's and the organization's", () => {
+        expect(effectiveDesignSystem({ packageName: "@acme/legacy-ui" }, project, organization)).toEqual({ packageName: "@acme/legacy-ui" })
     })
 
     it("Given a frontend without one, then it builds with the project's", () => {
-        expect(effectiveDesignSystem(undefined, project)).toEqual(project)
+        expect(effectiveDesignSystem(undefined, project, organization)).toEqual(project)
     })
 
-    it("Given neither, then there is none", () => {
-        expect(effectiveDesignSystem(undefined, undefined)).toBeUndefined()
+    it("Given a frontend and a project without one, then it builds with the organization's", () => {
+        expect(effectiveDesignSystem(null, undefined, organization)).toEqual(organization)
+    })
+
+    it("Given a level left with no package, then it is skipped as if it had none", () => {
+        expect(effectiveDesignSystem({ packageName: "" }, undefined, organization)).toEqual(organization)
+    })
+
+    it("Given none at any level, then there is none", () => {
+        expect(effectiveDesignSystem(undefined, null, undefined)).toBeUndefined()
+        expect(effectiveDesignSystem()).toBeUndefined()
     })
 })
 
@@ -81,6 +92,19 @@ describe("redactDesignSystems", () => {
         expect(serialised.designSystem).toEqual({ packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=***" })
         expect(serialised.aiContext.project.designSystem.npmrc).not.toContain("npm_abc123")
         expect(serialised.slug).toBe("catalog")
+    })
+
+    it("Given an organization document serialised for an AI, when it carries a design system, then its npmrc reaches it masked", () => {
+        const organization = new Organization({
+            name: "Acme",
+            slug: "acme",
+            designSystem: { packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" }
+        })
+
+        const serialised = JSON.parse(JSON.stringify({ organization, role: "OWNER" }, redactDesignSystems))
+
+        expect(serialised.organization.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
+        expect(serialised.organization.name).toBe("Acme")
     })
 })
 

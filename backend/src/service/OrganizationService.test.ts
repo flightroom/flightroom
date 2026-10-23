@@ -122,6 +122,51 @@ describe("OrganizationService", () => {
 
             expect(await codeOf(new OrganizationService(member).update(ORGANIZATION_ID, { name: "Nuovo nome" }))).toBe("UserCannotAccessThisOrganizationError")
         })
+
+        describe("design system", () => {
+            let admin: IUser
+            let written: Record<string, unknown> | undefined
+
+            beforeEach(() => {
+                admin = aUser()
+                memberships.push({ userId: admin._id, role: RoleInOrganization.ADMIN })
+                written = undefined
+                vi.spyOn(Organization, "findByIdAndUpdate").mockImplementation(((_id: unknown, update: Record<string, unknown>) => {
+                    written = update
+                    return Promise.resolve({ _id: ORGANIZATION_ID, name: "Acme" })
+                }) as never)
+            })
+
+            it("Given an admin and a design system, when the organization is updated, then it is written whole, trimmed, its blank fields left out", async () => {
+                await new OrganizationService(admin).update(ORGANIZATION_ID, {
+                    designSystem: { packageName: " @acme/brand ", version: "^1.0.0", docsUrl: "", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" }
+                })
+
+                expect(written).toEqual({ designSystem: { packageName: "@acme/brand", version: "^1.0.0", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } })
+            })
+
+            it("Given an admin and a null design system, when the organization is updated, then it is unset, along with a null description", async () => {
+                await new OrganizationService(admin).update(ORGANIZATION_ID, { description: null, designSystem: null })
+
+                expect(written).toEqual({ $unset: { description: 1, designSystem: 1 } })
+            })
+
+            it("Given a design system without its package, when the organization is updated, then it is refused with a 400 and nothing is written", async () => {
+                await expect(new OrganizationService(admin).update(ORGANIZATION_ID, { designSystem: { notes: "Use its tokens." } as never })).rejects.toMatchObject({
+                    code: "DESIGN_SYSTEM_INVALID",
+                    statusCode: 400
+                })
+                expect(written).toBeUndefined()
+            })
+
+            it("Given a plain member, when they try to set the design system, then it is refused and nothing is written", async () => {
+                const member = aUser()
+                memberships.push({ userId: member._id, role: RoleInOrganization.MEMBER })
+
+                expect(await codeOf(new OrganizationService(member).update(ORGANIZATION_ID, { designSystem: { packageName: "@acme/brand" } }))).toBe("UserCannotAccessThisOrganizationError")
+                expect(written).toBeUndefined()
+            })
+        })
     })
 
     describe("delete", () => {

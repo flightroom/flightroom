@@ -11,6 +11,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
+import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
@@ -460,6 +461,8 @@ describe("getContext", () => {
     beforeEach(() => {
         filters = { domain: undefined, frontend: undefined, service: undefined }
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", context: "shared rules" } as never)
+        // An organization without a design system: the inheritance has tests of its own
+        vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
         // A member of the whole project: the domain scope has tests of its own
         vi.spyOn(ProjectService.prototype as unknown as WithAuthorizationGate, "getDomainScope").mockResolvedValue(undefined)
         recordFind(Domain, "domain", { _id: domainId, slug: "payments", name: "Payments", context: "payments rules" })
@@ -499,14 +502,16 @@ describe("getContext", () => {
         const context = await new ProjectService(aUser()).getContext(projectId)
 
         expect(context.project.designSystem).toEqual({ packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=***" })
+        expect(context.project.designSystemSource).toBe("project")
         // No frontend focus, no frontend to resolve one for
         expect(context.designSystem).toBeUndefined()
+        expect(context.designSystemSource).toBeUndefined()
     })
 
     it.each([
-        ["its own", { packageName: "@acme/legacy-ui" }, "@acme/legacy-ui"],
-        ["none, the project's", undefined, "@acme/ui"]
-    ])("Given a frontend with %s design system and no context, when its context is read, then the design system it builds with comes back", async (_case, own, expected) => {
+        ["its own", { packageName: "@acme/legacy-ui" }, "@acme/legacy-ui", "frontend"],
+        ["none, the project's", undefined, "@acme/ui", "project"]
+    ])("Given a frontend with %s design system and no context, when its context is read, then the design system it builds with comes back", async (_case, own, expected, source) => {
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui" } } as never)
         vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null, designSystem: own } as never)
         vi.spyOn(Frontend, "find").mockImplementation((() => ({ sort: () => Promise.resolve([]) })) as never)
@@ -515,6 +520,48 @@ describe("getContext", () => {
 
         expect(context.frontends).toEqual([])
         expect(context.designSystem).toEqual({ packageName: expected })
+        expect(context.designSystemSource).toBe(source)
+    })
+
+    describe("with a design system set by the organization", () => {
+        const organizationId = newId()
+
+        beforeEach(() => {
+            vi.spyOn(Organization, "findById").mockResolvedValue({
+                _id: organizationId,
+                designSystem: { packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" }
+            } as never)
+        })
+
+        it("Given a project without its own, when the context is read, then the organization's comes back as the project's, masked", async () => {
+            vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId } as never)
+
+            const context = await new ProjectService(aUser()).getContext(projectId)
+
+            expect(context.project.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
+            expect(context.project.designSystemSource).toBe("organization")
+        })
+
+        it("Given a frontend and a project without their own, when the context of the frontend is read, then it builds with the organization's", async () => {
+            vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId } as never)
+            vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null } as never)
+
+            const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
+
+            expect(context.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
+            expect(context.designSystemSource).toBe("organization")
+        })
+
+        it("Given a project with its own, when the context of a frontend without one is read, then the project's wins and the organization is not read", async () => {
+            vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId, designSystem: { packageName: "@acme/ui" } } as never)
+            vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null } as never)
+
+            const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
+
+            expect(context.project).toMatchObject({ designSystem: { packageName: "@acme/ui" }, designSystemSource: "project" })
+            expect(context).toMatchObject({ designSystem: { packageName: "@acme/ui" }, designSystemSource: "project" })
+            expect(Organization.findById).not.toHaveBeenCalled()
+        })
     })
 
     it("Given a project without technologies, when the context is read, then none come back", async () => {

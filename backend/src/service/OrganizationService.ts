@@ -6,6 +6,7 @@ import AiModel from "../models/AiModelModel"
 import Organization, { IOrganization } from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
+import { designSystemOf, IDesignSystem } from "../types/DesignSystem"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import { slugify } from "../utils/slugUtils"
@@ -20,6 +21,8 @@ export interface OrganizationCreateInput {
 export interface OrganizationUpdateInput {
     name?: string
     description?: string | null
+    /** Replaced whole; null removes it, and the projects without their own are left with none */
+    designSystem?: IDesignSystem | null
 }
 
 /** An organization as the signed-in user sees it: the role is what the frontend gates its actions on. */
@@ -145,6 +148,12 @@ export class OrganizationService extends BaseAuthorizedService {
             }
             if (typeof updateData.name === "string") {
                 updateData.slug = slugify(updateData.name)
+            }
+            if (updateData.designSystem === null) {
+                updateData.$unset = { ...updateData.$unset, designSystem: 1 }
+                delete updateData.designSystem
+            } else if (updateData.designSystem !== undefined) {
+                updateData.designSystem = designSystemOf(updateData.designSystem)
             }
 
             const updated = await Organization.findByIdAndUpdate(organizationIdObj, updateData, {

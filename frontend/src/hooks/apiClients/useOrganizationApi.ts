@@ -1,6 +1,6 @@
 import { AuthenticationType } from "@/api/apiClient"
 import useApiClient from "@/hooks/useApiClient"
-import { Project } from "./useProjectApi"
+import { DesignSystem, Project } from "./useProjectApi"
 
 /** react-query key of the organization list, shared by everything that has to invalidate it. */
 export const ORGANIZATIONS_QUERY_KEY = ["organizations-mine"]
@@ -21,6 +21,8 @@ export interface Organization {
     name: string
     slug: string
     description?: string
+    /** The UI library of the frontends of every project that does not set its own */
+    designSystem?: DesignSystem
     /** The role the signed-in user holds here: what every action on this screen is gated on. */
     role: RoleInOrganization
     createdAt?: string
@@ -86,7 +88,7 @@ const useOrganizationApi = () => {
         return response.data
     }
 
-    const updateOrganization = async (organizationId: string, organization: { name?: string; description?: string | null }): Promise<Organization> => {
+    const updateOrganization = async (organizationId: string, organization: { name?: string; description?: string | null; designSystem?: DesignSystem | null }): Promise<Organization> => {
         const response = await doRequest<Organization>({
             url: `/api/organizations/${organizationId}`,
             method: "PUT",

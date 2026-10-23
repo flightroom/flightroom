@@ -3,7 +3,8 @@ import { IDesignSystem } from "../types/DesignSystem"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import { ServicePaths } from "../types/ServiceStack"
 import { exposurePath, IServiceEnvVariable, optionalPath, serviceEnvVariableSchema } from "./ContainerFields"
-import { CONTEXT_MAX_LENGTH, designSystemSchema } from "./ProjectModel"
+import { designSystemSchema } from "./DesignSystemSchema"
+import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
 export enum FrontendType {
     HOST = "HOST",

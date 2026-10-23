@@ -17,6 +17,7 @@ import { BusinessException } from "../../errors/BusinessException"
 import AiModel from "../../models/AiModelModel"
 import Domain from "../../models/DomainModel"
 import Frontend from "../../models/FrontendModel"
+import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
 import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
@@ -138,6 +139,8 @@ describe("DomainPlanService.plan", () => {
         vi.spyOn(gates, "isOrganizationAdmin").mockResolvedValue(false)
         vi.spyOn(UserProject, "findOne").mockImplementation((() => Promise.resolve({ role })) as never)
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), name: "Shop", context: "Shop context" } as never)
+        // Nor a design system
+        vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
         // The organization defines no AI: the system one, from the configuration the service is given, answers
         vi.spyOn(AiModel, "find").mockResolvedValue([] as never)
         vi.spyOn(Domain, "findOne").mockResolvedValue(domain as never)
@@ -190,6 +193,22 @@ describe("DomainPlanService.plan", () => {
         expect(request.user).toContain("- service-python-fastapi (default) (project technology)")
         expect(request.user).toContain("- vite-remote-react: ")
         expect(request.system).toContain("project technology")
+    })
+
+    it("given a project without a design system in an organization with one, when a plan is asked, then the model is told the organization's by name only", async () => {
+        vi.spyOn(Organization, "findById").mockResolvedValue({ designSystem: { packageName: "@acme/brand", version: "^2.0.0", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } } as never)
+
+        await plan()
+
+        const request = json.mock.calls[0][0] as { user: string }
+        expect(request.user).toContain("<project_design_system>\npackage: @acme/brand\nversion: ^2.0.0\n")
+        expect(request.user).not.toContain("npm_abc123")
+    })
+
+    it("given a project without a design system in an organization without one, when a plan is asked, then the model is told none", async () => {
+        await plan()
+
+        expect((json.mock.calls[0][0] as { user: string }).user).not.toContain("<project_design_system>")
     })
 
     it("given resources in the project, when a plan is asked, then the model is told them by name and type and not to plan a component for one", async () => {

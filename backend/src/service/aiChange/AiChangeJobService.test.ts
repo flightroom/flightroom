@@ -31,6 +31,7 @@ import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeReposit
 import Domain from "../../models/DomainModel"
 import Environment from "../../models/EnvironmentModel"
 import Frontend from "../../models/FrontendModel"
+import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
 import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
@@ -713,6 +714,8 @@ describe("AiChangeJobService", () => {
             vi.spyOn(AiChangeJob, "findById").mockImplementation(((id: unknown) => Promise.resolve(jobs[String(id)] ?? null)) as never)
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue([request] as never)
             vi.spyOn(AiChangeRequest, "findById").mockImplementation(((id: unknown) => Promise.resolve(String(id) === String(parent._id) ? parent : null)) as never)
+            // Neither the project nor its organization has a design system, unless a test gives one
+            vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
             runAgent.mockImplementation(async (_client: unknown, _input: unknown, hooks: { onUsage: (usage: unknown) => Promise<void> }) => {
                 await hooks.onUsage({ inputTokens: 10, cachedInputTokens: 4, outputTokens: 5 })
                 await hooks.onUsage({ inputTokens: 20, cachedInputTokens: 8, outputTokens: 7 })
@@ -752,6 +755,15 @@ describe("AiChangeJobService", () => {
                 expect.objectContaining({ model: "job", filter: { _id: jobId, status: AiJobStatus.RUNNING }, update: expect.objectContaining({ status: AiJobStatus.DONE }) })
             )
             expect(workingCopy.discardChanges).toHaveBeenCalled()
+        })
+
+        it("Given a frontend and a project without a design system, when the job runs, then the agent builds with the organization's", async () => {
+            vi.spyOn(Organization, "findById").mockResolvedValue({ designSystem: { packageName: "@acme/brand" } } as never)
+
+            await run()
+
+            const input = runAgent.mock.calls[0][1] as { repositories: { frontend: { designSystem?: unknown } }[] }
+            expect(input.repositories[0].frontend.designSystem).toEqual({ packageName: "@acme/brand" })
         })
 
         it("Given a user stopping the job while the agent works, when it is stopped, then the model call is aborted at once and nothing is pushed nor saved", async () => {

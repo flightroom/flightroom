@@ -68,7 +68,7 @@ export interface Project {
     containerRegistry?: string
     /** Le tecnologie di default per frontend e servizi: guidano template e agenti AI senza vincolare */
     technologies?: ProjectTechnologies
-    /** Il design system di default dei frontend */
+    /** Il design system dei frontend; nessuno quando il progetto eredita quello dell'organizzazione */
     designSystem?: DesignSystem
     /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
     role?: RoleInProject

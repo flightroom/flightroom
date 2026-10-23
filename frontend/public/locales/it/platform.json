@@ -186,6 +186,8 @@
         "tabs": {
             "label": "Sezioni delle impostazioni",
             "general": "Generale",
+            "context": "Contesto AI",
+            "designSystem": "Design system",
             "access": "Accessi",
             "resources": "Infrastruttura",
             "delivery": "Rilascio"
@@ -1843,6 +1845,7 @@
             "label": "Sezioni delle impostazioni",
             "general": "Generale",
             "members": "Membri",
+            "designSystem": "Design system",
             "ai": "IA"
         },
         "switch": "Cambia organizzazione",
@@ -3059,9 +3062,23 @@
         "settings": {
             "title": "Design system",
             "subtitle": "La libreria UI con cui si costruiscono i frontend del progetto, salvo quelli che ne scelgono una propria.",
-            "details": "Utenti e agenti AI (client MCP, assistente, Modifica con AI) costruiscono la UI di ogni frontend con questo pacchetto. Il .npmrc viene salvato così come lo incolli, perché il team possa installare il pacchetto: gli agenti lo leggono con tutte le credenziali mascherate (token, password, username, email, certificati) e restano leggibili solo le righe dei registry. Lascia vuoto il pacchetto per togliere il design system.",
+            "details": "Utenti e agenti AI (client MCP, assistente, Modifica con AI) costruiscono la UI di ogni frontend con questo pacchetto. Il .npmrc viene salvato così come lo incolli, perché il team possa installare il pacchetto: gli agenti lo leggono con tutte le credenziali mascherate (token, password, username, email, certificati) e restano leggibili solo le righe dei registry. Disattiva il design system del progetto per tornare a quello dell'organizzazione.",
+            "override": "Usa un design system specifico per il progetto",
+            "overrideHint": "Se disattivato, il progetto eredita il design system dell'organizzazione.",
+            "inherited": "Eredita dall'organizzazione: {{packageName}}",
+            "noOrganizationDefault": "L'organizzazione non definisce un design system: un suo amministratore può impostarlo nelle impostazioni dell'organizzazione.",
             "saved": "Design system salvato",
             "save_failed": "Non è stato possibile salvare il design system"
+        },
+        "organization": {
+            "title": "Design system",
+            "subtitle": "La libreria UI con cui si costruiscono i frontend di ogni progetto che non ne sceglie una propria.",
+            "details": "Ogni progetto può sostituirlo con il proprio, e ogni frontend con il suo: vale il più specifico. Il .npmrc viene salvato così come lo incolli; gli agenti AI lo leggono con le credenziali mascherate. Lascia vuoto il pacchetto per togliere il design system.",
+            "none": "L'organizzazione non definisce un design system.",
+            "adminOnly": "Solo gli amministratori dell'organizzazione possono modificarlo.",
+            "docs": "Documentazione",
+            "saved": "Design system dell'organizzazione salvato",
+            "save_failed": "Non è stato possibile salvare il design system dell'organizzazione"
         },
         "fields": {
             "packageName": "Pacchetto npm",
@@ -3082,9 +3099,10 @@
             "title": "Design system",
             "subtitle": "La libreria UI con cui è costruito questo frontend.",
             "override": "Usa un design system proprio",
-            "overrideHint": "Se disattivato, il frontend usa il design system del progetto.",
+            "overrideHint": "Se disattivato, il frontend usa il design system del progetto o, se il progetto non ne ha uno, quello dell'organizzazione.",
             "inherited": "Eredita dal progetto: {{packageName}}",
-            "noProjectDefault": "Il progetto non ha un design system di default: impostalo nelle impostazioni del progetto."
+            "inheritedFromOrganization": "Eredita dall'organizzazione: {{packageName}}",
+            "noProjectDefault": "Né il progetto né l'organizzazione hanno un design system: impostalo nelle impostazioni del progetto o dell'organizzazione."
         }
     },
     "technologies": {

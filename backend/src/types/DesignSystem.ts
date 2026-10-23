@@ -1,8 +1,8 @@
 import { createBusinessException } from "../errors/BusinessException"
 
 /**
- * The UI library the frontends are built with: the default of a project, which a frontend may
- * replace with its own. It tells users and AI agents which package to build the UI with.
+ * The UI library the frontends are built with: set by the organization, which a project may replace with
+ * its own, and a frontend with its own again. It tells users and AI agents which package to build the UI with.
  */
 export interface IDesignSystem {
     /** The npm package, e.g. `@acme/ui` */
@@ -48,9 +48,11 @@ export const redactDesignSystem = (designSystem?: IDesignSystem | null): IDesign
  */
 export const redactDesignSystems = (key: string, value: unknown): unknown => (key === "designSystem" && value && typeof value === "object" ? redactDesignSystem(value as IDesignSystem) : value)
 
-/** The design system a frontend builds its UI with: its own, else the default of its project. */
-export const effectiveDesignSystem = (frontend?: IDesignSystem | null, project?: IDesignSystem | null): IDesignSystem | undefined =>
-    (frontend?.packageName ? frontend : undefined) ?? (project?.packageName ? project : undefined)
+/**
+ * The design system that applies: the first of the chain that has one, from the most specific level, e.g.
+ * frontend, project, organization.
+ */
+export const effectiveDesignSystem = (...candidates: (IDesignSystem | null | undefined)[]): IDesignSystem | undefined => candidates.find(candidate => candidate?.packageName) ?? undefined
 
 /** The design system to store, trimmed, its blank fields left out: refused with a 400 rather than by the model with a 500. */
 export const designSystemOf = (input: unknown): IDesignSystem => {
