@@ -120,8 +120,8 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
         }
     }
 
-    // A viewer may look, not release; without environments there is nothing to deploy to
-    if (isViewer || environments.length === 0) return null
+    // A viewer may look, not release. Always there for the others: without environments, or before they load, it is disabled
+    if (isViewer) return null
 
     const running = isReleaseRunning(release)
     const shown = release && (running || release._id === followedId) ? release : undefined
@@ -201,7 +201,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
 
     return (
         <>
-            <Button variant="secondary" onClick={() => setOpen(true)} dataTestId="domain-build-and-deploy">
+            <Button onClick={() => setOpen(true)} disabled={environments.length === 0} dataTestId="domain-build-and-deploy">
                 {running ? <Loader2 className="animate-spin" /> : <Workflow />}
                 {t("domains.release.action")}
             </Button>

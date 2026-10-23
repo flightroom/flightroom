@@ -4,7 +4,6 @@ import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import type { Domain } from "@/hooks/apiClients/useDomainsApi"
 import DomainBuildAndDeployButton from "./DomainBuildAndDeployDialog"
 import DomainBuildButton from "./DomainBuildDialog"
-import DomainDeployButton from "./DomainDeployDialog"
 
 interface DomainHeaderProps {
     domain: Domain
@@ -12,7 +11,7 @@ interface DomainHeaderProps {
     active: "ai" | "overview"
 }
 
-/** The header of the domain workspace, in the same frame as those of a frontend and of a backend, with the build, the build and deploy, and the deploy of the domain. */
+/** The header of the domain workspace, in the same frame as those of a frontend and of a backend, with the build and deploy of the domain, and the build alone, that only tags its repositories. */
 export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active }) => {
     const { t } = useTranslation()
 
@@ -35,9 +34,8 @@ export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active }) =>
             ]}
             actions={
                 <>
-                    <DomainBuildButton domain={domain} />
                     <DomainBuildAndDeployButton domain={domain} />
-                    <DomainDeployButton domain={domain} />
+                    <DomainBuildButton domain={domain} />
                 </>
             }
         />

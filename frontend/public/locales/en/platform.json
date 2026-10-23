@@ -2452,7 +2452,7 @@
             "success": "{{domain}} deployed to {{environment}}"
         },
         "build": {
-            "action": "Create version",
+            "action": "Build",
             "title": "Create a version of {{domain}}",
             "description": "Every frontend and backend of the domain with a code repository gets the same version, tagged on the same branch: each tag starts the pipeline of its repository. A repository shared by several of them is tagged once. Every repository is checked first: if one fails, none is tagged.",
             "result_description": "Version {{version}} on branch {{ref}}, repository by repository.",
