@@ -990,7 +990,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
                 "- orders-keys: STRIPE_API_KEY",
                 "resources:",
                 "- orders (database, credentials): Main Postgres of orders",
-                "  keys: DB_ORDERS_ENGINE, DB_ORDERS_HOST, DB_ORDERS_PORT, DB_ORDERS_NAME, DB_ORDERS_USER, DB_ORDERS_PASSWORD (secret), DB_ORDERS_SSL",
+                "  keys: DB_ORDERS_ENGINE, DB_ORDERS_HOST, DB_ORDERS_PORT, DB_ORDERS_NAME, DB_ORDERS_SCHEMA, DB_ORDERS_USER, DB_ORDERS_PASSWORD (secret), DB_ORDERS_SSL",
                 "  secret: orders.resource",
                 "- payments (api, apiKey)",
                 "  keys: API_PAYMENTS_BASE_URL, API_PAYMENTS_SPEC_URL, API_PAYMENTS_API_KEY_IN, API_PAYMENTS_API_KEY_NAME, API_PAYMENTS_API_KEY (secret), API_PAYMENTS_AUTH=apiKey",

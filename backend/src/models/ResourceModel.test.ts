@@ -93,7 +93,7 @@ describe("serialisation", () => {
         const json = JSON.parse(JSON.stringify(resource()))
 
         expect(json.env).toContainEqual({ key: "DB_ORDERS_PASSWORD", field: "password", secret: true, required: true })
-        expect(json.env).toHaveLength(7)
+        expect(json.env).toHaveLength(8)
     })
 })
 
