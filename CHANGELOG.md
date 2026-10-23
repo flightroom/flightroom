@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.2.0] - 2026-10-23
+
+### Added
+
+- **Welcome To The First Project**: an organization with no projects opens on a screen that says it is ready and leads into the project wizard, instead of dropping the owner straight into it. A plain member with nothing shared yet still gets the empty picker, and a pending invitation still comes first
+
+### Changed
+
+- **The Initial Setup Creates The Organization, Not A Project**: the first-startup form asks for the organization name, and `POST /api/startup/registration` creates the first user and their organization only; the first project is created afterwards from the welcome screen. The route still accepts `project` from older clients, which then names the organization when `organization` is left out and is created as before, and answers `400 ORGANIZATION_NAME_REQUIRED` when neither is sent
+- **Emails Render In Every Client And Speak The Recipient's Language**: activation, password reset and both invitations use a table-based layout with inlined CSS, a logo, a preheader, dark mode and a plain-text part. They follow the recipient's language (Italian or English, Italian for new users), name roles as the console does, and an invitation says who sent it
+
+### Fixed
+
+- **Email Titles**: the subject was never passed to the template, so every email had an empty `<title>`
+
+---
+
 ## [6.1.0] - 2026-10-23
 
 ### Added

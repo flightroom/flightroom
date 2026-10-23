@@ -11,90 +11,188 @@
 //-   dark surface       hsl(201 48% 13%) -> #112631
 //-   page bg            --muted           #F1F5F8
 //-   radius         0.75rem (card: +2px)
+//-
+//- Table layout and bgcolor attributes because Outlook desktop renders with Word.
+//- The first <style> is inlined by juice when the email is sent; the data-embed
+//- one is left as it is, for what cannot live in a style attribute.
+
+//- Call to action shared by every email: the button and the same link in plain sight.
+//- The padding sits on the cell, which Outlook honours, not on the link.
+mixin cta(url, label)
+  table(role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%")
+    tr
+      td.cta(align="center")
+        table(role="presentation" border="0" cellpadding="0" cellspacing="0")
+          tr
+            td.button-cell(align="center" bgcolor="#FE7F2D")
+              a.button(href=url target="_blank" style="color: #07202D;") #{label}
+  p.muted
+    | #{copyLink}
+    br
+    a.link(href=url target="_blank") #{url}
+
 doctype html
-html(lang="en")
+html(lang=lang)
   head
     meta(charset="UTF-8")
     meta(name="viewport" content="width=device-width, initial-scale=1.0")
+    meta(http-equiv="X-UA-Compatible" content="IE=edge")
+    meta(name="x-apple-disable-message-reformatting")
+    meta(name="color-scheme" content="light dark")
+    meta(name="supported-color-schemes" content="light dark")
     title= subject
     style(type="text/css").
-      @import url('https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600&display=swap');
       body {
-        font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', sans-serif;
-        line-height: 1.5;
-        letter-spacing: 0.0125em;
-        color: #233D4D;
-        background-color: #F1F5F8;
         margin: 0;
         padding: 0;
+        background-color: #F1F5F8;
+        -webkit-text-size-adjust: 100%;
+        -ms-text-size-adjust: 100%;
       }
-      .container {
-        max-width: 600px;
-        margin: 0 auto;
-        padding: 2rem;
+      table {
+        border-collapse: collapse;
+        mso-table-lspace: 0pt;
+        mso-table-rspace: 0pt;
+      }
+      img {
+        border: 0;
+        outline: none;
+        text-decoration: none;
+        -ms-interpolation-mode: bicubic;
+      }
+      .wrapper {
+        background-color: #F1F5F8;
+      }
+      .wrapper-cell {
+        padding: 32px 16px;
       }
       .card {
-        background: white;
-        border-radius: 0.875rem;
-        box-shadow: 0 1px 4px rgba(7, 32, 45, 0.06), 0 1px 2px rgba(7, 32, 45, 0.04);
-        overflow: hidden;
+        max-width: 600px;
+        background-color: #FFFFFF;
         border: 1px solid #DCE4EA;
+        border-radius: 14px;
+        border-collapse: separate;
+        overflow: hidden;
       }
       .header {
         background-color: #112631;
-        color: white;
-        padding: 1.5rem;
+        padding: 24px;
         text-align: center;
+        border-radius: 13px 13px 0 0;
+      }
+      .logo {
+        display: block;
+        margin: 0 auto 12px;
+      }
+      h1 {
+        margin: 0;
+        font-family: Montserrat, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 24px;
+        line-height: 32px;
+        font-weight: 600;
+        color: #FFFFFF;
       }
       .content {
-        padding: 2rem;
+        padding: 32px;
+        font-family: Montserrat, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 16px;
+        line-height: 24px;
+        letter-spacing: 0.0125em;
+        color: #233D4D;
+        text-align: left;
       }
-      .button {
-        display: inline-block;
-        background-color: #FE7F2D;
-        color: #07202D !important;
-        text-decoration: none;
-        padding: 0.75rem 1.5rem;
-        border-radius: 0.75rem;
-        font-weight: 500;
-        margin: 1.5rem 0;
-      }
-      .button:hover {
-        background-color: #E4690A;
-      }
-      .muted {
-        color: #566E7E;
-        font-size: 0.875rem;
-      }
-      a.link {
-        color: #BC5503;
-        word-break: break-all;
-        font-size: 0.875rem;
+      p {
+        margin: 0 0 16px;
       }
       .accent {
         color: #BC5503;
       }
-      .footer {
-        text-align: center;
-        padding: 1.5rem;
-        color: #566E7E;
-        font-size: 0.875rem;
-        border-top: 1px solid #DCE4EA;
+      .cta {
+        padding: 8px 0 24px;
       }
-  body
-    .container
-      .card
-        if headerIcon
-          .header
-            h1(style="margin: 0; font-size: 1.5rem;") #{headerIcon} #{header}
-        else
-          .header
-            h1(style="margin: 0; font-size: 1.5rem;") #{header}
-        .content
-          block content
-        .footer
-          p(style="margin: 0;")
-            if footerText
-              | #{footerText}
-              br
-            | Flightroom — this is an automated message, please do not reply.
+      .button-cell {
+        background-color: #FE7F2D;
+        border-radius: 12px;
+        padding: 12px 24px;
+      }
+      .button {
+        display: inline-block;
+        font-family: Montserrat, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 16px;
+        line-height: 24px;
+        font-weight: 600;
+        color: #07202D;
+        text-decoration: none;
+      }
+      .muted {
+        color: #566E7E;
+        font-size: 14px;
+        line-height: 20px;
+      }
+      .link {
+        color: #BC5503;
+        word-break: break-all;
+        font-size: 14px;
+      }
+      .footer {
+        padding: 24px;
+        border-top: 1px solid #DCE4EA;
+        font-family: Montserrat, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+        font-size: 14px;
+        line-height: 20px;
+        color: #566E7E;
+        text-align: center;
+      }
+      .footer p {
+        margin: 0;
+      }
+    style(type="text/css" data-embed).
+      @media only screen and (max-width: 600px) {
+        .wrapper-cell { padding: 16px 8px !important; }
+        .header { padding: 20px !important; }
+        .content { padding: 24px 20px !important; }
+        .footer { padding: 20px !important; }
+        h1 { font-size: 20px !important; line-height: 28px !important; }
+      }
+      @media (prefers-color-scheme: dark) {
+        body, .wrapper { background-color: #07202D !important; }
+        .card, .content { background-color: #112631 !important; border-color: #233D4D !important; }
+        .header { background-color: #07202D !important; }
+        .content, .content p { color: #F1F5F8 !important; }
+        .muted, .footer { color: #DCE4EA !important; }
+        .footer { border-top-color: #233D4D !important; }
+        .link, .accent { color: #FE7F2D !important; }
+        .button-cell { background-color: #FE7F2D !important; }
+        .button { color: #07202D !important; }
+      }
+      [data-ogsb] .button-cell { background-color: #FE7F2D !important; }
+      [data-ogsc] .button { color: #07202D !important; }
+    <!--[if mso]><style type="text/css">h1, .content, .button, .footer { font-family: Arial, sans-serif !important; }</style><![endif]-->
+  body(bgcolor="#F1F5F8")
+    div(style="display: none; max-height: 0; max-width: 0; overflow: hidden; opacity: 0; font-size: 1px; line-height: 1px; mso-hide: all;")
+      | #{preheader}
+      | !{"&#847;&zwnj;&nbsp;".repeat(40)}
+    table.wrapper(role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#F1F5F8")
+      tr
+        td.wrapper-cell(align="center")
+          <!--[if mso]><table role="presentation" border="0" cellpadding="0" cellspacing="0" width="600" align="center"><tr><td><![endif]-->
+          table.card(role="presentation" border="0" cellpadding="0" cellspacing="0" width="100%" bgcolor="#FFFFFF")
+            tr
+              td.header(align="center" bgcolor="#112631")
+                img.logo(src=logoUrl alt="Flightroom" width="36" height="36")
+                h1
+                  if headerIcon
+                    | #{headerIcon} #{header}
+                  else
+                    | #{header}
+            tr
+              td.content
+                block content
+            tr
+              td.footer(align="center")
+                p
+                  if footerText
+                    | #{footerText}
+                    br
+                  | #{footer}
+          <!--[if mso]></td></tr></table><![endif]-->

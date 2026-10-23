@@ -156,7 +156,7 @@ export class UserService {
         await user.save()
 
         if (canVerifyEmail && userToSave.activateEmailToken) {
-            await this.emailService.sendVerificationEmail(email, userToSave.activateEmailToken)
+            await this.emailService.sendVerificationEmail(email, userToSave.activateEmailToken, user.language)
         }
 
         return user
@@ -241,7 +241,7 @@ export class UserService {
         user.resetPasswordExpires = new Date(Date.now() + 3600000) // 1 hour
         await user.save()
 
-        await this.emailService.sendResetPasswordEmail(email, resetToken)
+        await this.emailService.sendResetPasswordEmail(email, resetToken, user.language)
     }
 
     async resetPassword(data: ResetPasswordDataDTO): Promise<void> {

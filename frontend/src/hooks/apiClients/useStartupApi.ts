@@ -8,13 +8,13 @@ export interface ExistsOneUserDTO {
 export interface RegisterFirstUserData {
     email: string
     password: string
-    project: string
+    organization: string
 }
 
 const useStartupApi = () => {
     const { doRequest } = useApiClient()
 
-    async function createFirstUserAndProject(userData: RegisterFirstUserData) {
+    async function createFirstUserAndOrganization(userData: RegisterFirstUserData) {
         const response = await doRequest<ExistsOneUserDTO>({
             url: "/api/startup/registration",
             method: "POST",
@@ -34,7 +34,7 @@ const useStartupApi = () => {
 
     return {
         existsAtLeastOneUser,
-        createFirstUserAndProject
+        createFirstUserAndOrganization
     }
 }
 
