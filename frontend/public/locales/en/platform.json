@@ -2677,8 +2677,7 @@
             "devops": "DevOps",
             "domains": "Functional domains",
             "frontends": "Frontends",
-            "services": "Backend services",
-            "cloud": "Cloud"
+            "services": "Backend services"
         },
         "top_menu": "Project menu"
     },

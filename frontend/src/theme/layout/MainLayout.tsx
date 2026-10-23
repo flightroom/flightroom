@@ -1,9 +1,7 @@
 import {
     Boxes,
-    Database,
     FileText,
     Hammer as HammerIcon,
-    HardDrive,
     KeyRound,
     Layers,
     LayoutDashboard,
@@ -76,13 +74,6 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 { name: t("deployments.title"), path: "/deployments", icon: <RocketIcon /> },
                 // Missions run AI agents: without an AI in the project there is nothing to start.
                 ...(assistantEnabled ? [{ name: t("fleet.title"), path: "/fleet", icon: <Ship /> }] : [])
-            ]
-        },
-        {
-            title: t("navigation.sections.cloud"),
-            items: [
-                { name: t("database.databases"), path: "/databases", icon: <Database /> },
-                { name: t("storage.storages"), path: "/storages", icon: <HardDrive /> }
             ]
         }
     ]
