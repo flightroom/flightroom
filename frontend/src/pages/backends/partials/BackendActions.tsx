@@ -4,11 +4,11 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
-import DomainDeployReleaseButton from "@/pages/domains/partials/DomainDeployReleaseButton"
+import ComponentBuildAndDeployButton from "@/pages/domains/partials/ComponentBuildAndDeployButton"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import BackendBuildDialog from "./BackendBuildDialog"
 
-/** The two actions of a backend, in its header, as a frontend's: deploy the release, and build a new one from its repository. */
+/** The two actions of a backend, in its header, as a frontend's: build and deploy its domain, and build alone, that only tags its repository. */
 export const BackendActions: React.FC<{ backend: Backend }> = ({ backend }) => {
     const { t } = useTranslation()
     const isViewer = useIsProjectViewer()
@@ -21,7 +21,7 @@ export const BackendActions: React.FC<{ backend: Backend }> = ({ backend }) => {
 
     return (
         <>
-            <DomainDeployReleaseButton domainId={backend.domainId} />
+            <ComponentBuildAndDeployButton domainId={backend.domainId} />
             {canBuild && (
                 <>
                     <Button variant="secondary" onClick={() => setBuildOpen(true)}>

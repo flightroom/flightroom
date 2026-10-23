@@ -3,11 +3,11 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
-import DomainDeployReleaseButton from "@/pages/domains/partials/DomainDeployReleaseButton"
+import ComponentBuildAndDeployButton from "@/pages/domains/partials/ComponentBuildAndDeployButton"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import { BuildDialog } from "./BuildDialog"
 
-/** The two actions of a frontend, in its header: deploy the release, and build a new one from its repository. */
+/** The two actions of a frontend, in its header: build and deploy its domain, and build alone, that only tags its repository. */
 export const FrontendActions: React.FC<{ frontend: Frontend }> = ({ frontend }) => {
     const { t } = useTranslation()
     const isViewer = useIsProjectViewer()
@@ -19,7 +19,7 @@ export const FrontendActions: React.FC<{ frontend: Frontend }> = ({ frontend }) 
 
     return (
         <>
-            <DomainDeployReleaseButton domainId={frontend.domainId} />
+            <ComponentBuildAndDeployButton domainId={frontend.domainId} />
             {canBuild && (
                 <>
                     <Button variant="secondary" onClick={() => setBuildOpen(true)}>

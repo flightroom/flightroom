@@ -2445,12 +2445,6 @@
         "created_success_message": "Domain created",
         "updated_success_message": "Domain updated",
         "no_domain": "No domain",
-        "deploy": {
-            "title": "Deploy {{domain}}",
-            "release_action": "Deploy release",
-            "description": "Pick the environment: only the frontends and backends of this domain are deployed, the other domains keep the versions the environment serves now. Config maps and secrets are still deployed as they are now.",
-            "success": "{{domain}} deployed to {{environment}}"
-        },
         "build": {
             "action": "Build",
             "title": "Create a version of {{domain}}",
@@ -2488,6 +2482,7 @@
         },
         "release": {
             "action": "Build and deploy",
+            "no_domain": "Add it to a domain to build and deploy it",
             "title": "Build and deploy {{domain}}",
             "description": "Creates the version as Create version does, waits for the pipeline of every tagged repository to register it, sets it as the version of those frontends and backends, then deploys the domain to the environment picked. The console goes on with it even if you close this window.",
             "progress_description": "Version {{version}} from branch {{ref}} to {{environment}}.",
