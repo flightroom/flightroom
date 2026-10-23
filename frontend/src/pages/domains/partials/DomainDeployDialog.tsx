@@ -15,7 +15,7 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
  * Deploys one functional domain to the environment picked: only its frontends and backends move, the
  * other domains keep what the environment serves. Without environments there is nothing to deploy to.
  */
-export const DomainDeployButton: React.FC<{ domain: Domain }> = ({ domain }) => {
+export const DomainDeployButton: React.FC<{ domain: Domain; label?: string }> = ({ domain, label }) => {
     const { t } = useTranslation()
     const projectStore = useProjectStore()
     const deploymentsApi = useDeploymentsApi()
@@ -50,7 +50,7 @@ export const DomainDeployButton: React.FC<{ domain: Domain }> = ({ domain }) => 
         <>
             <Button onClick={() => setOpen(true)} dataTestId="domain-deploy">
                 <Rocket />
-                {t("deployments.deploy_button")}
+                {label ?? t("deployments.deploy_button")}
             </Button>
             <Dialog open={open} onOpenChange={value => !deployMutation.isPending && setOpen(value)}>
                 <DialogContent>

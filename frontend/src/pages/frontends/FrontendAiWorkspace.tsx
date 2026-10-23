@@ -6,7 +6,7 @@ import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
-import { FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
+import { FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
 
 /** The landing screen of a frontend: Edit with AI. Without AI editing, the overview takes its place. */
 const FrontendAiWorkspacePage: React.FC = () => {
@@ -48,7 +48,7 @@ const FrontendAiWorkspacePage: React.FC = () => {
 
     return (
         <div className="flex min-h-full flex-col gap-6">
-            <FrontendHeader frontend={frontend} active="ai" aiAvailable />
+            <FrontendHeader frontend={frontend} active="ai" aiAvailable actions={<FrontendActions frontend={frontend} />} />
             {/* Keyed: the route instance is reused across frontends, and a draft must not follow the user to another one. */}
             <AiWorkspace key={id} target={{ kind: "frontend", id: id! }} name={frontend.name} repositories={workspaceRepositoriesOf("frontend", frontend)} />
         </div>

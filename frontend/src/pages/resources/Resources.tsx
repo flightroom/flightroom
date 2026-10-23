@@ -105,7 +105,6 @@ const Resources: React.FC = () => {
                                     <TableHead>{t("resources.name")}</TableHead>
                                     <TableHead>{t("resources.type")}</TableHead>
                                     <TableHead>{t("resources.description")}</TableHead>
-                                    <TableHead>{t("resources.list.keys")}</TableHead>
                                     <TableHead>{t("resources.used_by.title")}</TableHead>
                                 </TableRow>
                             </TableHeader>
@@ -128,9 +127,6 @@ const Resources: React.FC = () => {
                                             </TableCell>
                                             <TableCell className="max-w-[20rem] truncate text-foreground-secondary" title={resource.description}>
                                                 {resource.description || "—"}
-                                            </TableCell>
-                                            <TableCell className="max-w-[18rem] truncate font-mono text-xs" title={resource.env.map(key => key.key).join(", ")}>
-                                                {resource.env.length}
                                             </TableCell>
                                             <TableCell>
                                                 {backends.length > 0 ? (
