@@ -2307,6 +2307,7 @@
         "runtime_settings": "Runtime e immagine",
         "runtime_settings_description": "Porta, probe Kubernetes, documentazione API e repository dell'immagine Docker",
         "port": "Porta",
+        "port_hint": "La porta su cui il container è in ascolto, su 0.0.0.0. La riceve anche nella variabile d'ambiente HTTP_PORT",
         "liveness_path": "Percorso liveness probe",
         "liveness_path_hint": "Kubernetes riavvia il container quando questo percorso smette di rispondere",
         "readiness_path": "Percorso readiness probe",

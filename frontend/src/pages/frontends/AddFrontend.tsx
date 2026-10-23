@@ -179,19 +179,24 @@ type FormInput = z.input<FormSchema>
 type FormValues = z.output<FormSchema>
 
 /** Tabs that own validated fields, in the order they are shown: the first one with an error is the one we jump to. */
-const FORM_TABS = ["general", "context", "hosting", "runtime", "variables", "repository"] as const
+const FORM_TABS = ["general", "context", "hosting", "runtime"] as const
 
 type FormTab = (typeof FORM_TABS)[number] | "danger"
 
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
+/** Tabs merged into another one: old links to them open the tab that now holds their fields. */
+const MERGED_TABS = new Map<string, FormTab>([
+    ["container", "runtime"],
+    ["variables", "runtime"],
+    ["repository", "general"]
+])
+
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["name", "slug", "description", "domainId", "kind", "version", "customVersion", "canary"],
+    general: ["name", "slug", "description", "domainId", "kind", "version", "customVersion", "canary", "codeRepository"],
     context: ["context", "designSystem"],
     hosting: ["host"],
-    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath"],
-    variables: ["env", "configMapIds", "secretIds"],
-    repository: ["codeRepository"],
+    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "env", "configMapIds", "secretIds"],
     danger: []
 }
 
@@ -230,9 +235,8 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const initialDomainId = searchParams.get("domainId")
     // `#hosting` (or the older `?tab=hosting`) opens a tab straight away.
     const hashTab = location.hash.slice(1)
-    const requestedTab = isFormTab(hashTab) || hashTab === "container" ? hashTab : searchParams.get("tab")
-    // The runtime and the variables of a DOCKER used to share a Container tab: old links to it open the runtime
-    const linkedTab = requestedTab === "container" ? "runtime" : requestedTab
+    const requestedTab = isFormTab(hashTab) || MERGED_TABS.has(hashTab) ? hashTab : searchParams.get("tab")
+    const linkedTab = MERGED_TABS.get(requestedTab ?? "") ?? requestedTab
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
 
     // The open tab is written in the hash, so a reload or a copied link lands on it
@@ -443,12 +447,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         if (isFormTab(linkedTab)) setActiveTab(linkedTab)
     }, [linkedTab])
 
-    // A linked tab may not exist on this frontend (no repository, or not of its kind): fall back to the first one.
+    // A linked tab may not exist on this frontend (not of its kind, or not saved yet): fall back to the first one.
     const isTabShown = (tab: FormTab) => {
-        if (tab === "repository") return hasRepositories
         if (tab === "danger") return isEdit
         if (tab === "hosting") return !isDocker
-        if (tab === "runtime" || tab === "variables") return isDocker
+        if (tab === "runtime") return isDocker
         return true
     }
     const shownTab = isTabShown(activeTab) ? activeTab : "general"
@@ -482,28 +485,16 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                             {t("frontend.tabs.context")}
                             {tabHasErrors("context") && <ErrorDot />}
                         </TabsTrigger>
-                        {/* A DOCKER runs a container, as a backend: the same Runtime and Variables tabs */}
+                        {/* A DOCKER runs a container, as a backend: the same Runtime tab */}
                         {isDocker ? (
-                            <>
-                                <TabsTrigger value="runtime" className="flex-1">
-                                    {t("backends.tabs.runtime")}
-                                    {tabHasErrors("runtime") && <ErrorDot />}
-                                </TabsTrigger>
-                                <TabsTrigger value="variables" className="flex-1">
-                                    {t("backends.tabs.variables")}
-                                    {tabHasErrors("variables") && <ErrorDot />}
-                                </TabsTrigger>
-                            </>
+                            <TabsTrigger value="runtime" className="flex-1">
+                                {t("backends.tabs.runtime")}
+                                {tabHasErrors("runtime") && <ErrorDot />}
+                            </TabsTrigger>
                         ) : (
                             <TabsTrigger value="hosting" className="flex-1">
                                 {t("frontend.tabs.hosting")}
                                 {tabHasErrors("hosting") && <ErrorDot />}
-                            </TabsTrigger>
-                        )}
-                        {hasRepositories && (
-                            <TabsTrigger value="repository" className="flex-1">
-                                {t("frontend.tabs.repository")}
-                                {tabHasErrors("repository") && <ErrorDot />}
                             </TabsTrigger>
                         )}
                         {isEdit && (
@@ -516,6 +507,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                     {/* forceMount keeps every tab registered: switching tab must not drop the values or re-run the repository lookups. */}
                     <TabsContent value="general" forceMount>
                         <div className="flex flex-col gap-6">
+                            {/* Domain and release first, side by side: what it belongs to and what is served, at a glance */}
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                <DomainSection />
+                                <ReleaseSection isEdit={isEdit} versions={versions} container={isDocker} />
+                            </div>
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="mb-0">{t("frontend.general_information")}</CardTitle>
@@ -557,8 +553,9 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                                     <TextareaField name="description" label={t("frontend.description")} placeholder={t("frontend.description_placeholder")} />
                                 </CardContent>
                             </Card>
-                            <DomainSection />
-                            <ReleaseSection isEdit={isEdit} versions={versions} container={isDocker} />
+                            {hasRepositories && (
+                                <CodeRepositorySection repositoriesData={repositories || []} isEdit={!!id} frontendId={id} savedRepository={frontend?.codeRepository} forceCreation={!isEdit} />
+                            )}
                         </div>
                     </TabsContent>
 
@@ -610,29 +607,17 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                     </TabsContent>
 
                     {isDocker ? (
-                        <>
-                            <TabsContent value="runtime" forceMount>
-                                <div className="flex flex-col gap-6">
-                                    <BackendRuntimeFields />
-                                    <BackendEndpointFields environments={environments} placeholder="/shell" />
-                                </div>
-                            </TabsContent>
-                            <TabsContent value="variables" forceMount>
-                                <div className="flex flex-col gap-6">
-                                    <BackendEnvFields />
-                                    <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
-                                </div>
-                            </TabsContent>
-                        </>
+                        <TabsContent value="runtime" forceMount>
+                            <div className="flex flex-col gap-6">
+                                <BackendRuntimeFields />
+                                <BackendEndpointFields environments={environments} placeholder="/shell" />
+                                <BackendEnvFields />
+                                <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                            </div>
+                        </TabsContent>
                     ) : (
                         <TabsContent value="hosting" forceMount>
                             <HostingSection storages={storages} />
-                        </TabsContent>
-                    )}
-
-                    {hasRepositories && (
-                        <TabsContent value="repository" forceMount>
-                            <CodeRepositorySection repositoriesData={repositories || []} isEdit={!!id} frontendId={id} savedRepository={frontend?.codeRepository} forceCreation={!isEdit} />
                         </TabsContent>
                     )}
 

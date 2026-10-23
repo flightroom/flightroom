@@ -28,7 +28,7 @@ export const BackendRuntimeFields: React.FC = () => {
                 <CardDescription>{t("backends.runtime_settings_description")}</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-x-4 gap-y-2 pt-3 md:grid-cols-2">
-                <TextField name="port" type="number" label={t("backends.port")} required />
+                <TextField name="port" type="number" label={t("backends.port")} description={t("backends.port_hint")} required />
                 <TextField name="image.repository" label={t("backends.image_repository")} placeholder="ghcr.io/acme/orders-api" description={imageHint} />
                 <TextField name="livenessPath" label={t("backends.liveness_path")} placeholder="/health/live" description={t("backends.liveness_path_hint")} required />
                 <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
