@@ -1,12 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
+import { X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
-import { Badge } from "@/components/atoms"
+import { Badge, Button } from "@/components/atoms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import type { Resource, ResourceEnvKey } from "@/hooks/apiClients/useResourcesApi"
 import type { Service } from "@/hooks/apiClients/useServicesApi"
-import { resourcePath, typeLabel, variantLabel } from "@/pages/resources/partials/resources"
+import { resourcePath, typeLabel, useDetachResource, variantLabel } from "@/pages/resources/partials/resources"
 
 /** What a variable of the resource is in one environment: the override there, the value of all otherwise; a credential is only set or not */
 const valueIn = (resource: Resource, key: ResourceEnvKey, environmentId?: string): { value?: string; set: boolean } => {
@@ -16,9 +17,18 @@ const valueIn = (resource: Resource, key: ResourceEnvKey, environmentId?: string
     return key.secret ? { set: Boolean(value) } : { value, set: Boolean(value) }
 }
 
-/** What the service receives from the resources it attaches, a table per resource: a column per environment, a credential never shown */
-export const ServiceResourcesSection: React.FC<{ service: Pick<Service, "resourceIds">; resources: Resource[]; environments: EnvironmentDTO[] }> = ({ service, resources, environments }) => {
+/**
+ * What the service receives from the resources it attaches, a table per resource: a column per environment, a credential never shown.
+ * `canDetach`: each can be detached from here, without going through the settings.
+ */
+export const ServiceResourcesSection: React.FC<{ service: Pick<Service, "_id" | "name" | "resourceIds">; resources: Resource[]; environments: EnvironmentDTO[]; canDetach?: boolean }> = ({
+    service,
+    resources,
+    environments,
+    canDetach = false
+}) => {
     const { t } = useTranslation()
+    const detach = useDetachResource()
     const attached = resources.filter(resource => service.resourceIds?.includes(resource._id!))
 
     return (
@@ -38,6 +48,20 @@ export const ServiceResourcesSection: React.FC<{ service: Pick<Service, "resourc
                             </Link>
                             <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
                             <span className="text-xs text-foreground-secondary">{variantLabel(t, resource.type, resource.variant)}</span>
+                            {canDetach && (
+                                <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="icon-sm"
+                                    className="ml-auto"
+                                    disabled={detach.isPending}
+                                    aria-label={t("resources.attach.detach", { name: resource.name })}
+                                    title={t("resources.attach.detach", { name: resource.name })}
+                                    onClick={() => detach.mutate({ service, resource })}
+                                >
+                                    <X />
+                                </Button>
+                            )}
                         </div>
                         <div className="overflow-x-auto rounded-lg border-2 border-border bg-card">
                             <Table>

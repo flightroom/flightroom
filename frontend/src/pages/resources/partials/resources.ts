@@ -1,9 +1,12 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
 import { SECRET_PLACEHOLDER } from "@/hooks/apiClients/useDatabaseApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useResourcesApi, { Resource, ResourceCustomField, ResourceDTO, ResourceEnvKey, ResourceFieldSpec, ResourceTypeSpec, ResourceVariantSpec } from "@/hooks/apiClients/useResourcesApi"
+import useServicesApi, { type Service } from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
+import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 export { VARIABLE_MAP_NAME as RESOURCE_NAME } from "@/pages/variable-maps/partials/variableMaps"
 
@@ -240,4 +243,25 @@ export const useResourceCatalogQuery = () => {
     const { getCatalog } = useResourcesApi()
 
     return useQuery({ queryKey: ["resource-catalog"], queryFn: getCatalog, staleTime: Infinity })
+}
+
+/** Detaches a resource from a backend service: from the next deploy it no longer receives its variables */
+export const useDetachResource = () => {
+    const { t } = useTranslation()
+    const servicesApi = useServicesApi()
+    const queryClient = useQueryClient()
+    const notifications = useToastNotificationStore()
+
+    return useMutation({
+        mutationFn: async ({ service, resource }: { service: Pick<Service, "_id" | "name">; resource: Pick<Resource, "_id" | "name"> }) => {
+            // Read again: the list may predate another attach, which the PUT would otherwise drop
+            const current = await servicesApi.getSingle(service._id!)
+            await servicesApi.update(service._id!, { resourceIds: (current.resourceIds ?? []).filter(id => id !== resource._id) })
+        },
+        onSuccess: (_, { service, resource }) => notifications.showSuccessNotification({ message: t("resources.attach.detached", { resource: resource.name, service: service.name }) }),
+        onSettled: (_, __, { service }) => {
+            queryClient.invalidateQueries({ queryKey: ["service", service._id] })
+            queryClient.invalidateQueries({ queryKey: ["services"] })
+        }
+    })
 }

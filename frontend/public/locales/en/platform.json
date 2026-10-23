@@ -3234,7 +3234,8 @@
         "used_by": {
             "title": "Used by",
             "description": "The backend services that receive these variables.",
-            "none": "No service"
+            "none": "No service",
+            "detach": "Detach from {{name}}"
         },
         "attach": {
             "title": "Resources",
@@ -3247,6 +3248,7 @@
             "no_results": "No resource matches \"{{searchTerm}}\".",
             "all_attached": "All attached",
             "detach": "Detach {{name}}",
+            "detached": "{{resource}} detached from {{service}}: from the next deploy it no longer receives its variables",
             "clear_search": "Clear search"
         },
         "danger_zone": {

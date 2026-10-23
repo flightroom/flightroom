@@ -263,7 +263,7 @@ const ServiceDetail: React.FC<ServiceDetailProps> = ({ view = "overview" }) => {
                     <ServiceVersionsTable versions={versionsQuery.data ?? []} />
                     <ServiceConfigurationSection service={service} environments={environmentsQuery.data ?? []} />
                     <ServiceVariableMapsSection service={service} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
-                    <ServiceResourcesSection service={service} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                    <ServiceResourcesSection service={service} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} canDetach={!isViewer} />
                     {!isViewer && (
                         <ServiceReleaseDialog open={releaseOpen} onOpenChange={setReleaseOpen} service={service} onSaved={() => queryClient.invalidateQueries({ queryKey: ["service", id] })} />
                     )}
