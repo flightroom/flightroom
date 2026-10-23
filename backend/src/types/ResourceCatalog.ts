@@ -5,7 +5,7 @@ import { DatabaseType } from "../models/DatabaseModel"
  * attaches the resource: the platform knows its fields, so it names the variables and keeps the
  * credentials among them encrypted, where a config map or a secret leaves both to whoever fills it.
  */
-export type ResourceType = "database" | "mongodb" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "generic"
+export type ResourceType = "database" | "mongodb" | "bigquery" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "generic"
 
 /** How the console asks for a field; the backend checks number, boolean, select, url and email against it too */
 export type ResourceFieldInput = "text" | "number" | "boolean" | "select" | "multiline" | "url" | "email"
@@ -152,6 +152,32 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
                     field("replicaSet", "REPLICA_SET", { required: false }),
                     field("tls", "TLS", { input: "boolean", required: false, default: "false" })
                 ]
+            }
+        ]
+    },
+    /**
+     * A Google BigQuery project, by a service account key or by the identity the cluster gives the pod
+     * (Application Default Credentials, e.g. GKE Workload Identity), which then needs no credential at all
+     */
+    bigquery: {
+        type: "bigquery",
+        envPrefix: "BQ",
+        variants: [
+            {
+                id: "serviceAccountKey",
+                fields: [
+                    field("projectId", "PROJECT_ID", { connection: true }),
+                    field("dataset", "DATASET", { required: false }),
+                    field("location", "LOCATION", { required: false }),
+                    secret("jsonKey", "CREDENTIALS_JSON", { input: "multiline" })
+                ],
+                // The variant is the way to authenticate: the client reads it rather than guessing from the keys set
+                fixed: { AUTH: "serviceAccountKey" }
+            },
+            {
+                id: "applicationDefault",
+                fields: [field("projectId", "PROJECT_ID", { connection: true }), field("dataset", "DATASET", { required: false }), field("location", "LOCATION", { required: false })],
+                fixed: { AUTH: "applicationDefault" }
             }
         ]
     },

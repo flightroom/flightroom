@@ -180,6 +180,27 @@ describe("the mongodb type", () => {
     })
 })
 
+describe("the bigquery type", () => {
+    it("given a service account key, when its variables are derived, then the key is the only secret and the variant is told to the client", () => {
+        expect(resourceEnvKeys({ name: "analytics", type: "bigquery", variant: "serviceAccountKey" })).toEqual([
+            { key: "BQ_ANALYTICS_PROJECT_ID", field: "projectId", secret: false, required: true },
+            { key: "BQ_ANALYTICS_DATASET", field: "dataset", secret: false, required: false },
+            { key: "BQ_ANALYTICS_LOCATION", field: "location", secret: false, required: false },
+            { key: "BQ_ANALYTICS_CREDENTIALS_JSON", field: "jsonKey", secret: true, required: true },
+            { key: "BQ_ANALYTICS_AUTH", secret: false, required: true, value: "serviceAccountKey" }
+        ])
+    })
+
+    it("given the identity of the pod, when its variables are derived, then there is no credential", () => {
+        expect(resourceEnvKeys({ name: "analytics", type: "bigquery", variant: "applicationDefault" })).toEqual([
+            { key: "BQ_ANALYTICS_PROJECT_ID", field: "projectId", secret: false, required: true },
+            { key: "BQ_ANALYTICS_DATASET", field: "dataset", secret: false, required: false },
+            { key: "BQ_ANALYTICS_LOCATION", field: "location", secret: false, required: false },
+            { key: "BQ_ANALYTICS_AUTH", secret: false, required: true, value: "applicationDefault" }
+        ])
+    })
+})
+
 describe("the generic type", () => {
     const customFields = [
         { name: "BASE_URL", secret: false },

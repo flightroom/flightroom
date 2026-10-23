@@ -3310,6 +3310,10 @@
                 "label": "MongoDB",
                 "description": "Un database MongoDB esterno, ad esempio Atlas: per stringa di connessione (mongodb+srv://) o per host e credenziali."
             },
+            "bigquery": {
+                "label": "BigQuery",
+                "description": "Un progetto Google BigQuery: con la chiave JSON di un service account o con l'identità del pod (Workload Identity)."
+            },
             "storage": {
                 "label": "Storage",
                 "description": "Un bucket o un container di object storage su AWS, Azure o Google Cloud."
@@ -3353,6 +3357,10 @@
             "mongodb": {
                 "connectionString": "Stringa di connessione",
                 "credentials": "Host e credenziali"
+            },
+            "bigquery": {
+                "serviceAccountKey": "Chiave di un service account",
+                "applicationDefault": "Identità del pod (Application Default Credentials)"
             },
             "storage": {
                 "aws": "AWS S3",
@@ -3435,7 +3443,10 @@
             "fromName": "Nome mittente",
             "schema": "Schema",
             "authSource": "Database di autenticazione",
-            "replicaSet": "Replica set"
+            "replicaSet": "Replica set",
+            "projectId": "ID del progetto Google Cloud",
+            "dataset": "Dataset",
+            "location": "Località"
         },
         "retype": {
             "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"

@@ -1,5 +1,5 @@
 import { Box, Braces, Database, HardDrive, KeyRound, type LucideIcon, Mail, Sparkles } from "lucide-react"
-import { type SimpleIcon, siAuth0, siClaude, siGooglecloud, siGooglegemini, siMariadb, siMongodb, siMysql, siOpenapiinitiative, siPostgresql, siRedis } from "simple-icons"
+import { type SimpleIcon, siAuth0, siClaude, siGooglebigquery, siGooglecloud, siGooglegemini, siMariadb, siMongodb, siMysql, siOpenapiinitiative, siPostgresql, siRedis } from "simple-icons"
 import { isNearBlack } from "@/components/technology/technologyIcons"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 
@@ -30,6 +30,7 @@ const VARIANT_BRANDS = new Map<string, SimpleIcon>([
 ])
 const TYPE_BRANDS = new Map<string, SimpleIcon>([
     ["mongodb", siMongodb],
+    ["bigquery", siGooglebigquery],
     ["redis", siRedis],
     ["auth0", siAuth0],
     ["api", siOpenapiinitiative]
