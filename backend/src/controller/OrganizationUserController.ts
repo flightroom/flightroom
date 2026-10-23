@@ -1,5 +1,5 @@
 import { FastifyInstance } from "fastify"
-import { RoleInOrganization } from "../models/UserOrganizationModel"
+import { organizationMembershipView, RoleInOrganization } from "../models/UserOrganizationModel"
 import UserOrganizationService from "../service/UserOrganizationService"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 
@@ -25,12 +25,12 @@ export default async function organizationUserController(fastify: FastifyInstanc
 
     fastify.post<{ Params: { organizationId: string }; Body: AddUserToOrganizationDTO }>("/organizations/:organizationId/users", async (request, reply) => {
         const { email, role } = request.body
-        return reply.send(await new UserOrganizationService(request.databaseUser).addUserToOrganizationByEmail(request.params.organizationId, email, role))
+        return reply.send(organizationMembershipView(await new UserOrganizationService(request.databaseUser).addUserToOrganizationByEmail(request.params.organizationId, email, role)))
     })
 
     fastify.put<{ Params: { organizationId: string; userId: string }; Body: UpdateUserRoleDTO }>("/organizations/:organizationId/users/:userId", async (request, reply) => {
         const { organizationId, userId } = request.params
-        return reply.send(await new UserOrganizationService(request.databaseUser).updateRole(organizationId, userId, request.body.role))
+        return reply.send(organizationMembershipView(await new UserOrganizationService(request.databaseUser).updateRole(organizationId, userId, request.body.role)))
     })
 
     fastify.delete<{ Params: { organizationId: string; userId: string } }>("/organizations/:organizationId/users/:userId", async (request, reply) => {
@@ -41,7 +41,7 @@ export default async function organizationUserController(fastify: FastifyInstanc
 
     fastify.post<{ Params: { organizationId: string; userId: string } }>("/organizations/:organizationId/users/:userId/resend-invitation", async (request, reply) => {
         const { organizationId, userId } = request.params
-        return reply.send(await new UserOrganizationService(request.databaseUser).resendInvitation(organizationId, userId))
+        return reply.send(organizationMembershipView(await new UserOrganizationService(request.databaseUser).resendInvitation(organizationId, userId)))
     })
 
     // Public: read invitation details by token (used by the acceptance page)
