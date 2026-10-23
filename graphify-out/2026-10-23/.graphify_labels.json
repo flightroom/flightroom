@@ -313,6 +313,10 @@
   "311": "actions",
   "312": "frontend_card",
   "313": "columns",
+  "314": "DeploymentController.ts",
+  "315": ".getEnvironmentFomRefererAndProjectId",
+  "316": "isValidRefName",
+  "317": "GitHub Logo (Octocat Mark)",
   "319": "status",
   "320": "backend_card"
 }
