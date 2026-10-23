@@ -3024,6 +3024,38 @@
         "applying_label_one": "Applicazione di {{count}} proposta…",
         "applying_label_other": "Applicazione di {{count}} proposte…"
     },
+    "designSystem": {
+        "settings": {
+            "title": "Design system",
+            "subtitle": "La libreria UI con cui si costruiscono i frontend del progetto, salvo quelli che ne scelgono una propria.",
+            "details": "Utenti e agenti AI (client MCP, assistente, Modifica con AI) costruiscono la UI di ogni frontend con questo pacchetto. Il .npmrc viene salvato così come lo incolli, perché il team possa installare il pacchetto: gli agenti lo leggono con tutte le credenziali mascherate (token, password, username, email, certificati) e restano leggibili solo le righe dei registry. Lascia vuoto il pacchetto per togliere il design system.",
+            "saved": "Design system salvato",
+            "save_failed": "Non è stato possibile salvare il design system"
+        },
+        "fields": {
+            "packageName": "Pacchetto npm",
+            "packageNameHint": "es. @acme/ui",
+            "packageNameRequired": "Indica il pacchetto npm del design system",
+            "packageNameInvalid": "Non è un nome di pacchetto npm valido",
+            "version": "Versione",
+            "versionHint": "Un range semver, es. ^3.2.0",
+            "docsUrl": "URL della documentazione",
+            "docsUrlInvalid": "Inserisci un URL http(s)",
+            "npmrc": ".npmrc",
+            "npmrcHint": "Il contenuto del .npmrc con cui si installa il pacchetto. Gli agenti AI lo leggono con le credenziali mascherate.",
+            "notes": "Note per gli agenti AI",
+            "notesPlaceholder": "Importa i componenti da @acme/ui, usa i suoi token, niente colori CSS scritti a mano.",
+            "notesHint": "Markdown: come gli agenti devono usare il design system."
+        },
+        "frontend": {
+            "title": "Design system",
+            "subtitle": "La libreria UI con cui è costruito questo frontend.",
+            "override": "Usa un design system proprio",
+            "overrideHint": "Se disattivato, il frontend usa il design system del progetto.",
+            "inherited": "Eredita dal progetto: {{packageName}}",
+            "noProjectDefault": "Il progetto non ha un design system di default: impostalo nelle impostazioni del progetto."
+        }
+    },
     "technologies": {
         "names": {
             "REACT": "React",

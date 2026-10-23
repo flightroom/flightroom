@@ -13,7 +13,7 @@ import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend from "../models/FrontendModel"
+import Frontend, { IFrontend } from "../models/FrontendModel"
 import Project, { IProject, IProjectPipelines } from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
@@ -21,6 +21,7 @@ import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { designSystemOf, effectiveDesignSystem, IDesignSystem, redactDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
@@ -64,6 +65,8 @@ export interface ProjectUpdateInput {
      * side left out stays as it is.
      */
     technologies?: { frontend?: string | null; backend?: string | null } | null
+    /** The default design system of the frontends, replaced as a whole: `null` removes it */
+    designSystem?: IDesignSystem | null
 }
 
 /** The repository of the pipeline templates as the settings screen names it: by the provider id, the backend resolves the rest */
@@ -152,11 +155,13 @@ interface ContextEntry {
 
 /** What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and service that has it. */
 export interface ProjectContextDTO {
-    /** The technologies come along: an agent creating a frontend or a service starts from them. */
-    project: { id: string; name: string; context?: string; technologies?: IProjectTechnologies }
+    /** The technologies and the default design system come along: an agent creating a frontend or a service starts from them. */
+    project: { id: string; name: string; context?: string; technologies?: IProjectTechnologies; designSystem?: IDesignSystem }
     domains: ContextEntry[]
     frontends: ContextEntry[]
     services: ContextEntry[]
+    /** With a frontend focus: the design system its UI is built with, its own or else the project's, whether it has a context or not */
+    designSystem?: IDesignSystem
 }
 
 /**
@@ -171,6 +176,8 @@ interface ContextFilters {
     domains?: Record<string, unknown>
     frontends?: Record<string, unknown>
     services?: Record<string, unknown>
+    /** The frontend of a frontend focus */
+    frontend?: Pick<IFrontend, "designSystem">
 }
 
 const toContextEntry = (item: { _id: unknown; slug: string; name: string; context?: string }): ContextEntry => ({
@@ -314,16 +321,19 @@ export class ProjectService extends BaseAuthorizedService {
             filters.services ? Service.find({ ...filters.services, ...withContext }, fields).sort({ slug: 1 }) : []
         ])
         const { frontend, backend } = project.technologies ?? {}
+        // Read by agents only: the credentials of the npmrc never come along
         return {
             project: {
                 id: project._id.toString(),
                 name: project.name,
                 context: project.context || undefined,
-                technologies: frontend || backend ? { ...(frontend ? { frontend } : {}), ...(backend ? { backend } : {}) } : undefined
+                technologies: frontend || backend ? { ...(frontend ? { frontend } : {}), ...(backend ? { backend } : {}) } : undefined,
+                designSystem: redactDesignSystem(project.designSystem)
             },
             domains: domains.map(toContextEntry),
             frontends: frontends.map(toContextEntry),
-            services: services.map(toContextEntry)
+            services: services.map(toContextEntry),
+            designSystem: filters.frontend ? redactDesignSystem(effectiveDesignSystem(filters.frontend.designSystem, project.designSystem)) : undefined
         }
     }
 
@@ -349,10 +359,10 @@ export class ProjectService extends BaseAuthorizedService {
             return { domains: { _id: domain._id }, frontends: { domainId: domain._id }, services: { domainId: domain._id } }
         }
         if ("frontendId" in focus) {
-            const frontend = await Frontend.findOne({ _id: toObjectId(focus.frontendId), projectId }, { domainId: 1 })
+            const frontend = await Frontend.findOne({ _id: toObjectId(focus.frontendId), projectId }, { domainId: 1, designSystem: 1 })
             if (!frontend) throw new EntityNotFoundError(focus.frontendId)
             ensureInScope(frontend.domainId)
-            return { domains: domainOf(frontend.domainId), frontends: { _id: frontend._id } }
+            return { domains: domainOf(frontend.domainId), frontends: { _id: frontend._id }, frontend }
         }
         const service = await Service.findOne({ _id: toObjectId(focus.serviceId), projectId }, { domainId: 1 })
         if (!service) throw new EntityNotFoundError(focus.serviceId)
@@ -471,6 +481,11 @@ export class ProjectService extends BaseAuthorizedService {
                 const { set, unset } = technologiesOf(projectData.technologies)
                 Object.assign(updateData, set)
                 if (Object.keys(unset).length > 0) updateData.$unset = { ...updateData.$unset, ...unset }
+            }
+            if (projectData.designSystem === null) {
+                updateData.$unset = { ...updateData.$unset, designSystem: 1 }
+            } else if (projectData.designSystem !== undefined) {
+                updateData.designSystem = designSystemOf(projectData.designSystem)
             }
             for (const field of ["description", "context"] as const) {
                 if (projectData[field] === null) {

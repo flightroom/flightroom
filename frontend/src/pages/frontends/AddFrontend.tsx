@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, SwitchField, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
@@ -31,6 +31,7 @@ import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMap
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import DomainSelectField from "../domains/partials/DomainSelectField"
+import { DesignSystemFields, designSystemFormValues, HTTP_URL, NPM_PACKAGE_NAME, toDesignSystem } from "../settings/partials/DesignSystemFields"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import { FetchDataTemplateCard } from "../templates-library/partials/"
 
@@ -42,6 +43,9 @@ interface FormMessages {
     versionInvalid: string
     hostUrlRequired: string
     canaryPercentage: string
+    designSystemPackageRequired: string
+    designSystemPackageInvalid: string
+    designSystemDocsUrlInvalid: string
 }
 
 const createFormSchema = (messages: FormMessages) => {
@@ -57,6 +61,9 @@ const createFormSchema = (messages: FormMessages) => {
             domainId: z.string().nullable().optional(),
             kind: z.enum(FrontendKind),
             context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
+            // Off, the frontend builds with the design system of the project
+            designSystemOverride: z.boolean().default(false),
+            designSystem: z.object({ packageName: z.string(), version: z.string(), docsUrl: z.string(), npmrc: z.string(), notes: z.string() }).partial().optional(),
             // Required below for a BUNDLE only: a DOCKER frontend's is set here or by its pipeline on the first registration
             version: z.string().optional(),
             customVersion: z.string().optional(),
@@ -129,6 +136,17 @@ const createFormSchema = (messages: FormMessages) => {
                 .optional()
         })
         .superRefine((data, ctx) => {
+            // Its own design system, whatever its kind, needs its npm package
+            if (data.designSystemOverride) {
+                const packageName = data.designSystem?.packageName?.trim() ?? ""
+                if (!NPM_PACKAGE_NAME.test(packageName)) {
+                    ctx.addIssue({ code: "custom", message: packageName ? messages.designSystemPackageInvalid : messages.designSystemPackageRequired, path: ["designSystem", "packageName"] })
+                }
+                const docsUrl = data.designSystem?.docsUrl?.trim()
+                if (docsUrl && !HTTP_URL.test(docsUrl)) {
+                    ctx.addIssue({ code: "custom", message: messages.designSystemDocsUrlInvalid, path: ["designSystem", "docsUrl"] })
+                }
+            }
             if (data.kind === FrontendKind.DOCKER) {
                 // Its container, with the same rules as a service: every issue lands on the field it is about
                 const container = containerSchema.safeParse(data)
@@ -170,7 +188,7 @@ const isFormTab = (value: string | null): value is FormTab => Boolean(value && (
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["name", "slug", "description", "domainId", "kind"],
-    context: ["context"],
+    context: ["context", "designSystem"],
     hosting: ["host"],
     container: ["port", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "image", "env", "configMapIds", "secretIds"],
     repository: ["codeRepository"],
@@ -212,6 +230,8 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const linkedTab = searchParams.get("tab")
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
     const assistantEnabled = useProjectAiModels().enabled
+    // The design system a frontend without its own builds with
+    const projectDesignSystem = useProjectStore().project?.designSystem
 
     const getStandardHost = (): FormInput["host"] => {
         const standardHost: FormInput["host"] = {
@@ -239,7 +259,10 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                 versionRequired: t("frontend.validation.version_required"),
                 versionInvalid: t("services.version_invalid"),
                 hostUrlRequired: t("frontend.validation.host_url_required"),
-                canaryPercentage: t("frontend.validation.canary_percentage")
+                canaryPercentage: t("frontend.validation.canary_percentage"),
+                designSystemPackageRequired: t("designSystem.fields.packageNameRequired"),
+                designSystemPackageInvalid: t("designSystem.fields.packageNameInvalid"),
+                designSystemDocsUrlInvalid: t("designSystem.fields.docsUrlInvalid")
             }),
         [t]
     )
@@ -266,13 +289,23 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         resolver: zodResolver(formSchema),
         // A DOCKER may be saved without a host: the hosting tab it would be validated in is hidden for it
         defaultValues: frontend
-            ? { ...frontend, kind: frontend.kind ?? FrontendKind.BUNDLE, version: frontend.version ?? "", host: frontend.host ?? getStandardHost(), ...containerDefaults }
+            ? {
+                  ...frontend,
+                  kind: frontend.kind ?? FrontendKind.BUNDLE,
+                  version: frontend.version ?? "",
+                  host: frontend.host ?? getStandardHost(),
+                  designSystemOverride: Boolean(frontend.designSystem?.packageName),
+                  designSystem: designSystemFormValues(frontend.designSystem),
+                  ...containerDefaults
+              }
             : {
                   slug: "",
                   name: "",
                   description: "",
                   domainId: initialDomainId ?? "",
                   context: "",
+                  designSystemOverride: false,
+                  designSystem: designSystemFormValues(),
                   kind: FrontendKind.BUNDLE,
                   version: "1.0.0",
                   host: getStandardHost(),
@@ -319,6 +352,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
 
     const kind = form.watch("kind")
     const isDocker = kind === FrontendKind.DOCKER
+    const designSystemOverride = form.watch("designSystemOverride")
 
     // A new DOCKER starts with no version, which its pipeline or this form sets; a new BUNDLE starts at 1.0.0
     useEffect(() => {
@@ -333,9 +367,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     })
 
     const onSubmit = async (data: FormValues) => {
-        const { port, livenessPath, readinessPath, docsPath, openApiPath, exposed, exposurePath, image, env, configMapIds, secretIds, ...rest } = data
+        const { port, livenessPath, readinessPath, docsPath, openApiPath, exposed, exposurePath, image, env, configMapIds, secretIds, designSystemOverride, designSystem, ...rest } = data
         const dataToSend = {
             ...rest,
+            // Null: it builds with the design system of the project
+            designSystem: designSystemOverride ? toDesignSystem(designSystem) : null,
             version: data.version === "custom" ? data.customVersion : data.version,
             // Blank: the frontend is in no domain
             domainId: data.domainId || null,
@@ -507,23 +543,48 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                     </TabsContent>
 
                     <TabsContent value="context" forceMount>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="mb-0">{t("frontend.context.title")}</CardTitle>
-                                <CardDescription>{t("frontend.context.subtitle")}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="pt-3">
-                                <TextareaField
-                                    name="context"
-                                    label={t("frontend.context.label")}
-                                    placeholder={t("frontend.context.placeholder")}
-                                    description={t("frontend.context.hint")}
-                                    rows={14}
-                                    className="font-mono text-sm"
-                                    dataTestId="frontend-context"
-                                />
-                            </CardContent>
-                        </Card>
+                        <div className="flex flex-col gap-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="mb-0">{t("frontend.context.title")}</CardTitle>
+                                    <CardDescription>{t("frontend.context.subtitle")}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="pt-3">
+                                    <TextareaField
+                                        name="context"
+                                        label={t("frontend.context.label")}
+                                        placeholder={t("frontend.context.placeholder")}
+                                        description={t("frontend.context.hint")}
+                                        rows={14}
+                                        className="font-mono text-sm"
+                                        dataTestId="frontend-context"
+                                    />
+                                </CardContent>
+                            </Card>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="mb-0">{t("designSystem.frontend.title")}</CardTitle>
+                                    <CardDescription>{t("designSystem.frontend.subtitle")}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-4 pt-3">
+                                    <SwitchField<FormInput>
+                                        name="designSystemOverride"
+                                        label={t("designSystem.frontend.override")}
+                                        description={t("designSystem.frontend.overrideHint")}
+                                        dataTestId="frontend-design-system-override"
+                                    />
+                                    {designSystemOverride ? (
+                                        <DesignSystemFields<FormInput> prefix="designSystem." dataTestId="frontend-design-system" />
+                                    ) : (
+                                        <p className="text-sm text-muted-foreground" data-testid="frontend-design-system-inherited">
+                                            {projectDesignSystem?.packageName
+                                                ? t("designSystem.frontend.inherited", { packageName: projectDesignSystem.packageName })
+                                                : t("designSystem.frontend.noProjectDefault")}
+                                        </p>
+                                    )}
+                                </CardContent>
+                            </Card>
+                        </div>
                     </TabsContent>
 
                     {isDocker ? (

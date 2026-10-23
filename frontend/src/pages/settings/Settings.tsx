@@ -20,11 +20,14 @@ import {
     PipelineTemplatesSection,
     ProjectContainerRegistrySection,
     ProjectContextSection,
+    ProjectDesignSystemSection,
     ProjectExposureSection,
     ProjectInfoSection,
     ProjectStatsSection,
-    ProjectTechnologiesSection
+    ProjectTechnologiesSection,
+    toDesignSystem
 } from "./partials"
+import type { DesignSystemFormValues } from "./partials/DesignSystemFields"
 import type { GitOpsFormValues } from "./partials/GitOpsSection"
 import type { PipelineTemplatesFormValues } from "./partials/PipelineTemplatesSection"
 import type { ProjectContainerRegistryFormValues } from "./partials/ProjectContainerRegistrySection"
@@ -115,6 +118,21 @@ export const Settings: React.FC = () => {
         }
     })
 
+    const updateDesignSystemMutation = useMutation({
+        // Senza pacchetto il design system va tolto, che l'API esprime con un null esplicito
+        mutationFn: (values: DesignSystemFormValues) => projectApi.updateProject(project._id, { designSystem: toDesignSystem(values) }),
+        onSuccess: updated => {
+            // Il form dei frontend legge dallo store il design system che ereditano
+            setProject({ ...project, designSystem: updated.designSystem })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            queryClient.invalidateQueries({ queryKey: ["projects-mine"] })
+            notifications.showSuccessNotification({ message: t("designSystem.settings.saved") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("designSystem.settings.save_failed") })
+        }
+    })
+
     const updateExposureMutation = useMutation({
         mutationFn: (values: ProjectExposureFormValues) =>
             projectApi.updateProject(project._id, {
@@ -193,6 +211,15 @@ export const Settings: React.FC = () => {
                                 technologies={projectData.technologies}
                                 onUpdate={values => updateTechnologiesMutation.mutate(values)}
                                 isUpdating={updateTechnologiesMutation.isPending}
+                            />
+                        )}
+
+                        {projectData && (
+                            <ProjectDesignSystemSection
+                                key={`design-system-${projectData._id}`}
+                                designSystem={projectData.designSystem}
+                                onUpdate={values => updateDesignSystemMutation.mutate(values)}
+                                isUpdating={updateDesignSystemMutation.isPending}
                             />
                         )}
 

@@ -10,6 +10,7 @@ import { BackendTechnology } from "../../types/ProjectTechnology"
 import { CONTAINER_REGISTRY, isServiceTemplateType } from "../../types/ServiceStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
+import { designSystemInput } from "./frontendTools"
 
 /** The focus of context_get, at most one of the ids: none reads the whole project. */
 const toFocus = ({ frontendId, serviceId, domainId }: { frontendId?: string; serviceId?: string; domainId?: string }): ContextFocus | undefined => {
@@ -40,7 +41,8 @@ export const projectTools = [
             "The notes the team wrote for AI agents: the context of the project (conventions, rules shared by everything) and the context of each functional domain, frontend and service (backend) that has one. " +
             "Read it before working on the project or on its code. Working on one frontend or service, pass its id: you get its context, the one of its domain and the project one. " +
             "Working on a domain, pass domainId: you get its context, the one of each of its frontends and services and the project one. Without ids, every context of the project. " +
-            "project.technologies holds the default frontend and backend technology the team chose: use them for new frontends and services unless the user explicitly asks for another.",
+            "project.technologies holds the default frontend and backend technology the team chose: use them for new frontends and services unless the user explicitly asks for another. " +
+            "project.designSystem is the default UI library of the frontends; with frontendId, designSystem is the one that frontend builds its UI with.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({
@@ -54,7 +56,7 @@ export const projectTools = [
         name: "project_update",
         title: "Update project",
         description:
-            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole), its default technologies, where it is exposed or its container registry. Pass description, context, technologies, exposure or containerRegistry null to remove it.",
+            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole), its default technologies, its default design system, where it is exposed or its container registry. Pass description, context, technologies, designSystem, exposure or containerRegistry null to remove it.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
@@ -96,7 +98,8 @@ export const projectTools = [
                 })
                 .nullable()
                 .optional()
-                .describe("The default technologies of the project: they guide who creates a frontend or a service, and never block another choice")
+                .describe("The default technologies of the project: they guide who creates a frontend or a service, and never block another choice"),
+            designSystem: designSystemInput.describe("The default design system of the frontends, which one may replace with its own. Replaced as a whole")
         }),
         run: (args, { principal, projectId }) => new ProjectService(principal).update(projectId, args)
     }),

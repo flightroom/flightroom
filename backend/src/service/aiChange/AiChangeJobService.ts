@@ -16,6 +16,7 @@ import Resource, { IResource } from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
 import User from "../../models/UserModel"
 import { ConfigMap, IVariableMap, Secret } from "../../models/VariableMapModel"
+import { effectiveDesignSystem, IDesignSystem } from "../../types/DesignSystem"
 import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
@@ -361,8 +362,17 @@ const domainResourcesOf = async (projectId: IAiChangeJob["projectId"], domain: I
         .sort((a, b) => a.name.localeCompare(b.name))
 }
 
-/** What the agent is told of a repository: a frontend's stack, or what the platform expects of a service's container. */
-const agentRepository = (component: RepositoryComponent, slug: string, rest: Omit<AiChangeAgentRepository, "frontend" | "service">, facts?: Partial<AiChangeAgentService>): AiChangeAgentRepository =>
+/**
+ * What the agent is told of a repository: a frontend's stack and the design system it builds its UI with (its own,
+ * else the project's), or what the platform expects of a service's container.
+ */
+const agentRepository = (
+    component: RepositoryComponent,
+    slug: string,
+    rest: Omit<AiChangeAgentRepository, "frontend" | "service">,
+    facts?: Partial<AiChangeAgentService>,
+    projectDesignSystem?: IDesignSystem
+): AiChangeAgentRepository =>
     component.kind === "service"
         ? {
               ...rest,
@@ -381,7 +391,17 @@ const agentRepository = (component: RepositoryComponent, slug: string, rest: Omi
                   ...facts
               }
           }
-        : { ...rest, frontend: { name: component.name, slug, framework: component.framework, compiler: component.compiler, context: component.context } }
+        : {
+              ...rest,
+              frontend: {
+                  name: component.name,
+                  slug,
+                  framework: component.framework,
+                  compiler: component.compiler,
+                  context: component.context,
+                  designSystem: effectiveDesignSystem(component.designSystem, projectDesignSystem)
+              }
+          }
 
 const toAgentDomain = (domain: IDomain, resources: AiChangeAgentDomain["resources"] = []): AiChangeAgentDomain => ({
     name: domain.name,
@@ -904,7 +924,8 @@ export class AiChangeJobService extends AiChangeBaseService {
                                     bytes: file.proposedContent === undefined ? 0 : Buffer.byteLength(file.proposedContent, "utf8")
                                 }))
                             },
-                            facts.services.get(String(component._id))
+                            facts.services.get(String(component._id)),
+                            project.designSystem
                         )
                     ),
                     previousRequests: history ? undefined : await this.previousRequests(job),

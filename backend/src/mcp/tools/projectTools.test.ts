@@ -69,4 +69,10 @@ describe("project tools", () => {
         expect(tool("project_update").inputSchema.safeParse({ technologies: { frontend: "VUE", backend: null } }).success).toBe(true)
         expect(tool("project_update").inputSchema.safeParse({ technologies: null }).success).toBe(true)
     })
+
+    it("given a design system, when project_update is called, then it needs its npm package and null removes it", () => {
+        expect(tool("project_update").inputSchema.safeParse({ designSystem: { packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/" } }).success).toBe(true)
+        expect(tool("project_update").inputSchema.safeParse({ designSystem: { notes: "Use its tokens." } }).success).toBe(false)
+        expect(tool("project_update").inputSchema.safeParse({ designSystem: null }).success).toBe(true)
+    })
 })

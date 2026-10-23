@@ -1,5 +1,6 @@
 import fs from "node:fs/promises"
 import path from "node:path"
+import { describeDesignSystem, IDesignSystem } from "../../types/DesignSystem"
 import { describeProjectTechnologies, IProjectTechnologies } from "../../types/ProjectTechnology"
 import { isProtectedPath, isSecretPath, resolveInsideWorkingCopy, WorkspacePathError } from "../../utils/workspacePaths"
 import { LlmClient, LlmEffort, LlmMessage, LlmTool, LlmUsage } from "../llm"
@@ -73,6 +74,8 @@ export interface AiChangeAgentFrontend {
     framework?: string
     compiler?: string
     context?: string
+    /** The one it builds its UI with: its own, else the project's. Its npmrc is redacted when described. */
+    designSystem?: IDesignSystem
 }
 
 export interface AiChangeAgentService {
@@ -361,10 +364,11 @@ const describeFrontend = (repository: AiChangeAgentRepository, tag: "frontend" |
         .filter(Boolean)
         .join("\n")
 
+/** What the team wrote for agents about the component, and the design system of a frontend. */
 const frontendContext = (repository: AiChangeAgentRepository) => {
     const tag = repository.service ? "service_context" : "frontend_context"
     const context = componentOf(repository).context
-    return context ? `<${tag}>\n${context}\n</${tag}>` : undefined
+    return [context ? `<${tag}>\n${context}\n</${tag}>` : undefined, describeDesignSystem(repository.frontend?.designSystem)].filter(Boolean).join("\n") || undefined
 }
 
 /** The chain of a follow-up: what was asked before and what the agent answered, oldest first. */

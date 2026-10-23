@@ -514,6 +514,26 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(firstPrompt).not.toContain("<project_context")
     })
 
+    it("Given a frontend with a design system, when it runs, then the first prompt tells the agent to build the UI with it, its npmrc credentials masked", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+        const base = input()
+        const designSystem = {
+            packageName: "@acme/ui",
+            version: "^3.2.0",
+            notes: "Use its tokens, no raw CSS colors.",
+            npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=s3cr3t"
+        }
+
+        await runAiChangeAgent(client, { ...base, repositories: [{ ...base.repositories[0], frontend: { ...base.repositories[0].frontend, designSystem } }] }, hooks().hooks)
+
+        const firstMessage = sent[0].messages[0]
+        const firstPrompt = firstMessage.role === "user" ? firstMessage.text : ""
+        expect(firstPrompt).toContain("<design_system>\npackage: @acme/ui\nversion: ^3.2.0\nnotes:\nUse its tokens, no raw CSS colors.\n")
+        expect(firstPrompt).toContain("@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=***")
+        expect(firstPrompt).toContain("do not add another UI library")
+        expect(firstPrompt).not.toContain("s3cr3t")
+    })
+
     it("Given a chosen effort and a model that reasons, when it runs, then every turn is sent at that effort with its room, and each reasoning is logged before what the turn said and did", async () => {
         const { client, sent } = scriptedClient([
             {

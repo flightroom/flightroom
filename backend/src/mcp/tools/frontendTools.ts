@@ -9,6 +9,7 @@ import ProjectService from "../../service/ProjectService"
 import RepositoryRenameService, { isValidRepositoryName } from "../../service/RepositoryRenameService"
 import StackDetectionService from "../../service/StackDetectionService"
 import { StorageService } from "../../service/StorageService"
+import { DESIGN_SYSTEM_MAX_LENGTH, NPM_PACKAGE_NAME } from "../../types/DesignSystem"
 import { isExposurePath } from "../../types/Exposure"
 import FrontendDTO from "../../types/FrontendDTO"
 import { FrontendCompiler, FrontendFramework } from "../../types/FrontendStack"
@@ -68,6 +69,18 @@ export const containerFields = {
         .describe("Secrets whose keys reach the container as environment variables: a service, or a frontend of kind DOCKER. Replaced as a whole")
 }
 
+/** The design system of a project or of a frontend, replaced as a whole: null removes it */
+export const designSystemInput = z
+    .object({
+        packageName: z.string().trim().regex(NPM_PACKAGE_NAME, "an npm package name, e.g. @acme/ui").max(DESIGN_SYSTEM_MAX_LENGTH.packageName).describe("npm package of the UI library, e.g. @acme/ui"),
+        version: z.string().max(DESIGN_SYSTEM_MAX_LENGTH.version).optional().describe("Semver range, e.g. ^3.2.0"),
+        docsUrl: z.string().url().max(DESIGN_SYSTEM_MAX_LENGTH.docsUrl).optional(),
+        npmrc: z.string().max(DESIGN_SYSTEM_MAX_LENGTH.npmrc).optional().describe("Content of the .npmrc the package installs with; agents read it with its credentials masked"),
+        notes: z.string().max(DESIGN_SYSTEM_MAX_LENGTH.notes).optional().describe("Markdown for AI agents on how to use it, e.g. import from @acme/ui, use its tokens, no raw CSS colors")
+    })
+    .nullable()
+    .optional()
+
 /**
  * The fields a frontend can be created or edited with.
  *
@@ -84,6 +97,7 @@ const frontendFields = {
     description: z.string().max(2000).optional(),
     domainId: memberDomainId,
     context: z.string().max(CONTEXT_MAX_LENGTH).optional().describe("Markdown notes for AI agents about this frontend, replaced as a whole"),
+    designSystem: designSystemInput.describe("Its own design system, in place of the project's; null goes back to the project's. Replaced as a whole"),
     version: z.string().min(1).max(100).optional().describe("Required for a BUNDLE. A DOCKER may omit it: the first version its CI registers sets it"),
     type: z.enum(FrontendType).optional(),
     kind: z
@@ -180,7 +194,9 @@ export const frontendTools = [
     defineTool({
         name: "frontend_get",
         title: "Get frontend",
-        description: "One frontend of the project, with aiContext: what the team wrote for AI agents about it, its domain and the project. Follow it when working on its code.",
+        description:
+            "One frontend of the project, with aiContext: what the team wrote for AI agents about it, its domain and the project. Follow it when working on its code. " +
+            "aiContext.designSystem is the design system its UI is built with: its own, else the project's.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ frontendId }),

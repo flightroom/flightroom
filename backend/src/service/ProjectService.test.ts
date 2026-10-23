@@ -331,6 +331,23 @@ describe("update", () => {
         await expect(update({ technologies })).rejects.toMatchObject({ code: "PROJECT_TECHNOLOGIES_INVALID", statusCode: 400 })
         expect(written).toBeUndefined()
     })
+
+    it("Given a design system, when the project is updated, then it is written whole, trimmed, its npmrc as pasted", async () => {
+        await update({ designSystem: { packageName: " @acme/ui ", version: "^3.2.0", docsUrl: "", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } })
+
+        expect(written).toEqual({ designSystem: { packageName: "@acme/ui", version: "^3.2.0", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } })
+    })
+
+    it("Given a null design system, when the project is updated, then it is unset", async () => {
+        await update({ designSystem: null })
+
+        expect(written).toEqual({ $unset: { designSystem: 1 } })
+    })
+
+    it("Given a design system without its package, when the project is updated, then it is refused with a 400 and nothing is written", async () => {
+        await expect(update({ designSystem: { notes: "Use its tokens." } })).rejects.toMatchObject({ code: "DESIGN_SYSTEM_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
+    })
 })
 
 describe("update of the pipeline templates", () => {
@@ -473,6 +490,31 @@ describe("getContext", () => {
         const context = await new ProjectService(aUser()).getContext(projectId)
 
         expect(context.project.technologies).toEqual({ backend: "QUARKUS" })
+    })
+
+    it("Given a project with a design system, when the context is read, then it comes back with the credentials of its npmrc masked", async () => {
+        const designSystem = { packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123" }
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem } as never)
+
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.designSystem).toEqual({ packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=***" })
+        // No frontend focus, no frontend to resolve one for
+        expect(context.designSystem).toBeUndefined()
+    })
+
+    it.each([
+        ["its own", { packageName: "@acme/legacy-ui" }, "@acme/legacy-ui"],
+        ["none, the project's", undefined, "@acme/ui"]
+    ])("Given a frontend with %s design system and no context, when its context is read, then the design system it builds with comes back", async (_case, own, expected) => {
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui" } } as never)
+        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null, designSystem: own } as never)
+        vi.spyOn(Frontend, "find").mockImplementation((() => ({ sort: () => Promise.resolve([]) })) as never)
+
+        const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
+
+        expect(context.frontends).toEqual([])
+        expect(context.designSystem).toEqual({ packageName: expected })
     })
 
     it("Given a project without technologies, when the context is read, then none come back", async () => {
