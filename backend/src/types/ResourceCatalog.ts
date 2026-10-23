@@ -68,7 +68,23 @@ const field = (name: string, envSuffix: string, options: Partial<Omit<ResourceFi
 
 const secret = (name: string, envSuffix: string, options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix" | "secret">> = {}) => field(name, envSuffix, { ...options, secret: true })
 
-const engine = field("engine", "ENGINE", { input: "select", options: Object.values(DatabaseType) })
+/** The engines of the platform's databases, and MongoDB, which a resource can point to but the platform does not run */
+const engine = field("engine", "ENGINE", { input: "select", options: [...Object.values(DatabaseType), "MONGODB"] })
+const schema = (options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix">> = {}) => field("schema", "SCHEMA", { required: false, ...options })
+
+/** An Azure SQL database reached with an Entra ID identity: always SQL Server, always encrypted */
+const azureSqlVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
+    id,
+    fields: [
+        field("host", "HOST", { connection: true }),
+        field("port", "PORT", { input: "number", default: "1433", connection: true }),
+        field("database", "NAME", { connection: true }),
+        schema({ default: "dbo" }),
+        ...fields
+    ],
+    // The variant is the way to authenticate: the client reads it rather than guessing from the keys set
+    fixed: { ENGINE: DatabaseType.SQLSERVER, AUTH: id }
+})
 
 /** An SMTP server, by the fields both variants share: where it is, how the connection is secured, who mail comes from */
 const smtpServer = [
@@ -106,12 +122,16 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
                     field("host", "HOST", { connection: true }),
                     field("port", "PORT", { input: "number", connection: true }),
                     field("database", "NAME", { connection: true }),
+                    schema(),
                     field("username", "USER"),
                     secret("password", "PASSWORD"),
                     field("ssl", "SSL", { input: "boolean", required: false, default: "false" })
                 ]
             },
-            { id: "connectionString", fields: [engine, secret("connectionString", "URL")] }
+            { id: "connectionString", fields: [engine, secret("connectionString", "URL"), schema()] },
+            azureSqlVariant("azureAad", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET")]),
+            // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
+            azureSqlVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
         ]
     },
     storage: {

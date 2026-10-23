@@ -18,7 +18,7 @@ export const resourcePath = (id: string) => `/resource/${id}`
 
 /** Mirror of the backend (resourceEnvPrefix): the prefix typed for the resource, otherwise the one of its type and its name */
 export const resourceEnvPrefix = (spec: ResourceTypeSpec | undefined, name: string, envPrefix?: string | null): string =>
-    envPrefix || `${spec?.envPrefix ?? ""}_${name.toUpperCase().replace(/-/g, "_")}`
+    envPrefix || [spec?.envPrefix, name.toUpperCase().replace(/-/g, "_")].filter(Boolean).join("_")
 
 /** Mirror of the backend (resourceEnvKeys): every variable the variant sets, whether its field has a value or not */
 export const resourceEnvKeys = (spec: ResourceTypeSpec | undefined, variantId: string, name: string, envPrefix?: string | null): ResourceEnvKey[] => {

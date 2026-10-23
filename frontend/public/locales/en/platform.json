@@ -1370,7 +1370,8 @@
             "MYSQL": "MySQL",
             "MARIADB": "MariaDB",
             "SQLSERVER": "SQL Server",
-            "ORACLE": "Oracle"
+            "ORACLE": "Oracle",
+            "MONGODB": "MongoDB"
         },
         "authTypes": {
             "credentials": "Host and credentials",
@@ -3254,7 +3255,7 @@
         "types": {
             "database": {
                 "label": "Database",
-                "description": "An external database: by host and credentials, or by connection string."
+                "description": "An external database: by host and credentials, by connection string, or on Azure SQL with Entra ID."
             },
             "storage": {
                 "label": "Storage",
@@ -3288,7 +3289,9 @@
         "variants": {
             "database": {
                 "credentials": "Host and credentials",
-                "connectionString": "Connection string"
+                "connectionString": "Connection string",
+                "azureAad": "Azure SQL, Entra ID app",
+                "azureManagedIdentity": "Azure SQL, managed identity"
             },
             "storage": {
                 "aws": "AWS S3",
@@ -3365,7 +3368,8 @@
             "apiVersion": "API version",
             "security": "Connection security",
             "from": "Sender address",
-            "fromName": "Sender name"
+            "fromName": "Sender name",
+            "schema": "Schema"
         },
         "retype": {
             "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"
