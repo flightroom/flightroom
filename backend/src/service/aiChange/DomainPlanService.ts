@@ -13,6 +13,7 @@ import { SERVICE_SLUG } from "../../types/ServiceStack"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { aiProviderError } from "../llm"
 import MarketService from "../MarketService"
+import { projectDesignSystemOf } from "../ProjectService"
 import { defaultTemplateOf, isTemplateOfKind, matchesProjectTechnology, REPOSITORY_NAME_SUFFIXES } from "../RepositoryCreationService"
 import { isValidRepositoryName } from "../RepositoryRenameService"
 import { resourceIdsInScope } from "../ResourceService"
@@ -166,7 +167,7 @@ export class DomainPlanService extends AiChangeBaseService {
         const scope = await this.getDomainScope(projectIdObj)
         const visibleResources = scope ? { _id: { $in: [...(await resourceIdsInScope(projectIdObj, scope))].map(id => toObjectId(id)) } } : {}
         const [project, templates, frontends, services, resources, agents] = await Promise.all([
-            Project.findById(projectIdObj, { name: 1, context: 1, technologies: 1 }),
+            Project.findById(projectIdObj, { name: 1, context: 1, technologies: 1, designSystem: 1, organizationId: 1 }),
             new MarketService().getAll(),
             Frontend.find({ projectId: projectIdObj }, { slug: 1 }),
             Service.find({ projectId: projectIdObj }, { slug: 1 }),
@@ -177,6 +178,8 @@ export class DomainPlanService extends AiChangeBaseService {
         ])
         const taken = { frontend: new Set([...frontends, ...agents].map(item => item.slug)), service: new Set([...services, ...agents].map(item => item.slug)) }
         const technologies = project?.technologies
+        // The one its frontends build their UI with: it may decide which frontend template fits
+        const designSystem = project ? (await projectDesignSystemOf(project)).designSystem : undefined
         const templateList = (kind: RepositoryComponentKind) => {
             const fallback = defaultTemplateOf(templates, kind, technologies)
             return templates
@@ -192,6 +195,19 @@ export class DomainPlanService extends AiChangeBaseService {
                     `<request>\n${input.prompt}\n</request>`,
                     project?.context ? `<project_context project="${project.name}">\n${project.context}\n</project_context>` : `<project name="${project?.name ?? ""}" />`,
                     describeProjectTechnologies(technologies),
+                    // Its name and where it is documented only: the npmrc and the notes are for the agent writing the code
+                    designSystem
+                        ? [
+                              "<project_design_system>",
+                              `package: ${designSystem.packageName}`,
+                              designSystem.version ? `version: ${designSystem.version}` : undefined,
+                              designSystem.docsUrl ? `docs: ${designSystem.docsUrl}` : undefined,
+                              "The frontends of the project build their UI with this design system: prefer a frontend template whose framework can use it.",
+                              "</project_design_system>"
+                          ]
+                              .filter(Boolean)
+                              .join("\n")
+                        : undefined,
                     [`<domain_context domain="${domain.name}">`, domain.description, domain.context, "</domain_context>"].filter(Boolean).join("\n"),
                     `<frontend_templates>\n${templateList("frontend")}\n</frontend_templates>`,
                     `<service_templates>\n${templateList("service")}\n</service_templates>`,

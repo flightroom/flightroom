@@ -1,4 +1,5 @@
 export * from "./AddOrganizationUserButton"
 export * from "./OrganizationAiModelsSection"
+export * from "./OrganizationDesignSystemSection"
 export * from "./OrganizationDetailsSection"
 export * from "./OrganizationMembersSection"

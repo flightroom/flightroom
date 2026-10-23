@@ -1,26 +1,15 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { DESIGN_SYSTEM_MAX_LENGTH, IDesignSystem } from "../types/DesignSystem"
+import { IDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
 import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
+import { designSystemSchema } from "./DesignSystemSchema"
 import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
 /** Upper bound of a context, of a project, a domain, a frontend or a service: it ends up in the prompt of every agent reading it. */
 export const CONTEXT_MAX_LENGTH = 20_000
-
-/** Shared with the frontends, which may replace the default of their project with their own */
-export const designSystemSchema = new Schema<IDesignSystem>(
-    {
-        packageName: { type: String, required: true, trim: true, maxlength: DESIGN_SYSTEM_MAX_LENGTH.packageName },
-        version: { type: String, trim: true, maxlength: DESIGN_SYSTEM_MAX_LENGTH.version },
-        docsUrl: { type: String, trim: true, maxlength: DESIGN_SYSTEM_MAX_LENGTH.docsUrl },
-        npmrc: { type: String, trim: true, maxlength: DESIGN_SYSTEM_MAX_LENGTH.npmrc },
-        notes: { type: String, trim: true, maxlength: DESIGN_SYSTEM_MAX_LENGTH.notes }
-    },
-    { _id: false }
-)
 
 /** Config maps and secrets committed to a repository as Kubernetes manifests, every time one is saved */
 export interface IProjectGitOps {
@@ -144,7 +133,7 @@ export interface IProject extends Document<ObjectId> {
      * a frontend or a service, and are never enforced: another stack can still be chosen for any of them.
      */
     technologies?: IProjectTechnologies
-    /** The UI library the frontends are built with, unless one has its own: guides users and AI agents, never enforced */
+    /** The UI library the frontends are built with, unless one has its own; unset, the organization's. Guides users and AI agents, never enforced */
     designSystem?: IDesignSystem
     createdAt: Date
     updatedAt: Date

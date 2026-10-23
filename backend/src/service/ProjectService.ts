@@ -16,6 +16,7 @@ import Environment from "../models/EnvironmentModel"
 import Frontend, { IFrontend } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import MaintenanceRun from "../models/MaintenanceRunModel"
+import Organization from "../models/OrganizationModel"
 import Project, { IProject, IProjectPipelines } from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
@@ -155,15 +156,43 @@ interface ContextEntry {
     context: string
 }
 
-/** What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and service that has it. */
+/** The level a design system is set at: the most specific one that has it wins */
+export type DesignSystemSource = "frontend" | "project" | "organization"
+
+/**
+ * What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and service that has it.
+ * Every design system is the one that applies, with the level it comes from.
+ */
 export interface ProjectContextDTO {
-    /** The technologies and the default design system come along: an agent creating a frontend or a service starts from them. */
-    project: { id: string; name: string; context?: string; technologies?: IProjectTechnologies; designSystem?: IDesignSystem }
+    /** The technologies and the design system of the frontends come along: an agent creating a frontend or a service starts from them. */
+    project: {
+        id: string
+        name: string
+        context?: string
+        technologies?: IProjectTechnologies
+        /** Its own, else the organization's */
+        designSystem?: IDesignSystem
+        designSystemSource?: Exclude<DesignSystemSource, "frontend">
+    }
     domains: ContextEntry[]
     frontends: ContextEntry[]
     services: ContextEntry[]
-    /** With a frontend focus: the design system its UI is built with, its own or else the project's, whether it has a context or not */
+    /** With a frontend focus: the design system its UI is built with, its own, else the project's, else the organization's, whether it has a context or not */
     designSystem?: IDesignSystem
+    designSystemSource?: DesignSystemSource
+}
+
+/**
+ * The design system of the frontends of a project: its own, else the one of its organization, read only when
+ * the project has none. Not redacted: whoever hands it to an AI does.
+ */
+export const projectDesignSystemOf = async (
+    project: Pick<IProject, "designSystem" | "organizationId">
+): Promise<{ designSystem?: IDesignSystem; source?: Exclude<DesignSystemSource, "frontend"> }> => {
+    if (project.designSystem?.packageName) return { designSystem: project.designSystem, source: "project" }
+    const organization = await Organization.findById(project.organizationId, { designSystem: 1 })
+    const designSystem = effectiveDesignSystem(organization?.designSystem)
+    return designSystem ? { designSystem, source: "organization" } : {}
 }
 
 /**
@@ -323,6 +352,8 @@ export class ProjectService extends BaseAuthorizedService {
             filters.services ? Service.find({ ...filters.services, ...withContext }, fields).sort({ slug: 1 }) : []
         ])
         const { frontend, backend } = project.technologies ?? {}
+        const projectDesignSystem = await projectDesignSystemOf(project)
+        const ownDesignSystem = filters.frontend?.designSystem?.packageName ? filters.frontend.designSystem : undefined
         // Read by agents only: the credentials of the npmrc never come along
         return {
             project: {
@@ -330,12 +361,14 @@ export class ProjectService extends BaseAuthorizedService {
                 name: project.name,
                 context: project.context || undefined,
                 technologies: frontend || backend ? { ...(frontend ? { frontend } : {}), ...(backend ? { backend } : {}) } : undefined,
-                designSystem: redactDesignSystem(project.designSystem)
+                designSystem: redactDesignSystem(projectDesignSystem.designSystem),
+                designSystemSource: projectDesignSystem.source
             },
             domains: domains.map(toContextEntry),
             frontends: frontends.map(toContextEntry),
             services: services.map(toContextEntry),
-            designSystem: filters.frontend ? redactDesignSystem(effectiveDesignSystem(filters.frontend.designSystem, project.designSystem)) : undefined
+            designSystem: filters.frontend ? redactDesignSystem(effectiveDesignSystem(ownDesignSystem, projectDesignSystem.designSystem)) : undefined,
+            designSystemSource: filters.frontend ? (ownDesignSystem ? "frontend" : projectDesignSystem.source) : undefined
         }
     }
 

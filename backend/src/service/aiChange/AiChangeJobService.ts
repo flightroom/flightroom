@@ -27,6 +27,7 @@ import { recordAiUsage } from "../AiUsageService"
 import { redactSecrets } from "../assistant/assistantTools"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
+import { projectDesignSystemOf } from "../ProjectService"
 import { RepositoryFileService, repositoryNameFor, toErrorMessage } from "../RepositoryFileService"
 import { resourceIdsInScope } from "../ResourceService"
 import { keysOnly } from "../VariableMapService"
@@ -364,7 +365,7 @@ const domainResourcesOf = async (projectId: IAiChangeJob["projectId"], domain: I
 
 /**
  * What the agent is told of a repository: a frontend's stack and the design system it builds its UI with (its own,
- * else the project's), or what the platform expects of a service's container.
+ * else the one of its project, which falls back on the organization's), or what the platform expects of a service's container.
  */
 const agentRepository = (
     component: RepositoryComponent,
@@ -896,6 +897,8 @@ export class AiChangeJobService extends AiChangeBaseService {
             // The job runs as whoever started it: a domain-scoped member's agent sees the resources they may read, no more
             const scope = await this.getDomainScope(job.projectId)
             const visibleResources = scope ? await resourceIdsInScope(job.projectId, scope) : undefined
+            // The one a frontend without its own builds with: the project's, else the organization's
+            const { designSystem: projectDesignSystem } = await projectDesignSystemOf(project)
             const facts = await serviceFactsOf(
                 project,
                 repositories.map(repository => repository.component),
@@ -925,7 +928,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                                 }))
                             },
                             facts.services.get(String(component._id)),
-                            project.designSystem
+                            projectDesignSystem
                         )
                     ),
                     previousRequests: history ? undefined : await this.previousRequests(job),

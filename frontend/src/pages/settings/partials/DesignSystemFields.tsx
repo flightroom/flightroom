@@ -37,6 +37,8 @@ export const toDesignSystem = (values?: Partial<DesignSystemFormValues>): Design
 interface DesignSystemFieldsProps {
     /** Il percorso dei campi nel form, es. "designSystem." in quello del frontend */
     prefix?: string
+    /** Il pacchetto serve anche a form vuoto: chi ha scelto un design system proprio deve dire quale */
+    required?: boolean
     dataTestId: string
 }
 
@@ -44,7 +46,7 @@ interface DesignSystemFieldsProps {
  * I campi di un design system, del progetto o di un frontend. Le regole valgono per i form senza resolver: quello
  * del frontend usa zod, che le ignora e le ripete.
  */
-export const DesignSystemFields = <T extends FieldValues>({ prefix = "", dataTestId }: DesignSystemFieldsProps) => {
+export const DesignSystemFields = <T extends FieldValues>({ prefix = "", required = false, dataTestId }: DesignSystemFieldsProps) => {
     const { t } = useTranslation()
     const { getValues } = useFormContext<T>()
     const path = (field: keyof DesignSystemFormValues) => `${prefix}${field}` as Path<T>
@@ -53,7 +55,7 @@ export const DesignSystemFields = <T extends FieldValues>({ prefix = "", dataTes
         const packageName = value?.trim() ?? ""
         if (!packageName) {
             const othersFilled = FIELDS.some(field => field !== "packageName" && String(getValues(path(field)) ?? "").trim())
-            return othersFilled ? t("designSystem.fields.packageNameRequired") : true
+            return required || othersFilled ? t("designSystem.fields.packageNameRequired") : true
         }
         return NPM_PACKAGE_NAME.test(packageName) || t("designSystem.fields.packageNameInvalid")
     }
