@@ -21,14 +21,27 @@ jobs:
     secrets: inherit
 
   # Lints the Helm chart on every push. On a tag it also stops the release before
-  # anything is published when the chart does not ship the tagged image
-  # (appVersion != tag) or when its version is already in the registry.
+  # anything is published when the tag is not on main, when the chart does not
+  # ship the tagged image (appVersion != tag) or when its version is already in
+  # the registry.
   helm-chart-check:
     runs-on: ubuntu-24.04
 
     steps:
       - name: 🔄 Checkout
         uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      - name: 🌿 Check Release Tag Is On Main
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
+            echo "::error::Tag $TAG is not on main. Releases are tagged on the main merge commit of the release PR."
+            exit 1
+          fi
 
       - name: ⎈ Setup Helm
         uses: azure/setup-helm@v5
