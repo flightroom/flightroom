@@ -306,11 +306,7 @@
   "304": "start.sh",
   "305": "start-redis.sh",
   "306": "integration",
-  "307": "connectionTest.ts",
-  "308": "DeploymentController.ts",
   "309": "DeploymentController.ts",
-  "310": "account_activation",
-  "311": "service_card",
   "312": "RouteWithSuspense.tsx",
   "313": "readOAuthResume"
 }
