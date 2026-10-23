@@ -109,6 +109,15 @@ AI (MCP tools, the assistant, the agent prompt) masks its credentials: the value
 becomes `***`. Registry and scope lines (`@acme:registry=...`) stay readable, as does a value that
 only names an environment variable (`${NPM_TOKEN}`).
 
+The one exception is `design_system_npmrc_get` (`mfe:write`), for a user who wants to install the
+package on their own machine. It returns the whole `.npmrc`, credentials included, of the design
+system a frontend builds with (`frontendId`), or of the project's without one, along with
+`packageName` and `source`. A VIEWER cannot call it, even with `mfe:write`. It is not marked
+read-only, so the client asks the user before running it. Every call goes into the audit log like
+any other tool call. The console assistant does not have it, so the console's model never reads the
+credentials. A design system without an `.npmrc`, or no design system at all, is refused with
+`DESIGN_SYSTEM_NPMRC_MISSING`.
+
 ## Domains and backends
 
 A project can group its frontends and backends in **functional domains**. Membership

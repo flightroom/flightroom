@@ -3086,7 +3086,7 @@
             "docsUrl": "Documentation URL",
             "docsUrlInvalid": "Enter an http(s) URL",
             "npmrc": ".npmrc",
-            "npmrcHint": "The content of the .npmrc the package installs with. AI agents read it with its credentials masked.",
+            "npmrcHint": "The content of the .npmrc the package installs with. AI agents read it with its credentials masked; an MCP client with write access gets it whole only through design_system_npmrc_get, to install the package on the user's machine.",
             "notes": "Notes for AI agents",
             "notesPlaceholder": "Import components from @acme/ui, use its tokens, no raw CSS colors.",
             "notesHint": "Markdown: how agents should use the design system."
