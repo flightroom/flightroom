@@ -10,7 +10,7 @@ interface ReleaseSectionProps {
     versions?: string[]
 }
 
-/** Version and canary settings: the two knobs that decide what gets served, kept above the tabs so they are always visible. */
+/** Version and canary settings: the two knobs that decide what gets served, in the General tab where the page opens. */
 export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions }) => {
     const { t } = useTranslation()
     const { watch } = useFormContext()

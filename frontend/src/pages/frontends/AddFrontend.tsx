@@ -4,7 +4,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import * as z from "zod"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
@@ -188,7 +188,7 @@ type FormTab = (typeof FORM_TABS)[number] | "danger"
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["name", "slug", "description", "domainId", "kind"],
+    general: ["name", "slug", "description", "domainId", "kind", "version", "customVersion", "canary"],
     context: ["context", "designSystem"],
     hosting: ["host"],
     container: ["port", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "image", "env", "configMapIds", "secretIds"],
@@ -216,6 +216,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
     const [searchParams] = useSearchParams()
+    const location = useLocation()
     const isEdit = Boolean(id)
     const frontendsApi = useFrontendsApi()
     const { errorMessage: domainErrorMessage } = useDomainsApi()
@@ -227,9 +228,16 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const parentId = isEdit ? null : searchParams.get("parentId")
     // Opened from a domain page: the frontend is created in it, and the page is where we go back
     const initialDomainId = searchParams.get("domainId")
-    // `?tab=` opens a tab straight away.
-    const linkedTab = searchParams.get("tab")
+    // `#hosting` (or the older `?tab=hosting`) opens a tab straight away.
+    const hashTab = location.hash.slice(1)
+    const linkedTab = isFormTab(hashTab) ? hashTab : searchParams.get("tab")
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
+
+    // The open tab is written in the hash, so a reload or a copied link lands on it
+    const selectTab = (tab: FormTab) => {
+        setActiveTab(tab)
+        navigate({ search: location.search, hash: tab }, { replace: true })
+    }
     const assistantEnabled = useProjectAiModels().enabled
     // The design system a frontend without its own builds with: the project's, else the organization's
     const projectDesignSystem = useProjectStore().project?.designSystem
@@ -453,7 +461,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
 
     const onInvalid = (errors: FieldErrors<FormInput>) => {
         const firstTabWithErrors = FORM_TABS.find(tab => isTabShown(tab) && TAB_FIELDS[tab].some(field => Boolean(errors[field])))
-        if (firstTabWithErrors) setActiveTab(firstTabWithErrors)
+        if (firstTabWithErrors) selectTab(firstTabWithErrors)
     }
 
     // Edit with AI used to be a tab of this page: old links to it open the AI workspace.
@@ -467,11 +475,9 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
                 <FetchDataTemplateCard slug={template} />
 
-                <ReleaseSection isEdit={isEdit} versions={versions} />
-
                 {isEdit && frontend?.kind === FrontendKind.DOCKER && <ServiceVersionsTable versions={buildsQuery.data ?? []} />}
 
-                <Tabs value={shownTab} onValueChange={value => setActiveTab(value as FormTab)} tabsListPosition="fullWidth">
+                <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)} tabsListPosition="fullWidth">
                     <TabsList>
                         <TabsTrigger value="general" className="flex-1">
                             {t("frontend.tabs.general")}
@@ -507,41 +513,51 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
 
                     {/* forceMount keeps every tab registered: switching tab must not drop the values or re-run the repository lookups. */}
                     <TabsContent value="general" forceMount>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="mb-0">{t("frontend.general_information")}</CardTitle>
-                                <CardDescription>{t("frontend.general_information_description")}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-2 pt-3">
-                                <FrontendKindField disabled={Boolean(parentId)} dockerDisabled={Boolean(frontend?.parentIds?.length)} />
-                                {/* The templates scaffold a pipeline that uploads a bundle, which a DOCKER does not take */}
-                                {isDocker && template && !isEdit && (
-                                    <Alert>
-                                        <AlertDescription>{t("frontend.kind.template_pipeline_hint")}</AlertDescription>
-                                    </Alert>
-                                )}
-                                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                    <TextField
-                                        name="name"
-                                        label={t("frontend.name")}
-                                        placeholder={t("frontend.name_placeholder")}
-                                        textTransform={value => value.replace("  ", " ")}
-                                        required
-                                        onChange={e => {
-                                            const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
-                                            if (!isEdit) {
-                                                form.setValue("slug", slug)
-                                                form.setValue("codeRepository.createData.name", slug)
-                                            }
-                                        }}
-                                        containerClassName="flex-[1_1_240px]"
-                                    />
-                                    <TextField name="slug" disabled={isEdit} label={t("frontend.slug")} placeholder={t("frontend.slug_placeholder")} required containerClassName="flex-[1_1_240px]" />
-                                </div>
-                                <TextareaField name="description" label={t("frontend.description")} placeholder={t("frontend.description_placeholder")} />
-                                <DomainSelectField containerClassName="w-full" />
-                            </CardContent>
-                        </Card>
+                        <div className="flex flex-col gap-6">
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="mb-0">{t("frontend.general_information")}</CardTitle>
+                                    <CardDescription>{t("frontend.general_information_description")}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-2 pt-3">
+                                    <FrontendKindField disabled={Boolean(parentId)} dockerDisabled={Boolean(frontend?.parentIds?.length)} />
+                                    {/* The templates scaffold a pipeline that uploads a bundle, which a DOCKER does not take */}
+                                    {isDocker && template && !isEdit && (
+                                        <Alert>
+                                            <AlertDescription>{t("frontend.kind.template_pipeline_hint")}</AlertDescription>
+                                        </Alert>
+                                    )}
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                        <TextField
+                                            name="name"
+                                            label={t("frontend.name")}
+                                            placeholder={t("frontend.name_placeholder")}
+                                            textTransform={value => value.replace("  ", " ")}
+                                            required
+                                            onChange={e => {
+                                                const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
+                                                if (!isEdit) {
+                                                    form.setValue("slug", slug)
+                                                    form.setValue("codeRepository.createData.name", slug)
+                                                }
+                                            }}
+                                            containerClassName="flex-[1_1_240px]"
+                                        />
+                                        <TextField
+                                            name="slug"
+                                            disabled={isEdit}
+                                            label={t("frontend.slug")}
+                                            placeholder={t("frontend.slug_placeholder")}
+                                            required
+                                            containerClassName="flex-[1_1_240px]"
+                                        />
+                                    </div>
+                                    <TextareaField name="description" label={t("frontend.description")} placeholder={t("frontend.description_placeholder")} />
+                                    <DomainSelectField containerClassName="w-full" />
+                                </CardContent>
+                            </Card>
+                            <ReleaseSection isEdit={isEdit} versions={versions} />
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="context" forceMount>
