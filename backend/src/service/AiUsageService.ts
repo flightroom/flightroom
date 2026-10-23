@@ -1,10 +1,12 @@
 import { AnyKeys, ObjectId, PipelineStage, Schema, Types } from "mongoose"
+import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import AiUsage, { AI_USAGE_SOURCES, AiUsageSource, IAiUsage } from "../models/AiUsageModel"
 import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
+import UserProject from "../models/UserProjectModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { LlmEffort, LlmProvider, LlmUsage, NO_USAGE } from "./llm/types"
@@ -132,6 +134,40 @@ export const organizationPipeline = (organizationId: Id, period: AiUsagePeriod):
     matchOf({ organizationId: objectId(organizationId) }, period),
     { $group: { _id: "$projectId", ...sums() } }
 ]
+
+export const AI_TOKEN_LIMIT_REACHED = "AI_TOKEN_LIMIT_REACHED"
+
+/** What members spent in the project this calendar month, input and output tokens together: exported for the tests. */
+export const membersMonthPipeline = (projectId: Id, userIds: Id[]): PipelineStage[] => [
+    matchOf({ projectId: objectId(projectId), userId: { $in: userIds.map(objectId) } }, "month"),
+    { $group: { _id: "$userId", tokens: { $sum: { $add: ["$inputTokens", "$outputTokens"] } } } }
+]
+
+/** The tokens each of `userIds` spent in the project this calendar month, by user id: none spent, none listed. */
+export const tokensSpentThisMonth = async (projectId: Id, userIds: Id[]): Promise<Map<string, number>> => {
+    if (userIds.length === 0) return new Map()
+    const groups = await AiUsage.aggregate<{ _id: unknown; tokens: number }>(membersMonthPipeline(projectId, userIds))
+    return new Map(groups.map(group => [String(group._id), group.tokens]))
+}
+
+/**
+ * Refuses an answer or a job to a member who spent their monthly limit in the project. Who has no limit, or no
+ * membership (an organization administrator outside the project), is not counted. Checked before the work starts:
+ * an answer or a job already running ends, and may go past the limit.
+ */
+export const ensureWithinTokenLimit = async (projectId: Id, userId: Id): Promise<void> => {
+    const membership = await UserProject.findOne({ projectId: toObjectId(String(projectId)), userId: toObjectId(String(userId)), invitationToken: null }, { aiTokenLimit: 1 })
+    const limit = membership?.aiTokenLimit
+    if (limit === undefined || limit === null) return
+    const spent = (await tokensSpentThisMonth(projectId, [userId])).get(String(userId)) ?? 0
+    if (spent >= limit) {
+        throw createBusinessException({
+            code: AI_TOKEN_LIMIT_REACHED,
+            message: `The monthly limit of ${limit} AI tokens in this project is spent: it starts again next month`,
+            statusCode: 429
+        })
+    }
+}
 
 /**
  * The AI tokens spent, by Edit with AI jobs and the assistant, at each level the console shows them: a domain, a

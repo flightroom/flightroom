@@ -168,6 +168,9 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
                     // Taken away from the project since the list was read: reading it again falls back to the default.
                     queryClient.invalidateQueries({ queryKey: [AVAILABLE_AI_MODELS_QUERY_KEY] })
                     fail("ai_model_not_available")
+                } else if (code === "AI_TOKEN_LIMIT_REACHED") {
+                    // A 429 as the rate limit, but waiting a minute does not help
+                    fail("token_limit_reached")
                 } else fail(ERROR_KEY_BY_STATUS[response.status] || "generic")
                 return
             }

@@ -624,10 +624,21 @@
             "success": "Accesso aggiornato",
             "last_owner": "Il progetto deve avere almeno un admin: promuovi prima un altro membro."
         },
+        "ai_tokens": {
+            "column": "Token AI del mese",
+            "spent_of_limit": "{{spent}} / {{limit}}",
+            "spent_unlimited": "{{spent}} · nessun limite",
+            "hint": "Token AI (input e output) spesi nel progetto questo mese con l'assistente e Modifica con AI. Il conteggio riparte il primo del mese.",
+            "limit_label": "Limite mensile di token AI",
+            "limit_placeholder": "Nessun limite",
+            "limit_description": "Token (input e output) che il membro può spendere nel progetto ogni mese con l'assistente e Modifica con AI. Lascia vuoto per nessun limite; 0 disattiva l'AI per il membro.",
+            "invalid": "Inserisci un numero intero di token, oppure lascia vuoto."
+        },
         "errors": {
             "domain_scope_forbidden": "Questa azione è fuori dai domini a cui hai accesso.",
             "invalid_domain": "Uno dei domini selezionati non appartiene a questo progetto.",
-            "domain_scope_not_for_owner": "Un admin ha sempre accesso all'intero progetto."
+            "domain_scope_not_for_owner": "Un admin ha sempre accesso all'intero progetto.",
+            "invalid_ai_token_limit": "Limite non valido: deve essere un numero intero di token, zero o più."
         }
     },
     "project_invitation": {
@@ -2124,7 +2135,8 @@
             "incomplete": "La risposta è incompleta: prova a fare una domanda più specifica.",
             "stopped": "Risposta interrotta.",
             "confirmation_expired": "La conferma è scaduta o ha già ricevuto una risposta, quindi non è stato fatto nulla. Chiedi di nuovo se vuoi ancora procedere.",
-            "ai_model_not_available": "L'IA scelta non è più disponibile per il progetto: scegline un'altra e chiedi di nuovo."
+            "ai_model_not_available": "L'IA scelta non è più disponibile per il progetto: scegline un'altra e chiedi di nuovo.",
+            "token_limit_reached": "Hai esaurito il tuo limite mensile di token AI in questo progetto. Riparte il primo del prossimo mese, oppure chiedi a un amministratore del progetto di alzarlo."
         },
         "suggestions": {
             "overview": "Riassumimi lo stato del progetto",
@@ -2244,7 +2256,8 @@
                 "AI_DOMAIN_PLAN_FAILED": "L'AI non è riuscita a proporre i componenti: riprova o descrivi la richiesta in un altro modo.",
                 "AI_MODEL_NOT_AVAILABLE": "L'IA scelta non è più disponibile per il progetto: scegline un'altra.",
                 "AI_PROVIDER_ERROR": "Il provider IA ha risposto con un errore: riprova tra poco.",
-                "AI_JOB_NOT_OWNER": "Solo chi l'ha avviato, o un amministratore dell'organizzazione, può farlo."
+                "AI_JOB_NOT_OWNER": "Solo chi l'ha avviato, o un amministratore dell'organizzazione, può farlo.",
+                "AI_TOKEN_LIMIT_REACHED": "Hai esaurito il tuo limite mensile di token AI in questo progetto: il job non è partito. Riparte il primo del prossimo mese, oppure chiedi a un amministratore del progetto di alzarlo."
             },
             "apply_all_started": "Applicazione delle proposte sui branch di partenza in corso",
             "apply_all_failed_one": "{{count}} proposta su {{total}} non è stata applicata: guarda l'errore sul suo repository",
@@ -3066,7 +3079,8 @@
             "AI_CHANGE_TOO_MANY": "Ci sono troppi job o missioni in corso in questo progetto: attendi che uno finisca.",
             "DOMAIN_SCOPE_FORBIDDEN": "Alcune repository sono fuori dai domini a cui hai accesso.",
             "AI_JOB_NOT_OWNER": "Solo chi ha avviato questa missione, o un amministratore dell'organizzazione, può farlo.",
-            "AI_MISSION_EMPTY_PROMPT": "Scrivi cosa devono fare gli agenti."
+            "AI_MISSION_EMPTY_PROMPT": "Scrivi cosa devono fare gli agenti.",
+            "AI_TOKEN_LIMIT_REACHED": "Hai esaurito il tuo limite mensile di token AI in questo progetto: la missione non è partita. Riparte il primo del prossimo mese, oppure chiedi a un amministratore del progetto di alzarlo."
         },
         "applying_label_one": "Applicazione di {{count}} proposta…",
         "applying_label_other": "Applicazione di {{count}} proposte…"

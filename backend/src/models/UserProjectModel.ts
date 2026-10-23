@@ -19,6 +19,11 @@ export interface IUserProject extends Document<ObjectId> {
     domainScoped?: boolean
     /** The domains of a scoped membership; meaningless when `domainScoped` is not set. */
     domainIds?: Schema.Types.ObjectId[]
+    /**
+     * The AI tokens (input and output) the member may spend in the project each calendar month, by the assistant and
+     * Edit with AI together; left out, no limit. Checked before an answer or a job starts: one already running ends.
+     */
+    aiTokenLimit?: number
     invitationToken?: string
     inviationTokenExpiresAt?: Date
     createdAt: Date
@@ -53,6 +58,10 @@ const userProjectSchema = new Schema<IUserProject>(
             type: [{ type: Schema.Types.ObjectId, ref: "Domain" }],
             default: []
         },
+        aiTokenLimit: {
+            type: Number,
+            min: 0
+        },
         invitationToken: {
             type: String,
             required: false
@@ -68,6 +77,22 @@ const userProjectSchema = new Schema<IUserProject>(
 )
 
 userProjectSchema.index({ userId: 1, projectId: 1 }, { unique: true })
+
+/**
+ * A project membership as the answers carry it, to the console and to the MCP tools. The document carries the
+ * invitation token, which is what lets whoever holds it accept the invitation and set the account's password: it
+ * never leaves.
+ */
+export const membershipView = (membership: IUserProject | undefined) =>
+    membership && {
+        userId: String(membership.userId),
+        role: membership.role,
+        domainIds: membership.domainScoped ? (membership.domainIds ?? []).map(String) : [],
+        domainScoped: Boolean(membership.domainScoped),
+        invitationPending: Boolean(membership.invitationToken),
+        invitationExpiresAt: membership.inviationTokenExpiresAt,
+        aiTokenLimit: membership.aiTokenLimit ?? null
+    }
 
 const UserProject = mongoose.model<IUserProject>("UserProject", userProjectSchema)
 export default UserProject

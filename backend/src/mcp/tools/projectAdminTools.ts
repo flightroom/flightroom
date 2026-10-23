@@ -2,7 +2,7 @@ import { z } from "zod"
 import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import { ApiKeyRole, ApiKeyStatus, IApiKey } from "../../models/ApiKeyModel"
-import { IUserProject, RoleInProject } from "../../models/UserProjectModel"
+import { membershipView, RoleInProject } from "../../models/UserProjectModel"
 import { ApiKeyService } from "../../service/ApiKeyService"
 import OAuthGrantService from "../../service/OAuthGrantService"
 import ProjectService from "../../service/ProjectService"
@@ -13,20 +13,6 @@ import { DESTRUCTIVE, defineTool, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EX
 const userId = objectId("Id of the user, from project_members_list")
 const domainIds = z.array(objectId("Id of a functional domain of the project, from domains_list")).max(100)
 const role = z.enum(RoleInProject).describe("OWNER manages the project and its members, MEMBER changes it, VIEWER only reads")
-
-/**
- * A project membership as the model sees it. The document carries the invitation token, which is
- * what lets whoever holds it accept the invitation and set the account's password: it never leaves.
- */
-const toMembershipView = (membership: IUserProject | undefined) =>
-    membership && {
-        userId: String(membership.userId),
-        role: membership.role,
-        domainIds: membership.domainScoped ? (membership.domainIds ?? []).map(String) : [],
-        domainScoped: Boolean(membership.domainScoped),
-        invitationPending: Boolean(membership.invitationToken),
-        invitationExpiresAt: membership.inviationTokenExpiresAt
-    }
 
 /** The MCP client pages exist only where MCP is switched on, and so do these tools' answers. */
 const ensureMcpEnabled = () => {
@@ -141,7 +127,7 @@ export const projectAdminTools = [
             role,
             domainIds: domainIds.optional().describe("The domains they reach, nothing else of the project; left out or empty, the whole project. Not for an OWNER, who manages the whole project")
         }),
-        run: async (args, { principal, projectId }) => toMembershipView(await new UserProjectService(principal).addUserToProjectByEmail(projectId, args.email, args.role, args.domainIds))
+        run: async (args, { principal, projectId }) => membershipView(await new UserProjectService(principal).addUserToProjectByEmail(projectId, args.email, args.role, args.domainIds))
     }),
     defineTool({
         name: "project_member_resend_invitation",
@@ -153,7 +139,7 @@ export const projectAdminTools = [
         requiresConfirmation: true,
         annotations: WRITE,
         inputSchema: z.object({ userId }),
-        run: async (args, { principal, projectId }) => toMembershipView(await new UserProjectService(principal).resendInvitation(projectId, args.userId))
+        run: async (args, { principal, projectId }) => membershipView(await new UserProjectService(principal).resendInvitation(projectId, args.userId))
     }),
     defineTool({
         name: "project_member_role_set",
@@ -169,9 +155,16 @@ export const projectAdminTools = [
             role,
             domainIds: domainIds
                 .optional()
-                .describe("Replaces the domains they reach, an empty list opening the whole project; left out, they stay. Promoting to OWNER a member confined to domains needs an empty list")
+                .describe("Replaces the domains they reach, an empty list opening the whole project; left out, they stay. Promoting to OWNER a member confined to domains needs an empty list"),
+            aiTokenLimit: z
+                .number()
+                .int()
+                .min(0)
+                .nullable()
+                .optional()
+                .describe("The AI tokens (input and output) they may spend in the project each calendar month, by the assistant and Edit with AI; null for no limit; left out, it stays")
         }),
-        run: async (args, { principal, projectId }) => toMembershipView(await new UserProjectService(principal).updateUserRole(projectId, args.userId, args.role, args.domainIds))
+        run: async (args, { principal, projectId }) => membershipView(await new UserProjectService(principal).updateUserRole(projectId, args.userId, args.role, args.domainIds, args.aiTokenLimit))
     }),
     defineTool({
         name: "project_member_remove",

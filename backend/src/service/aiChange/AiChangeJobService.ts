@@ -23,7 +23,7 @@ import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import { isProtectedPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { ResolvedAiModel } from "../AiModelService"
-import { recordAiUsage } from "../AiUsageService"
+import { ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
 import { redactSecrets } from "../assistant/assistantTools"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
@@ -692,6 +692,8 @@ export class AiChangeJobService extends AiChangeBaseService {
         if (!input.missionId) await this.ensureRoomForJob(input.projectId)
 
         const userId = this.getUser()!._id
+        // Every job of a mission too: the member's limit can run out while the mission goes on.
+        await ensureWithinTokenLimit(input.projectId, userId)
         // Named before it is created: the first job of a chain is its own root.
         const jobId = input.jobId ?? (new Types.ObjectId() as unknown as IAiChangeJob["_id"])
         const queued = () => [{ at: new Date(), kind: "info" as const, message: "queued" }]
