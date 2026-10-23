@@ -160,7 +160,9 @@ handed to each network call.
   lockfiles: a pushed branch runs CI with the repository secrets. Since every proposal is pushed on its
   feature branch as soon as the agent is done, a pipeline that runs on every branch runs on the
   agent's code before anyone has reviewed it: limit such pipelines, or their secrets, to protected branches.
-- It cannot run anything: no install, build or test. The repository's CI checks the pull request.
+- Without a sandbox it cannot run anything: no install, build or test. The repository's CI checks the
+  pull request. With an [OpenShell gateway](#running-install-lint-test-and-build) it runs the install and
+  the scripts of `package.json` in an isolated sandbox, never on the console.
 - It is told the config maps, secrets and resources attached to each backend by the names of their
   variables, never a credential (see [SECRETS](SECRETS.md#in-the-api)). When a backend attaches an `api`
   resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
@@ -169,6 +171,61 @@ handed to each network call.
 - At most 20 files and 500 KB written per request, 40 model rounds.
 - It never pushes. The console pushes its proposal on a feature branch only, never on the base branch:
   only the user's **Apply** writes there.
+
+## Running install, lint, test and build
+
+The agent can check its own change when the console is given an [OpenShell](https://github.com/NVIDIA/OpenShell)
+gateway. It then gets `run_script`, which runs `install` or one script of the repository's `package.json`
+(`lint`, `test`, `build`...) with the repository's package manager (the `packageManager` field, else the
+lockfile: pnpm and yarn through corepack, npm otherwise), and reads back the exit code and the end of the
+output. Nothing else can be run: no arbitrary command, no repository without a `package.json`.
+
+The code runs in a sandbox, never in the console's pod: install scripts, build configurations and tests
+are the repository's code, and the console holds the repository tokens, the database and the model keys.
+
+- **One sandbox per conversation.** It is created at the first script of a request and named after the
+  first job of the chain, so the follow-ups reuse it and find `node_modules` already installed.
+- **Deleted when idle.** Once no job of the conversation has waited, run or ended for
+  `OPENSHELL_SANDBOX_IDLE_MINUTES` (5), the sandbox is deleted. Every replica sweeps once a minute and
+  tells what is idle from the database, so a sandbox outlives neither the replica that created it nor a
+  restart.
+- **What goes in.** Each repository is copied whole at its first script of a request (everything but
+  `node_modules` is replaced), then only the files the agent wrote or deleted. Files that may hold
+  credentials (`.env*`, `.npmrc`, keys) are never copied, and nothing comes back: a lockfile the install
+  rewrites or a build output is never proposed.
+- **What goes out.** By default the sandbox may reach `registry.npmjs.org` on 443, only through
+  `/usr/local/bin/node`, and nothing else. Private registries are not supported yet: their credentials
+  would have to reach the sandbox.
+- **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
+  6,000 characters of the output; 300 MB copied per repository.
+
+On Kubernetes, OpenShell needs the [Agent Sandbox](https://agent-sandbox.sigs.k8s.io) controller and a CNI
+that enforces `NetworkPolicy`: without one, the network policy is not applied. Prefer a workload template
+on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime class and resource limits.
+
+| Variable                         | Default                 | What it does                                                                     |
+| -------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| `OPENSHELL_GATEWAY_URL`          |                         | The gateway. Unset, the agent is offered no tool that runs code.                 |
+| `OPENSHELL_TOKEN`                |                         | A static bearer token for the gateway.                                           |
+| `OPENSHELL_OIDC_ISSUER`          |                         | With the client id and secret: a token from the client credentials grant, renewed before it expires. |
+| `OPENSHELL_OIDC_CLIENT_ID`       |                         |                                                                                  |
+| `OPENSHELL_OIDC_CLIENT_SECRET`   |                         |                                                                                  |
+| `OPENSHELL_OIDC_AUDIENCE`        |                         |                                                                                  |
+| `OPENSHELL_OIDC_SCOPES`          |                         | Space or comma separated.                                                        |
+| `OPENSHELL_CA_CERT_FILE`         |                         | PEM file of the gateway's CA.                                                    |
+| `OPENSHELL_CLIENT_CERT_FILE`     |                         | PEM client certificate and key, for a gateway that asks for mTLS (the local one does). |
+| `OPENSHELL_CLIENT_KEY_FILE`      |                         |                                                                                  |
+| `OPENSHELL_WORKSPACE`            | `default`               | The OpenShell workspace the sandboxes are created in.                            |
+| `OPENSHELL_SANDBOX_TEMPLATE`     |                         | A workload template of the gateway: it wins over the image.                      |
+| `OPENSHELL_SANDBOX_IMAGE`        | `node:24-bookworm-slim` | The image, without a template. It needs `sh`, `tar`, `find`, node, npm and corepack. |
+| `OPENSHELL_SANDBOX_ROOT`         | `/sandbox`              | Where the copies and the caches live inside the sandbox.                         |
+| `OPENSHELL_REGISTRY_HOSTS`       | `registry.npmjs.org`    | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
+| `OPENSHELL_NETWORK_BINARY`       | `/usr/local/bin/node`   | The executable allowed to reach them: its real path, not a symlink.              |
+| `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is deleted once its conversation has been idle this long.              |
+
+The SDK is published on GitHub Packages, which asks for a token even to read a public package. To build
+the images yourself, pass one with `read:packages` as the build secret `npm_token`:
+`docker build --secret id=npm_token,env=GITHUB_TOKEN .`
 
 ## Who can use it
 
