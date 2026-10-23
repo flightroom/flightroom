@@ -1,5 +1,5 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { RESOURCE_CATALOG, RESOURCE_ENV_PREFIX, ResourceType, resourceEnvKeys } from "../types/ResourceCatalog"
+import { RESOURCE_CATALOG, RESOURCE_CUSTOM_FIELD_NAME, RESOURCE_ENV_PREFIX, ResourceCustomField, ResourceType, resourceEnvKeys } from "../types/ResourceCatalog"
 import { VARIABLE_MAP_NAME } from "../types/VariableMapDTO"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
@@ -30,6 +30,8 @@ export interface IResource extends Document<ObjectId> {
     description?: string
     /** Typed in place of the prefix derived from the type and the name; null keeps the derived one */
     envPrefix?: string | null
+    /** A `generic` resource only: the variables it defines, whose values are kept as those of a catalog field */
+    customFields?: ResourceCustomField[]
     /** The fields that are not a credential. Which list a field goes to is the catalog's call, never the client's */
     values: IResourceValue[]
     /** The fields that are a credential, encrypted at rest */
@@ -83,6 +85,21 @@ const resourceValueSchema = new Schema<IResourceValue>(
     { _id: false }
 )
 
+const resourceCustomFieldSchema = new Schema<ResourceCustomField>(
+    {
+        name: {
+            type: String,
+            required: true,
+            match: RESOURCE_CUSTOM_FIELD_NAME
+        },
+        secret: {
+            type: Boolean,
+            default: false
+        }
+    },
+    { _id: false }
+)
+
 const resourceSchema = new Schema<IResource>(
     {
         projectId: {
@@ -114,6 +131,11 @@ const resourceSchema = new Schema<IResource>(
             type: String,
             required: false,
             match: RESOURCE_ENV_PREFIX
+        },
+        customFields: {
+            type: [resourceCustomFieldSchema],
+            // Left out of every other type rather than stored empty
+            default: undefined
         },
         values: {
             type: [resourceValueSchema],

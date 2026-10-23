@@ -30,6 +30,25 @@ describe("Resource model", () => {
         })
     })
 
+    it("given a resource of a catalog type, when it is built, then it carries no custom fields", () => {
+        expect(new Resource({ projectId, name: "orders", type: "database", variant: "credentials" }).toObject()).not.toHaveProperty("customFields")
+    })
+
+    it.each([["token"], ["API-KEY"], [""]])("given a generic defining the variable %j, when it is validated, then it is refused", async name => {
+        await expect(new Resource({ projectId, name: "billing", type: "generic", variant: "custom", customFields: [{ name }] }).validate()).rejects.toMatchObject({
+            errors: { "customFields.0.name": expect.anything() }
+        })
+    })
+
+    it("given a generic, when it is serialised, then the variables it sets are those it defines", () => {
+        const generic = new Resource({ projectId, name: "billing", type: "generic", variant: "custom", customFields: [{ name: "TOKEN", secret: true }] })
+
+        const json = JSON.parse(JSON.stringify(generic))
+
+        expect(json.customFields).toEqual([{ name: "TOKEN", secret: true }])
+        expect(json.env).toEqual([{ key: "RES_BILLING_TOKEN", field: "TOKEN", secret: true, required: false }])
+    })
+
     it("declares the name unique inside its project", () => {
         expect(Resource.schema.indexes()).toContainEqual([{ name: 1, projectId: 1 }, expect.objectContaining({ unique: true })])
     })

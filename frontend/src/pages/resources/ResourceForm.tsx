@@ -21,6 +21,7 @@ import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { useProjectEnvironmentsQuery } from "../services/partials/serviceVariables"
 import ResourceApiSpecFields from "./partials/ResourceApiSpecFields"
+import ResourceCustomFieldsEditor from "./partials/ResourceCustomFieldsEditor"
 import ResourceFieldsTable from "./partials/ResourceFieldsTable"
 import {
     byteLength,
@@ -30,6 +31,8 @@ import {
     formatBytes,
     fromFormFields,
     MAX_API_SPEC_BYTES,
+    MAX_RESOURCE_CUSTOM_FIELDS,
+    RESOURCE_CUSTOM_FIELD_NAME,
     RESOURCE_ENV_PREFIX,
     RESOURCE_LIST_PATH,
     RESOURCE_NAME,
@@ -37,6 +40,7 @@ import {
     resourceEnvKeys,
     resourceEnvPrefix,
     resourcePath,
+    resourceVariant,
     toFormFields,
     toFormValues,
     typeDescription,
@@ -70,6 +74,8 @@ interface FormMessages {
     tooLong: string
     apiSpecTooLarge: string
     retype: string
+    customFieldName: string
+    customFieldDuplicated: string
 }
 
 const fieldValueSchema = z.object({ value: z.string(), saved: z.boolean() })
@@ -89,12 +95,23 @@ const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number,
                 .string()
                 .trim()
                 .refine(value => value === "" || RESOURCE_ENV_PREFIX.test(value), messages.envPrefix),
+            customFields: z.array(z.object({ name: z.string().regex(RESOURCE_CUSTOM_FIELD_NAME, messages.customFieldName), secret: z.boolean() })).max(MAX_RESOURCE_CUSTOM_FIELDS),
             fields: z.record(z.string(), fieldValueSchema.extend({ overrides: z.array(fieldValueSchema) })),
             apiSpec: z.string().refine(value => byteLength(value) <= MAX_API_SPEC_BYTES, messages.apiSpecTooLarge),
             apiSpecRemoved: z.boolean()
         })
         .superRefine((values, context) => {
-            const variant = catalog.find(spec => spec.type === values.type)?.variants.find(candidate => candidate.id === values.variant)
+            const variant = resourceVariant(
+                catalog.find(spec => spec.type === values.type),
+                values.variant,
+                values.customFields
+            )
+            // Each variable of a generic once: two of the same name would be one variable
+            values.customFields.forEach((field, index) => {
+                if (values.customFields.findIndex(other => other.name === field.name) < index) {
+                    context.addIssue({ code: "custom", path: ["customFields", index, "name"], message: messages.customFieldDuplicated })
+                }
+            })
             for (const spec of variant?.fields ?? []) {
                 const field = values.fields[spec.name]
                 if (!field) continue
@@ -226,7 +243,8 @@ const RetypeAlert: React.FC<{ retype: CredentialToRetype[]; environments: Enviro
 /** The variables the resource sets, as they will be named: they follow the name, the prefix and the variant as they are typed */
 const KeysPreview: React.FC<{ spec?: ResourceTypeSpec; variant: string; name: string; envPrefix: string }> = ({ spec, variant, name, envPrefix }) => {
     const { t } = useTranslation()
-    const keys = resourceEnvKeys(spec, variant, name, envPrefix.trim())
+    const customFields = useWatch({ name: "customFields" }) as ResourceFormValues["customFields"] | undefined
+    const keys = resourceEnvKeys(spec, variant, name, envPrefix.trim(), customFields)
 
     return (
         <Card>
@@ -294,7 +312,9 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                     email: t("resources.values.email_invalid"),
                     tooLong: t("resources.values.too_long"),
                     apiSpecTooLarge: t("resources.api_spec.too_large", { max: formatBytes(MAX_API_SPEC_BYTES) }),
-                    retype: t("resources.values.retype_required")
+                    retype: t("resources.values.retype_required"),
+                    customFieldName: t("resources.custom_fields.name_invalid"),
+                    customFieldDuplicated: t("resources.custom_fields.name_duplicated")
                 },
                 initial
             ),
@@ -307,8 +327,9 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
 
     const [type, variant, name = "", envPrefix = ""] = useWatch({ control: form.control, name: ["type", "variant", "name", "envPrefix"] })
     const fields = useWatch({ control: form.control, name: "fields" }) as ResourceFormValues["fields"]
+    const customFields = useWatch({ control: form.control, name: "customFields" }) as ResourceFormValues["customFields"]
     const spec = specOf(type)
-    const variantSpec = spec?.variants.find(candidate => candidate.id === variant)
+    const variantSpec = resourceVariant(spec, variant, customFields)
     const retype = initial ? credentialsToRetype(variantSpec, initial.fields, fields ?? {}, variant !== initial.variant) : []
 
     // The engine of a database picks its logo, for every variant
@@ -324,6 +345,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
     const onTypeChange = (next: string) => {
         const nextSpec = specOf(next)
         form.setValue("variant", nextSpec?.variants[0]?.id ?? "")
+        form.setValue("customFields", [])
         form.setValue("fields", toFormFields(nextSpec, environments))
     }
 
@@ -341,11 +363,9 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
             description: data.description,
             // Blank: the prefix derived from the type and the name
             envPrefix: data.envPrefix || null,
-            fields: fromFormFields(
-                specOf(data.type)?.variants.find(candidate => candidate.id === data.variant),
-                data.fields,
-                environments
-            )
+            // The backend refuses them on any other type
+            ...(data.type === "generic" && { customFields: data.customFields }),
+            fields: fromFormFields(resourceVariant(specOf(data.type), data.variant, data.customFields), data.fields, environments)
         }
         if (data.type === "api") {
             // Left out: the stored document stays
@@ -427,6 +447,8 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                     </Card>
 
                     <KeysPreview spec={spec} variant={variant} name={name} envPrefix={envPrefix} />
+
+                    {type === "generic" && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} />}
 
                     {retype.length > 0 && <RetypeAlert retype={retype} environments={environments} />}
 

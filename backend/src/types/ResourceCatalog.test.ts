@@ -1,14 +1,15 @@
 import { describe, expect, it } from "vitest"
 import { DATABASE_SECRET_KEYS } from "../models/DatabaseModel"
 import { STORAGE_SECRET_KEYS } from "../models/StorageModel"
-import { RESERVED_ENV_KEYS, RESOURCE_CATALOG, resourceEnvKeys, resourceEnvPrefix, resourceSecretName } from "./ResourceCatalog"
+import { RESERVED_ENV_KEYS, RESOURCE_CATALOG, resourceEnvironmentValues, resourceEnvKeys, resourceEnvPrefix, resourceSecretName, resourceVariant } from "./ResourceCatalog"
 import { SERVICE_VARIABLE_KEY } from "./ServiceStack"
 
 const variants = Object.values(RESOURCE_CATALOG).flatMap(spec => spec.variants.map(variant => [spec.type, variant.id] as const))
 
 describe("RESOURCE_CATALOG", () => {
     it.each(variants)("given %s %s with the longest name, when its variables are derived, then each is a valid key no other one of the variant repeats", (type, variant) => {
-        const keys = resourceEnvKeys({ name: `a-${"b".repeat(61)}`, type, variant }).map(({ key }) => key)
+        // A generic sets only the variables it defines: one of the longest name
+        const keys = resourceEnvKeys({ name: `a-${"b".repeat(61)}`, type, variant, customFields: [{ name: "T".repeat(61), secret: true }] }).map(({ key }) => key)
 
         expect(keys.length).toBeGreaterThan(0)
         expect(keys.every(key => SERVICE_VARIABLE_KEY.test(key))).toBe(true)
@@ -149,6 +150,89 @@ describe("the smtp type", () => {
 
         expect(fields.find(field => field.name === "port")?.default).toBe("587")
         expect(fields.find(field => field.name === "security")).toMatchObject({ options: ["none", "starttls", "tls"], default: "starttls" })
+    })
+})
+
+describe("the mongodb type", () => {
+    it("given a connection string, when its variables are derived, then the URI is a secret and the database optional", () => {
+        expect(resourceEnvKeys({ name: "orders", type: "mongodb", variant: "connectionString" })).toEqual([
+            { key: "MONGO_ORDERS_URL", field: "connectionString", secret: true, required: true },
+            { key: "MONGO_ORDERS_NAME", field: "database", secret: false, required: false }
+        ])
+    })
+
+    it("given host and credentials, when its variables are derived, then the password is the only secret and the options are optional", () => {
+        expect(resourceEnvKeys({ name: "orders", type: "mongodb", variant: "credentials" })).toEqual([
+            { key: "MONGO_ORDERS_HOST", field: "host", secret: false, required: true },
+            { key: "MONGO_ORDERS_PORT", field: "port", secret: false, required: true },
+            { key: "MONGO_ORDERS_NAME", field: "database", secret: false, required: true },
+            { key: "MONGO_ORDERS_USER", field: "username", secret: false, required: true },
+            { key: "MONGO_ORDERS_PASSWORD", field: "password", secret: true, required: true },
+            { key: "MONGO_ORDERS_AUTH_SOURCE", field: "authSource", secret: false, required: false },
+            { key: "MONGO_ORDERS_REPLICA_SET", field: "replicaSet", secret: false, required: false },
+            { key: "MONGO_ORDERS_TLS", field: "tls", secret: false, required: false }
+        ])
+    })
+
+    it("given the catalog, when a database engine is picked, then MongoDB is not one: it is a type of its own, its connection string first", () => {
+        expect(RESOURCE_CATALOG.database.variants[0].fields.find(field => field.name === "engine")?.options).not.toContain("MONGODB")
+        expect(RESOURCE_CATALOG.mongodb.variants.map(variant => variant.id)).toEqual(["connectionString", "credentials"])
+    })
+})
+
+describe("the bigquery type", () => {
+    it("given a service account key, when its variables are derived, then the key is the only secret and the variant is told to the client", () => {
+        expect(resourceEnvKeys({ name: "analytics", type: "bigquery", variant: "serviceAccountKey" })).toEqual([
+            { key: "BQ_ANALYTICS_PROJECT_ID", field: "projectId", secret: false, required: true },
+            { key: "BQ_ANALYTICS_DATASET", field: "dataset", secret: false, required: false },
+            { key: "BQ_ANALYTICS_LOCATION", field: "location", secret: false, required: false },
+            { key: "BQ_ANALYTICS_CREDENTIALS_JSON", field: "jsonKey", secret: true, required: true },
+            { key: "BQ_ANALYTICS_AUTH", secret: false, required: true, value: "serviceAccountKey" }
+        ])
+    })
+
+    it("given the identity of the pod, when its variables are derived, then there is no credential", () => {
+        expect(resourceEnvKeys({ name: "analytics", type: "bigquery", variant: "applicationDefault" })).toEqual([
+            { key: "BQ_ANALYTICS_PROJECT_ID", field: "projectId", secret: false, required: true },
+            { key: "BQ_ANALYTICS_DATASET", field: "dataset", secret: false, required: false },
+            { key: "BQ_ANALYTICS_LOCATION", field: "location", secret: false, required: false },
+            { key: "BQ_ANALYTICS_AUTH", secret: false, required: true, value: "applicationDefault" }
+        ])
+    })
+})
+
+describe("the generic type", () => {
+    const customFields = [
+        { name: "BASE_URL", secret: false },
+        { name: "TOKEN", secret: true }
+    ]
+
+    it("given the variables it defines, when they are derived, then each is <prefix>_<name>, optional, secret as defined", () => {
+        expect(resourceEnvKeys({ name: "billing", type: "generic", variant: "custom", customFields })).toEqual([
+            { key: "RES_BILLING_BASE_URL", field: "BASE_URL", secret: false, required: false },
+            { key: "RES_BILLING_TOKEN", field: "TOKEN", secret: true, required: false }
+        ])
+    })
+
+    it("given none defined, when its variables are derived, then there are none", () => {
+        expect(resourceEnvKeys({ name: "billing", type: "generic", variant: "custom" })).toEqual([])
+    })
+
+    it("given custom fields on another type, when its variant is read, then they are ignored", () => {
+        expect(resourceVariant("redis", "connectionString", customFields)).toBe(RESOURCE_CATALOG.redis.variants[1])
+    })
+
+    it("given stored values, when the variables of an environment are derived, then the override wins and a credential is read as any other", () => {
+        const resource = {
+            name: "billing",
+            type: "generic",
+            variant: "custom",
+            customFields,
+            values: [{ field: "BASE_URL", value: "https://billing.example.com", overrides: [{ environmentId: "dev", value: "https://dev.billing.example.com" }] }],
+            secrets: [{ field: "TOKEN", value: "s3cr3t" }]
+        }
+
+        expect(resourceEnvironmentValues(resource, "dev")).toEqual({ RES_BILLING_BASE_URL: "https://dev.billing.example.com", RES_BILLING_TOKEN: "s3cr3t" })
     })
 })
 

@@ -3178,6 +3178,17 @@
             "secret": "Segreta",
             "fixed": "Fissa"
         },
+        "custom_fields": {
+            "title": "Variabili",
+            "description": "Le variabili che la risorsa imposta: ciascuna diventa <prefisso>_<nome>. Quelle segrete sono cifrate e non vengono più mostrate.",
+            "add": "Aggiungi variabile",
+            "empty": "Nessuna variabile: aggiungine una per darle un valore.",
+            "name": "Nome",
+            "secret": "Segreta",
+            "hint": "Rinominare o rimuovere una variabile, o renderla segreta o in chiaro, ne cancella i valori al salvataggio.",
+            "name_invalid": "Al massimo 61 lettere maiuscole, cifre o trattini bassi",
+            "name_duplicated": "Esiste già una variabile con questo nome"
+        },
         "values": {
             "title": "Valori",
             "description": "Un valore per tutti gli ambienti; gli ambienti che ne vogliono un altro lo sovrascrivono.",
@@ -3281,6 +3292,7 @@
             "secret_value_required": "Una credenziale salvata non c'è più: digitala di nuovo",
             "environment_unknown": "Un valore si riferisce a un ambiente che non esiste più: ricarica la pagina",
             "env_prefix_invalid": "Il prefisso non è valido, o produce una variabile che la piattaforma imposta su ogni container (HTTP_PORT)",
+            "custom_fields_invalid": "Le variabili della risorsa non sono valide: nomi in maiuscolo con cifre o trattini bassi, ciascuno una volta sola, al massimo 100, e solo per una risorsa generica",
             "api_spec_invalid": "Il documento non è un documento Swagger/OpenAPI valido in JSON o YAML, o supera 5 MiB",
             "in_use": "È ancora agganciata a {{services}}: sganciala prima",
             "resource_unknown": "Una delle risorse selezionate non esiste più: ricarica la pagina",
@@ -3293,6 +3305,14 @@
             "database": {
                 "label": "Database",
                 "description": "Un database esterno: per host e credenziali, per stringa di connessione, o su Azure SQL con Entra ID."
+            },
+            "mongodb": {
+                "label": "MongoDB",
+                "description": "Un database MongoDB esterno, ad esempio Atlas: per stringa di connessione (mongodb+srv://) o per host e credenziali."
+            },
+            "bigquery": {
+                "label": "BigQuery",
+                "description": "Un progetto Google BigQuery: con la chiave JSON di un service account o con l'identità del pod (Workload Identity)."
             },
             "storage": {
                 "label": "Storage",
@@ -3321,6 +3341,10 @@
             "smtp": {
                 "label": "Email (SMTP)",
                 "description": "Un server SMTP attraverso cui il service invia email."
+            },
+            "generic": {
+                "label": "Generica",
+                "description": "Per quello che il catalogo non ha: definisci tu le variabili, e quali sono segrete."
             }
         },
         "variants": {
@@ -3329,6 +3353,14 @@
                 "connectionString": "Stringa di connessione",
                 "azureAad": "Azure SQL, app Entra ID",
                 "azureManagedIdentity": "Azure SQL, managed identity"
+            },
+            "mongodb": {
+                "connectionString": "Stringa di connessione",
+                "credentials": "Host e credenziali"
+            },
+            "bigquery": {
+                "serviceAccountKey": "Chiave di un service account",
+                "applicationDefault": "Identità del pod (Application Default Credentials)"
             },
             "storage": {
                 "aws": "AWS S3",
@@ -3364,6 +3396,9 @@
             "smtp": {
                 "credentials": "Con autenticazione",
                 "noAuth": "Relay senza autenticazione"
+            },
+            "generic": {
+                "custom": "Variabili personalizzate"
             }
         },
         "fields": {
@@ -3406,7 +3441,12 @@
             "security": "Sicurezza della connessione",
             "from": "Indirizzo mittente",
             "fromName": "Nome mittente",
-            "schema": "Schema"
+            "schema": "Schema",
+            "authSource": "Database di autenticazione",
+            "replicaSet": "Replica set",
+            "projectId": "ID del progetto Google Cloud",
+            "dataset": "Dataset",
+            "location": "Località"
         },
         "retype": {
             "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"
