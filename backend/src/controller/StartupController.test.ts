@@ -37,7 +37,7 @@ import StartupController from "./StartupController"
 describe("StartupController", () => {
     let app: FastifyInstance
 
-    const aRegistration = { email: "founder@example.com", password: "a-strong-password", project: "Acme" }
+    const aRegistration = { email: "founder@example.com", password: "a-strong-password", organization: "Acme" }
 
     beforeEach(async () => {
         existsAtLeastOneUser.mockReset()
@@ -60,7 +60,7 @@ describe("StartupController", () => {
         await app.close()
     })
 
-    it("Given an installation with no users, when the first registration is posted, then the user, the organization and the project are created", async () => {
+    it("Given an installation with no users, when the first registration is posted, then the user and the organization are created and no project", async () => {
         existsAtLeastOneUser.mockResolvedValue(false)
 
         const response = await app.inject({ method: "POST", url: "/startup/registration", payload: aRegistration })
@@ -68,7 +68,18 @@ describe("StartupController", () => {
         expect(response.statusCode).toBe(200)
         expect(register).toHaveBeenCalledTimes(1)
         expect(createOrganization).toHaveBeenCalledTimes(1)
-        expect(createProject).toHaveBeenCalledTimes(1)
+        expect(createOrganization.mock.calls[0][0]).toMatchObject({ name: "Acme" })
+        // The first project is created afterwards, from the welcome screen of the empty organization.
+        expect(createProject).not.toHaveBeenCalled()
+    })
+
+    it("Given an installation with no users, when the first registration is posted without any name, then it is refused before the organization", async () => {
+        existsAtLeastOneUser.mockResolvedValue(false)
+
+        const response = await app.inject({ method: "POST", url: "/startup/registration", payload: { email: aRegistration.email, password: aRegistration.password } })
+
+        expect(response.statusCode).toBe(400)
+        expect(createOrganization).not.toHaveBeenCalled()
     })
 
     it("Given an installation that already has a user, when the first registration is posted, then it is refused", async () => {
@@ -90,7 +101,7 @@ describe("StartupController", () => {
         expect(createProject).not.toHaveBeenCalled()
     })
 
-    it("Given a project name, when the first registration is posted, then the slug is left to the service", async () => {
+    it("Given a project name from an older client, when the first registration is posted, then the project is still created and its slug is left to the service", async () => {
         existsAtLeastOneUser.mockResolvedValue(false)
 
         await app.inject({ method: "POST", url: "/startup/registration", payload: { ...aRegistration, project: "My Cool Storefront App" } })
@@ -103,10 +114,10 @@ describe("StartupController", () => {
         expect(created.slug).toBeUndefined()
     })
 
-    it("Given a project name, when the first registration is posted, then the organization is named after it too", async () => {
+    it("Given only a project name from an older client, when the first registration is posted, then the organization is named after it", async () => {
         existsAtLeastOneUser.mockResolvedValue(false)
 
-        await app.inject({ method: "POST", url: "/startup/registration", payload: { ...aRegistration, project: "Acme" } })
+        await app.inject({ method: "POST", url: "/startup/registration", payload: { email: aRegistration.email, password: aRegistration.password, project: "Acme" } })
 
         expect(createOrganization.mock.calls[0][0]).toMatchObject({ name: "Acme" })
     })

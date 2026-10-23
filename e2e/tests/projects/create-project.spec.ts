@@ -72,10 +72,12 @@ test.describe
             await createOrganizationViaUi(page, organizationName)
         })
 
-        test("given an account without projects, when it signs in, then the wizard takes over the dashboard", async ({ browser, request }) => {
+        test("given an account without projects, when it signs in, then the welcome screen leads into the wizard", async ({ browser, request }) => {
             const { page } = await getSession(browser)
 
-            // Il wizard prende il posto della dashboard finche' non c'e' un progetto.
+            // Finche' non c'e' un progetto la dashboard non c'e': prima i complimenti per l'organizzazione,
+            // poi il wizard.
+            await page.getByTestId("create-first-project").click()
             await expect(page.getByTestId("wizard-step-title")).toBeVisible()
             await expect(page.getByTestId("wizard-project-name")).toBeVisible()
 

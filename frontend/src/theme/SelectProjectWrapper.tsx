@@ -1,8 +1,10 @@
 import { Spinner } from "@flightroom/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { PartyPopper } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import AuthenticationLayout from "@/authentication/components/AuthenticationLayout"
+import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import PendingInvitationsList, { usePendingInvitationsQuery } from "@/components/PendingInvitationsList"
 import ProjectPickerList from "@/components/ProjectPickerList"
@@ -43,6 +45,27 @@ const SelectProjectForm: React.FC<SelectProjectFormProps> = ({ onCreateNewProjec
     )
 }
 
+/** What an empty organization opens on: it says the organization is there and points at the one next step. */
+const FirstProjectWelcome: React.FC<{ onCreateProject: () => void }> = ({ onCreateProject }) => {
+    const { t } = useTranslation()
+    const { organization } = useOrganizationStore()
+
+    return (
+        <AuthenticationLayout title={t("project.first_project.title")} description={t("project.first_project.description", { organization: organization?.name })}>
+            <div className="flex flex-col items-center gap-4">
+                <PartyPopper className="size-12 text-primary" aria-hidden />
+                <p className="text-center text-sm text-muted-foreground">{t("project.first_project.hint")}</p>
+                <Button className="w-full" onClick={onCreateProject} dataTestId="create-first-project">
+                    {t("project.first_project.cta")}
+                </Button>
+            </div>
+            <div className="mt-4 flex justify-center border-t border-divider pt-4">
+                <SwitchOrganizationButton />
+            </div>
+        </AuthenticationLayout>
+    )
+}
+
 const SelectProjectWrapperInner: React.FC<React.PropsWithChildren> = ({ children }) => {
     const projectStore = useProjectStore()
     const { organization } = useOrganizationStore()
@@ -64,10 +87,10 @@ const SelectProjectWrapperInner: React.FC<React.PropsWithChildren> = ({ children
         )
     }
 
-    // First run: no projects yet → guide the user through the full project wizard.
-    // Gated on a local flag so the wizard stays mounted for every step even though
+    // First run: no projects yet → a welcome screen that sends the user into the full project wizard.
+    // Once there, `isCreatingProject` keeps the wizard mounted for every step even though
     // step 1 already sets the active project in the store.
-    // A pending invitation is a way in as well, so it takes precedence over the wizard:
+    // A pending invitation is a way in as well, so it takes precedence over the welcome screen:
     // otherwise the only screen offered would be "create a project".
     // Only whoever administers the organization can open a project in it, so a plain member with
     // nothing shared with them yet is shown the picker's empty state instead of a wizard that would
@@ -75,9 +98,9 @@ const SelectProjectWrapperInner: React.FC<React.PropsWithChildren> = ({ children
     const canCreateProjects = organization?.role === "OWNER" || organization?.role === "ADMIN"
     const isFirstRun = !hasProjects && !hasPendingInvitations && !firstRunComplete && canCreateProjects
 
-    // The picker can also reach the wizard, which this component has to render itself:
+    // The picker and the welcome screen both reach the wizard, which this component has to render itself:
     // until a project is active it shadows the routed pages, so navigating there would show nothing.
-    if (isFirstRun || isCreatingProject) {
+    if (isCreatingProject) {
         return (
             <NewProjectWizard
                 mountPoint="/project-wizard"
@@ -88,6 +111,10 @@ const SelectProjectWrapperInner: React.FC<React.PropsWithChildren> = ({ children
                 }}
             />
         )
+    }
+
+    if (isFirstRun) {
+        return <FirstProjectWelcome onCreateProject={() => setIsCreatingProject(true)} />
     }
 
     if (projectStore.project) {
