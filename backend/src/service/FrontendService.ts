@@ -20,6 +20,7 @@ import Frontend, { FrontendKind, HostedOn, IFrontend, IHostFrontend } from "../m
 import Project, { IProject } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import Storage, { StorageType } from "../models/StorageModel"
+import { designSystemOf } from "../types/DesignSystem"
 import FrontendDTO from "../types/FrontendDTO"
 import { FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
 import { isServiceTemplateType } from "../types/ServiceStack"
@@ -105,6 +106,9 @@ export class FrontendService extends BaseAuthorizedService {
         // The version of a DOCKER is the tag of its image, as for a service; a BUNDLE's names an uploaded bundle
         const frontend = withDockerDefaults(await withNormalizedReferences(dto.kind === FrontendKind.DOCKER ? withManualVersion(dto) : dto, projectIdObj))
 
+        // Checked before the repository is created, as the domain and the slug below
+        if (frontend.designSystem === null) delete frontend.designSystem
+        else if (frontend.designSystem !== undefined) frontend.designSystem = designSystemOf(frontend.designSystem)
         // Both before the repository is created: a refused domain or a taken slug would leave an orphan repository behind
         if (frontend.domainId !== undefined) {
             frontend.domainId = await resolveDomainId(frontend.domainId, projectIdObj)
@@ -242,6 +246,13 @@ export class FrontendService extends BaseAuthorizedService {
             allowed.canary = { ...allowed.canary, enabled: false }
         } else if (kind === FrontendKind.DOCKER && frontend.kind !== FrontendKind.DOCKER && frontend.canary) {
             allowed["canary.enabled"] = false
+        }
+        // Null goes back to the design system of the project
+        if (allowed.designSystem === null) {
+            delete allowed.designSystem
+            allowed.$unset = { designSystem: 1 }
+        } else if (allowed.designSystem !== undefined) {
+            allowed.designSystem = designSystemOf(allowed.designSystem)
         }
         if (allowed.domainId !== undefined) {
             allowed.domainId = await resolveDomainId(allowed.domainId, frontend.projectId)

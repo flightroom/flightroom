@@ -40,6 +40,19 @@ export interface ProjectExposure {
     httpsPort?: number
 }
 
+/** La libreria UI con cui si costruiscono i frontend: il default del progetto, che un frontend puo' sostituire con la sua */
+export interface DesignSystem {
+    /** Il pacchetto npm, es. @acme/ui */
+    packageName: string
+    /** Un range semver, es. ^3.2.0 */
+    version?: string
+    docsUrl?: string
+    /** Il .npmrc cosi' come incollato, credenziali comprese: agli agenti AI arriva con le credenziali mascherate */
+    npmrc?: string
+    /** Markdown per gli agenti AI su come usarlo */
+    notes?: string
+}
+
 export interface Project {
     /** The organization the project belongs to: a project sits in exactly one. */
     organizationId: string
@@ -55,6 +68,8 @@ export interface Project {
     containerRegistry?: string
     /** Le tecnologie di default per frontend e servizi: guidano template e agenti AI senza vincolare */
     technologies?: ProjectTechnologies
+    /** Il design system di default dei frontend */
+    designSystem?: DesignSystem
     /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
     role?: RoleInProject
     /** On the projects of the switcher: true when the user reaches only some of its domains, hence not what spans the whole project */
@@ -97,6 +112,8 @@ export interface ProjectUpdateDTO {
     containerRegistry?: string | null
     /** `null` toglie entrambe; un campo a `null` toglie solo quella tecnologia */
     technologies?: { frontend?: FrontendTechnology | null; backend?: BackendTechnology | null } | null
+    /** Sostituito per intero; `null` lo toglie */
+    designSystem?: DesignSystem | null
     /** Il repository si indica con l'id del provider: il backend verifica che la connessione lo raggiunga */
     gitOps?: {
         enabled: boolean

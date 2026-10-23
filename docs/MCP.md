@@ -80,6 +80,23 @@ An agent always gets the contexts of what it works on, the project one included:
   put the project context, the domain context (of the job's domain, or of the domains its
   frontends and services are in) and the context of each repository in the agent's prompt.
 
+### Design system
+
+A project can name the **design system** its frontends are built with (Settings → Design system):
+the npm package, a version range, the documentation URL, the `.npmrc` the package installs with and
+notes for agents. A frontend may replace it with its own in its "AI context" tab; otherwise it
+inherits the project's. `project.designSystem` in `context_get` is the project default and, with a
+`frontendId`, `designSystem` is the one that frontend builds with, its own or else the project's.
+The AI change jobs put it in the prompt of each frontend repository, telling the agent to build the
+UI with that package and no other UI library. `project_update`, `frontend_create` and
+`frontend_update` set it, replaced as a whole; `null` removes it.
+
+The `.npmrc` is stored as pasted and the console shows it whole, but every response that reaches an
+AI (MCP tools, the assistant, the agent prompt) masks its credentials: the value of `_authToken`,
+`_auth`, `_password`, `username`, `email`, `certfile`, `keyfile` and similar keys, scoped or not,
+becomes `***`. Registry and scope lines (`@acme:registry=...`) stay readable, as does a value that
+only names an environment variable (`${NPM_TOKEN}`).
+
 ## Domains and services
 
 A project can group its frontends and backend services in **functional domains**. Membership

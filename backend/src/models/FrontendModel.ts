@@ -1,8 +1,9 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
+import { IDesignSystem } from "../types/DesignSystem"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import { ServicePaths } from "../types/ServiceStack"
 import { exposurePath, IServiceEnvVariable, optionalPath, serviceEnvVariableSchema } from "./ContainerFields"
-import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
+import { CONTEXT_MAX_LENGTH, designSystemSchema } from "./ProjectModel"
 
 export enum FrontendType {
     HOST = "HOST",
@@ -105,6 +106,8 @@ export interface IFrontend extends Document<ObjectId>, IFrontendContainer {
     description?: string
     /** Markdown for AI agents about this frontend only; the project context covers what they share. */
     context?: string
+    /** Replaces the design system of the project for this frontend only; unset, it builds with the project's */
+    designSystem?: IDesignSystem
     createdAt: Date
     updatedAt: Date
 
@@ -306,6 +309,10 @@ const frontendSchema: Schema = new Schema<IFrontend>(
             type: String,
             trim: true,
             maxlength: CONTEXT_MAX_LENGTH
+        },
+        designSystem: {
+            type: designSystemSchema,
+            required: false
         },
         version: {
             type: String,

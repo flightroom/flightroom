@@ -1,6 +1,7 @@
 import { IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../../models/FrontendModel"
 import Service, { IService, IServiceEnvVariable } from "../../models/ServiceModel"
+import { IDesignSystem } from "../../types/DesignSystem"
 import { ServiceRuntime } from "../../types/ServiceStack"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { frontendWorkspacePath, serviceWorkspacePath, WorkspaceOwner } from "../../utils/workspacePaths"
@@ -33,6 +34,8 @@ export interface FrontendComponent extends RepositoryComponentBase {
     kind: "frontend"
     framework?: string
     compiler?: string
+    /** Its own, when it replaces the one of the project */
+    designSystem?: IDesignSystem
 }
 
 export interface ServiceComponent extends RepositoryComponentBase {
@@ -65,7 +68,8 @@ export const fromFrontend = (frontend: IFrontend): FrontendComponent => ({
     context: frontend.context,
     domainId: frontend.domainId ?? undefined,
     framework: frontend.stack?.framework,
-    compiler: frontend.stack?.compiler
+    compiler: frontend.stack?.compiler,
+    designSystem: frontend.designSystem
 })
 
 export const fromService = (service: IService): ServiceComponent => ({
