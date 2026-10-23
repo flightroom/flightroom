@@ -19,7 +19,7 @@ import {
     SelectValue
 } from "@flightroom/design-system"
 import { useQueryClient } from "@tanstack/react-query"
-import { Plus } from "lucide-react"
+import { Plus, X } from "lucide-react"
 import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -27,7 +27,7 @@ import { Badge, Button } from "@/components/atoms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 import useServicesApi, { type Service } from "@/hooks/apiClients/useServicesApi"
-import { resourcePath, typeLabel, useResourcesQuery } from "@/pages/resources/partials/resources"
+import { resourcePath, typeLabel, useDetachResource, useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
@@ -156,22 +156,19 @@ const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpe
 }
 
 /**
- * The resources the services of the domain attach, each with the services using it: what the agent is told
- * the domain can reach. Only services attach resources, so a domain without one has nothing to show.
+ * Each backend service of the domain with the resources it attaches: what the agent is told the domain can reach.
+ * Only services attach resources, so a domain without one has nothing to show. An editor detaches each one from here.
  */
 export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ services }) => {
     const { t } = useTranslation()
     const resourcesQuery = useResourcesQuery(services.length > 0)
     const isViewer = useIsProjectViewer()
+    const detach = useDetachResource()
     const [attachOpen, setAttachOpen] = useState(false)
 
     // A list that cannot be read hides the section: the rest of the overview does not depend on it
     if (services.length === 0 || !resourcesQuery.data) return null
-
-    const used = resourcesQuery.data.flatMap(resource => {
-        const usedBy = services.filter(service => service.resourceIds?.includes(resource._id!))
-        return usedBy.length > 0 ? [{ resource, usedBy }] : []
-    })
+    const resources = resourcesQuery.data
 
     return (
         <Card>
@@ -189,24 +186,50 @@ export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ serv
                 )}
             </CardHeader>
             <CardContent className="pt-3">
-                {used.length === 0 ? (
-                    <p className="text-sm text-foreground-secondary">{t("domains.resources.none")}</p>
-                ) : (
-                    <ul className="flex flex-col divide-y divide-divider">
-                        {used.map(({ resource, usedBy }) => (
-                            <li key={resource._id} className="flex flex-wrap items-center gap-2 py-2">
-                                <ResourceIcon resource={resource} />
-                                <Link to={resourcePath(resource._id!)} className="font-mono text-sm font-semibold underline-offset-4 hover:underline">
-                                    {resource.name}
+                <ul className="flex flex-col divide-y divide-divider">
+                    {services.map(service => {
+                        const attached = resources.filter(resource => service.resourceIds?.includes(resource._id!))
+                        return (
+                            <li key={service._id} className="flex flex-col gap-2 py-3" data-testid={`domain-resources-service-${service.slug}`}>
+                                <Link to={`/service/${service._id}/overview`} className="w-fit text-sm font-semibold underline-offset-4 hover:underline">
+                                    {service.name}
                                 </Link>
-                                <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
-                                <span className="text-xs text-foreground-secondary">{t("domains.resources.used_by", { services: usedBy.map(service => service.name).join(", ") })}</span>
+                                {attached.length === 0 ? (
+                                    <p className="text-sm text-foreground-secondary">{t("domains.resources.service_none")}</p>
+                                ) : (
+                                    <ul className="flex flex-col gap-1">
+                                        {attached.map(resource => (
+                                            <li key={resource._id} className="flex flex-wrap items-center gap-2">
+                                                <ResourceIcon resource={resource} />
+                                                <Link to={resourcePath(resource._id!)} className="font-mono text-sm underline-offset-4 hover:underline">
+                                                    {resource.name}
+                                                </Link>
+                                                <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
+                                                {!isViewer && (
+                                                    <Button
+                                                        type="button"
+                                                        variant="ghost"
+                                                        size="icon-sm"
+                                                        className="ml-auto"
+                                                        disabled={detach.isPending}
+                                                        aria-label={t("domains.resources.detach", { resource: resource.name, service: service.name })}
+                                                        title={t("domains.resources.detach", { resource: resource.name, service: service.name })}
+                                                        onClick={() => detach.mutate({ service, resource })}
+                                                        dataTestId={`domain-detach-resource-${service.slug}-${resource._id}`}
+                                                    >
+                                                        <X />
+                                                    </Button>
+                                                )}
+                                            </li>
+                                        ))}
+                                    </ul>
+                                )}
                             </li>
-                        ))}
-                    </ul>
-                )}
+                        )
+                    })}
+                </ul>
             </CardContent>
-            {!isViewer && <AttachResourceDialog open={attachOpen} onOpenChange={setAttachOpen} resources={resourcesQuery.data} services={services} />}
+            {!isViewer && <AttachResourceDialog open={attachOpen} onOpenChange={setAttachOpen} resources={resources} services={services} />}
         </Card>
     )
 }
