@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1792758392.523843,
-    "ast_hash": "8de82d86498b98b8dd31ca9aa257bb17",
+    "mtime": 1792764376.0525465,
+    "ast_hash": "8da02e8c34187a4b4958cb7a266cab1b",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1792758391.3924134,
-    "ast_hash": "2600b279f1585287b53a55b7e838219e",
+    "mtime": 1792764376.0496392,
+    "ast_hash": "c7bf67cf86021454e77917a19502b96f",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1495,8 +1495,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1792750434.1082947,
-    "ast_hash": "bd3cb67d52fc6abfec15cbe1ab951c52",
+    "mtime": 1792758748.7652748,
+    "ast_hash": "dca52d773629f5c3e8fba42816125980",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -1530,8 +1530,8 @@
     "semantic_hash": ""
   },
   "e2e/README.md": {
-    "mtime": 1792662259.092208,
-    "ast_hash": "19d0ffecb2bf787e354221f33da50754",
+    "mtime": 1792764398.7975087,
+    "ast_hash": "61b4ea663a28c7c39036e44dda94a33d",
     "semantic_hash": ""
   },
   "frontend/index.html": {
@@ -2450,7 +2450,7 @@
     "semantic_hash": ""
   },
   "backend/src/service/assistant/docs-index.json": {
-    "mtime": 1792750280.9037473,
+    "mtime": 1792764404.121832,
     "ast_hash": "d661f563a69485d2511d110690273f47",
     "semantic_hash": ""
   },
@@ -2960,8 +2960,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/services/ServiceDetail.tsx": {
-    "mtime": 1792707026.4577174,
-    "ast_hash": "c29129eeea2d7011b6a9a7cbddbaac19",
+    "mtime": 1792764374.7908838,
+    "ast_hash": "bc5c23befeb73582abbaaad452cefad9",
     "semantic_hash": ""
   },
   "frontend/src/pages/services/Services.tsx": {
@@ -4460,8 +4460,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/resources/ResourceForm.tsx": {
-    "mtime": 1792746733.590566,
-    "ast_hash": "6125a5196d9f1e9ee3a879b79fb57920",
+    "mtime": 1792764369.2241983,
+    "ast_hash": "a02d89b3a59fd68402d5d2c99fa80f0e",
     "semantic_hash": ""
   },
   "frontend/src/pages/resources/Resources.tsx": {
@@ -4480,8 +4480,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/resources/partials/resources.ts": {
-    "mtime": 1792746490.133181,
-    "ast_hash": "c2a82bd7d9760909ac5fc0ed39902d83",
+    "mtime": 1792764329.72433,
+    "ast_hash": "3830b7f14430292bc1a5b960d94c8cd0",
     "semantic_hash": ""
   },
   "frontend/src/pages/services/partials/ServiceResourcesFields.tsx": {
@@ -4490,8 +4490,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/services/partials/ServiceResourcesSection.tsx": {
-    "mtime": 1792738042.6438751,
-    "ast_hash": "4577723b7ed969349193813c2ff90b37",
+    "mtime": 1792764373.676898,
+    "ast_hash": "be4c46755cef97afff78a3f989665ace",
     "semantic_hash": ""
   },
   "backend/src/controller/AiUsageController.test.ts": {
@@ -4715,13 +4715,13 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1792750435.5802877,
-    "ast_hash": "43b88c5c97e719871a0e81b783d2cb96",
+    "mtime": 1792758749.9845748,
+    "ast_hash": "a3492ab8689f777d035f3d5bd64ccffc",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
-    "mtime": 1792750445.3160095,
-    "ast_hash": "e8e618567440283c9207f69e729308d9",
+    "mtime": 1792758749.9811046,
+    "ast_hash": "8bf9b096da272e5ac3344ef97d07a5e3",
     "semantic_hash": ""
   },
   "helm/flightroom/templates/NOTES.txt": {
