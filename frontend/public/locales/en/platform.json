@@ -1154,6 +1154,7 @@
             "back": "All frontends",
             "nav_label": "Frontend sections",
             "nav_ai": "Edit with AI",
+            "nav_overview": "Overview",
             "nav_settings": "Details & settings",
             "version": "v{{version}}"
         },
@@ -1183,6 +1184,13 @@
                 "link_inconsistent": "The saved repository link does not match the repository shown: select the repository again and save"
             },
             "save_first": "Save the changes before renaming the repository"
+        },
+        "overview": {
+            "no_repository": "No repository is linked to this frontend.",
+            "published_versions": "Published versions",
+            "no_versions": "No version published yet.",
+            "hosting_description": "Where Flightroom serves the frontend bundle from",
+            "container_description": "How the frontend container runs"
         }
     },
     "environmentVariables": {

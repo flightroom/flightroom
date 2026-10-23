@@ -55,7 +55,7 @@ export const BackendsTable: React.FC<{ backends?: Backend[]; frontends?: Fronten
                         <TableRow
                             key={frontend._id}
                             className="cursor-pointer border-divider hover:bg-primary/5"
-                            onClick={() => navigate(isAiEditAvailable(frontend, assistantEnabled) ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/settings`)}
+                            onClick={() => navigate(isAiEditAvailable(frontend, assistantEnabled) ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/overview`)}
                         >
                             <TableCell className="max-w-[16rem] font-medium">
                                 <div className="flex min-w-0 items-center gap-2">

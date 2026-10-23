@@ -8,7 +8,7 @@ import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import { FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
 
-/** The landing screen of a frontend: Edit with AI. Without AI editing, the details screen takes its place. */
+/** The landing screen of a frontend: Edit with AI. Without AI editing, the overview takes its place. */
 const FrontendAiWorkspacePage: React.FC = () => {
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
@@ -44,7 +44,7 @@ const FrontendAiWorkspacePage: React.FC = () => {
     }
 
     const frontend = frontendQuery.data
-    if (!isAiEditAvailable(frontend, aiModels.enabled)) return <Navigate to={`/frontend/${id}/settings`} replace />
+    if (!isAiEditAvailable(frontend, aiModels.enabled)) return <Navigate to={`/frontend/${id}/overview`} replace />
 
     return (
         <div className="flex min-h-full flex-col gap-6">

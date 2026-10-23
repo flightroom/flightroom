@@ -1262,7 +1262,8 @@
             "back": "Tutti i frontend",
             "nav_label": "Sezioni del frontend",
             "nav_ai": "Modifica con AI",
-            "nav_settings": "Info e impostazioni",
+            "nav_overview": "Panoramica",
+            "nav_settings": "Dettagli e impostazioni",
             "version": "v{{version}}"
         },
         "rename_repository": {
@@ -1291,6 +1292,13 @@
                 "link_inconsistent": "Il collegamento salvato non corrisponde al repository mostrato: seleziona di nuovo il repository e salva"
             },
             "save_first": "Salva le modifiche prima di rinominare il repository"
+        },
+        "overview": {
+            "no_repository": "Nessun repository collegato a questo frontend.",
+            "published_versions": "Versioni pubblicate",
+            "no_versions": "Nessuna versione pubblicata.",
+            "hosting_description": "Da dove Flightroom serve il bundle del frontend",
+            "container_description": "Come viene eseguito il container del frontend"
         }
     },
     "color_picker": {
