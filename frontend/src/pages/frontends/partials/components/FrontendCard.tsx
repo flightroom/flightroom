@@ -103,7 +103,7 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
             </CardContent>
 
             <CardFooter className="flex-wrap gap-2 border-t border-divider pt-3">
-                <Button variant="primary" size="sm" onClick={() => navigate(aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/settings`)} className="flex-1">
+                <Button variant="primary" size="sm" onClick={() => navigate(aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/overview`)} className="flex-1">
                     {aiAvailable ? <Sparkles /> : <Cog />}
                     {aiAvailable ? t("frontend.workspace.nav_ai") : t("common.configuration")}
                 </Button>

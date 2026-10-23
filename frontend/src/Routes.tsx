@@ -21,6 +21,7 @@ const DomainDeploymentsMatrix = lazy(() => import("./pages/domains/DomainDeploym
 const Frontends = lazy(() => import("./pages/frontends/Frontends"))
 const AddFrontend = lazy(() => import("./pages/frontends/AddFrontend"))
 const FrontendAiWorkspace = lazy(() => import("./pages/frontends/FrontendAiWorkspace"))
+const FrontendOverview = lazy(() => import("./pages/frontends/FrontendOverview"))
 const Backends = lazy(() => import("./pages/backends/Backends"))
 const AddBackend = lazy(() => import("./pages/backends/AddBackend"))
 const BackendDetail = lazy(() => import("./pages/backends/BackendDetail"))
@@ -144,6 +145,7 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/frontends" element={<RouteWithSuspense element={<Frontends />} />} />
                 <Route path="/frontend/new" element={<RouteWithSuspense element={<AddFrontend />} />} />
                 <Route path="/frontend/:id" element={<RouteWithSuspense element={<FrontendAiWorkspace />} />} />
+                <Route path="/frontend/:id/overview" element={<RouteWithSuspense element={<FrontendOverview />} />} />
                 <Route path="/frontend/:id/settings" element={<RouteWithSuspense element={<AddFrontend />} />} />
                 <Route path="/backends" element={<RouteWithSuspense element={<Backends />} />} />
                 <Route path="/backend/new" element={<RouteWithSuspense element={<AddBackend />} />} />

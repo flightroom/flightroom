@@ -62,7 +62,7 @@ export const BackendsGrid: React.FC<{ backends?: Backend[]; frontends?: Frontend
                     <Card
                         key={frontend._id}
                         className="flex h-full cursor-pointer flex-col transition-colors duration-200 hover:border-primary"
-                        onClick={() => navigate(aiAvailable ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/settings`)}
+                        onClick={() => navigate(aiAvailable ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/overview`)}
                     >
                         <CardHeader className="flex-row items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">

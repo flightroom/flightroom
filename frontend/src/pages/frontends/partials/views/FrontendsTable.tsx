@@ -97,7 +97,7 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
     const aiAvailable = isAiEditAvailable(mfe, useProjectAiModels().enabled)
     // Served by its own container: Flightroom neither hosts it nor runs a canary for it
     const isDocker = mfe.kind === FrontendKind.DOCKER
-    const openPath = aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/settings`
+    const openPath = aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/overview`
     const technology = frontendTechnologyOf(mfe)
 
     return (

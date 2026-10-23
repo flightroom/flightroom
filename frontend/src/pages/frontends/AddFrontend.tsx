@@ -6,7 +6,6 @@ import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import * as z from "zod"
-import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Button } from "@/components/atoms"
 import TextareaField from "@/components/input/TextareaField.rhf"
@@ -24,7 +23,6 @@ import BackendEndpointFields from "@/pages/backends/partials/BackendEndpointFiel
 import BackendEnvFields from "@/pages/backends/partials/BackendEnvFields"
 import BackendRuntimeFields from "@/pages/backends/partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "@/pages/backends/partials/BackendVariableMapsFields"
-import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import { CodeRepositorySection, DangerZoneRemoveFrontend, FrontendHeader, FrontendKindField, HostingSection, isAiEditAvailable, ReleaseSection } from "@/pages/frontends/partials/components"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
@@ -369,13 +367,6 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         if (!isEdit) form.setValue("version", isDocker ? "" : "1.0.0")
     }, [isDocker, isEdit, form])
 
-    // The builds of what is saved, not of the kind being chosen: a BUNDLE has no image to show
-    const buildsQuery = useQuery({
-        queryKey: ["frontend-builds", id],
-        queryFn: () => frontendsApi.getBuilds(id!),
-        enabled: isEdit && frontend?.kind === FrontendKind.DOCKER
-    })
-
     const onSubmit = async (data: FormValues) => {
         const { port, livenessPath, readinessPath, docsPath, openApiPath, exposed, exposurePath, image, env, configMapIds, secretIds, designSystemOverride, designSystem, ...rest } = data
         const dataToSend = {
@@ -474,8 +465,6 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         <FormProvider {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
                 <FetchDataTemplateCard slug={template} />
-
-                {isEdit && frontend?.kind === FrontendKind.DOCKER && <BackendVersionsTable versions={buildsQuery.data ?? []} />}
 
                 <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)} tabsListPosition="fullWidth">
                     <TabsList>
@@ -652,8 +641,6 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             <div className="flex min-h-full flex-col gap-6">
                 <FrontendHeader frontend={frontend} active="settings" aiAvailable={aiAvailable} />
                 {content}
-                {/* Outside the form: its period selector is no field of the frontend. */}
-                {id && <AiUsageSummary target={{ kind: "frontend", id }} />}
             </div>
         )
     }
