@@ -853,7 +853,7 @@
         "no_frontends_found": "No Frontends Found",
         "no_frontends_found_description": "No frontends have been registered yet. Once they're added, they'll appear here. You can create a new one to get started.",
         "add_your_first_frontend": "Add your first frontend to get started!",
-        "add_new": "Add New Frontend",
+        "add_new": "New frontend",
         "add_new_description": "Create a new frontend to add to your project",
         "edit": "Edit Frontend",
         "edit_description": "Update the details of your frontend",
