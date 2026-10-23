@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1792742131.0609431,
-    "ast_hash": "73aed5f1d69b6781b3c16e3240dc2907",
+    "mtime": 1792742326.9836113,
+    "ast_hash": "da3114c0e295ffbaca71cda95fb00c65",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1792742131.0639014,
-    "ast_hash": "60f18a776ec6c23afec2a1c75829654e",
+    "mtime": 1792742326.9864373,
+    "ast_hash": "5d34f309ebf752db2710fbe7d9a9bbc2",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -3355,8 +3355,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainDeploymentsSection.tsx": {
-    "mtime": 1792742017.2101212,
-    "ast_hash": "2c59147bf118b4f5ed9ef1330c9067fc",
+    "mtime": 1792742328.4344432,
+    "ast_hash": "5e3439f74d4e7297ebc5199f409e5fb4",
     "semantic_hash": ""
   },
   "backend/src/controller/DomainLinkController.ts": {
@@ -4745,8 +4745,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/DomainOverview.tsx": {
-    "mtime": 1792742252.180993,
-    "ast_hash": "615e58135c4c89a66142eedaf62454b3",
+    "mtime": 1792742326.9731865,
+    "ast_hash": "d2b480c7b3f2c74e2c8ac18721ec44b1",
     "semantic_hash": ""
   }
 }
