@@ -1,6 +1,6 @@
 import { EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { CirclePlus, LayoutGrid, Orbit, PackageOpen, SearchX, StretchHorizontal } from "lucide-react"
+import { CirclePlus, DownloadCloud, LayoutGrid, Orbit, PackageOpen, SearchX, StretchHorizontal } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -8,6 +8,7 @@ import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
+import useCodeRepositoriesApi from "@/hooks/apiClients/useCodeRepositoriesApi"
 import useDomainLinksApi from "@/hooks/apiClients/useDomainLinksApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi, { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
@@ -15,6 +16,7 @@ import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
 import { ALL_DOMAINS, DomainFilter, matchesDomain } from "../domains/partials/DomainFilter"
 import DomainGalaxy from "../domains/partials/DomainGalaxy"
+import { ImportRepositoriesDialog } from "../frontends/partials/components"
 import { BackendsGrid } from "./partials/BackendsGrid"
 import { BackendsTable } from "./partials/BackendsTable"
 
@@ -43,9 +45,20 @@ const Backends = () => {
     const frontendsApi = useFrontendsApi()
     const domainsApi = useDomainsApi()
     const domainLinksApi = useDomainLinksApi()
+    const codeRepositoriesApi = useCodeRepositoriesApi()
     const [searchTerm, setSearchTerm] = useState("")
     const [domainFilter, setDomainFilter] = useState(ALL_DOMAINS)
     const [view, setView] = useState<View>("galaxy")
+    const [importDialogOpen, setImportDialogOpen] = useState(false)
+
+    const codeRepositoriesQuery = useQuery({
+        queryKey: ["repositories", projectId],
+        queryFn: () => codeRepositoriesApi.getRepositoriesByProjectId(projectId!),
+        enabled: !!projectId
+    })
+    const codeRepositories = codeRepositoriesQuery.data ?? []
+    // Importing repositories only makes sense once at least one provider connection exists.
+    const canImportRepositories = codeRepositories.length > 0
 
     const backendsQuery = useQuery({
         queryKey: ["backends", projectId],
@@ -155,6 +168,12 @@ const Backends = () => {
                                 ))}
                             </TabsList>
                         )}
+                        {canImportRepositories && (
+                            <Button variant="secondary" onClick={() => setImportDialogOpen(true)}>
+                                <DownloadCloud />
+                                {t("frontend.import.action")}
+                            </Button>
+                        )}
                         <Button variant="primary" onClick={onCreate}>
                             <CirclePlus />
                             {t("backends.add_new")}
@@ -215,6 +234,8 @@ const Backends = () => {
                         </>
                     )}
                 </ApiStatusHandler>
+
+                {canImportRepositories && <ImportRepositoriesDialog open={importDialogOpen} onOpenChange={setImportDialogOpen} codeRepositories={codeRepositories} target="backend" />}
             </SinglePageLayout>
         </Tabs>
     )

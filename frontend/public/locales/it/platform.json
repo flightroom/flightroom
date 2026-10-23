@@ -960,7 +960,7 @@
         "no_frontends_found": "Nessun frontend trovato",
         "no_frontends_found_description": "Nessun frontend è stato ancora registrato. Una volta aggiunti, verranno visualizzati qui. Puoi crearne uno nuovo per iniziare.",
         "add_your_first_frontend": "Aggiungi il tuo primo frontend per iniziare!",
-        "add_new": "Nuovo Frontend",
+        "add_new": "Nuovo frontend",
         "add_new_description": "Crea un nuovo frontend da aggiungere al tuo progetto",
         "edit": "Modifica Frontend",
         "edit_description": "Aggiorna i dettagli del tuo frontend",
