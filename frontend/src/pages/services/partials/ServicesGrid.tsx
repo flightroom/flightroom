@@ -22,10 +22,14 @@ export const ServicesGrid: React.FC<{ services?: Service[]; frontends?: Frontend
     return (
         <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
             {services.map(service => {
-                // Opens on Edit with AI, as a frontend does, when the agent can work on the service.
+                // The whole card opens on Edit with AI, as a frontend does, when the agent can work on the service.
                 const aiAvailable = isServiceAiAvailable(service, assistantEnabled)
                 return (
-                    <Card key={service._id} className="flex h-full flex-col transition-colors duration-200 hover:border-primary">
+                    <Card
+                        key={service._id}
+                        className="flex h-full cursor-pointer flex-col transition-colors duration-200 hover:border-primary"
+                        onClick={() => navigate(aiAvailable ? `/service/${service._id}` : `/service/${service._id}/overview`)}
+                    >
                         <CardHeader className="flex-row items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                                 <CardTitle className="mb-0 truncate" title={service.name}>
@@ -43,7 +47,8 @@ export const ServicesGrid: React.FC<{ services?: Service[]; frontends?: Frontend
                             <RepositoryLink repository={service.codeRepository} />
                         </CardContent>
                         <CardFooter className="border-t border-divider pt-3">
-                            <Button variant="primary" size="sm" className="flex-1" onClick={() => navigate(aiAvailable ? `/service/${service._id}` : `/service/${service._id}/overview`)}>
+                            {/* Its click reaches the card, which opens: the button keeps the card reachable from the keyboard */}
+                            <Button variant="primary" size="sm" className="flex-1">
                                 {aiAvailable ? <Sparkles /> : <Cog />}
                                 {aiAvailable ? t("services.nav_ai") : t("services.list.open")}
                             </Button>
@@ -54,7 +59,11 @@ export const ServicesGrid: React.FC<{ services?: Service[]; frontends?: Frontend
             {frontends.map(frontend => {
                 const aiAvailable = isAiEditAvailable(frontend, assistantEnabled)
                 return (
-                    <Card key={frontend._id} className="flex h-full flex-col transition-colors duration-200 hover:border-primary">
+                    <Card
+                        key={frontend._id}
+                        className="flex h-full cursor-pointer flex-col transition-colors duration-200 hover:border-primary"
+                        onClick={() => navigate(aiAvailable ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/settings`)}
+                    >
                         <CardHeader className="flex-row items-start justify-between gap-3">
                             <div className="min-w-0 flex-1">
                                 <CardTitle className="mb-0 truncate" title={frontend.name}>
@@ -72,7 +81,7 @@ export const ServicesGrid: React.FC<{ services?: Service[]; frontends?: Frontend
                             <RepositoryLink repository={frontend.codeRepository} />
                         </CardContent>
                         <CardFooter className="border-t border-divider pt-3">
-                            <Button variant="primary" size="sm" className="flex-1" onClick={() => navigate(aiAvailable ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/settings`)}>
+                            <Button variant="primary" size="sm" className="flex-1">
                                 {aiAvailable ? <Sparkles /> : <Cog />}
                                 {aiAvailable ? t("frontend.workspace.nav_ai") : t("services.list.open")}
                             </Button>

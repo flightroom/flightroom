@@ -2341,7 +2341,7 @@
             "noResultsDescription": "Nessun servizio corrisponde a «{{searchTerm}}».",
             "open": "Apri",
             "frontendBadge": "Frontend",
-            "backendsSection": "Servizi backend",
+            "backendsSection": "Backend",
             "dockerFrontendsSection": "Frontend Docker"
         },
         "env": {
@@ -2696,7 +2696,7 @@
             "devops": "DevOps",
             "domains": "Domini funzionali",
             "frontends": "Frontend",
-            "services": "Servizi backend"
+            "services": "Backend"
         },
         "top_menu": "Menu del progetto"
     },

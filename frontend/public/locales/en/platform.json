@@ -2322,7 +2322,7 @@
             "noResultsDescription": "No service matches \"{{searchTerm}}\".",
             "open": "Open",
             "frontendBadge": "Frontend",
-            "backendsSection": "Backend services",
+            "backendsSection": "Backend",
             "dockerFrontendsSection": "Docker frontends"
         },
         "env": {
@@ -2677,7 +2677,7 @@
             "devops": "DevOps",
             "domains": "Functional domains",
             "frontends": "Frontends",
-            "services": "Backend services"
+            "services": "Backend"
         },
         "top_menu": "Project menu"
     },
