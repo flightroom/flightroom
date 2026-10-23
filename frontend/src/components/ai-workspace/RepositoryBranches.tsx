@@ -9,19 +9,19 @@ import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 
 type CodeRepository = NonNullable<Frontend["codeRepository"]>
 
-/** A repository the agent works on: the one of a frontend or of a service. */
+/** A repository the agent works on: the one of a frontend or of a backend. */
 export interface AiWorkspaceRepository {
-    /** The frontend's or the service's. */
+    /** The frontend's or the backend's. */
     id: string
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     name: string
     codeRepository: CodeRepository
 }
 
-/** The branch each repository starts from, by frontend or service id: one left out starts from its default branch. */
+/** The branch each repository starts from, by frontend or backend id: one left out starts from its default branch. */
 export type BaseBranches = Record<string, string>
 
-/** The repository of a frontend or a service, as a list: empty when it has none connected. */
+/** The repository of a frontend or a backend, as a list: empty when it has none connected. */
 export const workspaceRepositoriesOf = (kind: AiWorkspaceRepository["kind"], component: { _id?: string; name: string; codeRepository?: Frontend["codeRepository"] }): AiWorkspaceRepository[] =>
     component._id && component.codeRepository?.enabled ? [{ id: component._id, kind, name: component.name, codeRepository: component.codeRepository }] : []
 
@@ -147,7 +147,7 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
             </div>
             <ul className="flex flex-col gap-2">
                 {repositories.map((repository, index) => {
-                    const Icon = repository.kind === "service" ? Server : LayoutDashboard
+                    const Icon = repository.kind === "backend" ? Server : LayoutDashboard
                     return (
                         <li key={repository.id} className="flex flex-wrap items-center gap-x-3 gap-y-1.5 rounded-md border border-divider px-3 py-2 text-sm">
                             <span className="flex min-w-0 flex-1 flex-col gap-0.5">

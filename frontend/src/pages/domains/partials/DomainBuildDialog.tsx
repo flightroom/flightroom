@@ -44,7 +44,7 @@ export const DomainBuildOutcomes: React.FC<{ result: DomainBuildResult }> = ({ r
 }
 
 /**
- * Creates a version of the whole domain: the repository of each of its frontends and services is tagged
+ * Creates a version of the whole domain: the repository of each of its frontends and backends is tagged
  * with the same version on the same branch, and each tag starts the pipeline of its repository. The backend
  * checks every repository first and tags none when one fails: the outcome of each is listed after the submit.
  */
@@ -119,7 +119,7 @@ export const DomainBuildButton: React.FC<{ domain: Domain }> = ({ domain }) => {
                         <FormProvider {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)}>
                                 <div className="mt-2 mb-4 space-y-2">
-                                    <TextField name="version" label={t("domains.build.version")} placeholder={t("services.build.versionPlaceholder")} required />
+                                    <TextField name="version" label={t("domains.build.version")} placeholder={t("backends.build.versionPlaceholder")} required />
                                     <TextField name="branch" label={t("domains.build.branch")} placeholder="main" />
                                     <p className="text-xs text-foreground-secondary">{t("domains.build.branch_hint")}</p>
                                 </div>
@@ -131,7 +131,7 @@ export const DomainBuildButton: React.FC<{ domain: Domain }> = ({ domain }) => {
                                         type="submit"
                                         disabled={submitting || !form.formState.isValid}
                                         loading={submitting}
-                                        loadingLabel={t("services.build.building")}
+                                        loadingLabel={t("backends.build.building")}
                                         dataTestId="domain-build-confirm"
                                     >
                                         <Hammer />

@@ -16,9 +16,9 @@ const snapshot = {
             builds: [{ id: "10", status: BuildStatus.SUCCESS, ref: "1.2.0" }]
         }
     ],
-    services: [
+    backends: [
         {
-            serviceId: "service-1",
+            backendId: "backend-1",
             name: "Orders",
             slug: "orders",
             versionByEnvironmentId: { "env-1": "2.0.0" },

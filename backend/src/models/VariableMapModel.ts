@@ -1,5 +1,5 @@
 import mongoose, { Document, Model, ObjectId, Schema } from "mongoose"
-import { SERVICE_VARIABLE_KEY } from "../types/ServiceStack"
+import { BACKEND_VARIABLE_KEY } from "../types/BackendStack"
 import { VARIABLE_MAP_NAME, VariableMapKind } from "../types/VariableMapDTO"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
@@ -17,8 +17,8 @@ export interface IVariableMapEntry {
 }
 
 /**
- * Values a backend service receives as environment variables, one per environment of the project. A
- * map belongs to the project, not to a service: services attach it by id, and many can share one.
+ * Values a backend receives as environment variables, one per environment of the project. A
+ * map belongs to the project, not to a backend: backends attach it by id, and many can share one.
  */
 export interface IVariableMap extends Document<ObjectId> {
     projectId: Schema.Types.ObjectId
@@ -55,7 +55,7 @@ const variableMapEntrySchema = new Schema<IVariableMapEntry>(
             type: String,
             required: true,
             trim: true,
-            match: SERVICE_VARIABLE_KEY
+            match: BACKEND_VARIABLE_KEY
         },
         values: {
             type: [variableMapValueSchema],

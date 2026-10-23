@@ -1,14 +1,14 @@
 import { Types } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend, { IBackend } from "../models/BackendModel"
 import CodeRepository, { ICodeRepository } from "../models/CodeRepositoryModel"
 import Frontend, { IFrontend } from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
 import Project from "../models/ProjectModel"
-import Service, { IService } from "../models/ServiceModel"
+import { isBackendTemplateType, parseRuntime } from "../types/BackendStack"
 import { FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
 import { IProjectTechnologies, parseBackendTechnology } from "../types/ProjectTechnology"
-import { isServiceTemplateType, parseRuntime } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { DEFAULT_ENTRY_POINT, withEntryPoint } from "./FrontendService"
@@ -28,14 +28,14 @@ export interface CreateRepositoryInput {
     gitlab?: { groupId?: number }
 }
 
-/** The template a repository created by the console starts from when none is picked: a Vite React remote, a Fastify service. */
-export const DEFAULT_TEMPLATE_SLUGS: Record<RepositoryComponentKind, string> = { frontend: "vite-remote-react", service: "service-node-fastify" }
+/** The template a repository created by the console starts from when none is picked: a Vite React remote, a Fastify backend. */
+export const DEFAULT_TEMPLATE_SLUGS: Record<RepositoryComponentKind, string> = { frontend: "vite-remote-react", backend: "service-node-fastify" }
 
 /** What a repository name ends with, so the frontend and the backend of the same slug never clash: `checkout-fe`, `orders-be`. */
-export const REPOSITORY_NAME_SUFFIXES: Record<RepositoryComponentKind, string> = { frontend: "-fe", service: "-be" }
+export const REPOSITORY_NAME_SUFFIXES: Record<RepositoryComponentKind, string> = { frontend: "-fe", backend: "-be" }
 
-/** Whether a template scaffolds that kind: a service template builds a Docker image, which nothing can load as a frontend. */
-export const isTemplateOfKind = (template: Pick<IMarket, "type" | "comingSoon">, kind: RepositoryComponentKind) => !template.comingSoon && isServiceTemplateType(template.type) === (kind === "service")
+/** Whether a template scaffolds that kind: a backend template builds a Docker image, which nothing can load as a frontend. */
+export const isTemplateOfKind = (template: Pick<IMarket, "type" | "comingSoon">, kind: RepositoryComponentKind) => !template.comingSoon && isBackendTemplateType(template.type) === (kind === "backend")
 
 /** Whether a template is built with the technology the project picked for its kind; never when it picked none. */
 export const matchesProjectTechnology = (template: Pick<IMarket, "framework">, kind: RepositoryComponentKind, technologies?: IProjectTechnologies): boolean => {
@@ -45,7 +45,7 @@ export const matchesProjectTechnology = (template: Pick<IMarket, "framework">, k
 
 /**
  * The default template of a kind among the available ones: by slug, otherwise the first remote for a frontend, the
- * first of the kind for a service. Picked among the ones matching the technologies of the project first, so that a
+ * first of the kind for a backend. Picked among the ones matching the technologies of the project first, so that a
  * Vue project starts from a Vue remote; among all of them when none does.
  */
 export const defaultTemplateOf = <T extends Pick<IMarket, "slug" | "type" | "comingSoon" | "framework">>(
@@ -66,11 +66,11 @@ const alreadyLinked = (kind: RepositoryComponentKind) => createBusinessException
 /** Saved only while no repository is linked: two creations at once must not both link theirs. */
 const NOT_LINKED = { "codeRepository.enabled": { $ne: true } }
 
-/** What a frontend and a service share of what creating their repository reads. */
+/** What a frontend and a backend share of what creating their repository reads. */
 type Member = Pick<IFrontend, "projectId" | "slug" | "codeRepository" | "domainId"> & { template?: string }
 
 /**
- * Creates the code repository of a frontend or a service that has none yet, scaffolded from a
+ * Creates the code repository of a frontend or a backend that has none yet, scaffolded from a
  * template, as creating one with a new repository does. The domain AI workspace offers it when no
  * member of the domain has a repository for the agent to work on.
  */
@@ -101,22 +101,22 @@ export class RepositoryCreationService extends BaseAuthorizedService {
         return saved
     }
 
-    async createServiceRepository(serviceId: string, input: CreateRepositoryInput): Promise<IService | null> {
-        const service = Types.ObjectId.isValid(serviceId) ? await Service.findById(toObjectId(serviceId)) : null
-        if (!service) throw new EntityNotFoundError(serviceId)
-        const { connection, template, target } = await this.prepare(service, "service", input)
+    async createBackendRepository(backendId: string, input: CreateRepositoryInput): Promise<IBackend | null> {
+        const backend = Types.ObjectId.isValid(backendId) ? await Backend.findById(toObjectId(backendId)) : null
+        if (!backend) throw new EntityNotFoundError(backendId)
+        const { connection, template, target } = await this.prepare(backend, "backend", input)
 
-        await new TemplateScaffoldService(this.user).createRepository(connection, target, service.slug, template, {
-            placeholders: { "%serviceSlug%": service.slug, "%domain%": placeholderDomain() }
+        await new TemplateScaffoldService(this.user).createRepository(connection, target, backend.slug, template, {
+            placeholders: { "%serviceSlug%": backend.slug, "%domain%": placeholderDomain() }
         })
         target.createData = undefined
 
         const set: Record<string, unknown> = { codeRepository: target }
-        if (!service.template) set.template = template.slug
-        if (!service.stack?.framework) set.stack = { runtime: parseRuntime(template.framework), framework: template.framework, source: FrontendStackSource.TEMPLATE }
+        if (!backend.template) set.template = template.slug
+        if (!backend.stack?.framework) set.stack = { runtime: parseRuntime(template.framework), framework: template.framework, source: FrontendStackSource.TEMPLATE }
         // Linked meanwhile by another request: the repository just created stays at the provider, unlinked
-        const saved = await Service.findOneAndUpdate({ _id: service._id, ...NOT_LINKED }, set, { new: true })
-        if (!saved) throw alreadyLinked("service")
+        const saved = await Backend.findOneAndUpdate({ _id: backend._id, ...NOT_LINKED }, set, { new: true })
+        if (!saved) throw alreadyLinked("backend")
         return saved
     }
 
@@ -165,9 +165,9 @@ export class RepositoryCreationService extends BaseAuthorizedService {
             throw createBusinessException({ code: "TEMPLATE_NOT_FOUND", message: slug ? `There is no template "${slug}"` : `There is no ${kind} template` })
         }
         if (!isTemplateOfKind(template, kind)) {
-            throw kind === "service"
-                ? createBusinessException({ code: "FRONTEND_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a frontend template: a service cannot be scaffolded from it` })
-                : createBusinessException({ code: "SERVICE_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a backend service template: a frontend cannot be scaffolded from it` })
+            throw kind === "backend"
+                ? createBusinessException({ code: "FRONTEND_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a frontend template: a backend cannot be scaffolded from it` })
+                : createBusinessException({ code: "BACKEND_TEMPLATE_NOT_ALLOWED", message: `"${template.slug}" is a backend template: a frontend cannot be scaffolded from it` })
         }
         return template
     }

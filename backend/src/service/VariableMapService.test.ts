@@ -1,9 +1,9 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Resource from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
@@ -31,7 +31,7 @@ describe("VariableMapService.update of a secret", () => {
         vi.spyOn(Secret, "findById").mockResolvedValue(secret as never)
         vi.spyOn(Secret, "exists").mockResolvedValue(null as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
         write = vi.spyOn(Secret, "findByIdAndUpdate").mockResolvedValue(secret as never) as unknown as ReturnType<typeof vi.fn>
     })
@@ -98,7 +98,7 @@ describe("VariableMapService.update of a secret", () => {
     })
 })
 
-describe("VariableMapService.update of a config map attached to services", () => {
+describe("VariableMapService.update of a config map attached to backends", () => {
     const configMapId = new Types.ObjectId()
     const otherConfigMapId = new Types.ObjectId()
     const secretId = new Types.ObjectId()
@@ -109,7 +109,7 @@ describe("VariableMapService.update of a config map attached to services", () =>
         allowAccess()
         vi.spyOn(ConfigMap, "findById").mockResolvedValue(configMap as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([{ name: "Orders API", configMapIds: [configMapId, otherConfigMapId], secretIds: [secretId] }] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([{ name: "Orders API", configMapIds: [configMapId, otherConfigMapId], secretIds: [secretId] }] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
         vi.spyOn(ConfigMap, "find").mockResolvedValue([
             { _id: configMapId, name: "logging", entries: [{ key: "LOG_LEVEL" }] },
@@ -121,7 +121,7 @@ describe("VariableMapService.update of a config map attached to services", () =>
 
     const update = (key: string) => new VariableMapService("configMap").update(String(configMapId), { entries: [{ key: "LOG_LEVEL" }, { key }] })
 
-    it("given a new key no other map of those services sets, when the config map is updated, then it is written and no resource is read", async () => {
+    it("given a new key no other map of those backends sets, when the config map is updated, then it is written and no resource is read", async () => {
         const resources = vi.spyOn(Resource, "find")
 
         await update("LOG_FORMAT")
@@ -137,25 +137,25 @@ describe("VariableMapService.update of a config map attached to services", () =>
     it.each([
         ["a secret", "DATABASE_PASSWORD"],
         ["another config map", "FEATURE_X"]
-    ])("given a new key %s of one of those services sets, when the config map is updated, then it is refused and nothing is written", async (_case, key) => {
-        await expect(update(key)).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED" })
+    ])("given a new key %s of one of those backends sets, when the config map is updated, then it is refused and nothing is written", async (_case, key) => {
+        await expect(update(key)).rejects.toMatchObject({ code: "BACKEND_VARIABLE_KEY_DUPLICATED" })
         expect(write).not.toHaveBeenCalled()
     })
 
     it("given a DOCKER that attaches it with a secret setting the new key, when the config map is updated, then it is refused and nothing is written", async () => {
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([{ name: "Storefront", configMapIds: [configMapId], secretIds: [secretId] }] as never)
 
-        await expect(update("DATABASE_PASSWORD")).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED" })
+        await expect(update("DATABASE_PASSWORD")).rejects.toMatchObject({ code: "BACKEND_VARIABLE_KEY_DUPLICATED" })
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("given a service that also attaches a resource setting the new key, when the config map is updated, then it is refused and nothing is written", async () => {
+    it("given a backend that also attaches a resource setting the new key, when the config map is updated, then it is refused and nothing is written", async () => {
         const resourceId = new Types.ObjectId()
-        vi.spyOn(Service, "find").mockResolvedValue([{ name: "Orders API", configMapIds: [configMapId], secretIds: [], resourceIds: [resourceId] }] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([{ name: "Orders API", configMapIds: [configMapId], secretIds: [], resourceIds: [resourceId] }] as never)
         vi.spyOn(Resource, "find").mockResolvedValue([{ _id: resourceId, name: "orders", type: "database", variant: "credentials" }] as never)
 
-        await expect(update("DB_ORDERS_HOST")).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED", details: { key: "DB_ORDERS_HOST", maps: ["logging", "orders"] } })
+        await expect(update("DB_ORDERS_HOST")).rejects.toMatchObject({ code: "BACKEND_VARIABLE_KEY_DUPLICATED", details: { key: "DB_ORDERS_HOST", maps: ["logging", "orders"] } })
         expect(write).not.toHaveBeenCalled()
     })
 })
@@ -180,20 +180,20 @@ describe("resolveAttachedMaps with resources", () => {
     it("given a resource that is not one of the project, when the maps are resolved, then it is refused", async () => {
         resources.mockResolvedValue([])
 
-        await expect(resolve({ resourceIds: [new Types.ObjectId().toString()] })).rejects.toMatchObject({ code: "SERVICE_RESOURCE_UNKNOWN" })
+        await expect(resolve({ resourceIds: [new Types.ObjectId().toString()] })).rejects.toMatchObject({ code: "BACKEND_RESOURCE_UNKNOWN" })
     })
 
     it.each([[["not-an-id"]], ["orders"], [Array.from({ length: 51 }, () => new Types.ObjectId().toString())]])(
         "given the resources %#, when the maps are resolved, then they are refused",
         async resourceIds => {
-            await expect(resolve({ resourceIds })).rejects.toMatchObject({ code: "SERVICE_RESOURCES_INVALID" })
+            await expect(resolve({ resourceIds })).rejects.toMatchObject({ code: "BACKEND_RESOURCES_INVALID" })
         }
     )
 
     it("given a config map setting a variable of an attached resource, when the maps are resolved, then it is refused", async () => {
         vi.spyOn(ConfigMap, "find").mockResolvedValue([{ _id: configMapId, name: "logging", entries: [{ key: "DB_ORDERS_PASSWORD" }] }] as never)
 
-        await expect(resolve({ resourceIds: [resourceId] })).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED", details: { key: "DB_ORDERS_PASSWORD", service: "Orders API" } })
+        await expect(resolve({ resourceIds: [resourceId] })).rejects.toMatchObject({ code: "BACKEND_VARIABLE_KEY_DUPLICATED", details: { key: "DB_ORDERS_PASSWORD", backend: "Orders API" } })
     })
 
     it("given no resource attached nor sent, when the config maps are resolved, then no resource is read", async () => {
@@ -219,7 +219,7 @@ describe("VariableMapService.delete", () => {
     })
 
     it("given a config map a DOCKER frontend attaches, when it is deleted, then it is refused with the frontend named", async () => {
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([{ name: "Storefront" }] as never)
         const remove = vi.spyOn(ConfigMap, "findByIdAndDelete")
 
@@ -227,8 +227,8 @@ describe("VariableMapService.delete", () => {
         expect(remove).not.toHaveBeenCalled()
     })
 
-    it("given a config map a service attaches, when it is deleted, then it is refused with the service named", async () => {
-        vi.spyOn(Service, "find").mockResolvedValue([{ name: "Orders API" }] as never)
+    it("given a config map a backend attaches, when it is deleted, then it is refused with the backend named", async () => {
+        vi.spyOn(Backend, "find").mockResolvedValue([{ name: "Orders API" }] as never)
         const remove = vi.spyOn(ConfigMap, "findByIdAndDelete")
 
         await expect(new VariableMapService("configMap").delete(String(configMapId))).rejects.toMatchObject({
@@ -239,8 +239,8 @@ describe("VariableMapService.delete", () => {
         expect(remove).not.toHaveBeenCalled()
     })
 
-    it("given a config map no service attaches, when it is deleted, then it is gone", async () => {
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+    it("given a config map no backend attaches, when it is deleted, then it is gone", async () => {
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         const remove = vi.spyOn(ConfigMap, "findByIdAndDelete").mockResolvedValue(null)
 
         await new VariableMapService("configMap").delete(String(configMapId))
@@ -313,7 +313,7 @@ describe("VariableMapService create and update of a map", () => {
         vi.spyOn(VariableMapService.prototype as unknown as { ensureWholeProject: () => Promise<void> }, "ensureWholeProject").mockResolvedValue(undefined)
         vi.spyOn(ConfigMap, "findById").mockResolvedValue(map as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 

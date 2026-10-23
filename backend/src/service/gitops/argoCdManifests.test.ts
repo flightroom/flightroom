@@ -137,7 +137,7 @@ describe("buildApplicationSet", () => {
     const applicationSet = buildApplicationSet(target, "orders", [development, production])
     const [list, git] = (applicationSet.spec.generators[0] as { matrix: { generators: [{ list: { elements: unknown[] } }, { git: unknown }] } }).matrix.generators
 
-    it("given a service, when its ApplicationSet is built, then it is named after it and labelled with its slug", () => {
+    it("given a backend, when its ApplicationSet is built, then it is named after it and labelled with its slug", () => {
         expect(applicationSet.metadata.name).toBe(applicationSetName(projectId, "shop", "orders"))
         expect(applicationSet.metadata.labels).toEqual({ [MANAGED_BY_LABEL]: "mfe-orchestrator", [PROJECT_ID_LABEL]: projectId, [APPLICATION_LABEL]: "orders", [COMPONENT_LABEL]: "applications" })
         expect(applicationSet.spec.goTemplate).toBe(true)
@@ -151,15 +151,15 @@ describe("buildApplicationSet", () => {
         ])
     })
 
-    it("given a listed environment, when the ApplicationSet is built, then the git generator looks for the values file of the service on its branch only", () => {
+    it("given a listed environment, when the ApplicationSet is built, then the git generator looks for the values file of the backend on its branch only", () => {
         expect(git).toEqual({ git: { repoURL: target.applicationsRepoUrl, revision: "{{ .environment.slug }}", files: [{ path: "orders.yaml" }] } })
     })
 
-    it("given a service, when its ApplicationSet is built, then it never deletes the applications it generated", () => {
+    it("given a backend, when its ApplicationSet is built, then it never deletes the applications it generated", () => {
         expect(applicationSet.spec.syncPolicy).toEqual({ applicationsSync: "create-update" })
     })
 
-    it("given an environment, when its Application is generated, then it installs the chart of the branch with the values file of the service in the namespace of the environment", () => {
+    it("given an environment, when its Application is generated, then it installs the chart of the branch with the values file of the backend in the namespace of the environment", () => {
         expect(applicationSet.spec.template.metadata).toEqual({
             name: "{{ .environment.name }}",
             labels: {
@@ -190,7 +190,7 @@ describe("buildArgoCdState", () => {
             element => element.environment.slug
         )
 
-    it("given both repositories, when the state is built, then there is the ApplicationSet of the environments and one per service", () => {
+    it("given both repositories, when the state is built, then there is the ApplicationSet of the environments and one per backend", () => {
         const state = buildArgoCdState(target)
 
         expect(state.appProject.metadata.name).toBe(PROJECT_NAME)
@@ -246,7 +246,7 @@ describe("clashingName", () => {
         expect(clashingName(buildArgoCdState(target))).toBeUndefined()
     })
 
-    it("given a service and an environment whose slugs join the same way as another pair, when the names are checked, then the name they share comes back", () => {
+    it("given a backend and an environment whose slugs join the same way as another pair, when the names are checked, then the name they share comes back", () => {
         const state = buildArgoCdState({
             ...target,
             environments: [
@@ -260,7 +260,7 @@ describe("clashingName", () => {
         expect(clashingName(state)).toBe(applicationName(projectId, "shop", "orders", "api-dev"))
     })
 
-    it("given a service named environments, when the names are checked, then its ApplicationSet clashes with the one of the environments", () => {
+    it("given a backend named environments, when the names are checked, then its ApplicationSet clashes with the one of the environments", () => {
         expect(clashingName(buildArgoCdState({ ...target, applications: ["environments"] }))).toBe(environmentsApplicationSetName(projectId, "shop"))
     })
 })

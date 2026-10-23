@@ -18,7 +18,7 @@ import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "../la
  */
 export interface FrontendNodeData extends Record<string, unknown> {
     frontend: Frontend
-    /** Drawn beside backend services (the domain diagram): a primary stripe and icon tell it apart from them. */
+    /** Drawn beside backends (the domain diagram): a primary stripe and icon tell it apart from them. */
     showKind?: boolean
 }
 

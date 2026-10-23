@@ -1,19 +1,19 @@
 import { z } from "zod"
 import { createBusinessException } from "../../errors/BusinessException"
+import BackendService from "../../service/BackendService"
 import FrontendService from "../../service/FrontendService"
 import MarketService from "../../service/MarketService"
 import { isValidRepositoryName } from "../../service/RepositoryRenameService"
-import ServiceService from "../../service/ServiceService"
+import BackendDTO from "../../types/BackendDTO"
 import FrontendDTO from "../../types/FrontendDTO"
-import ServiceDTO from "../../types/ServiceDTO"
 import { MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { defineTool, McpToolContext, objectId, WRITE_EXTERNAL } from "../toolDefinition"
+import { createSchema as backendCreateSchema } from "./backendTools"
 import { ensureReferencesBelongToProject, createSchema as frontendCreateSchema } from "./frontendTools"
-import { createSchema as serviceCreateSchema } from "./serviceTools"
 
 /**
  * Where and how the new repository is created: the connection's credentials are never part of the
- * input. Its name ends in -fe for a frontend and in -be for a backend service, as the server
+ * input. Its name ends in -fe for a frontend and in -be for a backend, as the server
  * instructions tell agents.
  */
 const repositoryToCreate = (example: string) => ({
@@ -72,14 +72,14 @@ export const scaffoldTools = [
         run: async (args, context) => new FrontendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as FrontendDTO, context.projectId)
     }),
     defineTool({
-        name: "service_scaffold",
-        title: "Create service from template",
+        name: "backend_scaffold",
+        title: "Create backend from template",
         description:
-            "Adds a backend service whose code repository is created at the provider from a marketplace template (a service one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Port and probe paths left out come from the template. Prefer a template built with the project's default backend technology (project.technologies from context_get, matchesProjectTechnology in templates_list) unless the user asks for another. Use service_create instead to link a repository that already exists.",
+            "Adds a backend whose code repository is created at the provider from a marketplace template (a backend one), through a code repository connection of the project (with its CI pipeline and, on GitHub, the deploy secret). Port and probe paths left out come from the template. Prefer a template built with the project's default backend technology (project.technologies from context_get, matchesProjectTechnology in templates_list) unless the user asks for another. Use backend_create instead to link a repository that already exists.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,
-        inputSchema: serviceCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("orders-be")),
-        run: async (args, context) => new ServiceService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as ServiceDTO, context.projectId)
+        inputSchema: backendCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("orders-be")),
+        run: async (args, context) => new BackendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as BackendDTO, context.projectId)
     })
 ]

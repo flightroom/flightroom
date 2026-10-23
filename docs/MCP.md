@@ -31,11 +31,11 @@ layout it is `https://<your console>/api/mcp`.
 
 Two scopes, chosen on the consent page:
 
-- `mfe:read` — read the project: frontends, backend services, functional domains, environments,
+- `mfe:read` — read the project: frontends, backends, functional domains, environments,
   deployments, canary users, global variables, build status, storages, resources and repository
   connections (credentials masked), dependency and integration plans.
 - `mfe:write` — everything the console does inside a project, **deploy and rollback included**:
-  create and edit frontends, services, domains and environments, trigger builds, import
+  create and edit frontends, backends, domains and environments, trigger builds, import
   repositories, change global variables, apply dependency alignments and integrations. It also
   allows **creating projects** (see below), which the consent page says next to "Allow changes".
 
@@ -56,9 +56,9 @@ API key creation, discarding an AI change, canary users).
 
 ## Project context
 
-Every project, functional domain, frontend and service can carry a **context**: free markdown
+Every project, functional domain, frontend and backend can carry a **context**: free markdown
 the team writes for AI agents (domain, conventions, rules). The project one is edited in Settings →
-Project AI context, the domain one in the domain form, the frontend and service ones in their
+Project AI context, the domain one in the domain form, the frontend and backend ones in their
 "AI context" tab. Each is limited to 20,000 characters.
 
 An agent always gets the contexts of what it works on, the project one included:
@@ -66,19 +66,19 @@ An agent always gets the contexts of what it works on, the project one included:
 | Working on | Contexts returned |
 | --- | --- |
 | a frontend (frontend) | the frontend, its domain, the project |
-| a service (backend) | the service, its domain, the project |
-| a domain | the domain, each of its frontends and services, the project |
+| a backend | the backend, its domain, the project |
+| a domain | the domain, each of its frontends and backends, the project |
 
-- `context_get` (`mfe:read`) takes at most one of `frontendId`, `serviceId`, `domainId` and
+- `context_get` (`mfe:read`) takes at most one of `frontendId`, `backendId`, `domainId` and
   returns the contexts above. Without ids it returns every context of the project. The server
   instructions ask clients to call it before working on a project.
-- `frontend_get`, `service_get` and `domain_get` return the same contexts in `aiContext`, so an
+- `frontend_get`, `backend_get` and `domain_get` return the same contexts in `aiContext`, so an
   agent that reads what it works on gets its notes without a second call.
-- `project_update`, `domain_create`/`domain_update`, `frontend_update` and `service_update`
+- `project_update`, `domain_create`/`domain_update`, `frontend_update` and `backend_update`
   (`mfe:write`) change them; `null` removes the project and the domain context.
 - The console assistant reads the same notes through the same tools. The console's AI change jobs
   put the project context, the domain context (of the job's domain, or of the domains its
-  frontends and services are in) and the context of each repository in the agent's prompt.
+  frontends and backends are in) and the context of each repository in the agent's prompt.
 
 ### Design system
 
@@ -109,55 +109,55 @@ AI (MCP tools, the assistant, the agent prompt) masks its credentials: the value
 becomes `***`. Registry and scope lines (`@acme:registry=...`) stay readable, as does a value that
 only names an environment variable (`${NPM_TOKEN}`).
 
-## Domains and services
+## Domains and backends
 
-A project can group its frontends and backend services in **functional domains**. Membership
-lives on the member: each frontend or service has an optional `domainId`, so it is in one domain
+A project can group its frontends and backends in **functional domains**. Membership
+lives on the member: each frontend or backend has an optional `domainId`, so it is in one domain
 at most.
 
-- `domains_list` (`mfe:read`) returns the domains with how many frontends and services each one
+- `domains_list` (`mfe:read`) returns the domains with how many frontends and backends each one
   groups; `domain_get` adds the id, name and slug of every member.
 - `domain_create` and `domain_update` (`mfe:write`) set the name and the description; the slug is
   derived from the name when left out and fixed after creation. `domain_delete` is destructive: the
   members are kept and end up in no domain.
 - `domain_trigger_build` (`mfe:write`) releases a whole domain: it tags the repository of every
-  frontend and service in it with the same version, on the same branch (`main` when left out),
+  frontend and backend in it with the same version, on the same branch (`main` when left out),
   and each tag starts the pipeline of its repository. A repository linked to two members is tagged
   once. Every repository is checked before any tag is made (the connection belongs to the project,
   the domain scope, the repository and the branch exist, the tag does not): when one fails nothing is
   tagged and the error lists each failure. A VIEWER of the project cannot run it, nor the build of a
-  single frontend or service. The result tells, per repository, whether it was tagged. The console offers
+  single frontend or backend. The result tells, per repository, whether it was tagged. The console offers
   the same as "Build domain" on the domain page, and the REST API as `POST /api/domains/:id/build`.
 - `domain_links_list` (`mfe:read`) returns the relations the team drew by hand between two domains,
   each from `sourceDomainId` to `targetDomainId` with an optional label; `domain_link_create` and
   `domain_link_delete` (`mfe:write`, the delete destructive) draw and remove them. A relation goes one
   way, and deleting a domain deletes its relations.
 - `domain_deployments_get` (`mfe:read`) tells, for one domain or for the whole project, which version of
-  each frontend and service runs in each environment: the frontend from the active deployment
+  each frontend and backend runs in each environment: the frontend from the active deployment
   snapshot, the backend from the versions the customer's deploy pipeline reported.
-- `services_list`, `service_get` (`mfe:read`) and `service_create`, `service_update`, `service_delete`
-  (`mfe:write`, the delete destructive) manage the backend services: name, description, domain,
+- `backends_list`, `backend_get` (`mfe:read`) and `backend_create`, `backend_update`, `backend_delete`
+  (`mfe:write`, the delete destructive) manage the backends: name, description, domain,
   context, port, probe and API documentation paths, image repository, the environment variables the
   image reads (names only, never values) and a link to a repository that already exists. The slug is
   fixed after creation. The version comes from the CI, never from a tool.
-- `frontend_scaffold` and `service_scaffold` (`mfe:write`) create the frontend or the service
+- `frontend_scaffold` and `backend_scaffold` (`mfe:write`) create the frontend or the backend
   together with a new repository at the provider, from a marketplace template (`templates_list`) and
   through a repository connection of the project (`code_repositories_list`), with its CI pipeline and,
   on GitHub, the deploy secret. Neither the connection's credentials nor that secret are ever part of
   the input or of the result, and the console assistant asks the user before running them. Creating a
   domain creates no repository: scaffold its members with these tools and its `domainId`.
-- `frontend_create`, `frontend_update`, `service_create` and `service_update` take an optional
+- `frontend_create`, `frontend_update`, `backend_create` and `backend_update` take an optional
   `domainId`; `null` takes the item out of its domain. A domain of another project is refused before
   anything is written.
-- A service and a frontend of kind `DOCKER` (served by its own Docker container) take an optional
+- A backend and a frontend of kind `DOCKER` (served by its own Docker container) take an optional
   `exposurePath`, the same on the host of every environment; `null` means it is not exposed.
-- `frontends_list` and `services_list` take an optional `domainId` filter: a domain id, or `none`
+- `frontends_list` and `backends_list` take an optional `domainId` filter: a domain id, or `none`
   for the items in no domain.
 
 ## Resources
 
 A **resource** is a package of environment variables of a catalog type (`database`, `mongodb`, `bigquery`, `storage`,
-`redis`, `serviceAccount`, `auth0`, `api`, `ai`, `smtp`, `generic`) that backend services attach by id
+`redis`, `serviceAccount`, `auth0`, `api`, `ai`, `smtp`, `generic`) that backends attach by id
 (`resourceIds`); a frontend never does. A `generic` resource (variant `custom`) is for anything the catalog
 lacks: it defines its own variables in `customFields` (`[{ name, secret }]`, at most 100, each set as
 `<prefix>_<name>`, all optional), whose values go in `fields` by name like any other. Each one becomes a Kubernetes Secret named `<name>.resource` at the next GitOps deploy.
@@ -177,11 +177,11 @@ lacks: it defines its own variables in `customFields` (`[{ name, secret }]`, at 
   an update changing the variant or where a resource with stored credentials connects (its host, base URL...):
   those credentials must be typed again (`RESOURCE_SECRET_REENTRY_REQUIRED`, see
   [SECRETS.md](./SECRETS.md)), which only the console does. `resource_delete` is destructive
-  and refused while a service attaches the resource.
-- `service_create` and `service_update` take `resourceIds` (at most 50, replaced as a whole); a variable
-  of a resource clashing with one of the config maps, secrets or other resources of the service is refused.
-- `domain_get` adds `resources`: the resources the services of the domain attach, each with its `env`
-  keys and `usedBy`, the slugs of those services (left out when none attaches one).
+  and refused while a backend attaches the resource.
+- `backend_create` and `backend_update` take `resourceIds` (at most 50, replaced as a whole); a variable
+  of a resource clashing with one of the config maps, secrets or other resources of the backend is refused.
+- `domain_get` adds `resources`: the resources the backends of the domain attach, each with its `env`
+  keys and `usedBy`, the slugs of those backends (left out when none attaches one).
 
 ## Several projects in one connection
 

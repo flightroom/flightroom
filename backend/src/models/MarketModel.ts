@@ -1,5 +1,5 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { ServiceDefaults } from "../types/ServiceStack"
+import { BackendDefaults } from "../types/BackendStack"
 
 export interface IMarket extends Document<ObjectId> {
     name: string
@@ -22,8 +22,8 @@ export interface IMarket extends Document<ObjectId> {
      * to the uploaded folder (`assets/remoteEntry.js`, `index.js`, `parcel.js`)
      */
     entryPoint?: string
-    /** Service templates only, shipped with the backend (not stored): what a service created from it starts with */
-    serviceDefaults?: ServiceDefaults
+    /** Backend templates only, shipped with the backend (not stored): what a backend created from it starts with */
+    backendDefaults?: BackendDefaults
     createdAt: Date
     updatedAt: Date
 }

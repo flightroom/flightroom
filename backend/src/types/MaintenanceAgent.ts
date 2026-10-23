@@ -1,7 +1,7 @@
-import ServiceDTO from "./ServiceDTO"
+import BackendDTO from "./BackendDTO"
 
 /**
- * How a maintenance agent runs. A CONTAINER is always on, like a backend service, and does its work when its
+ * How a maintenance agent runs. A CONTAINER is always on, like a backend, and does its work when its
  * run path is called; a JOB is a container that starts, does its work and exits. Both run on a schedule, on
  * Play, or both: what starts them is a Kubernetes CronJob in every environment.
  */
@@ -74,7 +74,7 @@ export const canonicalTimeZone = (timeZone: string): string | undefined => {
     }
 }
 
-export interface MaintenanceAgentDTO extends Omit<ServiceDTO, "docsPath" | "openApiPath" | "exposurePath"> {
+export interface MaintenanceAgentDTO extends Omit<BackendDTO, "docsPath" | "openApiPath" | "exposurePath"> {
     kind?: MaintenanceAgentKind
     /** A cron expression; blank or null when it runs only on Play */
     schedule?: string | null
@@ -82,8 +82,8 @@ export interface MaintenanceAgentDTO extends Omit<ServiceDTO, "docsPath" | "open
     timeZone?: string | null
     /** A CONTAINER only: the path its CronJob POSTs to */
     runPath?: string
-    /** The backend services it maintains */
-    serviceIds?: string[]
+    /** The backends it maintains */
+    backendIds?: string[]
     /** The frontends it maintains */
     frontendIds?: string[]
 }

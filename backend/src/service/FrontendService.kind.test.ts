@@ -58,7 +58,7 @@ describe("FrontendService.create, kind", () => {
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("given a DOCKER without parents, when it is created, then it gets the service defaults it was not given", async () => {
+    it("given a DOCKER without parents, when it is created, then it gets the backend defaults it was not given", async () => {
         const write = await create({ kind: FrontendKind.DOCKER, exposurePath: "/shell", parentIds: [], readinessPath: "/ready" })
 
         expect(write.mock.calls[0][0]).toMatchObject({ kind: FrontendKind.DOCKER, port: 8080, livenessPath: "/health/live", readinessPath: "/ready" })
@@ -99,7 +99,7 @@ describe("FrontendService.create, kind", () => {
 
         await expect(service.create({ name: "Cart", slug: "cart", version: "1.0.0", $set: { secretIds: [] } } as unknown as FrontendDTO, String(projectId))).rejects.toMatchObject({
             code: "FRONTEND_INVALID",
-            message: expect.not.stringContaining("service")
+            message: expect.not.stringContaining("backend")
         })
     })
 
@@ -202,7 +202,7 @@ describe("FrontendService.update, kind", () => {
         const write = vi.spyOn(Frontend, "findOneAndUpdate")
         const frontend = existing({ kind: FrontendKind.DOCKER, exposurePath: "/shell" })
 
-        expect(await codeOf(serviceFor(frontend).update(String(frontend._id), { version: "2.1.0 beta" } as FrontendDTO))).toBe("SERVICE_VERSION_INVALID")
+        expect(await codeOf(serviceFor(frontend).update(String(frontend._id), { version: "2.1.0 beta" } as FrontendDTO))).toBe("BACKEND_VERSION_INVALID")
         expect(write).not.toHaveBeenCalled()
     })
 
@@ -352,7 +352,7 @@ describe("FrontendService.registerVersionWithPermissionCheck", () => {
     })
 
     it("given no image, when a version is registered, then it is refused", async () => {
-        expect(await codeOf(register({}, ApiKeyRole.MANAGER))).toBe("SERVICE_VERSION_IMAGE_REQUIRED")
+        expect(await codeOf(register({}, ApiKeyRole.MANAGER))).toBe("BACKEND_VERSION_IMAGE_REQUIRED")
     })
 
     it("given a DOCKER and a newer version, when it is registered, then it is upserted, becomes the version and teaches the image repository", async () => {

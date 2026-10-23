@@ -1,10 +1,12 @@
 import { AnyKeys, ObjectId, PipelineStage, Schema, Types } from "mongoose"
+import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import AiUsage, { AI_USAGE_SOURCES, AiUsageSource, IAiUsage } from "../models/AiUsageModel"
+import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
+import UserProject from "../models/UserProjectModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { LlmEffort, LlmProvider, LlmUsage, NO_USAGE } from "./llm/types"
@@ -57,7 +59,7 @@ export interface AiUsageEntry extends LlmUsage {
     jobId?: Id
     domainId?: Id
     frontendIds?: Id[]
-    serviceIds?: Id[]
+    backendIds?: Id[]
     aiModelId?: string
     provider?: LlmProvider
     effort?: LlmEffort
@@ -96,7 +98,7 @@ const sums = (weight: unknown = 1) => ({
 
 /** A job on N repositories counts 1/N of its tokens for each of them: summed over the documents, then rounded once. */
 const REPOSITORY_SHARE = {
-    $divide: [1, { $max: [1, { $add: [{ $size: { $ifNull: ["$frontendIds", []] } }, { $size: { $ifNull: ["$serviceIds", []] } }] }] }]
+    $divide: [1, { $max: [1, { $add: [{ $size: { $ifNull: ["$frontendIds", []] } }, { $size: { $ifNull: ["$backendIds", []] } }] }] }]
 }
 
 type Totals = Partial<LlmUsage> & { _id?: unknown }
@@ -119,8 +121,8 @@ const added = (usages: LlmUsage[]): LlmUsage =>
 
 const tokensOf = (usage: LlmUsage) => usage.inputTokens + usage.outputTokens
 
-/** The pipeline of the total of a domain, a frontend or a service: exported for the tests, which have no MongoDB. */
-export const componentPipeline = (field: "domainId" | "frontendIds" | "serviceIds", id: Id, period: AiUsagePeriod): PipelineStage[] => [
+/** The pipeline of the total of a domain, a frontend or a backend: exported for the tests, which have no MongoDB. */
+export const componentPipeline = (field: "domainId" | "frontendIds" | "backendIds", id: Id, period: AiUsagePeriod): PipelineStage[] => [
     matchOf({ [field]: objectId(id) }, period),
     // The domain the job was asked from counts all of it; a repository its share.
     { $group: { _id: null, ...sums(field === "domainId" ? 1 : REPOSITORY_SHARE) } }
@@ -133,9 +135,43 @@ export const organizationPipeline = (organizationId: Id, period: AiUsagePeriod):
     { $group: { _id: "$projectId", ...sums() } }
 ]
 
+export const AI_TOKEN_LIMIT_REACHED = "AI_TOKEN_LIMIT_REACHED"
+
+/** What members spent in the project this calendar month, input and output tokens together: exported for the tests. */
+export const membersMonthPipeline = (projectId: Id, userIds: Id[]): PipelineStage[] => [
+    matchOf({ projectId: objectId(projectId), userId: { $in: userIds.map(objectId) } }, "month"),
+    { $group: { _id: "$userId", tokens: { $sum: { $add: ["$inputTokens", "$outputTokens"] } } } }
+]
+
+/** The tokens each of `userIds` spent in the project this calendar month, by user id: none spent, none listed. */
+export const tokensSpentThisMonth = async (projectId: Id, userIds: Id[]): Promise<Map<string, number>> => {
+    if (userIds.length === 0) return new Map()
+    const groups = await AiUsage.aggregate<{ _id: unknown; tokens: number }>(membersMonthPipeline(projectId, userIds))
+    return new Map(groups.map(group => [String(group._id), group.tokens]))
+}
+
+/**
+ * Refuses an answer or a job to a member who spent their monthly limit in the project. Who has no limit, or no
+ * membership (an organization administrator outside the project), is not counted. Checked before the work starts:
+ * an answer or a job already running ends, and may go past the limit.
+ */
+export const ensureWithinTokenLimit = async (projectId: Id, userId: Id): Promise<void> => {
+    const membership = await UserProject.findOne({ projectId: toObjectId(String(projectId)), userId: toObjectId(String(userId)), invitationToken: null }, { aiTokenLimit: 1 })
+    const limit = membership?.aiTokenLimit
+    if (limit === undefined || limit === null) return
+    const spent = (await tokensSpentThisMonth(projectId, [userId])).get(String(userId)) ?? 0
+    if (spent >= limit) {
+        throw createBusinessException({
+            code: AI_TOKEN_LIMIT_REACHED,
+            message: `The monthly limit of ${limit} AI tokens in this project is spent: it starts again next month`,
+            statusCode: 429
+        })
+    }
+}
+
 /**
  * The AI tokens spent, by Edit with AI jobs and the assistant, at each level the console shows them: a domain, a
- * frontend or a service (the jobs only, the assistant working on no repository), a project, an organization.
+ * frontend or a backend (the jobs only, the assistant working on no repository), a project, an organization.
  * Whoever sees the domain, the repository or the project sees its usage; the organization's, which names every
  * project, is for its administrators, who decide which AIs the projects use.
  */
@@ -155,11 +191,11 @@ export default class AiUsageService extends BaseAuthorizedService {
         return this.summary(componentPipeline("frontendIds", frontendId, period), period)
     }
 
-    async forService(serviceId: string, period: AiUsagePeriod): Promise<AiUsageSummary> {
-        const service = await Service.findById(toObjectId(serviceId), { projectId: 1, domainId: 1 })
-        if (!service) throw new EntityNotFoundError(serviceId)
-        await this.ensureAccessToService(service)
-        return this.summary(componentPipeline("serviceIds", serviceId, period), period)
+    async forBackend(backendId: string, period: AiUsagePeriod): Promise<AiUsageSummary> {
+        const backend = await Backend.findById(toObjectId(backendId), { projectId: 1, domainId: 1 })
+        if (!backend) throw new EntityNotFoundError(backendId)
+        await this.ensureAccessToBackend(backend)
+        return this.summary(componentPipeline("backendIds", backendId, period), period)
     }
 
     /** The whole project: a member confined to some domains sees only theirs. */

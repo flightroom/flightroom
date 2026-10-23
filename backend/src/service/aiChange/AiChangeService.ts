@@ -20,7 +20,7 @@ export interface AiChangeCreateInput {
 }
 
 /**
- * Code changes to a frontend or a backend service proposed by an AI agent.
+ * Code changes to a frontend or a backend proposed by an AI agent.
  *
  * The agent works on the local working copy of the repository and never pushes. Once it is done, its
  * changes are stored here as a proposal and pushed on a feature branch of their own, never on the
@@ -39,7 +39,7 @@ export class AiChangeService extends AiChangeBaseService {
         const request = await AiChangeRequest.findById(id)
         if (!request) throw new EntityNotFoundError(id)
         await this.ensureAccessToProject(request.projectId)
-        // A domain-scoped member reaches the changes of the frontends and services they see only;
+        // A domain-scoped member reaches the changes of the frontends and backends they see only;
         // one whose component is gone belongs to no domain any more
         if (await this.getDomainScope(request.projectId)) {
             const component = await findComponent(componentOf(request))
@@ -48,7 +48,7 @@ export class AiChangeService extends AiChangeBaseService {
         return request
     }
 
-    /** A job on the repository of this frontend or service alone: the request is the job's only proposal. */
+    /** A job on the repository of this frontend or backend alone: the request is the job's only proposal. */
     async create(ref: RepositoryComponentRef, input: AiChangeCreateInput): Promise<IAiChangeRequest> {
         const component = await this.getComponent(ref)
         await this.ensureCanChangeProject(component.projectId)
@@ -81,7 +81,7 @@ export class AiChangeService extends AiChangeBaseService {
     }
 
     /**
-     * The latest conversations on a frontend or a service, each with every request of it on this repository,
+     * The latest conversations on a frontend or a backend, each with every request of it on this repository,
      * newest first, without file contents. Whole conversations: a queue cut in the middle of one would show it twice.
      */
     async list(ref: RepositoryComponentRef): Promise<Omit<IAiChangeRequest, "events">[]> {
@@ -132,7 +132,7 @@ export class AiChangeService extends AiChangeBaseService {
         await ensureNotBeingRefined(request)
 
         // Each description names the other repositories of the job, with their pull requests once opened.
-        const siblings = request.jobId ? await AiChangeRequest.find({ jobId: request.jobId, _id: { $ne: request._id } }, { frontendId: 1, serviceId: 1, pullRequestUrl: 1 }) : []
+        const siblings = request.jobId ? await AiChangeRequest.find({ jobId: request.jobId, _id: { $ne: request._id } }, { frontendId: 1, backendId: 1, pullRequestUrl: 1 }) : []
         const components = await findComponents(siblings.map(componentOf), { name: 1 })
         const related = siblings.map(sibling =>
             [components.find(component => String(component._id) === componentIdOf(sibling))?.name ?? componentIdOf(sibling), sibling.pullRequestUrl].filter(Boolean).join(": ")

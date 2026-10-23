@@ -2,17 +2,23 @@ import { FastifyBaseLogger } from "fastify"
 import { Model, mongo, ObjectId, QueryFilter } from "mongoose"
 import AiChangeJob from "../models/AiChangeJobModel"
 import AiChangeRequest from "../models/AiChangeRequestModel"
+import AiMission from "../models/AiMissionModel"
+import AiUsage from "../models/AiUsageModel"
 import AssistantConversation from "../models/AssistantConversationModel"
+import BackendDeployment from "../models/BackendDeploymentModel"
+import Backend from "../models/BackendModel"
+import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
 import CodeRepository, { CODE_REPOSITORY_SECRET_PATHS } from "../models/CodeRepositoryModel"
 import Database, { DATABASE_SECRET_PATHS } from "../models/DatabaseModel"
 import Deployment, { IDeployment } from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
+import DomainRelease from "../models/DomainReleaseModel"
 import FrontendDeployment from "../models/FrontendDeploymentModel"
 import Frontend, { CanaryType, FrontendKind, IFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
 import { IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
 import { VariableMapKind } from "../types/VariableMapDTO"
@@ -59,6 +65,8 @@ export const migrateLegacyCanaryTypes = async (logger: FastifyBaseLogger): Promi
 const NAMESPACE_NOT_FOUND = 26
 const INDEX_NOT_FOUND = 27
 
+const isDuplicateKeyError = (error: unknown): boolean => (error as { code?: number })?.code === 11000
+
 /** The collection the frontends were stored in while the model was called Microfrontend */
 const LEGACY_FRONTEND_COLLECTION = "microfrontends"
 
@@ -78,29 +86,88 @@ const unlessAlreadyGone = async (operation: Promise<unknown>): Promise<void> => 
     }
 }
 
+/** Any model whose collection a migration renames or rewrites: they have nothing else in common */
+type AnyModel = Model<Record<string, unknown>>
+
 /**
- * Moves the frontends of the legacy collection that `frontends` does not hold yet, then drops the legacy
- * one. It is what a rolling update leaves behind: the pod still on the previous version keeps writing to
- * the old collection after the new one renamed it. A frontend whose slug was taken again in the meantime
- * cannot be moved: the legacy collection is then kept and the conflict logged.
+ * Moves the documents of the legacy collection that the one of `model` does not hold yet, then drops the
+ * legacy one. It is what a rolling update leaves behind: the pod still on the previous version keeps writing
+ * to the old collection after the new one renamed it. A document whose slug was taken again in the meantime
+ * cannot be moved: the legacy collection is then kept and the conflict logged. With a `naturalKey`, a
+ * document the new collection already holds under another _id (the same version of a backend registered
+ * again by its CI) is already there: it is skipped, not counted as a conflict.
  */
-const mergeLegacyFrontends = async (logger: FastifyBaseLogger, legacy: mongo.Collection): Promise<void> => {
+const mergeLegacyCollection = async (logger: FastifyBaseLogger, legacy: mongo.Collection, model: AnyModel, naturalKey?: string[]): Promise<void> => {
     let moved = 0
     let conflicts = 0
     for await (const { _id, ...fields } of legacy.find()) {
         try {
-            moved += (await Frontend.collection.updateOne({ _id }, { $setOnInsert: fields }, { upsert: true })).upsertedCount
+            moved += (await model.collection.updateOne({ _id }, { $setOnInsert: fields }, { upsert: true })).upsertedCount
         } catch (error) {
+            if (naturalKey && isDuplicateKeyError(error)) {
+                const key = Object.fromEntries(naturalKey.map(name => [name, fields[name]]))
+                if (await model.collection.findOne(key, { projection: { _id: 1 } })) continue
+            }
             conflicts++
-            logger.error({ error }, `Frontend ${_id} of ${LEGACY_FRONTEND_COLLECTION} could not be moved`)
+            logger.error({ error }, `Document ${_id} of ${legacy.collectionName} could not be moved`)
         }
     }
 
     if (conflicts > 0) {
-        logger.error(`${conflicts} frontend(s) of ${LEGACY_FRONTEND_COLLECTION} could not be moved: the collection is kept, merge them by hand`)
+        logger.error(`${conflicts} document(s) of ${legacy.collectionName} could not be moved: the collection is kept, merge them by hand`)
     } else {
         await unlessAlreadyGone(legacy.drop())
-        logger.info(`Moved ${moved} frontend(s) from ${LEGACY_FRONTEND_COLLECTION} and dropped it`)
+        logger.info(`Moved ${moved} document(s) from ${legacy.collectionName} and dropped it`)
+    }
+}
+
+/**
+ * Gives the collection of `model` the documents of the legacy one, when it still exists. Mongoose may have
+ * created the new collection empty, with its indexes, before this runs, so the legacy one replaces it; one
+ * already holding documents gets the legacy ones merged into it.
+ */
+const moveLegacyCollection = async (logger: FastifyBaseLogger, db: mongo.Db, legacyName: string, model: AnyModel, naturalKey?: string[]): Promise<void> => {
+    const [legacy] = await db.listCollections({ name: legacyName }, { nameOnly: true }).toArray()
+    if (!legacy) return
+
+    const target = model.collection.collectionName
+    if ((await db.collection(target).countDocuments({}, { limit: 1 })) > 0) {
+        await mergeLegacyCollection(logger, db.collection(legacyName), model, naturalKey)
+    } else {
+        await unlessAlreadyGone(db.renameCollection(legacyName, target, { dropTarget: true }))
+        await model.createIndexes()
+        logger.info(`Renamed the collection ${legacyName} to ${target}`)
+    }
+}
+
+/**
+ * Renames `from` to `to` on every document of `collection` that has it, after dropping the indexes on it:
+ * Mongoose builds them on empty collections too, and a unique one left on a field no document has any more
+ * would refuse the second document holding the same value in the fields it shares with it. They go before
+ * the rename, which that index would otherwise refuse as well. Building the new ones is left to the caller.
+ */
+const renameField = async (collection: mongo.Collection, from: string, to: string): Promise<{ dropped: number; renamed: number }> => {
+    const indexes = await collection.indexes().catch(error => {
+        if ((error as { code?: unknown } | null)?.code === NAMESPACE_NOT_FOUND) return []
+        throw error
+    })
+    const stale = indexes.filter(index => index.name && Object.keys(index.key).some(key => key === from || key.startsWith(`${from}.`)))
+    for (const index of stale) {
+        await unlessAlreadyGone(collection.dropIndex(index.name as string))
+    }
+
+    const { modifiedCount } = await collection.updateMany({ [from]: { $exists: true } }, { $rename: { [from]: to } })
+    return { dropped: stale.length, renamed: modifiedCount }
+}
+
+/** Renames each field on the collection of its model, then builds the indexes of the model again when anything changed */
+const renameFields = async (logger: FastifyBaseLogger, fields: Array<[AnyModel, string, string]>): Promise<void> => {
+    for (const [model, from, to] of fields) {
+        const { dropped, renamed } = await renameField(model.collection as unknown as mongo.Collection, from, to)
+        if (dropped > 0 || renamed > 0) {
+            await model.createIndexes()
+            logger.info(`Renamed ${from} to ${to} on ${renamed} document(s) of ${model.collection.collectionName}, dropping ${dropped} index(es) on it`)
+        }
     }
 }
 
@@ -124,45 +191,17 @@ export const migrateMicrofrontendsToFrontends = async (logger: FastifyBaseLogger
     const db = Frontend.db.db
     if (!db) return
 
-    const [legacy] = await db.listCollections({ name: LEGACY_FRONTEND_COLLECTION }, { nameOnly: true }).toArray()
-    if (legacy) {
-        const target = Frontend.collection.collectionName
-        if ((await db.collection(target).countDocuments({}, { limit: 1 })) > 0) {
-            await mergeLegacyFrontends(logger, db.collection(LEGACY_FRONTEND_COLLECTION))
-        } else {
-            await unlessAlreadyGone(db.renameCollection(LEGACY_FRONTEND_COLLECTION, target, { dropTarget: true }))
-            await Frontend.createIndexes()
-            logger.info(`Renamed the collection ${LEGACY_FRONTEND_COLLECTION} to ${target}`)
-        }
-    }
+    await moveLegacyCollection(logger, db, LEGACY_FRONTEND_COLLECTION, Frontend as unknown as AnyModel)
 
     // The models have nothing in common but these fields, so they are walked through the loosest shape
-    type FrontendReference = Model<Record<string, unknown>>
-    const fields: Array<[FrontendReference, string, string]> = [
-        [BuiltFrontend as unknown as FrontendReference, "microfrontendId", "frontendId"],
-        [FrontendDeployment as unknown as FrontendReference, "microfrontendId", "frontendId"],
-        [DeploymentToCanaryUsers as unknown as FrontendReference, "microfrontendId", "frontendId"],
-        [AiChangeRequest as unknown as FrontendReference, "microfrontendId", "frontendId"],
-        [AiChangeJob as unknown as FrontendReference, "microfrontendIds", "frontendIds"],
-        [Deployment as unknown as FrontendReference, "microfrontends", "frontends"]
-    ]
-    for (const [model, from, to] of fields) {
-        const { collection } = model
-        const indexes = await collection.indexes().catch(error => {
-            if ((error as { code?: unknown } | null)?.code === NAMESPACE_NOT_FOUND) return []
-            throw error
-        })
-        const stale = indexes.filter(index => index.name && Object.keys(index.key).some(key => key === from || key.startsWith(`${from}.`)))
-        for (const index of stale) {
-            await unlessAlreadyGone(collection.dropIndex(index.name as string))
-        }
-
-        const { modifiedCount } = await collection.updateMany({ [from]: { $exists: true } }, { $rename: { [from]: to } })
-        if (stale.length > 0 || modifiedCount > 0) {
-            await model.createIndexes()
-            logger.info(`Renamed ${from} to ${to} on ${modifiedCount} document(s) of ${collection.collectionName}, dropping ${stale.length} index(es) on it`)
-        }
-    }
+    await renameFields(logger, [
+        [BuiltFrontend as unknown as AnyModel, "microfrontendId", "frontendId"],
+        [FrontendDeployment as unknown as AnyModel, "microfrontendId", "frontendId"],
+        [DeploymentToCanaryUsers as unknown as AnyModel, "microfrontendId", "frontendId"],
+        [AiChangeRequest as unknown as AnyModel, "microfrontendId", "frontendId"],
+        [AiChangeJob as unknown as AnyModel, "microfrontendIds", "frontendIds"],
+        [Deployment as unknown as AnyModel, "microfrontends", "frontends"]
+    ])
 
     for (const [from, to] of LEGACY_FRONTEND_KINDS) {
         const frontends = await Frontend.collection.updateMany({ kind: from }, { $set: { kind: to } })
@@ -170,6 +209,98 @@ export const migrateMicrofrontendsToFrontends = async (logger: FastifyBaseLogger
         if (frontends.modifiedCount > 0 || deployments.modifiedCount > 0) {
             logger.info(`Migrated the kind ${from} to ${to} on ${frontends.modifiedCount} frontend(s) and ${deployments.modifiedCount} deployment(s)`)
         }
+    }
+}
+
+/**
+ * The collections the backends, their versions and their deploys were stored in while the model was called
+ * Service, with the field naming the backend in each and the unique key a version is known by
+ */
+const LEGACY_BACKEND_COLLECTIONS: Array<[string, AnyModel, string | undefined, string[] | undefined]> = [
+    ["services", Backend as unknown as AnyModel, undefined, undefined],
+    ["builtservices", BuiltBackend as unknown as AnyModel, "serviceId", ["backendId", "version"]],
+    ["servicedeployments", BackendDeployment as unknown as AnyModel, "serviceId", undefined]
+]
+
+/** The kind a frontend or a backend was told apart by, as it was stored before */
+const LEGACY_BACKEND_KIND = "service"
+
+/**
+ * Moves what was stored under the Service name to the Backend one: the collections of the backends, of
+ * their versions and of their deploys, the fields of the other collections pointing at a backend (with
+ * their indexes), the deployment snapshots and the kind of the components of the AI missions and of the
+ * domain releases.
+ *
+ * Right after the frontends, before the other migrations touching a backend: they read them through the
+ * new names. The field naming the backend in the versions and in the deploys is renamed in the legacy
+ * collection first, so a merge into a new collection is not refused by its unique index.
+ *
+ * Idempotent, and safe with a second replica migrating at the same time: once nothing carries a legacy
+ * name or kind, it costs a few listings, a few index listings and a few empty updates.
+ */
+export const migrateServicesToBackends = async (logger: FastifyBaseLogger): Promise<void> => {
+    const db = Backend.db.db
+    if (!db) return
+
+    for (const [legacyName, model, field, naturalKey] of LEGACY_BACKEND_COLLECTIONS) {
+        if (field) {
+            const [legacy] = await db.listCollections({ name: legacyName }, { nameOnly: true }).toArray()
+            if (legacy) await renameField(db.collection(legacyName), field, "backendId")
+        }
+        await moveLegacyCollection(logger, db, legacyName, model, naturalKey)
+    }
+
+    await renameFields(logger, [
+        [BuiltBackend as unknown as AnyModel, "serviceId", "backendId"],
+        [BackendDeployment as unknown as AnyModel, "serviceId", "backendId"],
+        [AiChangeRequest as unknown as AnyModel, "serviceId", "backendId"],
+        [AiChangeJob as unknown as AnyModel, "serviceIds", "backendIds"],
+        [AiUsage as unknown as AnyModel, "serviceIds", "backendIds"],
+        [MaintenanceAgent as unknown as AnyModel, "serviceIds", "backendIds"],
+        [Frontend as unknown as AnyModel, "serviceIds", "backendIds"],
+        [Deployment as unknown as AnyModel, "services", "backends"]
+    ])
+
+    // The frontends a deployment recorded carry the backends they call: an array, which $rename cannot reach into
+    const snapshots = await Deployment.collection.updateMany({ "frontends.serviceIds": { $exists: true } }, [
+        {
+            $set: {
+                frontends: {
+                    $map: {
+                        input: "$frontends",
+                        as: "frontend",
+                        in: {
+                            $cond: [
+                                { $eq: [{ $type: "$$frontend.serviceIds" }, "missing"] },
+                                "$$frontend",
+                                {
+                                    $mergeObjects: [
+                                        { $arrayToObject: { $filter: { input: { $objectToArray: "$$frontend" }, cond: { $ne: ["$$this.k", "serviceIds"] } } } },
+                                        { backendIds: "$$frontend.serviceIds" }
+                                    ]
+                                }
+                            ]
+                        }
+                    }
+                }
+            }
+        }
+    ])
+    if (snapshots.modifiedCount > 0) {
+        logger.info(`Renamed serviceIds to backendIds on the frontends of ${snapshots.modifiedCount} deployment(s)`)
+    }
+
+    const kind = { $set: { "repositories.$[legacy].kind": "backend" } }
+    const legacyKind = { arrayFilters: [{ "legacy.kind": LEGACY_BACKEND_KIND }] }
+    const missions = await AiMission.collection.updateMany({ "repositories.kind": LEGACY_BACKEND_KIND }, kind, legacyKind)
+    const members = await DomainRelease.collection.updateMany({ "members.kind": LEGACY_BACKEND_KIND }, { $set: { "members.$[legacy].kind": "backend" } }, legacyKind)
+    const built = await DomainRelease.collection.updateMany(
+        { "repositories.members.kind": LEGACY_BACKEND_KIND },
+        { $set: { "repositories.$[repository].members.$[legacy].kind": "backend" } },
+        { arrayFilters: [{ "repository.members.kind": LEGACY_BACKEND_KIND }, { "legacy.kind": LEGACY_BACKEND_KIND }] }
+    )
+    if (missions.modifiedCount > 0 || members.modifiedCount > 0 || built.modifiedCount > 0) {
+        logger.info(`Migrated the kind ${LEGACY_BACKEND_KIND} to backend on ${missions.modifiedCount} AI mission(s) and ${members.modifiedCount + built.modifiedCount} domain release update(s)`)
     }
 }
 
@@ -251,8 +382,8 @@ const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<void> =>
     }
 }
 
-/** A service as it was stored while it held its config map and secrets itself */
-interface ServiceWithInlineVariables {
+/** A backend as it was stored while it held its config map and secrets itself */
+interface BackendWithInlineVariables {
     _id: ObjectId
     projectId: ObjectId
     slug: string
@@ -260,20 +391,18 @@ interface ServiceWithInlineVariables {
     secrets?: IVariableMapEntry[] | null
 }
 
-/** What the secrets were bound to while they were encrypted inside the service: they have to be read with it */
+/** What the secrets were bound to while they were encrypted inside the backend: they have to be read with it, so it keeps the model name they were written under */
 const INLINE_SECRETS_CONTEXT = "Service:secrets.values.value"
 
-const isDuplicateKeyError = (error: unknown): boolean => (error as { code?: number })?.code === 11000
+/** The map the migration made out of one list of one backend: found again by this, never by its name, which another map may hold. Stored, so it keeps the old wording */
+const migratedFrom = (backend: BackendWithInlineVariables) => `Moved from the service ${backend.slug} (${backend._id})`
 
-/** The map the migration made out of one list of one service: found again by this, never by its name, which another map may hold */
-const migratedFrom = (service: ServiceWithInlineVariables) => `Moved from the service ${service.slug} (${service._id})`
-
-const extractInlineVariables = async (service: ServiceWithInlineVariables, kind: VariableMapKind, entries: IVariableMapEntry[] | null = []): Promise<ObjectId[]> => {
+const extractInlineVariables = async (backend: BackendWithInlineVariables, kind: VariableMapKind, entries: IVariableMapEntry[] | null = []): Promise<ObjectId[]> => {
     if (!entries?.length) return []
     const model = variableMapModels[kind]
-    const description = migratedFrom(service)
-    // Left by a run that crashed before updating the service, or by another replica booting at the same time
-    const findMine = () => model.findOne({ projectId: service.projectId, description }, { _id: 1 })
+    const description = migratedFrom(backend)
+    // Left by a run that crashed before updating the backend, or by another replica booting at the same time
+    const findMine = () => model.findOne({ projectId: backend.projectId, description }, { _id: 1 })
 
     const existing = await findMine()
     if (existing) return [existing._id]
@@ -281,10 +410,10 @@ const extractInlineVariables = async (service: ServiceWithInlineVariables, kind:
     const readable =
         kind === "secret" ? entries.map(entry => ({ ...entry, values: entry.values.map(value => ({ ...value, value: decryptSecret(value.value, INLINE_SECRETS_CONTEXT) as string })) })) : entries
     // A slug may end with a dash, a Kubernetes name may not; `orders` and `orders-` would then share one
-    const name = service.slug.replace(/-+$/, "")
-    for (const candidate of [name, `${name}-${String(service._id).slice(-6)}`]) {
+    const name = backend.slug.replace(/-+$/, "")
+    for (const candidate of [name, `${name}-${String(backend._id).slice(-6)}`]) {
         try {
-            const map = await model.create({ projectId: service.projectId, name: candidate, description, entries: readable })
+            const map = await model.create({ projectId: backend.projectId, name: candidate, description, entries: readable })
             return [map._id]
         } catch (error) {
             if (!isDuplicateKeyError(error)) throw error
@@ -292,33 +421,33 @@ const extractInlineVariables = async (service: ServiceWithInlineVariables, kind:
             if (created) return [created._id]
         }
     }
-    throw new Error(`No free name for the ${kind} of the service ${service.slug}`)
+    throw new Error(`No free name for the ${kind} of the backend ${backend.slug}`)
 }
 
 /**
- * Moves the config map and the secrets a service used to hold into maps of its project, named after the
- * service and attached to it, so nothing it received is lost now that maps live on their own.
+ * Moves the config map and the secrets a backend used to hold into maps of its project, named after the
+ * backend and attached to it, so nothing it received is lost now that maps live on their own.
  *
- * Read and written on the raw collection: the service schema no longer knows those fields. The secrets
+ * Read and written on the raw collection: the backend schema no longer knows those fields. The secrets
  * are decrypted with the context they were written under and encrypted again by the save of the new map,
- * under its own. A service that fails (a secret the key cannot read) is logged and left as it is, inline
+ * under its own. A backend that fails (a secret the key cannot read) is logged and left as it is, inline
  * values included, for the next boot: the others, and the migrations after this one, still run.
  */
-export const moveServiceVariablesToMaps = async (logger: FastifyBaseLogger): Promise<void> => {
+export const moveBackendVariablesToMaps = async (logger: FastifyBaseLogger): Promise<void> => {
     let moved = 0
-    for await (const service of Service.collection.find<ServiceWithInlineVariables>({ $or: [{ configMap: { $exists: true } }, { secrets: { $exists: true } }] })) {
+    for await (const backend of Backend.collection.find<BackendWithInlineVariables>({ $or: [{ configMap: { $exists: true } }, { secrets: { $exists: true } }] })) {
         try {
-            const configMapIds = await extractInlineVariables(service, "configMap", service.configMap)
-            const secretIds = await extractInlineVariables(service, "secret", service.secrets)
-            await Service.collection.updateOne({ _id: service._id }, { $addToSet: { configMapIds: { $each: configMapIds }, secretIds: { $each: secretIds } }, $unset: { configMap: "", secrets: "" } })
+            const configMapIds = await extractInlineVariables(backend, "configMap", backend.configMap)
+            const secretIds = await extractInlineVariables(backend, "secret", backend.secrets)
+            await Backend.collection.updateOne({ _id: backend._id }, { $addToSet: { configMapIds: { $each: configMapIds }, secretIds: { $each: secretIds } }, $unset: { configMap: "", secrets: "" } })
             moved++
         } catch (error) {
-            logger.error({ error, serviceId: String(service._id) }, `Could not move the config map and secrets of the service ${service.slug} into maps`)
+            logger.error({ error, backendId: String(backend._id) }, `Could not move the config map and secrets of the backend ${backend.slug} into maps`)
         }
     }
 
     if (moved > 0) {
-        logger.info(`Moved the config map and secrets of ${moved} service(s) into maps of their project`)
+        logger.info(`Moved the config map and secrets of ${moved} backend(s) into maps of their project`)
     }
 }
 
@@ -374,19 +503,21 @@ export const backfillAiChangeConversations = async (logger: FastifyBaseLogger): 
  * Every data migration the application needs, run once the database connection is up.
  *
  * A failure is logged and swallowed: none of these is required for the process to serve traffic, and
- * refusing to boot over one would take the whole console down for a data fix. Except the move of the
- * frontends to their new names, which runs first and is let through: without it the console would
- * boot showing no frontend and every deployment would serve nothing, so a failed boot, retried, is better.
+ * refusing to boot over one would take the whole console down for a data fix. Except the moves of the
+ * frontends and of the backends to their new names, which run first and are let through: without them the
+ * console would boot showing no frontend and no backend and every deployment would serve nothing, so a
+ * failed boot, retried, is better.
  */
 export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> => {
     await migrateMicrofrontendsToFrontends(logger)
+    await migrateServicesToBackends(logger)
     try {
         // First: everything else in the application reads a project through its organization, so a
         // project still missing one would be invisible to whoever owns it.
         await migrateProjectsToOrganizations(logger)
         await migrateLegacyCanaryTypes(logger)
         // Before the encryption: whatever it moves is then covered by it
-        await moveServiceVariablesToMaps(logger)
+        await moveBackendVariablesToMaps(logger)
         await encryptStoredSecrets(logger)
         await removeAssistantConversationExpiry(logger)
         await backfillAiChangeConversations(logger)

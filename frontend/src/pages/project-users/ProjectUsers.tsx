@@ -36,7 +36,7 @@ import useProjectStore from "@/store/useProjectStore"
 import useThemeStore from "@/store/useThemeStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import useUserStore from "@/store/useUserStore"
-import { AddUserButton, EditAccessDialog, MemberDomainScope, UserPicture } from "./partials"
+import { AddUserButton, EditAccessDialog, MemberAiTokens, MemberDomainScope, UserPicture } from "./partials"
 
 /** One array for "not loaded yet": a new one on every render would reset the open edit dialog */
 const NO_DOMAINS: Domain[] = []
@@ -77,6 +77,7 @@ const UserCard: React.FC<{
                         <address className="text-sm text-foreground-secondary not-italic">{user.email}</address>
                     </div>
                     <MemberDomainScope user={user} domains={domains} />
+                    <MemberAiTokens user={user} />
                     {onEditAccess && (
                         <Button variant="secondary" className="w-full" onClick={() => onEditAccess(user)}>
                             <ShieldCheck />
@@ -174,6 +175,8 @@ const ProjectUsers: React.FC = () => {
     const canEditAccess =
         (canAdministerOrganization(organization) && organization?._id === project?.organizationId) ||
         members.some(member => member.role === RoleInProject.OWNER && !!currentUserEmail && member.email?.toLowerCase() === currentUserEmail)
+    // Given only to whoever manages the members, and to each member for their own row
+    const showsAiTokens = members.some(member => member.aiTokensSpent !== undefined)
     const isRemovalDisabled = (user: ProjectUser) => (user.role === RoleInProject.OWNER && ownerCount === 1) || deleteUserMutation.isPending || members.length === 1
 
     const formatExpiry = (date?: string) => (date ? format(new Date(date), "PPP", { locale: getLocale() }) : "")
@@ -213,6 +216,7 @@ const ProjectUsers: React.FC = () => {
                                                     <TableHead>{t("project_users.user")}</TableHead>
                                                     <TableHead>{t("project_users.role")}</TableHead>
                                                     <TableHead>{t("project_users.access.label")}</TableHead>
+                                                    {showsAiTokens && <TableHead>{t("project_users.ai_tokens.column")}</TableHead>}
                                                     <TableHead className="w-[100px]">{t("common.actions")}</TableHead>
                                                 </TableRow>
                                             </TableHeader>
@@ -235,6 +239,11 @@ const ProjectUsers: React.FC = () => {
                                                         <TableCell>
                                                             <MemberDomainScope user={user} domains={domains} />
                                                         </TableCell>
+                                                        {showsAiTokens && (
+                                                            <TableCell>
+                                                                <MemberAiTokens user={user} />
+                                                            </TableCell>
+                                                        )}
                                                         <TableCell className="text-center">
                                                             {canEditAccess && (
                                                                 <Button variant="ghost" size="icon" onClick={() => setEditingUser(user)} title={t("project_users.edit_access.action")}>

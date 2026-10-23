@@ -8,10 +8,10 @@ import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainLinksApi, { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
-import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
 import DomainFormDialog from "./partials/DomainFormDialog"
@@ -32,7 +32,7 @@ const Domains = () => {
     const projectId = useProjectStore(state => state.project?._id)
     const domainsApi = useDomainsApi()
     const frontendsApi = useFrontendsApi()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const domainLinksApi = useDomainLinksApi()
 
     const [view, setView] = useState<View>("galaxy")
@@ -54,16 +54,16 @@ const Domains = () => {
         queryFn: () => frontendsApi.getByProjectId(projectId!),
         enabled: !!projectId && view === "galaxy"
     })
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId && view === "galaxy" })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId && view === "galaxy" })
     const domainLinksQuery = useQuery({ queryKey: ["domain-links", projectId], queryFn: domainLinksApi.getAll, enabled: !!projectId && view === "galaxy" })
-    // The galaxy draws the resources of the services it shows
+    // The galaxy draws the resources of the backends it shows
     const resourcesQuery = useResourcesQuery(view === "galaxy")
 
     const deleteMutation = useMutation({
         mutationFn: domainsApi.deleteSingle,
         onSuccess: async () => {
             await queryClient.invalidateQueries({ queryKey: ["domains"] })
-            await queryClient.invalidateQueries({ queryKey: ["services"] })
+            await queryClient.invalidateQueries({ queryKey: ["backends"] })
             await queryClient.invalidateQueries({ queryKey: ["frontends-by-project-id"] })
             // The relations of the domain go with it
             await queryClient.invalidateQueries({ queryKey: ["domain-links"] })
@@ -91,16 +91,16 @@ const Domains = () => {
     // While searching, the galaxy shows only the matching domains: their members and the relations between them.
     const galaxy = useMemo(() => {
         const frontends = frontendsQuery.data ?? []
-        const services = servicesQuery.data ?? []
+        const backends = backendsQuery.data ?? []
         const links = domainLinksQuery.data ?? []
-        if (!searchTerm.trim()) return { frontends, services, links }
+        if (!searchTerm.trim()) return { frontends, backends, links }
         const ids = new Set(filteredDomains.map(domain => domain._id))
         return {
             frontends: frontends.filter(mfe => mfe.domainId && ids.has(mfe.domainId)),
-            services: services.filter(service => service.domainId && ids.has(service.domainId)),
+            backends: backends.filter(backend => backend.domainId && ids.has(backend.domainId)),
             links: links.filter(link => ids.has(link.sourceDomainId) && ids.has(link.targetDomainId))
         }
-    }, [frontendsQuery.data, servicesQuery.data, domainLinksQuery.data, filteredDomains, searchTerm])
+    }, [frontendsQuery.data, backendsQuery.data, domainLinksQuery.data, filteredDomains, searchTerm])
 
     return (
         <>
@@ -185,11 +185,11 @@ const Domains = () => {
                         ) : (
                             <>
                                 <TabsContent value="galaxy" className="mt-0">
-                                    <ApiStatusHandler queries={[frontendsQuery, servicesQuery, domainLinksQuery, resourcesQuery]} interceptEmpty={false}>
+                                    <ApiStatusHandler queries={[frontendsQuery, backendsQuery, domainLinksQuery, resourcesQuery]} interceptEmpty={false}>
                                         <DomainGalaxy
                                             domains={filteredDomains}
                                             frontends={galaxy.frontends}
-                                            services={galaxy.services}
+                                            backends={galaxy.backends}
                                             links={galaxy.links}
                                             resources={resourcesQuery.data}
                                             onLink={(sourceDomainId, targetDomainId) => setLinkToCreate({ sourceDomainId, targetDomainId })}
@@ -218,7 +218,7 @@ const Domains = () => {
                                                         </span>
                                                         <span className="flex items-center gap-1.5">
                                                             <Server className="size-4" aria-hidden="true" />
-                                                            {t("domains.backend_count", { count: domain.servicesCount ?? 0 })}
+                                                            {t("domains.backend_count", { count: domain.backendsCount ?? 0 })}
                                                         </span>
                                                     </div>
                                                 </CardContent>

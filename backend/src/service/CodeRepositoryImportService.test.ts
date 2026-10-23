@@ -1,9 +1,9 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import Backend from "../models/BackendModel"
 import { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
-import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
@@ -32,35 +32,35 @@ afterEach(() => {
 })
 
 describe("CodeRepositoryImportService.importRepositories", () => {
-    it("given the service target and a domain, when a repository is imported, then it becomes a service of that domain and no frontend is created", async () => {
+    it("given the backend target and a domain, when a repository is imported, then it becomes a backend of that domain and no frontend is created", async () => {
         vi.spyOn(Domain, "exists").mockResolvedValue({ _id: domainId } as never)
-        vi.spyOn(Service, "find").mockImplementation(found([]))
+        vi.spyOn(Backend, "find").mockImplementation(found([]))
         vi.spyOn(Frontend, "find").mockImplementation(found([]))
-        const createService = vi.spyOn(Service, "create").mockImplementation((async (doc: object) => ({ ...doc, _id: new Types.ObjectId() })) as never)
+        const createBackend = vi.spyOn(Backend, "create").mockImplementation((async (doc: object) => ({ ...doc, _id: new Types.ObjectId() })) as never)
         const createFrontend = vi.spyOn(Frontend, "create")
 
-        const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { repositoryIds: ["1"], target: "service", domainId })
+        const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { repositoryIds: ["1"], target: "backend", domainId })
 
-        expect(createService).toHaveBeenCalledWith(expect.objectContaining({ name: "orders-api", slug: "orders-api", projectId, domainId }))
-        expect(createService.mock.calls[0][0]).not.toHaveProperty("version")
+        expect(createBackend).toHaveBeenCalledWith(expect.objectContaining({ name: "orders-api", slug: "orders-api", projectId, domainId }))
+        expect(createBackend.mock.calls[0][0]).not.toHaveProperty("version")
         expect(createFrontend).not.toHaveBeenCalled()
-        expect(result.imported).toEqual([expect.objectContaining({ repositoryId: "1", serviceId: expect.any(String) })])
+        expect(result.imported).toEqual([expect.objectContaining({ repositoryId: "1", backendId: expect.any(String) })])
     })
 
-    it("given a repository already linked to a frontend, when it is imported as a service, then it is skipped", async () => {
+    it("given a repository already linked to a frontend, when it is imported as a backend, then it is skipped", async () => {
         vi.spyOn(Frontend, "find").mockImplementation(found([{ _id: new Types.ObjectId(), slug: "orders-api", name: "orders-api", codeRepository: { repositoryId: "1", name: "orders-api" } }]))
-        vi.spyOn(Service, "find").mockImplementation(found([]))
-        const createService = vi.spyOn(Service, "create")
+        vi.spyOn(Backend, "find").mockImplementation(found([]))
+        const createBackend = vi.spyOn(Backend, "create")
 
-        const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { repositoryIds: ["1"], target: "service" })
+        const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { repositoryIds: ["1"], target: "backend" })
 
-        expect(createService).not.toHaveBeenCalled()
+        expect(createBackend).not.toHaveBeenCalled()
         expect(result.skipped).toEqual([{ repositoryId: "1", name: "orders-api", reason: "ALREADY_IMPORTED" }])
     })
 
-    it("given a repository already linked to a service, when it is imported as a frontend, then it is skipped", async () => {
+    it("given a repository already linked to a backend, when it is imported as a frontend, then it is skipped", async () => {
         vi.spyOn(Frontend, "find").mockImplementation(found([]))
-        vi.spyOn(Service, "find").mockImplementation(found([{ _id: new Types.ObjectId(), slug: "orders-api", name: "orders-api", codeRepository: { repositoryId: "1", name: "orders-api" } }]))
+        vi.spyOn(Backend, "find").mockImplementation(found([{ _id: new Types.ObjectId(), slug: "orders-api", name: "orders-api", codeRepository: { repositoryId: "1", name: "orders-api" } }]))
         const createFrontend = vi.spyOn(Frontend, "create")
 
         const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { repositoryIds: ["1"] })
@@ -69,23 +69,23 @@ describe("CodeRepositoryImportService.importRepositories", () => {
         expect(result.skipped).toEqual([{ repositoryId: "1", name: "orders-api", reason: "ALREADY_IMPORTED" }])
     })
 
-    it("given a repository name longer than a service slug allows, when it is imported as a service, then it fails alone with a clear error", async () => {
+    it("given a repository name longer than a backend slug allows, when it is imported as a backend, then it fails alone with a clear error", async () => {
         vi.spyOn(CodeRepositoryService.prototype, "getRepositories").mockResolvedValue([
             { id: 3, name: "a".repeat(60) },
             { id: 1, name: "orders-api" }
         ] as never)
-        vi.spyOn(Service, "find").mockImplementation(found([]))
+        vi.spyOn(Backend, "find").mockImplementation(found([]))
         vi.spyOn(Frontend, "find").mockImplementation(found([]))
-        const createService = vi.spyOn(Service, "create").mockImplementation((async (doc: object) => ({ ...doc, _id: new Types.ObjectId() })) as never)
+        const createBackend = vi.spyOn(Backend, "create").mockImplementation((async (doc: object) => ({ ...doc, _id: new Types.ObjectId() })) as never)
 
-        const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { target: "service" })
+        const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { target: "backend" })
 
-        expect(result.failed).toEqual([expect.objectContaining({ repositoryId: "3", error: expect.stringContaining("not a valid service slug") })])
-        expect(createService).toHaveBeenCalledTimes(1)
+        expect(result.failed).toEqual([expect.objectContaining({ repositoryId: "3", error: expect.stringContaining("not a valid backend slug") })])
+        expect(createBackend).toHaveBeenCalledTimes(1)
         expect(result.imported).toEqual([expect.objectContaining({ repositoryId: "1" })])
     })
 
-    it.each([["services"], [["service"]]])("given the target %j, when repositories are imported, then it is refused before anything is read", async target => {
+    it.each([["backends"], [["backend"]]])("given the target %j, when repositories are imported, then it is refused before anything is read", async target => {
         const createFrontend = vi.spyOn(Frontend, "create")
 
         await expect(new CodeRepositoryImportService().importRepositories(String(connection._id), { target } as never)).rejects.toMatchObject({ code: "IMPORT_TARGET_INVALID", statusCode: 400 })
@@ -103,7 +103,7 @@ describe("CodeRepositoryImportService.importRepositories", () => {
     it("given no target, when a repository is imported, then it becomes a frontend of the domain with the default version", async () => {
         vi.spyOn(Domain, "exists").mockResolvedValue({ _id: domainId } as never)
         vi.spyOn(Frontend, "find").mockImplementation(found([]))
-        vi.spyOn(Service, "find").mockImplementation(found([]))
+        vi.spyOn(Backend, "find").mockImplementation(found([]))
         const createFrontend = vi.spyOn(Frontend, "create").mockImplementation((async (doc: object) => ({ ...doc, _id: new Types.ObjectId() })) as never)
 
         const result = await new CodeRepositoryImportService().importRepositories(String(connection._id), { repositoryIds: ["2"], domainId })

@@ -1,15 +1,15 @@
 import { Schema } from "mongoose"
+import { BACKEND_HTTP_PATH } from "../types/BackendStack"
 import { isExposurePath } from "../types/Exposure"
-import { SERVICE_HTTP_PATH } from "../types/ServiceStack"
 
 /**
- * The fields of what runs as a container of its own: a backend service, or a frontend built into an
- * image. They live apart from both models because ServiceModel already imports FrontendModel, so
- * the frontend schema could not import them from ServiceModel without a cycle.
+ * The fields of what runs as a container of its own: a backend, or a frontend built into an
+ * image. They live apart from both models because BackendModel already imports FrontendModel, so
+ * the frontend schema could not import them from BackendModel without a cycle.
  */
 
 /** A variable the image reads from its environment */
-export interface IServiceEnvVariable {
+export interface IBackendEnvVariable {
     name: string
     required: boolean
     secret: boolean
@@ -19,7 +19,7 @@ export interface IServiceEnvVariable {
 /** What a container gets when neither the caller nor a template says otherwise */
 export const CONTAINER_DEFAULTS = { port: 8080, livenessPath: "/health/live", readinessPath: "/health/ready" }
 
-export const serviceEnvVariableSchema = new Schema<IServiceEnvVariable>(
+export const backendEnvVariableSchema = new Schema<IBackendEnvVariable>(
     {
         name: {
             type: String,
@@ -44,7 +44,7 @@ export const serviceEnvVariableSchema = new Schema<IServiceEnvVariable>(
 )
 
 const httpPathValidator = {
-    validator: (value?: string | null) => value == null || SERVICE_HTTP_PATH.test(value),
+    validator: (value?: string | null) => value == null || BACKEND_HTTP_PATH.test(value),
     message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" must start with "/", have at most 256 characters and no whitespace`
 }
 

@@ -1,7 +1,7 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
+import type { BackendCodeRepository, BackendEnvVariable, BuiltBackend } from "./useBackendsApi"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
-import type { BuiltService, ServiceCodeRepository, ServiceEnvVariable } from "./useServicesApi"
 
 /** An always-on container, called on its run path when it runs, or a Docker job that runs and exits. */
 export type MaintenanceAgentKind = "container" | "job"
@@ -14,7 +14,7 @@ export interface MaintenanceAgentLastRun {
 }
 
 /**
- * An agent that keeps services and frontends of the project in shape: built and deployed like a service,
+ * An agent that keeps backends and frontends of the project in shape: built and deployed like a backend,
  * run on a schedule or when someone asks for it.
  */
 export interface MaintenanceAgent {
@@ -27,11 +27,11 @@ export interface MaintenanceAgent {
     description?: string
     /** Markdown for the AI agents working on this agent's code */
     context?: string
-    /** Market slug of the service template it was scaffolded from */
+    /** Market slug of the backend template it was scaffolded from */
     template?: string
     stack?: { runtime?: string; framework?: string; source: string }
     version?: string
-    codeRepository?: ServiceCodeRepository
+    codeRepository?: BackendCodeRepository
     image?: { repository?: string }
     kind: MaintenanceAgentKind
     /** Cron in five fields or an @macro; without one it runs only when started by hand */
@@ -43,12 +43,12 @@ export interface MaintenanceAgent {
     port?: number
     livenessPath?: string
     readinessPath?: string
-    env: ServiceEnvVariable[]
+    env: BackendEnvVariable[]
     configMapIds: string[]
     secretIds: string[]
     resourceIds: string[]
     /** The backends it maintains */
-    serviceIds: string[]
+    backendIds: string[]
     /** The frontends it maintains */
     frontendIds: string[]
     lastRun?: MaintenanceAgentLastRun
@@ -81,10 +81,10 @@ const MAINTENANCE_ERROR_KEYS: Record<string, string> = {
     MAINTENANCE_AGENT_NOT_DEPLOYED: "maintenance.errors.not_deployed",
     MAINTENANCE_AGENT_RUN_FORBIDDEN: "maintenance.errors.run_forbidden",
     ARGOCD_NOT_CONFIGURED: "maintenance.errors.argocd_not_configured",
-    // Same refusals as a service build
-    SERVICE_BUILD_FORBIDDEN: "services.build.forbidden",
-    BUILD_REF_NOT_FOUND: "services.build.ref_not_found",
-    BUILD_REPOSITORY_NOT_FOUND: "services.build.repository_not_found"
+    // Same refusals as a backend build
+    BACKEND_BUILD_FORBIDDEN: "backends.build.forbidden",
+    BUILD_REF_NOT_FOUND: "backends.build.ref_not_found",
+    BUILD_REPOSITORY_NOT_FOUND: "backends.build.repository_not_found"
 }
 
 /** Said in the user's language from the code, the other Argo CD refusals as the settings say them, anything else as the backend tells it */
@@ -112,8 +112,8 @@ const useMaintenanceAgentsApi = () => {
         return response.data
     }
 
-    const getVersions = async (id: string): Promise<BuiltService[]> => {
-        const response = await apiClient.doRequest<BuiltService[]>({ url: `/api/maintenance-agents/${id}/versions` })
+    const getVersions = async (id: string): Promise<BuiltBackend[]> => {
+        const response = await apiClient.doRequest<BuiltBackend[]>({ url: `/api/maintenance-agents/${id}/versions` })
         return response.data
     }
 

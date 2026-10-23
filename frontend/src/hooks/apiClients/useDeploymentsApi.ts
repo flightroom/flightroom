@@ -3,15 +3,15 @@ import { Frontend } from "./useFrontendsApi"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 import { GlobalVariable } from "./useGlobalVariablesApi"
 
-/** A backend service as the deploy recorded it, at the version it shipped */
-export interface DeployedService {
+/** A backend as the deploy recorded it, at the version it shipped */
+export interface DeployedBackend {
     _id: string
     slug: string
     name: string
     domainId?: string | null
     version?: string
     image?: { repository?: string }
-    /** Absent from the deployments made before it was recorded, null when the service is not exposed */
+    /** Absent from the deployments made before it was recorded, null when the backend is not exposed */
     exposurePath?: string | null
 }
 
@@ -26,12 +26,12 @@ export interface DeploymentDTO {
     _id: string
     environmentId: string
     frontends: Frontend[]
-    /** Absent from the deployments made before the services were recorded */
-    services?: DeployedService[]
+    /** Absent from the deployments made before the backends were recorded */
+    backends?: DeployedBackend[]
     /** Absent from the deployments made before the config maps and secrets were recorded */
     configMaps?: DeployedVariableMap[]
     secrets?: DeployedVariableMap[]
-    /** The resources some service attaches, keys only; absent from the deployments made before resources existed */
+    /** The resources some backend attaches, keys only; absent from the deployments made before resources existed */
     resources?: DeployedVariableMap[]
     variables: GlobalVariable[]
     storages: Storage[]
@@ -58,7 +58,7 @@ const useDeploymentsApi = () => {
         return response.data
     }
 
-    /** With `domainId`, only the frontends and services of that functional domain move */
+    /** With `domainId`, only the frontends and backends of that functional domain move */
     const createDeployment = async (environmentIds: string[], domainId?: string) => {
         const response = await apiClient.doRequest<DeploymentDTO>({
             url: `/api/deployment`,

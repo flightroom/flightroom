@@ -12,6 +12,7 @@ import UserOrganization, { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrgani
 import UserProject, { IUserProject, RoleInProject } from "../models/UserProjectModel"
 import UserService, { recordLogin } from "../service/UserService"
 import { toObjectId } from "../utils/mongooseUtils"
+import { tokensSpentThisMonth } from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import EmailSenderService from "./EmailSenderService"
 import UserOrganizationService from "./UserOrganizationService"
@@ -22,6 +23,8 @@ export const PROJECT_LAST_OWNER = "PROJECT_LAST_OWNER"
 export const INVALID_DOMAIN = "INVALID_DOMAIN"
 /** Code of the refusal of an owner confined to some domains: an owner manages the whole project. */
 export const DOMAIN_SCOPE_NOT_FOR_OWNER = "DOMAIN_SCOPE_NOT_FOR_OWNER"
+/** Code of the refusal of a monthly AI token limit that is not a whole number of tokens, zero or more. */
+export const INVALID_AI_TOKEN_LIMIT = "INVALID_AI_TOKEN_LIMIT"
 
 /** What a membership reaches: the whole project, or only the domains listed. */
 interface DomainScope {
@@ -50,6 +53,12 @@ interface IUserInProject extends Partial<IUser> {
     domainScoped: boolean
     invitationPending: boolean
     invitationExpiresAt?: Date
+    /**
+     * The AI tokens the member may spend in the project each calendar month, and what they spent this month: given to
+     * whoever manages the members, and to each member for themselves. No limit, no `aiTokenLimit`.
+     */
+    aiTokenLimit?: number
+    aiTokensSpent?: number
 }
 
 interface IInvitationInfo {
@@ -407,13 +416,17 @@ class UserProjectService extends BaseAuthorizedService {
     /**
      * Changes the role of a member (or of a pending invitation), and their domain scope when `domainIds`
      * is given: a list replaces it, an empty one opens the whole project. Left out, the scope stays.
+     * Likewise `aiTokenLimit`, their monthly AI tokens in the project: a number sets it, null takes it away.
      *
      * The last owner cannot be demoted: a project with no owner could no longer have its members managed.
      */
-    async updateUserRole(projectId: string | Schema.Types.ObjectId, userId: string | Schema.Types.ObjectId, role: RoleInProject, domainIds?: unknown): Promise<IUserProject> {
+    async updateUserRole(projectId: string | Schema.Types.ObjectId, userId: string | Schema.Types.ObjectId, role: RoleInProject, domainIds?: unknown, aiTokenLimit?: unknown): Promise<IUserProject> {
         const projectIdObj = toObjectId(projectId)
         const userIdObj = toObjectId(userId)
         await this.ensureCanManageMembers(projectIdObj)
+        if (aiTokenLimit !== undefined && aiTokenLimit !== null && !(Number.isSafeInteger(aiTokenLimit) && (aiTokenLimit as number) >= 0)) {
+            throw createBusinessException({ code: INVALID_AI_TOKEN_LIMIT, message: "aiTokenLimit must be a whole number of tokens, zero or more, or null for no limit", statusCode: 400 })
+        }
 
         if (!(await User.findById(userIdObj))) {
             throw new EntityNotFoundError(`User with ID ${userId} not found`)
@@ -442,6 +455,7 @@ class UserProjectService extends BaseAuthorizedService {
         membership.role = role
         membership.domainScoped = scope.domainScoped
         membership.domainIds = scope.domainIds
+        if (aiTokenLimit !== undefined) membership.aiTokenLimit = aiTokenLimit === null ? undefined : (aiTokenLimit as number)
         return membership.save()
     }
 
@@ -492,14 +506,7 @@ class UserProjectService extends BaseAuthorizedService {
         if (!project) {
             throw new ProjectNotFoundError(projectId.toString())
         }
-
-        const user = this.getUser()
-        const membership = user && (await UserProject.findOne({ userId: toObjectId(user._id), projectId, invitationToken: null }))
-        if (membership?.role === RoleInProject.OWNER && !membership.domainScoped) {
-            return project
-        }
-        const organizationRole = await this.findRoleInOrganization(project.organizationId)
-        if (organizationRole && ORGANIZATION_ADMIN_ROLES.includes(organizationRole)) {
+        if (await this.managesMembers(project)) {
             return project
         }
         throw createBusinessException({
@@ -507,6 +514,16 @@ class UserProjectService extends BaseAuthorizedService {
             message: "Only an owner of the project can change its members",
             statusCode: 403
         })
+    }
+
+    private async managesMembers(project: IProject): Promise<boolean> {
+        const user = this.getUser()
+        const membership = user && (await UserProject.findOne({ userId: toObjectId(user._id), projectId: project._id, invitationToken: null }))
+        if (membership?.role === RoleInProject.OWNER && !membership.domainScoped) {
+            return true
+        }
+        const organizationRole = await this.findRoleInOrganization(project.organizationId)
+        return Boolean(organizationRole && ORGANIZATION_ADMIN_ROLES.includes(organizationRole))
     }
 
     /**
@@ -570,11 +587,23 @@ class UserProjectService extends BaseAuthorizedService {
             )
         )
 
+        // The AI tokens of every member for whoever manages them, of their own membership for anyone else
+        const currentUserId = this.getUser()?._id
+        const managesMembers = await this.managesMembers(project)
+        // Populated: null when the account was deleted since
+        const memberIdOf = (up: PopulatedUserProject) => (up.userId as unknown as IUser | null)?._id
+        const seesTokensOf = (up: PopulatedUserProject) => managesMembers || (currentUserId !== undefined && String(memberIdOf(up)) === String(currentUserId))
+        const spent = await tokensSpentThisMonth(
+            projectId,
+            userProjects.filter(seesTokensOf).flatMap(up => memberIdOf(up) ?? [])
+        )
+
         // Format the response. The raw invitation token is never exposed to clients.
         return userProjects.map<IUserInProject>(up => {
             const populatedUser = up.userId as unknown as IUser
             const scope = up.role === RoleInProject.OWNER || administrators.has(String(populatedUser?._id)) ? WHOLE_PROJECT : up
             return {
+                ...(seesTokensOf(up) && { aiTokenLimit: up.aiTokenLimit ?? undefined, aiTokensSpent: spent.get(String(populatedUser?._id)) ?? 0 }),
                 ...populatedUser,
                 role: up.role,
                 domainIds: domainIdsOf(scope),

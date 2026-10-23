@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest } from "fastify"
 import { createBusinessException } from "../errors/BusinessException"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import AssistantUsage from "../models/AssistantUsageModel"
-import { recordAiUsage } from "../service/AiUsageService"
+import { ensureWithinTokenLimit, recordAiUsage } from "../service/AiUsageService"
 import AssistantService, { AssistantSpentOn } from "../service/assistant/AssistantService"
 import { deleteConversation, getConversation, listConversations, saveConversation } from "../service/assistant/conversations"
 import { addUsage, isRateLimitError, LLM_EFFORTS, LlmEffort, LlmProvider, LlmUsage, NO_USAGE } from "../service/llm"
@@ -175,6 +175,8 @@ export default async function assistantController(fastify: FastifyInstance) {
 
         const service = new AssistantService(request.databaseUser, fastify.config, request.log)
         await service.ensureCanChat(projectId, request.body.aiModelId)
+        // Here, not in ensureCanChat: reading or saving the conversations spends no token, and stays open past the limit
+        if (request.databaseUser) await ensureWithinTokenLimit(projectId, request.databaseUser._id)
         // Taken before the stream opens, so an expired or foreign action is an HTTP error, and only
         // once: a second answer to the same card finds nothing.
         const action = confirmation ? await service.takeConfirmation(projectId, confirmation.actionId) : undefined

@@ -8,9 +8,9 @@ import AiChangeJob, { AiJobStatus } from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus } from "../../models/AiChangeRequestModel"
 import AiMission, { AiMissionMode, AiMissionStatus } from "../../models/AiMissionModel"
 import AiModel from "../../models/AiModelModel"
+import Backend from "../../models/BackendModel"
 import Frontend from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
-import Service from "../../models/ServiceModel"
 import User, { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import BaseAuthorizedService from "../BaseAuthorizedService"
@@ -114,7 +114,7 @@ describe("AiMissionService", () => {
         vi.spyOn(User, "find").mockResolvedValue([user] as never)
         vi.spyOn(Frontend, "find").mockImplementation(((filter: { _id: { $in: unknown[] } }) =>
             Promise.resolve(components.filter(candidate => filter._id.$in.map(String).includes(String(candidate._id))))) as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
 
         // The selection itself is the job service's, covered there: here every component has a repository.
         vi.spyOn(AiChangeJobService.prototype, "repositoriesOf").mockImplementation(async () => components as never)

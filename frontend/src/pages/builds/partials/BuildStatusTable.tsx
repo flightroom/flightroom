@@ -12,13 +12,13 @@ interface BuildStatusTableProps {
     data: ProjectBuildStatus
 }
 
-/** One row of the table: a frontend or a service. */
+/** One row of the table: a frontend or a backend. */
 interface BuildStatusRow extends ComponentBuildStatus {
     kind: BuildComponentKind
     id: string
 }
 
-/** Frontends and services share one id space only once the kind is part of the key. */
+/** Frontends and backends share one id space only once the kind is part of the key. */
 const rowKey = (row: BuildStatusRow) => `${row.kind}-${row.id}`
 
 const KindBadge: React.FC<{ kind: BuildComponentKind }> = ({ kind }) => {
@@ -43,7 +43,7 @@ const BuildStatusTable: React.FC<BuildStatusTableProps> = ({ data }) => {
     // Frontends first, then backends: each list already comes sorted by name.
     const rows: BuildStatusRow[] = [
         ...(data.frontends || []).map(({ frontendId, ...row }) => ({ ...row, kind: BuildComponentKind.FRONTEND, id: frontendId })),
-        ...(data.services || []).map(({ serviceId, ...row }) => ({ ...row, kind: BuildComponentKind.BACKEND, id: serviceId }))
+        ...(data.backends || []).map(({ backendId, ...row }) => ({ ...row, kind: BuildComponentKind.BACKEND, id: backendId }))
     ]
     // Header cells: expander, name, type, last build, tag of that build.
     const columnCount = 5

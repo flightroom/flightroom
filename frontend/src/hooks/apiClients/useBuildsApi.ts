@@ -31,7 +31,7 @@ export interface BuildRun {
     finishedAt?: string
 }
 
-/** Fields shared by the build status of a frontend and of a service. */
+/** Fields shared by the build status of a frontend and of a backend. */
 export interface ComponentBuildStatus {
     name: string
     slug: string
@@ -49,8 +49,8 @@ export interface FrontendBuildStatus extends ComponentBuildStatus {
     frontendId: string
 }
 
-export interface ServiceBuildStatus extends ComponentBuildStatus {
-    serviceId: string
+export interface BackendBuildStatus extends ComponentBuildStatus {
+    backendId: string
 }
 
 export interface BuildStatusEnvironment {
@@ -68,7 +68,7 @@ export interface ProjectBuildStatus {
     /** Frontend builds. */
     frontends: FrontendBuildStatus[]
     /** Backend builds. */
-    services: ServiceBuildStatus[]
+    backends: BackendBuildStatus[]
 }
 
 export const BUILD_STATUS_QUERY_KEY = "build-status"

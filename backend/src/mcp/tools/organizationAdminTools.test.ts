@@ -141,7 +141,7 @@ describe("organization admin tools", () => {
     })
 
     describe("organization_members_list", () => {
-        it("given an organization, when its members are listed, then the service's list is returned", async () => {
+        it("given an organization, when its members are listed, then the backend's list is returned", async () => {
             getOrganizationUsers.mockResolvedValue([{ _id: MEMBER, role: "MEMBER", projectCount: 1 }])
 
             expect(await run("organization_members_list", { organizationId: ORGANIZATION })).toEqual([{ _id: MEMBER, role: "MEMBER", projectCount: 1 }])
@@ -190,7 +190,7 @@ describe("organization admin tools", () => {
     })
 
     describe("organization_member_remove", () => {
-        it("given a member, when removed, then the service removes them", async () => {
+        it("given a member, when removed, then the backend removes them", async () => {
             expect(await run("organization_member_remove", { organizationId: ORGANIZATION, userId: MEMBER })).toEqual({ removed: true, organizationId: ORGANIZATION, userId: MEMBER })
             expect(removeUser).toHaveBeenCalledWith(ORGANIZATION, MEMBER)
         })

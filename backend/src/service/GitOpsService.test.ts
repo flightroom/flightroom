@@ -4,12 +4,12 @@ import { parse, parseAllDocuments } from "yaml"
 
 vi.mock("..", () => ({ fastify: { log: { error: vi.fn() }, config: { REPOSITORIES_FOLDER: "/repositories" } } }))
 
+import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import ArgoCdService from "./ArgoCdService"
@@ -261,7 +261,7 @@ describe("GitOpsService.deploy", () => {
         vi.spyOn(ConfigMap, "find").mockResolvedValue([logging] as never)
         vi.spyOn(Secret, "find").mockResolvedValue([database] as never)
         vi.spyOn(Resource, "find").mockResolvedValue([] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
@@ -351,10 +351,10 @@ describe("GitOpsService.deploy", () => {
 
         beforeEach(() => {
             vi.spyOn(Resource, "find").mockResolvedValue([attached, detached] as never)
-            vi.spyOn(Service, "find").mockResolvedValue([{ slug: "orders-api", resourceIds: [attachedId] }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", resourceIds: [attachedId] }] as never)
         })
 
-        it("given a resource a service attaches and one attached to nothing, when production is deployed, then both are committed, after the maps", async () => {
+        it("given a resource a backend attaches and one attached to nothing, when production is deployed, then both are committed, after the maps", async () => {
             gitOpsOn()
 
             await deployOf(production)()
@@ -381,8 +381,8 @@ describe("GitOpsService.deploy", () => {
             await deployOf(production)()
 
             expect(commit.mock.calls[0][1].map(file => file.path)).toContain("production/resources/unused.yaml")
-            // The services are not read to tell which ones are attached
-            expect(Service.find).not.toHaveBeenCalled()
+            // The backends are not read to tell which ones are attached
+            expect(Backend.find).not.toHaveBeenCalled()
         })
 
         it("given a resource deleted since the last deploy, when production is deployed, then its manifest is among those the commit prunes", async () => {
@@ -586,10 +586,10 @@ describe("GitOpsService.deploy", () => {
         it.each([
             ["an issuer", { domain: "example.com", certificateIssuer: "letsencrypt" }, { listener: "https", hsts: true }],
             ["no issuer", { domain: "example.com" }, { listener: "http", hsts: false }]
-        ])("given %s and a service with an exposure path, when the applications are committed, then its route is on the Gateway of the environment", async (_case, exposure, expected) => {
+        ])("given %s and a backend with an exposure path, when the applications are committed, then its route is on the Gateway of the environment", async (_case, exposure, expected) => {
             exposedOn(exposure, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
             subdomains("dev", "app")
-            vi.spyOn(Service, "find").mockResolvedValue([
+            vi.spyOn(Backend, "find").mockResolvedValue([
                 { slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" },
                 { slug: "billing-api", version: "1.0.0", image: { repository: "ghcr.io/acme/billing-api" } }
             ] as never)
@@ -604,7 +604,7 @@ describe("GitOpsService.deploy", () => {
     })
 
     describe("with two applications exposed at the same path", () => {
-        it("given a service and a frontend at /api, when an environment is deployed, then it is refused before anything is committed", async () => {
+        it("given a backend and a frontend at /api, when an environment is deployed, then it is refused before anything is committed", async () => {
             vi.spyOn(Project, "findById").mockResolvedValue({
                 _id: projectId,
                 slug: "shop",
@@ -612,7 +612,7 @@ describe("GitOpsService.deploy", () => {
                 exposure: { domain: "example.com" }
             } as never)
             vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production, slug: "production", projectId }] as never)
-            vi.spyOn(Service, "find").mockResolvedValue([{ slug: "orders-api", version: "1.0.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api" }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.0.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api" }] as never)
             vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "shell", version: "2.0.0", image: { repository: "ghcr.io/acme/shell" }, exposurePath: "/api/" }] as never)
             const run = vi.fn()
 
@@ -635,7 +635,7 @@ describe("GitOpsService.deploy", () => {
 
         beforeEach(() => {
             gitOpsOn({ enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
-            vi.spyOn(Service, "find").mockResolvedValue([orders, notBuilt] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([orders, notBuilt] as never)
         })
 
         it("given production deployed, when the applications are committed, then one commit goes on the branch production with the values of the deployable ones only", async () => {
@@ -650,10 +650,10 @@ describe("GitOpsService.deploy", () => {
             expect(parse(values[0].content!)).toMatchObject({ image: { host: "ghcr.io", name: "acme/orders-api", tag: "1.4.0" }, environmentMaps: ["logging"], secrets: ["database"] })
         })
 
-        it("given a service attaching a resource, when the applications are committed, then its values list the Secret of the resource after those of its secrets", async () => {
+        it("given a backend attaching a resource, when the applications are committed, then its values list the Secret of the resource after those of its secrets", async () => {
             const cacheId = new Types.ObjectId()
             vi.spyOn(Resource, "find").mockResolvedValue([{ _id: cacheId, name: "cache", type: "redis", variant: "connectionString", values: [], secrets: [] }] as never)
-            vi.spyOn(Service, "find").mockResolvedValue([{ ...orders, resourceIds: [cacheId] }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([{ ...orders, resourceIds: [cacheId] }] as never)
 
             await deployOf(production)()
 
@@ -668,7 +668,7 @@ describe("GitOpsService.deploy", () => {
                 gitOps: { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink },
                 containerRegistry: "azimutmarketplace.azurecr.io"
             } as never)
-            vi.spyOn(Service, "find").mockResolvedValue([orders, { ...notBuilt, version: "0.3.0" }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([orders, { ...notBuilt, version: "0.3.0" }] as never)
 
             await deployOf(production)()
 
@@ -702,12 +702,12 @@ describe("GitOpsService.deploy", () => {
             expect(applicationsCommit.mock.calls.map(call => call[2]?.branch)).toEqual(["development", "production"])
         })
 
-        it("given a deploy of one functional domain, when the applications are committed, then only the services and frontends of that domain are read", async () => {
+        it("given a deploy of one functional domain, when the applications are committed, then only the backends and frontends of that domain are read", async () => {
             const domainId = new Types.ObjectId()
 
             await new GitOpsService().deploy([production] as never, async () => "deployed", String(domainId))
 
-            expect(vi.mocked(Service.find).mock.calls[0][0]).toEqual({ projectId: String(projectId), domainId: String(domainId) })
+            expect(vi.mocked(Backend.find).mock.calls[0][0]).toEqual({ projectId: String(projectId), domainId: String(domainId) })
             expect(vi.mocked(Frontend.find).mock.calls[0][0]).toMatchObject({ projectId: String(projectId), domainId: String(domainId) })
         })
 

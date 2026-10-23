@@ -4,12 +4,12 @@ import ArgoCdClient, { ArgoCdResource } from "../client/ArgoCdClient"
 import GitlabClient from "../client/GitlabClient"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
+import Backend from "../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { IArgoCdError, IArgoCdRepositoryCredential, IArgoCdRepositoryRegistration, IProjectArgoCd, IProjectGitOps } from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import BaseAuthorizedService from "./BaseAuthorizedService"
@@ -137,16 +137,16 @@ const errorOf = (error: unknown): IArgoCdError =>
 const nameClash = (name: string) =>
     createBusinessException({
         code: "ARGOCD_NAME_CLASH",
-        message: `Two objects of this project would both be named ${name} in Argo CD: rename the service, frontend or environment whose slugs join into it, then initialize again`,
+        message: `Two objects of this project would both be named ${name} in Argo CD: rename the backend, frontend or environment whose slugs join into it, then initialize again`,
         statusCode: 409,
         details: { name }
     })
 
-/** The services, frontends and maintenance agents a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
+/** The backends, frontends and maintenance agents a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
 const deployableSlugs = async (projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<string[]> => {
     const fields = { slug: 1, version: 1, image: 1 }
     const applications: GitOpsApplication[] = [
-        ...(await Service.find({ projectId }, fields)),
+        ...(await Backend.find({ projectId }, fields)),
         ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields)),
         ...(await MaintenanceAgent.find({ projectId }, fields))
     ]
@@ -202,11 +202,11 @@ const tokenRequired = () =>
 /**
  * Hands the GitOps repositories of a project to an Argo CD instance that runs on another cluster, through its
  * API: the credentials to read them, an AppProject confining the project to them and to the namespaces of its
- * environments, the ApplicationSet Argo CD makes the Application of each environment from, and per service and
+ * environments, the ApplicationSet Argo CD makes the Application of each environment from, and per backend and
  * frontend the ApplicationSet of its applications. Running it again re-aligns Argo CD with the project: the
  * environments added since get theirs, those deleted lose theirs, the deploy tokens of GitLab are rotated and
  * the credentials of a repository no longer linked are withdrawn. Between two initializations, every deploy
- * aligns the ApplicationSets of the services and frontends.
+ * aligns the ApplicationSets of the backends and frontends.
  *
  * The console owns the credentials: the token of Argo CD and those of the repositories are stored encrypted,
  * and none of them goes back to a client. The configuration repository, which holds the secrets in plaintext,
@@ -426,8 +426,8 @@ export class ArgoCdService extends BaseAuthorizedService {
     }
 
     /**
-     * Gives Argo CD the ApplicationSet of every service and frontend once a deploy has committed their values:
-     * a service deployed for the first time, or an environment whose branch the deploy just created, gets its
+     * Gives Argo CD the ApplicationSet of every backend and frontend once a deploy has committed their values:
+     * a backend deployed for the first time, or an environment whose branch the deploy just created, gets its
      * Applications without initializing again. Only while the applications repository is the one Argo CD was
      * handed; the environments and the AppProject wait for the next initialization. Never fails the deploy,
      * which already went through: what goes wrong is stored on the project, for the settings to show.

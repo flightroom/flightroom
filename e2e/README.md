@@ -46,7 +46,7 @@ those tests behave the same whether or not the invitation email can be delivered
 ### Where the tests run
 
 `BASE_URL` decides. When it is set (as in the CI workflow, which points at
-`https://console-dev.mfe-orchestrator.dev`) the environment is assumed to be already up and
+`https://console-dev.flightroom.dev`) the environment is assumed to be already up and
 no local dev server is started. When it is unset, Playwright boots `pnpm dev` and tests
 `http://localhost:5173`.
 

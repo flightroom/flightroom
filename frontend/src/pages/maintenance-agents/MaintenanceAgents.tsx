@@ -7,9 +7,9 @@ import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import type { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
-import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import { ALL_DOMAINS, DomainFilter, matchesDomain } from "../domains/partials/DomainFilter"
@@ -32,7 +32,7 @@ const MaintenanceAgents = () => {
     const navigate = useNavigate()
     const projectId = useProjectStore(state => state.project?._id)
     const isViewer = useIsProjectViewer()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const frontendsApi = useFrontendsApi()
     const [searchTerm, setSearchTerm] = useState("")
     const [domainFilter, setDomainFilter] = useState(ALL_DOMAINS)
@@ -42,7 +42,7 @@ const MaintenanceAgents = () => {
     const agentsQuery = useMaintenanceAgentsQuery()
     // Only the room draws the worlds and the canisters: the grid and the table do not wait for them.
     const isRoom = view === "room"
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId && isRoom })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId && isRoom })
     const frontendsQuery = useQuery({ queryKey: ["frontends-by-project-id", projectId], queryFn: () => frontendsApi.getByProjectId(projectId), enabled: !!projectId && isRoom })
     const resourcesQuery = useResourcesQuery(isRoom)
 
@@ -154,8 +154,8 @@ const MaintenanceAgents = () => {
                     ) : (
                         <>
                             <TabsContent value="room" className="mt-0">
-                                <ApiStatusHandler queries={[servicesQuery, frontendsQuery, resourcesQuery]} interceptEmpty={false}>
-                                    <MaintenanceBay agents={filtered} services={servicesQuery.data ?? []} frontends={frontendsQuery.data ?? []} resources={resourcesQuery.data} onRun={onRun} />
+                                <ApiStatusHandler queries={[backendsQuery, frontendsQuery, resourcesQuery]} interceptEmpty={false}>
+                                    <MaintenanceBay agents={filtered} backends={backendsQuery.data ?? []} frontends={frontendsQuery.data ?? []} resources={resourcesQuery.data} onRun={onRun} />
                                 </ApiStatusHandler>
                             </TabsContent>
                             <TabsContent value="grid" className="mt-0">

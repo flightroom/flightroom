@@ -37,7 +37,7 @@ describe("MCP tool registry", () => {
         "deploy",
         "deployment_rollback",
         "frontend_delete",
-        "service_delete",
+        "backend_delete",
         "domain_delete",
         "environment_delete",
         "global_variable_delete",
@@ -89,7 +89,7 @@ describe("MCP tool registry", () => {
         const registered = registerTool.mock.calls.map(call => call[0])
         registerTool.mockRestore()
         expect(registered).toContain("frontends_list")
-        expect(registered).toEqual(expect.arrayContaining(["frontend_scaffold", "service_scaffold"]))
+        expect(registered).toEqual(expect.arrayContaining(["frontend_scaffold", "backend_scaffold"]))
         expect(registered).not.toContain("console_only_probe")
     })
 

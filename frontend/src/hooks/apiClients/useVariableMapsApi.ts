@@ -13,7 +13,7 @@ export interface VariableMapEntry {
     values: { environmentId: string; value: string }[]
 }
 
-/** Values backend services receive as environment variables: it belongs to the project, and services attach it */
+/** Values backends receive as environment variables: it belongs to the project, and backends attach it */
 export interface VariableMap {
     _id?: string
     projectId?: string
@@ -34,20 +34,20 @@ const ERROR_KEYS: Record<string, string> = {
     VARIABLE_MAP_DESCRIPTION_INVALID: "variableMaps.errors.description_invalid",
     VARIABLE_MAP_IN_USE: "variableMaps.errors.in_use",
     VARIABLE_MAP_SECRET_VALUE_REQUIRED: "variableMaps.errors.secret_value_required",
-    SERVICE_VARIABLE_KEY_DUPLICATED: "variableMaps.errors.key_clash",
-    SERVICE_VARIABLE_MAP_UNKNOWN: "variableMaps.errors.map_unknown"
+    BACKEND_VARIABLE_KEY_DUPLICATED: "variableMaps.errors.key_clash",
+    BACKEND_VARIABLE_MAP_UNKNOWN: "variableMaps.errors.map_unknown"
 }
 
 interface VariableMapErrorDetails {
     key?: string
     maps?: string[]
-    service?: string
-    services?: string[]
+    backend?: string
+    backends?: string[]
 }
 
 /**
- * The refusals of the maps, and of a service attaching them, in the language of the user: the backend
- * sends what they need in `details` (the key two maps both set, the services still attaching one).
+ * The refusals of the maps, and of a backend attaching them, in the language of the user: the backend
+ * sends what they need in `details` (the key two maps both set, the backends still attaching one).
  */
 export const useVariableMapErrorMessage = () => {
     const { t } = useTranslation()
@@ -57,7 +57,7 @@ export const useVariableMapErrorMessage = () => {
         const key = ERROR_KEYS[errorCodeOf(error) ?? ""]
         if (!key) return gitOpsErrorMessage(error)
         const details: VariableMapErrorDetails = (error as AxiosError<{ error?: { details?: VariableMapErrorDetails } }>)?.response?.data?.error?.details ?? {}
-        return t(key, { key: details.key, first: details.maps?.[0], second: details.maps?.[1], services: details.services?.join(", ") })
+        return t(key, { key: details.key, first: details.maps?.[0], second: details.maps?.[1], backends: details.backends?.join(", ") })
     }
 }
 

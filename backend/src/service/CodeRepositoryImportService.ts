@@ -1,13 +1,13 @@
 import { Schema } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend, { IBackend } from "../models/BackendModel"
 import { ICodeRepository } from "../models/CodeRepositoryModel"
 import Frontend, { HostedOn, ICodeRepositoryFrontend, IFrontend, IHostFrontend } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import Service, { IService } from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
+import { BACKEND_SLUG } from "../types/BackendStack"
 import ImportRepositoriesDTO, { ImportTarget } from "../types/ImportRepositoriesDTO"
-import { SERVICE_SLUG } from "../types/ServiceStack"
 import { buildUniqueSlug, NormalizedRepository, normalizeRepository } from "../utils/codeRepositoryUtils"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { isInDomainScope } from "./BaseAuthorizedService"
@@ -17,21 +17,21 @@ import { resolveDomainId } from "./DomainService"
 const defaultEntryPoint = "assets/remoteEntry.js"
 const defaultVersion = "1.0.0"
 
-/** What a repository can already be linked to: a frontend or a service */
-type LinkedMember = Pick<IFrontend | IService, "_id" | "slug" | "name" | "codeRepository" | "domainId">
+/** What a repository can already be linked to: a frontend or a backend */
+type LinkedMember = Pick<IFrontend | IBackend, "_id" | "slug" | "name" | "codeRepository" | "domainId">
 
 /** Anything but the two targets is refused: a typo must not quietly import frontends */
 const ensureTarget = (target: unknown) => {
-    if (target !== undefined && target !== "frontend" && target !== "service") {
-        throw createBusinessException({ code: "IMPORT_TARGET_INVALID", message: `target must be "frontend" or "service", not ${JSON.stringify(target)}`, statusCode: 400 })
+    if (target !== undefined && target !== "frontend" && target !== "backend") {
+        throw createBusinessException({ code: "IMPORT_TARGET_INVALID", message: `target must be "frontend" or "backend", not ${JSON.stringify(target)}`, statusCode: 400 })
     }
 }
 
 export interface ImportableRepository extends NormalizedRepository {
-    /** Slug the frontend or the service would get, already deduplicated against the project. */
+    /** Slug the frontend or the backend would get, already deduplicated against the project. */
     slug: string
     alreadyImported: boolean
-    /** Set when the repository is already linked to a frontend or a service of this project. */
+    /** Set when the repository is already linked to a frontend or a backend of this project. */
     importedAs?: {
         _id: string
         slug: string
@@ -45,8 +45,8 @@ export interface ImportedRepositoryResult {
     slug: string
     /** Set when imported as a frontend */
     frontendId?: string
-    /** Set when imported as a service */
-    serviceId?: string
+    /** Set when imported as a backend */
+    backendId?: string
 }
 
 export interface SkippedRepositoryResult {
@@ -70,7 +70,7 @@ export interface ImportRepositoriesResult {
 export class CodeRepositoryImportService extends BaseAuthorizedService {
     /**
      * Lists every repository reachable through a code repository connection, flagging the ones already
-     * linked to a frontend or a service so the caller can offer a "import all the missing ones" action.
+     * linked to a frontend or a backend so the caller can offer a "import all the missing ones" action.
      */
     async getImportableRepositories(codeRepositoryId: string, groupId?: number, target?: ImportTarget): Promise<ImportableRepository[]> {
         ensureTarget(target)
@@ -88,7 +88,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
         return repositories.map(repository => {
             const linked = this.findLinkedMember(linkedMembers, repository)
             // A domain-scoped member learns that a repository is taken, not by what: the frontend or the
-            // service of another domain stays out of their sight, as everywhere else
+            // backend of another domain stays out of their sight, as everywhere else
             const member = linked && isInDomainScope(scope, linked.domainId) ? linked : undefined
 
             return {
@@ -108,7 +108,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
     }
 
     /**
-     * Creates one frontend, or one service with the service target, per selected repository, all in the
+     * Creates one frontend, or one backend with the backend target, per selected repository, all in the
      * domain given. Repositories are imported independently: a single failure is reported back instead of
      * rolling back the whole batch.
      */
@@ -122,13 +122,13 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
         // Imports into any domain, or none: a connection of the project is managed by those reaching all of it
         await this.ensureWholeProject(codeRepository.projectId)
         ensureTarget(body.target)
-        const isService = body.target === "service"
+        const isBackend = body.target === "backend"
         // Before anything is created: a domain of another project, or a missing one, refuses the whole batch
         const domainId = body.domainId !== undefined ? await resolveDomainId(body.domainId, codeRepository.projectId) : undefined
         const repositories = await this.fetchRepositories(codeRepositoryService, codeRepository, body.groupId)
         const linkedMembers = await this.getLinkedMembers(codeRepository)
         const takenSlugs = await this.getTakenSlugs(codeRepository.projectId, body.target)
-        const host = isService ? undefined : await this.resolveHost(codeRepository.projectId)
+        const host = isBackend ? undefined : await this.resolveHost(codeRepository.projectId)
 
         const result: ImportRepositoriesResult = { imported: [], skipped: [], failed: [] }
 
@@ -153,13 +153,13 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
             }
 
             const slug = this.reserveSlug(repository.name, takenSlugs, body.target)
-            if (isService && !SERVICE_SLUG.test(slug)) {
-                // The slug names the CI registration URL of the service, which takes 2 to 50 characters only
+            if (isBackend && !BACKEND_SLUG.test(slug)) {
+                // The slug names the CI registration URL of the backend, which takes 2 to 50 characters only
                 takenSlugs.delete(slug)
                 result.failed.push({
                     repositoryId: repository.repositoryId,
                     name: repository.name,
-                    error: `"${slug}" is not a valid service slug: 2 to 50 lowercase letters, digits or dashes. Create the service by hand with a shorter slug.`
+                    error: `"${slug}" is not a valid backend slug: 2 to 50 lowercase letters, digits or dashes. Create the backend by hand with a shorter slug.`
                 })
                 continue
             }
@@ -175,10 +175,10 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
                 }
                 const imported = { repositoryId: repository.repositoryId, name: repository.name, slug }
 
-                if (isService) {
-                    // The version is left to the CI, which registers the first one it builds, as for a service made from a template
-                    const service = await Service.create(common as unknown as IService)
-                    result.imported.push({ ...imported, serviceId: service._id.toString() })
+                if (isBackend) {
+                    // The version is left to the CI, which registers the first one it builds, as for a backend made from a template
+                    const backend = await Backend.create(common as unknown as IBackend)
+                    result.imported.push({ ...imported, backendId: backend._id.toString() })
                 } else {
                     const frontend = await Frontend.create({ ...common, version: body.version || defaultVersion, host } as unknown as IFrontend)
                     result.imported.push({ ...imported, frontendId: frontend._id.toString() })
@@ -214,20 +214,20 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
             .sort((a, b) => a.name.localeCompare(b.name))
     }
 
-    /** Whatever the target: a repository is the code of one frontend or of one service, never of both */
+    /** Whatever the target: a repository is the code of one frontend or of one backend, never of both */
     private async getLinkedMembers(codeRepository: ICodeRepository): Promise<LinkedMember[]> {
         const linked = {
             projectId: toObjectId(codeRepository.projectId),
             "codeRepository.codeRepositoryId": toObjectId(codeRepository._id)
         }
-        const [frontends, services] = await Promise.all([Frontend.find(linked), Service.find(linked)])
-        return [...frontends, ...services]
+        const [frontends, backends] = await Promise.all([Frontend.find(linked), Backend.find(linked)])
+        return [...frontends, ...backends]
     }
 
-    /** Frontends and services have a slug space each, so only the target's is taken; the maintenance agents share both */
+    /** Frontends and backends have a slug space each, so only the target's is taken; the maintenance agents share both */
     private async getTakenSlugs(projectId: Schema.Types.ObjectId, target?: ImportTarget): Promise<Set<string>> {
         const filter = { projectId: toObjectId(projectId) }
-        const members = target === "service" ? await Service.find(filter, { slug: 1 }) : await Frontend.find(filter, { slug: 1 })
+        const members = target === "backend" ? await Backend.find(filter, { slug: 1 }) : await Frontend.find(filter, { slug: 1 })
         const agents = await MaintenanceAgent.find(filter, { slug: 1 })
         return new Set([...members, ...agents].map(member => member.slug))
     }
@@ -239,7 +239,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
     }
 
     /**
-     * Frontends and services created through the UI do not always carry the provider id (it is only known
+     * Frontends and backends created through the UI do not always carry the provider id (it is only known
      * once the repository exists), so the name is used as a fallback to recognize an already imported repository.
      */
     private findLinkedMember(members: LinkedMember[], repository: NormalizedRepository): LinkedMember | undefined {

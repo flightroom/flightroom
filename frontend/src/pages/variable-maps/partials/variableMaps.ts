@@ -3,7 +3,7 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useVariableMapsApi, { VariableMapEntry, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import useProjectStore from "@/store/useProjectStore"
 
-/** Same rule as the backend (SERVICE_VARIABLE_KEY): the key reaches the container as an environment variable name */
+/** Same rule as the backend (BACKEND_VARIABLE_KEY): the key reaches the container as an environment variable name */
 export const VARIABLE_KEY = /^[A-Za-z_][A-Za-z0-9_]{0,254}$/
 
 /** Same rule as the backend (VARIABLE_MAP_NAME): a Kubernetes object name */

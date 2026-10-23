@@ -41,7 +41,7 @@ export const Builds: React.FC = () => {
     const stream = useBuildStatusStream(onSnapshot, Boolean(projectId))
 
     const data = buildStatusQuery.data
-    const totalCount = (data?.frontends?.length ?? 0) + (data?.services?.length ?? 0)
+    const totalCount = (data?.frontends?.length ?? 0) + (data?.backends?.length ?? 0)
     const hasComponents = totalCount > 0
 
     const term = searchTerm.trim().toLowerCase()
@@ -51,10 +51,10 @@ export const Builds: React.FC = () => {
         return {
             ...data,
             frontends: (data.frontends || []).filter(component => matchesSearch(component, term)),
-            services: (data.services || []).filter(component => matchesSearch(component, term))
+            backends: (data.backends || []).filter(component => matchesSearch(component, term))
         }
     }, [data, term])
-    const filteredCount = (filteredData?.frontends?.length ?? 0) + (filteredData?.services?.length ?? 0)
+    const filteredCount = (filteredData?.frontends?.length ?? 0) + (filteredData?.backends?.length ?? 0)
 
     return (
         <SinglePageLayout

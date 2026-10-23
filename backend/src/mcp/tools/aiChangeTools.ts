@@ -11,13 +11,13 @@ import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE_EXTERNAL, defineTool, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 
 const frontendId = objectId("Id of the frontend, from frontends_list")
-const serviceId = objectId("Id of the backend service, from services_list")
+const backendId = objectId("Id of the backend, from backends_list")
 
-/** The repository a change works on: the one of a frontend or the one of a service, never both. */
-const componentFields = { frontendId: frontendId.optional(), serviceId: serviceId.optional() }
-const oneComponent = (args: { frontendId?: string; serviceId?: string }) => Boolean(args.frontendId) !== Boolean(args.serviceId)
-const ONE_COMPONENT = { message: "Pass frontendId or serviceId, exactly one" }
-const componentOf = (args: { frontendId?: string; serviceId?: string }) => (args.serviceId ? { kind: "service" as const, id: args.serviceId } : { kind: "frontend" as const, id: args.frontendId! })
+/** The repository a change works on: the one of a frontend or the one of a backend, never both. */
+const componentFields = { frontendId: frontendId.optional(), backendId: backendId.optional() }
+const oneComponent = (args: { frontendId?: string; backendId?: string }) => Boolean(args.frontendId) !== Boolean(args.backendId)
+const ONE_COMPONENT = { message: "Pass frontendId or backendId, exactly one" }
+const componentOf = (args: { frontendId?: string; backendId?: string }) => (args.backendId ? { kind: "backend" as const, id: args.backendId } : { kind: "frontend" as const, id: args.frontendId! })
 const changeId = objectId("Id of the AI change, from ai_change_start or ai_changes_list")
 const jobId = objectId("Id of the AI job, from ai_job_start, ai_job_follow_up or the jobId of an AI change")
 const prompt = z.string().trim().min(1).max(8_000).describe("What to change, written as a request to a developer")
@@ -56,8 +56,8 @@ const toChangeView = (request: Omit<IAiChangeRequest, "events"> & Partial<Pick<I
     id: request._id.toString(),
     jobId: request.jobId ? String(request.jobId) : undefined,
     conversationId: String(request.conversationId),
-    // A change reached by its id (ai_change_get) may be a backend service's.
-    ...(request.serviceId ? { serviceId: String(request.serviceId) } : { frontendId: String(request.frontendId) }),
+    // A change reached by its id (ai_change_get) may be a backend's.
+    ...(request.backendId ? { backendId: String(request.backendId) } : { frontendId: String(request.frontendId) }),
     status: request.status,
     prompt: request.prompt,
     effort: request.effort,
@@ -93,11 +93,11 @@ const toJobView = (job: AiJobView) => ({
     summary: job.summary,
     error: job.error,
     usage: job.usage,
-    // A global job also takes the services of the project: their id is not one frontend_get knows
+    // A global job also takes the backends of the project: their id is not one frontend_get knows
     repositories: job.repositories.map(repository => ({
         changeId: repository.requestId,
         kind: repository.kind,
-        ...(repository.kind === "service" ? { serviceId: repository.frontendId, service: repository.frontendName } : { frontendId: repository.frontendId, frontend: repository.frontendName }),
+        ...(repository.kind === "backend" ? { backendId: repository.frontendId, backend: repository.frontendName } : { frontendId: repository.frontendId, frontend: repository.frontendName }),
         status: repository.status,
         files: repository.files,
         error: repository.error,
@@ -115,7 +115,7 @@ const toJobView = (job: AiJobView) => ({
 })
 
 /**
- * Console-only tools for the AI code changes of a frontend or a service: an agent proposes a change on its
+ * Console-only tools for the AI code changes of a frontend or a backend: an agent proposes a change on its
  * repository and pushes it on a feature branch, the user applies it onto the base branch, opens a
  * pull request from it or discards it. Starting one runs a paid agent
  * for minutes, which is why MCP clients do not get these.
@@ -136,7 +136,7 @@ export const aiChangeTools = [
         name: "ai_change_start",
         title: "Start AI code change",
         description:
-            "Starts an AI agent that proposes a code change on the repository of a frontend or of a backend service: pass exactly one of frontendId and serviceId. It only proposes: the proposal is pushed on a feature branch of its own (branch), never on the base, until ai_change_apply. It runs in the background for minutes; follow it with ai_change_get. It runs as an AI job on this repository alone: its jobId works with ai_job_get and ai_job_follow_up. At most 3 jobs run at once in a project.",
+            "Starts an AI agent that proposes a code change on the repository of a frontend or of a backend: pass exactly one of frontendId and backendId. It only proposes: the proposal is pushed on a feature branch of its own (branch), never on the base, until ai_change_apply. It runs in the background for minutes; follow it with ai_change_get. It runs as an AI job on this repository alone: its jobId works with ai_job_get and ai_job_follow_up. At most 3 jobs run at once in a project.",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         // Clones the repository from its provider and, once done, pushes the proposal on a feature branch: never on the base
@@ -156,8 +156,7 @@ export const aiChangeTools = [
     defineTool({
         name: "ai_changes_list",
         title: "List AI code changes",
-        description:
-            "The latest AI code changes of a frontend or of a backend service (up to 20), newest first, with their status and the files they touch. Pass exactly one of frontendId and serviceId.",
+        description: "The latest AI code changes of a frontend or of a backend (up to 20), newest first, with their status and the files they touch. Pass exactly one of frontendId and backendId.",
         scope: MCP_SCOPE_READ,
         consoleOnly: true,
         annotations: READ_ONLY,
@@ -215,7 +214,7 @@ export const aiChangeTools = [
         name: "ai_job_start",
         title: "Start AI job",
         description:
-            "Starts one AI agent that proposes a coherent code change across several repositories at once, e.g. an API changed in one and its callers updated in the others. With domainId it works on the frontends and services of that functional domain, frontend and backend together, and is told what the domain is for. With frontendIds and/or serviceIds it works on those. With none of them it works on every frontend and service of the project with a repository (at most 10). baseBranches picks the branch each repository starts from. Each repository gets its own proposal, pushed on a feature branch of its own; nothing reaches a base branch until ai_job_apply. It runs in the background for minutes; follow it with ai_job_get. At most 3 jobs run at once in a project.",
+            "Starts one AI agent that proposes a coherent code change across several repositories at once, e.g. an API changed in one and its callers updated in the others. With domainId it works on the frontends and backends of that functional domain, frontend and backend together, and is told what the domain is for. With frontendIds and/or backendIds it works on those. With none of them it works on every frontend and backend of the project with a repository (at most 10). baseBranches picks the branch each repository starts from. Each repository gets its own proposal, pushed on a feature branch of its own; nothing reaches a base branch until ai_job_apply. It runs in the background for minutes; follow it with ai_job_get. At most 3 jobs run at once in a project.",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         // Clones the repositories from their provider: nothing is written there yet
@@ -223,18 +222,18 @@ export const aiChangeTools = [
         inputSchema: z
             .object({
                 prompt,
-                domainId: objectId("Id of a functional domain, from domains_list: the job works on its frontends and services").optional(),
+                domainId: objectId("Id of a functional domain, from domains_list: the job works on its frontends and backends").optional(),
                 frontendIds: z.array(objectId("Id of a frontend, from frontends_list")).min(1).max(10).optional().describe("The frontends to change, without domainId"),
-                serviceIds: z.array(objectId("Id of a backend service, from services_list")).min(1).max(10).optional().describe("The backend services to change, without domainId"),
+                backendIds: z.array(objectId("Id of a backend, from backends_list")).min(1).max(10).optional().describe("The backends to change, without domainId"),
                 baseBranches: z
                     .record(z.string().regex(/^[a-fA-F0-9]{24}$/), z.string().trim().min(1).max(255))
                     .refine(branches => Object.keys(branches).length <= 100, { message: "At most 100 base branches" })
                     .optional()
-                    .describe("The branch each repository starts from, by frontend or service id; its default branch when left out"),
+                    .describe("The branch each repository starts from, by frontend or backend id; its default branch when left out"),
                 effort,
                 aiModelId
             })
-            .refine(args => !(args.domainId && (args.frontendIds || args.serviceIds)), { message: "Pass domainId or frontendIds/serviceIds, not both" }),
+            .refine(args => !(args.domainId && (args.frontendIds || args.backendIds)), { message: "Pass domainId or frontendIds/backendIds, not both" }),
         run: async (args, { principal, projectId }) =>
             toJobView(
                 await jobService(principal).create(projectId, {
@@ -244,8 +243,8 @@ export const aiChangeTools = [
                     baseBranches: args.baseBranches,
                     ...(args.domainId
                         ? { scope: "domain", domainId: args.domainId }
-                        : args.frontendIds || args.serviceIds
-                          ? { scope: "selection", frontendIds: args.frontendIds, serviceIds: args.serviceIds }
+                        : args.frontendIds || args.backendIds
+                          ? { scope: "selection", frontendIds: args.frontendIds, backendIds: args.backendIds }
                           : { scope: "global" })
                 })
             )
@@ -254,7 +253,7 @@ export const aiChangeTools = [
         name: "ai_domain_plan",
         title: "Plan a new domain",
         description:
-            "Asks the AI which frontends and services a functional domain that has none yet needs for a request: for each a name, a slug, a repository name, the marketplace template to scaffold it from and why. It only proposes and answers in seconds: create them with frontend_scaffold and service_scaffold, then start an ai_job_start on the domain to implement the request.",
+            "Asks the AI which frontends and backends a functional domain that has none yet needs for a request: for each a name, a slug, a repository name, the marketplace template to scaffold it from and why. It only proposes and answers in seconds: create them with frontend_scaffold and backend_scaffold, then start an ai_job_start on the domain to implement the request.",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         // Nothing is written, but it is a paid model call: under mfe:write like every AI tool
@@ -285,7 +284,7 @@ export const aiChangeTools = [
             jobId,
             prompt,
             frontendIds: z
-                .array(objectId("Id of a repository of the job: its frontendId or serviceId in ai_job_get"))
+                .array(objectId("Id of a repository of the job: its frontendId or backendId in ai_job_get"))
                 .min(1)
                 .max(10)
                 .optional()
@@ -300,7 +299,7 @@ export const aiChangeTools = [
         name: "ai_job_get",
         title: "Get AI job",
         description:
-            "Status of an AI job (PENDING, RUNNING, DONE, FAILED), its summary, the tokens it used, its latest progress lines and, per repository (a frontend's or a service's, see kind), the status of its proposal (a changeId for ai_change_get), the files it touches, its feature branch and its pull request once opened.",
+            "Status of an AI job (PENDING, RUNNING, DONE, FAILED), its summary, the tokens it used, its latest progress lines and, per repository (a frontend's or a backend's, see kind), the status of its proposal (a changeId for ai_change_get), the files it touches, its feature branch and its pull request once opened.",
         scope: MCP_SCOPE_READ,
         consoleOnly: true,
         annotations: READ_ONLY,

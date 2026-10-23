@@ -13,7 +13,7 @@ vi.mock("../../service/workspace/LocalChangeService", () => ({
 }))
 
 const FRONTEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
-const SERVICE = "cccccccccccccccccccccccc"
+const BACKEND = "cccccccccccccccccccccccc"
 const COMMIT = "a".repeat(40)
 
 const tool = (name: string) => localChangeTools.find(candidate => candidate.name === name)!
@@ -22,21 +22,21 @@ const run = (name: string, args: Record<string, unknown>) => tool(name).run(tool
 beforeEach(() => vi.clearAllMocks())
 
 describe("localChangeTools", () => {
-    it("reads the checkout of a frontend or a service", async () => {
+    it("reads the checkout of a frontend or a backend", async () => {
         await run("repository_checkout_get", { frontendId: FRONTEND })
-        await run("repository_checkout_get", { serviceId: SERVICE })
-        expect(checkout.mock.calls).toEqual([[{ kind: "frontend", id: FRONTEND }], [{ kind: "service", id: SERVICE }]])
+        await run("repository_checkout_get", { backendId: BACKEND })
+        expect(checkout.mock.calls).toEqual([[{ kind: "frontend", id: FRONTEND }], [{ kind: "backend", id: BACKEND }]])
     })
 
     it("wants exactly one target", async () => {
-        await expect(run("repository_checkout_get", {})).rejects.toThrow("either frontendId or serviceId")
-        await expect(run("repository_checkout_get", { frontendId: FRONTEND, serviceId: SERVICE })).rejects.toThrow("either frontendId or serviceId")
+        await expect(run("repository_checkout_get", {})).rejects.toThrow("either frontendId or backendId")
+        await expect(run("repository_checkout_get", { frontendId: FRONTEND, backendId: BACKEND })).rejects.toThrow("either frontendId or backendId")
     })
 
     it("submits the change without the target fields", async () => {
         const files = [{ path: "src/a.ts", action: "update", content: "x" }]
-        await run("code_change_submit", { serviceId: SERVICE, baseCommit: COMMIT, title: "Fix", files })
-        expect(submit).toHaveBeenCalledWith({ kind: "service", id: SERVICE }, { baseCommit: COMMIT, title: "Fix", files })
+        await run("code_change_submit", { backendId: BACKEND, baseCommit: COMMIT, title: "Fix", files })
+        expect(submit).toHaveBeenCalledWith({ kind: "backend", id: BACKEND }, { baseCommit: COMMIT, title: "Fix", files })
     })
 
     it("wants a full commit hash and at least one file", () => {

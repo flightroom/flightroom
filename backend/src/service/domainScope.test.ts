@@ -6,6 +6,7 @@ vi.mock("../plugins/noSQL", () => ({ isReplicaSet: false }))
 
 import GithubClient from "../client/GithubClient"
 import ApiKey from "../models/ApiKeyModel"
+import Backend from "../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType } from "../models/CodeRepositoryModel"
 import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
@@ -15,7 +16,6 @@ import Frontend, { FrontendKind } from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
@@ -25,6 +25,7 @@ import WizardProjectState from "../models/WizardProjectState"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import FrontendDTO from "../types/FrontendDTO"
 import { ApiKeyService } from "./ApiKeyService"
+import BackendService from "./BackendService"
 import BaseAuthorizedService, { AuthorizedPrincipal, ensureOnlyNewRepositoryLinked } from "./BaseAuthorizedService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
@@ -36,7 +37,6 @@ import FrontendService from "./FrontendService"
 import GitOpsService from "./GitOpsService"
 import MarketService from "./MarketService"
 import ProjectWizardService from "./ProjectWizardService"
-import ServiceService from "./ServiceService"
 import VariableMapService, { ensureAttachableMaps, mapIdsInScope } from "./VariableMapService"
 
 withNoMaintenanceAgents()
@@ -140,7 +140,7 @@ describe("domain scope of a principal", () => {
         expect(await new ScopeProbe(memberOf([])).scopeOf(PROJECT_ID)).toEqual([])
     })
 
-    it("Given the same service instance, when the scope is resolved twice, then the membership is read once", async () => {
+    it("Given the same backend instance, when the scope is resolved twice, then the membership is read once", async () => {
         const probe = new ScopeProbe(memberOf([OWN_DOMAIN]))
 
         await probe.scopeOf(PROJECT_ID)
@@ -162,7 +162,7 @@ describe("domain scope of a principal", () => {
     })
 })
 
-describe("frontends and services of a domain-scoped member", () => {
+describe("frontends and backends of a domain-scoped member", () => {
     const frontendIn = (domainId: ObjectId | null) => ({ _id: newId(), projectId: PROJECT_ID, slug: "cart", name: "Cart", domainId })
 
     beforeEach(grantProjectAccess)
@@ -200,10 +200,10 @@ describe("frontends and services of a domain-scoped member", () => {
         expect(find).toHaveBeenCalledWith({ projectId: String(PROJECT_ID) })
     })
 
-    it("Given a scoped member, when the services are listed, then only those of their domains are read", async () => {
-        const find = vi.spyOn(Service, "find").mockImplementation((() => queryResult([])) as never)
+    it("Given a scoped member, when the backends are listed, then only those of their domains are read", async () => {
+        const find = vi.spyOn(Backend, "find").mockImplementation((() => queryResult([])) as never)
 
-        await new ServiceService(memberOf([OWN_DOMAIN])).getByProjectId(String(PROJECT_ID))
+        await new BackendService(memberOf([OWN_DOMAIN])).getByProjectId(String(PROJECT_ID))
 
         expect(find).toHaveBeenCalledWith({ projectId: String(PROJECT_ID), domainId: { $in: [String(OWN_DOMAIN)] } })
     })
@@ -243,16 +243,16 @@ describe("frontends and services of a domain-scoped member", () => {
     })
 
     it.each([
-        ["a service of another domain it does not call yet", [], false],
-        ["the services it already calls, one of another domain among them", ["linked"], true]
+        ["a backend of another domain it does not call yet", [], false],
+        ["the backends it already calls, one of another domain among them", ["linked"], true]
     ])("Given %s, when a scoped member saves their frontend with it, then it is written only when nothing new is out of their reach", async (_case, stored, written) => {
-        const othersService = newId()
-        const frontend = { ...frontendIn(OWN_DOMAIN), serviceIds: stored.map(() => othersService) }
+        const othersBackend = newId()
+        const frontend = { ...frontendIn(OWN_DOMAIN), backendIds: stored.map(() => othersBackend) }
         vi.spyOn(Frontend, "findById").mockResolvedValue(frontend as never)
-        vi.spyOn(Service, "find").mockResolvedValue([{ _id: othersService, domainId: OTHER_DOMAIN }] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([{ _id: othersBackend, domainId: OTHER_DOMAIN }] as never)
         const write = vi.spyOn(Frontend, "findByIdAndUpdate").mockResolvedValue(frontend as never)
 
-        const saved = new FrontendService(memberOf([OWN_DOMAIN])).update(String(frontend._id), { serviceIds: [String(othersService)] } as unknown as FrontendDTO)
+        const saved = new FrontendService(memberOf([OWN_DOMAIN])).update(String(frontend._id), { backendIds: [String(othersBackend)] } as unknown as FrontendDTO)
 
         if (written) {
             await expect(saved).resolves.toBe(frontend)
@@ -262,15 +262,15 @@ describe("frontends and services of a domain-scoped member", () => {
         expect(write).toHaveBeenCalledTimes(written ? 1 : 0)
     })
 
-    describe("resources of a service", () => {
+    describe("resources of a backend", () => {
         const ownResource = newId()
         const othersResource = newId()
-        const service = { _id: newId(), projectId: PROJECT_ID, slug: "orders", name: "Orders", domainId: OWN_DOMAIN, configMapIds: [], secretIds: [], resourceIds: [ownResource, othersResource] }
+        const backend = { _id: newId(), projectId: PROJECT_ID, slug: "orders", name: "Orders", domainId: OWN_DOMAIN, configMapIds: [], secretIds: [], resourceIds: [ownResource, othersResource] }
 
         beforeEach(() => {
-            vi.spyOn(Service, "findById").mockResolvedValue(service as never)
-            // The resource of another domain is shared with one of its services: the scoped member does not see it
-            vi.spyOn(Service, "find").mockResolvedValue([
+            vi.spyOn(Backend, "findById").mockResolvedValue(backend as never)
+            // The resource of another domain is shared with one of its backends: the scoped member does not see it
+            vi.spyOn(Backend, "find").mockResolvedValue([
                 { domainId: OWN_DOMAIN, resourceIds: [ownResource, othersResource] },
                 { domainId: OTHER_DOMAIN, resourceIds: [othersResource] }
             ] as never)
@@ -283,39 +283,39 @@ describe("frontends and services of a domain-scoped member", () => {
         it.each([
             ["the resource they see taken away", [], [String(othersResource)]],
             ["only the resource they see", [String(ownResource)], [String(ownResource), String(othersResource)]]
-        ])("Given a service attaching a resource they cannot see, when a scoped member saves it with %s, then that one stays attached", async (_case, sent, written) => {
-            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+        ])("Given a backend attaching a resource they cannot see, when a scoped member saves it with %s, then that one stays attached", async (_case, sent, written) => {
+            const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
 
-            await new ServiceService(memberOf([OWN_DOMAIN])).update(String(service._id), { name: "Orders", resourceIds: sent } as never)
+            await new BackendService(memberOf([OWN_DOMAIN])).update(String(backend._id), { name: "Orders", resourceIds: sent } as never)
 
             expect(write.mock.calls[0][1]).toEqual({ name: "Orders", resourceIds: written })
         })
 
-        it("Given a member of the whole project, when they save the service without a resource, then every one is detached", async () => {
-            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+        it("Given a member of the whole project, when they save the backend without a resource, then every one is detached", async () => {
+            const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
 
-            await new ServiceService(memberOf()).update(String(service._id), { name: "Orders", resourceIds: [] } as never)
+            await new BackendService(memberOf()).update(String(backend._id), { name: "Orders", resourceIds: [] } as never)
 
             expect(write.mock.calls[0][1]).toEqual({ name: "Orders", resourceIds: [] })
         })
     })
 
-    describe("code repository of a service", () => {
+    describe("code repository of a backend", () => {
         const connectionId = newId()
         const link = { enabled: true, codeRepositoryId: String(connectionId), repositoryId: "42", name: "orders-be", cloneUrlHttps: "https://github.com/acme/orders-be.git" }
-        const ownService = (codeRepository?: Record<string, unknown>) => ({ _id: newId(), projectId: PROJECT_ID, slug: "orders", name: "Orders", domainId: OWN_DOMAIN, codeRepository })
+        const ownBackend = (codeRepository?: Record<string, unknown>) => ({ _id: newId(), projectId: PROJECT_ID, slug: "orders", name: "Orders", domainId: OWN_DOMAIN, codeRepository })
 
         beforeEach(() => {
             vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, projectId: PROJECT_ID } as never)
         })
 
-        it("Given a service linked to a repository, when a scoped member saves it with the link unchanged, then it is written and the stored link stays as it is", async () => {
+        it("Given a backend linked to a repository, when a scoped member saves it with the link unchanged, then it is written and the stored link stays as it is", async () => {
             // As the console form sends it back: without the provider data it does not show, keys in another order
-            const service = ownService({ ...link, _id: newId(), repositoryData: { id: 42, default_branch: "main" }, gitlab: {} })
-            vi.spyOn(Service, "findById").mockResolvedValue(service as never)
-            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+            const backend = ownBackend({ ...link, _id: newId(), repositoryData: { id: 42, default_branch: "main" }, gitlab: {} })
+            vi.spyOn(Backend, "findById").mockResolvedValue(backend as never)
+            const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
 
-            await new ServiceService(memberOf([OWN_DOMAIN])).update(String(service._id), {
+            await new BackendService(memberOf([OWN_DOMAIN])).update(String(backend._id), {
                 name: "Orders API",
                 codeRepository: { cloneUrlSsh: "", name: link.name, cloneUrlHttps: link.cloneUrlHttps, repositoryId: link.repositoryId, codeRepositoryId: link.codeRepositoryId, enabled: true }
             } as never)
@@ -332,30 +332,30 @@ describe("frontends and services of a domain-scoped member", () => {
             ["another connection", { codeRepositoryId: String(newId()) }],
             ["a connection that is not an id", { codeRepositoryId: { $ne: null } }],
             ["the link disabled", { enabled: false }]
-        ])("Given a service linked to a repository, when a scoped member saves it with %s, then it is refused and nothing is written", async (_case, change) => {
-            const service = ownService(link)
-            vi.spyOn(Service, "findById").mockResolvedValue(service as never)
-            const write = vi.spyOn(Service, "findByIdAndUpdate")
+        ])("Given a backend linked to a repository, when a scoped member saves it with %s, then it is refused and nothing is written", async (_case, change) => {
+            const backend = ownBackend(link)
+            vi.spyOn(Backend, "findById").mockResolvedValue(backend as never)
+            const write = vi.spyOn(Backend, "findByIdAndUpdate")
 
-            await expect(new ServiceService(memberOf([OWN_DOMAIN])).update(String(service._id), { codeRepository: { ...link, ...change } } as never)).rejects.toMatchObject(refusedOutOfScope)
+            await expect(new BackendService(memberOf([OWN_DOMAIN])).update(String(backend._id), { codeRepository: { ...link, ...change } } as never)).rejects.toMatchObject(refusedOutOfScope)
             expect(write).not.toHaveBeenCalled()
         })
 
-        it("Given a service with no repository, when a scoped member links it to one, then it is refused and nothing is written", async () => {
-            const service = ownService()
-            vi.spyOn(Service, "findById").mockResolvedValue(service as never)
-            const write = vi.spyOn(Service, "findByIdAndUpdate")
+        it("Given a backend with no repository, when a scoped member links it to one, then it is refused and nothing is written", async () => {
+            const backend = ownBackend()
+            vi.spyOn(Backend, "findById").mockResolvedValue(backend as never)
+            const write = vi.spyOn(Backend, "findByIdAndUpdate")
 
-            await expect(new ServiceService(memberOf([OWN_DOMAIN])).update(String(service._id), { codeRepository: link } as never)).rejects.toMatchObject(refusedOutOfScope)
+            await expect(new BackendService(memberOf([OWN_DOMAIN])).update(String(backend._id), { codeRepository: link } as never)).rejects.toMatchObject(refusedOutOfScope)
             expect(write).not.toHaveBeenCalled()
         })
 
-        it("Given a member of the whole project, when they link a service to another repository, then it is written", async () => {
-            const service = ownService(link)
-            vi.spyOn(Service, "findById").mockResolvedValue(service as never)
-            const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+        it("Given a member of the whole project, when they link a backend to another repository, then it is written", async () => {
+            const backend = ownBackend(link)
+            vi.spyOn(Backend, "findById").mockResolvedValue(backend as never)
+            const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
 
-            await new ServiceService(memberOf()).update(String(service._id), { codeRepository: { ...link, repositoryId: "43", name: "catalog-fe" } } as never)
+            await new BackendService(memberOf()).update(String(backend._id), { codeRepository: { ...link, repositoryId: "43", name: "catalog-fe" } } as never)
 
             expect(write.mock.calls[0][1]).toMatchObject({ codeRepository: { repositoryId: "43", name: "catalog-fe" } })
         })
@@ -371,11 +371,11 @@ describe("frontends and services of a domain-scoped member", () => {
             ["a name other than the new repository's", { name: "catalog-fe", createData: { name: "orders-be" } }],
             ["a new repository whose template is not a name", { createData: { name: "orders-be", template: { $ne: null } } }],
             ["a new repository whose visibility is not a flag", { createData: { name: "orders-be", private: "yes" } }]
-        ])("Given a scoped member, when they create a service linked to %s, then it is refused before anything is written", async (_case, fields) => {
+        ])("Given a scoped member, when they create a backend linked to %s, then it is refused before anything is written", async (_case, fields) => {
             vi.spyOn(Domain, "exists").mockResolvedValue({ _id: OWN_DOMAIN } as never)
-            const write = vi.spyOn(Service, "create")
+            const write = vi.spyOn(Backend, "create")
 
-            const created = new ServiceService(memberOf([OWN_DOMAIN])).create(
+            const created = new BackendService(memberOf([OWN_DOMAIN])).create(
                 { name: "Orders", slug: "orders", domainId: String(OWN_DOMAIN), codeRepository: { enabled: true, codeRepositoryId: String(connectionId), ...fields } } as never,
                 String(PROJECT_ID)
             )
@@ -532,7 +532,7 @@ describe("project-level writes of a domain-scoped member", () => {
             { repositoryId: "2", name: "catalog-fe" }
         ] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([cart, catalog] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
 
         const repositories = await new CodeRepositoryImportService(memberOf([OWN_DOMAIN])).getImportableRepositories(String(newId()))
 
@@ -549,24 +549,24 @@ describe("deployment of a domain-scoped member", () => {
     const own = { _id: newId(), slug: "cart", version: "2.0.0" }
     const othersServed = { _id: newId(), slug: "catalog", version: "1.0.0" }
     const ownServed = { _id: own._id, slug: "cart", version: "1.0.0" }
-    const ownService = { _id: newId(), slug: "cart-be", version: "3.0.0", domainId: OWN_DOMAIN }
+    const ownBackend = { _id: newId(), slug: "cart-be", version: "3.0.0", domainId: OWN_DOMAIN }
     let saved: Record<string, unknown> | undefined
     let readFrontends: Record<string, unknown> | undefined
-    let readServices: Record<string, unknown> | undefined
+    let readBackends: Record<string, unknown> | undefined
 
     beforeEach(() => {
         grantProjectAccess()
         saved = undefined
         readFrontends = undefined
-        readServices = undefined
+        readBackends = undefined
         vi.spyOn(Environment, "findById").mockImplementation((() => queryResult({ _id: environmentId, projectId: PROJECT_ID })) as never)
         vi.spyOn(Frontend, "find").mockImplementation(((filter: Record<string, unknown>) => {
             readFrontends = filter
             return queryResult([own])
         }) as never)
-        vi.spyOn(Service, "find").mockImplementation(((filter: Record<string, unknown>) => {
-            readServices = filter
-            return queryResult([ownService])
+        vi.spyOn(Backend, "find").mockImplementation(((filter: Record<string, unknown>) => {
+            readBackends = filter
+            return queryResult([ownBackend])
         }) as never)
         vi.spyOn(GlobalVariable, "find").mockImplementation((() => queryResult([{ key: "API_URL", value: "unreleased" }])) as never)
         vi.spyOn(ConfigMap, "find").mockImplementation((() => queryResult([])) as never)
@@ -639,7 +639,7 @@ describe("deployment of a domain-scoped member", () => {
 
         expect(readFrontends).toEqual({ projectId: PROJECT_ID })
         expect(served()).toEqual(["cart@2.0.0"])
-        expect(saved?.services).toEqual([ownService])
+        expect(saved?.backends).toEqual([ownBackend])
         expect(saved?.variables).toEqual([{ key: "API_URL", value: "unreleased" }])
     })
 
@@ -700,15 +700,15 @@ describe("deployment of a domain-scoped member", () => {
         const ownResource = newId()
         const othersResource = newId()
         vi.spyOn(Deployment, "find").mockImplementation((() =>
-            queryResult([{ frontends: [], services: [], configMaps: [], secrets: [], resources: [{ _id: ownResource }, { _id: othersResource }] }])) as never)
-        vi.mocked(Service.find).mockImplementation(((filter: Record<string, unknown>) =>
+            queryResult([{ frontends: [], backends: [], configMaps: [], secrets: [], resources: [{ _id: ownResource }, { _id: othersResource }] }])) as never)
+        vi.mocked(Backend.find).mockImplementation(((filter: Record<string, unknown>) =>
             queryResult(
                 filter.resourceIds
                     ? [
                           { domainId: OWN_DOMAIN, resourceIds: [ownResource] },
                           { domainId: OTHER_DOMAIN, resourceIds: [othersResource] }
                       ]
-                    : [ownService]
+                    : [ownBackend]
             )) as never)
 
         const [deployment] = await new DeploymentService(memberOf([OWN_DOMAIN])).getByEnvironmentId(String(environmentId))
@@ -717,13 +717,13 @@ describe("deployment of a domain-scoped member", () => {
     })
 
     it("Given backends of several domains served, when a scoped member deploys, then only their backends move and the others' stay as served", async () => {
-        const othersService = { _id: newId(), slug: "catalog-be", version: "1.0.0", domainId: OTHER_DOMAIN }
-        serving({ frontends: [], services: [{ ...ownService, version: "2.0.0" }, othersService], variables: [], storages: [] })
+        const othersBackend = { _id: newId(), slug: "catalog-be", version: "1.0.0", domainId: OTHER_DOMAIN }
+        serving({ frontends: [], backends: [{ ...ownBackend, version: "2.0.0" }, othersBackend], variables: [], storages: [] })
 
         await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
 
-        expect(readServices).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
-        expect(((saved?.services ?? []) as { slug: string; version: string }[]).map(service => `${service.slug}@${service.version}`)).toEqual(["cart-be@3.0.0", "catalog-be@1.0.0"])
+        expect(readBackends).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
+        expect(((saved?.backends ?? []) as { slug: string; version: string }[]).map(backend => `${backend.slug}@${backend.version}`)).toEqual(["cart-be@3.0.0", "catalog-be@1.0.0"])
     })
 
     describe("of one functional domain", () => {
@@ -733,14 +733,14 @@ describe("deployment of a domain-scoped member", () => {
                 .mockImplementation(((filter: { _id: unknown; projectId: unknown }) =>
                     queryResult(sameId(filter.projectId, PROJECT_ID) && domainIds.some(id => sameId(id, filter._id)) ? { _id: filter._id } : null)) as never)
 
-        it("Given a member of the whole project, when they deploy one domain, then only its frontends and services move and everything else stays as served", async () => {
+        it("Given a member of the whole project, when they deploy one domain, then only its frontends and backends move and everything else stays as served", async () => {
             domainsOfProject(OWN_DOMAIN, OTHER_DOMAIN)
             serving({ frontends: [ownServed, othersServed], variables: [{ key: "API_URL", value: "released" }], storages: [{ name: "released-bucket" }] })
 
             await new DeploymentService(memberOf()).createRaw(String(environmentId), undefined, String(OWN_DOMAIN))
 
             expect(readFrontends).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
-            expect(readServices).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
+            expect(readBackends).toEqual({ projectId: PROJECT_ID, domainId: { $in: [String(OWN_DOMAIN)] } })
             expect(served()).toEqual(["cart@2.0.0", "catalog@1.0.0"])
             expect(saved?.variables).toEqual([{ key: "API_URL", value: "released" }])
         })
@@ -779,15 +779,15 @@ describe("config maps of a domain-scoped member", () => {
 
     beforeEach(() => {
         grantProjectAccess()
-        // The own service attaches the own map and the shared one; a service of another domain attaches the shared one too
-        vi.spyOn(Service, "find").mockResolvedValue([
+        // The own backend attaches the own map and the shared one; a backend of another domain attaches the shared one too
+        vi.spyOn(Backend, "find").mockResolvedValue([
             { domainId: OWN_DOMAIN, configMapIds: [ownMap, sharedMap] },
             { domainId: OTHER_DOMAIN, configMapIds: [sharedMap] }
         ] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
-    it("Given a map of their service also attached to a DOCKER of another domain, when the scope is applied, then it is out of it", async () => {
+    it("Given a map of their backend also attached to a DOCKER of another domain, when the scope is applied, then it is out of it", async () => {
         vi.mocked(Frontend.find).mockResolvedValue([{ domainId: OTHER_DOMAIN, configMapIds: [ownMap] }] as never)
 
         expect(await mapIdsInScope("configMap", PROJECT_ID, [String(OWN_DOMAIN)])).toEqual(new Set())
@@ -808,14 +808,14 @@ describe("config maps of a domain-scoped member", () => {
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("Given maps attached to services of several domains, when the scope is applied, then only those attached exclusively inside it are editable", async () => {
+    it("Given maps attached to backends of several domains, when the scope is applied, then only those attached exclusively inside it are editable", async () => {
         expect(await mapIdsInScope("configMap", PROJECT_ID, [String(OWN_DOMAIN)])).toEqual(new Set([String(ownMap)]))
     })
 
     it.each([
-        ["attached only to their services", ownMap, true],
+        ["attached only to their backends", ownMap, true],
         ["shared with another domain", sharedMap, false],
-        ["attached to no service", unattachedMap, false]
+        ["attached to no backend", unattachedMap, false]
     ])("Given a config map %s, when a scoped member opens it, then it is reached only when exclusively theirs", async (_case, mapId, reached) => {
         vi.spyOn(ConfigMap, "findById").mockResolvedValue({ _id: mapId, projectId: PROJECT_ID, name: "settings" } as never)
 
@@ -832,20 +832,20 @@ describe("config maps of a domain-scoped member", () => {
         await expect(new VariableMapService("configMap", memberOf([OWN_DOMAIN])).create({ name: "settings", entries: [] } as never, String(PROJECT_ID))).rejects.toMatchObject(refusedOutOfScope)
     })
 
-    /** The check of create and update of services and frontends, reached directly: the rest of an update has tests of its own. */
+    /** The check of create and update of backends and frontends, reached directly: the rest of an update has tests of its own. */
     const attach = async (user: IUser, configMapIds: ObjectId[], alreadyAttached: ObjectId[] = []) =>
         ensureAttachableMaps(await new ScopeProbe(user).scopeOf(PROJECT_ID), PROJECT_ID, { configMapIds: configMapIds.map(String) }, { configMapIds: alreadyAttached })
 
-    it("Given a scoped member, when they attach a map shared with another domain to their service, then it is refused", async () => {
+    it("Given a scoped member, when they attach a map shared with another domain to their backend, then it is refused", async () => {
         await expect(attach(memberOf([OWN_DOMAIN]), [ownMap, sharedMap])).rejects.toMatchObject(refusedOutOfScope)
     })
 
-    it("Given a map their service already attaches, when a scoped member saves the service, then it stays attached", async () => {
+    it("Given a map their backend already attaches, when a scoped member saves the backend, then it stays attached", async () => {
         await expect(attach(memberOf([OWN_DOMAIN]), [ownMap, sharedMap], [sharedMap])).resolves.toBeUndefined()
     })
 
     it("Given a member of the whole project, when they attach any map, then nothing is checked", async () => {
         await expect(attach(memberOf(), [unattachedMap])).resolves.toBeUndefined()
-        expect(Service.find).not.toHaveBeenCalled()
+        expect(Backend.find).not.toHaveBeenCalled()
     })
 })

@@ -2,14 +2,14 @@ import axios from "axios"
 import { isValidObjectId, ObjectId, Schema } from "mongoose"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend from "../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Domain, { IDomain } from "../models/DomainModel"
 import Frontend, { ICodeRepositoryFrontend } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
+import { BACKEND_VERSION } from "../types/BackendStack"
 import DomainDTO, { DomainBuildFailure, DomainBuildRepository, DomainBuildResult, DomainMembersDTO } from "../types/DomainDTO"
-import { SERVICE_VERSION } from "../types/ServiceStack"
 import { isValidRefName } from "../utils/gitRefUtils"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -20,7 +20,7 @@ import { repositoryKeys } from "./repositoryLinks"
 import TemplateScaffoldService, { TagLookupError, TagTarget } from "./TemplateScaffoldService"
 
 /**
- * The domain a frontend or a service is put in, as it is stored: null when it is taken out of
+ * The domain a frontend or a backend is put in, as it is stored: null when it is taken out of
  * any. A domain of another project is refused as missing, as a code repository connection is:
  * membership must never reach across projects.
  */
@@ -85,7 +85,7 @@ interface BuildRepository {
     members: DomainBuildRepository["members"]
 }
 
-type BuildMember = { kind: "frontend" | "service"; _id: unknown; name: string; codeRepository?: ICodeRepositoryFrontend }
+type BuildMember = { kind: "frontend" | "backend"; _id: unknown; name: string; codeRepository?: ICodeRepositoryFrontend }
 
 /**
  * The members' repositories, once each: two members linked to the same repository would otherwise tag it twice.
@@ -161,8 +161,8 @@ const toBuildFailure = (error: unknown): { reason: DomainBuildFailure; message: 
 
 /** Refuses, before anything is read, a version or a branch the providers would not take as a tag of a domain build */
 export function ensureBuildTarget(version: unknown, ref?: unknown): asserts version is string {
-    // The rule of a service build: the tag becomes, in the pipelines, an image tag and a URL segment
-    if (typeof version !== "string" || !SERVICE_VERSION.test(version)) {
+    // The rule of a backend build: the tag becomes, in the pipelines, an image tag and a URL segment
+    if (typeof version !== "string" || !BACKEND_VERSION.test(version)) {
         throw createBusinessException({ code: "DOMAIN_BUILD_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
     }
     // The branch goes into the URL of each provider: only a name git itself accepts
@@ -192,23 +192,23 @@ export class DomainService extends BaseAuthorizedService {
         return domain
     }
 
-    /** The domains of the project, each with how many frontends and services it groups */
+    /** The domains of the project, each with how many frontends and backends it groups */
     async getByProjectId(projectId: string | Schema.Types.ObjectId) {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
         // The counts need no filter of their own: every member of a domain in scope is in scope too
         const inScope = await this.domainScopeFilter(projectIdObj, "_id")
-        const [domains, frontends, services] = await Promise.all([
+        const [domains, frontends, backends] = await Promise.all([
             Domain.find({ projectId: projectIdObj, ...inScope }).sort({ name: 1 }),
             Frontend.find({ projectId: projectIdObj, domainId: { $ne: null } }, { domainId: 1 }),
-            Service.find({ projectId: projectIdObj, domainId: { $ne: null } }, { domainId: 1 })
+            Backend.find({ projectId: projectIdObj, domainId: { $ne: null } }, { domainId: 1 })
         ])
         const frontendCounts = countBy(frontends)
-        const serviceCounts = countBy(services)
+        const backendCounts = countBy(backends)
         return domains.map(domain => ({
             ...domain.toObject(),
             frontendsCount: frontendCounts.get(String(domain._id)) ?? 0,
-            servicesCount: serviceCounts.get(String(domain._id)) ?? 0
+            backendsCount: backendCounts.get(String(domain._id)) ?? 0
         }))
     }
 
@@ -273,10 +273,10 @@ export class DomainService extends BaseAuthorizedService {
     }
 
     /**
-     * Puts frontends and services in the domain, taking them out of the one they were in. Only members of
+     * Puts frontends and backends in the domain, taking them out of the one they were in. Only members of
      * the domain's project are moved: an id of another project is left as it is, never pulled across projects.
      */
-    async addMembers(id: string | ObjectId, dto: DomainMembersDTO): Promise<{ frontends: number; services: number }> {
+    async addMembers(id: string | ObjectId, dto: DomainMembersDTO): Promise<{ frontends: number; backends: number }> {
         const domain = await this.getById(id)
         if (!domain) {
             throw new EntityNotFoundError(String(id))
@@ -284,17 +284,17 @@ export class DomainService extends BaseAuthorizedService {
         // Moving members between domains moves them in or out of the scopes of other members
         await this.ensureWholeProject(domain.projectId)
         const frontendIds = ensureIdList("frontendIds", dto?.frontendIds)
-        const serviceIds = ensureIdList("serviceIds", dto?.serviceIds)
+        const backendIds = ensureIdList("backendIds", dto?.backendIds)
         return runInTransaction(async session => {
             const membership = { $set: { domainId: domain._id } }
             const frontends = await Frontend.updateMany({ _id: { $in: frontendIds }, projectId: domain.projectId }, membership, { session })
-            const services = await Service.updateMany({ _id: { $in: serviceIds }, projectId: domain.projectId }, membership, { session })
-            return { frontends: frontends.matchedCount, services: services.matchedCount }
+            const backends = await Backend.updateMany({ _id: { $in: backendIds }, projectId: domain.projectId }, membership, { session })
+            return { frontends: frontends.matchedCount, backends: backends.matchedCount }
         })
     }
 
     /**
-     * Releases the whole domain: tags the repository of each of its frontends and services with the same
+     * Releases the whole domain: tags the repository of each of its frontends and backends with the same
      * `version`, on the same `ref` (main by default), as their own builds do one at a time. Every repository is
      * checked first (its connection, the domain scope, the ref, a tag of that name): when one fails, none is
      * tagged and the refusal lists each one. A tag that still fails afterwards leaves the others made, and the
@@ -310,20 +310,20 @@ export class DomainService extends BaseAuthorizedService {
         await this.ensureNotViewer(domain.projectId, { code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain" })
 
         const inDomain = { projectId: domain.projectId, domainId: domain._id }
-        const [frontends, services] = await Promise.all([Frontend.find(inDomain, { name: 1, codeRepository: 1 }), Service.find(inDomain, { name: 1, codeRepository: 1 })])
-        if (frontends.length + services.length === 0) {
-            throw createBusinessException({ code: "DOMAIN_BUILD_EMPTY", message: "The domain has no frontend nor service to build" })
+        const [frontends, backends] = await Promise.all([Frontend.find(inDomain, { name: 1, codeRepository: 1 }), Backend.find(inDomain, { name: 1, codeRepository: 1 })])
+        if (frontends.length + backends.length === 0) {
+            throw createBusinessException({ code: "DOMAIN_BUILD_EMPTY", message: "The domain has no frontend nor backend to build" })
         }
         const members: BuildMember[] = [
             ...frontends.map(member => ({ kind: "frontend" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository })),
-            ...services.map(member => ({ kind: "service" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository }))
+            ...backends.map(member => ({ kind: "backend" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository }))
         ]
         // The provider decides which of name and GitLab path tells a repository
         const connectionIds = [...new Set(members.filter(member => member.codeRepository?.enabled).map(member => String(member.codeRepository?.codeRepositoryId)))]
         const connections = connectionIds.length > 0 ? await CodeRepository.find({ _id: { $in: connectionIds.map(toObjectId) } }, { provider: 1 }) : []
         const repositories = repositoriesOf(members, new Map(connections.map(connection => [String(connection._id), connection.provider])))
         if (repositories.length === 0) {
-            throw createBusinessException({ code: "DOMAIN_BUILD_NO_REPOSITORIES", message: "No frontend nor service of the domain has a linked code repository to tag" })
+            throw createBusinessException({ code: "DOMAIN_BUILD_NO_REPOSITORIES", message: "No frontend nor backend of the domain has a linked code repository to tag" })
         }
 
         const scaffold = new TemplateScaffoldService(this.user)
@@ -367,7 +367,7 @@ export class DomainService extends BaseAuthorizedService {
     }
 
     /**
-     * Deletes the domain only: its frontends and services stay, without a domain. The memberships
+     * Deletes the domain only: its frontends and backends stay, without a domain. The memberships
      * scoped to it lose it from their scope and stay scoped, even when it was their last domain: they
      * then reach nothing rather than the whole project, until an owner gives them a new scope.
      */
@@ -381,7 +381,7 @@ export class DomainService extends BaseAuthorizedService {
             const members = { projectId: domain.projectId, domainId: domain._id }
             // null, as the forms store "no domain": the filters and the counts treat it as a missing domainId
             await Frontend.updateMany(members, { $set: { domainId: null } }, { session })
-            await Service.updateMany(members, { $set: { domainId: null } }, { session })
+            await Backend.updateMany(members, { $set: { domainId: null } }, { session })
             await MaintenanceAgent.updateMany(members, { $set: { domainId: null } }, { session })
             await UserProject.updateMany({ projectId: domain.projectId, domainIds: domain._id }, { $pull: { domainIds: domain._id } }, { session })
             await deleteLinksOfDomain(domain._id, session)

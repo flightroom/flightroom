@@ -11,7 +11,7 @@ vi.mock("../BuildStatusService", () => ({
 }))
 
 const FRONTEND = "aaaaaaaaaaaaaaaaaaaaaaaa"
-const SERVICE = "bbbbbbbbbbbbbbbbbbbbbbbb"
+const BACKEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const context = { principal: { _id: "user-1" }, projectId: "project-1" } as unknown as McpToolContext
 const toolNamed = (name: string) => assistantOnlyTools.find(tool => tool.name === name)!
 
@@ -53,17 +53,17 @@ describe("assistant-only tools", () => {
         expect(toolNamed("get_failed_build_logs").inputSchema.safeParse({ frontendId: FRONTEND }).success).toBe(false)
     })
 
-    it("Given a failed backend build, when its logs are read, then the run is looked up on the service", async () => {
+    it("Given a failed backend build, when its logs are read, then the run is looked up on the backend", async () => {
         getFailedRunLogs.mockResolvedValue([])
 
-        await toolNamed("get_failed_build_logs").run({ serviceId: SERVICE, runId: "42" } as never, context)
+        await toolNamed("get_failed_build_logs").run({ backendId: BACKEND, runId: "42" } as never, context)
 
-        expect(getFailedRunLogs).toHaveBeenCalledWith("project-1", { serviceId: SERVICE }, "42")
+        expect(getFailedRunLogs).toHaveBeenCalledWith("project-1", { backendId: BACKEND }, "42")
     })
 
-    it("Given a log request naming both a frontend and a service, or neither, when validated, then the input is refused", () => {
+    it("Given a log request naming both a frontend and a backend, or neither, when validated, then the input is refused", () => {
         const schema = toolNamed("get_failed_build_logs").inputSchema
-        expect(schema.safeParse({ frontendId: FRONTEND, serviceId: SERVICE, runId: "42" }).success).toBe(false)
+        expect(schema.safeParse({ frontendId: FRONTEND, backendId: BACKEND, runId: "42" }).success).toBe(false)
         expect(schema.safeParse({ runId: "42" }).success).toBe(false)
     })
 

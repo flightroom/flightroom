@@ -49,7 +49,7 @@ describe("AiModelController", () => {
         await app.close()
     })
 
-    it("Given a new AI, when it is posted, then it reaches the service and comes back as created", async () => {
+    it("Given a new AI, when it is posted, then it reaches the backend and comes back as created", async () => {
         const body = { name: "Bedrock", provider: "aws-bedrock", model: "anthropic.claude-opus-5-5", config: { region: "eu-west-1", accessKeyId: "AKIA", secretAccessKey: "s" }, isDefault: true }
 
         const response = await app.inject({ method: "POST", url: `/organizations/${ORGANIZATION}/ai-models`, payload: body })
@@ -65,7 +65,7 @@ describe("AiModelController", () => {
         expect(create).not.toHaveBeenCalled()
     })
 
-    it("Given the whole form with a null maxEffort and model, when an AI is put, then the nulls reach the service to clear them", async () => {
+    it("Given the whole form with a null maxEffort and model, when an AI is put, then the nulls reach the backend to clear them", async () => {
         const body = { name: "Opus", provider: "anthropic", model: null, config: { apiKey: "••••••••••••" }, maxEffort: null, isDefault: false }
 
         const response = await app.inject({ method: "PUT", url: `/organizations/${ORGANIZATION}/ai-models/${AI}`, payload: body })
@@ -74,7 +74,7 @@ describe("AiModelController", () => {
         expect(update).toHaveBeenCalledWith(ORGANIZATION, AI, body)
     })
 
-    it("Given the system AI, when it is deleted, then the service's refusal comes back with its code", async () => {
+    it("Given the system AI, when it is deleted, then the backend's refusal comes back with its code", async () => {
         remove.mockRejectedValue(createBusinessException({ code: "AI_MODEL_SYSTEM_READONLY", message: "read-only", statusCode: 409 }))
 
         const response = await app.inject({ method: "DELETE", url: `/organizations/${ORGANIZATION}/ai-models/system` })
@@ -100,7 +100,7 @@ describe("AiModelController", () => {
         expect(projectAccess).toHaveBeenCalledWith(ORGANIZATION)
     })
 
-    it("Given a restriction or null, when a project's AIs are put, then they reach the service", async () => {
+    it("Given a restriction or null, when a project's AIs are put, then they reach the backend", async () => {
         await app.inject({ method: "PUT", url: `/projects/${PROJECT}/ai-models`, payload: { aiModelIds: [AI, "system"] } })
         await app.inject({ method: "PUT", url: `/projects/${PROJECT}/ai-models`, payload: { aiModelIds: null } })
 

@@ -45,7 +45,7 @@ upload a bundle.
 | `databases` | `password`, `connectionString` |
 | `coderepositories` | `accessToken`, `refreshToken` |
 | `deployments` | the same storage fields, inside the snapshot a deployment freezes |
-| `secrets` | the value of every key in every environment, of the secrets backend services attach |
+| `secrets` | the value of every key in every environment, of the secrets backends attach |
 | `resources` | the fields of a resource the catalog marks as a credential (`secrets.value`, `secrets.overrides.value`): a database password or connection string, the key of an api, an ai or a storage, a client secret, an SMTP password, a variable a generic resource marks secret |
 | `projects` | `argoCd.token`, `argoCd.repositories.configuration.password`, `argoCd.repositories.applications.password`: the API token of Argo CD and the read-only repository credentials handed to it |
 
@@ -81,7 +81,7 @@ Neither MCP clients nor the AI coding agent ever get a credential of a resource:
 - The MCP tools (`resources_list`, `resource_get`...) answer with the masked resource. `resource_create` and
   `resource_update` refuse any credential field in their input: credentials are typed in the console only,
   as the values of a secret map are.
-- The coding agent reads the resources attached to a service with a projection that leaves out the
+- The coding agent reads the resources attached to a backend with a projection that leaves out the
   credentials, the per-environment overrides and the pasted document. It is told the names of the
   variables (credentials marked `(secret)`), the name of the Kubernetes Secret carrying them
   (`<name>.resource`), and the shared value of a short list of fields that are no credential and say how to
@@ -100,10 +100,10 @@ Neither MCP clients nor the AI coding agent ever get a credential of a resource:
   that member may read, as the console lists them.
 
 With GitOps on, a deploy commits the Kubernetes Secret of every resource of the project
-(`<environment>/resources/<name>.yaml`), as it does for every config map and secret, whether a service
+(`<environment>/resources/<name>.yaml`), as it does for every config map and secret, whether a backend
 attaches it or not: a values file that a deploy of another domain left in place may still name
 `<name>.resource`, and its pod would not start without it. The manifest goes only when the resource is
-deleted, which is refused while a service attaches it.
+deleted, which is refused while a backend attaches it.
 
 A stored credential is never sent somewhere new without being typed again. When an update changes where
 a resource connects (a field the catalog marks as `connection`: a host, a port, a database name, a bucket

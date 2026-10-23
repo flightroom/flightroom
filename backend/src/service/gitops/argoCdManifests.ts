@@ -4,7 +4,7 @@ import { APPLICATIONS_CHART_FOLDER, applicationValuesPath } from "./applicationM
 /**
  * What Argo CD is given to deploy the GitOps repositories of a project: an AppProject that confines it to
  * them and to the namespaces of its environments, an ApplicationSet from which Argo CD makes an Application
- * per environment syncing its folder of the configuration repository, then per service and frontend an
+ * per environment syncing its folder of the configuration repository, then per backend and frontend an
  * ApplicationSet making an Application of it in every environment whose branch of the applications repository
  * holds its values file. Every environment deploys to the cluster Argo CD runs in.
  */
@@ -17,11 +17,11 @@ export const MANAGED_BY = "mfe-orchestrator"
 /** What the console finds its own objects by, and tells them from those of a project with the same slug */
 export const PROJECT_ID_LABEL = "mfe-orchestrator/project-id"
 export const ENVIRONMENT_LABEL = "mfe-orchestrator/environment"
-/** The slug of the service or frontend an ApplicationSet, and what it generates, are of */
+/** The slug of the backend or frontend an ApplicationSet, and what it generates, are of */
 export const APPLICATION_LABEL = "mfe-orchestrator/application"
 /**
  * `configuration` for the ApplicationSet of the environments, `environment` for what it generates;
- * `applications` for the ApplicationSet of a service or frontend, `application` for what that one generates
+ * `applications` for the ApplicationSet of a backend or frontend, `application` for what that one generates
  */
 export const COMPONENT_LABEL = "mfe-orchestrator/component"
 
@@ -44,7 +44,7 @@ const bounded = (value: string, max: number) => (value.length <= max ? value : `
 /**
  * Every name is `<project slug>-<parts>-<hash of the project id>`, the AppProject `<project slug>-<hash>`: the hash keeps the projects apart, `shop-eu`
  * and `shop` never meet. The Application of an environment is `<project slug>-<environment>-<hash>`, the
- * ApplicationSet of a service or frontend `<project slug>-<slug>-<hash>`, and what it generates
+ * ApplicationSet of a backend or frontend `<project slug>-<slug>-<hash>`, and what it generates
  * `<project slug>-<slug>-<environment>-<hash>`. Two objects of the same project that would meet are refused by
  * clashingName. Every name fits 63 characters, as Argo CD tracks resources with the name in a label value.
  */
@@ -59,7 +59,7 @@ export const environmentsApplicationSetName = (projectId: string, projectSlug: s
 
 export const applicationSetName = (projectId: string, projectSlug: string, applicationSlug: string) => scopedName(projectId, projectSlug, applicationSlug)
 
-/** The Application of a service or frontend in one environment: `<project slug>-<application>-<environment>-<hash>` */
+/** The Application of a backend or frontend in one environment: `<project slug>-<application>-<environment>-<hash>` */
 export const applicationName = (projectId: string, projectSlug: string, applicationSlug: string, environmentSlug: string) => scopedName(projectId, projectSlug, applicationSlug, environmentSlug)
 
 /** A slug as a label value takes it */
@@ -78,7 +78,7 @@ export interface ArgoCdProjectTarget {
     configurationRepoUrl?: string
     applicationsRepoUrl?: string
     environments: ArgoCdEnvironment[]
-    /** The slugs of the services and frontends a deploy writes the values of */
+    /** The slugs of the backends and frontends a deploy writes the values of */
     applications?: string[]
     /** The branches of the applications repository: an environment without one has no application yet */
     applicationBranches?: string[]
@@ -146,7 +146,7 @@ export const buildEnvironmentsApplicationSet = (target: ArgoCdProjectTarget & { 
 })
 
 /**
- * The ApplicationSet of one service or frontend: an Application per environment whose branch holds its values
+ * The ApplicationSet of one backend or frontend: an Application per environment whose branch holds its values
  * file, installed with the chart of that branch. The environments are listed, those without a branch left out:
  * a git generator on a revision that does not exist fails the whole ApplicationSet. Per listed environment the
  * git generator looks for the values file on its branch, so an environment the application was never deployed
@@ -211,7 +211,7 @@ export const buildApplicationSet = (target: ArgoCdProjectTarget & { applications
 /** The environments that have a branch in the applications repository: the only ones an application can be on */
 const branchedEnvironments = (target: ArgoCdProjectTarget) => target.environments.filter(environment => target.applicationBranches?.includes(environment.slug))
 
-/** The ApplicationSets of the services and frontends, one each, when the project has an applications repository */
+/** The ApplicationSets of the backends and frontends, one each, when the project has an applications repository */
 export const buildApplicationSets = (target: ArgoCdProjectTarget) => {
     const { applicationsRepoUrl } = target
     if (!applicationsRepoUrl) return []
@@ -220,7 +220,7 @@ export const buildApplicationSets = (target: ArgoCdProjectTarget) => {
 
 /**
  * Everything Argo CD should hold for the project: the ApplicationSet of the environments when there is a
- * configuration repository, one per service and frontend when there is an applications one.
+ * configuration repository, one per backend and frontend when there is an applications one.
  * `environmentApplications` and `applications` are the names Argo CD will give the Applications they generate.
  */
 export const buildArgoCdState = (target: ArgoCdProjectTarget) => {

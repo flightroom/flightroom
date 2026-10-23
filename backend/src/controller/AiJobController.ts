@@ -9,19 +9,19 @@ import { getProjectIdFromRequest } from "../utils/requestUtils"
 const prompt = { type: "string", minLength: 1, maxLength: 8_000 }
 // Beyond 10 the service answers AI_JOB_TOO_MANY_REPOSITORIES, which the console explains; this only bounds the body.
 const frontendIds = { type: "array", maxItems: 100, items: { type: "string", pattern: "^[a-fA-F0-9]{24}$" } }
-const serviceIds = frontendIds
+const backendIds = frontendIds
 const domainId = { type: "string", pattern: "^[a-fA-F0-9]{24}$" }
 const effort = { type: "string", enum: LLM_EFFORTS }
 // An id of the organization's AIs, or `system`
 const aiModelId = { type: "string", minLength: 1, maxLength: 64 }
-// The branch each repository starts from, by frontend or service id
+// The branch each repository starts from, by frontend or backend id
 const baseBranches = { type: "object", maxProperties: 100, propertyNames: { pattern: "^[a-fA-F0-9]{24}$" }, additionalProperties: { type: "string", minLength: 1, maxLength: 255 } }
 
 const createBodySchema = {
     type: "object",
     required: ["prompt", "scope"],
     additionalProperties: false,
-    properties: { prompt, scope: { type: "string", enum: ["global", "domain", "selection"] }, domainId, frontendIds, serviceIds, baseBranches, effort, aiModelId },
+    properties: { prompt, scope: { type: "string", enum: ["global", "domain", "selection"] }, domainId, frontendIds, backendIds, baseBranches, effort, aiModelId },
     // A domain job works on the members of that domain: without it there is nothing to work on.
     if: { properties: { scope: { const: "domain" } } },
     then: { required: ["domainId"] }
@@ -43,7 +43,7 @@ const followUpBodySchema = {
     type: "object",
     required: ["prompt"],
     additionalProperties: false,
-    properties: { prompt, frontendIds, serviceIds, effort, aiModelId }
+    properties: { prompt, frontendIds, backendIds, effort, aiModelId }
 }
 
 const projectIdOf = (request: FastifyRequest) => {
@@ -53,7 +53,7 @@ const projectIdOf = (request: FastifyRequest) => {
 }
 
 /**
- * AI agent jobs on one or more repositories (frontends and services) of a project, and their follow-ups.
+ * AI agent jobs on one or more repositories (frontends and backends) of a project, and their follow-ups.
  *
  * Starting a job answers at once with the job; the console polls it until every repository has its
  * proposal. Console sessions only, like the AI changes of a single frontend.
@@ -74,7 +74,7 @@ export default async function aiJobController(fastify: FastifyInstance) {
         reply.status(202).send(await service(request).create(projectIdOf(request), request.body))
     )
 
-    // What to create in a domain without frontends nor services before a job can work on it: one model call, so the same ceiling.
+    // What to create in a domain without frontends nor backends before a job can work on it: one model call, so the same ceiling.
     fastify.post<{ Body: DomainPlanInput }>("/ai-jobs/domain-plan", { schema: { body: domainPlanBodySchema }, config: { ...config, rateLimit } }, async (request, reply) =>
         reply.send(await new DomainPlanService(request.databaseUser, fastify.config).plan(projectIdOf(request), request.body))
     )
