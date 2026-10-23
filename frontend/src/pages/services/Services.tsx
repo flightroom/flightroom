@@ -19,9 +19,9 @@ import { ServicesGrid } from "./partials/ServicesGrid"
 import { ServicesTable } from "./partials/ServicesTable"
 
 const VIEWS = [
+    { value: "galaxy", icon: Orbit, labelKey: "services.list.viewGalaxy" },
     { value: "grid", icon: LayoutGrid, labelKey: "services.list.viewGrid" },
-    { value: "table", icon: StretchHorizontal, labelKey: "services.list.viewTable" },
-    { value: "galaxy", icon: Orbit, labelKey: "services.list.viewGalaxy" }
+    { value: "table", icon: StretchHorizontal, labelKey: "services.list.viewTable" }
 ] as const
 
 type View = (typeof VIEWS)[number]["value"]
@@ -45,7 +45,7 @@ const Services = () => {
     const domainLinksApi = useDomainLinksApi()
     const [searchTerm, setSearchTerm] = useState("")
     const [domainFilter, setDomainFilter] = useState(ALL_DOMAINS)
-    const [view, setView] = useState<View>("grid")
+    const [view, setView] = useState<View>("galaxy")
 
     const servicesQuery = useQuery({
         queryKey: ["services", projectId],
