@@ -5,6 +5,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Domain, { IDomain } from "../models/DomainModel"
 import Frontend, { ICodeRepositoryFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
 import DomainDTO, { DomainBuildFailure, DomainBuildRepository, DomainBuildResult, DomainMembersDTO } from "../types/DomainDTO"
@@ -381,6 +382,7 @@ export class DomainService extends BaseAuthorizedService {
             // null, as the forms store "no domain": the filters and the counts treat it as a missing domainId
             await Frontend.updateMany(members, { $set: { domainId: null } }, { session })
             await Service.updateMany(members, { $set: { domainId: null } }, { session })
+            await MaintenanceAgent.updateMany(members, { $set: { domainId: null } }, { session })
             await UserProject.updateMany({ projectId: domain.projectId, domainIds: domain._id }, { $pull: { domainIds: domain._id } }, { session })
             await deleteLinksOfDomain(domain._id, session)
             return await Domain.findByIdAndDelete(domain._id, { session })

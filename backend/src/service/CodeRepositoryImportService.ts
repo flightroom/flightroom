@@ -3,6 +3,7 @@ import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ICodeRepository } from "../models/CodeRepositoryModel"
 import Frontend, { HostedOn, ICodeRepositoryFrontend, IFrontend, IHostFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Service, { IService } from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
 import ImportRepositoriesDTO, { ImportTarget } from "../types/ImportRepositoriesDTO"
@@ -223,11 +224,12 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
         return [...frontends, ...services]
     }
 
-    /** Frontends and services have a slug space each, so only the target's is taken */
+    /** Frontends and services have a slug space each, so only the target's is taken; the maintenance agents share both */
     private async getTakenSlugs(projectId: Schema.Types.ObjectId, target?: ImportTarget): Promise<Set<string>> {
         const filter = { projectId: toObjectId(projectId) }
         const members = target === "service" ? await Service.find(filter, { slug: 1 }) : await Frontend.find(filter, { slug: 1 })
-        return new Set(members.map(member => member.slug))
+        const agents = await MaintenanceAgent.find(filter, { slug: 1 })
+        return new Set([...members, ...agents].map(member => member.slug))
     }
 
     private reserveSlug(name: string, takenSlugs: Set<string>, target: ImportTarget = "frontend"): string {

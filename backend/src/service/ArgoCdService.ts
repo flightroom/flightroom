@@ -7,6 +7,7 @@ import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { IArgoCdError, IArgoCdRepositoryCredential, IArgoCdRepositoryRegistration, IProjectArgoCd, IProjectGitOps } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -15,7 +16,7 @@ import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
 import { GitOpsApplication, isDeployable } from "./gitops/applicationManifests"
-import { APPLICATION_LABEL, appProjectName, buildApplicationSets, buildArgoCdState, COMPONENT_LABEL, clashingName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
+import { APPLICATION_LABEL, applicationName, appProjectName, buildApplicationSets, buildArgoCdState, COMPONENT_LABEL, clashingName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
 
@@ -141,10 +142,14 @@ const nameClash = (name: string) =>
         details: { name }
     })
 
-/** The services and frontends a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
+/** The services, frontends and maintenance agents a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
 const deployableSlugs = async (projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<string[]> => {
     const fields = { slug: 1, version: 1, image: 1 }
-    const applications: GitOpsApplication[] = [...(await Service.find({ projectId }, fields)), ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields))]
+    const applications: GitOpsApplication[] = [
+        ...(await Service.find({ projectId }, fields)),
+        ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields)),
+        ...(await MaintenanceAgent.find({ projectId }, fields))
+    ]
     return applications.filter(application => isDeployable(application, containerRegistry)).map(application => application.slug)
 }
 
@@ -181,6 +186,13 @@ const gitOpsRequired = () =>
         statusCode: 422
     })
 
+const notConfigured = () =>
+    createBusinessException({
+        code: "ARGOCD_NOT_CONFIGURED",
+        message: "The project deploys through no Argo CD: turn GitOps on with an applications repository and initialize Argo CD, then deploy the agent",
+        statusCode: 422
+    })
+
 const tokenRequired = () =>
     createBusinessException({
         code: "ARGOCD_TOKEN_REQUIRED",
@@ -202,6 +214,24 @@ const tokenRequired = () =>
  * registered globally, as the git generator of an ApplicationSet reads it outside of any AppProject.
  */
 export class ArgoCdService extends BaseAuthorizedService {
+    /**
+     * Starts the CronJob of the application `slug` in `environment` now, through the Application the ApplicationSet
+     * of `slug` generated there. The CronJob is named after the Helm release, which is the slug. Whoever calls it
+     * checks who may.
+     */
+    async createJobFromCronJob(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }): Promise<void> {
+        const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
+        const argoCd = project?.argoCd
+        if (!project || !project.gitOps?.enabled || !project.gitOps.applicationsCodeRepository || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) throw notConfigured()
+        const client = new ArgoCdClient(argoCd.url, argoCd.token)
+        await client.createJobFromCronJob(
+            applicationName(String(projectId), project.slug, slug, environmentSlug(environment)),
+            appProjectName(String(projectId), project.slug),
+            environmentNamespace(environment),
+            slug
+        )
+    }
+
     /** Any member of the project sees where it is deployed from; the credentials stay behind */
     async get(projectId: string | Schema.Types.ObjectId): Promise<ArgoCdStatusDTO> {
         const projectIdObj = toObjectId(projectId)

@@ -6,8 +6,11 @@ vi.mock("..", () => ({
 }))
 
 import Frontend, { FrontendKind, HostedOn } from "../models/FrontendModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import FrontendDTO from "../types/FrontendDTO"
 import FrontendService from "./FrontendService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 

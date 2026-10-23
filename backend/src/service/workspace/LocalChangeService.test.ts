@@ -2,7 +2,10 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import CodeRepository, { CodeRepositoryProvider } from "../../models/CodeRepositoryModel"
 import Frontend from "../../models/FrontendModel"
 import Service from "../../models/ServiceModel"
+import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
 import { LocalChangeService } from "./LocalChangeService"
+
+withNoMaintenanceAgents()
 
 const HEAD = "a".repeat(40)
 const OLD = "b".repeat(40)

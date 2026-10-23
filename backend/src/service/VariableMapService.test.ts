@@ -5,8 +5,11 @@ import Frontend from "../models/FrontendModel"
 import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import VariableMapService, { normalizeEntries, resolveAttachedMaps } from "./VariableMapService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId().toString()
 const development = new Types.ObjectId().toString()

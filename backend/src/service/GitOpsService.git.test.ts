@@ -42,8 +42,11 @@ import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import GitOpsService from "./GitOpsService"
 import { RepositoryFileService } from "./RepositoryFileService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 const production = new Types.ObjectId()

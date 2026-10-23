@@ -2,8 +2,11 @@ import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import FrontendDTO from "../types/FrontendDTO"
 import FrontendService from "./FrontendService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 const domainId = new Types.ObjectId().toString()

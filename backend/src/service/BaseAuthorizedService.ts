@@ -8,6 +8,7 @@ import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepository
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Service, { IService } from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
@@ -429,11 +430,13 @@ export default abstract class BaseAuthorizedService {
         const links = linksToRepository(owner, provider ?? (await CodeRepository.findById(link.codeRepositoryId, { provider: 1 }))?.provider, link)
         // $nin also matches a document with no domain at all
         const outside = { domainId: { $nin: scope.map(id => toObjectId(id)) } }
-        const [frontendOutside, serviceOutside] = await Promise.all([
+        // A maintenance agent links its repository as a service does
+        const [frontendOutside, serviceOutside, agentOutside] = await Promise.all([
             links.frontends ? Frontend.exists({ ...links.frontends, ...outside }) : null,
-            links.services ? Service.exists({ ...links.services, ...outside }) : null
+            links.services ? Service.exists({ ...links.services, ...outside }) : null,
+            links.services ? MaintenanceAgent.exists({ ...links.services, ...outside }) : null
         ])
-        if (frontendOutside || serviceOutside) {
+        if (frontendOutside || serviceOutside || agentOutside) {
             throw domainScopeForbidden()
         }
     }

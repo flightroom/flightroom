@@ -16,8 +16,11 @@ import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import DomainService, { resolveDomainId } from "./DomainService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId().toString()
 const domainId = new Types.ObjectId()

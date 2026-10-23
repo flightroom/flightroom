@@ -19,6 +19,7 @@ import { domainTools } from "./tools/domainTools"
 import { environmentTools } from "./tools/environmentTools"
 import { frontendTools } from "./tools/frontendTools"
 import { localChangeTools } from "./tools/localChangeTools"
+import { maintenanceAgentTools } from "./tools/maintenanceAgentTools"
 import { organizationAdminTools } from "./tools/organizationAdminTools"
 import { organizationTools } from "./tools/organizationTools"
 import { projectAdminTools } from "./tools/projectAdminTools"
@@ -57,6 +58,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     ...projectTools,
     ...frontendTools,
     ...serviceTools,
+    ...maintenanceAgentTools,
     ...domainTools,
     ...domainLinkTools,
     ...domainDeploymentTools,

@@ -25,8 +25,11 @@ import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import FrontendDTO from "../types/FrontendDTO"
 import FrontendService from "./FrontendService"
+
+withNoMaintenanceAgents()
 
 type WithGates = {
     ensureAccessToProject: () => Promise<void>

@@ -5,6 +5,7 @@ import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import BuiltService, { IBuiltService } from "../models/BuiltServiceModel"
 import CodeRepository from "../models/CodeRepositoryModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service, { IService } from "../models/ServiceModel"
@@ -177,8 +178,9 @@ export class ServiceService extends BaseAuthorizedService {
         ensureOnlyNewRepositoryLinked(scope, service.codeRepository)
 
         // Both before the repository is created: a refused save would leave an orphan repository behind
-        if (await Service.exists({ slug, projectId: projectIdObj })) {
-            throw createBusinessException({ code: "SERVICE_SLUG_TAKEN", message: `A service with slug "${slug}" already exists in this project`, statusCode: 409 })
+        // A maintenance agent's values file is named after its slug as well, next to the service's
+        if ((await Service.exists({ slug, projectId: projectIdObj })) || (await MaintenanceAgent.exists({ slug, projectId: projectIdObj }))) {
+            throw createBusinessException({ code: "SERVICE_SLUG_TAKEN", message: `A service or a maintenance agent with slug "${slug}" already exists in this project`, statusCode: 409 })
         }
         try {
             await new Service({ ...service, projectId: projectIdObj }).validate()
@@ -279,6 +281,7 @@ export class ServiceService extends BaseAuthorizedService {
         await BuiltService.deleteMany({ serviceId: service._id })
         await ServiceDeployment.deleteMany({ serviceId: service._id })
         const deleted = await Service.findByIdAndDelete(service._id)
+        await MaintenanceAgent.updateMany({ projectId: service.projectId, serviceIds: service._id }, { $pull: { serviceIds: service._id } })
         // The local clone and the AI change requests go with it, as for a frontend.
         await forgetServices([service])
         return deleted
@@ -328,7 +331,14 @@ export class ServiceService extends BaseAuthorizedService {
         if (!project) {
             throw new ProjectNotFoundError(projectId)
         }
-        const service = await Service.findOne({ slug: serviceSlug.trim().toLowerCase(), projectId: toObjectId(projectId) })
+        const slug = serviceSlug.trim().toLowerCase()
+        // A maintenance agent is scaffolded from the templates of the services: its CI registers here too, by its slug
+        let model = Service
+        let service: IService | null = await Service.findOne({ slug, projectId: toObjectId(projectId) })
+        if (!service) {
+            model = MaintenanceAgent as unknown as typeof Service
+            service = (await MaintenanceAgent.findOne({ slug, projectId: toObjectId(projectId) })) as unknown as IService | null
+        }
         if (!service) {
             throw new EntityNotFoundError(serviceSlug)
         }
@@ -368,9 +378,9 @@ export class ServiceService extends BaseAuthorizedService {
             if (isNewerVersion(trimmedVersion, current.version)) updates.version = trimmedVersion
             if (!current.image?.repository?.trim()) updates["image.repository"] = imageRepositoryOf(registration.image)
             if (Object.keys(updates).length === 0) break
-            const result = await Service.updateOne({ _id: service._id, version: current.version ?? null }, { $set: updates })
+            const result = await model.updateOne({ _id: service._id, version: current.version ?? null }, { $set: updates })
             if (result.matchedCount > 0) break
-            current = await Service.findById(service._id)
+            current = await model.findById(service._id)
         }
 
         return built as IBuiltService

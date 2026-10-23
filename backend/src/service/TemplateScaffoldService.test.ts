@@ -78,6 +78,7 @@ import { IMarket } from "../models/MarketModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import FrontendService from "./FrontendService"
@@ -85,6 +86,8 @@ import MarketService from "./MarketService"
 import ServiceService from "./ServiceService"
 import TemplateScaffoldService, { PipelineTemplates, placeholderDomain, replaceFederationName, TagLookupError } from "./TemplateScaffoldService"
 import RepositoryWorkspaceService from "./workspace/RepositoryWorkspaceService"
+
+withNoMaintenanceAgents()
 
 const servicePlaceholders = { "%serviceSlug%": "orders-api", "%domain%": "https://console.example.com" }
 

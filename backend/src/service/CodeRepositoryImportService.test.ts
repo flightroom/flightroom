@@ -5,8 +5,11 @@ import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Service from "../models/ServiceModel"
 import Storage from "../models/StorageModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId().toString()
 const domainId = new Types.ObjectId().toString()

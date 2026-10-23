@@ -23,6 +23,9 @@ const FrontendAiWorkspace = lazy(() => import("./pages/frontends/FrontendAiWorks
 const Services = lazy(() => import("./pages/services/Services"))
 const AddService = lazy(() => import("./pages/services/AddService"))
 const ServiceDetail = lazy(() => import("./pages/services/ServiceDetail"))
+const MaintenanceAgents = lazy(() => import("./pages/maintenance-agents/MaintenanceAgents"))
+const AddMaintenanceAgent = lazy(() => import("./pages/maintenance-agents/AddMaintenanceAgent"))
+const MaintenanceAgentDetail = lazy(() => import("./pages/maintenance-agents/MaintenanceAgentDetail"))
 const VariableMaps = lazy(() => import("./pages/variable-maps/VariableMaps"))
 const VariableMapForm = lazy(() => import("./pages/variable-maps/VariableMapForm"))
 const Resources = lazy(() => import("./pages/resources/Resources"))
@@ -140,6 +143,10 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/service/:id/ai" element={<RouteWithSuspense element={<ServiceDetail view="ai" />} />} />
                 <Route path="/service/:id/overview" element={<RouteWithSuspense element={<ServiceDetail />} />} />
                 <Route path="/service/:id/settings" element={<RouteWithSuspense element={<AddService />} />} />
+                <Route path="/maintenance-agents" element={<RouteWithSuspense element={<MaintenanceAgents />} />} />
+                <Route path="/maintenance-agent/new" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
+                <Route path="/maintenance-agent/:id" element={<RouteWithSuspense element={<MaintenanceAgentDetail />} />} />
+                <Route path="/maintenance-agent/:id/settings" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
                 <Route path="/config-maps" element={<RouteWithSuspense element={<VariableMaps kind="configMap" />} />} />
                 <Route path="/config-map/:id" element={<RouteWithSuspense element={<VariableMapForm kind="configMap" />} />} />
                 <Route path="/secrets" element={<RouteWithSuspense element={<VariableMaps kind="secret" />} />} />

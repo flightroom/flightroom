@@ -4,10 +4,13 @@ import Environment from "../models/EnvironmentModel"
 import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { RESOURCE_CATALOG } from "../types/ResourceCatalog"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import { parseApiDocument } from "./aiChange/apiSpecReader"
 import ResourceService, { ensureAttachableResources, ensureValidApiSpec, normalizeResourceFields, resourceIdsInScope, withResourcesOutOfScope } from "./ResourceService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId().toString()
 const development = new Types.ObjectId().toString()

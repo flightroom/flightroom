@@ -33,15 +33,19 @@ import { ApiKeyRole } from "../models/ApiKeyModel"
 import BuiltService from "../models/BuiltServiceModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { FrontendStackSource } from "../types/FrontendStack"
 import ServiceDTO from "../types/ServiceDTO"
 import { ServiceRuntime } from "../types/ServiceStack"
 import ServiceService, { imageRepositoryOf, isNewerVersion } from "./ServiceService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId().toString()
 const serviceId = new Types.ObjectId()
@@ -75,6 +79,19 @@ describe("ServiceService.registerVersionWithPermissionCheck", () => {
         await expect(refusal).rejects.toMatchObject({ statusCode: 403 })
         expect(findOne).not.toHaveBeenCalled()
         expect(upsert).not.toHaveBeenCalled()
+        expect(updateOne).not.toHaveBeenCalled()
+    })
+
+    it("given no service but a maintenance agent with the slug, when its CI registers a version, then the agent moves to it", async () => {
+        const agentId = new Types.ObjectId()
+        findOne.mockResolvedValue(null)
+        vi.spyOn(MaintenanceAgent, "findOne").mockResolvedValue({ _id: agentId, slug: "cleaner" } as never)
+        const agentUpdate = vi.spyOn(MaintenanceAgent, "updateOne").mockResolvedValue({ matchedCount: 1 } as never)
+
+        await register({ image: "ghcr.io/acme/cleaner:1.2.0" }, "cleaner")
+
+        expect(upsert.mock.calls[0][0]).toEqual({ serviceId: agentId, version: "1.2.0" })
+        expect(agentUpdate).toHaveBeenCalledWith({ _id: agentId, version: null }, { $set: { version: "1.2.0", "image.repository": "ghcr.io/acme/cleaner" } })
         expect(updateOne).not.toHaveBeenCalled()
     })
 

@@ -1,7 +1,8 @@
 import { Types } from "mongoose"
 import { describe, expect, it } from "vitest"
 import { parse } from "yaml"
-import { APPLICATIONS_CHART_FOLDER, applicationImageRepository, CHART_FILES, isDeployable, MANAGED_VALUES_MARKER, renderApplicationValues, splitImage } from "./applicationManifests"
+import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
+import { APPLICATIONS_CHART_FOLDER, applicationImageRepository, CHART_FILES, isDeployable, MANAGED_VALUES_MARKER, PAUSED_SCHEDULE, renderApplicationValues, splitImage } from "./applicationManifests"
 
 describe("splitImage", () => {
     it.each([
@@ -115,7 +116,55 @@ describe("renderApplicationValues", () => {
     })
 })
 
+describe("renderApplicationValues, maintenance agent", () => {
+    const environment = { _id: new Types.ObjectId(), slug: "production" }
+    const mapNames = { configMaps: new Map<string, string>(), secrets: new Map<string, string>() }
+    const targets = [{ kind: "service" as const, slug: "orders", url: "http://orders" }]
+    const agent = (maintenance: Partial<{ kind: MaintenanceAgentKind; schedule: string | null; timeZone: string | null; runPath: string }>) =>
+        parse(
+            renderApplicationValues(
+                { slug: "cleaner", version: "1.0.0", image: { repository: "ghcr.io/acme/cleaner" }, maintenance: { kind: MaintenanceAgentKind.JOB, runPath: "/run", targets, ...maintenance } },
+                environment,
+                mapNames
+            )
+        )
+
+    it("given a job with a schedule, when its values are rendered, then the CronJob runs on it and the Deployment runs nothing", () => {
+        const values = agent({ schedule: "0 3 * * *", timeZone: "Europe/Rome" })
+
+        expect(values.maintenance).toEqual({ schedule: "0 3 * * *", suspend: false, timeZone: "Europe/Rome" })
+        expect(values.replicas).toBe(0)
+        expect(values.expose).toEqual({ service: false })
+    })
+
+    it("given no schedule, when its values are rendered, then the CronJob is suspended until Play starts it", () => {
+        expect(agent({ schedule: null }).maintenance).toEqual({ schedule: PAUSED_SCHEDULE, suspend: true })
+    })
+
+    it("given a container, when its values are rendered, then it keeps its Deployment and the CronJob calls its run path inside the environment", () => {
+        const values = agent({ kind: MaintenanceAgentKind.CONTAINER, schedule: "@hourly", runPath: "/jobs/clean" })
+
+        expect(values.replicas).toBe(1)
+        expect(values.maintenance.trigger).toEqual({ url: "http://cleaner/jobs/clean" })
+    })
+
+    it("given targets, when its values are rendered, then the container receives them as JSON", () => {
+        expect(agent({}).env).toEqual([{ name: "MAINTAINED_TARGETS", value: JSON.stringify(targets) }])
+    })
+
+    it("given a service, when its values are rendered, then there is no CronJob", () => {
+        const values = parse(renderApplicationValues({ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, environment, mapNames))
+
+        expect(values.maintenance).toBeUndefined()
+        expect(values.env).toBeUndefined()
+    })
+})
+
 describe("CHART_FILES", () => {
+    it("given the chart, when its files are listed, then the CronJob template is a file of its own", () => {
+        expect(CHART_FILES.map(file => file.path)).toContain(`${APPLICATIONS_CHART_FOLDER}/templates/cronjob.yaml`)
+    })
+
     it("given the chart, when its files are listed, then they all sit in the chart folder and include Chart.yaml", () => {
         expect(CHART_FILES.every(file => file.path.startsWith(`${APPLICATIONS_CHART_FOLDER}/`))).toBe(true)
         expect(CHART_FILES.map(file => file.path)).toContain(`${APPLICATIONS_CHART_FOLDER}/Chart.yaml`)

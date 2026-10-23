@@ -1,4 +1,5 @@
 import { stringify } from "yaml"
+import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 
 /**
  * The applications repository of GitOps, laid out as an `applications-infra` repository: one branch per
@@ -25,8 +26,57 @@ export interface GitOpsApplication {
     readinessPath?: string
     configMapIds?: unknown[]
     secretIds?: unknown[]
-    /** A backend service only: each one is a Secret of its own in the configuration repository */
+    /** A backend service or a maintenance agent: each one is a Secret of its own in the configuration repository */
     resourceIds?: unknown[]
+    /** A maintenance agent only: what its CronJob is made from */
+    maintenance?: ApplicationMaintenance
+}
+
+/** What a maintenance agent adds to its values: a CronJob, and for a JOB a Deployment that runs nothing */
+export interface ApplicationMaintenance {
+    kind: MaintenanceAgentKind
+    /** Null when it runs on Play only: the CronJob is then suspended */
+    schedule?: string | null
+    timeZone?: string | null
+    runPath: string
+    /** The services and frontends it maintains, handed to the container as MAINTAINED_TARGETS */
+    targets: MaintainedTarget[]
+}
+
+export interface MaintainedTarget {
+    kind: "service" | "frontend"
+    slug: string
+    /** Inside the namespace of the environment, for those that run as a container */
+    url?: string
+}
+
+/** A suspended CronJob still needs a schedule: one that is never reached as long as it is suspended */
+export const PAUSED_SCHEDULE = "0 0 1 1 *"
+
+/** The name of the environment variable that lists the targets of a maintenance agent, as JSON */
+export const MAINTAINED_TARGETS_VARIABLE = "MAINTAINED_TARGETS"
+
+/** A container application of the environment answers on port 80 of the Service named after it */
+export const inClusterUrl = (slug: string, path = "") => `http://${slug}${path}`
+
+/**
+ * The values a maintenance agent adds. A CONTAINER keeps its Deployment, and its CronJob POSTs to its run path;
+ * a JOB has a Deployment with no replicas, as the chart of a branch may be one written before the CronJob, and its
+ * CronJob runs its image.
+ */
+const maintenanceValues = (application: GitOpsApplication, maintenance: ApplicationMaintenance) => {
+    const isJob = maintenance.kind === MaintenanceAgentKind.JOB
+    const schedule = maintenance.schedule?.trim()
+    return {
+        ...(isJob ? { replicas: 0, expose: { service: false } } : {}),
+        env: [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(maintenance.targets) }],
+        maintenance: {
+            schedule: schedule || PAUSED_SCHEDULE,
+            suspend: !schedule,
+            ...(maintenance.timeZone?.trim() ? { timeZone: maintenance.timeZone.trim() } : {}),
+            ...(isJob ? {} : { trigger: { url: inClusterUrl(application.slug, maintenance.runPath) } })
+        }
+    }
 }
 
 /** The values file of an application, at the root of the branch of each environment */
@@ -87,7 +137,8 @@ export const renderApplicationValues = (
         },
         environmentMaps: names(application.configMapIds, mapNames.configMaps),
         secrets: [...names(application.secretIds, mapNames.secrets), ...names(application.resourceIds, mapNames.resources ?? new Map())],
-        ...(route ? { route } : {})
+        ...(route ? { route } : {}),
+        ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }
     return `${MANAGED_VALUES_MARKER}\n# Written by every deploy of ${environment.slug}: a change made here is overwritten.\n${stringify(values)}`
 }
@@ -312,6 +363,73 @@ spec:
 {{- end }}
 `
 
+/**
+ * The CronJob of a maintenance agent: on its schedule, or suspended when it runs on Play only, which starts it
+ * through Argo CD. It runs the image of a JOB, or calls the run path of a CONTAINER. Its pods are labelled apart,
+ * so the Service of the application never sends them requests.
+ */
+const CRONJOB_TEMPLATE = `{{- if .Values.maintenance }}
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app.kubernetes.io/component: maintenance
+    app.kubernetes.io/name: {{ .Release.Name }}
+spec:
+  schedule: {{ .Values.maintenance.schedule | quote }}
+  {{- with .Values.maintenance.timeZone }}
+  timeZone: {{ . | quote }}
+  {{- end }}
+  suspend: {{ .Values.maintenance.suspend }}
+  concurrencyPolicy: Forbid
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  jobTemplate:
+    spec:
+      backoffLimit: 0
+      ttlSecondsAfterFinished: 86400
+      template:
+        metadata:
+          labels:
+            app: {{ .Release.Name }}-run
+        spec:
+          restartPolicy: Never
+          containers:
+            {{- if .Values.maintenance.trigger }}
+            - name: trigger
+              image: {{ .Values.maintenance.trigger.image | default "curlimages/curl:8.10.1" }}
+              args: ["--fail", "--silent", "--show-error", "--max-time", "3600", "-X", "POST", {{ .Values.maintenance.trigger.url | quote }}]
+              resources:
+                requests:
+                  cpu: 10m
+                  memory: 16Mi
+                limits:
+                  cpu: 100m
+                  memory: 64Mi
+            {{- else }}
+            - name: {{ .Release.Name }}
+              image: {{ .Values.image.host }}/{{ .Values.image.name }}:{{ .Values.image.tag }}
+              resources:
+                {{- toYaml .Values.resources | nindent 16 }}
+              env:
+                {{- range .Values.env }}
+                - name: {{ .name }}
+                  value: {{ .value | quote }}
+                {{- end }}
+              envFrom:
+                {{- range .Values.environmentMaps }}
+                - configMapRef:
+                    name: {{ . }}
+                {{- end }}
+                {{- range .Values.secrets }}
+                - secretRef:
+                    name: {{ . }}
+                {{- end }}
+            {{- end }}
+{{- end }}
+`
+
 /** Written on a branch only when it is not there yet: the chart is the team's to change afterwards */
 export const CHART_FILES: Array<{ path: string; content: string }> = [
     { path: `${APPLICATIONS_CHART_FOLDER}/Chart.yaml`, content: CHART_YAML },
@@ -319,5 +437,7 @@ export const CHART_FILES: Array<{ path: string; content: string }> = [
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/deployment.yaml`, content: DEPLOYMENT_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/service.yaml`, content: SERVICE_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/ingress.yaml`, content: INGRESS_TEMPLATE },
-    { path: `${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`, content: HTTPROUTE_TEMPLATE }
+    { path: `${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`, content: HTTPROUTE_TEMPLATE },
+    // A file of its own, so the branches whose chart was written before maintenance agents get it too
+    { path: `${APPLICATIONS_CHART_FOLDER}/templates/cronjob.yaml`, content: CRONJOB_TEMPLATE }
 ]

@@ -2,8 +2,11 @@ import { Types } from "mongoose"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import Frontend, { HostedOn } from "../models/FrontendModel"
 import Storage from "../models/StorageModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import FrontendDTO from "../types/FrontendDTO"
 import FrontendService from "./FrontendService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 

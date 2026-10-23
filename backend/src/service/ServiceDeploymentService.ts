@@ -2,6 +2,7 @@ import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import Environment from "../models/EnvironmentModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import ServiceDeployment, { IServiceDeployment, SERVICE_DEPLOYMENT_COMMIT_SHA_MAX_LENGTH, SERVICE_DEPLOYMENT_IMAGE_MAX_LENGTH } from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import { SERVICE_VERSION } from "../types/ServiceStack"
@@ -82,7 +83,9 @@ export class ServiceDeploymentService extends BaseAuthorizedService {
         const registration = parseRegistration(body)
 
         const projectIdObj = toObjectId(projectId)
-        const service = await Service.findOne({ slug: serviceSlug.trim().toLowerCase(), projectId: projectIdObj })
+        const slug = serviceSlug.trim().toLowerCase()
+        // A maintenance agent runs the pipeline of a service: its deploys are kept the same way, under its id
+        const service = (await Service.findOne({ slug, projectId: projectIdObj })) ?? (await MaintenanceAgent.findOne({ slug, projectId: projectIdObj }))
         if (!service) {
             throw new EntityNotFoundError(serviceSlug)
         }

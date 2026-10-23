@@ -22,10 +22,13 @@ import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
 import { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
 import { FrontendFramework } from "../../types/FrontendStack"
 import { BackendTechnology } from "../../types/ProjectTechnology"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import DomainPlanService, { sanitizePlan } from "./DomainPlanService"
+
+withNoMaintenanceAgents()
 
 type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
 

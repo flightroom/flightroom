@@ -3,6 +3,7 @@ import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import Domain from "../../models/DomainModel"
 import Frontend from "../../models/FrontendModel"
+import MaintenanceAgent from "../../models/MaintenanceAgentModel"
 import { IMarket } from "../../models/MarketModel"
 import Project from "../../models/ProjectModel"
 import Resource from "../../models/ResourceModel"
@@ -164,15 +165,17 @@ export class DomainPlanService extends AiChangeBaseService {
         // A domain-scoped member is told of the resources they may read only, as the console lists them
         const scope = await this.getDomainScope(projectIdObj)
         const visibleResources = scope ? { _id: { $in: [...(await resourceIdsInScope(projectIdObj, scope))].map(id => toObjectId(id)) } } : {}
-        const [project, templates, frontends, services, resources] = await Promise.all([
+        const [project, templates, frontends, services, resources, agents] = await Promise.all([
             Project.findById(projectIdObj, { name: 1, context: 1, technologies: 1 }),
             new MarketService().getAll(),
             Frontend.find({ projectId: projectIdObj }, { slug: 1 }),
             Service.find({ projectId: projectIdObj }, { slug: 1 }),
             // What a service of the domain can attach instead of a component of its own: never a value of one
-            Resource.find({ projectId: projectIdObj, ...visibleResources }, { name: 1, type: 1, description: 1 })
+            Resource.find({ projectId: projectIdObj, ...visibleResources }, { name: 1, type: 1, description: 1 }),
+            // A maintenance agent takes its slug from both
+            MaintenanceAgent.find({ projectId: projectIdObj }, { slug: 1 })
         ])
-        const taken = { frontend: new Set(frontends.map(item => item.slug)), service: new Set(services.map(item => item.slug)) }
+        const taken = { frontend: new Set([...frontends, ...agents].map(item => item.slug)), service: new Set([...services, ...agents].map(item => item.slug)) }
         const technologies = project?.technologies
         const templateList = (kind: RepositoryComponentKind) => {
             const fallback = defaultTemplateOf(templates, kind, technologies)
