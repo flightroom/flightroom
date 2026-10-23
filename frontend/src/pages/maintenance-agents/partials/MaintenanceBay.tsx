@@ -4,10 +4,10 @@ import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { resourceBrand, resourceTypeGlyph } from "@/components/resource/resourceIcons"
+import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import type { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
-import type { Service } from "@/hooks/apiClients/useServicesApi"
 import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
 import { cn } from "@/utils/styleUtils"
 import { DroneGlyph, ShuttleGlyph, STATUS_DOT_CLASS, StatusLight } from "./MaintenanceBadges"
@@ -15,7 +15,7 @@ import { describeCron, type MaintenanceStatus, maintenanceAgentPath, maintenance
 
 interface MaintenanceBayProps {
     agents: MaintenanceAgent[]
-    services: Service[]
+    backends: Backend[]
     frontends: Frontend[]
     /** The resources of the project: the ones an agent attaches stand next to its bay as canisters */
     resources?: Resource[]
@@ -25,10 +25,10 @@ interface MaintenanceBayProps {
     variant?: "deck" | "single"
 }
 
-/** A service or a frontend some agent maintains, seen through the window */
+/** A backend or a frontend some agent maintains, seen through the window */
 interface WorldSpot {
     key: string
-    kind: "service" | "frontend"
+    kind: "backend" | "frontend"
     /** Shortened to the room it has in the window */
     label: string
     name: string
@@ -73,7 +73,7 @@ interface Hull {
     visor: string
     hazard: string
     hazardDark: string
-    service: string
+    backend: string
     canister: string
     flame: string
     nebulae: [string, string]
@@ -105,7 +105,7 @@ const HULLS: Record<"dark" | "light", Hull> = {
         visor: "#07202D",
         hazard: "#FCCA46", // sunglow-200
         hazardDark: "#0C2533",
-        service: "162 28% 61%", // zomp-400
+        backend: "162 28% 61%", // zomp-400
         canister: "162 51% 81%", // zomp-200
         flame: "44 97% 63%", // sunglow-200
         nebulae: ["162 28% 61%", "24 99% 59%"], // zomp-400, pumpkin-400
@@ -131,7 +131,7 @@ const HULLS: Record<"dark" | "light", Hull> = {
         visor: "#07202D",
         hazard: "#D3A312", // sunglow-400
         hazardDark: "#E4EFF6",
-        service: "163 27% 41%", // zomp-600
+        backend: "163 27% 41%", // zomp-600
         canister: "164 33% 31%", // zomp-700
         flame: "45 84% 45%", // sunglow-400
         nebulae: ["162 23% 49%", "26 92% 47%"], // zomp-500, pumpkin-500
@@ -235,10 +235,10 @@ const ANIMATIONS = `
 /** The gradients and patterns of the station, once per instance: the cards of the compact deck reference them too. */
 const StationDefs: React.FC<{ id: string; hull: Hull; primary: string; isDark: boolean }> = ({ id, hull, primary, isDark }) => (
     <defs>
-        {(["service", "frontend"] as const).map(kind => (
+        {(["backend", "frontend"] as const).map(kind => (
             <radialGradient key={kind} id={`${id}-glow-${kind}`}>
-                <stop offset="0.3" stopColor={`hsl(${kind === "service" ? hull.service : primary} / ${hull.glowAlpha})`} />
-                <stop offset="1" stopColor={`hsl(${kind === "service" ? hull.service : primary} / 0)`} />
+                <stop offset="0.3" stopColor={`hsl(${kind === "backend" ? hull.backend : primary} / ${hull.glowAlpha})`} />
+                <stop offset="1" stopColor={`hsl(${kind === "backend" ? hull.backend : primary} / 0)`} />
             </radialGradient>
         ))}
         {/* Lit from the upper left: a soft highlight, the far side in shadow */}
@@ -505,12 +505,12 @@ const BayArt: React.FC<BayArtProps> = ({ bay, id, hull, primary, statusColor, pl
 }
 
 /**
- * The maintenance bay of the station: through the long window, the worlds the agents maintain (the services
+ * The maintenance bay of the station: through the long window, the worlds the agents maintain (the backends
  * and the frontends, as the galaxies draw them); below, a deck with a bay per agent. An always-on container is a
  * drone on its powered tether, a job a shuttle docked under a crane. A beam runs from each bay to each world it
  * maintains, the resources it attaches stand next to it as canisters, its light says how it runs.
  */
-export const MaintenanceBay: React.FC<MaintenanceBayProps> = ({ agents, services, frontends, resources = [], onRun, variant = "deck" }) => {
+export const MaintenanceBay: React.FC<MaintenanceBayProps> = ({ agents, backends, frontends, resources = [], onRun, variant = "deck" }) => {
     const { t, i18n } = useTranslation()
     const navigate = useNavigate()
     const containerRef = useRef<HTMLDivElement>(null)
@@ -537,7 +537,7 @@ export const MaintenanceBay: React.FC<MaintenanceBayProps> = ({ agents, services
     const statusColor = (status: MaintenanceStatus) => (status === "recent" ? primary : hull[status])
 
     const layout = useMemo(() => {
-        const servicesById = new Map(services.map(service => [service._id!, service]))
+        const backendsById = new Map(backends.map(backend => [backend._id!, backend]))
         const frontendsById = new Map(frontends.map(frontend => [frontend._id!, frontend]))
         const resourcesById = new Map(resources.map(resource => [resource._id!, resource]))
 
@@ -555,7 +555,7 @@ export const MaintenanceBay: React.FC<MaintenanceBayProps> = ({ agents, services
                 y: deckTop + row * (BAY_H + GAP_Y),
                 status: maintenanceStatusOf(agent, now),
                 targets: [
-                    ...agent.serviceIds.filter(target => servicesById.has(target)).map(target => `service:${target}`),
+                    ...agent.backendIds.filter(target => backendsById.has(target)).map(target => `backend:${target}`),
                     ...agent.frontendIds.filter(target => frontendsById.has(target)).map(target => `frontend:${target}`)
                 ],
                 resources: agent.resourceIds.flatMap(resourceId => resourcesById.get(resourceId) ?? []),
@@ -576,23 +576,23 @@ export const MaintenanceBay: React.FC<MaintenanceBayProps> = ({ agents, services
         const spacing = keys.length ? inner / keys.length : inner
         const baseRadius = compact ? 6 : Math.max(7, Math.min(13, spacing * 0.15))
         const worlds: WorldSpot[] = keys.map((key, index) => {
-            const [kind, targetId] = key.split(":") as ["service" | "frontend", string]
-            const member = kind === "service" ? servicesById.get(targetId)! : frontendsById.get(targetId)!
+            const [kind, targetId] = key.split(":") as ["backend" | "frontend", string]
+            const member = kind === "backend" ? backendsById.get(targetId)! : frontendsById.get(targetId)!
             return {
                 key,
                 kind,
                 label: truncate(member.name, Math.max(6, Math.floor(spacing / 6.6))),
                 name: member.name,
-                path: kind === "service" ? `/service/${targetId}` : `/frontend/${targetId}`,
+                path: kind === "backend" ? `/backend/${targetId}` : `/frontend/${targetId}`,
                 x: PAD + 24 + spacing * (index + 0.5),
                 y: compact ? WINDOW_Y + windowHeight / 2 + (index % 2 ? -10 : 10) : WINDOW_Y + windowHeight * 0.6 + (index % 2 ? -14 : 12),
                 r: baseRadius + Math.min(4, users.get(key)!.length - 1) * (compact ? 0.6 : 1.3),
-                hue: kind === "service" ? hull.service : primary,
+                hue: kind === "backend" ? hull.backend : primary,
                 showLabel: !compact && spacing >= 70
             }
         })
         return { bays, worlds, height, deckTop }
-    }, [agents, services, frontends, resources, width, now, windowHeight, compact, hull, primary])
+    }, [agents, backends, frontends, resources, width, now, windowHeight, compact, hull, primary])
 
     const { bays, worlds, height, deckTop } = layout
     const worldsByKey = new Map(worlds.map(world => [world.key, world]))

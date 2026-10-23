@@ -16,7 +16,7 @@ const listFrontends = vi.fn()
 const getFrontend = vi.fn()
 const createFrontend = vi.fn()
 const updateFrontend = vi.fn()
-const listServices = vi.fn()
+const listBackends = vi.fn()
 const getContext = vi.fn()
 const listResources = vi.fn()
 
@@ -51,7 +51,7 @@ vi.mock("../../service/FrontendService", () => ({
         update: (...args: unknown[]) => updateFrontend(...args)
     })
 }))
-vi.mock("../../service/ServiceService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => listServices(...args) }) }))
+vi.mock("../../service/BackendService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => listBackends(...args) }) }))
 vi.mock("../../service/ProjectService", () => ({ default: serviceClass({ getContext: (...args: unknown[]) => getContext(...args) }) }))
 vi.mock("../../service/ResourceService", () => ({ ResourceService: serviceClass({ getByProjectId: (...args: unknown[]) => listResources(...args) }) }))
 
@@ -59,7 +59,7 @@ const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const DOMAIN = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const FOREIGN_DOMAIN = "cccccccccccccccccccccccc"
 const FRONTEND = "dddddddddddddddddddddddd"
-const SERVICE = "eeeeeeeeeeeeeeeeeeeeeeee"
+const BACKEND = "eeeeeeeeeeeeeeeeeeeeeeee"
 
 const tools = [...domainTools, ...frontendTools]
 const tool = (name: string) => tools.find(candidate => candidate.name === name)!
@@ -81,7 +81,7 @@ const domain = { _id: DOMAIN, name: "Checkout", slug: "checkout", toObject: () =
 
 describe("domain tools", () => {
     beforeEach(() => {
-        for (const mock of [listDomains, getDomain, createDomain, updateDomain, deleteDomain, buildDomain, listFrontends, getFrontend, createFrontend, updateFrontend, listServices, listResources]) {
+        for (const mock of [listDomains, getDomain, createDomain, updateDomain, deleteDomain, buildDomain, listFrontends, getFrontend, createFrontend, updateFrontend, listBackends, listResources]) {
             mock.mockReset()
         }
         principals.length = 0
@@ -97,7 +97,7 @@ describe("domain tools", () => {
     })
 
     it("given domains with members, when listed, then the counts the service returns come back from the project of the token", async () => {
-        const domains = [{ _id: DOMAIN, name: "Checkout", frontendsCount: 2, servicesCount: 1 }]
+        const domains = [{ _id: DOMAIN, name: "Checkout", frontendsCount: 2, backendsCount: 1 }]
         listDomains.mockResolvedValue(domains)
 
         expect(await run("domains_list", {})).toEqual(domains)
@@ -105,34 +105,34 @@ describe("domain tools", () => {
         expect(principals[0]).toMatchObject({ restrictedToProjectIds: [PROJECT] })
     })
 
-    it("given a domain, when read, then its frontends and services are listed by id, name and slug, with the AI context of the domain", async () => {
-        const aiContext = { project: { id: PROJECT, name: "Shop" }, domains: [{ id: DOMAIN, slug: "checkout", name: "Checkout", context: "Prices are in cents" }], frontends: [], services: [] }
+    it("given a domain, when read, then its frontends and backends are listed by id, name and slug, with the AI context of the domain", async () => {
+        const aiContext = { project: { id: PROJECT, name: "Shop" }, domains: [{ id: DOMAIN, slug: "checkout", name: "Checkout", context: "Prices are in cents" }], frontends: [], backends: [] }
         getContext.mockResolvedValue(aiContext)
         getDomain.mockResolvedValue(domain)
         listFrontends.mockResolvedValue([
             { _id: FRONTEND, name: "Cart", slug: "cart", domainId: DOMAIN, version: "1.0.0" },
             { _id: "ffffffffffffffffffffffff", name: "Search", slug: "search", domainId: null }
         ])
-        listServices.mockResolvedValue([{ _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN, port: 8080 }])
+        listBackends.mockResolvedValue([{ _id: BACKEND, name: "Orders API", slug: "orders-api", domainId: DOMAIN, port: 8080 }])
 
         expect(await run("domain_get", { domainId: DOMAIN })).toEqual({
             _id: DOMAIN,
             name: "Checkout",
             slug: "checkout",
             frontends: [{ _id: FRONTEND, name: "Cart", slug: "cart" }],
-            services: [{ _id: SERVICE, name: "Orders API", slug: "orders-api" }],
+            backends: [{ _id: BACKEND, name: "Orders API", slug: "orders-api" }],
             aiContext
         })
         expect(getContext).toHaveBeenCalledWith(PROJECT, { domainId: DOMAIN })
     })
 
-    it("given a domain whose services attach resources, when read, then each is listed with its variables and the services using it, and resources are read only then", async () => {
+    it("given a domain whose backends attach resources, when read, then each is listed with its variables and the backends using it, and resources are read only then", async () => {
         getContext.mockResolvedValue({})
         getDomain.mockResolvedValue(domain)
         listFrontends.mockResolvedValue([])
         const database = "abababababababababababab"
-        listServices.mockResolvedValue([
-            { _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN, resourceIds: [database] },
+        listBackends.mockResolvedValue([
+            { _id: BACKEND, name: "Orders API", slug: "orders-api", domainId: DOMAIN, resourceIds: [database] },
             { _id: "ffffffffffffffffffffffff", name: "Search", slug: "search", domainId: null, resourceIds: ["cdcdcdcdcdcdcdcdcdcdcdcd"] }
         ])
         listResources.mockResolvedValue([
@@ -149,11 +149,11 @@ describe("domain tools", () => {
         expect(listResources).toHaveBeenCalledWith(PROJECT)
     })
 
-    it("given a domain whose services attach none, when read, then no resource is read nor listed", async () => {
+    it("given a domain whose backends attach none, when read, then no resource is read nor listed", async () => {
         getContext.mockResolvedValue({})
         getDomain.mockResolvedValue(domain)
         listFrontends.mockResolvedValue([])
-        listServices.mockResolvedValue([{ _id: SERVICE, name: "Orders API", slug: "orders-api", domainId: DOMAIN }])
+        listBackends.mockResolvedValue([{ _id: BACKEND, name: "Orders API", slug: "orders-api", domainId: DOMAIN }])
 
         expect(await run("domain_get", { domainId: DOMAIN })).not.toHaveProperty("resources")
         expect(listResources).not.toHaveBeenCalled()
@@ -181,7 +181,7 @@ describe("domain tools", () => {
         expect(schema.safeParse({ name: "Checkout", slug: "Check out" }).success).toBe(false)
     })
 
-    it("given a new name and description, when updated, then only those reach the service and a slug is dropped", async () => {
+    it("given a new name and description, when updated, then only those reach the backend and a slug is dropped", async () => {
         updateDomain.mockResolvedValue(domain)
 
         await run("domain_update", { domainId: DOMAIN, name: "Payments", description: "Money", slug: "payments" })
@@ -189,7 +189,7 @@ describe("domain tools", () => {
         expect(updateDomain).toHaveBeenCalledWith(DOMAIN, { name: "Payments", description: "Money" })
     })
 
-    it("given null as description, when updated, then null reaches the service to clear it", async () => {
+    it("given null as description, when updated, then null reaches the backend to clear it", async () => {
         updateDomain.mockResolvedValue(domain)
 
         await run("domain_update", { domainId: DOMAIN, description: null })
@@ -217,7 +217,7 @@ describe("domain tools", () => {
     })
 
     describe("domain_trigger_build", () => {
-        it("given a version and a branch, when run, then the service tags the domain and its per-repository result comes back", async () => {
+        it("given a version and a branch, when run, then the backend tags the domain and its per-repository result comes back", async () => {
             const result = { version: "1.4.0", ref: "release", repositories: [{ repository: "cart-fe", members: [], status: "tagged" }] }
             buildDomain.mockResolvedValue(result)
 
@@ -292,7 +292,7 @@ describe("frontend tools and domains", () => {
         expect(tool("frontends_list").inputSchema.safeParse({ domainId: "all" }).success).toBe(false)
     })
 
-    it("given a domain of the project, when a frontend is created in it, then the domain reaches the service", async () => {
+    it("given a domain of the project, when a frontend is created in it, then the domain reaches the backend", async () => {
         getDomain.mockResolvedValue(domain)
         createFrontend.mockResolvedValue({ _id: FRONTEND })
 

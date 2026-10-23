@@ -76,16 +76,16 @@ describe("RepositoryWorkspaceService.open", () => {
     it("Given a component without a repository, when it is opened, then it is refused naming its kind", async () => {
         vi.spyOn(RepositoryWorkspaceService.prototype as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue(undefined)
 
-        await expect(new RepositoryWorkspaceService().open({ ...component("service"), codeRepository: undefined })).rejects.toThrow(/This service has no code repository/)
+        await expect(new RepositoryWorkspaceService().open({ ...component("backend"), codeRepository: undefined })).rejects.toThrow(/This backend has no code repository/)
     })
 
-    it("Given a service and a frontend of the same slug, when both are opened, then their working copies live in different folders", async () => {
+    it("Given a backend and a frontend of the same slug, when both are opened, then their working copies live in different folders", async () => {
         const frontendCopy = await opened("frontend")
-        const serviceCopy = await opened("service")
+        const backendCopy = await opened("backend")
 
         expect(frontendCopy.workingCopy.dir).toMatch(/\/catalog$/)
-        expect(serviceCopy.workingCopy.dir).toMatch(/\/catalog\.service$/)
-        expect(serviceCopy.target.component.kind).toBe("service")
-        expect(serviceCopy.defaultBranch).toBe("main")
+        expect(backendCopy.workingCopy.dir).toMatch(/\/catalog\.service$/)
+        expect(backendCopy.target.component.kind).toBe("backend")
+        expect(backendCopy.defaultBranch).toBe("main")
     })
 })

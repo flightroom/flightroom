@@ -42,7 +42,7 @@ export const MaintenanceAgentsGrid: React.FC<MaintenanceAgentsViewProps> = ({ ag
                         <ScheduleLabel agent={agent} withCron={false} />
                         <p className="text-foreground-secondary">
                             {t("maintenance.targets.summary", {
-                                services: t("maintenance.targets.services_count", { count: agent.serviceIds.length }),
+                                backends: t("maintenance.targets.backends_count", { count: agent.backendIds.length }),
                                 frontends: t("maintenance.targets.frontends_count", { count: agent.frontendIds.length })
                             })}
                         </p>

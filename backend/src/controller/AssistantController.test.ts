@@ -12,6 +12,7 @@ const chat = vi.fn()
 const draftProject = vi.fn()
 const saveUsage = vi.fn()
 const recordUsage = vi.fn()
+const checkTokenLimit = vi.fn()
 const conversations = vi.hoisted(() => ({ listConversations: vi.fn(), getConversation: vi.fn(), saveConversation: vi.fn(), deleteConversation: vi.fn() }))
 
 vi.mock("../service/assistant/AssistantService", () => ({
@@ -25,7 +26,10 @@ vi.mock("../service/assistant/AssistantService", () => ({
 
 vi.mock("../models/AssistantUsageModel", () => ({ default: { create: (...args: unknown[]) => saveUsage(...args) } }))
 
-vi.mock("../service/AiUsageService", () => ({ recordAiUsage: (...args: unknown[]) => recordUsage(...args) }))
+vi.mock("../service/AiUsageService", () => ({
+    recordAiUsage: (...args: unknown[]) => recordUsage(...args),
+    ensureWithinTokenLimit: (...args: unknown[]) => checkTokenLimit(...args)
+}))
 
 vi.mock("../service/assistant/conversations", () => conversations)
 
@@ -41,6 +45,7 @@ describe("AssistantController", () => {
         draftProject.mockReset()
         saveUsage.mockReset().mockResolvedValue({})
         recordUsage.mockReset().mockResolvedValue(undefined)
+        checkTokenLimit.mockReset().mockResolvedValue(undefined)
         Object.values(conversations).forEach(mock => mock.mockReset().mockResolvedValue(undefined))
 
         app = Fastify()
@@ -72,6 +77,17 @@ describe("AssistantController", () => {
         expect(ensureCanChat).toHaveBeenCalledWith("project-1", "system")
         expect(response.statusCode).toBe(422)
         expect(response.headers["content-type"]).not.toContain("text/event-stream")
+        expect(chat).not.toHaveBeenCalled()
+    })
+
+    it("Given a member who spent their monthly AI tokens, when a question is asked, then it answers 429 with the code instead of opening a stream", async () => {
+        checkTokenLimit.mockRejectedValue(createBusinessException({ code: "AI_TOKEN_LIMIT_REACHED", message: "spent", statusCode: 429 }))
+
+        const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "project-1" }, payload: question })
+
+        expect(checkTokenLimit).toHaveBeenCalledWith("project-1", "user-1")
+        expect(response.statusCode).toBe(429)
+        expect(response.json()).toMatchObject({ error: { code: "AI_TOKEN_LIMIT_REACHED" } })
         expect(chat).not.toHaveBeenCalled()
     })
 
@@ -141,7 +157,7 @@ describe("AssistantController", () => {
         expect(chat).not.toHaveBeenCalled()
     })
 
-    it("Given a chosen effort, when the question is answered, then it reaches the service, the reasoning streams as thinking frames and the usage records the effort", async () => {
+    it("Given a chosen effort, when the question is answered, then it reaches the backend, the reasoning streams as thinking frames and the usage records the effort", async () => {
         const usage = { inputTokens: 10, cachedInputTokens: 0, outputTokens: 5 }
         chat.mockImplementation(async (_projectId, _request, handlers) => {
             handlers.onThinking("Check the logs.")
@@ -197,7 +213,7 @@ describe("AssistantController", () => {
         // The assistant works on the whole project: no domain nor repository is credited.
         expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("domainId")
         expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("frontendIds")
-        expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("serviceIds")
+        expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("backendIds")
     })
 
     it("Given an answer failing after two model rounds, when it ends with an error, then the ledger still counts both rounds and the usage document stays for finished answers", async () => {
@@ -332,6 +348,16 @@ describe("AssistantController", () => {
             expect(response.statusCode).toBe(200)
             expect(conversations.listConversations).toHaveBeenCalledWith("user-1", headers["project-id"])
             expect(response.json()).toHaveLength(1)
+        })
+
+        it("Given a member who spent their monthly AI tokens, when the history is asked for, then it still answers: reading spends no token", async () => {
+            checkTokenLimit.mockRejectedValue(createBusinessException({ code: "AI_TOKEN_LIMIT_REACHED", message: "spent", statusCode: 429 }))
+            conversations.listConversations.mockResolvedValue([])
+
+            const response = await app.inject({ method: "GET", url: "/assistant/conversations", headers })
+
+            expect(response.statusCode).toBe(200)
+            expect(checkTokenLimit).not.toHaveBeenCalled()
         })
 
         it("Given an installation without the assistant, when the history is asked for, then it answers 404", async () => {

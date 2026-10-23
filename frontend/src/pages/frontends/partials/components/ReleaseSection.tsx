@@ -2,16 +2,18 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField,
 import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
-import { CanaryDeploymentType, CanaryType, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { CanaryDeploymentType, CanaryType } from "@/hooks/apiClients/useFrontendsApi"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_DESCRIPTION_KEYS, CANARY_TYPE_LABEL_KEYS } from "../labels"
 
 interface ReleaseSectionProps {
     isEdit?: boolean
     versions?: string[]
+    /** Served by its own container, a backend or a DOCKER frontend: its version is the tag of its image. */
+    container?: boolean
 }
 
-/** Version and canary settings: the two knobs that decide what gets served, kept above the tabs so they are always visible. */
-export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions }) => {
+/** Version and canary settings: the two knobs that decide what gets served, in the General tab where the page opens. */
+export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions, container = false }) => {
     const { t } = useTranslation()
     const { watch } = useFormContext()
     const canaryEnabled = watch("canary.enabled")
@@ -21,15 +23,15 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
     // On User is an explicit enrolment, not a split: there is no traffic share to set, so asking for a
     // percentage would only suggest it does something.
     const isPercentageBased = canaryType !== CanaryType.ON_USER
-    // A DOCKER is served by its own container, which Flightroom cannot split traffic for: no canary. Its
-    // version is the tag of its image, typed here or set by its pipeline, with no bundle to pick from
-    const isDocker = watch("kind") === FrontendKind.DOCKER
+    // A container is one Flightroom cannot split traffic for: no canary. Its version is the tag of its image,
+    // typed here or set by its pipeline, with no bundle to pick from
+    const isDocker = container
 
     return (
         <Card>
             <CardHeader>
                 <CardTitle className="mb-0">{t("frontend.release_settings")}</CardTitle>
-                <CardDescription>{t("frontend.release_settings_description")}</CardDescription>
+                <CardDescription>{t(isDocker ? "frontend.release_settings_container_description" : "frontend.release_settings_description")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-3">
                 <div className="flex flex-wrap gap-x-4 gap-y-2">

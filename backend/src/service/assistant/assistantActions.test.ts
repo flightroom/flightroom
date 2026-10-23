@@ -110,15 +110,15 @@ describe("confirmation policy", () => {
         expect(toolKind(ASSISTANT_TOOLS.find(tool => tool.name === "environment_create")!)).toBe("write")
     })
 
-    it("Given the domain and service tools, when classified, then the deletes wait for the user, the other writes run directly and the reads are reads", () => {
+    it("Given the domain and backend tools, when classified, then the deletes wait for the user, the other writes run directly and the reads are reads", () => {
         const kindOf = (name: string) => toolKind(ASSISTANT_TOOLS.find(tool => tool.name === name)!)
 
         expect(kindOf("domain_delete")).toBe("destructive")
-        expect(kindOf("service_delete")).toBe("destructive")
-        for (const name of ["domain_create", "domain_update", "service_create", "service_update"]) {
+        expect(kindOf("backend_delete")).toBe("destructive")
+        for (const name of ["domain_create", "domain_update", "backend_create", "backend_update"]) {
             expect(kindOf(name), name).toBe("write")
         }
-        for (const name of ["domains_list", "domain_get", "services_list", "service_get"]) {
+        for (const name of ["domains_list", "domain_get", "backends_list", "backend_get"]) {
             expect(kindOf(name), name).toBe("read")
         }
     })
@@ -374,7 +374,7 @@ describe("AssistantToolRunner.runRound", () => {
         expect((seen[0] as { principal: object }).principal).not.toHaveProperty("restrictedToProjectIds")
     })
 
-    it("Given a service error, when the tool fails, then the model gets the same message an MCP client would and the details stay in the log", async () => {
+    it("Given a backend error, when the tool fails, then the model gets the same message an MCP client would and the details stay in the log", async () => {
         getEnvironments.mockRejectedValueOnce(new EntityNotFoundError("x")).mockRejectedValueOnce(new Error("connection to 10.0.0.12:27017 refused"))
 
         const outcome = await runnerFor().runRound([call("c1", "environments_list"), call("c2", "environments_list")], recordEvents().events)

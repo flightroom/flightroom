@@ -1,10 +1,10 @@
 import { CanaryDeploymentType, CanaryType, FrontendKind, FrontendType, IHostFrontend } from "../models/FrontendModel"
+import BackendDTO from "./BackendDTO"
 import { IDesignSystem } from "./DesignSystem"
 import { FrontendStackDTO } from "./FrontendStack"
-import ServiceDTO from "./ServiceDTO"
 
-/** The container fields of a DOCKER, the same as a service's and checked the same way */
-type FrontendContainerDTO = Pick<ServiceDTO, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "env" | "configMapIds" | "secretIds">
+/** The container fields of a DOCKER, the same as a backend's and checked the same way */
+type FrontendContainerDTO = Pick<BackendDTO, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "env" | "configMapIds" | "secretIds">
 
 interface FrontendDTO extends FrontendContainerDTO {
     id: string

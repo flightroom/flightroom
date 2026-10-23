@@ -222,7 +222,7 @@ export interface ImportableRepository {
 }
 
 /** What a repository is imported as */
-export type ImportTarget = "frontend" | "service"
+export type ImportTarget = "frontend" | "backend"
 
 export interface ImportRepositoriesDTO {
     /** Provider repository ids to import. When empty or omitted, every repository not imported yet is taken. */
@@ -231,12 +231,12 @@ export interface ImportRepositoriesDTO {
     version?: string
     /** frontend when omitted */
     target?: ImportTarget
-    /** The functional domain every created frontend or service is put in */
+    /** The functional domain every created frontend or backend is put in */
     domainId?: string
 }
 
 export interface ImportRepositoriesResult {
-    imported: { repositoryId: string; name: string; slug: string; frontendId?: string; serviceId?: string }[]
+    imported: { repositoryId: string; name: string; slug: string; frontendId?: string; backendId?: string }[]
     skipped: { repositoryId: string; name: string; reason: "ALREADY_IMPORTED" | "NOT_FOUND" }[]
     failed: { repositoryId: string; name: string; error: string }[]
 }

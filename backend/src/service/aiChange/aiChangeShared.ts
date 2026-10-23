@@ -97,7 +97,7 @@ const keepConversation = async (request: IAiChangeRequest) => {
     if (!job) return
     const jobIds = (await AiChangeJob.find({ rootJobId: job.rootJobId }, { _id: 1 })).map(candidate => candidate._id)
     await AiChangeJob.updateMany({ _id: { $in: jobIds } }, { $unset: { expiresAt: 1 } })
-    const owner = request.serviceId ? { serviceId: request.serviceId } : { frontendId: request.frontendId }
+    const owner = request.backendId ? { backendId: request.backendId } : { frontendId: request.frontendId }
     await AiChangeRequest.updateMany({ jobId: { $in: jobIds }, ...owner }, { $unset: { expiresAt: 1 } })
 }
 
@@ -166,7 +166,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
         if (membership?.role !== RoleInProject.VIEWER) return
         const project = await Project.findById(projectId, { organizationId: 1 })
         if (project && (await this.isOrganizationAdmin(project.organizationId))) return
-        throw createBusinessException({ code: "AI_CHANGE_FORBIDDEN", message: "A viewer cannot change the code of a frontend or a service", statusCode: 403 })
+        throw createBusinessException({ code: "AI_CHANGE_FORBIDDEN", message: "A viewer cannot change the code of a frontend or a backend", statusCode: 403 })
     }
 
     /** Organization administrators of each project, read once per service: views ask it for every job they show. */
@@ -356,7 +356,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
             })
             const opened = await AiChangeRequest.findByIdAndUpdate(request._id, { pullRequestUrl, $unset: { pullRequestError: 1 } }, { new: true })
             // A follow-up started meanwhile pushes the same branch: it carries the pull request on, or applying it would delete the branch under it.
-            const owner = request.serviceId ? { serviceId: request.serviceId } : { frontendId: request.frontendId }
+            const owner = request.backendId ? { backendId: request.backendId } : { frontendId: request.frontendId }
             await AiChangeRequest.updateMany(
                 {
                     conversationId: request.conversationId,

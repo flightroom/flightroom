@@ -1,7 +1,7 @@
 import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 
-/** Where a deployed frontend or service is reached in the environment of the deployment */
+/** Where a deployed frontend or backend is reached in the environment of the deployment */
 export const DeploymentExposedLink: React.FC<{ url: string }> = ({ url }) => {
     const { t } = useTranslation()
 

@@ -61,7 +61,7 @@ describe("variable map tools", () => {
         expect(variableMapTools.filter(definition => definition.annotations.destructiveHint).map(definition => definition.name)).toEqual(["config_map_delete", "secret_delete"])
     })
 
-    it("given a config map, when created, then the config map service creates it in the tool's project", async () => {
+    it("given a config map, when created, then the config map backend creates it in the tool's project", async () => {
         const entries = [{ key: "LOG_LEVEL", values: [{ environmentId: ENVIRONMENT, value: "debug" }] }]
         create.mockResolvedValue({ _id: MAP, name: "orders", entries })
 
@@ -75,7 +75,7 @@ describe("variable map tools", () => {
         expect(tool("config_map_create").inputSchema.safeParse({ name: "Orders_Config" }).success).toBe(false)
     })
 
-    it("given changes, when a config map is updated, then only the changes reach the service", async () => {
+    it("given changes, when a config map is updated, then only the changes reach the backend", async () => {
         update.mockResolvedValue({ _id: MAP })
 
         await run("config_map_update", { configMapId: MAP, description: "Orders settings" })
@@ -83,7 +83,7 @@ describe("variable map tools", () => {
         expect(update).toHaveBeenCalledWith(MAP, { description: "Orders settings" })
     })
 
-    it("given the secrets, when listed or read, then the secret service answers", async () => {
+    it("given the secrets, when listed or read, then the secret backend answers", async () => {
         getByProjectId.mockResolvedValue([])
         getById.mockResolvedValue({ _id: MAP })
 
@@ -95,7 +95,7 @@ describe("variable map tools", () => {
         expect(getById).toHaveBeenCalledWith(MAP)
     })
 
-    it("given a secret, when deleted, then the secret service deletes it", async () => {
+    it("given a secret, when deleted, then the secret backend deletes it", async () => {
         remove.mockResolvedValue({ _id: MAP })
 
         expect(await run("secret_delete", { secretId: MAP })).toEqual({ deleted: true })

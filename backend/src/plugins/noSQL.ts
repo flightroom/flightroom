@@ -1,10 +1,51 @@
-import { FastifyInstance } from "fastify"
+import { FastifyBaseLogger, FastifyInstance } from "fastify"
 import fastifyPlugin from "fastify-plugin"
 import mongoose from "mongoose"
 import { runMigrations } from "../utils/migrations"
 
 export let noSQLClient: mongoose.Mongoose
 export let isReplicaSet: boolean = false
+
+/** Tells whether the database is a replica set, then runs the data migrations before the plugin is done */
+const checkReplicaSet = async (log: FastifyBaseLogger): Promise<void> => {
+    noSQLClient = mongoose
+    const admin = noSQLClient.connection.db?.admin()
+    if (!admin) {
+        log.error("Admin database not found")
+        return
+    }
+    const info = await admin.command({ hello: 1 }) // fallback a { isMaster: 1 } per versioni molto vecchie
+
+    if (info.setName) {
+        log.info(`Connected to replica set: ${info.setName}`)
+        isReplicaSet = true
+    } else {
+        log.warn("Connected to standalone MongoDB (not replica set)")
+        isReplicaSet = false
+    }
+}
+
+/**
+ * Once connected: the replica set check, whose failure is only logged, then the migrations, whose failure
+ * fails the boot. runMigrations lets through only the failures the console cannot run with, such as the
+ * frontends or the backends left under their old names: booting anyway would serve no deployment and let a
+ * deploy prune the values of every backend from the GitOps repository.
+ */
+export const onConnected = async (log: FastifyBaseLogger, done: (error?: Error) => void): Promise<void> => {
+    try {
+        await checkReplicaSet(log)
+    } catch (e) {
+        log.error({ error: e }, "Error while checking replica set status:")
+    }
+    try {
+        await runMigrations(log)
+    } catch (error) {
+        log.error({ error }, "A data migration failed: the application does not start")
+        done(error instanceof Error ? error : new Error(String(error)))
+        return
+    }
+    done()
+}
 
 export default fastifyPlugin(
     (fastify: FastifyInstance, opts, done) => {
@@ -32,30 +73,7 @@ export default fastifyPlugin(
 
             // Verify the connection is to a replica set
             const connection = mongoose.connection
-            connection.on("connected", async () => {
-                try {
-                    noSQLClient = mongoose
-                    const admin = noSQLClient.connection.db?.admin()
-                    if (!admin) {
-                        fastify.log.error("Admin database not found")
-                        return
-                    }
-                    const info = await admin.command({ hello: 1 }) // fallback a { isMaster: 1 } per versioni molto vecchie
-
-                    if (info.setName) {
-                        fastify.log.info(`Connected to replica set: ${info.setName}`)
-                        isReplicaSet = true
-                    } else {
-                        fastify.log.warn("Connected to standalone MongoDB (not replica set)")
-                        isReplicaSet = false
-                    }
-
-                    await runMigrations(fastify.log)
-                } catch (e) {
-                    fastify.log.error({ error: e }, "Error while checking replica set status:")
-                }
-                done()
-            })
+            connection.on("connected", () => onConnected(fastify.log, done))
 
             connection.on("error", err => {
                 fastify.log.error("MongoDB connection error:", err)

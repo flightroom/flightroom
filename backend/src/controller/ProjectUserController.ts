@@ -3,7 +3,7 @@ import { Types } from "mongoose"
 import { BusinessException } from "../errors/BusinessException"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import UserOrganization, { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrganizationModel"
-import UserProject, { IUserProject, RoleInProject } from "../models/UserProjectModel"
+import UserProject, { IUserProject, membershipView, RoleInProject } from "../models/UserProjectModel"
 import UserProjectService, { PROJECT_LAST_OWNER } from "../service/UserProjectService"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 
@@ -31,6 +31,8 @@ interface UpdateUserRoleDTO {
     role: RoleInProject
     /** Replaces the domain scope when given, an empty list opening the whole project; left out, it stays. */
     domainIds?: string[]
+    /** The AI tokens the member may spend in the project each month: null for no limit; left out, it stays. */
+    aiTokenLimit?: number | null
 }
 
 interface AcceptInvitationDTO {
@@ -61,7 +63,8 @@ export default async function projectUserController(fastify: FastifyInstance) {
         }
         const { email, role, domainIds } = request.body
 
-        reply.send(await new UserProjectService(request.databaseUser).addUserToProjectByEmail(projectId, email, role, domainIds))
+        // Never the document itself: it carries the invitation token, with which anyone can take the invited account
+        reply.send(membershipView(await new UserProjectService(request.databaseUser).addUserToProjectByEmail(projectId, email, role, domainIds)))
     })
 
     // Resend a pending invitation email
@@ -70,7 +73,7 @@ export default async function projectUserController(fastify: FastifyInstance) {
         if (!projectId) {
             throw new ProjectHeaderNotFoundError()
         }
-        return reply.send(await new UserProjectService(request.databaseUser).resendInvitation(projectId, userId))
+        return reply.send(membershipView(await new UserProjectService(request.databaseUser).resendInvitation(projectId, userId)))
     })
 
     // Public: read invitation details by token (used by the acceptance page)
@@ -95,7 +98,7 @@ export default async function projectUserController(fastify: FastifyInstance) {
         Body: UpdateUserRoleDTO
     }>("/projects/:projectId/users/:userId", async (request, reply) => {
         const { projectId, userId } = request.params
-        const userProject = await new UserProjectService(request.databaseUser).updateUserRole(projectId, userId, request.body.role, request.body.domainIds)
+        const userProject = membershipView(await new UserProjectService(request.databaseUser).updateUserRole(projectId, userId, request.body.role, request.body.domainIds, request.body.aiTokenLimit))
         return reply.send({
             message: "User role updated successfully",
             userProject

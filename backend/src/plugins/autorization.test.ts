@@ -290,7 +290,7 @@ describe("checkApiKey", () => {
         await expect(checkApiKey(aRequest("a-live-key"))).resolves.toBe(PROJECT_ID)
     })
 
-    /** Routes that restrict the role (the service version registration) read it from the request */
+    /** Routes that restrict the role (the backend version registration) read it from the request */
     it("given an active key, when it is checked, then its role is left on the request", async () => {
         storing(aStoredKey("a-manager-key", { role: "MANAGER" }))
         const request = aRequest("a-manager-key")

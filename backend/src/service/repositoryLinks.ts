@@ -3,12 +3,12 @@ import { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import { ICodeRepositoryFrontend } from "../models/FrontendModel"
 
 /**
- * What a link to a repository belongs to: a frontend or a service of the project. Without `kind` and
+ * What a link to a repository belongs to: a frontend or a backend of the project. Without `kind` and
  * `_id`, only the links naming the same repository are found, not the owner by its own id.
  */
 export interface RepositoryLinkOwner {
     projectId: string | Schema.Types.ObjectId | ObjectId
-    kind?: "frontend" | "service"
+    kind?: "frontend" | "backend"
     _id?: unknown
 }
 
@@ -31,7 +31,7 @@ export const repositoryKeys = (provider: CodeRepositoryProvider | undefined, lin
 
 /**
  * The queries for what links to the same repository as `link` in the project: the owner itself among the
- * frontends or the services, and those of either kind with the same id, path or name. A query is
+ * frontends or the backends, and those of either kind with the same id, path or name. A query is
  * undefined when nothing can match it.
  */
 export const linksToRepository = (owner: RepositoryLinkOwner, provider: CodeRepositoryProvider | undefined, link: ICodeRepositoryFrontend) => {
@@ -41,5 +41,5 @@ export const linksToRepository = (owner: RepositoryLinkOwner, provider: CodeRepo
         const conditions = owner.kind === kind && owner._id ? [{ _id: owner._id }, ...sameRepository] : sameRepository
         return conditions.length > 0 ? { ...linksToIt, $or: conditions } : undefined
     }
-    return { frontends: ofKind("frontend"), services: ofKind("service") }
+    return { frontends: ofKind("frontend"), backends: ofKind("backend") }
 }

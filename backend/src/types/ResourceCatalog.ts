@@ -1,7 +1,7 @@
 import { DatabaseType } from "../models/DatabaseModel"
 
 /**
- * What a resource can be. Each type is a package of variables a backend service receives once it
+ * What a resource can be. Each type is a package of variables a backend receives once it
  * attaches the resource: the platform knows its fields, so it names the variables and keeps the
  * credentials among them encrypted, where a config map or a secret leaves both to whoever fills it.
  */
@@ -287,7 +287,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             ])
         ]
     },
-    /** An LLM provider the service calls: the variant is the provider, which the client reads rather than guesses */
+    /** An LLM provider the backend calls: the variant is the provider, which the client reads rather than guesses */
     ai: {
         type: "ai",
         envPrefix: "AI",
@@ -315,7 +315,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             }
         ]
     },
-    /** An email channel the service sends mail through; a relay inside the network may take no account */
+    /** An email channel the backend sends mail through; a relay inside the network may take no account */
     smtp: {
         type: "smtp",
         envPrefix: "SMTP",
@@ -346,7 +346,7 @@ export interface ResourceCustomField {
  */
 export const RESOURCE_CUSTOM_FIELD_NAME = /^[A-Z0-9_]{1,61}$/
 
-/** Well past what a service reads from one resource */
+/** Well past what a backend reads from one resource */
 export const MAX_RESOURCE_CUSTOM_FIELDS = 100
 
 /**

@@ -6,7 +6,7 @@ import aiUsageController from "./AiUsageController"
 
 const forDomain = vi.fn()
 const forFrontend = vi.fn()
-const forService = vi.fn()
+const forBackend = vi.fn()
 const forProject = vi.fn()
 const forOrganization = vi.fn()
 
@@ -15,7 +15,7 @@ vi.mock("../service/AiUsageService", () => ({
     default: class {
         forDomain = forDomain
         forFrontend = forFrontend
-        forService = forService
+        forBackend = forBackend
         forProject = forProject
         forOrganization = forOrganization
     }
@@ -28,7 +28,7 @@ describe("AiUsageController", () => {
     let app: FastifyInstance
 
     beforeEach(async () => {
-        for (const mock of [forDomain, forFrontend, forService, forProject, forOrganization]) mock.mockReset().mockResolvedValue(summary)
+        for (const mock of [forDomain, forFrontend, forBackend, forProject, forOrganization]) mock.mockReset().mockResolvedValue(summary)
         app = Fastify()
         app.decorateRequest("databaseUser", null as never)
         app.addHook("onRequest", async request => {
@@ -50,14 +50,14 @@ describe("AiUsageController", () => {
         expect(forDomain).toHaveBeenCalledWith(ID, "30d")
     })
 
-    it("Given each level, when its usage is asked for a period, then the period reaches the service of that level", async () => {
+    it("Given each level, when its usage is asked for a period, then the period reaches the backend of that level", async () => {
         await app.inject({ method: "GET", url: `/frontends/${ID}/ai-usage?period=month` })
-        await app.inject({ method: "GET", url: `/services/${ID}/ai-usage?period=90d` })
+        await app.inject({ method: "GET", url: `/backends/${ID}/ai-usage?period=90d` })
         await app.inject({ method: "GET", url: `/projects/${ID}/ai-usage?period=all` })
         await app.inject({ method: "GET", url: `/organizations/${ID}/ai-usage?period=30d` })
 
         expect(forFrontend).toHaveBeenCalledWith(ID, "month")
-        expect(forService).toHaveBeenCalledWith(ID, "90d")
+        expect(forBackend).toHaveBeenCalledWith(ID, "90d")
         expect(forProject).toHaveBeenCalledWith(ID, "all")
         expect(forOrganization).toHaveBeenCalledWith(ID, "30d")
     })
@@ -70,10 +70,10 @@ describe("AiUsageController", () => {
     })
 
     it("Given an id that is not one, when a usage is asked, then the schema rejects it", async () => {
-        const response = await app.inject({ method: "GET", url: "/services/not-an-id/ai-usage" })
+        const response = await app.inject({ method: "GET", url: "/backends/not-an-id/ai-usage" })
 
         expect(response.statusCode).toBe(400)
-        expect(forService).not.toHaveBeenCalled()
+        expect(forBackend).not.toHaveBeenCalled()
     })
 
     // The error handler answers this error as the AI models endpoints do: refused, with no figure in the body.

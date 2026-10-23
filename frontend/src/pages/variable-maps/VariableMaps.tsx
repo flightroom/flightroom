@@ -7,33 +7,33 @@ import { Link, useNavigate } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import useServicesApi from "@/hooks/apiClients/useServicesApi"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import type { VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { useVariableMapsQuery, VARIABLE_MAP_KINDS } from "./partials/variableMaps"
 
-/** The config maps or the secrets of the project, with the services attaching each one */
+/** The config maps or the secrets of the project, with the backends attaching each one */
 const VariableMaps: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const projectId = useProjectStore(state => state.project?._id)
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const [searchTerm, setSearchTerm] = useState("")
     const { detailPath, i18n: prefix } = VARIABLE_MAP_KINDS[kind]
     const field = kind === "configMap" ? "configMapIds" : "secretIds"
 
     const mapsQuery = useVariableMapsQuery(kind)
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
 
-    const servicesOf = useCallback((mapId: string) => (servicesQuery.data ?? []).filter(service => service[field]?.includes(mapId)), [servicesQuery.data, field])
+    const backendsOf = useCallback((mapId: string) => (backendsQuery.data ?? []).filter(backend => backend[field]?.includes(mapId)), [backendsQuery.data, field])
 
     const filtered = useMemo(() => {
         const term = searchTerm.trim().toLowerCase()
         if (!term) return mapsQuery.data ?? []
         return (mapsQuery.data ?? []).filter(map =>
-            [map.name, map.description ?? "", ...map.entries.map(entry => entry.key), ...servicesOf(map._id!).map(service => service.name)].some(text => text.toLowerCase().includes(term))
+            [map.name, map.description ?? "", ...map.entries.map(entry => entry.key), ...backendsOf(map._id!).map(backend => backend.name)].some(text => text.toLowerCase().includes(term))
         )
-    }, [mapsQuery.data, searchTerm, servicesOf])
+    }, [mapsQuery.data, searchTerm, backendsOf])
 
     const hasMaps = (mapsQuery.data?.length ?? 0) > 0
     const onCreate = () => navigate(detailPath("new"))
@@ -62,7 +62,7 @@ const VariableMaps: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
                 </Button>
             }
         >
-            <ApiStatusHandler queries={[mapsQuery, servicesQuery]}>
+            <ApiStatusHandler queries={[mapsQuery, backendsQuery]}>
                 {!hasMaps ? (
                     <EmptyState
                         variant="outlined"
@@ -105,7 +105,7 @@ const VariableMaps: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
                             </TableHeader>
                             <TableBody>
                                 {filtered.map(map => {
-                                    const services = servicesOf(map._id!)
+                                    const backends = backendsOf(map._id!)
                                     return (
                                         <TableRow key={map._id} className="cursor-pointer border-divider hover:bg-primary/5" onClick={() => navigate(detailPath(map._id!))}>
                                             <TableCell className="max-w-[16rem] truncate font-mono font-medium" title={map.name}>
@@ -116,11 +116,11 @@ const VariableMaps: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
                                             </TableCell>
                                             <TableCell>{map.entries.length}</TableCell>
                                             <TableCell>
-                                                {services.length > 0 ? (
+                                                {backends.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1">
-                                                        {services.map(service => (
-                                                            <Link key={service._id} to={`/service/${service._id}`} onClick={event => event.stopPropagation()}>
-                                                                <Badge variant="outline">{service.name}</Badge>
+                                                        {backends.map(backend => (
+                                                            <Link key={backend._id} to={`/backend/${backend._id}`} onClick={event => event.stopPropagation()}>
+                                                                <Badge variant="outline">{backend.name}</Badge>
                                                             </Link>
                                                         ))}
                                                     </div>

@@ -1,8 +1,8 @@
 import { Types } from "mongoose"
 import { describe, expect, it } from "vitest"
+import Backend from "./BackendModel"
 import Domain from "./DomainModel"
 import Frontend from "./FrontendModel"
-import Service from "./ServiceModel"
 
 describe("Domain model", () => {
     it("given a name and a slug with spaces and capitals, when it is built, then they are stored trimmed and the slug lowercase", async () => {
@@ -32,13 +32,13 @@ describe("Domain model", () => {
         expect(Domain.schema.indexes()).toContainEqual([{ slug: 1, projectId: 1 }, expect.objectContaining({ unique: true })])
     })
 
-    it("given a frontend and a service without a domain, when they are validated, then they are accepted", async () => {
+    it("given a frontend and a backend without a domain, when they are validated, then they are accepted", async () => {
         const frontend = new Frontend({ projectId: new Types.ObjectId(), slug: "shell", name: "Shell", version: "1.0.0", host: { type: "MFE_ORCHESTRATOR_HUB" } })
-        const service = new Service({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders" })
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders" })
 
         await expect(frontend.validate()).resolves.toBeUndefined()
-        await expect(service.validate()).resolves.toBeUndefined()
+        await expect(backend.validate()).resolves.toBeUndefined()
         expect(frontend.domainId).toBeUndefined()
-        expect(service.domainId).toBeUndefined()
+        expect(backend.domainId).toBeUndefined()
     })
 })

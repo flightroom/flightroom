@@ -101,7 +101,7 @@ describe("StartupController", () => {
         expect(createProject).not.toHaveBeenCalled()
     })
 
-    it("Given a project name from an older client, when the first registration is posted, then the project is still created and its slug is left to the service", async () => {
+    it("Given a project name from an older client, when the first registration is posted, then the project is still created and its slug is left to the backend", async () => {
         existsAtLeastOneUser.mockResolvedValue(false)
 
         await app.inject({ method: "POST", url: "/startup/registration", payload: { ...aRegistration, project: "My Cool Storefront App" } })

@@ -42,7 +42,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 import AiModelSelect from "@/components/assistant/AiModelSelect"
 import AnswerUsage from "@/components/assistant/AnswerUsage"
-import { ApplyAllButton, jobErrorMessage, ReadOnlyNote, StopJobButton, sumUsage } from "@/components/assistant/AssistantJobThread"
+import { ApplyAllButton, JOB_ERROR_CODES, jobErrorMessage, ReadOnlyNote, StopJobButton, sumUsage } from "@/components/assistant/AssistantJobThread"
 import AssistantMessageText from "@/components/assistant/AssistantMessageText"
 import EffortSelect from "@/components/assistant/EffortSelect"
 import { useEffort, useFollowUpAiModel, useFollowUpEffort } from "@/components/assistant/useEffort"
@@ -65,7 +65,7 @@ import { AiWorkspaceRepository, BaseBranches, pickedBaseBranches, RepositoryBran
 const PROMPT_MAX_LENGTH = 8000
 const POLL_INTERVAL_MS = 2000
 
-/** Whose code the agent works on: the repository of a frontend or of a service, or every repository of a domain at once. */
+/** Whose code the agent works on: the repository of a frontend or of a backend, or every repository of a domain at once. */
 export type AiWorkspaceTarget = AiChangeTarget | { kind: "domain"; id: string }
 
 const isRepositoryTarget = (target: AiWorkspaceTarget): target is AiChangeTarget => target.kind !== "domain"
@@ -92,8 +92,8 @@ const firstLine = (text: string) =>
 
 const conflictsOf = (error: Error): string[] => (error as AxiosError<{ error?: { details?: { conflicts?: string[] } } }>)?.response?.data?.error?.details?.conflicts ?? []
 
-/** The page of the frontend or service a repository belongs to, open on the request. */
-const repositoryPath = (repository: AiJobRepository) => `/${repository.kind === "service" ? "service" : "frontend"}/${repository.frontendId}?change=${repository.requestId}`
+/** The page of the frontend or backend a repository belongs to, open on the request. */
+const repositoryPath = (repository: AiJobRepository) => `/${repository.kind === "backend" ? "backend" : "frontend"}/${repository.frontendId}?change=${repository.requestId}`
 
 /** Set on the requests of a job over several repositories: the request is one part of a wider change. */
 const JobBadge: React.FC<{ request: AiChangeRequest }> = ({ request }) => {
@@ -424,7 +424,7 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
 
                 {(request.status === "FAILED" || request.status === "DISCARDED") && (
                     <div className="flex justify-end">
-                        <Button type="button" variant="secondary" onClick={() => onRetry(request.prompt, { [request.frontendId ?? request.serviceId ?? ""]: request.baseBranch })}>
+                        <Button type="button" variant="secondary" onClick={() => onRetry(request.prompt, { [request.frontendId ?? request.backendId ?? ""]: request.baseBranch })}>
                             <RotateCcw aria-hidden="true" />
                             {t("frontend.aiChange.try_again")}
                         </Button>
@@ -531,7 +531,7 @@ const RepositoryResult: React.FC<RepositoryResultProps> = ({ job, repository, la
 
     if (!labelled) return result
 
-    const Icon = repository.kind === "service" ? Server : LayoutDashboard
+    const Icon = repository.kind === "backend" ? Server : LayoutDashboard
     return (
         <section aria-label={repository.frontendName} className="flex flex-col gap-3 rounded-md border border-divider p-3">
             <div className="flex flex-wrap items-center gap-2 text-sm">
@@ -564,7 +564,7 @@ const RepositoryResult: React.FC<RepositoryResultProps> = ({ job, repository, la
 /** The tab of one repository, over several: whose it is, how many files it changes, and whether it still moves, failed or went out. */
 const RepositoryTab: React.FC<{ repository: AiJobRepository }> = ({ repository }) => {
     const { t } = useTranslation()
-    const Icon = repository.kind === "service" ? Server : LayoutDashboard
+    const Icon = repository.kind === "backend" ? Server : LayoutDashboard
     const count = repository.files.length
     return (
         <TabsTrigger value={repository.requestId} className="min-w-0 max-w-[16rem]" title={repository.frontendName} dataTestId="ai-change-repository-tab">
@@ -681,7 +681,7 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
 
 /** On a repository a follow-up goes on with that repository only: the others of a job over several go on from their own page, or from the assistant. A domain goes on with all of them. */
 const followUpScope = (target: AiWorkspaceTarget) => {
-    if (target.kind === "service") return { serviceIds: [target.id] }
+    if (target.kind === "backend") return { backendIds: [target.id] }
     if (target.kind === "frontend") return { frontendIds: [target.id] }
     return {}
 }
@@ -799,7 +799,7 @@ interface ConversationThreadProps {
 
 /**
  * A conversation with the agent: every message with what it did on the repositories of the workspace (the one of a
- * frontend or service, all those of a domain), the latest proposals to review, and the input to refine them
+ * frontend or backend, all those of a domain), the latest proposals to review, and the input to refine them
  * further before applying them.
  */
 const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversationId, target, baseBranch, badge, onRetry, onQueueChanged, fallback }) => {
@@ -868,7 +868,7 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
         const failed = repositories.filter(repository => repository.status !== "APPLIED").length
         if (failed === 0) notifications.showSuccessNotification({ message: t("assistant.jobs.apply_all_success") })
         else notifications.showWarningNotification({ message: t("assistant.jobs.apply_all_failed", { count: failed, total: pending.requestIds.length }) })
-        // The pages of the frontends and services show the same requests.
+        // The pages of the frontends and backends show the same requests.
         queryClient.invalidateQueries({ queryKey: ["ai-change"] })
     }, [chainQuery.data])
 
@@ -1306,7 +1306,7 @@ export interface AiWorkspaceComposerExtension {
 
 interface ComposerProps {
     name: string
-    /** Picks the wording where it differs (`_service` and `_domain` keys). */
+    /** Picks the wording where it differs (`_backend` and `_domain` keys). */
     kind: AiWorkspaceTarget["kind"]
     prompt: string
     repositories: AiWorkspaceRepository[]
@@ -1413,9 +1413,9 @@ interface AiWorkspaceProps {
 }
 
 /**
- * "Edit with AI", the same workspace on a frontend, a service and a domain: the queue of the conversations with
+ * "Edit with AI", the same workspace on a frontend, a backend and a domain: the queue of the conversations with
  * the agent on one side (waiting for review, in progress, discarded, done) and the selected one, or a new request, on
- * the other. A frontend or a service works on its own repository, a domain on all of its repositories at once.
+ * the other. A frontend or a backend works on its own repository, a domain on all of its repositories at once.
  * The selection lives in `?change=`, so the assistant can link a job straight to its diff.
  */
 export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, composer }) => {
@@ -1494,9 +1494,10 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                 {
                     customErrorMessage: error => {
                         const code = errorCodeOf(error)
-                        return code && CREATE_ERROR_CODES.has(code)
-                            ? t(`frontend.aiChange.errors.${code}`, { context: repository.kind === "service" ? "service" : undefined })
-                            : t("frontend.aiChange.errors.create")
+                        if (code && CREATE_ERROR_CODES.has(code)) return t(`frontend.aiChange.errors.${code}`, { context: repository.kind === "backend" ? "backend" : undefined })
+                        // The monthly AI token limit, among others: said as the jobs say it
+                        if (code && JOB_ERROR_CODES.has(code)) return jobErrorMessage(t, error, "create")
+                        return t("frontend.aiChange.errors.create")
                     }
                 }
             )

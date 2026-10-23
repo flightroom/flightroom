@@ -38,15 +38,15 @@ export interface OrganizationAiUsageSummary extends AiUsageSummary {
 }
 
 /**
- * What the usage is asked of. A frontend or a service counts an equal share of each job on it, a domain the
+ * What the usage is asked of. A frontend or a backend counts an equal share of each job on it, a domain the
  * whole of the jobs asked from it; the assistant only counts for the project and the organization.
  */
-export type AiUsageTarget = { kind: "domain" | "frontend" | "service" | "project" | "organization"; id: string }
+export type AiUsageTarget = { kind: "domain" | "frontend" | "backend" | "project" | "organization"; id: string }
 
 const PATHS: Record<AiUsageTarget["kind"], string> = {
     domain: "domains",
     frontend: "frontends",
-    service: "services",
+    backend: "backends",
     project: "projects",
     organization: "organizations"
 }

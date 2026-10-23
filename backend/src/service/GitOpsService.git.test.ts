@@ -34,13 +34,13 @@ vi.mock("./workspace/RepositoryWorkspaceService", async importOriginal => ({
     }
 }))
 
+import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import GitOpsService from "./GitOpsService"
@@ -108,7 +108,7 @@ describe.skipIf(!hasGit)("GitOpsService against a local smart HTTP remote", () =
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production, slug: "production", projectId }] as never)
         vi.spyOn(ConfigMap, "find").mockResolvedValue([] as never)
         vi.spyOn(Resource, "find").mockResolvedValue([] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
@@ -144,8 +144,8 @@ describe.skipIf(!hasGit)("GitOpsService against a local smart HTTP remote", () =
             withSecret("first")
         })
 
-        it("given a service with a version and an image, when production is deployed, then the branch production gets the chart and the values of the service", async () => {
-            vi.spyOn(Service, "find").mockResolvedValue([orders("1.0.0")] as never)
+        it("given a backend with a version and an image, when production is deployed, then the branch production gets the chart and the values of the backend", async () => {
+            vi.spyOn(Backend, "find").mockResolvedValue([orders("1.0.0")] as never)
 
             await deployProduction()
 
@@ -160,7 +160,7 @@ describe.skipIf(!hasGit)("GitOpsService against a local smart HTTP remote", () =
             fs.appendFileSync(path.join(clone, "microservice-chart", "Chart.yaml"), "# changed by the team\n")
             run(clone, "commit", "-am", "team change")
             run(clone, "push", "origin", "production")
-            vi.spyOn(Service, "find").mockResolvedValue([orders("2.0.0")] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([orders("2.0.0")] as never)
 
             await deployProduction()
 
@@ -169,7 +169,7 @@ describe.skipIf(!hasGit)("GitOpsService against a local smart HTTP remote", () =
         })
 
         it("given a deploy that fails, when the applications branch was pushed, then its values are reverted too", async () => {
-            vi.spyOn(Service, "find").mockResolvedValue([orders("3.0.0")] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([orders("3.0.0")] as never)
 
             await expect(deployProduction(() => Promise.reject(new Error("rollout failed")))).rejects.toThrow("rollout failed")
 

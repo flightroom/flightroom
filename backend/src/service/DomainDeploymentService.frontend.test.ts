@@ -1,10 +1,10 @@
 import { Types } from "mongoose"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import Backend from "../models/BackendModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import FrontendDeployment from "../models/FrontendDeploymentModel"
 import Frontend, { FrontendKind } from "../models/FrontendModel"
-import Service from "../models/ServiceModel"
 import DomainDeploymentService from "./DomainDeploymentService"
 import DomainService from "./DomainService"
 
@@ -25,7 +25,7 @@ describe("DomainDeploymentService, FRONTEND", () => {
         vi.spyOn(DomainService.prototype, "getById").mockResolvedValue(domain as never)
         vi.spyOn(Environment, "find").mockReturnValue(sortedFind([dev, prod]))
         vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([shell]))
-        vi.spyOn(Service, "find").mockReturnValue(sortedFind([]))
+        vi.spyOn(Backend, "find").mockReturnValue(sortedFind([]))
         vi.spyOn(Deployment, "aggregate").mockResolvedValue([] as never)
         const frontendDeployments = vi.spyOn(FrontendDeployment, "aggregate").mockResolvedValue([{ _id: { frontendId: shell._id, environmentId: dev._id }, version: "1.4.0" }] as never)
 
@@ -47,7 +47,7 @@ describe("DomainDeploymentService, FRONTEND", () => {
         vi.spyOn(DomainService.prototype, "getById").mockResolvedValue(domain as never)
         vi.spyOn(Environment, "find").mockReturnValue(sortedFind([dev]))
         vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([shell]))
-        vi.spyOn(Service, "find").mockReturnValue(sortedFind([]))
+        vi.spyOn(Backend, "find").mockReturnValue(sortedFind([]))
         vi.spyOn(Deployment, "aggregate").mockResolvedValue([{ _id: dev._id, id: deploymentId }] as never)
         vi.spyOn(Deployment, "find").mockReturnValue({
             lean: () => Promise.resolve([{ _id: deploymentId, environmentId: dev._id, deploymentId: "#3", deployedAt: new Date(), frontends: [{ _id: shell._id, version: "2.0.0" }] }])

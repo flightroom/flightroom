@@ -7,6 +7,7 @@ import AiChangeRequest, { AiChangeStatus, IAiChangeRequest } from "../../models/
 import AiMission, { AiMissionMode, AiMissionStatus, IAiMission, IAiMissionRepository } from "../../models/AiMissionModel"
 import User, { IUser } from "../../models/UserModel"
 import { toObjectId } from "../../utils/mongooseUtils"
+import { ensureWithinTokenLimit } from "../AiUsageService"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { LlmConfiguration, LlmEffort, LlmUsage } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
@@ -25,15 +26,15 @@ const MAX_SCANNED_MISSIONS = 200
 const NOT_STARTED_ERROR = "The job could not be started"
 
 /** What a mission view reads of each request: no file contents, no progress. */
-const REQUEST_SUMMARY = { jobId: 1, frontendId: 1, serviceId: 1, status: 1, "files.path": 1, branch: 1, pullRequestUrl: 1, error: 1, updatedAt: 1 } as const
+const REQUEST_SUMMARY = { jobId: 1, frontendId: 1, backendId: 1, status: 1, "files.path": 1, branch: 1, pullRequestUrl: 1, error: 1, updatedAt: 1 } as const
 
 export interface AiMissionCreateInput {
     prompt: string
     mode: AiMissionMode
-    /** Every frontend and service of the project with a repository: exactly one of this and the ids. */
+    /** Every frontend and backend of the project with a repository: exactly one of this and the ids. */
     all?: boolean
     frontendIds?: string[]
-    serviceIds?: string[]
+    backendIds?: string[]
     /** In `perRepository` mode, the jobs active at once: 3 when left out. */
     concurrency?: number
     effort?: LlmEffort
@@ -81,7 +82,7 @@ export interface AiMissionView {
     updatedAt: Date
 }
 
-/** A frontend or a service a mission may be started on. */
+/** A frontend or a backend a mission may be started on. */
 export interface AiMissionRepositoryOption {
     kind: RepositoryComponentKind
     id: string
@@ -97,7 +98,7 @@ const expiry = () => new Date(Date.now() + PROPOSAL_TTL_MS)
 const tooMany = () =>
     createBusinessException({
         code: "AI_MISSION_TOO_MANY_REPOSITORIES",
-        message: `A mission works on at most ${MAX_REPOSITORIES_PER_MISSION} repositories: select the frontends and services to change`,
+        message: `A mission works on at most ${MAX_REPOSITORIES_PER_MISSION} repositories: select the frontends and backends to change`,
         statusCode: 400
     })
 
@@ -110,11 +111,11 @@ const uniqueRefs = (refs: RepositoryComponentRef[]) => refs.filter((ref, index, 
 /** Claimed so long ago that the job, never created, will not be: the process starting it died. */
 const claimExpired = (jobId: IAiMissionRepository["jobId"]) => Date.now() - new Types.ObjectId(String(jobId)).getTimestamp().getTime() > STALE_AFTER_MS
 
-type JobSummary = Pick<IAiChangeJob, "_id" | "status" | "error" | "usage" | "rootJobId" | "frontendIds" | "serviceIds" | "createdAt">
-type RequestSummary = Pick<IAiChangeRequest, "jobId" | "frontendId" | "serviceId" | "status" | "files" | "branch" | "pullRequestUrl" | "error" | "updatedAt">
+type JobSummary = Pick<IAiChangeJob, "_id" | "status" | "error" | "usage" | "rootJobId" | "frontendIds" | "backendIds" | "createdAt">
+type RequestSummary = Pick<IAiChangeRequest, "jobId" | "frontendId" | "backendId" | "status" | "files" | "branch" | "pullRequestUrl" | "error" | "updatedAt">
 
 /** What a view reads of the jobs of a mission, its follow-ups included. */
-const JOB_SUMMARY = { status: 1, error: 1, usage: 1, rootJobId: 1, frontendIds: 1, serviceIds: 1, createdAt: 1 } as const
+const JOB_SUMMARY = { status: 1, error: 1, usage: 1, rootJobId: 1, frontendIds: 1, backendIds: 1, createdAt: 1 } as const
 
 const statusOf = (request: RequestSummary) => staleOutcome(request) ?? request.status
 
@@ -209,10 +210,10 @@ export class AiMissionService extends AiChangeBaseService {
         const aiModel = await this.aiModels().resolveForProject(projectId, input.aiModelId)
         const refs: RepositoryComponentRef[] = [
             ...[...new Set(input.frontendIds ?? [])].map(id => ({ kind: "frontend" as const, id })),
-            ...[...new Set(input.serviceIds ?? [])].map(id => ({ kind: "service" as const, id }))
+            ...[...new Set(input.backendIds ?? [])].map(id => ({ kind: "backend" as const, id }))
         ]
         if ((input.all === true) === refs.length > 0) {
-            throw createBusinessException({ code: "AI_MISSION_INVALID_SELECTION", message: "Choose either every repository or some frontends and services", statusCode: 400 })
+            throw createBusinessException({ code: "AI_MISSION_INVALID_SELECTION", message: "Choose either every repository or some frontends and backends", statusCode: 400 })
         }
         // A domain-scoped member works on their domains only: never on every repository of the project
         if (input.all) await this.ensureWholeProject(projectId)
@@ -222,10 +223,11 @@ export class AiMissionService extends AiChangeBaseService {
             (component, index, all) => all.findIndex(other => other.kind === component.kind && String(other._id) === String(component._id)) === index
         )
         if (components.length === 0) {
-            throw createBusinessException({ code: "AI_JOB_NO_REPOSITORIES", message: "No frontend or service of the project has a code repository connected", statusCode: 422 })
+            throw createBusinessException({ code: "AI_JOB_NO_REPOSITORIES", message: "No frontend or backend of the project has a code repository connected", statusCode: 422 })
         }
         if (components.length > MAX_REPOSITORIES_PER_MISSION) throw tooMany()
         for (const component of components) await this.ensureRepositoryInDomainScope(component, component.codeRepository)
+        await ensureWithinTokenLimit(projectId, this.getUser()!._id)
         // A mission stuck on a dead job is moved on first when it would hold the last place: see the listener below.
         await jobs.ensureRoomForJob(toObjectId(projectId))
 
@@ -353,7 +355,7 @@ export class AiMissionService extends AiChangeBaseService {
         return mission
     }
 
-    /** The missions a domain-scoped member may see: those on frontends and services they all see, never one on the whole project. */
+    /** The missions a domain-scoped member may see: those on frontends and backends they all see, never one on the whole project. */
     private async inDomainScope(projectId: IAiMission["projectId"], missions: IAiMission[]): Promise<IAiMission[]> {
         const scope = await this.getDomainScope(projectId)
         if (!scope || missions.length === 0) return missions
@@ -435,7 +437,7 @@ export class AiMissionService extends AiChangeBaseService {
         return (await this.views([mission]))[0]
     }
 
-    /** The frontends and services the caller may start a mission on, and whether on every one of the project at once. */
+    /** The frontends and backends the caller may start a mission on, and whether on every one of the project at once. */
     async repositories(projectId: string): Promise<{ all: boolean; repositories: AiMissionRepositoryOption[] }> {
         await this.ensureAccessToProject(toObjectId(projectId))
         const scope = await this.getDomainScope(projectId)

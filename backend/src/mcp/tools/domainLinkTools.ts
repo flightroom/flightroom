@@ -9,7 +9,7 @@ export const domainLinkTools = [
         name: "domain_links_list",
         title: "List domain links",
         description:
-            "The relations the team drew by hand between the functional domains of the project, each from sourceDomainId to targetDomainId with an optional label. The links between frontends and services of different domains are not here: read them from frontends_list.",
+            "The relations the team drew by hand between the functional domains of the project, each from sourceDomainId to targetDomainId with an optional label. The links between frontends and backends of different domains are not here: read them from frontends_list.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,

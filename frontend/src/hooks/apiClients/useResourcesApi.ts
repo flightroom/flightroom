@@ -59,7 +59,7 @@ export interface ResourceEnvKey {
     value?: string
 }
 
-/** A package of variables of a catalog type that backend services receive once they attach it */
+/** A package of variables of a catalog type that backends receive once they attach it */
 export interface Resource {
     _id?: string
     projectId?: string
@@ -112,13 +112,13 @@ const ERROR_KEYS: Record<string, string> = {
     RESOURCE_CUSTOM_FIELDS_INVALID: "resources.errors.custom_fields_invalid",
     RESOURCE_API_SPEC_INVALID: "resources.errors.api_spec_invalid",
     RESOURCE_IN_USE: "resources.errors.in_use",
-    SERVICE_RESOURCE_UNKNOWN: "resources.errors.resource_unknown",
-    SERVICE_RESOURCES_INVALID: "resources.errors.resources_invalid"
+    BACKEND_RESOURCE_UNKNOWN: "resources.errors.resource_unknown",
+    BACKEND_RESOURCES_INVALID: "resources.errors.resources_invalid"
 }
 
 /**
- * The refusals of the resources, and of a service attaching them, in the language of the user. A key
- * two attached things both set is the refusal of the maps (SERVICE_VARIABLE_KEY_DUPLICATED), said by them.
+ * The refusals of the resources, and of a backend attaching them, in the language of the user. A key
+ * two attached things both set is the refusal of the maps (BACKEND_VARIABLE_KEY_DUPLICATED), said by them.
  */
 export const useResourceErrorMessage = () => {
     const { t } = useTranslation()
@@ -127,9 +127,9 @@ export const useResourceErrorMessage = () => {
     return (error: Error): string | undefined => {
         const key = ERROR_KEYS[errorCodeOf(error) ?? ""]
         if (!key) return variableMapErrorMessage(error)
-        const details: { services?: string[]; secrets?: string[] } = (error as AxiosError<{ error?: { details?: { services?: string[]; secrets?: string[] } } }>)?.response?.data?.error?.details ?? {}
+        const details: { backends?: string[]; secrets?: string[] } = (error as AxiosError<{ error?: { details?: { backends?: string[]; secrets?: string[] } } }>)?.response?.data?.error?.details ?? {}
         return t(key, {
-            services: details.services?.join(", "),
+            backends: details.backends?.join(", "),
             secrets: details.secrets?.map(field => t(`resources.fields.${field}`, { defaultValue: field })).join(", ")
         })
     }

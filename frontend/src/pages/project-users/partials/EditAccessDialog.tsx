@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
 import { Button } from "@/components/atoms"
+import TextField from "@/components/input/TextField.rhf"
 import { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { RoleInProject } from "@/hooks/apiClients/useProjectApi"
 import useProjectUserApi, { ProjectUser, UpdateProjectUserDTO } from "@/hooks/apiClients/useProjectUserApi"
@@ -23,14 +24,25 @@ interface EditAccessDialogProps {
     onOpenChange: (open: boolean) => void
 }
 
-const valuesOf = (user: ProjectUser | undefined, domains: Domain[]): AccessFormValues => {
+/** The monthly AI token limit as typed: empty for no limit */
+type EditAccessValues = AccessFormValues & { aiTokenLimit: string }
+
+const valuesOf = (user: ProjectUser | undefined, domains: Domain[]): EditAccessValues => {
     // Ids of deleted domains are ignored
     const known = (user?.domainIds ?? []).filter(id => domains.some(domain => domain._id === id))
     return {
         role: (user?.role as RoleInProject) ?? RoleInProject.VIEWER,
         access: user?.domainScoped ? "domains" : "all",
-        domainIds: known
+        domainIds: known,
+        aiTokenLimit: user?.aiTokenLimit === undefined || user.aiTokenLimit === null ? "" : String(user.aiTokenLimit)
     }
+}
+
+/** The limit to send, only when the owner changed it: null takes it away */
+const aiTokenLimitChange = (values: EditAccessValues, initial: EditAccessValues): Pick<UpdateProjectUserDTO, "aiTokenLimit"> => {
+    const typed = values.aiTokenLimit.trim()
+    if (typed === initial.aiTokenLimit) return {}
+    return { aiTokenLimit: typed === "" ? null : Number(typed) }
 }
 
 /**
@@ -60,7 +72,12 @@ export const EditAccessDialog: React.FC<EditAccessDialogProps> = ({ user, domain
                 .object({
                     role: z.enum([RoleInProject.OWNER, RoleInProject.MEMBER, RoleInProject.VIEWER], { error: t("project_users.role_required") }),
                     access: z.enum(["all", "domains"]),
-                    domainIds: z.array(z.string())
+                    domainIds: z.array(z.string()),
+                    // Up to 15 digits: still a safe integer once sent
+                    aiTokenLimit: z
+                        .string()
+                        .trim()
+                        .regex(/^\d{0,15}$/, { error: t("project_users.ai_tokens.invalid") })
                 })
                 // A member scoped to domains since deleted keeps saving a new role without picking one
                 .superRefine((values, ctx) => {
@@ -69,7 +86,7 @@ export const EditAccessDialog: React.FC<EditAccessDialogProps> = ({ user, domain
         [t]
     )
 
-    const form = useForm<AccessFormValues>({ resolver: zodResolver(schema), defaultValues: initial.current })
+    const form = useForm<EditAccessValues>({ resolver: zodResolver(schema), defaultValues: initial.current })
 
     // Filled when another member is opened, or once the domains are read: not on a refetch of either while the
     // dialog is open, which would throw away what the owner is choosing
@@ -85,12 +102,16 @@ export const EditAccessDialog: React.FC<EditAccessDialogProps> = ({ user, domain
         mutationFn: (dto: UpdateProjectUserDTO) => projectUserApi.updateProjectUser(projectId || "", user?._id || "", dto)
     })
 
-    const onSubmit = async (values: AccessFormValues) => {
+    const onSubmit = async (values: EditAccessValues) => {
         if (isLastOwner && values.role !== RoleInProject.OWNER) {
             form.setError("role", { message: t("project_users.edit_access.last_owner") })
             return
         }
-        await updateMutation.mutateAsync({ role: values.role, ...(isScopeChanged(values, initial.current) && { domainIds: toDomainIds(values) }) })
+        await updateMutation.mutateAsync({
+            role: values.role,
+            ...(isScopeChanged(values, initial.current) && { domainIds: toDomainIds(values) }),
+            ...aiTokenLimitChange(values, initial.current)
+        })
         notifications.showSuccessNotification({ message: t("project_users.edit_access.success") })
         onOpenChange(false)
         await Promise.all([queryClient.invalidateQueries({ queryKey: ["projectUsers", projectId] }), queryClient.invalidateQueries({ queryKey: ["project-summary", projectId] })])
@@ -121,6 +142,15 @@ export const EditAccessDialog: React.FC<EditAccessDialogProps> = ({ user, domain
                                 />
                             </div>
                             <DomainAccessFields domains={domains} disabled={!domainsReady} />
+                            <TextField<EditAccessValues>
+                                name="aiTokenLimit"
+                                inputMode="numeric"
+                                label={t("project_users.ai_tokens.limit_label")}
+                                placeholder={t("project_users.ai_tokens.limit_placeholder")}
+                                description={t("project_users.ai_tokens.limit_description")}
+                                disabled={!domainsReady}
+                                dataTestId="edit-access-ai-token-limit"
+                            />
                         </div>
                         <DialogFooter>
                             <Button type="button" variant="secondary" onClick={() => onOpenChange(false)} disabled={updateMutation.isPending}>

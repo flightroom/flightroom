@@ -150,7 +150,7 @@ describe("project admin tools", () => {
             expect(schema.safeParse({ enabled: false }).success).toBe(true)
         })
 
-        it("given a member who is not an owner, when switched, then the service's refusal surfaces", async () => {
+        it("given a member who is not an owner, when switched, then the backend's refusal surfaces", async () => {
             updateProject.mockRejectedValue(new UserCannotAccessThisProjectError())
 
             await expect(run("project_gitops_set", { enabled: false })).rejects.toBeInstanceOf(UserCannotAccessThisProjectError)
@@ -188,7 +188,7 @@ describe("project admin tools", () => {
     })
 
     describe("project_members_list", () => {
-        it("given a project, when its members are listed, then the service's list is returned", async () => {
+        it("given a project, when its members are listed, then the backend's list is returned", async () => {
             getProjectUsers.mockResolvedValue([{ _id: MEMBER, email: "member@example.com", role: "MEMBER" }])
 
             expect(await run("project_members_list")).toEqual([{ _id: MEMBER, email: "member@example.com", role: "MEMBER" }])
@@ -210,7 +210,7 @@ describe("project admin tools", () => {
             const result = await run("project_member_invite", { email: "new@example.com", role: "MEMBER" })
 
             expect(addUserToProjectByEmail).toHaveBeenCalledWith(PROJECT, "new@example.com", "MEMBER", undefined)
-            expect(result).toEqual({ userId: MEMBER, role: "MEMBER", domainIds: [], domainScoped: false, invitationPending: true, invitationExpiresAt: expiresAt })
+            expect(result).toEqual({ userId: MEMBER, role: "MEMBER", domainIds: [], domainScoped: false, invitationPending: true, invitationExpiresAt: expiresAt, aiTokenLimit: null })
             expect(JSON.stringify(result)).not.toContain("secret-token")
         })
 
@@ -243,7 +243,7 @@ describe("project admin tools", () => {
             expect(JSON.stringify(result)).not.toContain("fresh-token")
         })
 
-        it("given an invitation already accepted, when resent, then the service's refusal surfaces", async () => {
+        it("given an invitation already accepted, when resent, then the backend's refusal surfaces", async () => {
             resendInvitation.mockRejectedValue(createBusinessException({ code: "INVITATION_ALREADY_ACCEPTED", message: "This user has already accepted the invitation" }))
 
             await expect(run("project_member_resend_invitation", { userId: MEMBER })).rejects.toMatchObject({ code: "INVITATION_ALREADY_ACCEPTED" })
@@ -256,7 +256,7 @@ describe("project admin tools", () => {
 
             const result = await run("project_member_role_set", { userId: MEMBER, role: "VIEWER" })
 
-            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined)
+            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined, undefined)
             expect(result).toMatchObject({ domainIds: [], domainScoped: true })
         })
 
@@ -265,7 +265,7 @@ describe("project admin tools", () => {
 
             const result = await run("project_member_role_set", { userId: MEMBER, role: "MEMBER", domainIds: [] })
 
-            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "MEMBER", [])
+            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "MEMBER", [], undefined)
             expect(result).toMatchObject({ domainIds: [], domainScoped: false })
         })
 
@@ -274,13 +274,24 @@ describe("project admin tools", () => {
 
             const result = await run("project_member_role_set", { userId: MEMBER, role: "VIEWER" })
 
-            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined)
+            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined, undefined)
             expect(principals[0]).toMatchObject({ restrictedToProjectIds: [PROJECT] })
             expect(result).toMatchObject({ userId: MEMBER, role: "VIEWER", invitationPending: true })
             expect(JSON.stringify(result)).not.toContain("secret-token")
         })
 
-        it("given a user who does not own the project, when a role is set, then the service's refusal surfaces", async () => {
+        it("given a monthly AI token limit, when set, then the service saves it and the view carries it; null takes it away", async () => {
+            updateUserRole.mockResolvedValue({ userId: MEMBER, role: "MEMBER", aiTokenLimit: 100_000 })
+
+            const result = await run("project_member_role_set", { userId: MEMBER, role: "MEMBER", aiTokenLimit: 100_000 })
+            await run("project_member_role_set", { userId: MEMBER, role: "MEMBER", aiTokenLimit: null })
+
+            expect(updateUserRole).toHaveBeenNthCalledWith(1, PROJECT, MEMBER, "MEMBER", undefined, 100_000)
+            expect(updateUserRole).toHaveBeenNthCalledWith(2, PROJECT, MEMBER, "MEMBER", undefined, null)
+            expect(result).toMatchObject({ aiTokenLimit: 100_000 })
+        })
+
+        it("given a user who does not own the project, when a role is set, then the backend's refusal surfaces", async () => {
             updateUserRole.mockRejectedValue(createBusinessException({ code: "PROJECT_OWNER_REQUIRED", message: "Only an owner of the project can change its members", statusCode: 403 }))
 
             await expect(run("project_member_role_set", { userId: MEMBER, role: "OWNER" })).rejects.toMatchObject({ code: "PROJECT_OWNER_REQUIRED" })
@@ -292,14 +303,14 @@ describe("project admin tools", () => {
     })
 
     describe("project_member_remove", () => {
-        it("given a member, when removed, then the service removes them from the console's project", async () => {
+        it("given a member, when removed, then the backend removes them from the console's project", async () => {
             removeUserFromProject.mockResolvedValue(undefined)
 
             expect(await run("project_member_remove", { userId: MEMBER })).toEqual({ removed: true, userId: MEMBER })
             expect(removeUserFromProject).toHaveBeenCalledWith(PROJECT, MEMBER)
         })
 
-        it("given the last owner, when removed, then the service's refusal surfaces", async () => {
+        it("given the last owner, when removed, then the backend's refusal surfaces", async () => {
             removeUserFromProject.mockRejectedValue(createBusinessException({ code: "PROJECT_LAST_OWNER", message: "Cannot remove the last owner of the project" }))
 
             await expect(run("project_member_remove", { userId: MEMBER })).rejects.toMatchObject({ code: "PROJECT_LAST_OWNER" })

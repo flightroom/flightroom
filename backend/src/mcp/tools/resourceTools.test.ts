@@ -89,7 +89,7 @@ describe("resource tools", () => {
         expect(getByProjectId).toHaveBeenCalledWith(PROJECT)
     })
 
-    it("given a resource with fields that are no credential, when created, then it reaches the service of the project", async () => {
+    it("given a resource with fields that are no credential, when created, then it reaches the backend of the project", async () => {
         create.mockResolvedValue(storedApi())
         const input = { name: "payments", type: "api", variant: "apiKey", fields: { baseUrl: { value: "https://api.pay.example.com" }, name: { value: "X-API-Key" } } }
 
@@ -121,7 +121,7 @@ describe("resource tools", () => {
         expect(update).not.toHaveBeenCalled()
     })
 
-    it("given a generic with its variables and a plain value, when created, then they reach the service", async () => {
+    it("given a generic with its variables and a plain value, when created, then they reach the backend", async () => {
         create.mockResolvedValue(storedApi())
         const input = {
             name: "billing",
@@ -143,7 +143,7 @@ describe("resource tools", () => {
         expect(update).not.toHaveBeenCalled()
     })
 
-    it("given fields that are no credential, when updated, then they reach the service", async () => {
+    it("given fields that are no credential, when updated, then they reach the backend", async () => {
         getById.mockResolvedValue(storedApi())
         update.mockResolvedValue(storedApi())
 
@@ -153,7 +153,7 @@ describe("resource tools", () => {
         expect(result.fields.apiKey.value).toBe(SECRET_PLACEHOLDER)
     })
 
-    it("given a field sent as null, when updated, then it reaches the service as unset", async () => {
+    it("given a field sent as null, when updated, then it reaches the backend as unset", async () => {
         getById.mockResolvedValue(storedApi())
         update.mockResolvedValue(storedApi())
 

@@ -14,7 +14,7 @@ const periodQuerySchema = { type: "object", additionalProperties: false, propert
 type PeriodQuery = { Querystring: { period: AiUsagePeriod } }
 
 /**
- * The AI tokens spent over a period, by Edit with AI jobs and the assistant: of a domain, a frontend, a service,
+ * The AI tokens spent over a period, by Edit with AI jobs and the assistant: of a domain, a frontend, a backend,
  * a project, an organization. Console sessions only, as the AI features they count.
  */
 export default async function aiUsageController(fastify: FastifyInstance) {
@@ -29,8 +29,8 @@ export default async function aiUsageController(fastify: FastifyInstance) {
         reply.send(await service(request).forFrontend(request.params.id, request.query.period))
     )
 
-    fastify.get<PeriodQuery & { Params: { id: string } }>("/services/:id/ai-usage", { schema: { params: idParamsSchema, querystring: periodQuerySchema }, config }, async (request, reply) =>
-        reply.send(await service(request).forService(request.params.id, request.query.period))
+    fastify.get<PeriodQuery & { Params: { id: string } }>("/backends/:id/ai-usage", { schema: { params: idParamsSchema, querystring: periodQuerySchema }, config }, async (request, reply) =>
+        reply.send(await service(request).forBackend(request.params.id, request.query.period))
     )
 
     fastify.get<PeriodQuery & { Params: { projectId: string } }>(

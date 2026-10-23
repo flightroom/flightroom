@@ -9,7 +9,7 @@ import useProjectStore from "@/store/useProjectStore"
 
 /**
  * Opens an agent job in a tab of the assistant panel, and the panel with it. A working agent can be a
- * change request started on a frontend or service page, which has no job: `fallbackPath`, when given,
+ * change request started on a frontend or backend page, which has no job: `fallbackPath`, when given,
  * is where to go instead, quietly.
  */
 const useOpenAgentJob = () => {

@@ -1,8 +1,8 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
+import { BackendPaths } from "../types/BackendStack"
 import { IDesignSystem } from "../types/DesignSystem"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
-import { ServicePaths } from "../types/ServiceStack"
-import { exposurePath, IServiceEnvVariable, optionalPath, serviceEnvVariableSchema } from "./ContainerFields"
+import { backendEnvVariableSchema, exposurePath, IBackendEnvVariable, optionalPath } from "./ContainerFields"
 import { designSystemSchema } from "./DesignSystemSchema"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
@@ -15,7 +15,7 @@ export enum FrontendType {
  * How it is built and served, independent from HOST/REMOTE: a host can itself be a remote of other hosts.
  *
  * A BUNDLE is a static bundle the CI uploads and the orchestrator serves. A DOCKER is an app
- * built into an image and served by its own container, exactly like a backend service: the orchestrator
+ * built into an image and served by its own container, exactly like a backend: the orchestrator
  * neither stores its files nor deploys it, the CI registers its versions and the CD reports its deploys.
  * A DOCKER is the top of a tree: it loads remotes, nothing loads it, so it never has parents.
  */
@@ -68,22 +68,22 @@ export interface IPosition {
     height?: number
 }
 /**
- * The container fields of a DOCKER, named as on a service. All optional with no default, so a
- * BUNDLE document carries none of them; FrontendService fills the service defaults in
+ * The container fields of a DOCKER, named as on a backend. All optional with no default, so a
+ * BUNDLE document carries none of them; FrontendService fills the backend defaults in
  * when a DOCKER is created.
  */
-export interface IFrontendContainer extends Partial<ServicePaths> {
+export interface IFrontendContainer extends Partial<BackendPaths> {
     image?: {
         /** Without tag, e.g. ghcr.io/acme/shell */
         repository?: string
     }
     port?: number
-    /** The path it is exposed at on the host of every environment, as for a service */
+    /** The path it is exposed at on the host of every environment, as for a backend */
     exposurePath?: string | null
-    env?: IServiceEnvVariable[]
-    /** Config maps of the project the container receives as environment variables, as for a service */
+    env?: IBackendEnvVariable[]
+    /** Config maps of the project the container receives as environment variables, as for a backend */
     configMapIds?: Schema.Types.ObjectId[]
-    /** Secrets of the project the container receives as environment variables, as for a service */
+    /** Secrets of the project the container receives as environment variables, as for a backend */
     secretIds?: Schema.Types.ObjectId[]
 }
 
@@ -113,8 +113,8 @@ export interface IFrontend extends Document<ObjectId>, IFrontendContainer {
     updatedAt: Date
 
     parentIds?: ObjectId[]
-    /** Backend services this frontend calls, linked by hand from the console */
-    serviceIds?: ObjectId[]
+    /** Backends this frontend calls, linked by hand from the console */
+    backendIds?: ObjectId[]
     position?: IPosition
 }
 
@@ -200,7 +200,7 @@ const frontendCanaryTypeSchema = new Schema<ICanaryFrontend>({
     }
 })
 
-/** Shared with the backend services, which link their repository exactly the same way */
+/** Shared with the backends, which link their repository exactly the same way */
 export const frontendCodeRepositorySchema = new Schema<ICodeRepositoryFrontend>({
     enabled: {
         type: Boolean,
@@ -317,7 +317,7 @@ const frontendSchema: Schema = new Schema<IFrontend>(
         },
         version: {
             type: String,
-            // A DOCKER gets its first one from the first version its CI registers, as a service
+            // A DOCKER gets its first one from the first version its CI registers, as a backend
             required: function (this: IFrontend) {
                 return this.kind !== FrontendKind.DOCKER
             }
@@ -369,9 +369,9 @@ const frontendSchema: Schema = new Schema<IFrontend>(
             ref: "Frontend",
             required: false
         },
-        serviceIds: {
+        backendIds: {
             type: [Schema.Types.ObjectId],
-            ref: "Service",
+            ref: "Backend",
             required: false
         },
         path: {
@@ -400,7 +400,7 @@ const frontendSchema: Schema = new Schema<IFrontend>(
         openApiPath: optionalPath,
         exposurePath,
         env: {
-            type: [serviceEnvVariableSchema],
+            type: [backendEnvVariableSchema],
             default: undefined
         },
         configMapIds: {

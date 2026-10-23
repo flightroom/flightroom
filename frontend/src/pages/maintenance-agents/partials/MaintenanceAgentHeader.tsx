@@ -28,7 +28,7 @@ export const MaintenanceAgentHeader: React.FC<MaintenanceAgentHeaderProps> = ({ 
                     <span className="font-mono">{agent.slug}</span>
                     <KindBadge kind={agent.kind} />
                     <ScheduleLabel agent={agent} />
-                    {agent.version && <Badge variant="outline">{t("services.version_short", { version: agent.version })}</Badge>}
+                    {agent.version && <Badge variant="outline">{t("backends.version_short", { version: agent.version })}</Badge>}
                     <RepositoryLink repository={agent.codeRepository} />
                     <TemplateRepositoryLink slug={agent.template} />
                 </>

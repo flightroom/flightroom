@@ -2,11 +2,11 @@ import { z } from "zod"
 import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import { CONTEXT_MAX_LENGTH } from "../../models/ProjectModel"
+import BackendService from "../../service/BackendService"
 import FrontendService from "../../service/FrontendService"
 import MaintenanceAgentService from "../../service/MaintenanceAgentService"
-import ServiceService from "../../service/ServiceService"
+import { BACKEND_SLUG, BACKEND_VERSION } from "../../types/BackendStack"
 import { isValidSchedule, MaintenanceAgentDTO, MaintenanceAgentKind } from "../../types/MaintenanceAgent"
-import { SERVICE_SLUG, SERVICE_VERSION } from "../../types/ServiceStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
@@ -15,14 +15,14 @@ import { containerFields, ensureReferencesBelongToProject, createSchema as front
 const maintenanceAgentId = objectId("Id of the maintenance agent, from maintenance_agents_list")
 
 /**
- * The fields a maintenance agent can be created or edited with: those of a backend service, narrowed the same
+ * The fields a maintenance agent can be created or edited with: those of a backend, narrowed the same
  * way (no scaffolding, nothing the CI sets), with how it runs and what it maintains. It is never exposed on the
  * host of an environment, so it has no exposure path nor API documentation.
  */
 const { exposurePath: _exposurePath, docsPath: _docsPath, openApiPath: _openApiPath, ...agentContainerFields } = containerFields
 const maintenanceAgentFields = {
     name: z.string().min(1).max(255),
-    slug: z.string().regex(SERVICE_SLUG, "2 to 50 lowercase letters, digits or dashes, not starting with a dash"),
+    slug: z.string().regex(BACKEND_SLUG, "2 to 50 lowercase letters, digits or dashes, not starting with a dash"),
     description: z.string().max(2000).optional(),
     domainId: memberDomainId,
     context: z.string().max(CONTEXT_MAX_LENGTH).optional().describe("Markdown notes for AI agents about this maintenance agent, replaced as a whole"),
@@ -42,12 +42,12 @@ const maintenanceAgentFields = {
         .optional()
         .describe("A container only: the path its CronJob POSTs to, /run when omitted"),
     resourceIds: z.array(objectId("Id of a resource of the project, from resources_list")).max(50).optional().describe("Resources whose variables reach the container. Replaced as a whole"),
-    serviceIds: z
-        .array(objectId("Id of a backend service of the project, from services_list"))
+    backendIds: z
+        .array(objectId("Id of a backend of the project, from backends_list"))
         .max(100)
         .optional()
-        .describe("Backend services it maintains: they reach the container in MAINTAINED_TARGETS. Replaced as a whole"),
-    frontendIds: z.array(objectId("Id of a frontend of the project, from frontends_list")).max(100).optional().describe("Frontends it maintains, as for the services. Replaced as a whole")
+        .describe("Backends it maintains: they reach the container in MAINTAINED_TARGETS. Replaced as a whole"),
+    frontendIds: z.array(objectId("Id of a frontend of the project, from frontends_list")).max(100).optional().describe("Frontends it maintains, as for the backends. Replaced as a whole")
 }
 
 const createSchema = z.object(maintenanceAgentFields)
@@ -67,7 +67,7 @@ export const maintenanceAgentTools = [
         name: "maintenance_agents_list",
         title: "List maintenance agents",
         description:
-            "Every maintenance agent of the project: containers that look after backend services and frontends, run on a cron schedule or on Play. With kind, schedule, the services and frontends each maintains, version, image and last run. Pass domainId to list one domain only.",
+            "Every maintenance agent of the project: containers that look after backends and frontends, run on a cron schedule or on Play. With kind, schedule, the backends and frontends each maintains, version, image and last run. Pass domainId to list one domain only.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ domainId: domainFilter }),
@@ -77,7 +77,7 @@ export const maintenanceAgentTools = [
         name: "maintenance_agent_get",
         title: "Get maintenance agent",
         description:
-            "One maintenance agent, with targets: the services and frontends it maintains, with their slug, name and exposure path. The container receives them as JSON in the MAINTAINED_TARGETS environment variable, with the URL of each inside the environment.",
+            "One maintenance agent, with targets: the backends and frontends it maintains, with their slug, name and exposure path. The container receives them as JSON in the MAINTAINED_TARGETS environment variable, with the URL of each inside the environment.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ maintenanceAgentId }),
@@ -88,9 +88,9 @@ export const maintenanceAgentTools = [
                 const wanted = new Set(ids.map(String))
                 return items.filter(item => wanted.has(String(item._id))).map(({ _id, slug, name, exposurePath }) => ({ _id, slug, name, exposurePath }))
             }
-            const services = await new ServiceService(context.principal).getByProjectId(context.projectId)
+            const backends = await new BackendService(context.principal).getByProjectId(context.projectId)
             const frontends = await new FrontendService(context.principal).getByProjectId(context.projectId)
-            return { ...agent.toObject(), targets: { services: among(services, agent.serviceIds), frontends: among(frontends, agent.frontendIds) } }
+            return { ...agent.toObject(), targets: { backends: among(backends, agent.backendIds), frontends: among(frontends, agent.frontendIds) } }
         }
     }),
     defineTool({
@@ -130,13 +130,13 @@ export const maintenanceAgentTools = [
         annotations: WRITE_EXTERNAL,
         inputSchema: z.object({
             maintenanceAgentId,
-            version: z.string().regex(SERVICE_VERSION, "letters, digits, dots, dashes and underscores, at most 128").describe("Version to tag, e.g. 1.4.0: it becomes the image tag"),
+            version: z.string().regex(BACKEND_VERSION, "letters, digits, dots, dashes and underscores, at most 128").describe("Version to tag, e.g. 1.4.0: it becomes the image tag"),
             branch: z.string().min(1).max(255).optional().describe("Branch to tag, main when omitted")
         }),
         run: async (args, context) => {
             if (!(await getExisting(args.maintenanceAgentId, context)).codeRepository?.enabled) {
                 throw createBusinessException({
-                    code: "SERVICE_REPOSITORY_MISSING",
+                    code: "BACKEND_REPOSITORY_MISSING",
                     message: "The maintenance agent has no linked code repository to tag: link one with maintenance_agent_update"
                 })
             }
@@ -161,7 +161,7 @@ export const maintenanceAgentTools = [
         name: "maintenance_agent_update",
         title: "Update maintenance agent",
         description:
-            "Changes the given fields of a maintenance agent. Nested objects (codeRepository, image), the env list and the configMapIds, secretIds, resourceIds, serviceIds and frontendIds are replaced as a whole. A new schedule reaches the cluster with the next deploy.",
+            "Changes the given fields of a maintenance agent. Nested objects (codeRepository, image), the env list and the configMapIds, secretIds, resourceIds, backendIds and frontendIds are replaced as a whole. A new schedule reaches the cluster with the next deploy.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: updateSchema,

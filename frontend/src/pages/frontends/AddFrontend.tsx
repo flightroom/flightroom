@@ -1,12 +1,11 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, SwitchField, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { useQuery } from "@tanstack/react-query"
+import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useState } from "react"
 import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { Navigate, useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import * as z from "zod"
-import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Button } from "@/components/atoms"
 import TextareaField from "@/components/input/TextareaField.rhf"
@@ -20,18 +19,17 @@ import useFrontendsApi, { CanaryDeploymentType, CanaryType, Frontend, FrontendKi
 import useMarketApi from "@/hooks/apiClients/useMarketApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
 import { useVariableMapErrorMessage, VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
+import BackendEndpointFields from "@/pages/backends/partials/BackendEndpointFields"
+import BackendEnvFields from "@/pages/backends/partials/BackendEnvFields"
+import BackendRuntimeFields from "@/pages/backends/partials/BackendRuntimeFields"
+import BackendVariableMapsFields from "@/pages/backends/partials/BackendVariableMapsFields"
+import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import { CodeRepositorySection, DangerZoneRemoveFrontend, FrontendHeader, FrontendKindField, HostingSection, isAiEditAvailable, ReleaseSection } from "@/pages/frontends/partials/components"
-import ServiceEndpointFields from "@/pages/services/partials/ServiceEndpointFields"
-import ServiceEnvFields from "@/pages/services/partials/ServiceEnvFields"
-import ServiceRuntimeFields from "@/pages/services/partials/ServiceRuntimeFields"
-import ServiceVariableMapsFields from "@/pages/services/partials/ServiceVariableMapsFields"
-import ServiceVersionsTable from "@/pages/services/partials/ServiceVersionsTable"
-import { createServiceRuntimeShape, refineExposure, SERVICE_VERSION, useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import DomainSelectField from "../domains/partials/DomainSelectField"
+import DomainSection from "../domains/partials/DomainSection"
 import { DesignSystemFields, designSystemFormValues, HTTP_URL, NPM_PACKAGE_NAME, toDesignSystem } from "../settings/partials/DesignSystemFields"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import { FetchDataTemplateCard } from "../templates-library/partials/"
@@ -50,8 +48,8 @@ interface FormMessages {
 }
 
 const createFormSchema = (messages: FormMessages) => {
-    // What a DOCKER declares about its container, with the same rules as a service
-    const containerSchema = z.object(createServiceRuntimeShape(messages))
+    // What a DOCKER declares about its container, with the same rules as a backend
+    const containerSchema = z.object(createBackendRuntimeShape(messages))
 
     return z
         .object({
@@ -149,14 +147,14 @@ const createFormSchema = (messages: FormMessages) => {
                 }
             }
             if (data.kind === FrontendKind.DOCKER) {
-                // Its container, with the same rules as a service: every issue lands on the field it is about
+                // Its container, with the same rules as a backend: every issue lands on the field it is about
                 const container = containerSchema.safeParse(data)
                 for (const issue of container.error?.issues ?? []) {
                     ctx.addIssue({ code: "custom", message: issue.message, path: issue.path })
                 }
                 refineExposure(data, ctx, messages)
-                // Optional, as for a service: it is the tag of the image, with the same rule
-                if (data.version?.trim() && !SERVICE_VERSION.test(data.version.trim())) {
+                // Optional, as for a backend: it is the tag of the image, with the same rule
+                if (data.version?.trim() && !BACKEND_VERSION.test(data.version.trim())) {
                     ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["version"] })
                 }
                 return
@@ -181,18 +179,24 @@ type FormInput = z.input<FormSchema>
 type FormValues = z.output<FormSchema>
 
 /** Tabs that own validated fields, in the order they are shown: the first one with an error is the one we jump to. */
-const FORM_TABS = ["general", "context", "hosting", "container", "repository"] as const
+const FORM_TABS = ["general", "context", "hosting", "runtime"] as const
 
 type FormTab = (typeof FORM_TABS)[number] | "danger"
 
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
+/** Tabs merged into another one: old links to them open the tab that now holds their fields. */
+const MERGED_TABS = new Map<string, FormTab>([
+    ["container", "runtime"],
+    ["variables", "runtime"],
+    ["repository", "general"]
+])
+
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["name", "slug", "description", "domainId", "kind"],
+    general: ["name", "slug", "description", "domainId", "kind", "version", "customVersion", "canary", "codeRepository"],
     context: ["context", "designSystem"],
     hosting: ["host"],
-    container: ["port", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "image", "env", "configMapIds", "secretIds"],
-    repository: ["codeRepository"],
+    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "env", "configMapIds", "secretIds"],
     danger: []
 }
 
@@ -216,20 +220,30 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
     const [searchParams] = useSearchParams()
+    const location = useLocation()
     const isEdit = Boolean(id)
     const frontendsApi = useFrontendsApi()
     const { errorMessage: domainErrorMessage } = useDomainsApi()
     const variableMapErrorMessage = useVariableMapErrorMessage()
     const errorMessage = (error: Error) => frontendsApi.errorMessage(error) ?? variableMapErrorMessage(error) ?? domainErrorMessage(error)
     const navigate = useNavigate()
+    const queryClient = useQueryClient()
     const template = searchParams.get("template")
     // Created under a parent: a DOCKER cannot have one, so it is a BUNDLE
     const parentId = isEdit ? null : searchParams.get("parentId")
     // Opened from a domain page: the frontend is created in it, and the page is where we go back
     const initialDomainId = searchParams.get("domainId")
-    // `?tab=` opens a tab straight away.
-    const linkedTab = searchParams.get("tab")
+    // `#hosting` (or the older `?tab=hosting`) opens a tab straight away.
+    const hashTab = location.hash.slice(1)
+    const requestedTab = isFormTab(hashTab) || MERGED_TABS.has(hashTab) ? hashTab : searchParams.get("tab")
+    const linkedTab = MERGED_TABS.get(requestedTab ?? "") ?? requestedTab
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
+
+    // The open tab is written in the hash, so a reload or a copied link lands on it
+    const selectTab = (tab: FormTab) => {
+        setActiveTab(tab)
+        navigate({ search: location.search, hash: tab }, { replace: true })
+    }
     const assistantEnabled = useProjectAiModels().enabled
     // The design system a frontend without its own builds with: the project's, else the organization's
     const projectDesignSystem = useProjectStore().project?.designSystem
@@ -255,11 +269,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     const formSchema = useMemo(
         () =>
             createFormSchema({
-                path: t("services.path_invalid"),
-                exposurePath: t("services.exposure_path_invalid"),
-                exposurePathRequired: t("services.exposure_path_required"),
+                path: t("backends.path_invalid"),
+                exposurePath: t("backends.exposure_path_invalid"),
+                exposurePathRequired: t("backends.exposure_path_required"),
                 versionRequired: t("frontend.validation.version_required"),
-                versionInvalid: t("services.version_invalid"),
+                versionInvalid: t("backends.version_invalid"),
                 hostUrlRequired: t("frontend.validation.host_url_required"),
                 canaryPercentage: t("frontend.validation.canary_percentage"),
                 designSystemPackageRequired: t("designSystem.fields.packageNameRequired"),
@@ -269,7 +283,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         [t]
     )
 
-    // The service defaults until it declares its own: a BUNDLE holds them only in case it is switched to DOCKER
+    // The backend defaults until it declares its own: a BUNDLE holds them only in case it is switched to DOCKER
     const containerDefaults = {
         port: String(frontend?.port ?? 8080),
         livenessPath: frontend?.livenessPath ?? "/health/live",
@@ -361,13 +375,6 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         if (!isEdit) form.setValue("version", isDocker ? "" : "1.0.0")
     }, [isDocker, isEdit, form])
 
-    // The builds of what is saved, not of the kind being chosen: a BUNDLE has no image to show
-    const buildsQuery = useQuery({
-        queryKey: ["frontend-builds", id],
-        queryFn: () => frontendsApi.getBuilds(id!),
-        enabled: isEdit && frontend?.kind === FrontendKind.DOCKER
-    })
-
     const onSubmit = async (data: FormValues) => {
         const { port, livenessPath, readinessPath, docsPath, openApiPath, exposed, exposurePath, image, env, configMapIds, secretIds, designSystemOverride, designSystem, ...rest } = data
         const dataToSend = {
@@ -416,18 +423,20 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             notificationToast.showSuccessNotification({
                 message: t("frontend.updated_success_message")
             })
+            await queryClient.invalidateQueries({ queryKey: ["mfe", id] })
+            navigate(`/frontend/${id}`)
         } else {
             if (parentId) {
                 dataToSend.parentIds = [parentId]
             }
 
-            await frontendsApi.create(dataToSend, { customErrorMessage: errorMessage })
+            const created = (await frontendsApi.create(dataToSend, { customErrorMessage: errorMessage })) as Frontend | undefined
             notificationToast.showSuccessNotification({
                 message: t("frontend.created_success_message")
             })
+            navigate(initialDomainId ? `/domain/${initialDomainId}` : created?._id ? `/frontend/${created._id}` : "/frontends")
         }
-
-        navigate(!isEdit && initialDomainId ? `/domain/${initialDomainId}` : `/frontends`)
+        await queryClient.invalidateQueries({ queryKey: ["frontends-by-project-id"] })
     }
 
     const hasRepositories = Boolean(repositories && repositories.length > 0)
@@ -438,12 +447,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         if (isFormTab(linkedTab)) setActiveTab(linkedTab)
     }, [linkedTab])
 
-    // A linked tab may not exist on this frontend (no repository, or not of its kind): fall back to the first one.
+    // A linked tab may not exist on this frontend (not of its kind, or not saved yet): fall back to the first one.
     const isTabShown = (tab: FormTab) => {
-        if (tab === "repository") return hasRepositories
         if (tab === "danger") return isEdit
         if (tab === "hosting") return !isDocker
-        if (tab === "container") return isDocker
+        if (tab === "runtime") return isDocker
         return true
     }
     const shownTab = isTabShown(activeTab) ? activeTab : "general"
@@ -453,7 +461,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
 
     const onInvalid = (errors: FieldErrors<FormInput>) => {
         const firstTabWithErrors = FORM_TABS.find(tab => isTabShown(tab) && TAB_FIELDS[tab].some(field => Boolean(errors[field])))
-        if (firstTabWithErrors) setActiveTab(firstTabWithErrors)
+        if (firstTabWithErrors) selectTab(firstTabWithErrors)
     }
 
     // Edit with AI used to be a tab of this page: old links to it open the AI workspace.
@@ -467,11 +475,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
                 <FetchDataTemplateCard slug={template} />
 
-                <ReleaseSection isEdit={isEdit} versions={versions} />
-
-                {isEdit && frontend?.kind === FrontendKind.DOCKER && <ServiceVersionsTable versions={buildsQuery.data ?? []} />}
-
-                <Tabs value={shownTab} onValueChange={value => setActiveTab(value as FormTab)} tabsListPosition="fullWidth">
+                <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)} tabsListPosition="fullWidth">
                     <TabsList>
                         <TabsTrigger value="general" className="flex-1">
                             {t("frontend.tabs.general")}
@@ -481,21 +485,16 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                             {t("frontend.tabs.context")}
                             {tabHasErrors("context") && <ErrorDot />}
                         </TabsTrigger>
+                        {/* A DOCKER runs a container, as a backend: the same Runtime tab */}
                         {isDocker ? (
-                            <TabsTrigger value="container" className="flex-1">
-                                {t("frontend.kind.container_tab")}
-                                {tabHasErrors("container") && <ErrorDot />}
+                            <TabsTrigger value="runtime" className="flex-1">
+                                {t("backends.tabs.runtime")}
+                                {tabHasErrors("runtime") && <ErrorDot />}
                             </TabsTrigger>
                         ) : (
                             <TabsTrigger value="hosting" className="flex-1">
                                 {t("frontend.tabs.hosting")}
                                 {tabHasErrors("hosting") && <ErrorDot />}
-                            </TabsTrigger>
-                        )}
-                        {hasRepositories && (
-                            <TabsTrigger value="repository" className="flex-1">
-                                {t("frontend.tabs.repository")}
-                                {tabHasErrors("repository") && <ErrorDot />}
                             </TabsTrigger>
                         )}
                         {isEdit && (
@@ -507,41 +506,57 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
 
                     {/* forceMount keeps every tab registered: switching tab must not drop the values or re-run the repository lookups. */}
                     <TabsContent value="general" forceMount>
-                        <Card>
-                            <CardHeader>
-                                <CardTitle className="mb-0">{t("frontend.general_information")}</CardTitle>
-                                <CardDescription>{t("frontend.general_information_description")}</CardDescription>
-                            </CardHeader>
-                            <CardContent className="flex flex-col gap-2 pt-3">
-                                <FrontendKindField disabled={Boolean(parentId)} dockerDisabled={Boolean(frontend?.parentIds?.length)} />
-                                {/* The templates scaffold a pipeline that uploads a bundle, which a DOCKER does not take */}
-                                {isDocker && template && !isEdit && (
-                                    <Alert>
-                                        <AlertDescription>{t("frontend.kind.template_pipeline_hint")}</AlertDescription>
-                                    </Alert>
-                                )}
-                                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                    <TextField
-                                        name="name"
-                                        label={t("frontend.name")}
-                                        placeholder={t("frontend.name_placeholder")}
-                                        textTransform={value => value.replace("  ", " ")}
-                                        required
-                                        onChange={e => {
-                                            const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
-                                            if (!isEdit) {
-                                                form.setValue("slug", slug)
-                                                form.setValue("codeRepository.createData.name", slug)
-                                            }
-                                        }}
-                                        containerClassName="flex-[1_1_240px]"
-                                    />
-                                    <TextField name="slug" disabled={isEdit} label={t("frontend.slug")} placeholder={t("frontend.slug_placeholder")} required containerClassName="flex-[1_1_240px]" />
-                                </div>
-                                <TextareaField name="description" label={t("frontend.description")} placeholder={t("frontend.description_placeholder")} />
-                                <DomainSelectField containerClassName="w-full" />
-                            </CardContent>
-                        </Card>
+                        <div className="flex flex-col gap-6">
+                            {/* Domain and release first, side by side: what it belongs to and what is served, at a glance */}
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                <DomainSection />
+                                <ReleaseSection isEdit={isEdit} versions={versions} container={isDocker} />
+                            </div>
+                            <Card>
+                                <CardHeader>
+                                    <CardTitle className="mb-0">{t("frontend.general_information")}</CardTitle>
+                                    <CardDescription>{t("frontend.general_information_description")}</CardDescription>
+                                </CardHeader>
+                                <CardContent className="flex flex-col gap-2 pt-3">
+                                    <FrontendKindField disabled={Boolean(parentId)} dockerDisabled={Boolean(frontend?.parentIds?.length)} />
+                                    {/* The templates scaffold a pipeline that uploads a bundle, which a DOCKER does not take */}
+                                    {isDocker && template && !isEdit && (
+                                        <Alert>
+                                            <AlertDescription>{t("frontend.kind.template_pipeline_hint")}</AlertDescription>
+                                        </Alert>
+                                    )}
+                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                        <TextField
+                                            name="name"
+                                            label={t("frontend.name")}
+                                            placeholder={t("frontend.name_placeholder")}
+                                            textTransform={value => value.replace("  ", " ")}
+                                            required
+                                            onChange={e => {
+                                                const slug = e.target.value.toLowerCase().replace(/[^a-z0-9]/g, "-")
+                                                if (!isEdit) {
+                                                    form.setValue("slug", slug)
+                                                    form.setValue("codeRepository.createData.name", slug)
+                                                }
+                                            }}
+                                            containerClassName="flex-[1_1_240px]"
+                                        />
+                                        <TextField
+                                            name="slug"
+                                            disabled={isEdit}
+                                            label={t("frontend.slug")}
+                                            placeholder={t("frontend.slug_placeholder")}
+                                            required
+                                            containerClassName="flex-[1_1_240px]"
+                                        />
+                                    </div>
+                                    <TextareaField name="description" label={t("frontend.description")} placeholder={t("frontend.description_placeholder")} />
+                                </CardContent>
+                            </Card>
+                            {hasRepositories && (
+                                <CodeRepositorySection repositoriesData={repositories || []} isEdit={!!id} frontendId={id} savedRepository={frontend?.codeRepository} forceCreation={!isEdit} />
+                            )}
+                        </div>
                     </TabsContent>
 
                     <TabsContent value="context" forceMount>
@@ -557,7 +572,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                                         label={t("frontend.context.label")}
                                         placeholder={t("frontend.context.placeholder")}
                                         description={t("frontend.context.hint")}
-                                        rows={14}
+                                        rows={12}
                                         className="font-mono text-sm"
                                         dataTestId="frontend-context"
                                     />
@@ -592,23 +607,17 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                     </TabsContent>
 
                     {isDocker ? (
-                        <TabsContent value="container" forceMount>
+                        <TabsContent value="runtime" forceMount>
                             <div className="flex flex-col gap-6">
-                                <ServiceRuntimeFields />
-                                <ServiceEndpointFields environments={environments} placeholder="/shell" />
-                                <ServiceEnvFields />
-                                <ServiceVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                                <BackendRuntimeFields />
+                                <BackendEndpointFields environments={environments} placeholder="/shell" />
+                                <BackendEnvFields />
+                                <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
                             </div>
                         </TabsContent>
                     ) : (
                         <TabsContent value="hosting" forceMount>
                             <HostingSection storages={storages} />
-                        </TabsContent>
-                    )}
-
-                    {hasRepositories && (
-                        <TabsContent value="repository" forceMount>
-                            <CodeRepositorySection repositoriesData={repositories || []} isEdit={!!id} frontendId={id} savedRepository={frontend?.codeRepository} forceCreation={!isEdit} />
                         </TabsContent>
                     )}
 
@@ -636,8 +645,6 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
             <div className="flex min-h-full flex-col gap-6">
                 <FrontendHeader frontend={frontend} active="settings" aiAvailable={aiAvailable} />
                 {content}
-                {/* Outside the form: its period selector is no field of the frontend. */}
-                {id && <AiUsageSummary target={{ kind: "frontend", id }} />}
             </div>
         )
     }

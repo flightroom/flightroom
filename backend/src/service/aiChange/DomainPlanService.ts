@@ -1,15 +1,15 @@
 import { fastify } from "../.."
 import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
+import Backend from "../../models/BackendModel"
 import Domain from "../../models/DomainModel"
 import Frontend from "../../models/FrontendModel"
 import MaintenanceAgent from "../../models/MaintenanceAgentModel"
 import { IMarket } from "../../models/MarketModel"
 import Project from "../../models/ProjectModel"
 import Resource from "../../models/ResourceModel"
-import Service from "../../models/ServiceModel"
+import { BACKEND_SLUG } from "../../types/BackendStack"
 import { describeProjectTechnologies, IProjectTechnologies } from "../../types/ProjectTechnology"
-import { SERVICE_SLUG } from "../../types/ServiceStack"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { aiProviderError } from "../llm"
 import MarketService from "../MarketService"
@@ -34,7 +34,7 @@ export interface DomainPlanInput {
     aiModelId?: string
 }
 
-/** A frontend or a service the AI proposes to create, with the repository it would be scaffolded in. */
+/** A frontend or a backend the AI proposes to create, with the repository it would be scaffolded in. */
 export interface DomainPlanComponent {
     name: string
     slug: string
@@ -47,17 +47,17 @@ export interface DomainPlanComponent {
 
 export interface DomainPlan {
     frontends: DomainPlanComponent[]
-    services: DomainPlanComponent[]
+    backends: DomainPlanComponent[]
 }
 
-const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain on Flightroom, a platform where a project is made of frontends (each in its own repository) and backend services (each in its own repository, deployed as a container). The domain has no component yet. From the user's request, propose the frontends and the services to create so that an AI agent can then implement the request in them.
-- Propose the smallest set the request needs: usually one frontend and one service, none of a kind the request does not need, at most ${MAX_PLANNED_PER_KIND} of each.
+const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain on Flightroom, a platform where a project is made of frontends (each in its own repository) and backends (each in its own repository, deployed as a container). The domain has no component yet. From the user's request, propose the frontends and the backends to create so that an AI agent can then implement the request in them.
+- Propose the smallest set the request needs: usually one frontend and one backend, none of a kind the request does not need, at most ${MAX_PLANNED_PER_KIND} of each.
 - name: a short human name, e.g. "Orders".
 - slug: lowercase letters, digits and dashes, 2 to 50 characters, starting with a letter or a digit, not one of the slugs already taken.
-- repositoryName: the slug followed by "${REPOSITORY_NAME_SUFFIXES.frontend}" for a frontend and by "${REPOSITORY_NAME_SUFFIXES.service}" for a service, e.g. orders${REPOSITORY_NAME_SUFFIXES.frontend} and orders${REPOSITORY_NAME_SUFFIXES.service}.
+- repositoryName: the slug followed by "${REPOSITORY_NAME_SUFFIXES.frontend}" for a frontend and by "${REPOSITORY_NAME_SUFFIXES.backend}" for a backend, e.g. orders${REPOSITORY_NAME_SUFFIXES.frontend} and orders${REPOSITORY_NAME_SUFFIXES.backend}.
 - template: the slug of one of the listed templates of the same kind. Unless the request explicitly asks for another stack, prefer one marked "project technology": it is built with the default technology the team chose for that kind (see project_technologies). Otherwise the one whose stack fits the project best; when nothing hints at a stack, the one marked default.
 - reason: one sentence, in the language of the request, on what the component does for it.
-- Shared resources of the project are listed: a service can attach them, so do not plan a component that only provides one of them.
+- Shared resources of the project are listed: a backend can attach them, so do not plan a component that only provides one of them.
 Follow the project and domain context: it is what the team wrote for AI agents.`
 
 const component = {
@@ -77,9 +77,9 @@ const PLAN_SCHEMA = {
     type: "object",
     properties: {
         frontends: { type: "array", items: component },
-        services: { type: "array", items: component }
+        backends: { type: "array", items: component }
     },
-    required: ["frontends", "services"],
+    required: ["frontends", "backends"],
     additionalProperties: false
 }
 
@@ -95,7 +95,7 @@ const toSlug = (value: string, fallback: string) => {
         .replace(/^-+/, "")
         .slice(0, 50)
         .replace(/-+$/, "")
-    return SERVICE_SLUG.test(slug) ? slug : fallback
+    return BACKEND_SLUG.test(slug) ? slug : fallback
 }
 
 /** The slug itself when free, otherwise the first `slug-2`, `slug-3`... that is: two members of a kind cannot share one. */
@@ -115,7 +115,7 @@ const describeTemplate = (template: Template, isDefault: boolean, isProjectTechn
  * most {@link MAX_PLANNED_PER_KIND} of each kind. The user still reviews it before anything is created.
  */
 export const sanitizePlan = (answer: unknown, templates: Template[], taken: Record<RepositoryComponentKind, Set<string>>, technologies?: IProjectTechnologies): DomainPlan => {
-    const proposed = (answer ?? {}) as Partial<Record<"frontends" | "services", unknown>>
+    const proposed = (answer ?? {}) as Partial<Record<"frontends" | "backends", unknown>>
     const sanitize = (items: unknown, kind: RepositoryComponentKind): DomainPlanComponent[] => {
         const ofKind = templates.filter(template => isTemplateOfKind(template, kind))
         const fallbackTemplate = defaultTemplateOf(templates, kind, technologies)
@@ -126,7 +126,7 @@ export const sanitizePlan = (answer: unknown, templates: Template[], taken: Reco
         return items.slice(0, MAX_PLANNED_PER_KIND).map((item: Record<string, unknown>, index) => {
             const name = text(item?.name, MAX_NAME_LENGTH)
             const askedSlug = text(item?.slug, 100)
-            const slug = freeSlug(toSlug(askedSlug || name, `${kind === "service" ? "backend" : "frontend"}-${index + 1}`), taken[kind])
+            const slug = freeSlug(toSlug(askedSlug || name, `${kind === "backend" ? "backend" : "frontend"}-${index + 1}`), taken[kind])
             const template = ofKind.find(candidate => candidate.slug === text(item?.template, 255)) ?? fallbackTemplate
             // The model's name only while its slug survived as is: a renamed slug renames the repository too.
             const asked = text(item?.repositoryName, MAX_REPOSITORY_NAME_LENGTH)
@@ -140,11 +140,11 @@ export const sanitizePlan = (answer: unknown, templates: Template[], taken: Reco
             return { name: name || slug, slug, template: template.slug, repositoryName, reason: text(item?.reason, MAX_REASON_LENGTH) }
         })
     }
-    return { frontends: sanitize(proposed.frontends, "frontend"), services: sanitize(proposed.services, "service") }
+    return { frontends: sanitize(proposed.frontends, "frontend"), backends: sanitize(proposed.backends, "backend") }
 }
 
 /**
- * Proposes the frontends and services a domain without any should start with, for the change
+ * Proposes the frontends and backends a domain without any should start with, for the change
  * the user asked for: one model call answered with JSON, no agent and no repository. The console
  * shows the plan for review and creates what the user keeps, then starts the domain job on it.
  */
@@ -159,24 +159,24 @@ export class DomainPlanService extends AiChangeBaseService {
 
         // Members already there are what the job works on: planning new ones would duplicate them.
         const inDomain = { projectId: projectIdObj, domainId: domain._id }
-        if ((await Frontend.exists(inDomain)) || (await Service.exists(inDomain))) {
-            throw createBusinessException({ code: "AI_DOMAIN_PLAN_HAS_MEMBERS", message: `The domain ${domain.name} already has frontends or services`, statusCode: 422 })
+        if ((await Frontend.exists(inDomain)) || (await Backend.exists(inDomain))) {
+            throw createBusinessException({ code: "AI_DOMAIN_PLAN_HAS_MEMBERS", message: `The domain ${domain.name} already has frontends or backends`, statusCode: 422 })
         }
 
         // A domain-scoped member is told of the resources they may read only, as the console lists them
         const scope = await this.getDomainScope(projectIdObj)
         const visibleResources = scope ? { _id: { $in: [...(await resourceIdsInScope(projectIdObj, scope))].map(id => toObjectId(id)) } } : {}
-        const [project, templates, frontends, services, resources, agents] = await Promise.all([
+        const [project, templates, frontends, backends, resources, agents] = await Promise.all([
             Project.findById(projectIdObj, { name: 1, context: 1, technologies: 1, designSystem: 1, organizationId: 1 }),
             new MarketService().getAll(),
             Frontend.find({ projectId: projectIdObj }, { slug: 1 }),
-            Service.find({ projectId: projectIdObj }, { slug: 1 }),
-            // What a service of the domain can attach instead of a component of its own: never a value of one
+            Backend.find({ projectId: projectIdObj }, { slug: 1 }),
+            // What a backend of the domain can attach instead of a component of its own: never a value of one
             Resource.find({ projectId: projectIdObj, ...visibleResources }, { name: 1, type: 1, description: 1 }),
             // A maintenance agent takes its slug from both
             MaintenanceAgent.find({ projectId: projectIdObj }, { slug: 1 })
         ])
-        const taken = { frontend: new Set([...frontends, ...agents].map(item => item.slug)), service: new Set([...services, ...agents].map(item => item.slug)) }
+        const taken = { frontend: new Set([...frontends, ...agents].map(item => item.slug)), backend: new Set([...backends, ...agents].map(item => item.slug)) }
         const technologies = project?.technologies
         // The one its frontends build their UI with: it may decide which frontend template fits
         const designSystem = project ? (await projectDesignSystemOf(project)).designSystem : undefined
@@ -210,8 +210,8 @@ export class DomainPlanService extends AiChangeBaseService {
                         : undefined,
                     [`<domain_context domain="${domain.name}">`, domain.description, domain.context, "</domain_context>"].filter(Boolean).join("\n"),
                     `<frontend_templates>\n${templateList("frontend")}\n</frontend_templates>`,
-                    `<service_templates>\n${templateList("service")}\n</service_templates>`,
-                    `<taken_slugs>\nfrontends: ${[...taken.frontend].join(", ") || "none"}\nservices: ${[...taken.service].join(", ") || "none"}\n</taken_slugs>`,
+                    `<backend_templates>\n${templateList("backend")}\n</backend_templates>`,
+                    `<taken_slugs>\nfrontends: ${[...taken.frontend].join(", ") || "none"}\nbackends: ${[...taken.backend].join(", ") || "none"}\n</taken_slugs>`,
                     resources.length
                         ? `<project_resources>\n${resources.map(resource => `- ${resource.name} (${resource.type})${resource.description ? `: ${resource.description}` : ""}`).join("\n")}\n</project_resources>`
                         : undefined

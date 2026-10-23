@@ -1,7 +1,7 @@
 import useApiClient from "../useApiClient"
 
-/** What a service created from a service template starts with */
-export interface ServiceDefaults {
+/** What a backend created from a backend template starts with */
+export interface BackendDefaults {
     port: number
     livenessPath: string
     readinessPath: string
@@ -26,8 +26,8 @@ export interface Market {
     compiler?: string
     /** File of the build output a frontend created from the template is served by */
     entryPoint?: string
-    /** Service templates only */
-    serviceDefaults?: ServiceDefaults
+    /** Backend templates only */
+    backendDefaults?: BackendDefaults
     createdAt: Date
     updatedAt: Date
 }

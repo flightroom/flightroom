@@ -81,8 +81,8 @@ export const RepositoryPicker: React.FC<RepositoryPickerProps> = ({ id, label, p
 
     // Solo i repository che la connessione raggiunge davvero: il backend rifiuta tutti gli altri.
     const repositoriesQuery = useQuery({
-        queryKey: ["importable-repositories", choice.codeRepositoryId, "service"],
-        queryFn: () => codeRepositoriesApi.getImportableRepositories(choice.codeRepositoryId!, undefined, "service"),
+        queryKey: ["importable-repositories", choice.codeRepositoryId, "backend"],
+        queryFn: () => codeRepositoriesApi.getImportableRepositories(choice.codeRepositoryId!, undefined, "backend"),
         enabled: !!choice.codeRepositoryId
     })
 

@@ -6,6 +6,7 @@ import { IFrontend } from "../../models/FrontendModel"
 import { ApiKeyService } from "../ApiKeyService"
 import AiChangeJobService from "../aiChange/AiChangeJobService"
 import AiChangeService from "../aiChange/AiChangeService"
+import BackendService from "../BackendService"
 import CodeRepositoryService from "../CodeRepositoryService"
 import DeploymentService from "../DeploymentService"
 import DomainService from "../DomainService"
@@ -15,7 +16,6 @@ import GlobalVariablesService from "../GlobalVariablesService"
 import OAuthGrantService from "../OAuthGrantService"
 import OrganizationService from "../OrganizationService"
 import ProjectService from "../ProjectService"
-import ServiceService from "../ServiceService"
 import { StorageService } from "../StorageService"
 import UserOrganizationService from "../UserOrganizationService"
 import UserProjectService from "../UserProjectService"
@@ -177,8 +177,8 @@ class DetailResolver {
                     const grant = (await new OAuthGrantService(this.principal).listForProject(this.projectId)).find(candidate => candidate.id === id)
                     return grant && `${grant.clientName} (${grant.userEmail})`
                 })
-            case "serviceId":
-                return each("service", async id => (await new ServiceService(this.principal).getById(id))?.name)
+            case "backendId":
+                return each("backend", async id => (await new BackendService(this.principal).getById(id))?.name)
             case "domainId":
                 return each("domain", async id => (await new DomainService(this.principal).getById(id))?.name)
             case "storageId":
@@ -200,9 +200,9 @@ class DetailResolver {
         if (!change) return [{ label: "ai_change", value: id }]
         const files = (change.files ?? []).map(file => `${file.action} ${file.path}`)
         const frontend = change.frontendId ? await this.frontendLabel(String(change.frontendId)).catch(() => undefined) : undefined
-        const service = change.serviceId ? await new ServiceService(this.principal).getById(String(change.serviceId)).catch(() => undefined) : undefined
+        const backend = change.backendId ? await new BackendService(this.principal).getById(String(change.backendId)).catch(() => undefined) : undefined
         return [
-            change.serviceId ? { label: "service", value: service?.name ?? String(change.serviceId) } : { label: "frontend", value: frontend ?? String(change.frontendId) },
+            change.backendId ? { label: "backend", value: backend?.name ?? String(change.backendId) } : { label: "frontend", value: frontend ?? String(change.frontendId) },
             { label: "prompt", value: clip(change.prompt ?? "") },
             ...(files.length ? [{ label: "files", value: lines(files) }] : [])
         ]

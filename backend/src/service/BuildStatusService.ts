@@ -3,20 +3,20 @@ import { fastify } from ".."
 import AzureDevOpsClient, { AzureDevOpsBuild } from "../client/AzureDevOpsClient"
 import GithubClient, { GithubWorkflowRun } from "../client/GithubClient"
 import GitlabClient, { GitLabPipeline } from "../client/GitlabClient"
+import BackendDeployment from "../models/BackendDeploymentModel"
+import Backend, { IBackend } from "../models/BackendModel"
+import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
-import BuiltService from "../models/BuiltServiceModel"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
-import ServiceDeployment from "../models/ServiceDeploymentModel"
-import Service, { IService } from "../models/ServiceModel"
 import { BuildJobLogDTO, BuildRunDTO, BuildStatus, BuildUnavailableReason, ComponentBuildStatusDTO, ProjectBuildStatusDTO } from "../types/BuildStatusDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { findLatestFrontendDeployments } from "./FrontendDeploymentService"
 
-/** How many runs per frontend or service are read from the provider. */
+/** How many runs per frontend or backend are read from the provider. */
 const RUNS_PER_COMPONENT = 5
 
 /**
@@ -172,10 +172,10 @@ export const toAzureRun = (build: AzureDevOpsBuild): BuildRunDTO => ({
 })
 
 /** Which component a failed run belongs to: exactly one of the two ids is set. */
-export type BuildRunOwner = { frontendId: string; serviceId?: undefined } | { serviceId: string; frontendId?: undefined }
+export type BuildRunOwner = { frontendId: string; backendId?: undefined } | { backendId: string; frontendId?: undefined }
 
 /**
- * What reading the runs of a component needs. A frontend and a service link their
+ * What reading the runs of a component needs. A frontend and a backend link their
  * repository the same way, so everything below works on either.
  */
 interface BuildableComponent {
@@ -189,7 +189,7 @@ interface BuildableComponent {
 
 class BuildStatusService extends BaseAuthorizedService {
     /**
-     * Build status of every frontend and service (backend) of a project,
+     * Build status of every frontend and backend of a project,
      * read live from the CI providers and joined with the version each environment
      * currently serves.
      *
@@ -203,7 +203,7 @@ class BuildStatusService extends BaseAuthorizedService {
     }
 
     /**
-     * The snapshot as a domain-scoped member may read it: the rows of their frontends and services
+     * The snapshot as a domain-scoped member may read it: the rows of their frontends and backends
      * only. Filtered after the cache, which holds the whole project and is shared by everyone reading it.
      */
     private async withinDomainScope(projectId: string | Schema.Types.ObjectId | ObjectId, snapshot: ProjectBuildStatusDTO): Promise<ProjectBuildStatusDTO> {
@@ -212,12 +212,12 @@ class BuildStatusService extends BaseAuthorizedService {
             return snapshot
         }
         const projectIdObj = toObjectId(projectId)
-        const [frontends, services] = await Promise.all([Frontend.find({ projectId: projectIdObj, ...inScope }, { _id: 1 }), Service.find({ projectId: projectIdObj, ...inScope }, { _id: 1 })])
-        const visible = new Set([...frontends, ...services].map(component => String(component._id)))
+        const [frontends, backends] = await Promise.all([Frontend.find({ projectId: projectIdObj, ...inScope }, { _id: 1 }), Backend.find({ projectId: projectIdObj, ...inScope }, { _id: 1 })])
+        const visible = new Set([...frontends, ...backends].map(component => String(component._id)))
         return {
             ...snapshot,
             frontends: snapshot.frontends.filter(row => visible.has(row.frontendId)),
-            services: snapshot.services.filter(row => visible.has(row.serviceId))
+            backends: snapshot.backends.filter(row => visible.has(row.backendId))
         }
     }
 
@@ -239,15 +239,15 @@ class BuildStatusService extends BaseAuthorizedService {
     }
 
     /**
-     * Logs of the failed jobs of one run of a frontend or a service, read live from its CI provider.
+     * Logs of the failed jobs of one run of a frontend or a backend, read live from its CI provider.
      *
      * Not cached and not part of the snapshot: logs are large and only ever asked for one
      * run at a time, when somebody wants to know why it failed.
      */
     async getFailedRunLogs(projectId: string, owner: BuildRunOwner, runId: string): Promise<BuildJobLogDTO[]> {
-        const isService = owner.serviceId !== undefined
-        const component: BuildableComponent | null = owner.serviceId !== undefined ? await Service.findById(toObjectId(owner.serviceId)) : await Frontend.findById(toObjectId(owner.frontendId))
-        const label = isService ? "Service" : "Frontend"
+        const isBackend = owner.backendId !== undefined
+        const component: BuildableComponent | null = owner.backendId !== undefined ? await Backend.findById(toObjectId(owner.backendId)) : await Frontend.findById(toObjectId(owner.frontendId))
+        const label = isBackend ? "Backend" : "Frontend"
         // A component of another project is reported as missing: the caller asked about this one.
         if (!component || component.projectId.toString() !== projectId) {
             throw new Error(`${label} not found in this project`)
@@ -283,23 +283,23 @@ class BuildStatusService extends BaseAuthorizedService {
     private async fetchSnapshot(projectId: string): Promise<ProjectBuildStatusDTO> {
         const projectIdObj = toObjectId(projectId)
 
-        const [frontends, services, environments] = await Promise.all([
+        const [frontends, backends, environments] = await Promise.all([
             Frontend.find({ projectId: projectIdObj }).sort({ name: 1 }),
-            Service.find({ projectId: projectIdObj }).sort({ name: 1 }),
+            Backend.find({ projectId: projectIdObj }).sort({ name: 1 }),
             Environment.find({ projectId: projectIdObj }).sort({ order: 1 })
         ])
 
         const environmentIds = environments.map(environment => environment._id)
         const dockerFrontends = frontends.filter(frontend => frontend.kind === FrontendKind.DOCKER)
-        const [versionsByEnvironment, serviceVersionsByEnvironment, dockerVersionsByEnvironment, repositoriesById] = await Promise.all([
+        const [versionsByEnvironment, backendVersionsByEnvironment, dockerVersionsByEnvironment, repositoriesById] = await Promise.all([
             this.getVersionsByEnvironment(environmentIds),
-            this.getServiceVersionsByEnvironment(services, environmentIds),
+            this.getBackendVersionsByEnvironment(backends, environmentIds),
             this.getDockerVersionsByEnvironment(dockerFrontends, environmentIds),
-            this.getRepositoriesById([...frontends, ...services])
+            this.getRepositoriesById([...frontends, ...backends])
         ])
         const environmentIdStrings = environmentIds.map(environmentId => environmentId.toString())
 
-        const [frontendRows, serviceRows] = await Promise.all([
+        const [frontendRows, backendRows] = await Promise.all([
             Promise.all(
                 frontends.map(async frontend => {
                     const lastBuilt = await BuiltFrontend.findOne({ frontendId: frontend._id }).sort({ createdAt: -1 }).select("version")
@@ -310,10 +310,10 @@ class BuildStatusService extends BaseAuthorizedService {
                 })
             ),
             Promise.all(
-                services.map(async service => {
-                    const lastBuilt = await BuiltService.findOne({ serviceId: service._id }).sort({ createdAt: -1 }).select("version")
-                    const versionByEnvironmentId = this.toVersionByEnvironmentId(service, environmentIdStrings, serviceVersionsByEnvironment)
-                    return { serviceId: service._id.toString(), ...(await this.toComponentStatus(service, lastBuilt?.version, versionByEnvironmentId, repositoriesById)) }
+                backends.map(async backend => {
+                    const lastBuilt = await BuiltBackend.findOne({ backendId: backend._id }).sort({ createdAt: -1 }).select("version")
+                    const versionByEnvironmentId = this.toVersionByEnvironmentId(backend, environmentIdStrings, backendVersionsByEnvironment)
+                    return { backendId: backend._id.toString(), ...(await this.toComponentStatus(backend, lastBuilt?.version, versionByEnvironmentId, repositoriesById)) }
                 })
             )
         ])
@@ -329,7 +329,7 @@ class BuildStatusService extends BaseAuthorizedService {
                 isProduction: environment.isProduction
             })),
             frontends: frontendRows,
-            services: serviceRows
+            backends: backendRows
         }
     }
 
@@ -356,31 +356,31 @@ class BuildStatusService extends BaseAuthorizedService {
     }
 
     /**
-     * For each environment, the version every service runs there: the latest deploy its
-     * pipeline reported. The orchestrator does not deploy services, so this is the only
+     * For each environment, the version every backend runs there: the latest deploy its
+     * pipeline reported. The orchestrator does not deploy backends, so this is the only
      * account of what is live.
      */
-    private async getServiceVersionsByEnvironment(services: IService[], environmentIds: ObjectId[]): Promise<Map<string, Map<string, string>>> {
+    private async getBackendVersionsByEnvironment(backends: IBackend[], environmentIds: ObjectId[]): Promise<Map<string, Map<string, string>>> {
         const result = new Map<string, Map<string, string>>()
-        if (services.length === 0 || environmentIds.length === 0) return result
+        if (backends.length === 0 || environmentIds.length === 0) return result
 
-        const latest = await ServiceDeployment.aggregate<{ _id: { serviceId: ObjectId; environmentId: ObjectId }; version: string }>([
-            { $match: { serviceId: { $in: services.map(service => service._id) }, environmentId: { $in: environmentIds } } },
-            // Follows the index { serviceId, environmentId, deployedAt, _id }, so the first of each group is the latest deploy
-            { $sort: { serviceId: 1, environmentId: 1, deployedAt: -1, _id: -1 } },
-            { $group: { _id: { serviceId: "$serviceId", environmentId: "$environmentId" }, version: { $first: "$version" } } }
+        const latest = await BackendDeployment.aggregate<{ _id: { backendId: ObjectId; environmentId: ObjectId }; version: string }>([
+            { $match: { backendId: { $in: backends.map(backend => backend._id) }, environmentId: { $in: environmentIds } } },
+            // Follows the index { backendId, environmentId, deployedAt, _id }, so the first of each group is the latest deploy
+            { $sort: { backendId: 1, environmentId: 1, deployedAt: -1, _id: -1 } },
+            { $group: { _id: { backendId: "$backendId", environmentId: "$environmentId" }, version: { $first: "$version" } } }
         ])
 
         for (const deploy of latest) {
             const environmentId = deploy._id.environmentId.toString()
             const versions = result.get(environmentId) ?? new Map<string, string>()
-            versions.set(deploy._id.serviceId.toString(), deploy.version)
+            versions.set(deploy._id.backendId.toString(), deploy.version)
             result.set(environmentId, versions)
         }
         return result
     }
 
-    /** As for the services: the latest deploy the pipeline of each DOCKER reported in each environment */
+    /** As for the backends: the latest deploy the pipeline of each DOCKER reported in each environment */
     private async getDockerVersionsByEnvironment(frontends: BuildableComponent[], environmentIds: ObjectId[]): Promise<Map<string, Map<string, string>>> {
         const result = new Map<string, Map<string, string>>()
         for (const deploy of await findLatestFrontendDeployments(

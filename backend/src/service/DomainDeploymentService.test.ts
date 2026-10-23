@@ -1,12 +1,12 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import BackendDeployment from "../models/BackendDeploymentModel"
+import Backend from "../models/BackendModel"
 import Deployment from "../models/DeploymentModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { CanaryDeploymentType, CanaryType, FrontendKind } from "../models/FrontendModel"
-import ServiceDeployment from "../models/ServiceDeploymentModel"
-import Service from "../models/ServiceModel"
 import DomainDeploymentService from "./DomainDeploymentService"
 import DomainService from "./DomainService"
 
@@ -127,15 +127,15 @@ const deployments: Doc[] = [
     }
 ]
 
-const serviceDeployments: Doc[] = [
-    { serviceId: ordersApi._id, environmentId: dev._id, version: "1.0.0", deployedAt: at(1), _id: new Types.ObjectId() },
-    { serviceId: ordersApi._id, environmentId: dev._id, version: "1.3.0", deployedAt: at(5), _id: new Types.ObjectId() },
-    { serviceId: ordersApi._id, environmentId: dev._id, version: "1.1.0", deployedAt: at(3), _id: new Types.ObjectId() }
+const backendDeployments: Doc[] = [
+    { backendId: ordersApi._id, environmentId: dev._id, version: "1.0.0", deployedAt: at(1), _id: new Types.ObjectId() },
+    { backendId: ordersApi._id, environmentId: dev._id, version: "1.3.0", deployedAt: at(5), _id: new Types.ObjectId() },
+    { backendId: ordersApi._id, environmentId: dev._id, version: "1.1.0", deployedAt: at(3), _id: new Types.ObjectId() }
 ]
 
 let deploymentAggregate: ReturnType<typeof vi.fn>
 let deploymentFind: ReturnType<typeof vi.fn>
-let serviceDeploymentAggregate: ReturnType<typeof vi.fn>
+let backendDeploymentAggregate: ReturnType<typeof vi.fn>
 
 /** The deployments read by id, with their projection, as the service does once it picked them */
 const findDeployments = (docs: Doc[]) =>
@@ -149,9 +149,9 @@ beforeEach(() => {
         typeof vi.fn
     >
     deploymentFind = vi.spyOn(Deployment, "find").mockImplementation(findDeployments(deployments)) as unknown as ReturnType<typeof vi.fn>
-    serviceDeploymentAggregate = vi
-        .spyOn(ServiceDeployment, "aggregate")
-        .mockImplementation(((pipeline: Stage[]) => Promise.resolve(runPipeline(serviceDeployments, pipeline))) as never) as unknown as ReturnType<typeof vi.fn>
+    backendDeploymentAggregate = vi
+        .spyOn(BackendDeployment, "aggregate")
+        .mockImplementation(((pipeline: Stage[]) => Promise.resolve(runPipeline(backendDeployments, pipeline))) as never) as unknown as ReturnType<typeof vi.fn>
 })
 
 afterEach(() => {
@@ -162,7 +162,7 @@ describe("DomainDeploymentService.getByDomainId", () => {
     beforeEach(() => {
         vi.spyOn(DomainService.prototype, "getById").mockResolvedValue(domain as never)
         vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([cart, checkoutUi]))
-        vi.spyOn(Service, "find").mockReturnValue(sortedFind([ordersApi]))
+        vi.spyOn(Backend, "find").mockReturnValue(sortedFind([ordersApi]))
     })
 
     it("given a domain, when its deployments are read, then each environment comes in order with the deployment it serves", async () => {
@@ -229,30 +229,39 @@ describe("DomainDeploymentService.getByDomainId", () => {
         ])
     })
 
-    it("given several deploys reported for a service, when the deployments are read, then the latest by date wins and an environment without reports has none", async () => {
+    it("given several deploys reported for a backend, when the deployments are read, then the latest by date wins and an environment without reports has none", async () => {
         const result = await new DomainDeploymentService().getByDomainId(String(domainId))
 
-        expect(result.environments.map(entry => entry.services)).toEqual([
+        expect(result.environments.map(entry => entry.backends)).toEqual([
             [{ _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "1.3.0", deployedAt: at(5) }],
             [{ _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: null, deployedAt: null }],
             [{ _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: null, deployedAt: null }]
         ])
     })
 
-    it("given a service in the deployment an environment serves, when the deployments are read, then its version there wins over the reported ones", async () => {
+    it("given a backend in the deployment an environment serves, when the deployments are read, then its version there wins over the reported ones", async () => {
         deploymentFind.mockImplementation(
             findDeployments([
-                { _id: devActive, environmentId: dev._id, deploymentId: "#2", deployedAt: at(2), frontends: [], services: [{ _id: ordersApi._id, version: "2.0.0", image: { repository: "registry/orders" } }] },
+                {
+                    _id: devActive,
+                    environmentId: dev._id,
+                    deploymentId: "#2",
+                    deployedAt: at(2),
+                    frontends: [],
+                    backends: [{ _id: ordersApi._id, version: "2.0.0", image: { repository: "registry/orders" } }]
+                },
                 // Recorded without a version: the reports still tell
-                { _id: prodActive, environmentId: prod._id, deploymentId: "#7", deployedAt: at(4), frontends: [], services: [{ _id: ordersApi._id }] }
+                { _id: prodActive, environmentId: prod._id, deploymentId: "#7", deployedAt: at(4), frontends: [], backends: [{ _id: ordersApi._id }] }
             ])
         )
-        serviceDeploymentAggregate.mockImplementation(((pipeline: Stage[]) =>
-            Promise.resolve(runPipeline([...serviceDeployments, { serviceId: ordersApi._id, environmentId: prod._id, version: "1.9.0", deployedAt: at(3), _id: new Types.ObjectId() }], pipeline))) as never)
+        backendDeploymentAggregate.mockImplementation(((pipeline: Stage[]) =>
+            Promise.resolve(
+                runPipeline([...backendDeployments, { backendId: ordersApi._id, environmentId: prod._id, version: "1.9.0", deployedAt: at(3), _id: new Types.ObjectId() }], pipeline)
+            )) as never)
 
         const result = await new DomainDeploymentService().getByDomainId(String(domainId))
 
-        expect(result.environments.map(entry => entry.services[0])).toEqual([
+        expect(result.environments.map(entry => entry.backends[0])).toEqual([
             // Reported later, at(5), yet the deployment wins
             { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "2.0.0", deployedAt: at(2) },
             { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "1.9.0", deployedAt: at(3) },
@@ -274,30 +283,30 @@ describe("DomainDeploymentService.getByDomainId", () => {
         const [filter, projection] = deploymentFind.mock.calls[0]
         expect(filter._id.$in.map(String).sort()).toEqual([devActive, prodActive].map(String).sort())
         // The snapshot also carries the variables and the storage credentials: they never leave the database
-        expect(projection).toEqual({ environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1, "services._id": 1, "services.version": 1 })
+        expect(projection).toEqual({ environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1, "backends._id": 1, "backends.version": 1 })
     })
 
-    it("given a domain, when its deployments are read, then one aggregation keeps the latest reported deploy of each service in each environment", async () => {
+    it("given a domain, when its deployments are read, then one aggregation keeps the latest reported deploy of each backend in each environment", async () => {
         await new DomainDeploymentService().getByDomainId(String(domainId))
 
-        expect(serviceDeploymentAggregate).toHaveBeenCalledTimes(1)
-        expect(serviceDeploymentAggregate.mock.calls[0][0]).toEqual([
-            { $match: { serviceId: { $in: [ordersApi._id] }, environmentId: { $in: [dev._id, prod._id, staging._id] } } },
-            { $sort: { serviceId: 1, environmentId: 1, deployedAt: -1, _id: -1 } },
-            { $group: { _id: { serviceId: "$serviceId", environmentId: "$environmentId" }, version: { $first: "$version" }, deployedAt: { $first: "$deployedAt" } } }
+        expect(backendDeploymentAggregate).toHaveBeenCalledTimes(1)
+        expect(backendDeploymentAggregate.mock.calls[0][0]).toEqual([
+            { $match: { backendId: { $in: [ordersApi._id] }, environmentId: { $in: [dev._id, prod._id, staging._id] } } },
+            { $sort: { backendId: 1, environmentId: 1, deployedAt: -1, _id: -1 } },
+            { $group: { _id: { backendId: "$backendId", environmentId: "$environmentId" }, version: { $first: "$version" }, deployedAt: { $first: "$deployedAt" } } }
         ])
         expect(Frontend.find).toHaveBeenCalledWith({ projectId, domainId }, expect.anything())
     })
 
-    it("given two reports of a service at the same moment, when the deployments are read, then the one stored last wins", async () => {
+    it("given two reports of a backend at the same moment, when the deployments are read, then the one stored last wins", async () => {
         const earlier = new Types.ObjectId()
         const later = new Types.ObjectId()
-        serviceDeploymentAggregate.mockImplementation(((pipeline: Stage[]) =>
+        backendDeploymentAggregate.mockImplementation(((pipeline: Stage[]) =>
             Promise.resolve(
                 runPipeline(
                     [
-                        { _id: later, serviceId: ordersApi._id, environmentId: prod._id, version: "2.0.1", deployedAt: at(6) },
-                        { _id: earlier, serviceId: ordersApi._id, environmentId: prod._id, version: "2.0.0", deployedAt: at(6) }
+                        { _id: later, backendId: ordersApi._id, environmentId: prod._id, version: "2.0.1", deployedAt: at(6) },
+                        { _id: earlier, backendId: ordersApi._id, environmentId: prod._id, version: "2.0.0", deployedAt: at(6) }
                     ],
                     pipeline
                 )
@@ -305,16 +314,16 @@ describe("DomainDeploymentService.getByDomainId", () => {
 
         const result = await new DomainDeploymentService().getByDomainId(String(domainId))
 
-        expect(result.environments[1].services[0].version).toBe("2.0.1")
+        expect(result.environments[1].backends[0].version).toBe("2.0.1")
     })
 
-    it("given a domain without services, when its deployments are read, then the service deploys are not queried", async () => {
-        vi.spyOn(Service, "find").mockReturnValue(sortedFind([]))
+    it("given a domain without backends, when its deployments are read, then the backend deploys are not queried", async () => {
+        vi.spyOn(Backend, "find").mockReturnValue(sortedFind([]))
 
         const result = await new DomainDeploymentService().getByDomainId(String(domainId))
 
-        expect(serviceDeploymentAggregate).not.toHaveBeenCalled()
-        expect(result.environments.every(entry => entry.services.length === 0)).toBe(true)
+        expect(backendDeploymentAggregate).not.toHaveBeenCalled()
+        expect(result.environments.every(entry => entry.backends.length === 0)).toBe(true)
     })
 
     it("given a domain that does not exist, when its deployments are read, then it is not found", async () => {
@@ -339,7 +348,7 @@ describe("DomainDeploymentService.getByProjectId", () => {
             .mockResolvedValue(undefined) as unknown as ReturnType<typeof vi.fn>
         vi.spyOn(Domain, "find").mockReturnValue(sortedFind([otherDomain, domain]))
         vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([cart, legacy, search]))
-        vi.spyOn(Service, "find").mockReturnValue(sortedFind([ordersApi, usersApi]))
+        vi.spyOn(Backend, "find").mockReturnValue(sortedFind([ordersApi, usersApi]))
     })
 
     it("given domains and members in none, when the project matrix is read, then every domain comes by name, then one entry for the members in no domain", async () => {
@@ -348,21 +357,21 @@ describe("DomainDeploymentService.getByProjectId", () => {
         expect(access).toHaveBeenCalledWith(String(projectId))
         expect(result.map(entry => entry.domain)).toEqual([{ _id: otherDomainId, name: "Account", slug: "account" }, { _id: domainId, name: "Checkout", slug: "checkout" }, null])
         // A domain without members is listed all the same
-        expect(result[0].environments.map(entry => [entry.frontends.length, entry.services.length])).toEqual([
+        expect(result[0].environments.map(entry => [entry.frontends.length, entry.backends.length])).toEqual([
             [0, 0],
             [0, 0],
             [0, 0]
         ])
         expect(result[1].environments[0].frontends.map(frontend => [frontend.slug, frontend.version])).toEqual([["cart", "1.1.0"]])
-        expect(result[1].environments[0].services.map(service => [service.slug, service.version])).toEqual([["orders-api", "1.3.0"]])
+        expect(result[1].environments[0].backends.map(backend => [backend.slug, backend.version])).toEqual([["orders-api", "1.3.0"]])
         // No domain, or a domain that is gone, both count as no domain
         expect(result[2].environments[0].frontends.map(frontend => frontend.slug)).toEqual(["legacy", "search"])
-        expect(result[2].environments[0].services.map(service => service.slug)).toEqual(["users-api"])
+        expect(result[2].environments[0].backends.map(backend => backend.slug)).toEqual(["users-api"])
     })
 
     it("given every member in a domain, when the project matrix is read, then there is no entry for the members in no domain", async () => {
         vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([cart]))
-        vi.spyOn(Service, "find").mockReturnValue(sortedFind([ordersApi]))
+        vi.spyOn(Backend, "find").mockReturnValue(sortedFind([ordersApi]))
 
         const result = await new DomainDeploymentService().getByProjectId(String(projectId))
 
@@ -376,7 +385,7 @@ describe("DomainDeploymentService.getByProjectId", () => {
 
         expect(deploymentAggregate).not.toHaveBeenCalled()
         expect(deploymentFind).not.toHaveBeenCalled()
-        expect(serviceDeploymentAggregate).not.toHaveBeenCalled()
+        expect(backendDeploymentAggregate).not.toHaveBeenCalled()
         expect(result.every(entry => entry.environments.length === 0)).toBe(true)
     })
 

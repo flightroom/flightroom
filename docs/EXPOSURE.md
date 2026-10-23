@@ -10,7 +10,7 @@ Traefik and the applications.
 - **Environment**: the `subdomain`, e.g. `dev`. The host is `dev.example.com`. Left empty, a production
   environment takes the domain itself and any other its slug in lowercase, so `UAT` lands on
   `uat.example.com`. Two environments of the project cannot share a host: the deploy is refused.
-- **Service or frontend**: the `exposurePath`, e.g. `/api/orders`, the same in every environment, set in its
+- **Backend or frontend**: the `exposurePath`, e.g. `/api/orders`, the same in every environment, set in its
   **Endpoint** card with the **Expose** switch. The prefix is stripped before the request reaches the container,
   so it answers at its root. Not exposed, the application gets no route. Its URL in an environment is the path on
   the host of that environment, e.g. `https://dev.example.com/api/orders`: the console shows it, and the serve API

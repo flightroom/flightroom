@@ -19,7 +19,7 @@ export enum AiMissionStatus {
 }
 
 export interface IAiMissionRepository {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     id: Schema.Types.ObjectId
     /** The batch it runs in, from 0: batch i+1 starts once every job of batch i is over. */
     batch: number
@@ -61,7 +61,7 @@ export interface IAiMission extends Document<ObjectId> {
 
 const repositorySchema = new Schema<IAiMissionRepository>(
     {
-        kind: { type: String, enum: ["frontend", "service"], required: true },
+        kind: { type: String, enum: ["frontend", "backend"], required: true },
         id: { type: Schema.Types.ObjectId, required: true },
         batch: { type: Number, required: true },
         jobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob" },

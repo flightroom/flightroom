@@ -15,6 +15,10 @@ export interface ProjectUser {
     status?: string
     invitationPending?: boolean
     invitationExpiresAt?: string
+    /** The AI tokens the member may spend in the project each month: none without a limit */
+    aiTokenLimit?: number
+    /** What the member spent this month: only for whoever manages the members, and for the member themselves */
+    aiTokensSpent?: number
     createdAt: string
     updatedAt: string
 }
@@ -23,13 +27,16 @@ export interface UpdateProjectUserDTO {
     role: string
     /** Empty means the whole project; left out, the stored scope stays as it is */
     domainIds?: string[]
+    /** Null takes the limit away; left out, the stored one stays */
+    aiTokenLimit?: number | null
 }
 
-/** The codes the backend raises about domain-scoped membership, by translation key */
+/** The codes the backend raises about domain-scoped membership, and the AI token limit, by translation key */
 const DOMAIN_SCOPE_ERROR_KEYS: Record<string, string> = {
     DOMAIN_SCOPE_FORBIDDEN: "project_users.errors.domain_scope_forbidden",
     INVALID_DOMAIN: "project_users.errors.invalid_domain",
-    DOMAIN_SCOPE_NOT_FOR_OWNER: "project_users.errors.domain_scope_not_for_owner"
+    DOMAIN_SCOPE_NOT_FOR_OWNER: "project_users.errors.domain_scope_not_for_owner",
+    INVALID_AI_TOKEN_LIMIT: "project_users.errors.invalid_ai_token_limit"
 }
 
 /** The translated message of a domain scope error, undefined for any other so the generic one is shown */

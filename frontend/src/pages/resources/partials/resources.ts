@@ -1,9 +1,12 @@
-import { useQuery } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
+import { useTranslation } from "react-i18next"
+import useBackendsApi, { type Backend } from "@/hooks/apiClients/useBackendsApi"
 import { SECRET_PLACEHOLDER } from "@/hooks/apiClients/useDatabaseApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useResourcesApi, { Resource, ResourceCustomField, ResourceDTO, ResourceEnvKey, ResourceFieldSpec, ResourceTypeSpec, ResourceVariantSpec } from "@/hooks/apiClients/useResourcesApi"
 import useProjectStore from "@/store/useProjectStore"
+import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 export { VARIABLE_MAP_NAME as RESOURCE_NAME } from "@/pages/variable-maps/partials/variableMaps"
 
@@ -240,4 +243,25 @@ export const useResourceCatalogQuery = () => {
     const { getCatalog } = useResourcesApi()
 
     return useQuery({ queryKey: ["resource-catalog"], queryFn: getCatalog, staleTime: Infinity })
+}
+
+/** Detaches a resource from a backend: from the next deploy it no longer receives its variables */
+export const useDetachResource = () => {
+    const { t } = useTranslation()
+    const backendsApi = useBackendsApi()
+    const queryClient = useQueryClient()
+    const notifications = useToastNotificationStore()
+
+    return useMutation({
+        mutationFn: async ({ backend, resource }: { backend: Pick<Backend, "_id" | "name">; resource: Pick<Resource, "_id" | "name"> }) => {
+            // Read again: the list may predate another attach, which the PUT would otherwise drop
+            const current = await backendsApi.getSingle(backend._id!)
+            await backendsApi.update(backend._id!, { resourceIds: (current.resourceIds ?? []).filter(id => id !== resource._id) })
+        },
+        onSuccess: (_, { backend, resource }) => notifications.showSuccessNotification({ message: t("resources.attach.detached", { resource: resource.name, backend: backend.name }) }),
+        onSettled: (_, __, { backend }) => {
+            queryClient.invalidateQueries({ queryKey: ["backend", backend._id] })
+            queryClient.invalidateQueries({ queryKey: ["backends"] })
+        }
+    })
 }

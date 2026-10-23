@@ -1,5 +1,6 @@
-import { Info, Sparkles } from "lucide-react"
+import { Info, Settings, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import { Badge } from "@/components/atoms"
 import RepositoryLink from "@/components/RepositoryLink"
@@ -13,13 +14,16 @@ export const isAiEditAvailable = (frontend: Frontend | undefined, assistantEnabl
 
 interface FrontendHeaderProps {
     frontend: Frontend
-    /** The two screens of a frontend: the AI workspace and its details. */
-    active: "ai" | "settings"
+    /** The screens of a frontend, as a backend's: Edit with AI (when available), its overview and its settings. */
+    active: "ai" | "overview" | "settings"
     aiAvailable: boolean
+    actions?: React.ReactNode
 }
 
-/** Shared by the two screens of a frontend, so switching between them keeps the same frame. */
-export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active, aiAvailable }) => {
+const PAGE_TITLE_KEY: Record<FrontendHeaderProps["active"], string> = { ai: "frontend.workspace.nav_ai", overview: "frontend.workspace.nav_overview", settings: "frontend.workspace.nav_settings" }
+
+/** Shared by the screens of a frontend, so switching between them keeps the same frame. */
+export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active, aiAvailable, actions }) => {
     const { t } = useTranslation()
     const technology = frontendTechnologyOf(frontend)
 
@@ -27,25 +31,24 @@ export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active
         <WorkspaceHeader
             back={{ to: "/frontends", label: t("frontend.workspace.back") }}
             title={frontend.name}
-            pageTitle={active === "ai" ? t("frontend.workspace.nav_ai") : t("frontend.workspace.nav_settings")}
+            pageTitle={t(PAGE_TITLE_KEY[active])}
             meta={
                 <>
                     <span className="font-mono">{frontend.slug}</span>
                     {technology && <TechnologyBadge technology={technology} />}
-                    <Badge variant="outline">{t("frontend.workspace.version", { version: frontend.version || "—" })}</Badge>
+                    {frontend.version && <Badge variant="outline">{t("frontend.workspace.version", { version: frontend.version })}</Badge>}
                     <RepositoryLink repository={frontend.codeRepository} />
                     <TemplateRepositoryLink slug={frontend.template} />
+                    <ComponentWorkingAgents componentId={frontend._id} live />
                 </>
             }
             navLabel={t("frontend.workspace.nav_label")}
-            tabs={
-                aiAvailable
-                    ? [
-                          { to: `/frontend/${frontend._id}`, label: t("frontend.workspace.nav_ai"), icon: Sparkles, end: true },
-                          { to: `/frontend/${frontend._id}/settings`, label: t("frontend.workspace.nav_settings"), icon: Info }
-                      ]
-                    : []
-            }
+            tabs={[
+                ...(aiAvailable ? [{ to: `/frontend/${frontend._id}`, label: t("frontend.workspace.nav_ai"), icon: Sparkles, end: true }] : []),
+                { to: `/frontend/${frontend._id}/overview`, label: t("frontend.workspace.nav_overview"), icon: Info },
+                { to: `/frontend/${frontend._id}/settings`, label: t("frontend.workspace.nav_settings"), icon: Settings }
+            ]}
+            actions={actions}
         />
     )
 }

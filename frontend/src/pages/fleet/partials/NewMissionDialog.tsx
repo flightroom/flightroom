@@ -35,7 +35,7 @@ const MODES: AiMissionMode[] = ["global", "perRepository"]
 const NO_DOMAIN = "no-domain"
 
 interface Repository {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     id: string
     name: string
 }
@@ -119,7 +119,7 @@ const NewMissionForm: React.FC<NewMissionFormProps> = ({ projectId, onDone }) =>
     const batches = Math.ceil(count / MISSION_BATCH_SIZE)
     const concurrencyValue = Number(concurrency)
     const concurrencyValid = Number.isInteger(concurrencyValue) && concurrencyValue >= MISSION_CONCURRENCY.min && concurrencyValue <= MISSION_CONCURRENCY.max
-    // Ids are unique across frontends and services: the kind only decides which list an id goes in.
+    // Ids are unique across frontends and backends: the kind only decides which list an id goes in.
     const selectedOf = (kind: Repository["kind"]) => repositories.filter(repository => repository.kind === kind && selected.has(repository.id)).map(repository => repository.id)
 
     const createMutation = useMutation({
@@ -128,7 +128,7 @@ const NewMissionForm: React.FC<NewMissionFormProps> = ({ projectId, onDone }) =>
                 {
                     prompt: prompt.trim(),
                     mode,
-                    ...(pickAll ? { all: true } : { frontendIds: selectedOf("frontend"), serviceIds: selectedOf("service") }),
+                    ...(pickAll ? { all: true } : { frontendIds: selectedOf("frontend"), backendIds: selectedOf("backend") }),
                     ...(mode === "perRepository" ? { concurrency: concurrencyValue } : {}),
                     effort,
                     aiModelId: aiModel?.id
@@ -283,7 +283,7 @@ const NewMissionForm: React.FC<NewMissionFormProps> = ({ projectId, onDone }) =>
                                         <ul className="flex flex-col gap-2 pl-2">
                                             {group.repositories.map(repository => {
                                                 const checkboxId = `${idPrefix}-${repository.kind}-${repository.id}`
-                                                const Icon = repository.kind === "service" ? Server : LayoutDashboard
+                                                const Icon = repository.kind === "backend" ? Server : LayoutDashboard
                                                 return (
                                                     <li key={repository.id} className="flex min-w-0 items-center gap-2">
                                                         <Checkbox
@@ -296,7 +296,7 @@ const NewMissionForm: React.FC<NewMissionFormProps> = ({ projectId, onDone }) =>
                                                         <Label htmlFor={checkboxId} className="min-w-0 flex-1 cursor-pointer truncate">
                                                             {repository.name}
                                                         </Label>
-                                                        {repository.kind === "service" && <Badge variant="outline">{t("assistant.jobs.service_badge")}</Badge>}
+                                                        {repository.kind === "backend" && <Badge variant="outline">{t("assistant.jobs.backend_badge")}</Badge>}
                                                     </li>
                                                 )
                                             })}

@@ -8,12 +8,12 @@ vi.mock("..", () => ({
 }))
 
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject from "../models/UserProjectModel"
@@ -448,8 +448,8 @@ describe("getContext", () => {
     const projectId = String(newId())
     const domainId = newId()
     const frontendId = newId()
-    const serviceId = newId()
-    let filters: Record<"domain" | "frontend" | "service", Record<string, unknown> | undefined>
+    const backendId = newId()
+    let filters: Record<"domain" | "frontend" | "backend", Record<string, unknown> | undefined>
 
     /** A find that records its filter and answers with one item carrying a context */
     const recordFind = (model: unknown, key: keyof typeof filters, item: Record<string, unknown>) =>
@@ -459,7 +459,7 @@ describe("getContext", () => {
         }) as never)
 
     beforeEach(() => {
-        filters = { domain: undefined, frontend: undefined, service: undefined }
+        filters = { domain: undefined, frontend: undefined, backend: undefined }
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", context: "shared rules" } as never)
         // An organization without a design system: the inheritance has tests of its own
         vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
@@ -467,20 +467,20 @@ describe("getContext", () => {
         vi.spyOn(ProjectService.prototype as unknown as WithAuthorizationGate, "getDomainScope").mockResolvedValue(undefined)
         recordFind(Domain, "domain", { _id: domainId, slug: "payments", name: "Payments", context: "payments rules" })
         recordFind(Frontend, "frontend", { _id: frontendId, slug: "catalog", name: "Catalog", context: "catalog rules" })
-        recordFind(Service, "service", { _id: serviceId, slug: "orders", name: "Orders", context: "orders rules" })
+        recordFind(Backend, "backend", { _id: backendId, slug: "orders", name: "Orders", context: "orders rules" })
     })
 
     afterEach(() => {
         vi.restoreAllMocks()
     })
 
-    it("Given no focus, when the context is read, then the project and every domain, frontend and service with a context come back", async () => {
+    it("Given no focus, when the context is read, then the project and every domain, frontend and backend with a context come back", async () => {
         const context = await new ProjectService(aUser()).getContext(projectId)
 
         expect(context.project).toMatchObject({ name: "Portal", context: "shared rules" })
         expect(context.domains).toEqual([expect.objectContaining({ slug: "payments", context: "payments rules" })])
         expect(context.frontends).toEqual([expect.objectContaining({ slug: "catalog", context: "catalog rules" })])
-        expect(context.services).toEqual([expect.objectContaining({ slug: "orders", context: "orders rules" })])
+        expect(context.backends).toEqual([expect.objectContaining({ slug: "orders", context: "orders rules" })])
         // The ones without a context are left out by the query
         for (const filter of Object.values(filters)) {
             expect(filter).toMatchObject({ context: { $nin: [null, ""] } })
@@ -578,29 +578,29 @@ describe("getContext", () => {
         expect(context.project).toMatchObject({ context: "shared rules" })
         expect(filters.frontend).toMatchObject({ _id: frontendId })
         expect(filters.domain).toMatchObject({ _id: domainId })
-        expect(filters.service).toBeUndefined()
-        expect(context.services).toEqual([])
+        expect(filters.backend).toBeUndefined()
+        expect(context.backends).toEqual([])
     })
 
-    it("Given a service in no domain, when its context is read, then no domain is read", async () => {
-        vi.spyOn(Service, "findOne").mockResolvedValue({ _id: serviceId, domainId: null } as never)
+    it("Given a backend in no domain, when its context is read, then no domain is read", async () => {
+        vi.spyOn(Backend, "findOne").mockResolvedValue({ _id: backendId, domainId: null } as never)
 
-        const context = await new ProjectService(aUser()).getContext(projectId, { serviceId: String(serviceId) })
+        const context = await new ProjectService(aUser()).getContext(projectId, { backendId: String(backendId) })
 
-        expect(filters.service).toMatchObject({ _id: serviceId })
+        expect(filters.backend).toMatchObject({ _id: backendId })
         expect(filters.domain).toBeUndefined()
         expect(filters.frontend).toBeUndefined()
         expect(context.domains).toEqual([])
     })
 
-    it("Given a domain, when its context is read, then its own and the ones of its frontends and services come back", async () => {
+    it("Given a domain, when its context is read, then its own and the ones of its frontends and backends come back", async () => {
         vi.spyOn(Domain, "findOne").mockResolvedValue({ _id: domainId } as never)
 
         await new ProjectService(aUser()).getContext(projectId, { domainId: String(domainId) })
 
         expect(filters.domain).toMatchObject({ _id: domainId })
         expect(filters.frontend).toMatchObject({ domainId })
-        expect(filters.service).toMatchObject({ domainId })
+        expect(filters.backend).toMatchObject({ domainId })
     })
 
     it("Given a frontend of another project, when its context is read, then it is not found", async () => {

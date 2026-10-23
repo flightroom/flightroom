@@ -1,14 +1,14 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
+import { CONTAINER_REGISTRY } from "../types/BackendStack"
 import { IDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
-import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import { designSystemSchema } from "./DesignSystemSchema"
 import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
-/** Upper bound of a context, of a project, a domain, a frontend or a service: it ends up in the prompt of every agent reading it. */
+/** Upper bound of a context, of a project, a domain, a frontend or a backend: it ends up in the prompt of every agent reading it. */
 export const CONTEXT_MAX_LENGTH = 20_000
 
 /** Config maps and secrets committed to a repository as Kubernetes manifests, every time one is saved */
@@ -119,7 +119,7 @@ export interface IProject extends Document<ObjectId> {
     exposure?: IProjectExposure
     pipelines?: IProjectPipelines
     /**
-     * Where the images of the services and of the DOCKER frontends are pushed, e.g. `ghcr.io/acme`: one with no
+     * Where the images of the backends and of the DOCKER frontends are pushed, e.g. `ghcr.io/acme`: one with no
      * image repository of its own is deployed as `<containerRegistry>/<slug>`.
      */
     containerRegistry?: string
@@ -130,7 +130,7 @@ export interface IProject extends Document<ObjectId> {
     aiModelIds?: string[]
     /**
      * The default frontend and backend technology the team picked. They guide users and AI agents creating
-     * a frontend or a service, and are never enforced: another stack can still be chosen for any of them.
+     * a frontend or a backend, and are never enforced: another stack can still be chosen for any of them.
      */
     technologies?: IProjectTechnologies
     /** The UI library the frontends are built with, unless one has its own; unset, the organization's. Guides users and AI agents, never enforced */

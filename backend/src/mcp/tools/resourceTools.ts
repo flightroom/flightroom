@@ -96,7 +96,7 @@ const apiSpec = z
 
 /**
  * The resources of the project: packages of variables of a catalog type (a database, an api, an ai...) that
- * backend services attach (resourceIds). Read with their credentials masked, every other value readable as
+ * backends attach (resourceIds). Read with their credentials masked, every other value readable as
  * on config_map_get. Everything but the credentials can be written; those stay in the console.
  */
 export const resourceTools = [
@@ -114,7 +114,7 @@ export const resourceTools = [
         name: "resources_list",
         title: "List resources",
         description:
-            "The resources of the project with their fields (credentials masked) and the environment variables each sets on the services attaching it (env). The pasted API document of an api is never returned, only whether there is one.",
+            "The resources of the project with their fields (credentials masked) and the environment variables each sets on the backends attaching it (env). The pasted API document of an api is never returned, only whether there is one.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,
@@ -133,7 +133,7 @@ export const resourceTools = [
         name: "resource_create",
         title: "Create resource",
         description:
-            "Adds a resource to the project, with the fields of its variant that are no credential (resource_types_list); set the credentials from the console. For anything the catalog lacks, a generic (variant custom) defines its own variables in customFields. Attach it to a backend service with service_update (resourceIds).",
+            "Adds a resource to the project, with the fields of its variant that are no credential (resource_types_list); set the credentials from the console. For anything the catalog lacks, a generic (variant custom) defines its own variables in customFields. Attach it to a backend with backend_update (resourceIds).",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: z.object({
@@ -194,7 +194,7 @@ export const resourceTools = [
     defineTool({
         name: "resource_delete",
         title: "Delete resource",
-        description: "Deletes a resource of the project with its values. Refused while a service still attaches it.",
+        description: "Deletes a resource of the project with its values. Refused while a backend still attaches it.",
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
         inputSchema: z.object({ resourceId }),

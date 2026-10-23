@@ -5,12 +5,12 @@ const { log } = vi.hoisted(() => ({ log: { info: vi.fn(), warn: vi.fn(), error: 
 vi.mock("..", () => ({ fastify: { log } }))
 
 import { createBusinessException } from "../errors/BusinessException"
+import Backend from "../models/BackendModel"
+import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
-import BuiltService from "../models/BuiltServiceModel"
 import DomainRelease, { DomainReleaseStatus, IDomainRelease } from "../models/DomainReleaseModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
-import Service from "../models/ServiceModel"
 import User, { UserStatus } from "../models/UserModel"
 import { BuildStatus } from "../types/BuildStatusDTO"
 import BaseAuthorizedService from "./BaseAuthorizedService"
@@ -27,8 +27,8 @@ const domain = { _id: domainId, projectId, slug: "payments", name: "Payments" }
 
 const cart = { kind: "frontend" as const, _id: new Types.ObjectId(), name: "Cart" }
 const search = { kind: "frontend" as const, _id: new Types.ObjectId(), name: "Search" }
-const ordersApi = { kind: "service" as const, _id: new Types.ObjectId(), name: "Orders API" }
-const legacy = { kind: "service" as const, _id: new Types.ObjectId(), name: "Legacy" }
+const ordersApi = { kind: "backend" as const, _id: new Types.ObjectId(), name: "Orders API" }
+const legacy = { kind: "backend" as const, _id: new Types.ObjectId(), name: "Legacy" }
 
 type Gates = { ensureAccessToProject: () => Promise<void>; getDomainScope: () => Promise<undefined>; ensureNotViewer: () => Promise<void> }
 
@@ -58,7 +58,7 @@ describe("DomainReleaseService.start", () => {
         vi.spyOn(Environment, "exists").mockResolvedValue({ _id: environmentId } as never)
         vi.spyOn(DomainRelease, "exists").mockResolvedValue(null)
         vi.spyOn(Frontend, "find").mockResolvedValue([cart] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([ordersApi, legacy] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([ordersApi, legacy] as never)
         vi.spyOn(DomainRelease, "create").mockImplementation((async (doc: Record<string, unknown>) => ({ _id: new Types.ObjectId(), ...doc })) as never)
         vi.spyOn(DomainRelease, "findById").mockResolvedValue({ status: DomainReleaseStatus.WAITING_CI } as never)
         updateOne = vi.spyOn(DomainRelease, "updateOne").mockResolvedValue({ modifiedCount: 1 } as never)
@@ -72,7 +72,7 @@ describe("DomainReleaseService.start", () => {
                     status: "tagged",
                     members: [
                         { kind: "frontend", _id: String(cart._id), name: "Cart" },
-                        { kind: "service", _id: String(ordersApi._id), name: "Orders API" }
+                        { kind: "backend", _id: String(ordersApi._id), name: "Orders API" }
                     ]
                 }
             ]
@@ -140,7 +140,7 @@ describe("advanceDomainReleases", () => {
     let updateOne: ReturnType<typeof vi.spyOn>
     let deploy: ReturnType<typeof vi.spyOn>
     let updateFrontends: ReturnType<typeof vi.spyOn>
-    let updateServices: ReturnType<typeof vi.spyOn>
+    let updateBackends: ReturnType<typeof vi.spyOn>
     const deploymentId = new Types.ObjectId()
 
     const release = (overrides: Partial<IDomainRelease> = {}) =>
@@ -168,9 +168,9 @@ describe("advanceDomainReleases", () => {
     const withReleases = (...releases: IDomainRelease[]) => vi.spyOn(DomainRelease, "find").mockReturnValue({ lean: async () => releases } as never)
 
     /** What the CI registered for the version of the release */
-    const registered = (frontends: { _id: Types.ObjectId }[], services: { _id: Types.ObjectId }[]) => {
+    const registered = (frontends: { _id: Types.ObjectId }[], backends: { _id: Types.ObjectId }[]) => {
         vi.spyOn(BuiltFrontend, "find").mockResolvedValue(frontends.map(member => ({ frontendId: member._id })) as never)
-        vi.spyOn(BuiltService, "find").mockResolvedValue(services.map(member => ({ serviceId: member._id })) as never)
+        vi.spyOn(BuiltBackend, "find").mockResolvedValue(backends.map(member => ({ backendId: member._id })) as never)
     }
 
     beforeEach(() => {
@@ -178,9 +178,9 @@ describe("advanceDomainReleases", () => {
         vi.spyOn(User, "findById").mockResolvedValue({ status: UserStatus.ACTIVE, toObject: () => user } as never)
         updateOne = vi.spyOn(DomainRelease, "updateOne").mockResolvedValue({ modifiedCount: 1 } as never)
         updateFrontends = vi.spyOn(Frontend, "updateMany").mockResolvedValue({} as never)
-        updateServices = vi.spyOn(Service, "updateMany").mockResolvedValue({} as never)
+        updateBackends = vi.spyOn(Backend, "updateMany").mockResolvedValue({} as never)
         deploy = vi.spyOn(DeploymentService.prototype, "createMultiple").mockResolvedValue([{ _id: deploymentId }] as never)
-        vi.spyOn(BuildStatusService.prototype, "getByProjectId").mockResolvedValue({ frontends: [], services: [], environments: [] } as never)
+        vi.spyOn(BuildStatusService.prototype, "getByProjectId").mockResolvedValue({ frontends: [], backends: [], environments: [] } as never)
     })
 
     it("given every tagged member registered by the CI, when the tick runs, then the release sets the versions, deploys and is deployed", async () => {
@@ -199,7 +199,7 @@ describe("advanceDomainReleases", () => {
     })
 
     /** The release decides the version: a CI registration would move it only to a newer one */
-    it("given members holding any version, when the versions are set, then every built frontend, BUNDLE or DOCKER, and service gets the tag unconditionally", async () => {
+    it("given members holding any version, when the versions are set, then every built frontend, BUNDLE or DOCKER, and backend gets the tag unconditionally", async () => {
         withReleases(release())
         registered([cart, search], [ordersApi])
 
@@ -207,7 +207,7 @@ describe("advanceDomainReleases", () => {
 
         expect(updateFrontends).toHaveBeenCalledWith({ _id: { $in: [cart._id, search._id] }, projectId, domainId }, { $set: { version: "1.4.0" } })
         // The member without a repository keeps its version
-        expect(updateServices).toHaveBeenCalledWith({ _id: { $in: [ordersApi._id] }, projectId, domainId }, { $set: { version: "1.4.0" } })
+        expect(updateBackends).toHaveBeenCalledWith({ _id: { $in: [ordersApi._id] }, projectId, domainId }, { $set: { version: "1.4.0" } })
         expect(updateFrontends.mock.invocationCallOrder[0]).toBeLessThan(deploy.mock.invocationCallOrder[0])
     })
 
@@ -251,7 +251,7 @@ describe("advanceDomainReleases", () => {
                     ]
                 }
             ],
-            services: [],
+            backends: [],
             environments: []
         } as never)
 
@@ -275,7 +275,7 @@ describe("advanceDomainReleases", () => {
                     ]
                 }
             ],
-            services: [],
+            backends: [],
             environments: []
         } as never)
 

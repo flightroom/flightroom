@@ -1,11 +1,11 @@
 import { ObjectId, Schema } from "mongoose"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import BackendDeployment from "../models/BackendDeploymentModel"
+import Backend from "../models/BackendModel"
 import Deployment from "../models/DeploymentModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { CanaryDeploymentType, CanaryType, FrontendKind, ICanaryFrontend } from "../models/FrontendModel"
-import ServiceDeployment from "../models/ServiceDeploymentModel"
-import Service from "../models/ServiceModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import DomainService from "./DomainService"
@@ -25,7 +25,7 @@ export interface DomainDeploymentFrontend {
     kind: FrontendKind
     /**
      * As frozen in the deployment that environment serves; null when it was never deployed there. For a
-     * DOCKER missing from that deployment, the latest version its deploy pipeline reported there, as for a service.
+     * DOCKER missing from that deployment, the latest version its deploy pipeline reported there, as for a backend.
      */
     version: string | null
     /**
@@ -36,7 +36,7 @@ export interface DomainDeploymentFrontend {
     canary: { type: CanaryType; deploymentType: CanaryDeploymentType; percentage: number; version: string | null } | null
 }
 
-export interface DomainDeploymentServiceVersion {
+export interface DomainDeploymentBackendVersion {
     _id: unknown
     slug: string
     name: string
@@ -53,7 +53,7 @@ export interface DomainDeploymentEnvironment {
     /** The deployment the environment serves, null when nothing was ever deployed there */
     deployment: { deploymentId: string; deployedAt: Date } | null
     frontends: DomainDeploymentFrontend[]
-    services: DomainDeploymentServiceVersion[]
+    backends: DomainDeploymentBackendVersion[]
 }
 
 export interface DomainDeployments {
@@ -65,16 +65,16 @@ export interface DomainDeployments {
 type Member = { _id: unknown; slug: string; name: string; domainId?: unknown; kind?: FrontendKind }
 type Environments = Awaited<ReturnType<typeof findEnvironments>>
 type SnapshotFrontend = { _id: unknown; version?: string; canary?: ICanaryFrontend }
-type SnapshotService = { _id: unknown; version?: string }
-type CurrentDeployment = { _id: unknown; environmentId: unknown; deploymentId: string; deployedAt: Date; frontends?: SnapshotFrontend[]; services?: SnapshotService[] }
-type LatestServiceDeployment = { _id: { serviceId: unknown; environmentId: unknown }; version: string; deployedAt: Date }
+type SnapshotBackend = { _id: unknown; version?: string }
+type CurrentDeployment = { _id: unknown; environmentId: unknown; deploymentId: string; deployedAt: Date; frontends?: SnapshotFrontend[]; backends?: SnapshotBackend[] }
+type LatestBackendDeployment = { _id: { backendId: unknown; environmentId: unknown }; version: string; deployedAt: Date }
 
 const MEMBER_FIELDS = { slug: 1, name: 1, domainId: 1 }
 const FRONTEND_FIELDS = { ...MEMBER_FIELDS, kind: 1 }
 
 const isDocker = (member: Member) => member.kind === FrontendKind.DOCKER
 /** Only what is shown: the snapshot also carries the variables and the storage credentials */
-const DEPLOYMENT_FIELDS = { environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1, "services._id": 1, "services.version": 1 }
+const DEPLOYMENT_FIELDS = { environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1, "backends._id": 1, "backends.version": 1 }
 
 const findEnvironments = (projectId: Schema.Types.ObjectId) => Environment.find({ projectId }, { name: 1, slug: 1, color: 1, isProduction: 1, order: 1 }).sort({ order: 1, createdAt: 1 })
 
@@ -83,15 +83,15 @@ const toDomain = (domain: DomainDeploymentDomain): DomainDeploymentDomain => ({ 
 /**
  * What each environment runs, in a fixed number of queries whatever the number of environments and members:
  * the deployment each one serves (the active one, or the most recent when none is flagged, as the
- * deployment service picks it) and the latest deploy the pipelines reported for each service there, the
- * fallback for a service or a DOCKER missing from that deployment.
+ * deployment service picks it) and the latest deploy the pipelines reported for each backend there, the
+ * fallback for a backend or a DOCKER missing from that deployment.
  *
  * The deployment is picked on scalars only, then read alone: sorting whole snapshots would load the
  * full history of every environment on each call.
  */
-const findVersions = async (environments: Environments, services: Member[], frontends: Member[]) => {
+const findVersions = async (environments: Environments, backends: Member[], frontends: Member[]) => {
     const environmentIds = environments.map(environment => environment._id)
-    const [currentDeploymentIds, serviceDeployments, frontendDeployments] = await Promise.all([
+    const [currentDeploymentIds, backendDeployments, frontendDeployments] = await Promise.all([
         environmentIds.length === 0
             ? []
             : Deployment.aggregate<{ _id: ObjectId; id: ObjectId }>([
@@ -101,13 +101,13 @@ const findVersions = async (environments: Environments, services: Member[], fron
                   { $sort: { active: -1, deployedAt: -1 } },
                   { $group: { _id: "$environmentId", id: { $first: "$_id" } } }
               ]),
-        environmentIds.length === 0 || services.length === 0
+        environmentIds.length === 0 || backends.length === 0
             ? []
-            : ServiceDeployment.aggregate<LatestServiceDeployment>([
-                  { $match: { serviceId: { $in: services.map(service => service._id) }, environmentId: { $in: environmentIds } } },
-                  // Follows the index { serviceId, environmentId, deployedAt, _id }, so the first of each group is the latest deploy
-                  { $sort: { serviceId: 1, environmentId: 1, deployedAt: -1, _id: -1 } },
-                  { $group: { _id: { serviceId: "$serviceId", environmentId: "$environmentId" }, version: { $first: "$version" }, deployedAt: { $first: "$deployedAt" } } }
+            : BackendDeployment.aggregate<LatestBackendDeployment>([
+                  { $match: { backendId: { $in: backends.map(backend => backend._id) }, environmentId: { $in: environmentIds } } },
+                  // Follows the index { backendId, environmentId, deployedAt, _id }, so the first of each group is the latest deploy
+                  { $sort: { backendId: 1, environmentId: 1, deployedAt: -1, _id: -1 } },
+                  { $group: { _id: { backendId: "$backendId", environmentId: "$environmentId" }, version: { $first: "$version" }, deployedAt: { $first: "$deployedAt" } } }
               ]),
         findLatestFrontendDeployments(
             frontends.filter(isDocker).map(frontend => frontend._id),
@@ -122,16 +122,16 @@ const findVersions = async (environments: Environments, services: Member[], fron
             {
                 deployment,
                 frontends: new Map((deployment.frontends ?? []).map(frontend => [String(frontend._id), frontend])),
-                services: new Map((deployment.services ?? []).map(service => [String(service._id), service]))
+                backends: new Map((deployment.backends ?? []).map(backend => [String(backend._id), backend]))
             }
         ])
     )
-    const serviceDeploymentByKey = new Map(serviceDeployments.map(deploy => [`${deploy._id.serviceId}:${deploy._id.environmentId}`, deploy]))
+    const backendDeploymentByKey = new Map(backendDeployments.map(deploy => [`${deploy._id.backendId}:${deploy._id.environmentId}`, deploy]))
     const frontendDeploymentByKey = new Map(frontendDeployments.map(deploy => [`${deploy._id.frontendId}:${deploy._id.environmentId}`, deploy]))
-    return { deploymentByEnvironment, serviceDeploymentByKey, frontendDeploymentByKey }
+    return { deploymentByEnvironment, backendDeploymentByKey, frontendDeploymentByKey }
 }
 
-const buildEnvironments = (environments: Environments, frontends: Member[], services: Member[], versions: Awaited<ReturnType<typeof findVersions>>): DomainDeploymentEnvironment[] =>
+const buildEnvironments = (environments: Environments, frontends: Member[], backends: Member[], versions: Awaited<ReturnType<typeof findVersions>>): DomainDeploymentEnvironment[] =>
     environments.map(environment => {
         const current = versions.deploymentByEnvironment.get(String(environment._id))
         return {
@@ -159,20 +159,20 @@ const buildEnvironments = (environments: Environments, frontends: Member[], serv
                         : null
                 }
             }),
-            services: services.map(service => {
-                const snapshot = current?.services.get(String(service._id))
+            backends: backends.map(backend => {
+                const snapshot = current?.backends.get(String(backend._id))
                 if (current && snapshot?.version) {
-                    return { _id: service._id, slug: service.slug, name: service.name, version: snapshot.version, deployedAt: current.deployment.deployedAt }
+                    return { _id: backend._id, slug: backend.slug, name: backend.name, version: snapshot.version, deployedAt: current.deployment.deployedAt }
                 }
-                const deploy = versions.serviceDeploymentByKey.get(`${service._id}:${environment._id}`)
-                return { _id: service._id, slug: service.slug, name: service.name, version: deploy?.version ?? null, deployedAt: deploy?.deployedAt ?? null }
+                const deploy = versions.backendDeploymentByKey.get(`${backend._id}:${environment._id}`)
+                return { _id: backend._id, slug: backend.slug, name: backend.name, version: deploy?.version ?? null, deployedAt: deploy?.deployedAt ?? null }
             })
         }
     })
 
 /**
- * Which version of each frontend and service (backend) of a domain runs in each
- * environment: the version frozen in the deployment the environment serves, which GitOps ships. A service or a
+ * Which version of each frontend and backend of a domain runs in each
+ * environment: the version frozen in the deployment the environment serves, which GitOps ships. A backend or a
  * DOCKER frontend missing from it falls back to the latest version the customer's deploy pipeline reported,
  * for the projects whose pipeline deploys them. Members are the ones in the domain now, environments come in their order.
  */
@@ -183,13 +183,13 @@ export class DomainDeploymentService extends BaseAuthorizedService {
         if (!domain) {
             throw new EntityNotFoundError(String(domainId))
         }
-        const [environments, frontends, services] = await Promise.all([
+        const [environments, frontends, backends] = await Promise.all([
             findEnvironments(domain.projectId),
             Frontend.find({ projectId: domain.projectId, domainId: domain._id }, FRONTEND_FIELDS).sort({ name: 1 }),
-            Service.find({ projectId: domain.projectId, domainId: domain._id }, MEMBER_FIELDS).sort({ name: 1 })
+            Backend.find({ projectId: domain.projectId, domainId: domain._id }, MEMBER_FIELDS).sort({ name: 1 })
         ])
-        const versions = await findVersions(environments, services, frontends)
-        return { domain: toDomain(domain as unknown as DomainDeploymentDomain), environments: buildEnvironments(environments, frontends, services, versions) }
+        const versions = await findVersions(environments, backends, frontends)
+        return { domain: toDomain(domain as unknown as DomainDeploymentDomain), environments: buildEnvironments(environments, frontends, backends, versions) }
     }
 
     /** One entry per domain of the project, by name, then one for the members in no domain when there are any */
@@ -199,13 +199,13 @@ export class DomainDeploymentService extends BaseAuthorizedService {
         // A domain-scoped member gets their domains only: their members are all in one of them, so the
         // entry for the members in no domain never shows up for them
         const [domainsInScope, membersInScope] = await Promise.all([this.domainScopeFilter(projectIdObj, "_id"), this.domainScopeFilter(projectIdObj)])
-        const [domains, environments, frontends, services] = await Promise.all([
+        const [domains, environments, frontends, backends] = await Promise.all([
             Domain.find({ projectId: projectIdObj, ...domainsInScope }, { name: 1, slug: 1 }).sort({ name: 1 }),
             findEnvironments(projectIdObj),
             Frontend.find({ projectId: projectIdObj, ...membersInScope }, FRONTEND_FIELDS).sort({ name: 1 }),
-            Service.find({ projectId: projectIdObj, ...membersInScope }, MEMBER_FIELDS).sort({ name: 1 })
+            Backend.find({ projectId: projectIdObj, ...membersInScope }, MEMBER_FIELDS).sort({ name: 1 })
         ])
-        const versions = await findVersions(environments, services, frontends)
+        const versions = await findVersions(environments, backends, frontends)
 
         // A member pointing at a domain that is gone counts as in no domain, as the domain filters treat it
         const domainIds = new Set(domains.map(domain => String(domain._id)))
@@ -217,14 +217,14 @@ export class DomainDeploymentService extends BaseAuthorizedService {
                 environments: buildEnvironments(
                     environments,
                     frontends.filter(member => inDomain(member, key)),
-                    services.filter(member => inDomain(member, key)),
+                    backends.filter(member => inDomain(member, key)),
                     versions
                 )
             }
         }
 
         const result = domains.map(domain => entry(domain as unknown as DomainDeploymentDomain))
-        if (frontends.some(member => inDomain(member, null)) || services.some(member => inDomain(member, null))) {
+        if (frontends.some(member => inDomain(member, null)) || backends.some(member => inDomain(member, null))) {
             result.push(entry(null))
         }
         return result

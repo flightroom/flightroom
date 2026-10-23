@@ -41,7 +41,7 @@ export default async function frontendController(fastify: FastifyInstance) {
     })
 
     // Called by the release pipeline of a DOCKER with its deploy secret once the image is pushed, as for a
-    // service: the API key resolves the project, and its role is checked by the service (MANAGER only)
+    // backend: the API key resolves the project, and its role is checked by the service (MANAGER only)
     fastify.post<{
         Params: { frontendSlug: string; version: string }
         Body: unknown
@@ -148,19 +148,19 @@ export default async function frontendController(fastify: FastifyInstance) {
     fastify.put<{
         Params: {
             id: string
-            serviceId: string
+            backendId: string
         }
-    }>("/frontends/:id/services/:serviceId", async (request, reply) => {
-        return reply.send(await new FrontendService(request.databaseUser).linkService(request.params.id, request.params.serviceId))
+    }>("/frontends/:id/backends/:backendId", async (request, reply) => {
+        return reply.send(await new FrontendService(request.databaseUser).linkBackend(request.params.id, request.params.backendId))
     })
 
     fastify.delete<{
         Params: {
             id: string
-            serviceId: string
+            backendId: string
         }
-    }>("/frontends/:id/services/:serviceId", async (request, reply) => {
-        return reply.send(await new FrontendService(request.databaseUser).unlinkService(request.params.id, request.params.serviceId))
+    }>("/frontends/:id/backends/:backendId", async (request, reply) => {
+        return reply.send(await new FrontendService(request.databaseUser).unlinkBackend(request.params.id, request.params.backendId))
     })
 
     fastify.post<{

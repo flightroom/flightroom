@@ -59,7 +59,7 @@ describe("FrontendService.create from a template", () => {
         return write
     }
 
-    it("given a backend service template, when a frontend is created from it, then it is refused before any repository is created", async () => {
+    it("given a backend template, when a frontend is created from it, then it is refused before any repository is created", async () => {
         await expect(create({ slug: "service-node-fastify", type: "service", compiler: "docker", framework: "Node.js" })).rejects.toBeInstanceOf(BusinessException)
         expect(createRepository).not.toHaveBeenCalled()
     })
@@ -68,7 +68,7 @@ describe("FrontendService.create from a template", () => {
         const write = await create({ slug: "vite-remote-react", type: "remote", compiler: "vite", framework: "React" })
 
         expect(createRepository).toHaveBeenCalledTimes(1)
-        // The slug names the webpack container; tree-wide placeholders are a service template thing
+        // The slug names the webpack container; tree-wide placeholders are a backend template thing
         expect(createRepository.mock.calls[0][4]).toEqual({ frontendSlug: "cart" })
         expect(write).toHaveBeenCalledTimes(1)
     })

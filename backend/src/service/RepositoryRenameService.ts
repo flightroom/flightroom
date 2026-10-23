@@ -4,10 +4,10 @@ import GithubClient from "../client/GithubClient"
 import GitlabClient from "../client/GitlabClient"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend from "../models/BackendModel"
 import { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { NormalizedRepository, normalizeRepository } from "../utils/codeRepositoryUtils"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -129,7 +129,7 @@ export class RepositoryRenameService extends BaseAuthorizedService {
 
     /**
      * The new name is written into every link to the repository: a domain-scoped member renames it only
-     * when every frontend and service linked to it is of their domains, none of another or of none.
+     * when every frontend and backend linked to it is of their domains, none of another or of none.
      */
     private async ensureEveryLinkInScope(frontend: IFrontend, codeRepository: ICodeRepository, link: ICodeRepositoryFrontend) {
         await this.ensureRepositoryInDomainScope({ kind: "frontend", _id: frontend._id, projectId: frontend.projectId }, link, codeRepository.provider)
@@ -186,7 +186,7 @@ export class RepositoryRenameService extends BaseAuthorizedService {
 
     /**
      * Writes the new name into every link of the project to that repository, frontends and
-     * services alike: a stale one would keep cloning from the old URL, which Azure DevOps does not
+     * backends alike: a stale one would keep cloning from the old URL, which Azure DevOps does not
      * redirect. Field by field, so an edit saved meanwhile on the rest of a document is kept.
      */
     private async recordRename(frontend: IFrontend, codeRepository: ICodeRepository, link: ICodeRepositoryFrontend, renamed: NormalizedRepository) {
@@ -204,7 +204,7 @@ export class RepositoryRenameService extends BaseAuthorizedService {
         if (renamed.gitlab?.path) set["codeRepository.gitlab.path"] = renamed.gitlab.path
 
         const links = linksToRepository({ kind: "frontend", _id: frontend._id, projectId: frontend.projectId }, codeRepository.provider, link)
-        await Promise.all([links.frontends ? Frontend.updateMany(links.frontends, { $set: set }) : undefined, links.services ? Service.updateMany(links.services, { $set: set }) : undefined])
+        await Promise.all([links.frontends ? Frontend.updateMany(links.frontends, { $set: set }) : undefined, links.backends ? Backend.updateMany(links.backends, { $set: set }) : undefined])
     }
 }
 
