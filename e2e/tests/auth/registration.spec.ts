@@ -1,6 +1,6 @@
 import { expect, test } from "@playwright/test"
 import { emailDeliveryUnavailable, expectLoginPage, isAuthenticated, marketingOptInEnabled, newTestUser, waitForAuthenticated } from "../fixtures/appUser"
-import { toAppPath, waitForEmailLink } from "../fixtures/emailClient"
+import { emailSubjects, toAppPath, waitForEmailLink } from "../fixtures/emailClient"
 
 /**
  * Registrazione, primo accesso e recupero password, seguendo i link ricevuti
@@ -33,7 +33,7 @@ test.describe
             await expect(page.getByTestId("registration-success")).toBeVisible()
 
             const link = await waitForEmailLink(page.request, user.inbox, {
-                subject: "Activate Your Account",
+                subject: emailSubjects.accountActivation,
                 linkContains: "/account-activation/"
             })
 
@@ -66,7 +66,7 @@ test.describe
             await expectLoginPage(page)
 
             const resetLink = await waitForEmailLink(page.request, user.inbox, {
-                subject: "Reset Your Password",
+                subject: emailSubjects.passwordReset,
                 linkContains: "/reset-password/"
             })
             expect(resetLink).toContain("/reset-password/")
@@ -74,7 +74,7 @@ test.describe
 
         test("given the reset link, when a new password is set, then the old one stops working and the new one opens a session", async ({ page }) => {
             const resetLink = await waitForEmailLink(page.request, user.inbox, {
-                subject: "Reset Your Password",
+                subject: emailSubjects.passwordReset,
                 linkContains: "/reset-password/"
             })
             await page.goto(toAppPath(resetLink))

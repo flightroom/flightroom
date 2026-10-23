@@ -146,7 +146,7 @@ class UserProjectService extends BaseAuthorizedService {
         })
 
         const out = await userProject.save()
-        await this.emailSenderService.sendUserInvitationEmail(user, project, role, userProject.invitationToken as string)
+        await this.emailSenderService.sendUserInvitationEmail(user, project, role, userProject.invitationToken as string, this.user)
         return out
     }
 
@@ -163,7 +163,7 @@ class UserProjectService extends BaseAuthorizedService {
         }
         const out = await userProject.save()
         if (canSendEmail) {
-            await this.emailSenderService.sendUserInvitationEmail(user, project, role, userProject.invitationToken as string)
+            await this.emailSenderService.sendUserInvitationEmail(user, project, role, userProject.invitationToken as string, this.user)
         }
         return out
     }
