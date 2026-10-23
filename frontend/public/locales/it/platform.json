@@ -1389,7 +1389,8 @@
             "MYSQL": "MySQL",
             "MARIADB": "MariaDB",
             "SQLSERVER": "SQL Server",
-            "ORACLE": "Oracle"
+            "ORACLE": "Oracle",
+            "MONGODB": "MongoDB"
         },
         "authTypes": {
             "credentials": "Host e credenziali",
@@ -3273,7 +3274,7 @@
         "types": {
             "database": {
                 "label": "Database",
-                "description": "Un database esterno: per host e credenziali, o per stringa di connessione."
+                "description": "Un database esterno: per host e credenziali, per stringa di connessione, o su Azure SQL con Entra ID."
             },
             "storage": {
                 "label": "Storage",
@@ -3307,7 +3308,9 @@
         "variants": {
             "database": {
                 "credentials": "Host e credenziali",
-                "connectionString": "Stringa di connessione"
+                "connectionString": "Stringa di connessione",
+                "azureAad": "Azure SQL, app Entra ID",
+                "azureManagedIdentity": "Azure SQL, managed identity"
             },
             "storage": {
                 "aws": "AWS S3",
@@ -3384,7 +3387,8 @@
             "apiVersion": "Versione dell'API",
             "security": "Sicurezza della connessione",
             "from": "Indirizzo mittente",
-            "fromName": "Nome mittente"
+            "fromName": "Nome mittente",
+            "schema": "Schema"
         },
         "retype": {
             "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"

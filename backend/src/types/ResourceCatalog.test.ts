@@ -26,7 +26,8 @@ describe("RESOURCE_CATALOG", () => {
         const secretsOf = (type: "storage" | "database") => RESOURCE_CATALOG[type].variants.flatMap(variant => variant.fields.filter(field => field.secret).map(field => field.name))
 
         expect(secretsOf("storage").every(name => (STORAGE_SECRET_KEYS as readonly string[]).includes(name))).toBe(true)
-        expect(secretsOf("database").every(name => (DATABASE_SECRET_KEYS as readonly string[]).includes(name))).toBe(true)
+        // A database on Azure SQL takes the Entra ID app of a storage on Azure, client secret included
+        expect(secretsOf("database").every(name => ([...DATABASE_SECRET_KEYS, ...STORAGE_SECRET_KEYS] as readonly string[]).includes(name))).toBe(true)
     })
 })
 
@@ -51,6 +52,7 @@ describe("resourceEnvKeys", () => {
             { key: "DB_ORDERS_HOST", field: "host", secret: false, required: true },
             { key: "DB_ORDERS_PORT", field: "port", secret: false, required: true },
             { key: "DB_ORDERS_NAME", field: "database", secret: false, required: true },
+            { key: "DB_ORDERS_SCHEMA", field: "schema", secret: false, required: false },
             { key: "DB_ORDERS_USER", field: "username", secret: false, required: true },
             { key: "DB_ORDERS_PASSWORD", field: "password", secret: true, required: true },
             { key: "DB_ORDERS_SSL", field: "ssl", secret: false, required: false }

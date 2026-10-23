@@ -86,7 +86,7 @@ describe("normalizeResourceFields", () => {
         ["a port out of range", { port: { value: "70000" } }, "RESOURCE_VALUE_INVALID"],
         ["a port that is not a number", { port: { value: "5432a" } }, "RESOURCE_VALUE_INVALID"],
         ["a boolean that is not one", { ssl: { value: "yes" } }, "RESOURCE_VALUE_INVALID"],
-        ["an engine the catalog does not list", { engine: { value: "MONGODB" } }, "RESOURCE_VALUE_INVALID"],
+        ["an engine the catalog does not list", { engine: { value: "SQLITE" } }, "RESOURCE_VALUE_INVALID"],
         ["a value that is not text", { host: { value: 5432 } }, "RESOURCE_VALUE_INVALID"],
         ["a value too long", { host: { value: "x".repeat(32 * 1024 + 1) } }, "RESOURCE_VALUE_INVALID"],
         ["a credential that looks like a ciphertext", { password: { value: "enc:v1:a:b:c" } }, "RESOURCE_VALUE_INVALID"],
@@ -352,7 +352,7 @@ describe("ResourceService.create", () => {
     })
 
     it("given no variant, when it is created, then the refusal says one is needed and which", async () => {
-        await expect(createResource({ variant: undefined })).rejects.toMatchObject({ message: "A database needs a variant: one of credentials, connectionString" })
+        await expect(createResource({ variant: undefined })).rejects.toMatchObject({ message: "A database needs a variant: one of credentials, connectionString, azureAad, azureManagedIdentity" })
     })
 
     it("given a prefix in lowercase, when it is created, then it is written in capitals", async () => {
