@@ -20,8 +20,8 @@ import DomainGalaxy from "./partials/DomainGalaxy"
 import DomainLinkDialog from "./partials/DomainLinkDialog"
 
 const VIEWS = [
-    { value: "cards", icon: LayoutGrid, labelKey: "domains.viewCards" },
     { value: "galaxy", icon: Orbit, labelKey: "domains.viewGalaxy" },
+    { value: "cards", icon: LayoutGrid, labelKey: "domains.viewCards" },
     { value: "links", icon: Workflow, labelKey: "domains.viewLinks" }
 ] as const
 
