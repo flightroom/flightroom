@@ -1,6 +1,6 @@
 import { SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { CirclePlus, DownloadCloud, LayoutGrid, Server, StretchHorizontal, Workflow } from "lucide-react"
+import { CirclePlus, DownloadCloud, LayoutGrid, StretchHorizontal, Workflow } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -12,13 +12,12 @@ import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { ALL_DOMAINS, DomainFilter, matchesDomain } from "../domains/partials/DomainFilter"
 import { FrontendsEmptyState, ImportRepositoriesDialog } from "./partials/components"
-import { FrontendFlow, FrontendsBackendFlow, FrontendsGrid, FrontendsTable } from "./partials/views"
+import { FrontendFlow, FrontendsGrid, FrontendsTable } from "./partials/views"
 
 const VIEWS = [
     { value: "flow", icon: Workflow, labelKey: "frontend.dashboard.viewFlow" },
     { value: "grid", icon: LayoutGrid, labelKey: "frontend.dashboard.viewGrid" },
-    { value: "table", icon: StretchHorizontal, labelKey: "frontend.dashboard.viewTable" },
-    { value: "backend", icon: Server, labelKey: "frontend.dashboard.viewBackend" }
+    { value: "table", icon: StretchHorizontal, labelKey: "frontend.dashboard.viewTable" }
 ] as const
 
 type View = (typeof VIEWS)[number]["value"]
@@ -184,9 +183,6 @@ const Frontends = () => {
                             </TabsContent>
                             <TabsContent value="table" className="mt-0">
                                 <FrontendsTable frontends={frontendsList} />
-                            </TabsContent>
-                            <TabsContent value="backend" className="mt-0">
-                                <FrontendsBackendFlow frontends={frontendsList} />
                             </TabsContent>
                         </>
                     )}

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CirclePlus, FolderOpen, LayoutDashboard, LayoutGrid, Orbit, Pencil, Rocket, SearchX, Server, Sparkles, Trash2 } from "lucide-react"
+import { CirclePlus, FolderOpen, LayoutDashboard, LayoutGrid, Orbit, Pencil, Rocket, SearchX, Server, Sparkles, Trash2, Workflow } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -14,13 +14,15 @@ import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
+import DomainBackendLinks from "./partials/DomainBackendLinks"
 import DomainFormDialog from "./partials/DomainFormDialog"
 import DomainGalaxy from "./partials/DomainGalaxy"
 import DomainLinkDialog from "./partials/DomainLinkDialog"
 
 const VIEWS = [
     { value: "cards", icon: LayoutGrid, labelKey: "domains.viewCards" },
-    { value: "galaxy", icon: Orbit, labelKey: "domains.viewGalaxy" }
+    { value: "galaxy", icon: Orbit, labelKey: "domains.viewGalaxy" },
+    { value: "links", icon: Workflow, labelKey: "domains.viewLinks" }
 ] as const
 
 type View = (typeof VIEWS)[number]["value"]
@@ -48,13 +50,14 @@ const Domains = () => {
         queryFn: domainsApi.getAll,
         enabled: !!projectId
     })
-    // The members are only needed by the galaxy, so the cards do not wait for them.
+    // The members are only needed by the galaxy and the links, so the cards do not wait for them.
+    const showsMembers = view !== "cards"
     const frontendsQuery = useQuery({
         queryKey: ["frontends-by-project-id", projectId],
         queryFn: () => frontendsApi.getByProjectId(projectId!),
-        enabled: !!projectId && view === "galaxy"
+        enabled: !!projectId && showsMembers
     })
-    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId && view === "galaxy" })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId && showsMembers })
     const domainLinksQuery = useQuery({ queryKey: ["domain-links", projectId], queryFn: domainLinksApi.getAll, enabled: !!projectId && view === "galaxy" })
     // The galaxy draws the resources of the backends it shows
     const resourcesQuery = useResourcesQuery(view === "galaxy")
@@ -88,7 +91,7 @@ const Domains = () => {
         if (!term) return domains
         return domains.filter(domain => [domain.name, domain.slug, domain.description].some(value => value?.toLowerCase().includes(term)))
     }, [domains, searchTerm])
-    // While searching, the galaxy shows only the matching domains: their members and the relations between them.
+    // While searching, the galaxy and the links show only the matching domains: their members and the relations between them.
     const galaxy = useMemo(() => {
         const frontends = frontendsQuery.data ?? []
         const backends = backendsQuery.data ?? []
@@ -195,6 +198,11 @@ const Domains = () => {
                                             onLink={(sourceDomainId, targetDomainId) => setLinkToCreate({ sourceDomainId, targetDomainId })}
                                             onUnlink={setLinkToDelete}
                                         />
+                                    </ApiStatusHandler>
+                                </TabsContent>
+                                <TabsContent value="links" className="mt-0">
+                                    <ApiStatusHandler queries={[frontendsQuery, backendsQuery]} interceptEmpty={false}>
+                                        <DomainBackendLinks domains={filteredDomains} frontends={galaxy.frontends} backends={galaxy.backends} />
                                     </ApiStatusHandler>
                                 </TabsContent>
                                 <TabsContent value="cards" className="mt-0">

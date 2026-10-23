@@ -895,14 +895,6 @@
             "mfeOrchestratorHub": "Flightroom Hub",
             "customSource": "Sorgente Personalizzata"
         },
-        "backendLinks": {
-            "frontendsColumn": "Frontend",
-            "backendsColumn": "Backend",
-            "hint": "Trascina dal pallino di un frontend a un backend per collegarli. Seleziona un collegamento e premi Canc per rimuoverlo.",
-            "noBackendsTitle": "Nessun backend",
-            "noBackendsDescription": "Crea un backend per poterlo collegare ai frontend.",
-            "createBackend": "Crea un backend"
-        },
         "dashboard": {
             "title": "Frontend",
             "description": "Gestisci i frontend del tuo progetto",
@@ -914,7 +906,6 @@
             "viewFlow": "Vista diagramma",
             "viewGrid": "Vista griglia",
             "viewTable": "Vista tabella",
-            "viewBackend": "Vista collegamenti ai backend",
             "clearSearch": "Cancella la ricerca",
             "noResultsTitle": "Nessun risultato",
             "noResultsDescription": "Nessun frontend corrisponde a «{{searchTerm}}». Prova con un altro termine di ricerca.",
@@ -2570,6 +2561,7 @@
         },
         "viewCards": "Vista schede",
         "viewGalaxy": "Vista galassia",
+        "viewLinks": "Vista collegamenti frontend-backend",
         "galaxy": {
             "legend_canary": "Canary attivo",
             "legend_bridge": "Collegamento tra domini",
@@ -2620,6 +2612,14 @@
             "ship_request": "Agente al lavoro su una richiesta di modifica",
             "ship_more_one": "+{{count}} altro agente al lavoro qui",
             "ship_more_other": "+{{count}} altri agenti al lavoro qui"
+        },
+        "links": {
+            "frontendsColumn": "Frontend",
+            "backendsColumn": "Backend",
+            "hint": "Trascina dal pallino di un frontend a un backend per collegarli: tratteggiati i collegamenti verso un altro dominio. Seleziona un collegamento e premi Canc per rimuoverlo. Doppio clic su un box per aprire il dominio.",
+            "noBackendsTitle": "Nessun backend",
+            "noBackendsDescription": "Crea un backend per poterlo collegare ai frontend.",
+            "createBackend": "Crea un backend"
         },
         "form": {
             "create_title": "Nuovo dominio funzionale",
