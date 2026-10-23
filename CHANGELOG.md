@@ -9,6 +9,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.1.0] - 2026-10-23
+
+### Added
+
+- **MongoDB Resources**: `mongodb` is a resource type of its own, prefix `MONGO`, instead of an engine hidden in `database`: by connection string (`MONGO_<NAME>_URL`, a `mongodb+srv://` URI, with an optional database name) or by host and credentials (port 27017, `authSource` defaulting to `admin`, replica set and TLS optional). `MONGODB` is no longer an option of the `database` engine
+- **BigQuery Resources**: `bigquery`, prefix `BQ`, gives a service the project id and an optional dataset and location, authenticated with a service account JSON key (`BQ_<NAME>_CREDENTIALS_JSON`, kept encrypted) or with the identity of the pod (Application Default Credentials, e.g. GKE Workload Identity), which needs no credential. `BQ_<NAME>_AUTH` tells the client which of the two it is
+- **Generic Resources**: `generic`, prefix `RES`, for whatever the catalog lacks: the resource defines its own variables in `customFields` (`[{ name, secret }]`, at most 100), each set as `<prefix>_<name>`, with one value for every environment and per-environment overrides like any other resource. Renaming or removing a variable drops its values, and turning a secret plain or a plain one secret drops the stored value, so a credential never comes back readable. The console edits the variables in the resource form; the MCP `resource_create` and `resource_update` tools take `customFields`
+
+### Fixed
+
+- **The Masked Placeholder Is Not A Value**: a plain variable sent back as the `••••` placeholder, as a client does after turning a secret plain, is refused with `RESOURCE_VALUE_INVALID` instead of being stored literally
+
+---
+
 ## [6.0.0] - 2026-10-23
 
 ### Changed
