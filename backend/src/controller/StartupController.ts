@@ -8,9 +8,12 @@ import AuthenticationMethod from "../types/AuthenticationMethod"
 export interface StartupUserRegistrationDTO {
     email: string
     password: string
-    project: string
-    /** Optional: left out, the first organization is named after the first project. */
     organization?: string
+    /**
+     * Kept for older clients. The console now sends only the organization and asks for the first
+     * project on the next screen; sent, it still names the organization when that is left out.
+     */
+    project?: string
 }
 
 export function StartupController(fastify: FastifyInstance) {
@@ -53,7 +56,15 @@ export function StartupController(fastify: FastifyInstance) {
         // The very first user owns the organization everything else hangs from: the project cannot be
         // created before it exists, and the services are built with that user so the ownership check
         // on project creation sees the owner it just created.
-        const organizationName = req.body.organization?.trim() || req.body.project
+        const organizationName = req.body.organization?.trim() || req.body.project?.trim()
+        if (!organizationName) {
+            throw createBusinessException({
+                code: "ORGANIZATION_NAME_REQUIRED",
+                message: "The first organization needs a name",
+                statusCode: 400
+            })
+        }
+
         const organization = await new OrganizationService(registeredUser).create(
             {
                 name: organizationName,
@@ -62,14 +73,19 @@ export function StartupController(fastify: FastifyInstance) {
             registeredUser._id
         )
 
-        const project = await new ProjectService(registeredUser).create(
-            {
-                organizationId: organization._id.toString(),
-                name: req.body.project,
-                description: req.body.project
-            },
-            registeredUser._id
-        )
+        // The console leaves the project out: the owner lands on the empty organization and creates
+        // the first project there, through the same wizard as every later one.
+        const projectName = req.body.project?.trim()
+        const project = projectName
+            ? await new ProjectService(registeredUser).create(
+                  {
+                      organizationId: organization._id.toString(),
+                      name: projectName,
+                      description: projectName
+                  },
+                  registeredUser._id
+              )
+            : undefined
 
         return res.send({ user: registeredUser.toFrontendObject(), organization, project })
     })

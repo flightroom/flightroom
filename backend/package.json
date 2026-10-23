@@ -54,6 +54,7 @@
         "isomorphic-git": "^1.44.3",
         "jose": "6.2.13",
         "jsonwebtoken": "^9.0.3",
+        "juice": "^12.2.0",
         "libsodium-wrappers": "^0.8.4",
         "mongoose": "^9.11.2",
         "mssql": "^12.7.10",

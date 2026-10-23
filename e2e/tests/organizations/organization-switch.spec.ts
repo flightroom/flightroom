@@ -87,7 +87,9 @@ test.describe
         test("given the organization just created, when the wizard is submitted, then the project is created inside it", async ({ browser, request }) => {
             const { page } = await getSession(browser)
 
-            // Creata l'organizzazione, il wizard prende il posto della dashboard: non c'e' ancora un progetto.
+            // Creata l'organizzazione, al posto della dashboard c'e' la schermata che porta al wizard:
+            // non c'e' ancora un progetto.
+            await page.getByTestId("create-first-project").click({ timeout: 30_000 })
             await expect(page.getByTestId("wizard-project-name")).toBeVisible({ timeout: 30_000 })
             await page.getByTestId("wizard-project-name").fill(firstProject)
             await page.getByTestId("wizard-next").click()

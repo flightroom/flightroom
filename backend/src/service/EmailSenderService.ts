@@ -1,3 +1,4 @@
+import juice from "juice"
 import nodemailer, { type Transporter } from "nodemailer"
 import path from "path"
 import pug from "pug"
@@ -7,6 +8,34 @@ import { IProject } from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
 import { RoleInOrganization } from "../models/UserOrganizationModel"
 import { RoleInProject } from "../models/UserProjectModel"
+import { EmailLanguage, emailStrings, InvitationText, toEmailLanguage } from "../templates/emails/i18n"
+import type { AuthorizedPrincipal } from "./BaseAuthorizedService"
+
+type EmailTemplate = "account-activation" | "password-reset" | "project-invitation" | "organization-invitation"
+
+/** What every email shows, whatever its template: the button, the link under it and the lines around them. */
+interface EmailMessage {
+    to: string
+    template: EmailTemplate
+    language: EmailLanguage
+    subject: string
+    url: string
+    header: string
+    headerIcon: string
+    preheader: string
+    greeting: string
+    /** The intro as text; invitations also pass it as markup in `locals.introHtml`. */
+    intro: string
+    prompt?: string
+    button: string
+    ignore: string
+    expiry: string
+    locals?: Record<string, unknown>
+}
+
+const escapeHtml = (value: string) => value.replace(/[&<>"']/g, char => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[char] as string)
+
+const strong = (value: string, className?: string) => `<strong${className ? ` class="${className}"` : ""}>${escapeHtml(value)}</strong>`
 
 class EmailSenderService {
     private transporter: Transporter
@@ -37,97 +66,126 @@ class EmailSenderService {
         return this.canSendEmail
     }
 
-    async sendUserInvitationEmail(user: IUser, project: IProject, role: RoleInProject, token: string) {
-        const acceptUrl = `${this.config.FRONTEND_URL}/project-invitation/${token}`
+    /** `inviter` is whoever sends the invitation; without one (or for an API key) the email names nobody. */
+    async sendUserInvitationEmail(user: IUser, project: IProject, role: RoleInProject, token: string, inviter?: AuthorizedPrincipal) {
+        const language = toEmailLanguage(user.language)
+        const t = emailStrings[language]
+        const strings = t.projectInvitation
+        const invitation: InvitationText = { inviter: this.inviterName(inviter), target: project.name, role: t.projectRoles[role] }
 
-        // Compile the Pug template
-        const emailHtml = pug.renderFile(path.join(__dirname, "../templates/emails/project-invitation.pug"), {
-            user,
-            project,
-            role: this.formatRoleName(role),
-            acceptUrl,
-            header: "You're Invited!",
+        await this.send({
+            to: user.email,
+            template: "project-invitation",
+            language,
+            subject: strings.subject(project.name),
+            url: `${this.config.FRONTEND_URL}/project-invitation/${token}`,
+            header: strings.header,
             headerIcon: "👋",
-            footerText: "This invitation link will expire in 5 days."
+            preheader: strings.preheader(invitation),
+            greeting: t.greeting(user.name),
+            intro: strings.intro(invitation),
+            prompt: strings.prompt,
+            button: strings.button,
+            ignore: strings.ignore,
+            expiry: strings.expiry,
+            locals: { introHtml: strings.intro(this.invitationMarkup(invitation)) }
         })
-
-        const mailOptions = {
-            from: this.config.EMAIL_SMTP_FROM,
-            to: user.email,
-            subject: `🎉 You're invited to join ${project.name}`,
-            html: emailHtml
-        }
-
-        await this.transporter.sendMail(mailOptions)
     }
 
-    async sendOrganizationInvitationEmail(user: IUser, organization: IOrganization, role: RoleInOrganization, token: string) {
-        const acceptUrl = `${this.config.FRONTEND_URL}/organization-invitation/${token}`
+    async sendOrganizationInvitationEmail(user: IUser, organization: IOrganization, role: RoleInOrganization, token: string, inviter?: AuthorizedPrincipal) {
+        const language = toEmailLanguage(user.language)
+        const t = emailStrings[language]
+        const strings = t.organizationInvitation
+        const invitation: InvitationText = { inviter: this.inviterName(inviter), target: organization.name, role: t.organizationRoles[role] }
 
-        const emailHtml = pug.renderFile(path.join(__dirname, "../templates/emails/organization-invitation.pug"), {
-            user,
-            organization,
-            role: this.formatRoleName(role),
-            acceptUrl,
-            header: "You're Invited!",
+        await this.send({
+            to: user.email,
+            template: "organization-invitation",
+            language,
+            subject: strings.subject(organization.name),
+            url: `${this.config.FRONTEND_URL}/organization-invitation/${token}`,
+            header: strings.header,
             headerIcon: "\u{1F465}",
-            footerText: "This invitation link will expire in 5 days."
+            preheader: strings.preheader(invitation),
+            greeting: t.greeting(user.name),
+            intro: strings.intro(invitation),
+            prompt: strings.prompt,
+            button: strings.button,
+            ignore: strings.ignore,
+            expiry: strings.expiry,
+            locals: { introHtml: strings.intro(this.invitationMarkup(invitation)) }
         })
-
-        const mailOptions = {
-            from: this.config.EMAIL_SMTP_FROM,
-            to: user.email,
-            subject: `\u{1F389} You're invited to join ${organization.name}`,
-            html: emailHtml
-        }
-
-        await this.transporter.sendMail(mailOptions)
     }
 
-    private formatRoleName(role: RoleInProject | RoleInOrganization): string {
-        return role.charAt(0).toUpperCase() + role.slice(1).toLowerCase()
-    }
+    /** `language` is the one stored on the recipient (`IUser.language`). */
+    async sendResetPasswordEmail(email: string, token: string, language?: string): Promise<void> {
+        const lang = toEmailLanguage(language)
+        const t = emailStrings[lang]
+        const strings = t.passwordReset
 
-    async sendResetPasswordEmail(email: string, token: string): Promise<void> {
-        const resetUrl = `${this.config.FRONTEND_URL}/reset-password/${token}`
-
-        // Compile the Pug template
-        const emailHtml = pug.renderFile(path.join(__dirname, "../templates/emails/password-reset.pug"), {
-            resetUrl,
-            header: "Reset Your Password",
+        await this.send({
+            to: email,
+            template: "password-reset",
+            language: lang,
+            url: `${this.config.FRONTEND_URL}/reset-password/${token}`,
             headerIcon: "🔑",
-            footerText: "This password reset link will expire in 1 hour."
+            greeting: t.greeting(),
+            ...strings
         })
-
-        const mailOptions = {
-            from: this.config.EMAIL_SMTP_FROM,
-            to: email,
-            subject: "🔑 Reset Your Password",
-            html: emailHtml
-        }
-
-        await this.transporter.sendMail(mailOptions)
     }
 
-    async sendVerificationEmail(email: string, token: string): Promise<void> {
-        const activationUrl = `${this.config.FRONTEND_URL}/account-activation/${token}`
+    /** `language` is the one stored on the recipient (`IUser.language`). */
+    async sendVerificationEmail(email: string, token: string, language?: string): Promise<void> {
+        const lang = toEmailLanguage(language)
+        const t = emailStrings[lang]
+        const strings = t.accountActivation
 
-        // Compile the Pug template
-        const emailHtml = pug.renderFile(path.join(__dirname, "../templates/emails/account-activation.pug"), {
-            activationUrl,
-            header: "Welcome Aboard!",
+        await this.send({
+            to: email,
+            template: "account-activation",
+            language: lang,
+            url: `${this.config.FRONTEND_URL}/account-activation/${token}`,
             headerIcon: "🎉",
-            footerText: "This activation link will expire in 24 hours."
+            greeting: t.greeting(),
+            ...strings
+        })
+    }
+
+    /** Renders the template, inlines its CSS and sends it together with a plain text part built from the same strings. */
+    private async send(message: EmailMessage): Promise<void> {
+        const t = emailStrings[message.language]
+        const html = pug.renderFile(path.join(__dirname, `../templates/emails/${message.template}.pug`), {
+            cache: true,
+            ...message,
+            ...message.locals,
+            lang: message.language,
+            logoUrl: `${this.config.FRONTEND_URL}/img/logo.png`,
+            copyLink: t.copyLink,
+            footer: t.footer,
+            footerText: message.expiry
         })
 
-        const mailOptions = {
-            from: this.config.EMAIL_SMTP_FROM,
-            to: email,
-            subject: "🎉 Activate Your Account",
-            html: emailHtml
-        }
+        const text = [message.greeting, message.intro, message.prompt, message.url, message.ignore, message.expiry, `--\n${t.footer}`].filter(Boolean).join("\n\n")
 
-        await this.transporter.sendMail(mailOptions)
+        await this.transporter.sendMail({
+            from: this.config.EMAIL_SMTP_FROM,
+            to: message.to,
+            subject: message.subject,
+            html: juice(html),
+            text
+        })
+    }
+
+    private inviterName(inviter?: AuthorizedPrincipal): string | undefined {
+        // An API key has no person behind it, and its email is synthetic
+        if (!inviter || inviter.apiKeyId) {
+            return undefined
+        }
+        return [inviter.name, inviter.surname].filter(Boolean).join(" ").trim() || inviter.email || undefined
+    }
+
+    private invitationMarkup({ inviter, target, role }: InvitationText): InvitationText {
+        return { inviter: inviter ? strong(inviter) : undefined, target: strong(target), role: strong(role, "accent") }
     }
 }
 

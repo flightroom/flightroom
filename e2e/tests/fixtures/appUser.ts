@@ -1,5 +1,5 @@
 import { APIRequestContext, Browser, BrowserContext, expect, Page } from "@playwright/test"
-import { inboxAddress, isMailProviderReachable, mailProvider, toAppPath, uniqueInbox, waitForEmailLink } from "./emailClient"
+import { emailSubjects, inboxAddress, isMailProviderReachable, mailProvider, toAppPath, uniqueInbox, waitForEmailLink } from "./emailClient"
 
 export const ISSUER = "microfrontend.orchestrator.hub"
 
@@ -116,7 +116,7 @@ export async function registerViaUi(page: Page, user: TestUser): Promise<void> {
  */
 export async function activateAccountFromEmail(page: Page, request: APIRequestContext, user: TestUser): Promise<void> {
     const link = await waitForEmailLink(request, user.inbox, {
-        subject: "Activate Your Account",
+        subject: emailSubjects.accountActivation,
         linkContains: "/account-activation/"
     })
 
@@ -408,7 +408,7 @@ export async function inviteCollaboratorViaUi(page: Page, email: string, role: R
 /** Apre il link di invito ricevuto via email. */
 export async function openInvitationFromEmail(page: Page, request: APIRequestContext, user: TestUser, projectName: string): Promise<void> {
     const link = await waitForEmailLink(request, user.inbox, {
-        subject: `You're invited to join ${projectName}`,
+        subject: emailSubjects.invitation(projectName),
         linkContains: "/project-invitation/"
     })
     await page.goto(toAppPath(link))

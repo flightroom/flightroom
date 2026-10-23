@@ -125,6 +125,12 @@
         "microsoft_login_failed": "Microsoft sign-in failed. Please try again."
     },
     "project": {
+        "first_project": {
+            "title": "Congratulations, your organization is ready!",
+            "description": "You created “{{organization}}”. Now create your first project.",
+            "hint": "A project holds the frontends, services and environments of one application. We will guide you step by step.",
+            "cta": "Create your first project"
+        },
         "name": "Name",
         "name_placeholder": "Enter project name",
         "description": "Description",
@@ -176,9 +182,7 @@
     "setup": {
         "title": "Initial Setup",
         "description": "Register the first administrator account",
-        "project_name": "Project Name",
-        "project_name_placeholder": "Enter your project name",
-        "project_name_min_length": "Project name must be at least 3 characters"
+        "organization_name": "Organization name"
     },
     "settings": {
         "title": "Settings",

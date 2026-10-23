@@ -1,13 +1,7 @@
 extends base-email
 
 block content
-  p Hello,
-  p Welcome to our platform! We're excited to have you on board. Please verify your email address by clicking the button below:
-  div(style="text-align: center;")
-    a.button(href=activationUrl) Activate Account
-  p.muted
-    | Or copy and paste this link into your browser:
-    br
-    a.link(href=activationUrl)
-      | #{activationUrl}
-  p If you didn't create an account, you can safely ignore this email.
+  p #{greeting}
+  p #{intro}
+  +cta(url, button)
+  p #{ignore}

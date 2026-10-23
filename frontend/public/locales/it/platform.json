@@ -125,6 +125,12 @@
         "microsoft_login_failed": "Accesso con Microsoft non riuscito. Riprova."
     },
     "project": {
+        "first_project": {
+            "title": "Complimenti, la tua organizzazione è pronta!",
+            "description": "Hai creato «{{organization}}». Adesso crea il tuo primo progetto.",
+            "hint": "Un progetto raccoglie i frontend, i servizi e gli ambienti di un'applicazione. Ti guidiamo passo passo.",
+            "cta": "Crea il tuo primo progetto"
+        },
         "name": "Nome",
         "name_placeholder": "Inserisci il nome del progetto",
         "description": "Descrizione",
@@ -176,9 +182,7 @@
     "setup": {
         "title": "Configurazione Iniziale",
         "description": "Registra il primo account amministratore",
-        "project_name": "Nome Progetto",
-        "project_name_placeholder": "Inserisci il nome del progetto",
-        "project_name_min_length": "Il nome del progetto deve essere lungo almeno 3 caratteri"
+        "organization_name": "Nome organizzazione"
     },
     "settings": {
         "title": "Impostazioni",

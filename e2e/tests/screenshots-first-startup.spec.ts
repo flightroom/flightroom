@@ -65,7 +65,7 @@ test("Given an installation with no users When the console is opened Then the in
         // carries an id, so the other two have no label to be found by.
         await page.getByLabel("Email").fill("dana.ferraro@example.com")
         await page.locator('input[type="password"]').fill("Astr0ngPassword!")
-        await page.getByPlaceholder("Enter your project name").fill("Acme Storefront")
+        await page.getByPlaceholder("Enter the organization name").fill("Acme")
         await shootAuthScreen(page, "first-startup")
 
         // The screen is the outermost wrapper of the whole application, so it answers on every
