@@ -3291,6 +3291,10 @@
                 "label": "MongoDB",
                 "description": "An external MongoDB database, such as Atlas: by connection string (mongodb+srv://) or by host and credentials."
             },
+            "bigquery": {
+                "label": "BigQuery",
+                "description": "A Google BigQuery project: with a service account JSON key or with the identity of the pod (Workload Identity)."
+            },
             "storage": {
                 "label": "Storage",
                 "description": "An object storage bucket or container on AWS, Azure or Google Cloud."
@@ -3334,6 +3338,10 @@
             "mongodb": {
                 "connectionString": "Connection string",
                 "credentials": "Host and credentials"
+            },
+            "bigquery": {
+                "serviceAccountKey": "Service account key",
+                "applicationDefault": "Pod identity (Application Default Credentials)"
             },
             "storage": {
                 "aws": "AWS S3",
@@ -3416,7 +3424,10 @@
             "fromName": "Sender name",
             "schema": "Schema",
             "authSource": "Authentication database",
-            "replicaSet": "Replica set"
+            "replicaSet": "Replica set",
+            "projectId": "Google Cloud project ID",
+            "dataset": "Dataset",
+            "location": "Location"
         },
         "retype": {
             "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"

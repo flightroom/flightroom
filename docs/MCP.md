@@ -156,7 +156,7 @@ at most.
 
 ## Resources
 
-A **resource** is a package of environment variables of a catalog type (`database`, `mongodb`, `storage`,
+A **resource** is a package of environment variables of a catalog type (`database`, `mongodb`, `bigquery`, `storage`,
 `redis`, `serviceAccount`, `auth0`, `api`, `ai`, `smtp`, `generic`) that backend services attach by id
 (`resourceIds`); a frontend never does. A `generic` resource (variant `custom`) is for anything the catalog
 lacks: it defines its own variables in `customFields` (`[{ name, secret }]`, at most 100, each set as
