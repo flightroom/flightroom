@@ -12,6 +12,7 @@ import { designSystemsForMcp } from "../types/DesignSystem"
 import { MCP_SCOPE_WRITE } from "../utils/oauthConfig"
 import { McpSession, McpSharedProject, McpToolContext, McpToolDefinition, objectId } from "./toolDefinition"
 import { aiChangeTools } from "./tools/aiChangeTools"
+import { aiUsageTools } from "./tools/aiUsageTools"
 import { backendTools } from "./tools/backendTools"
 import { configurationTools } from "./tools/configurationTools"
 import { domainDeploymentTools } from "./tools/domainDeploymentTools"
@@ -49,7 +50,8 @@ import { variableMapTools } from "./tools/variableMapTools"
  * Tools marked `consoleOnly` are never registered on the MCP server: only the console assistant,
  * acting for the signed-in user inside the console, offers them. They cover most of the list above
  * (project deletion, members and invitations, organizations, API keys, MCP clients, bulk actions,
- * the canvas layout and AI code changes). What stays in the console pages for the
+ * the canvas layout and AI code changes). The AI tokens a person spent are read through MCP too
+ * (`user_ai_usage`): their own, or anyone's for an owner of the project. What stays in the console pages for the
  * assistant too: storages, databases, repository connections, secret values, the user profile and bundle upload (their input
  * is a secret or a file).
  */
@@ -72,7 +74,8 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     ...projectAdminTools,
     ...organizationAdminTools,
     ...projectContentTools,
-    ...aiChangeTools
+    ...aiChangeTools,
+    ...aiUsageTools
 ]
 
 const SERVER_INSTRUCTIONS =

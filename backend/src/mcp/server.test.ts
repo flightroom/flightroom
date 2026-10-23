@@ -57,6 +57,13 @@ describe("MCP tool registry", () => {
         }
     )
 
+    it("given user_ai_usage, which reads the tokens of one person and manages no member, when the registry is read, then MCP clients get it read only", () => {
+        const tool = toolNamed("user_ai_usage")
+        expect(tool?.consoleOnly).toBeFalsy()
+        expect(tool?.scope).toBe(MCP_SCOPE_READ)
+        expect(tool?.annotations.readOnlyHint).toBe(true)
+    })
+
     it("given the tools left out of v1, when the registry is searched, then none of them is there", () => {
         const excluded =
             /api_?key|project_delete|organization_(create|update|delete)|member|invit|user_profile|profile|upload|position|dimension|storage_(create|update)|database_(create|update)|secret_(create|update)|code_repository_(create|update|add)/

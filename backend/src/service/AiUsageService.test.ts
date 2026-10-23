@@ -6,10 +6,10 @@ import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
-import { IUser } from "../models/UserModel"
+import User, { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
-import UserProject from "../models/UserProjectModel"
-import AiUsageService, { componentPipeline, ensureWithinTokenLimit, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
+import UserProject, { RoleInProject } from "../models/UserProjectModel"
+import AiUsageService, { componentPipeline, ensureWithinTokenLimit, memberSeriesPipeline, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
 type WithGates = {
@@ -342,6 +342,114 @@ describe("AiUsageService", () => {
             ])
             expect(summary.total).toEqual({ inputTokens: 1005, cachedInputTokens: 300, outputTokens: 101 })
             expect(matchOf(vi.mocked(AiUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ organizationId, createdAt: { $gte: new Date("2026-07-24T10:00:00.000Z") } })
+        })
+    })
+
+    describe("forMember", () => {
+        const grace = new Types.ObjectId()
+        const days = { from: "2026-10-01", to: "2026-10-23", granularity: "day" } as const
+        const asProjectRole = (role?: RoleInProject, domainScoped = false) => vi.spyOn(UserProject, "findOne").mockReturnValue(thenable(role ? { role, domainScoped } : null) as never)
+        const asOrganizationRole = (role?: RoleInOrganization) => {
+            vi.spyOn(Project, "findById").mockReturnValue(thenable({ _id: projectId, organizationId }) as never)
+            vi.spyOn(UserOrganization, "findOne").mockReturnValue(thenable(role ? { role } : null) as never)
+        }
+
+        it("Given a day range in a time zone, when the pipeline is built, then the index narrows a day wider and the local days are cut exactly, then summed by day", () => {
+            const pipeline = memberSeriesPipeline(projectId, grace, { ...days, timeZone: "Europe/Rome" })
+            const local = (format: string) => ({ $dateToString: { date: "$createdAt", format, timezone: "Europe/Rome" } })
+
+            expect(pipeline).toEqual([
+                { $match: { projectId, userId: grace, createdAt: { $gte: new Date("2026-09-30T00:00:00.000Z"), $lt: new Date("2026-10-25T00:00:00.000Z") } } },
+                { $match: { $expr: { $and: [{ $gte: [local("%Y-%m-%d"), "2026-10-01"] }, { $lte: [local("%Y-%m-%d"), "2026-10-23"] }] } } },
+                { $group: { _id: local("%Y-%m-%d"), inputTokens: { $sum: "$inputTokens" }, cachedInputTokens: { $sum: "$cachedInputTokens" }, outputTokens: { $sum: "$outputTokens" } } },
+                { $sort: { _id: 1 } }
+            ])
+        })
+
+        it("Given weeks or months and no time zone, when the pipeline is built, then the periods are ISO weeks or months in UTC", () => {
+            const groupId = (granularity: "week" | "month") => (memberSeriesPipeline(projectId, grace, { ...days, granularity })[2] as PipelineStage.Group).$group._id
+
+            expect(groupId("week")).toEqual({ $dateToString: { date: "$createdAt", format: "%G-W%V", timezone: "UTC" } })
+            expect(groupId("month")).toEqual({ $dateToString: { date: "$createdAt", format: "%Y-%m", timezone: "UTC" } })
+        })
+
+        it("Given their own usage, when a plain member asks it, then each day with usage comes back rounded and the total adds them", async () => {
+            const own = vi.spyOn(UserProject, "findOne")
+            vi.mocked(AiUsage.aggregate).mockResolvedValue([
+                { _id: "2026-10-02", inputTokens: 100, cachedInputTokens: 40, outputTokens: 10 },
+                { _id: "2026-10-20", inputTokens: 50.4, cachedInputTokens: 0, outputTokens: 5 }
+            ] as never)
+
+            expect(await service().forMember(String(projectId), { userId: String(user._id) }, days)).toEqual({
+                projectId: String(projectId),
+                userId: String(user._id),
+                ...days,
+                timeZone: "UTC",
+                total: { inputTokens: 150, cachedInputTokens: 40, outputTokens: 15 },
+                series: [
+                    { period: "2026-10-02", inputTokens: 100, cachedInputTokens: 40, outputTokens: 10 },
+                    { period: "2026-10-20", inputTokens: 50, cachedInputTokens: 0, outputTokens: 5 }
+                ]
+            })
+            expect(own).not.toHaveBeenCalled()
+        })
+
+        it("Given another member by email, when a plain member asks, then it is refused before the email is looked up", async () => {
+            asProjectRole(RoleInProject.MEMBER)
+            asOrganizationRole(RoleInOrganization.MEMBER)
+            const lookup = vi.spyOn(User, "findOne")
+
+            await expect(service().forMember(String(projectId), { email: "grace@example.com" }, days)).rejects.toMatchObject({ code: "PROJECT_OWNER_REQUIRED", statusCode: 403 })
+            expect(lookup).not.toHaveBeenCalled()
+            expect(AiUsage.aggregate).not.toHaveBeenCalled()
+        })
+
+        it("Given an owner confined to some domains, when they ask another member's usage, then it is refused", async () => {
+            asProjectRole(RoleInProject.OWNER, true)
+            asOrganizationRole(undefined)
+
+            await expect(service().forMember(String(projectId), { userId: String(grace) }, days)).rejects.toMatchObject({ statusCode: 403 })
+        })
+
+        it("Given an owner, when they ask a member's usage by email, then the email is matched lower case and their usage summed", async () => {
+            asProjectRole(RoleInProject.OWNER)
+            const lookup = vi.spyOn(User, "findOne").mockReturnValue(thenable({ _id: grace }) as never)
+
+            const usage = await service().forMember(String(projectId), { email: "Grace@Example.com" }, days)
+
+            expect(lookup).toHaveBeenCalledWith({ email: "grace@example.com" }, { _id: 1 })
+            expect(usage.userId).toBe(String(grace))
+            expect(matchOf(vi.mocked(AiUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toMatchObject({ projectId, userId: grace })
+        })
+
+        it("Given an administrator of the organization outside the project, when they ask a member's usage, then it is let through", async () => {
+            asProjectRole(undefined)
+            asOrganizationRole(RoleInOrganization.ADMIN)
+
+            await expect(service().forMember(String(projectId), { userId: String(grace) }, days)).resolves.toMatchObject({ userId: String(grace), series: [] })
+        })
+
+        it("Given an email nobody signs in with, when an owner asks, then it answers not found", async () => {
+            asProjectRole(RoleInProject.OWNER)
+            vi.spyOn(User, "findOne").mockReturnValue(thenable(null) as never)
+
+            await expect(service().forMember(String(projectId), { email: "nobody@example.com" }, days)).rejects.toMatchObject({ statusCode: 404 })
+            expect(AiUsage.aggregate).not.toHaveBeenCalled()
+        })
+
+        it("Given a project API key, when it asks a member's usage, then it is refused: there is nobody behind it", async () => {
+            const apiKey = { _id: new Types.ObjectId(), email: "api-key:1", apiKeyId: "1", restrictedToProjectIds: [String(projectId)] } as unknown as IUser
+
+            await expect(new AiUsageService(apiKey).forMember(String(projectId), { userId: String(grace) }, days)).rejects.toMatchObject({ statusCode: 403 })
+        })
+
+        it("Given a last day before the first, or a daily series longer than a year, when it is asked, then it is refused; by week the two years are let through", async () => {
+            const own = { userId: String(user._id) }
+
+            await expect(service().forMember(String(projectId), own, { ...days, from: "2026-10-23", to: "2026-10-22" })).rejects.toMatchObject({ code: "AI_USAGE_RANGE_INVALID", statusCode: 400 })
+            await expect(service().forMember(String(projectId), own, { ...days, from: "2025-01-01", to: "2026-01-02" })).rejects.toMatchObject({ code: "AI_USAGE_RANGE_INVALID" })
+            await expect(service().forMember(String(projectId), own, { ...days, from: "2025-01-01", to: "2026-01-01" })).resolves.toBeDefined()
+            await expect(service().forMember(String(projectId), own, { from: "2024-10-23", to: "2026-10-23", granularity: "week" })).resolves.toBeDefined()
         })
     })
 
