@@ -8,7 +8,8 @@ import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
-import AiUsageService, { componentPipeline, periodStart, recordAiUsage } from "./AiUsageService"
+import UserProject from "../models/UserProjectModel"
+import AiUsageService, { componentPipeline, ensureWithinTokenLimit, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
 type WithGates = {
@@ -55,7 +56,8 @@ const matches = (filter: Record<string, unknown>, document: Record<string, unkno
         if (condition instanceof Date || typeof condition !== "object" || condition === null || condition instanceof Types.ObjectId) {
             return Array.isArray(value) ? value.some(item => String(item) === String(condition)) : String(value) === String(condition)
         }
-        const { $gte } = condition as { $gte?: Date }
+        const { $gte, $in } = condition as { $gte?: Date; $in?: unknown[] }
+        if ($in) return $in.some(item => String(item) === String(value))
         if ($gte === undefined) throw new Error(`Condition not supported by the test: ${JSON.stringify(condition)}`)
         return value instanceof Date && value >= $gte
     })
@@ -340,6 +342,55 @@ describe("AiUsageService", () => {
             ])
             expect(summary.total).toEqual({ inputTokens: 1005, cachedInputTokens: 300, outputTokens: 101 })
             expect(matchOf(vi.mocked(AiUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ organizationId, createdAt: { $gte: new Date("2026-07-24T10:00:00.000Z") } })
+        })
+    })
+
+    describe("the monthly limit of a member", () => {
+        const ada = user._id
+        const grace = new Types.ObjectId()
+
+        it("Given usage of several members, projects and months, when a member's month is summed, then only theirs in the project since the first of the month counts, input and output", () => {
+            const documents = [
+                { projectId, userId: ada, inputTokens: 1_000, cachedInputTokens: 800, outputTokens: 100, createdAt: new Date("2026-10-01T00:00:00.000Z") },
+                { projectId, userId: ada, inputTokens: 500, cachedInputTokens: 0, outputTokens: 50, createdAt: new Date("2026-10-21") },
+                // Another member, another project, the month before: none of them
+                { projectId, userId: grace, inputTokens: 9_000, cachedInputTokens: 0, outputTokens: 900, createdAt: new Date("2026-10-21") },
+                { projectId: new Types.ObjectId(), userId: ada, inputTokens: 9_000, cachedInputTokens: 0, outputTokens: 900, createdAt: new Date("2026-10-21") },
+                { projectId, userId: ada, inputTokens: 9_000, cachedInputTokens: 0, outputTokens: 900, createdAt: new Date("2026-09-30T23:59:59.000Z") }
+            ]
+
+            expect(groupOver(membersMonthPipeline(projectId, [ada]), documents)).toEqual({ tokens: 1_650 })
+        })
+
+        const withLimit = (aiTokenLimit?: number) => vi.spyOn(UserProject, "findOne").mockReturnValue(thenable(aiTokenLimit === undefined ? {} : { aiTokenLimit }) as never)
+        const spent = (tokens: number) => vi.mocked(AiUsage.aggregate).mockResolvedValue([{ _id: ada, tokens }] as never)
+
+        it("Given a member with no limit, when an answer or a job starts, then nothing is summed", async () => {
+            withLimit()
+
+            await ensureWithinTokenLimit(projectId, ada)
+
+            expect(AiUsage.aggregate).not.toHaveBeenCalled()
+        })
+
+        it("Given a member below their limit, when an answer or a job starts, then it is let through", async () => {
+            withLimit(10_000)
+            spent(9_999)
+
+            await expect(ensureWithinTokenLimit(projectId, ada)).resolves.toBeUndefined()
+        })
+
+        it("Given a member who spent their limit, when an answer or a job starts, then it is refused until next month", async () => {
+            withLimit(10_000)
+            spent(10_000)
+
+            await expect(ensureWithinTokenLimit(projectId, ada)).rejects.toMatchObject({ code: "AI_TOKEN_LIMIT_REACHED", statusCode: 429 })
+        })
+
+        it("Given a limit of zero, when a member who spent nothing starts an answer, then it is refused", async () => {
+            withLimit(0)
+
+            await expect(ensureWithinTokenLimit(projectId, ada)).rejects.toMatchObject({ code: "AI_TOKEN_LIMIT_REACHED" })
         })
     })
 })

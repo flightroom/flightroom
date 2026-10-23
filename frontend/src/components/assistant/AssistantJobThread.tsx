@@ -38,7 +38,8 @@ export const JOB_ERROR_CODES = new Set([
     "AI_DOMAIN_PLAN_HAS_MEMBERS",
     "AI_DOMAIN_PLAN_FAILED",
     "AI_MODEL_NOT_AVAILABLE",
-    "AI_PROVIDER_ERROR"
+    "AI_PROVIDER_ERROR",
+    "AI_TOKEN_LIMIT_REACHED"
 ])
 
 /** The translated message of a failed job call; `fallback` is a key under `assistant.jobs.errors`. */

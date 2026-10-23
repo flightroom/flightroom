@@ -720,10 +720,21 @@
             "success": "Access updated",
             "last_owner": "The project needs at least one admin: promote another member first."
         },
+        "ai_tokens": {
+            "column": "AI tokens this month",
+            "spent_of_limit": "{{spent}} / {{limit}}",
+            "spent_unlimited": "{{spent}} · no limit",
+            "hint": "AI tokens (input and output) spent in the project this month with the assistant and Edit with AI. The count starts again on the first of the month.",
+            "limit_label": "Monthly AI token limit",
+            "limit_placeholder": "No limit",
+            "limit_description": "Tokens (input and output) the member can spend in the project each month with the assistant and Edit with AI. Leave empty for no limit; 0 turns AI off for the member.",
+            "invalid": "Enter a whole number of tokens, or leave it empty."
+        },
         "errors": {
             "domain_scope_forbidden": "This action is outside the domains you have access to.",
             "invalid_domain": "One of the selected domains does not belong to this project.",
-            "domain_scope_not_for_owner": "An admin always has access to the whole project."
+            "domain_scope_not_for_owner": "An admin always has access to the whole project.",
+            "invalid_ai_token_limit": "Invalid limit: it must be a whole number of tokens, zero or more."
         }
     },
     "project_invitation": {
@@ -2105,7 +2116,8 @@
             "incomplete": "The answer is incomplete: try a more specific question.",
             "stopped": "Answer stopped.",
             "confirmation_expired": "The confirmation expired or was already answered, so nothing was done. Ask again if you still want to proceed.",
-            "ai_model_not_available": "The AI you picked is no longer available to the project: pick another one and ask again."
+            "ai_model_not_available": "The AI you picked is no longer available to the project: pick another one and ask again.",
+            "token_limit_reached": "You have spent your monthly AI token limit in this project. It starts again on the first of next month, or ask a project admin to raise it."
         },
         "suggestions": {
             "overview": "Give me an overview of the project",
@@ -2225,7 +2237,8 @@
                 "AI_DOMAIN_PLAN_FAILED": "The AI could not propose the components: try again or describe the request differently.",
                 "AI_MODEL_NOT_AVAILABLE": "The AI you picked is no longer available to the project: pick another one.",
                 "AI_PROVIDER_ERROR": "The AI provider answered with an error: try again shortly.",
-                "AI_JOB_NOT_OWNER": "Only the user who started it, or an organization administrator, can do this."
+                "AI_JOB_NOT_OWNER": "Only the user who started it, or an organization administrator, can do this.",
+                "AI_TOKEN_LIMIT_REACHED": "You have spent your monthly AI token limit in this project: the job did not start. It starts again on the first of next month, or ask a project admin to raise it."
             },
             "apply_all_started": "Applying the proposals onto their base branches",
             "apply_all_failed_one": "{{count}} of {{total}} proposals could not be applied: see the error on its repository",
@@ -3047,7 +3060,8 @@
             "AI_CHANGE_TOO_MANY": "Too many jobs or missions are running in this project: wait for one to finish.",
             "DOMAIN_SCOPE_FORBIDDEN": "Some repositories are outside the domains you have access to.",
             "AI_JOB_NOT_OWNER": "Only the user who started this mission, or an organization administrator, can do this.",
-            "AI_MISSION_EMPTY_PROMPT": "Write what the agents should do."
+            "AI_MISSION_EMPTY_PROMPT": "Write what the agents should do.",
+            "AI_TOKEN_LIMIT_REACHED": "You have spent your monthly AI token limit in this project: the mission did not start. It starts again on the first of next month, or ask a project admin to raise it."
         },
         "applying_label_one": "Applying {{count}} proposal…",
         "applying_label_other": "Applying {{count}} proposals…"

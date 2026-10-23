@@ -5,12 +5,16 @@ import projectUserController from "./ProjectUserController"
 
 const updateUserRole = vi.fn()
 const removeUserFromProject = vi.fn()
+const addUserToProjectByEmail = vi.fn()
+const resendInvitation = vi.fn()
 
 vi.mock("../service/UserProjectService", () => ({
     PROJECT_LAST_OWNER: "PROJECT_LAST_OWNER",
     default: class {
         updateUserRole = updateUserRole
         removeUserFromProject = removeUserFromProject
+        addUserToProjectByEmail = addUserToProjectByEmail
+        resendInvitation = resendInvitation
     }
 }))
 
@@ -23,6 +27,8 @@ describe("ProjectUserController", () => {
     beforeEach(async () => {
         updateUserRole.mockReset()
         removeUserFromProject.mockReset()
+        addUserToProjectByEmail.mockReset()
+        resendInvitation.mockReset()
         app = Fastify()
         await app.register(projectUserController)
     })
@@ -37,8 +43,46 @@ describe("ProjectUserController", () => {
         const response = await app.inject({ method: "PUT", url: `/projects/${PROJECT}/users/${MEMBER}`, payload: { role: "VIEWER" } })
 
         expect(response.statusCode).toBe(200)
-        expect(response.json()).toEqual({ message: "User role updated successfully", userProject: { userId: MEMBER, role: "VIEWER" } })
-        expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined)
+        expect(response.json()).toEqual({
+            message: "User role updated successfully",
+            userProject: { userId: MEMBER, role: "VIEWER", domainIds: [], domainScoped: false, invitationPending: false, aiTokenLimit: null }
+        })
+        expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined, undefined)
+    })
+
+    it("Given a monthly AI token limit with the role, when saved, then it reaches the service; null to take it away", async () => {
+        updateUserRole.mockResolvedValue({ userId: MEMBER, role: "MEMBER", aiTokenLimit: 100000 })
+
+        await app.inject({ method: "PUT", url: `/projects/${PROJECT}/users/${MEMBER}`, payload: { role: "MEMBER", aiTokenLimit: 100000 } })
+        await app.inject({ method: "PUT", url: `/projects/${PROJECT}/users/${MEMBER}`, payload: { role: "MEMBER", aiTokenLimit: null } })
+
+        expect(updateUserRole).toHaveBeenNthCalledWith(1, PROJECT, MEMBER, "MEMBER", undefined, 100000)
+        expect(updateUserRole).toHaveBeenNthCalledWith(2, PROJECT, MEMBER, "MEMBER", undefined, null)
+    })
+
+    /** Whoever holds the token can accept the invitation, set the password of the invited account and sign in as them. */
+    it("Given a pending invitation, when its role changes, then the answer never carries the invitation token", async () => {
+        updateUserRole.mockResolvedValue({ userId: MEMBER, role: "VIEWER", invitationToken: "secret-token", inviationTokenExpiresAt: new Date("2027-01-01") })
+
+        const response = await app.inject({ method: "PUT", url: `/projects/${PROJECT}/users/${MEMBER}`, payload: { role: "VIEWER" } })
+
+        expect(response.json().userProject).toMatchObject({ invitationPending: true })
+        expect(response.body).not.toContain("secret-token")
+    })
+
+    it("Given an invitation, when it is sent or sent again, then the answer never carries the invitation token", async () => {
+        const invitation = { userId: MEMBER, role: "MEMBER", invitationToken: "secret-token" }
+        addUserToProjectByEmail.mockResolvedValue(invitation)
+        resendInvitation.mockResolvedValue(invitation)
+
+        const invited = await app.inject({ method: "POST", url: `/projects/${PROJECT}/users`, payload: { email: "new@example.com", role: "MEMBER" } })
+        const resent = await app.inject({ method: "POST", url: `/projects/${PROJECT}/users/${MEMBER}/resend-invitation` })
+
+        for (const response of [invited, resent]) {
+            expect(response.statusCode).toBe(200)
+            expect(response.json()).toMatchObject({ userId: MEMBER, invitationPending: true })
+            expect(response.body).not.toContain("secret-token")
+        }
     })
 
     it("Given a removal, when it succeeds, then the answer is empty", async () => {

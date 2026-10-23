@@ -42,7 +42,7 @@ import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 import AiModelSelect from "@/components/assistant/AiModelSelect"
 import AnswerUsage from "@/components/assistant/AnswerUsage"
-import { ApplyAllButton, jobErrorMessage, ReadOnlyNote, StopJobButton, sumUsage } from "@/components/assistant/AssistantJobThread"
+import { ApplyAllButton, JOB_ERROR_CODES, jobErrorMessage, ReadOnlyNote, StopJobButton, sumUsage } from "@/components/assistant/AssistantJobThread"
 import AssistantMessageText from "@/components/assistant/AssistantMessageText"
 import EffortSelect from "@/components/assistant/EffortSelect"
 import { useEffort, useFollowUpAiModel, useFollowUpEffort } from "@/components/assistant/useEffort"
@@ -1494,9 +1494,10 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                 {
                     customErrorMessage: error => {
                         const code = errorCodeOf(error)
-                        return code && CREATE_ERROR_CODES.has(code)
-                            ? t(`frontend.aiChange.errors.${code}`, { context: repository.kind === "backend" ? "backend" : undefined })
-                            : t("frontend.aiChange.errors.create")
+                        if (code && CREATE_ERROR_CODES.has(code)) return t(`frontend.aiChange.errors.${code}`, { context: repository.kind === "backend" ? "backend" : undefined })
+                        // The monthly AI token limit, among others: said as the jobs say it
+                        if (code && JOB_ERROR_CODES.has(code)) return jobErrorMessage(t, error, "create")
+                        return t("frontend.aiChange.errors.create")
                     }
                 }
             )

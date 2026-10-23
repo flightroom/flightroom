@@ -60,6 +60,8 @@ const aiUsageSchema = new Schema<IAiUsage>(
 // One per level the console shows the totals of, the period last: every aggregation matches on both.
 aiUsageSchema.index({ organizationId: 1, createdAt: -1 })
 aiUsageSchema.index({ projectId: 1, createdAt: -1 })
+// What a member spent in the project this month, read before each answer and job when they have a limit.
+aiUsageSchema.index({ projectId: 1, userId: 1, createdAt: -1 }, { partialFilterExpression: { userId: { $exists: true } } })
 aiUsageSchema.index({ domainId: 1, createdAt: -1 }, { partialFilterExpression: { domainId: { $exists: true } } })
 aiUsageSchema.index({ frontendIds: 1, createdAt: -1 })
 aiUsageSchema.index({ backendIds: 1, createdAt: -1 })

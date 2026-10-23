@@ -7,6 +7,7 @@ import AiChangeRequest, { AiChangeStatus, IAiChangeRequest } from "../../models/
 import AiMission, { AiMissionMode, AiMissionStatus, IAiMission, IAiMissionRepository } from "../../models/AiMissionModel"
 import User, { IUser } from "../../models/UserModel"
 import { toObjectId } from "../../utils/mongooseUtils"
+import { ensureWithinTokenLimit } from "../AiUsageService"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { LlmConfiguration, LlmEffort, LlmUsage } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
@@ -226,6 +227,7 @@ export class AiMissionService extends AiChangeBaseService {
         }
         if (components.length > MAX_REPOSITORIES_PER_MISSION) throw tooMany()
         for (const component of components) await this.ensureRepositoryInDomainScope(component, component.codeRepository)
+        await ensureWithinTokenLimit(projectId, this.getUser()!._id)
         // A mission stuck on a dead job is moved on first when it would hold the last place: see the listener below.
         await jobs.ensureRoomForJob(toObjectId(projectId))
 

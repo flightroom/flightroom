@@ -6,6 +6,7 @@ vi.mock("..", () => ({
     fastify: { log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }, config: {} }
 }))
 
+import AiUsage from "../models/AiUsageModel"
 import Domain from "../models/DomainModel"
 import Project from "../models/ProjectModel"
 import User, { IUser, UserStatus } from "../models/UserModel"
@@ -33,6 +34,7 @@ type ProjectMembership = {
     invitationToken?: string
     domainScoped?: boolean
     domainIds?: unknown[]
+    aiTokenLimit?: number
     save?: () => Promise<unknown>
 }
 
@@ -66,6 +68,8 @@ describe("UserProjectService", () => {
         }) as never)
 
         vi.spyOn(UserProject, "deleteOne").mockImplementation((() => Promise.resolve({ deletedCount: deletedInvitations })) as never)
+        // The member list sums the AI tokens of the month: none spent unless a test says otherwise
+        vi.spyOn(AiUsage, "aggregate").mockResolvedValue([] as never)
 
         vi.spyOn(UserProject.prototype, "save").mockImplementation(function (this: { userId: ObjectId; role: RoleInProject }) {
             createdProjectMemberships.push({ userId: String(this.userId), role: this.role })
@@ -287,6 +291,77 @@ describe("UserProjectService", () => {
 
             expect(prune).toHaveBeenCalledWith(invited._id, ORGANIZATION_ID)
             expect(dropAccount).toHaveBeenCalledTimes(1)
+        })
+
+        describe("AI token limit", () => {
+            const limitOf = (user: IUser) => projectMemberships.find(candidate => sameId(candidate.userId, user._id))?.aiTokenLimit
+
+            it("Given a project owner, when they set a member's monthly AI tokens, then the limit is saved with the role", async () => {
+                await new UserProjectService(owner).updateUserRole(PROJECT_ID, member._id, RoleInProject.MEMBER, undefined, 200_000)
+
+                expect(limitOf(member)).toBe(200_000)
+            })
+
+            it("Given a member with a limit, when the role changes without one, then the limit stays; when it is null, then it is taken away", async () => {
+                await new UserProjectService(owner).updateUserRole(PROJECT_ID, member._id, RoleInProject.MEMBER, undefined, 0)
+                await new UserProjectService(owner).updateUserRole(PROJECT_ID, member._id, RoleInProject.VIEWER)
+                expect(limitOf(member)).toBe(0)
+
+                await new UserProjectService(owner).updateUserRole(PROJECT_ID, member._id, RoleInProject.VIEWER, undefined, null)
+                expect(limitOf(member)).toBeUndefined()
+            })
+
+            it("Given a limit that is not a whole number of tokens, zero or more, when it is saved, then it is refused and nothing changes", async () => {
+                for (const invalid of [-1, 1.5, "1000", Number.POSITIVE_INFINITY]) {
+                    await expect(new UserProjectService(owner).updateUserRole(PROJECT_ID, member._id, RoleInProject.VIEWER, undefined, invalid)).rejects.toMatchObject({
+                        code: "INVALID_AI_TOKEN_LIMIT",
+                        statusCode: 400
+                    })
+                }
+                expect(roleOf(member)).toBe(RoleInProject.MEMBER)
+                expect(limitOf(member)).toBeUndefined()
+            })
+
+            it("Given a member, when they try to set their own limit, then it is refused", async () => {
+                await expect(new UserProjectService(member).updateUserRole(PROJECT_ID, member._id, RoleInProject.MEMBER, undefined, 1_000_000)).rejects.toMatchObject({
+                    code: "PROJECT_OWNER_REQUIRED"
+                })
+            })
+
+            describe("in the member list", () => {
+                beforeEach(() => {
+                    projectMemberships.find(candidate => sameId(candidate.userId, member._id))!.aiTokenLimit = 50_000
+                    vi.spyOn(UserProject, "find").mockImplementation((() => ({
+                        populate: () => ({ lean: () => Promise.resolve(projectMemberships.map(membership => ({ ...membership, userId: { _id: membership.userId } }))) })
+                    })) as never)
+                    vi.spyOn(UserOrganization, "find").mockImplementation((() => thenable([])) as never)
+                    vi.spyOn(AiUsage, "aggregate").mockImplementation((() => Promise.resolve([{ _id: member._id, tokens: 12_345 }])) as never)
+                })
+
+                const tokensIn = (users: { _id?: unknown; aiTokenLimit?: number; aiTokensSpent?: number }[]) =>
+                    users.map(({ _id, aiTokenLimit, aiTokensSpent }) => ({ _id: String(_id), aiTokenLimit, aiTokensSpent }))
+
+                it("Given an owner, when they list the members, then each one comes with the limit and the tokens spent this month", async () => {
+                    const users = (await new UserProjectService(owner).getProjectUsers(PROJECT_ID))!
+
+                    expect(tokensIn(users)).toEqual([
+                        { _id: String(owner._id), aiTokenLimit: undefined, aiTokensSpent: 0 },
+                        { _id: String(member._id), aiTokenLimit: 50_000, aiTokensSpent: 12_345 },
+                        { _id: String(viewer._id), aiTokenLimit: undefined, aiTokensSpent: 0 }
+                    ])
+                })
+
+                it("Given a member, when they list the members, then only their own tokens come back", async () => {
+                    const users = (await new UserProjectService(member).getProjectUsers(PROJECT_ID))!
+
+                    expect(tokensIn(users)).toEqual([
+                        { _id: String(owner._id), aiTokenLimit: undefined, aiTokensSpent: undefined },
+                        { _id: String(member._id), aiTokenLimit: 50_000, aiTokensSpent: 12_345 },
+                        { _id: String(viewer._id), aiTokenLimit: undefined, aiTokensSpent: undefined }
+                    ])
+                    expect(users.find(user => sameId(user._id, viewer._id))).not.toHaveProperty("aiTokensSpent")
+                })
+            })
         })
 
         describe("domain scope", () => {

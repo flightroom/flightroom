@@ -210,7 +210,7 @@ describe("project admin tools", () => {
             const result = await run("project_member_invite", { email: "new@example.com", role: "MEMBER" })
 
             expect(addUserToProjectByEmail).toHaveBeenCalledWith(PROJECT, "new@example.com", "MEMBER", undefined)
-            expect(result).toEqual({ userId: MEMBER, role: "MEMBER", domainIds: [], domainScoped: false, invitationPending: true, invitationExpiresAt: expiresAt })
+            expect(result).toEqual({ userId: MEMBER, role: "MEMBER", domainIds: [], domainScoped: false, invitationPending: true, invitationExpiresAt: expiresAt, aiTokenLimit: null })
             expect(JSON.stringify(result)).not.toContain("secret-token")
         })
 
@@ -256,7 +256,7 @@ describe("project admin tools", () => {
 
             const result = await run("project_member_role_set", { userId: MEMBER, role: "VIEWER" })
 
-            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined)
+            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined, undefined)
             expect(result).toMatchObject({ domainIds: [], domainScoped: true })
         })
 
@@ -265,7 +265,7 @@ describe("project admin tools", () => {
 
             const result = await run("project_member_role_set", { userId: MEMBER, role: "MEMBER", domainIds: [] })
 
-            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "MEMBER", [])
+            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "MEMBER", [], undefined)
             expect(result).toMatchObject({ domainIds: [], domainScoped: false })
         })
 
@@ -274,10 +274,21 @@ describe("project admin tools", () => {
 
             const result = await run("project_member_role_set", { userId: MEMBER, role: "VIEWER" })
 
-            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined)
+            expect(updateUserRole).toHaveBeenCalledWith(PROJECT, MEMBER, "VIEWER", undefined, undefined)
             expect(principals[0]).toMatchObject({ restrictedToProjectIds: [PROJECT] })
             expect(result).toMatchObject({ userId: MEMBER, role: "VIEWER", invitationPending: true })
             expect(JSON.stringify(result)).not.toContain("secret-token")
+        })
+
+        it("given a monthly AI token limit, when set, then the service saves it and the view carries it; null takes it away", async () => {
+            updateUserRole.mockResolvedValue({ userId: MEMBER, role: "MEMBER", aiTokenLimit: 100_000 })
+
+            const result = await run("project_member_role_set", { userId: MEMBER, role: "MEMBER", aiTokenLimit: 100_000 })
+            await run("project_member_role_set", { userId: MEMBER, role: "MEMBER", aiTokenLimit: null })
+
+            expect(updateUserRole).toHaveBeenNthCalledWith(1, PROJECT, MEMBER, "MEMBER", undefined, 100_000)
+            expect(updateUserRole).toHaveBeenNthCalledWith(2, PROJECT, MEMBER, "MEMBER", undefined, null)
+            expect(result).toMatchObject({ aiTokenLimit: 100_000 })
         })
 
         it("given a user who does not own the project, when a role is set, then the backend's refusal surfaces", async () => {
