@@ -147,6 +147,8 @@ Argo CD reads the repositories from the Git provider, not from the orchestrator.
   only: the token and the repository credentials would cross the network in the clear.
 - Redirects are not followed: use the URL Argo CD answers at, not one that redirects to it.
 - The certificate must be one Node trusts. A private CA goes in `NODE_EXTRA_CA_CERTS` of the backend.
+  For a self-signed certificate, tick "Accept self-signed certificates" in the Argo CD settings of the
+  project: the certificate is not verified, as with `argocd --insecure`, so only over a network you trust.
 - The URL is the one of the Argo CD server, without `/api/v1`: `https://argocd.example.com`.
 
 ## The Argo CD account
@@ -218,7 +220,7 @@ it says to check:
 | Error | What to check |
 | --- | --- |
 | Not reachable | The URL, the DNS name, and that the orchestrator cluster can reach the Argo CD API. |
-| Certificate not trusted | The certificate of Argo CD, or `NODE_EXTRA_CA_CERTS`. |
+| Certificate not trusted | The certificate of Argo CD, `NODE_EXTRA_CA_CERTS`, or "Accept self-signed certificates" for a self-signed one. |
 | Token not accepted | That it is a token of the `orchestrator` account, not expired or revoked. |
 | Not allowed | The policy in `argocd-rbac-cm` above. |
 | Name taken | An AppProject, Application or ApplicationSet of that name not created by this project. |

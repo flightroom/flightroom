@@ -73,6 +73,8 @@ export interface IProjectArgoCd {
     url?: string
     /** API token of the account the console acts as */
     token?: string
+    /** The certificate of Argo CD is not verified: for a self-signed one */
+    insecure?: boolean
     repositories?: {
         configuration?: IArgoCdRepositoryCredential
         applications?: IArgoCdRepositoryCredential

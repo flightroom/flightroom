@@ -1,3 +1,4 @@
+import https from "node:https"
 import axios, { AxiosInstance } from "axios"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 
@@ -59,6 +60,11 @@ export interface ArgoCdUserInfo {
     username?: string
 }
 
+export interface ArgoCdClientOptions {
+    /** Accepts any certificate, a self-signed one included, as `argocd --insecure`: the TLS of the connection is not verified */
+    insecure?: boolean
+}
+
 /**
  * The REST API of an Argo CD instance, `<url>/api/v1`, with the bearer token of the account the console acts
  * as. Argo CD runs on another cluster: the API is the only way in. Every failure comes back as a business
@@ -69,14 +75,16 @@ class ArgoCdClient {
 
     constructor(
         private readonly url: string,
-        token: string
+        token: string,
+        { insecure = false }: ArgoCdClientOptions = {}
     ) {
         this.api = axios.create({
             baseURL: `${url}/api/v1`,
             headers: { Authorization: `Bearer ${token}` },
             timeout: 30_000,
             // A redirect would take the token to wherever Argo CD, or whoever answers in its place, points
-            maxRedirects: 0
+            maxRedirects: 0,
+            ...(insecure ? { httpsAgent: new https.Agent({ rejectUnauthorized: false }) } : {})
         })
     }
 
@@ -206,7 +214,7 @@ class ArgoCdClient {
             if (TLS_ERRORS.has(error.code ?? "")) {
                 return createBusinessException({
                     code: "ARGOCD_TLS_UNTRUSTED",
-                    message: `The certificate of Argo CD at ${this.url} is not trusted (${reason}): serve the API with a certificate of a trusted authority, or add its CA to NODE_EXTRA_CA_CERTS of the orchestrator`,
+                    message: `The certificate of Argo CD at ${this.url} is not trusted (${reason}): serve the API with a certificate of a trusted authority, add its CA to NODE_EXTRA_CA_CERTS of the orchestrator, or, for a self-signed one, accept it in the Argo CD settings of the project`,
                     statusCode: 502,
                     details: { url: this.url, reason }
                 })

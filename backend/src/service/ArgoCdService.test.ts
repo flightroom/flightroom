@@ -156,7 +156,7 @@ afterEach(() => {
     vi.restoreAllMocks()
 })
 
-const initialize = (input: Partial<{ url: string; token: string; repositoryToken: string }> = {}) =>
+const initialize = (input: Partial<{ url: string; token: string; repositoryToken: string; insecure: boolean }> = {}) =>
     new ArgoCdService().initialize(String(projectId), { url: `${ARGO_URL}/`, token: "argo-token", repositoryToken: "ghp-read-only", ...input })
 
 describe("ArgoCdService.initialize", () => {
@@ -462,6 +462,22 @@ describe("ArgoCdService.initialize", () => {
         await expect(initialize({ url: "https://elsewhere.example.com", token: undefined })).rejects.toMatchObject({ code: "ARGOCD_TOKEN_REQUIRED" })
 
         expect(calls).toEqual([])
+    })
+
+    it("given a self-signed certificate accepted, when it is initialized, then the choice is stored and shown", async () => {
+        const status = await initialize({ insecure: true })
+
+        expect(saved.at(-1)).toMatchObject({ url: ARGO_URL, insecure: true, initializedAt: expect.any(Date) })
+        expect(status.insecure).toBe(true)
+    })
+
+    it("given a certificate accepted before, when it is initialized without the choice, then the certificate is verified again", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", insecure: true }
+
+        const status = await initialize()
+
+        expect(saved.at(-1)?.insecure).toBe(false)
+        expect(status.insecure).toBe(false)
     })
 
     it("given an http URL, when the installation does not allow it, then it is refused", async () => {

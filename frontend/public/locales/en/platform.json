@@ -324,6 +324,8 @@
             "token": "Argo CD API token",
             "tokenHint": "The token of the orchestrator account (argocd account generate-token --account orchestrator). It is stored encrypted and must be entered again if you change the URL.",
             "unchanged": "Unchanged",
+            "insecure": "Accept self-signed certificates",
+            "insecureHint": "The certificate of Argo CD is not verified, as with argocd --insecure. Only for an Argo CD you reach over a network you trust: whoever intercepts the connection would read the token and the repository credentials. With a private CA, prefer adding it to NODE_EXTRA_CA_CERTS of the orchestrator.",
             "repositoryToken": "Read-only repository token",
             "repositoryTokenHint": "GitHub and Azure DevOps do not allow creating one through their API: paste a token that can read the GitOps repositories, used for every one that is not on GitLab. For GitLab the console creates a deploy token itself and rotates it on every initialization.",
             "repositoryTokenProviderHint": {
@@ -343,7 +345,7 @@
                 "token_required": "Enter the Argo CD API token: it must be entered again whenever the URL changes",
                 "repository_token_required": "Enter a read-only token Argo CD can clone {{repository}} with",
                 "unreachable": "Argo CD cannot be reached at {{url}} ({{reason}}): check the URL and that the orchestrator cluster can reach the Argo CD API",
-                "tls_untrusted": "The certificate of Argo CD at {{url}} is not trusted ({{reason}}): use a certificate of a trusted authority or add its CA to NODE_EXTRA_CA_CERTS of the orchestrator",
+                "tls_untrusted": "The certificate of Argo CD at {{url}} is not trusted ({{reason}}): use a certificate of a trusted authority, add its CA to NODE_EXTRA_CA_CERTS of the orchestrator or, for a self-signed one, tick \"Accept self-signed certificates\"",
                 "unauthorized": "Argo CD at {{url}} does not accept the token: check that it is an API token of the orchestrator account and that it has not expired or been revoked",
                 "forbidden": "The account of the token lacks permissions in Argo CD: give it role:orchestrator in argocd-rbac-cm, as in \"Argo CD account permissions\" above",
                 "request_failed": "Argo CD refused the request ({{reason}})",

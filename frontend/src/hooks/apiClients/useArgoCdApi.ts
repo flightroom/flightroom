@@ -13,6 +13,8 @@ export interface ArgoCdStatus {
     url?: string
     /** URL e token salvati: il token si puo omettere alla prossima inizializzazione */
     configured: boolean
+    /** Il certificato di Argo CD non viene verificato: per uno self-signed */
+    insecure: boolean
     initializedAt?: string
     /** Per codice, da tradurre; il messaggio in inglese per cio che non ha un codice noto */
     lastError?: { code?: string; message: string; details?: GitOpsErrorDetails }
@@ -32,6 +34,8 @@ export interface ArgoCdInitializeDTO {
     /** Assente = tiene quello salvato, solo se l'URL non cambia */
     token?: string
     repositoryToken?: string
+    /** Accetta il certificato di Argo CD senza verificarlo, anche self-signed */
+    insecure?: boolean
 }
 
 const useArgoCdApi = () => {
