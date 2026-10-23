@@ -12,11 +12,14 @@ import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Project, { IArgoCdRepositoryCredential, IProjectArgoCd } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { renderNamespace } from "./GitOpsService"
 import { applicationName, applicationSetName, appProjectName, environmentApplicationName, environmentsApplicationSetName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 const gitlabConnectionId = new Types.ObjectId()

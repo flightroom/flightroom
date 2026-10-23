@@ -17,7 +17,7 @@ const valueIn = (resource: Resource, key: ResourceEnvKey, environmentId?: string
 }
 
 /** What the service receives from the resources it attaches, a table per resource: a column per environment, a credential never shown */
-export const ServiceResourcesSection: React.FC<{ service: Service; resources: Resource[]; environments: EnvironmentDTO[] }> = ({ service, resources, environments }) => {
+export const ServiceResourcesSection: React.FC<{ service: Pick<Service, "resourceIds">; resources: Resource[]; environments: EnvironmentDTO[] }> = ({ service, resources, environments }) => {
     const { t } = useTranslation()
     const attached = resources.filter(resource => service.resourceIds?.includes(resource._id!))
 

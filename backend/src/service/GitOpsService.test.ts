@@ -11,12 +11,15 @@ import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import ArgoCdService from "./ArgoCdService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import GitOpsService, { renderManifest, renderResourceManifest } from "./GitOpsService"
 import { CHART_FILES } from "./gitops/applicationManifests"
 import { TemplateScaffoldService } from "./TemplateScaffoldService"
 import { GitWorkingCopy } from "./workspace/GitWorkingCopy"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 const development = new Types.ObjectId()

@@ -5,7 +5,10 @@ import { ApiKeyRole } from "../models/ApiKeyModel"
 import Environment from "../models/EnvironmentModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import ServiceDeploymentService from "./ServiceDeploymentService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId().toString()
 const serviceId = new Types.ObjectId()

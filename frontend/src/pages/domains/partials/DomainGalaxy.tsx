@@ -1,5 +1,5 @@
 import { useQuery } from "@tanstack/react-query"
-import { Link2, LocateFixed, Rocket, Trash2, X } from "lucide-react"
+import { Link2, LocateFixed, Rocket, Trash2, Wrench, X } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import ForceGraph2D, { ForceGraphMethods, LinkObject, NodeObject } from "react-force-graph-2d"
 import { useTranslation } from "react-i18next"
@@ -13,9 +13,11 @@ import useAiJobsApi, { AiWorkingJob } from "@/hooks/apiClients/useAiJobsApi"
 import { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
+import useMaintenanceAgentsApi, { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 import { Service } from "@/hooks/apiClients/useServicesApi"
 import { resourcePath, typeLabel, variantLabel } from "@/pages/resources/partials/resources"
+import useProjectStore from "@/store/useProjectStore"
 import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
 
 interface DomainGalaxyProps {
@@ -128,8 +130,26 @@ interface Ship {
     frame: number
 }
 
+/** How a maintenance station is lit: on a schedule, waiting for Play, its last run failed */
+type StationStatus = "scheduled" | "standby" | "failed"
+
+/**
+ * A maintenance agent that looks after one world only, in a slow orbit around it like a station, tethered to it.
+ * One that looks after several worlds is in the maintenance room only: it belongs to none of them.
+ */
+interface Station {
+    agent: MaintenanceAgent
+    world: StarNode
+    status: StationStatus
+    phase: number
+    orbit: number
+    x: number
+    y: number
+    frame: number
+}
+
 /** What the pointer is on besides the worlds, the force-graph only knows its nodes */
-type Body = { kind: "moon"; moon: Moon } | { kind: "ship"; ship: Ship }
+type Body = { kind: "moon"; moon: Moon } | { kind: "ship"; ship: Ship } | { kind: "station"; station: Station }
 type Hovered = Point & ({ kind: "world"; node: StarNode } | Body)
 
 type LaneLink = LinkObject<World, Lane>
@@ -148,6 +168,7 @@ const NO_DOMAIN = "no-domain"
 /** The same empty lists at every render: a new one would lay the whole map out again */
 const NO_FRONTENDS: Frontend[] = []
 const NO_RESOURCES: Resource[] = []
+const NO_AGENTS: MaintenanceAgent[] = []
 
 /** The logos of the resources, parsed once: a moon is painted on every frame */
 const brandPaths = new Map<string, Path2D>()
@@ -197,6 +218,8 @@ interface Sky {
     orbitAlpha: number
     canary: string
     bridge: string
+    /** The light of a maintenance station whose last run failed */
+    alarm: string
     noDomain: string
     galaxies: string[]
     /** At the centre of a galaxy halo and at 60% of its radius */
@@ -220,6 +243,7 @@ const SKIES: Record<"dark" | "light", Sky> = {
         orbitAlpha: 0.16,
         canary: "44 97% 63%", // sunglow-200
         bridge: "91 41% 69%", // olivine-300
+        alarm: "0 84% 67%", // destructive (dark)
         noDomain: "203 17% 57%", // charcoal-500
         // zomp-400, pumpkin-400, olivine-400, sunglow-200, zomp-200, pumpkin-300
         galaxies: ["162 28% 61%", "24 99% 59%", "90 34% 63%", "44 97% 63%", "162 51% 81%", "21 98% 76%"],
@@ -236,6 +260,7 @@ const SKIES: Record<"dark" | "light", Sky> = {
         orbitAlpha: 0.22,
         canary: "46 92% 30%", // sunglow-600
         bridge: "89 27% 40%", // olivine-600
+        alarm: "0 72% 45%", // destructive
         noDomain: "204 17% 47%", // charcoal-600
         // zomp-500, pumpkin-500, olivine-500, sunglow-400, zomp-700, pumpkin-700
         galaxies: ["162 23% 49%", "26 92% 47%", "90 24% 50%", "45 84% 45%", "164 33% 31%", "26 96% 30%"],
@@ -288,6 +313,11 @@ const SHIP_TRAIL = 0.5
 const MOTION_FPS = 30
 /** In screen pixels: how near the pointer must fall to a ship */
 const SHIP_HIT = 14
+
+/** Radians per second: a station keeps nearly still over its world, a ship flies by */
+const STATION_ORBIT_SPEED = 0.12
+const STATION_SCREEN_SIZE = 14
+const STATION_HIT = 12
 /** In screen pixels: how near a click must fall to a relation, the size of its arrow, the gap to its way back */
 const RELATION_HIT = 6
 const RELATION_ARROW = 10
@@ -421,6 +451,14 @@ const placeMoons = (world: StarNode, attached: Omit<Moon, "world" | "radius" | "
 /** Where a ship orbits: outside the moons of its world, or just outside the world when it has none. */
 const shipOrbit = (world: StarNode) => world.reach + world.radius * 0.55 + 1.5
 
+/** Where a station orbits: past the moons, inside the lane of the ships. */
+const stationOrbit = (world: StarNode) => world.reach + world.radius * 0.3 + 1
+
+const stationStatus = (agent: MaintenanceAgent): StationStatus => {
+    if (agent.lastRun && !agent.lastRun.ok) return "failed"
+    return agent.schedule ? "scheduled" : "standby"
+}
+
 /** The colours of the moons and the ships, built once per theme: they are painted on every frame. */
 const bodyColors = (sky: Sky) => ({
     moon: `hsl(${sky.moon})`,
@@ -431,7 +469,10 @@ const bodyColors = (sky: Sky) => ({
     shipBody: `hsl(${sky.ink})`,
     trail: [`hsl(${sky.canary} / 0.12)`, `hsl(${sky.canary} / 0.4)`],
     rocket: { windowColor: sky.space, flameColor: `hsl(${sky.canary})`, flame: 7 },
-    parkedRocket: { windowColor: sky.space, flameColor: `hsl(${sky.canary})`, flame: 3 }
+    parkedRocket: { windowColor: sky.space, flameColor: `hsl(${sky.canary})`, flame: 3 },
+    panel: `hsl(${sky.ink} / 0.55)`,
+    tether: `hsl(${sky.ink} / 0.28)`,
+    stationLight: { scheduled: `hsl(${sky.service})`, standby: `hsl(${sky.canary})`, failed: `hsl(${sky.alarm})` } satisfies Record<StationStatus, string>
 })
 type BodyColors = ReturnType<typeof bodyColors>
 
@@ -509,6 +550,66 @@ const paintShip = (ctx: CanvasRenderingContext2D, ship: Ship, now: number, size:
     drawRocket(ctx, ship.x, ship.y, angle + Math.PI / 2, size, colors.shipBody, reducedMotion ? colors.parkedRocket : colors.rocket)
 }
 
+/**
+ * One station at `now` (seconds), `size` wide: a dashed tether down to its world, two solar panels across its
+ * orbit and a hub lit by its status, the light breathing unless motion is reduced.
+ */
+const paintStation = (ctx: CanvasRenderingContext2D, station: Station, now: number, size: number, scale: number, colors: BodyColors, reducedMotion: boolean) => {
+    const wx = station.world.x ?? 0
+    const wy = station.world.y ?? 0
+    const angle = station.phase + now * STATION_ORBIT_SPEED
+    const cos = Math.cos(angle)
+    const sin = Math.sin(angle)
+    station.x = wx + cos * station.orbit
+    station.y = wy + sin * station.orbit
+
+    ctx.strokeStyle = colors.tether
+    ctx.lineWidth = 1 / scale
+    ctx.setLineDash([2 / scale, 2 / scale])
+    ctx.beginPath()
+    ctx.moveTo(wx + cos * station.world.radius, wy + sin * station.world.radius)
+    ctx.lineTo(station.x, station.y)
+    ctx.stroke()
+    ctx.setLineDash([])
+
+    ctx.save()
+    ctx.translate(station.x, station.y)
+    // The panels lie along the orbit, the hub faces the world
+    ctx.rotate(angle + Math.PI / 2)
+    const half = size / 2
+    ctx.fillStyle = colors.panel
+    ctx.fillRect(-half, -size * 0.14, size * 0.3, size * 0.28)
+    ctx.fillRect(half - size * 0.3, -size * 0.14, size * 0.3, size * 0.28)
+    ctx.strokeStyle = colors.shipBody
+    ctx.lineWidth = Math.max(size * 0.07, 0.6 / scale)
+    ctx.beginPath()
+    ctx.moveTo(-half + size * 0.3, 0)
+    ctx.lineTo(half - size * 0.3, 0)
+    ctx.stroke()
+    ctx.fillStyle = colors.shipBody
+    ctx.beginPath()
+    ctx.arc(0, 0, size * 0.22, 0, 2 * Math.PI)
+    ctx.fill()
+    const breath = reducedMotion ? 1 : 0.65 + 0.35 * Math.sin(now * 2.4 + station.phase)
+    ctx.globalAlpha *= breath
+    ctx.fillStyle = colors.stationLight[station.status]
+    ctx.beginPath()
+    ctx.arc(0, 0, size * 0.11, 0, 2 * Math.PI)
+    ctx.fill()
+    ctx.restore()
+}
+
+/** A station as the legend shows it: the shape paintStation draws on the canvas. */
+const StationGlyph: React.FC = () => (
+    <svg viewBox="-12 -6 24 12" className="h-2.5 w-5 text-foreground" aria-hidden="true">
+        <rect x="-12" y="-3.5" width="7" height="7" rx="0.5" fill="currentColor" opacity="0.55" />
+        <rect x="5" y="-3.5" width="7" height="7" rx="0.5" fill="currentColor" opacity="0.55" />
+        <path d="M-5 0 H5" stroke="currentColor" strokeWidth="1.6" />
+        <circle cx="0" cy="0" r="5" fill="currentColor" />
+        <circle cx="0" cy="0" r="2.4" className="fill-zomp-400 dark:fill-zomp-200" />
+    </svg>
+)
+
 /** The rocket of the ships, as the legend shows it: the shape drawRocket paints on the canvas. */
 const ShipGlyph: React.FC = () => (
     <svg viewBox="-20 -16 40 32" className="h-2.5 w-3.5 -rotate-45 text-foreground" aria-hidden="true">
@@ -574,6 +675,14 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
     const workingJobs = useWorkingAgentJobs()
     const openAgentJob = useOpenAgentJob()
     const aiJobsApi = useAiJobsApi()
+    const maintenanceAgentsApi = useMaintenanceAgentsApi()
+    const projectId = useProjectStore(state => state.project?._id)
+    const { data: maintenanceAgents = NO_AGENTS } = useQuery({
+        queryKey: ["maintenance-agents", projectId],
+        queryFn: () => maintenanceAgentsApi.getAll(),
+        enabled: Boolean(projectId),
+        staleTime: 60_000
+    })
     const [primaryHue] = useState(readPrimaryHue)
     const [reducedMotion] = useState(prefersReducedMotion)
     const [font] = useState(() => getComputedStyle(document.body).fontFamily)
@@ -759,6 +868,36 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         return { ships: [...shipsByWorld.values()].flat(), shipsByWorld, agents }
     }, [workingJobs, graphData])
 
+    // The maintenance agents that look after one world only, among those on the map: a station each, spread around it.
+    const { stations, stationsByWorld } = useMemo(() => {
+        const nodes = new Map(graphData.nodes.map(node => [node.id, node]))
+        const byWorld = new Map<string, MaintenanceAgent[]>()
+        for (const agent of maintenanceAgents) {
+            const targets = [...(agent.serviceIds ?? []), ...(agent.frontendIds ?? [])]
+            if (targets.length !== 1 || !nodes.has(targets[0])) continue
+            byWorld.set(targets[0], [...(byWorld.get(targets[0]) ?? []), agent])
+        }
+        const stationsByWorld = new Map<string, Station[]>()
+        for (const [worldId, agents] of byWorld) {
+            const world = nodes.get(worldId)!
+            const start = phaseOf(`${worldId}-stations`)
+            stationsByWorld.set(
+                worldId,
+                agents.map((agent, index) => ({
+                    agent,
+                    world,
+                    status: stationStatus(agent),
+                    phase: start + (index * 2 * Math.PI) / agents.length,
+                    orbit: stationOrbit(world),
+                    x: 0,
+                    y: 0,
+                    frame: -1
+                }))
+            )
+        }
+        return { stations: [...stationsByWorld.values()].flat(), stationsByWorld }
+    }, [maintenanceAgents, graphData])
+
     // The graph is only rendered once the container has a size, and the forces need it in place.
     const isGraphMounted = size.width > 0
 
@@ -766,7 +905,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
     // once the layout has settled, at MOTION_FPS rather than the screen's rate.
     const [motionOnScreen, setMotionOnScreen] = useState(false)
     const motionOnScreenRef = useRef(false)
-    const turning = !reducedMotion && motionOnScreen && (moons.length > 0 || ships.length > 0)
+    const turning = !reducedMotion && motionOnScreen && (moons.length > 0 || ships.length > 0 || stations.length > 0)
     const throttled = turning && !linkSourceId
     const throttledRef = useRef(false)
     // Whether the layout has settled: until it has, every frame also moves the stars, and none is skipped.
@@ -827,6 +966,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         if (!hovered) return null
         if (hovered.kind === "moon") return new Set(hovered.moon.users)
         if (hovered.kind === "ship") return new Set([hovered.ship.world.id])
+        if (hovered.kind === "station") return new Set([hovered.station.world.id])
         const ids = new Set([hovered.node.id])
         for (const link of graphData.links) {
             if (link.from === hovered.node.id) ids.add(link.to)
@@ -944,7 +1084,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         }
     }, [])
 
-    /** The moon or the ship under the pointer, in graph coordinates, as drawn on the last frame: the nearest, ships first, as they fly over the moons. */
+    /** The moon, the station or the ship under the pointer, in graph coordinates, as drawn on the last frame: the nearest, ships first, as they fly over the others. */
     const bodyAt = useCallback(
         (point: Point): Body | undefined => {
             const { id, scale } = frameRef.current
@@ -959,6 +1099,16 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                 }
             }
             if (ship) return { kind: "ship", ship }
+            let station: Station | undefined
+            const stationReach = STATION_HIT / scale
+            for (const candidate of stations) {
+                const distance = Math.hypot(point.x - candidate.x, point.y - candidate.y)
+                if (candidate.frame === id && distance <= stationReach && distance < best) {
+                    station = candidate
+                    best = distance
+                }
+            }
+            if (station) return { kind: "station", station }
             let moon: Moon | undefined
             for (const candidate of moons) {
                 const distance = Math.hypot(point.x - candidate.x, point.y - candidate.y)
@@ -969,7 +1119,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             }
             return moon && { kind: "moon", moon }
         },
-        [ships, moons]
+        [ships, stations, moons]
     )
 
     const paintStar = useCallback(
@@ -1012,6 +1162,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             const frame = frameRef.current
             const worldMoons = moonsByWorld.get(node.id)
             const worldShips = shipsByWorld.get(node.id)
+            const worldStations = stationsByWorld.get(node.id)
             if (worldMoons) {
                 ctx.strokeStyle = colors.orbit
                 ctx.lineWidth = 1 / scale
@@ -1038,6 +1189,13 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                     }
                 }
             }
+            if (worldStations) {
+                const stationSize = Math.min(STATION_SCREEN_SIZE / scale, r * SHIP_MAX_SIZE)
+                for (const station of worldStations) {
+                    paintStation(ctx, station, frame.now, stationSize, scale, colors, reducedMotion)
+                    station.frame = frame.id
+                }
+            }
             if (worldShips) {
                 const shipSize = Math.min(SHIP_SCREEN_SIZE / scale, r * SHIP_MAX_SIZE)
                 for (const ship of worldShips) {
@@ -1046,8 +1204,8 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                 }
             }
             // Something turning in view keeps the map redrawing.
-            if (!reducedMotion && !frame.motion && (worldMoons || worldShips)) {
-                const extent = worldShips ? worldShips[0].orbit + SHIP_SCREEN_SIZE / scale : node.reach
+            if (!reducedMotion && !frame.motion && (worldMoons || worldShips || worldStations)) {
+                const extent = worldShips ? worldShips[0].orbit + SHIP_SCREEN_SIZE / scale : worldStations ? worldStations[0].orbit + STATION_SCREEN_SIZE / scale : node.reach
                 frame.motion = x + extent > frame.left && x - extent < frame.right && y + extent > frame.top && y - extent < frame.bottom
             }
 
@@ -1060,7 +1218,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             }
             ctx.globalAlpha = 1
         },
-        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, shipsByWorld, hoveredResourceId]
+        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, shipsByWorld, stationsByWorld, hoveredResourceId]
     )
 
     const paintPointerArea = useCallback((node: StarNode, color: string, ctx: CanvasRenderingContext2D) => {
@@ -1122,12 +1280,13 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         [linkSourceId, onLink, stopLinking]
     )
 
-    /** A click on a moon opens its resource, on a ship the work of its agent; false when it fell on neither. */
+    /** A click on a moon opens its resource, on a station its maintenance agent, on a ship the work of its agent; false when it fell on none. */
     const openBody = useCallback(
         (point: Point) => {
             const body = bodyAt(point)
             if (body?.kind === "ship") openAgentJob(body.ship.job.jobId, body.ship.fallbackPath)
             if (body?.kind === "moon") navigate(resourcePath(body.moon.resourceId))
+            if (body?.kind === "station") navigate(`/maintenance-agent/${body.station.agent._id}`)
             return Boolean(body)
         },
         [bodyAt, openAgentJob, navigate]
@@ -1188,9 +1347,12 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         const body = bodyAt(point)
         setHovered(previous => {
             if (body) {
-                const same = (previous?.kind === "moon" && body.kind === "moon" && previous.moon === body.moon) || (previous?.kind === "ship" && body.kind === "ship" && previous.ship === body.ship)
+                const same =
+                    (previous?.kind === "moon" && body.kind === "moon" && previous.moon === body.moon) ||
+                    (previous?.kind === "ship" && body.kind === "ship" && previous.ship === body.ship) ||
+                    (previous?.kind === "station" && body.kind === "station" && previous.station === body.station)
                 if (same) return previous
-                const at = body.kind === "moon" ? body.moon : body.ship
+                const at = body.kind === "moon" ? body.moon : body.kind === "ship" ? body.ship : body.station
                 const position = graph.graph2ScreenCoords(at.x, at.y)
                 return { ...body, x: position.x, y: position.y }
             }
@@ -1231,6 +1393,20 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                         {t("domains.galaxy.kind_resource")} · {t("domains.galaxy.moon_of", { name: target.moon.world.name })}
                     </div>
                     {others.length > 0 && <div className="mt-1 font-medium text-card-foreground">{t("domains.galaxy.moon_shared", { names: others.join(", ") })}</div>}
+                </>
+            )
+        }
+        if (target.kind === "station") {
+            const { agent } = target.station
+            return (
+                <>
+                    <span className="block truncate text-sm font-semibold text-card-foreground">{agent.name}</span>
+                    <div className="text-foreground-secondary">
+                        {t(agent.kind === "container" ? "domains.galaxy.station_container" : "domains.galaxy.station_job")} ·{" "}
+                        {agent.schedule ? t("domains.galaxy.station_scheduled", { schedule: agent.schedule }) : t("domains.galaxy.station_standby")}
+                    </div>
+                    <div className="mt-1 text-foreground-secondary">{t("domains.galaxy.station_of", { name: target.station.world.name })}</div>
+                    {target.station.status === "failed" && <div className="mt-1 font-medium text-destructive">{t("domains.galaxy.station_failed")}</div>}
                 </>
             )
         }
@@ -1286,6 +1462,22 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                             <Button variant="ghost" size="sm" className="max-w-full justify-start" onClick={() => openAgentJob(agent.jobId, agent.fallbackPath)}>
                                 <Rocket aria-hidden="true" />
                                 <span className="truncate">{t("domains.galaxy.open_agent", { names: agent.names })}</span>
+                            </Button>
+                        </li>
+                    ))}
+                </ul>
+            )}
+            {/* The stations for the keyboard and screen readers, as the ships */}
+            {stations.length > 0 && (
+                <ul
+                    aria-label={t("domains.galaxy.stations_list")}
+                    className="sr-only focus-within:not-sr-only focus-within:absolute focus-within:bottom-14 focus-within:left-3 focus-within:z-20 focus-within:flex focus-within:max-w-sm focus-within:flex-col focus-within:gap-1 focus-within:rounded-md focus-within:border focus-within:border-border focus-within:bg-card focus-within:p-2 focus-within:shadow-md"
+                >
+                    {stations.map(station => (
+                        <li key={`${station.agent._id}-${station.world.id}`}>
+                            <Button variant="ghost" size="sm" className="max-w-full justify-start" onClick={() => navigate(`/maintenance-agent/${station.agent._id}`)}>
+                                <Wrench aria-hidden="true" />
+                                <span className="truncate">{t("domains.galaxy.open_station", { name: station.agent.name, world: station.world.name })}</span>
                             </Button>
                         </li>
                     ))}
@@ -1363,6 +1555,12 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                     <span className="flex items-center gap-1.5">
                         <span className="h-1 w-4 rounded-full bg-foreground/60" aria-hidden="true" />
                         {t("domains.galaxy.legend_relation")}
+                    </span>
+                )}
+                {stations.length > 0 && (
+                    <span className="flex items-center gap-1.5">
+                        <StationGlyph />
+                        {t("domains.galaxy.legend_station")}
                     </span>
                 )}
                 {ships.length > 0 && (

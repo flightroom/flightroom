@@ -48,8 +48,11 @@ import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { isValidRepositoryName, RepositoryRenameService } from "./RepositoryRenameService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 const codeRepositoryId = new Types.ObjectId()

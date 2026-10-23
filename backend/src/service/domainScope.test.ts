@@ -22,6 +22,7 @@ import UserOrganization, { RoleInOrganization } from "../models/UserOrganization
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import WizardProjectState from "../models/WizardProjectState"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import FrontendDTO from "../types/FrontendDTO"
 import { ApiKeyService } from "./ApiKeyService"
 import BaseAuthorizedService, { AuthorizedPrincipal, ensureOnlyNewRepositoryLinked } from "./BaseAuthorizedService"
@@ -37,6 +38,8 @@ import MarketService from "./MarketService"
 import ProjectWizardService from "./ProjectWizardService"
 import ServiceService from "./ServiceService"
 import VariableMapService, { ensureAttachableMaps, mapIdsInScope } from "./VariableMapService"
+
+withNoMaintenanceAgents()
 
 /**
  * The id flavour the service signatures speak: mongoose's schema type, not the runtime one the driver

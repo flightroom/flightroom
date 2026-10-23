@@ -9,6 +9,7 @@ import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import CodeRepository, { ICodeRepository } from "../models/CodeRepositoryModel"
 import Environment, { IEnvironment } from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Organization from "../models/OrganizationModel"
 import Project, { IProjectGitOps } from "../models/ProjectModel"
 import Resource, { IResource } from "../models/ResourceModel"
@@ -28,6 +29,7 @@ import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import { applicationValuesPath, CHART_FILES, GitOpsApplication, isDeployable, renderApplicationValues } from "./gitops/applicationManifests"
 import { applicationListener, EnvironmentGateway, gatewayName, HTTPS_LISTENER, renderGateway } from "./gitops/gatewayManifests"
+import { maintenanceApplications } from "./gitops/maintenanceApplications"
 import { RepositoryFileService, repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { isValidRepositoryName } from "./RepositoryRenameService"
 import { CodeRepositoryTarget, TemplateScaffoldService } from "./TemplateScaffoldService"
@@ -463,7 +465,7 @@ export class GitOpsService extends BaseAuthorizedService {
     }
 
     /**
-     * Commits on the branch of each deployed environment the values of the services and frontends that can be
+     * Commits on the branch of each deployed environment the values of the services, frontends and maintenance agents that can be
      * installed, with the container registry of the project for those with no image of their own, and the chart
      * when the branch has none, then runs `deploy`. A domain-scoped member writes the
      * values of their own applications only, a deploy of one domain those of that domain; the values of an
@@ -482,12 +484,33 @@ export class GitOpsService extends BaseAuthorizedService {
         domainId?: string
     ): Promise<T> {
         const scope = domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectId)
-        const applications: GitOpsApplication[] = [...(await Service.find({ projectId, ...scope })), ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, ...scope }))]
-        const existingSlugs = new Set([...(await Service.find({ projectId }, { slug: 1 })), ...(await Frontend.find({ projectId }, { slug: 1 }))].map(application => application.slug))
+        const applications: GitOpsApplication[] = [
+            ...(await Service.find({ projectId, ...scope })),
+            ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, ...scope })),
+            ...(await maintenanceApplications(await MaintenanceAgent.find({ projectId, ...scope })))
+        ]
+        const existingSlugs = new Set(
+            [...(await Service.find({ projectId }, { slug: 1 })), ...(await Frontend.find({ projectId }, { slug: 1 })), ...(await MaintenanceAgent.find({ projectId }, { slug: 1 }))].map(
+                application => application.slug
+            )
+        )
         const mapNames = {
             configMaps: new Map(maps.configMap.map(map => [String(map._id), map.name])),
             secrets: new Map(maps.secret.map(map => [String(map._id), map.name])),
             resources: new Map(resources.map(resource => [String(resource._id), resourceSecretName(resource)]))
+        }
+        // Two applications with one slug would write one values file, the last one winning: refused before anything is pushed
+        const clash = applications
+            .filter(application => isDeployable(application, containerRegistry))
+            .map(application => application.slug)
+            .find((slug, index, slugs) => slugs.indexOf(slug) !== index)
+        if (clash) {
+            throw createBusinessException({
+                code: "GITOPS_APPLICATION_SLUG_CLASH",
+                message: `Two services, frontends or maintenance agents share the slug "${clash}", which names their values file: rename one of them`,
+                statusCode: 409,
+                details: { slug: clash }
+            })
         }
         const isOrphanValues = (path: string) => !path.includes("/") && path.endsWith(".yaml") && !existingSlugs.has(path.slice(0, -".yaml".length))
 

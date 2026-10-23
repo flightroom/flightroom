@@ -116,6 +116,25 @@ Applications, the ApplicationSets and the repository credentials by hand. The Gi
 old instance read with are revoked anyway, on GitLab, so the old instance can no longer clone; a GitHub
 or Azure DevOps token you pasted is yours to revoke.
 
+### Maintenance agents
+
+A maintenance agent is deployed like a service, with its values file on the branch of each environment,
+and gets a CronJob from `templates/cronjob.yaml` of the chart. The template is written as a file of its
+own, so the branches whose chart predates it get it with their next deploy; the rest of the chart is left
+as the team changed it.
+
+- **job**: the CronJob runs the image of the agent, and its Deployment has no replicas.
+- **container**: the Deployment runs as for a service, and the CronJob POSTs to the run path of the agent
+  (`http://<slug>/run` by default) with `curlimages/curl`.
+
+Without a schedule the CronJob is suspended. Play in the console asks Argo CD to run the `create-job`
+action on it, which creates a Job right away, for both kinds and whatever the schedule. The rule
+`applications, *, mfe-*/*` below already allows it. An account given narrower rules needs
+`applications, action/batch/CronJob/create-job, mfe-*/*`.
+
+The services and frontends the agent maintains reach its container as JSON in `MAINTAINED_TARGETS`, with
+the URL inside the namespace of those that run as a container.
+
 ## Network
 
 The backend of the orchestrator opens HTTPS connections to the Argo CD API. Nothing goes the other way:

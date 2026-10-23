@@ -2,6 +2,7 @@ import { ObjectId, Schema } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Environment from "../models/EnvironmentModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Resource, { IResource, IResourceValue } from "../models/ResourceModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
@@ -263,7 +264,8 @@ const keysOf = (resource: ResourceNaming): string =>
  * them in `scope`, as for the maps. Only services attach resources.
  */
 export const resourceIdsInScope = async (projectId: Schema.Types.ObjectId, scope: string[]): Promise<Set<string>> => {
-    const services = await Service.find({ projectId, resourceIds: { $exists: true, $ne: [] } }, { domainId: 1, resourceIds: 1 })
+    const filter = { projectId, resourceIds: { $exists: true, $ne: [] } }
+    const services = [...(await Service.find(filter, { domainId: 1, resourceIds: 1 })), ...(await MaintenanceAgent.find(filter, { domainId: 1, resourceIds: 1 }))]
     const inScope = new Set<string>()
     const outOfScope = new Set<string>()
     for (const service of services) {
@@ -471,9 +473,11 @@ export class ResourceService extends BaseAuthorizedService {
         return apiSpec
     }
 
-    /** The services attaching this resource; a frontend never does */
-    private attachedTo(resource: IResource) {
-        return Service.find({ projectId: resource.projectId, resourceIds: resource._id }, { name: 1, configMapIds: 1, secretIds: 1, resourceIds: 1 })
+    /** The services and the maintenance agents attaching this resource; a frontend never does */
+    private async attachedTo(resource: IResource) {
+        const filter = { projectId: resource.projectId, resourceIds: resource._id }
+        const projection = { name: 1, configMapIds: 1, secretIds: 1, resourceIds: 1 }
+        return [...(await Service.find(filter, projection)), ...(await MaintenanceAgent.find(filter, projection))]
     }
 
     /** The new variables must not collide with those of anything else attached to a service using this resource */

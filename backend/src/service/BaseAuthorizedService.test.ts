@@ -7,7 +7,10 @@ import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "./BaseAuthorizedService"
+
+withNoMaintenanceAgents()
 
 /**
  * The id flavour the service signatures speak: mongoose's schema type, not the runtime one the driver

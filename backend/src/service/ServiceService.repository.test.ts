@@ -25,8 +25,11 @@ import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import ServiceDTO from "../types/ServiceDTO"
 import ServiceService from "./ServiceService"
+
+withNoMaintenanceAgents()
 
 type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean>; findRoleInOrganization: () => Promise<string | undefined> }
 

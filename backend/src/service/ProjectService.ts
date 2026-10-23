@@ -14,6 +14,8 @@ import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { IFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import MaintenanceRun from "../models/MaintenanceRunModel"
 import Project, { IProject, IProjectPipelines } from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
@@ -584,6 +586,13 @@ export class ProjectService extends BaseAuthorizedService {
         const services = await Service.find({ projectId: projectIdObj }, { _id: 1 }, { session })
         await BuiltService.deleteMany({ serviceId: { $in: services.map(service => service._id) } }, session)
         await ServiceDeployment.deleteMany({ serviceId: { $in: services.map(service => service._id) } }, { session })
+
+        // The versions and deploys an agent's CI registers are kept as a service's, under its id
+        const agents = await MaintenanceAgent.find({ projectId: projectIdObj }, { _id: 1 }, { session })
+        await BuiltService.deleteMany({ serviceId: { $in: agents.map(agent => agent._id) } }, { session })
+        await ServiceDeployment.deleteMany({ serviceId: { $in: agents.map(agent => agent._id) } }, { session })
+        await MaintenanceRun.deleteMany({ projectId: projectIdObj }, { session })
+        await MaintenanceAgent.deleteMany({ projectId: projectIdObj }, { session })
 
         const deployments = await Deployment.find({ projectId: projectIdObj }, {}, { session })
         const deploymentsIds = deployments.map(deployment => deployment._id)

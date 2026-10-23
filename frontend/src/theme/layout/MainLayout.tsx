@@ -11,7 +11,8 @@ import {
     Server,
     Ship,
     SlidersHorizontal,
-    Sparkles
+    Sparkles,
+    Wrench
 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -66,6 +67,10 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
                 { name: t("variableMaps.secret.list_title"), path: "/secrets", icon: <KeyRound /> },
                 { name: t("resources.list_title"), path: "/resources", icon: <Boxes /> }
             ]
+        },
+        {
+            title: t("navigation.sections.maintenance"),
+            items: [{ name: t("maintenance.sidebar_title"), path: "/maintenance-agents", icon: <Wrench /> }]
         },
         {
             title: t("navigation.sections.devops"),

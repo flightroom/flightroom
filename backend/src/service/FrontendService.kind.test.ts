@@ -11,9 +11,12 @@ import Environment from "../models/EnvironmentModel"
 import FrontendDeployment from "../models/FrontendDeploymentModel"
 import Frontend, { FrontendKind, HostedOn } from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import FrontendDTO from "../types/FrontendDTO"
 import FrontendDeploymentService from "./FrontendDeploymentService"
 import FrontendService from "./FrontendService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 

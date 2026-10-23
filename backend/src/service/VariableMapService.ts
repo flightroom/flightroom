@@ -3,6 +3,7 @@ import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Resource, { IResource } from "../models/ResourceModel"
 import Service, { IService } from "../models/ServiceModel"
 import { ConfigMap, IVariableMap, IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
@@ -184,7 +185,7 @@ export const mapIdsInScope = async (kind: VariableMapKind, projectId: Schema.Typ
     const field = SERVICE_FIELD[kind]
     const attaching = { projectId, [field]: { $exists: true, $ne: [] } }
     const fields = { domainId: 1, configMapIds: 1, secretIds: 1 }
-    const components = [...(await Service.find(attaching, fields)), ...(await Frontend.find(attaching, fields))]
+    const components = [...(await Service.find(attaching, fields)), ...(await Frontend.find(attaching, fields)), ...(await MaintenanceAgent.find(attaching, fields))]
     const inScope = new Set<string>()
     const outOfScope = new Set<string>()
     for (const component of components) {
@@ -322,13 +323,13 @@ export class VariableMapService extends BaseAuthorizedService {
         }
     }
 
-    /** What attaches this map: its backend services and its DOCKER frontends, each a container of its own */
+    /** What attaches this map: its backend services, its DOCKER frontends and its maintenance agents, each a container of its own */
     private async attachedTo(map: IVariableMap): Promise<Array<Pick<IService, "name" | "configMapIds" | "secretIds"> & Partial<Pick<IService, "resourceIds">>>> {
         const filter = { projectId: map.projectId, [this.serviceField]: map._id }
         const projection = { name: 1, configMapIds: 1, secretIds: 1, resourceIds: 1 }
-        const [services, frontends] = await Promise.all([Service.find(filter, projection), Frontend.find(filter, projection)])
+        const [services, frontends, agents] = await Promise.all([Service.find(filter, projection), Frontend.find(filter, projection), MaintenanceAgent.find(filter, projection)])
         // A DOCKER carries the same container fields as a service, resources aside: the projection reads only those
-        return [...services, ...frontends] as unknown as Array<Pick<IService, "name" | "configMapIds" | "secretIds"> & Partial<Pick<IService, "resourceIds">>>
+        return [...services, ...frontends, ...agents] as unknown as Array<Pick<IService, "name" | "configMapIds" | "secretIds"> & Partial<Pick<IService, "resourceIds">>>
     }
 
     /** New keys must not collide with those of the other maps attached to any service or DOCKER using this one */

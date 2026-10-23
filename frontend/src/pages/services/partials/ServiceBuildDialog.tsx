@@ -14,8 +14,11 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 interface ServiceBuildDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
-    service: Service
+    /** A service, or anything built the same way from its repository (a maintenance agent) */
+    service: Pick<Service, "_id" | "name" | "codeRepository">
     onBuilt?: () => void
+    /** Where the build is asked for: the service's by default */
+    build?: (id: string, version: string, branch?: string) => Promise<unknown>
 }
 
 const FormDataSchema = z.object({
@@ -26,9 +29,10 @@ const FormDataSchema = z.object({
 type FormData = z.infer<typeof FormDataSchema>
 
 /** Same flow as the frontend build: the tag it creates is what triggers the service pipeline. */
-export const ServiceBuildDialog: React.FC<ServiceBuildDialogProps> = ({ open, onOpenChange, service, onBuilt }) => {
+export const ServiceBuildDialog: React.FC<ServiceBuildDialogProps> = ({ open, onOpenChange, service, onBuilt, build }) => {
     const { t } = useTranslation()
-    const { build } = useServicesApi()
+    const servicesApi = useServicesApi()
+    const startBuild = build ?? servicesApi.build
     const { getBranches } = useCodeRepositoriesApi()
     const notifications = useToastNotificationStore()
     const form = useForm<FormData>({ resolver: zodResolver(FormDataSchema) })
@@ -49,7 +53,7 @@ export const ServiceBuildDialog: React.FC<ServiceBuildDialogProps> = ({ open, on
     })
 
     const onSubmit = async (values: FormData) => {
-        await build(service._id!, values.version, values.branch)
+        await startBuild(service._id!, values.version, values.branch)
         notifications.showSuccessNotification({ message: t("services.build.success", { name: service.name }) })
         onBuilt?.()
         onOpenChange(false)

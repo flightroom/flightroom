@@ -37,11 +37,14 @@ import Service from "../../models/ServiceModel"
 import User, { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import { ConfigMap, Secret } from "../../models/VariableMapModel"
+import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import { LlmClient } from "../llm"
 import { RepositoryFileService } from "../RepositoryFileService"
 import AiChangeJobService from "./AiChangeJobService"
 import AiMissionService from "./AiMissionService"
+
+withNoMaintenanceAgents()
 
 type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
 type WithProcess = { process: (jobId: string, client: LlmClient) => Promise<void> }

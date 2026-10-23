@@ -37,10 +37,13 @@ import Project from "../../models/ProjectModel"
 import Service from "../../models/ServiceModel"
 import { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
 import AiModelService from "../AiModelService"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import AiChangeJobService from "./AiChangeJobService"
 import AiChangeService from "./AiChangeService"
+
+withNoMaintenanceAgents()
 
 type WithGates = { ensureAccessToProject: () => Promise<void>; ensureAccessToFrontend: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
 

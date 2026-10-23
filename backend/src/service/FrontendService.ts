@@ -17,6 +17,7 @@ import CodeRepository from "../models/CodeRepositoryModel"
 import { CONTAINER_DEFAULTS } from "../models/ContainerFields"
 import FrontendDeployment from "../models/FrontendDeploymentModel"
 import Frontend, { FrontendKind, HostedOn, IFrontend, IHostFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { IProject } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import Storage, { StorageType } from "../models/StorageModel"
@@ -123,8 +124,13 @@ export class FrontendService extends BaseAuthorizedService {
         if (dto.kind !== FrontendKind.DOCKER && (typeof dto.version !== "string" || !dto.version.trim())) {
             throw createBusinessException({ code: "BUNDLE_VERSION_REQUIRED", message: "A BUNDLE frontend needs a version" })
         }
-        if (await Frontend.exists({ slug: frontend.slug, projectId: projectIdObj })) {
-            throw createBusinessException({ code: "FRONTEND_SLUG_TAKEN", message: `A frontend with slug "${frontend.slug}" already exists in this project`, statusCode: 409 })
+        // A maintenance agent's values file is named after its slug as well, next to the frontend's
+        if ((await Frontend.exists({ slug: frontend.slug, projectId: projectIdObj })) || (await MaintenanceAgent.exists({ slug: frontend.slug, projectId: projectIdObj }))) {
+            throw createBusinessException({
+                code: "FRONTEND_SLUG_TAKEN",
+                message: `A frontend or a maintenance agent with slug "${frontend.slug}" already exists in this project`,
+                statusCode: 409
+            })
         }
 
         // The file the template's build serves the frontend by: index.js for a single-spa
@@ -293,6 +299,7 @@ export class FrontendService extends BaseAuthorizedService {
         await this.ensureAccessToFrontend(frontend)
         await FrontendDeployment.deleteMany({ frontendId: frontend._id })
         const deleted = await Frontend.findByIdAndDelete(frontendIdObj)
+        await MaintenanceAgent.updateMany({ projectId: frontend.projectId, frontendIds: frontend._id }, { $pull: { frontendIds: frontend._id } })
         await forgetFrontends([frontend])
         return deleted
     }
@@ -310,6 +317,8 @@ export class FrontendService extends BaseAuthorizedService {
 
         await FrontendDeployment.deleteMany({ frontendId: { $in: frontends.map(frontend => frontend._id) } })
         const result = await Frontend.deleteMany({ _id: { $in: ids.map(toObjectId) } })
+        const deletedIds = frontends.map(frontend => frontend._id)
+        await MaintenanceAgent.updateMany({ frontendIds: { $in: deletedIds } }, { $pull: { frontendIds: { $in: deletedIds } } })
         await forgetFrontends(frontends)
         return result.deletedCount
     }
