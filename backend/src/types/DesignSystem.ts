@@ -11,9 +11,9 @@ export interface IDesignSystem {
     version?: string
     docsUrl?: string
     /**
-     * The .npmrc the package installs with, stored as the team pasted it: credentials included. Only the
-     * console and the MCP tool `design_system_npmrc_get` hand it out whole; whatever else reaches an AI
-     * gets it through {@link redactNpmrc}.
+     * The .npmrc the package installs with, stored as the team pasted it: credentials included. The console
+     * and MCP hand it out whole, MCP with {@link NPMRC_USAGE}; the console's own models (the assistant, the
+     * AI change agent) get it through {@link redactNpmrc}.
      */
     npmrc?: string
     /** Markdown for AI agents on how to use it, e.g. "import from @acme/ui, use its tokens, no raw CSS colors" */
@@ -36,18 +36,38 @@ const NPMRC_CREDENTIAL = /^(\s*[#;]?\s*(?:[^\s=#;]*:)?(?:_authToken|_auth|_passw
 /** The .npmrc with the value of every credential replaced by `***`: the registries and the other settings stay readable. */
 export const redactNpmrc = (content: string): string => content.replace(NPMRC_CREDENTIAL, "$1=***")
 
-/** The design system as an AI reads it, its npmrc redacted; a plain object even from a mongoose subdocument. */
-export const redactDesignSystem = (designSystem?: IDesignSystem | null): IDesignSystem | undefined => {
+/** The design system as stored, npmrc included; a plain object even from a mongoose subdocument. */
+export const plainDesignSystem = (designSystem?: IDesignSystem | null): IDesignSystem | undefined => {
     if (!designSystem?.packageName) return undefined
     const { packageName, version, docsUrl, npmrc, notes } = designSystem
-    return { packageName, ...(version ? { version } : {}), ...(docsUrl ? { docsUrl } : {}), ...(npmrc ? { npmrc: redactNpmrc(npmrc) } : {}), ...(notes ? { notes } : {}) }
+    return { packageName, ...(version ? { version } : {}), ...(docsUrl ? { docsUrl } : {}), ...(npmrc ? { npmrc } : {}), ...(notes ? { notes } : {}) }
+}
+
+/** The design system as the console's models read it, its npmrc redacted. */
+export const redactDesignSystem = (designSystem?: IDesignSystem | null): IDesignSystem | undefined => {
+    const plain = plainDesignSystem(designSystem)
+    return plain?.npmrc ? { ...plain, npmrc: redactNpmrc(plain.npmrc) } : plain
 }
 
 /**
- * A JSON.stringify replacer redacting every `designSystem` of what is serialised: MCP and the assistant
- * hand whole projects and frontends to an AI, and no tool has to remember it.
+ * A JSON.stringify replacer redacting every `designSystem` of what is serialised: the assistant hands whole
+ * projects and frontends to its model, and no tool has to remember it.
  */
 export const redactDesignSystems = (key: string, value: unknown): unknown => (key === "designSystem" && value && typeof value === "object" ? redactDesignSystem(value as IDesignSystem) : value)
+
+/** Next to every npmrc an MCP client reads: without it the client takes the token for something to ask the user about */
+export const NPMRC_USAGE =
+    "npmrc is the whole .npmrc packageName installs with, credentials included: write it as .npmrc next to package.json (or merge it into ~/.npmrc) and install. " +
+    "Keep it out of git (add .npmrc to .gitignore): code_change_submit refuses it. design_system_npmrc_get returns it on its own."
+
+/** The design system as an MCP client reads it: its npmrc whole, with how to use it. */
+export const designSystemForMcp = (designSystem?: IDesignSystem | null): (IDesignSystem & { npmrcUsage?: string }) | undefined => {
+    const plain = plainDesignSystem(designSystem)
+    return plain?.npmrc ? { ...plain, npmrcUsage: NPMRC_USAGE } : plain
+}
+
+/** A JSON.stringify replacer giving every `designSystem` of an MCP result as {@link designSystemForMcp} does. */
+export const designSystemsForMcp = (key: string, value: unknown): unknown => (key === "designSystem" && value && typeof value === "object" ? designSystemForMcp(value as IDesignSystem) : value)
 
 /**
  * The design system that applies: the first of the chain that has one, from the most specific level, e.g.

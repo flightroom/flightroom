@@ -79,7 +79,7 @@ export const designSystemInput = z
             .string()
             .max(DESIGN_SYSTEM_MAX_LENGTH.npmrc)
             .optional()
-            .describe("Content of the .npmrc the package installs with; agents read it with its credentials masked, design_system_npmrc_get whole"),
+            .describe("Content of the .npmrc the package installs with, credentials included: MCP clients read it whole to install the package"),
         notes: z.string().max(DESIGN_SYSTEM_MAX_LENGTH.notes).optional().describe("Markdown for AI agents on how to use it, e.g. import from @acme/ui, use its tokens, no raw CSS colors")
     })
     .nullable()

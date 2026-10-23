@@ -56,12 +56,11 @@ export const projectTools = [
         name: "design_system_npmrc_get",
         title: "Get design system .npmrc",
         description:
-            "The whole .npmrc the design system installs with, credentials included, for the user to save on their machine and install the package there. " +
+            "The whole .npmrc the design system installs with, credentials included: write it as .npmrc next to package.json (or merge it into ~/.npmrc) to install the package. " +
             "With frontendId, the one of the design system that frontend builds with; without, the project's. source says which level it is set at. " +
-            "Call it only when the user asks for the .npmrc or to install the design system locally. Never write it into a repository, a commit, a pull request or a log: everywhere else the npmrc comes with its credentials masked.",
-        scope: MCP_SCOPE_WRITE,
-        // Not read-only to the client either: it hands out a credential, so the client asks the user first
-        annotations: WRITE,
+            "The designSystem of context_get, frontend_get and the other tools carries the same npmrc. Keep it out of git: code_change_submit refuses an .npmrc.",
+        scope: MCP_SCOPE_READ,
+        annotations: READ_ONLY,
         mcpOnly: true,
         inputSchema: z.object({ frontendId: objectId("Id of the frontend whose design system to read, from frontends_list").optional() }),
         run: (args, { principal, projectId }) => new ProjectService(principal).getDesignSystemNpmrc(projectId, args.frontendId)
