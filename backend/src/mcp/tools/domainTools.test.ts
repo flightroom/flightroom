@@ -142,7 +142,9 @@ describe("domain tools", () => {
 
         const result = (await run("domain_get", { domainId: DOMAIN })) as { resources?: unknown }
 
-        expect(result.resources).toEqual([{ _id: database, name: "orders", type: "database", variant: "connectionString", env: ["DB_ORDERS_ENGINE", "DB_ORDERS_URL"], usedBy: ["orders-api"] }])
+        expect(result.resources).toEqual([
+            { _id: database, name: "orders", type: "database", variant: "connectionString", env: ["DB_ORDERS_ENGINE", "DB_ORDERS_URL", "DB_ORDERS_SCHEMA"], usedBy: ["orders-api"] }
+        ])
         expect(JSON.stringify(result)).not.toContain("postgres://secret")
         expect(listResources).toHaveBeenCalledWith(PROJECT)
     })
