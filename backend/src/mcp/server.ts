@@ -79,7 +79,7 @@ const SERVER_INSTRUCTIONS =
     "Tools of the Flightroom console, bound to the projects shared when this connection was authorized. " +
     "Call projects_list first: when more than one project is shared, every project tool needs its projectId. " +
     "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one frontend, backend or domain, pass its id to context_get, or read aiContext from frontend_get, backend_get or domain_get: follow those notes. Its project.technologies are the default frontend and backend technologies for anything new, unless the user asks otherwise. " +
-    "When a frontend has a designSystem in aiContext, build its UI with that package (configure the registry from the scope lines of its npmrc; credentials are never provided). " +
+    "When a frontend has a designSystem in aiContext, build its UI with that package (configure the registry from the scope lines of its npmrc; its credentials are masked). Only when the user asks for the .npmrc or to install the package on their machine, design_system_npmrc_get returns it whole: never commit it. " +
     "To change the code of a frontend or a backend: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
     "A backend container gets the port it is exposed on in the HTTP_PORT environment variable: its server must read the port from HTTP_PORT and listen on it on 0.0.0.0, never on a hardcoded port. " +
     "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend (e.g. orders-be). " +

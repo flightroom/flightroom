@@ -610,6 +610,51 @@ describe("getContext", () => {
     })
 })
 
+describe("getDesignSystemNpmrc", () => {
+    const projectId = String(newId())
+    const frontendId = newId()
+    const npmrc = "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123"
+    const read = (frontend?: string) => new ProjectService(aUser()).getDesignSystemNpmrc(projectId, frontend)
+
+    beforeEach(() => {
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui", npmrc } } as never)
+        vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
+        vi.spyOn(ProjectService.prototype as unknown as WithAuthorizationGate, "getDomainScope").mockResolvedValue(undefined)
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it("Given a project with a design system, when its npmrc is read, then it comes back whole, credentials included", async () => {
+        expect(await read()).toEqual({ packageName: "@acme/ui", source: "project", npmrc })
+    })
+
+    it("Given a frontend with its own design system, when its npmrc is read, then the frontend's comes back", async () => {
+        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null, designSystem: { packageName: "@acme/legacy-ui", npmrc: "//legacy/:_auth=secret" } } as never)
+
+        expect(await read(String(frontendId))).toEqual({ packageName: "@acme/legacy-ui", source: "frontend", npmrc: "//legacy/:_auth=secret" })
+    })
+
+    it("Given a frontend without its own, when its npmrc is read, then the project's comes back", async () => {
+        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null } as never)
+
+        expect(await read(String(frontendId))).toEqual({ packageName: "@acme/ui", source: "project", npmrc })
+    })
+
+    it("Given a design system without an npmrc, when its npmrc is read, then it is refused", async () => {
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui" } } as never)
+
+        await expect(read()).rejects.toMatchObject({ code: "DESIGN_SYSTEM_NPMRC_MISSING", statusCode: 404 })
+    })
+
+    it("Given a frontend of another project, when its npmrc is read, then it is not found", async () => {
+        vi.spyOn(Frontend, "findOne").mockResolvedValue(null as never)
+
+        await expect(read(String(frontendId))).rejects.toBeInstanceOf(EntityNotFoundError)
+    })
+})
+
 /**
  * The slug a project is created with, which is the one thing about it that cannot be corrected
  * afterwards: it is part of the `<slug>-<id>/` path the uploaded bundles live under, so the console

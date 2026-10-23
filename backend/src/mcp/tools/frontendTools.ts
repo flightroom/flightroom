@@ -75,7 +75,11 @@ export const designSystemInput = z
         packageName: z.string().trim().regex(NPM_PACKAGE_NAME, "an npm package name, e.g. @acme/ui").max(DESIGN_SYSTEM_MAX_LENGTH.packageName).describe("npm package of the UI library, e.g. @acme/ui"),
         version: z.string().max(DESIGN_SYSTEM_MAX_LENGTH.version).optional().describe("Semver range, e.g. ^3.2.0"),
         docsUrl: z.string().url().max(DESIGN_SYSTEM_MAX_LENGTH.docsUrl).optional(),
-        npmrc: z.string().max(DESIGN_SYSTEM_MAX_LENGTH.npmrc).optional().describe("Content of the .npmrc the package installs with; agents read it with its credentials masked"),
+        npmrc: z
+            .string()
+            .max(DESIGN_SYSTEM_MAX_LENGTH.npmrc)
+            .optional()
+            .describe("Content of the .npmrc the package installs with; agents read it with its credentials masked, design_system_npmrc_get whole"),
         notes: z.string().max(DESIGN_SYSTEM_MAX_LENGTH.notes).optional().describe("Markdown for AI agents on how to use it, e.g. import from @acme/ui, use its tokens, no raw CSS colors")
     })
     .nullable()

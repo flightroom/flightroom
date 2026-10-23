@@ -53,6 +53,20 @@ export const projectTools = [
         run: (args, { principal, projectId }) => new ProjectService(principal).getContext(projectId, toFocus(args))
     }),
     defineTool({
+        name: "design_system_npmrc_get",
+        title: "Get design system .npmrc",
+        description:
+            "The whole .npmrc the design system installs with, credentials included, for the user to save on their machine and install the package there. " +
+            "With frontendId, the one of the design system that frontend builds with; without, the project's. source says which level it is set at. " +
+            "Call it only when the user asks for the .npmrc or to install the design system locally. Never write it into a repository, a commit, a pull request or a log: everywhere else the npmrc comes with its credentials masked.",
+        scope: MCP_SCOPE_WRITE,
+        // Not read-only to the client either: it hands out a credential, so the client asks the user first
+        annotations: WRITE,
+        mcpOnly: true,
+        inputSchema: z.object({ frontendId: objectId("Id of the frontend whose design system to read, from frontends_list").optional() }),
+        run: (args, { principal, projectId }) => new ProjectService(principal).getDesignSystemNpmrc(projectId, args.frontendId)
+    }),
+    defineTool({
         name: "project_update",
         title: "Update project",
         description:

@@ -12,7 +12,8 @@ export interface IDesignSystem {
     docsUrl?: string
     /**
      * The .npmrc the package installs with, stored as the team pasted it: credentials included. Only the
-     * console shows it whole; whatever reaches an AI gets it through {@link redactNpmrc}.
+     * console and the MCP tool `design_system_npmrc_get` hand it out whole; whatever else reaches an AI
+     * gets it through {@link redactNpmrc}.
      */
     npmrc?: string
     /** Markdown for AI agents on how to use it, e.g. "import from @acme/ui, use its tokens, no raw CSS colors" */
