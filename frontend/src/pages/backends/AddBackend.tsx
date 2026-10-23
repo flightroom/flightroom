@@ -98,18 +98,22 @@ type FormInput = z.input<FormSchema>
 type FormValues = z.output<FormSchema>
 
 /** Tabs that own validated fields, in the order they are shown: the first one with an error is the one we jump to. */
-const FORM_TABS = ["general", "context", "runtime", "variables", "repository"] as const
+const FORM_TABS = ["general", "context", "runtime"] as const
 
 type FormTab = (typeof FORM_TABS)[number] | "danger"
 
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
+/** Tabs merged into another one: old links to them open the tab that now holds their fields. */
+const MERGED_TABS = new Map<string, FormTab>([
+    ["variables", "runtime"],
+    ["repository", "general"]
+])
+
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["template", "name", "slug", "version", "description", "domainId"],
+    general: ["template", "name", "slug", "version", "description", "domainId", "codeRepository"],
     context: ["context"],
-    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath"],
-    variables: ["env", "configMapIds", "secretIds", "resourceIds"],
-    repository: ["codeRepository"],
+    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "env", "configMapIds", "secretIds", "resourceIds"],
     danger: []
 }
 
@@ -145,7 +149,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
     const hasRepositories = repositories.length > 0
     // `#runtime` (or the older `?tab=runtime`) opens a tab straight away.
     const hashTab = location.hash.slice(1)
-    const linkedTab = isFormTab(hashTab) ? hashTab : searchParams.get("tab")
+    const requestedTab = isFormTab(hashTab) || MERGED_TABS.has(hashTab) ? hashTab : searchParams.get("tab")
+    const linkedTab = MERGED_TABS.get(requestedTab ?? "") ?? requestedTab
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
 
     // The open tab is written in the hash, so a reload or a copied link lands on it
@@ -283,9 +288,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
         if (isFormTab(linkedTab)) setActiveTab(linkedTab)
     }, [linkedTab])
 
-    // A linked tab may not exist on this backend (no repository, or not saved yet): fall back to the first one.
+    // A linked tab may not exist on this backend (not saved yet): fall back to the first one.
     const isTabShown = (tab: FormTab) => {
-        if (tab === "repository") return hasRepositories
         if (tab === "danger") return isEdit
         return true
     }
@@ -316,16 +320,6 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                             {t("backends.tabs.runtime")}
                             {tabHasErrors("runtime") && <ErrorDot />}
                         </TabsTrigger>
-                        <TabsTrigger value="variables" className="flex-1">
-                            {t("backends.tabs.variables")}
-                            {tabHasErrors("variables") && <ErrorDot />}
-                        </TabsTrigger>
-                        {hasRepositories && (
-                            <TabsTrigger value="repository" className="flex-1">
-                                {t("backends.tabs.repository")}
-                                {tabHasErrors("repository") && <ErrorDot />}
-                            </TabsTrigger>
-                        )}
                         {isEdit && (
                             <TabsTrigger value="danger" className="flex-1">
                                 {t("backends.tabs.danger_zone")}
@@ -336,6 +330,12 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                     {/* forceMount keeps every tab registered: switching tab must not drop the values or re-run the repository lookups. */}
                     <TabsContent value="general" forceMount>
                         <div className="flex flex-col gap-6">
+                            {/* Domain and release first, side by side: what it belongs to and what is served, at a glance */}
+                            <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
+                                <DomainSection />
+                                {/* The same card as a DOCKER frontend's: the version is the tag of the image */}
+                                <ReleaseSection container />
+                            </div>
                             <Card>
                                 <CardHeader>
                                     <CardTitle className="mb-0">{t("backends.general_information")}</CardTitle>
@@ -389,9 +389,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                                     <TextareaField name="description" label={t("backends.description")} placeholder={t("backends.description_placeholder")} />
                                 </CardContent>
                             </Card>
-                            <DomainSection />
-                            {/* The same card as a DOCKER frontend's: the version is the tag of the image */}
-                            <ReleaseSection container />
+                            {hasRepositories && <CodeRepositorySection repositoriesData={repositories} isEdit={isEdit} forceCreation={!isEdit} />}
                         </div>
                     </TabsContent>
 
@@ -419,22 +417,11 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                         <div className="flex flex-col gap-6">
                             <BackendRuntimeFields />
                             <BackendEndpointFields environments={environments} />
-                        </div>
-                    </TabsContent>
-
-                    <TabsContent value="variables" forceMount>
-                        <div className="flex flex-col gap-6">
                             <BackendEnvFields />
                             <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
                             <BackendResourcesFields resources={resources} />
                         </div>
                     </TabsContent>
-
-                    {hasRepositories && (
-                        <TabsContent value="repository" forceMount>
-                            <CodeRepositorySection repositoriesData={repositories} isEdit={isEdit} forceCreation={!isEdit} />
-                        </TabsContent>
-                    )}
 
                     {isEdit && backend && (
                         <TabsContent value="danger">

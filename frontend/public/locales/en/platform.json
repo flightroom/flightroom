@@ -2288,6 +2288,7 @@
         "runtime_settings": "Runtime and image",
         "runtime_settings_description": "Port, Kubernetes probes, API documentation and Docker image repository",
         "port": "Port",
+        "port_hint": "The port the container listens on, on 0.0.0.0. It also gets it in the HTTP_PORT environment variable",
         "liveness_path": "Liveness probe path",
         "liveness_path_hint": "Kubernetes restarts the container when this path stops answering",
         "readiness_path": "Readiness probe path",
