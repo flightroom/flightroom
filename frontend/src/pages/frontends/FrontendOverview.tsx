@@ -1,12 +1,10 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { Hammer } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
-import { Badge, Button } from "@/components/atoms"
+import { Badge } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import RepositoryLink from "@/components/RepositoryLink"
 import useFrontendsApi, { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
@@ -15,10 +13,10 @@ import BackendConfigurationSection from "@/pages/backends/partials/BackendConfig
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
-import { BuildDialog, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
+import { FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS, HOST_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
-import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
+import useProjectStore from "@/store/useProjectStore"
 
 const FrontendRepositorySection: React.FC<{ frontend: Frontend }> = ({ frontend }) => {
     const { t } = useTranslation()
@@ -120,9 +118,7 @@ const FrontendOverview: React.FC = () => {
     const frontendsApi = useFrontendsApi()
     const storageApi = useStorageApi()
     const projectId = useProjectStore(state => state.project?._id)
-    const assistantEnabled = useProjectAiModels().enabled
-    const isViewer = useIsProjectViewer()
-    const [buildOpen, setBuildOpen] = useState(false)
+    const aiModels = useProjectAiModels()
 
     const frontendQuery = useQuery({ queryKey: ["mfe", id], queryFn: () => frontendsApi.getSingle(id), enabled: !!id })
     const frontend: Frontend | undefined = frontendQuery.data
@@ -135,8 +131,7 @@ const FrontendOverview: React.FC = () => {
     const configMapsQuery = useVariableMapsQuery("configMap")
     const secretsQuery = useVariableMapsQuery("secret")
 
-    // A viewer may look, not build
-    const canBuild = Boolean(frontend?.codeRepository?.enabled) && !isViewer
+    const aiAvailable = isAiEditAvailable(frontend, aiModels.enabled)
 
     return (
         <ApiStatusHandler queries={[frontendQuery, versionsQuery, buildsQuery, storagesQuery, environmentsQuery, configMapsQuery, secretsQuery]} interceptEmpty={false}>
@@ -145,15 +140,9 @@ const FrontendOverview: React.FC = () => {
                     <FrontendHeader
                         frontend={frontend}
                         active="overview"
-                        aiAvailable={isAiEditAvailable(frontend, assistantEnabled)}
-                        actions={
-                            canBuild && (
-                                <Button variant="primary" onClick={() => setBuildOpen(true)}>
-                                    <Hammer />
-                                    {t("frontend.card.build")}
-                                </Button>
-                            )
-                        }
+                        aiAvailable={aiAvailable}
+                        // The actions live in Edit with AI: here only when that screen does not exist
+                        actions={!aiModels.isPending && !aiAvailable && <FrontendActions frontend={frontend} />}
                     />
                     <FrontendRepositorySection frontend={frontend} />
                     <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
@@ -169,7 +158,6 @@ const FrontendOverview: React.FC = () => {
                             <FrontendHostingSection frontend={frontend} storages={storagesQuery.data ?? []} />
                         </>
                     )}
-                    {canBuild && <BuildDialog open={buildOpen} onOpenChange={setBuildOpen} frontendId={frontend._id!} frontendName={frontend.name} />}
                 </div>
             )}
         </ApiStatusHandler>

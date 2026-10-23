@@ -2400,6 +2400,7 @@
         },
         "build": {
             "action": "Crea versione",
+            "button": "Build",
             "title": "Crea una versione di {{name}}",
             "branch": "Branch",
             "noBranches": "Nessun branch",
@@ -2411,16 +2412,6 @@
             "forbidden": "Chi ha il ruolo di viewer non può creare una versione di un backend",
             "ref_not_found": "Il branch non esiste nel repository",
             "repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
-        },
-        "release": {
-            "action": "Imposta release",
-            "title": "Imposta la release di {{name}}",
-            "description": "Il tag dell'immagine da deployare, già pubblicata nel registry. La pipeline la porta avanti quando registra una versione più recente.",
-            "version": "Versione",
-            "placeholder": "es. 1.0.0",
-            "save": "Imposta",
-            "saving": "Salvataggio...",
-            "success": "Release di {{name}} impostata a {{version}}"
         },
         "versions": {
             "title": "Versioni",
@@ -2475,6 +2466,7 @@
         "no_domain": "Senza dominio",
         "deploy": {
             "title": "Deploy di {{domain}}",
+            "release_action": "Deploy della release",
             "description": "Scegli l'ambiente: vengono deployati solo i frontend e i backend di questo dominio, gli altri domini restano con le versioni che l'ambiente serve ora. Config map e secret vengono comunque deployati come sono adesso.",
             "success": "{{domain}} deployato su {{environment}}"
         },
