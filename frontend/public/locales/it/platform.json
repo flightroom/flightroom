@@ -2471,7 +2471,7 @@
             "success": "{{domain}} deployato su {{environment}}"
         },
         "build": {
-            "action": "Crea versione",
+            "action": "Build",
             "title": "Crea una versione di {{domain}}",
             "description": "Ogni frontend e backend del dominio con un repository di codice riceve la stessa versione, taggata sullo stesso branch: ogni tag avvia la pipeline del suo repository. Un repository condiviso da più di loro viene taggato una volta sola. Ogni repository viene verificato prima: se uno fallisce, non ne viene taggato nessuno.",
             "result_description": "Versione {{version}} sul branch {{ref}}, repository per repository.",
