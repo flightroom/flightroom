@@ -1,12 +1,12 @@
 {{- if .Values.ingress.enabled }}
-{{- $fullName := include "mfe-orchestrator.fullname" . -}}
+{{- $fullName := include "flightroom.fullname" . -}}
 {{- $svcPort := .Values.service.port -}}
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
   name: {{ $fullName }}
   labels:
-    {{- include "mfe-orchestrator.labels" . | nindent 4 }}
+    {{- include "flightroom.labels" . | nindent 4 }}
   {{- if or .Values.ingress.annotations .Values.commonAnnotations }}
   annotations:
     {{- with .Values.commonAnnotations }}

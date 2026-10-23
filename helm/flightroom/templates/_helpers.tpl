@@ -1,14 +1,14 @@
 {{/*
 Expand the name of the chart.
 */}}
-{{- define "mfe-orchestrator.name" -}}
+{{- define "flightroom.name" -}}
 {{- default .Chart.Name .Values.nameOverride | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Fully qualified app name, truncated to the 63 chars a DNS name allows.
 */}}
-{{- define "mfe-orchestrator.fullname" -}}
+{{- define "flightroom.fullname" -}}
 {{- if .Values.fullnameOverride }}
 {{- .Values.fullnameOverride | trunc 63 | trimSuffix "-" }}
 {{- else }}
@@ -24,16 +24,16 @@ Fully qualified app name, truncated to the 63 chars a DNS name allows.
 {{/*
 Chart name and version, as used by the chart label.
 */}}
-{{- define "mfe-orchestrator.chart" -}}
+{{- define "flightroom.chart" -}}
 {{- printf "%s-%s" .Chart.Name .Chart.Version | replace "+" "_" | trunc 63 | trimSuffix "-" }}
 {{- end }}
 
 {{/*
 Common labels.
 */}}
-{{- define "mfe-orchestrator.labels" -}}
-helm.sh/chart: {{ include "mfe-orchestrator.chart" . }}
-{{ include "mfe-orchestrator.selectorLabels" . }}
+{{- define "flightroom.labels" -}}
+helm.sh/chart: {{ include "flightroom.chart" . }}
+{{ include "flightroom.selectorLabels" . }}
 {{- if .Chart.AppVersion }}
 app.kubernetes.io/version: {{ .Chart.AppVersion | quote }}
 {{- end }}
@@ -46,17 +46,17 @@ app.kubernetes.io/managed-by: {{ .Release.Service }}
 {{/*
 Selector labels.
 */}}
-{{- define "mfe-orchestrator.selectorLabels" -}}
-app.kubernetes.io/name: {{ include "mfe-orchestrator.name" . }}
+{{- define "flightroom.selectorLabels" -}}
+app.kubernetes.io/name: {{ include "flightroom.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
 
 {{/*
 Name of the service account to use.
 */}}
-{{- define "mfe-orchestrator.serviceAccountName" -}}
+{{- define "flightroom.serviceAccountName" -}}
 {{- if .Values.serviceAccount.create }}
-{{- default (include "mfe-orchestrator.fullname" .) .Values.serviceAccount.name }}
+{{- default (include "flightroom.fullname" .) .Values.serviceAccount.name }}
 {{- else }}
 {{- default "default" .Values.serviceAccount.name }}
 {{- end }}
@@ -65,11 +65,38 @@ Name of the service account to use.
 {{/*
 Name of the PersistentVolumeClaim holding the uploaded microfrontends.
 */}}
-{{- define "mfe-orchestrator.pvcName" -}}
+{{- define "flightroom.pvcName" -}}
 {{- if .Values.persistence.existingClaim }}
 {{- .Values.persistence.existingClaim }}
 {{- else }}
-{{- printf "%s-microfrontends" (include "mfe-orchestrator.fullname" .) }}
+{{- printf "%s-microfrontends" (include "flightroom.fullname" .) }}
+{{- end }}
+{{- end }}
+
+{{/*
+"true" when the microfrontends volume can be mounted by a single node only,
+i.e. persistence is on and the access modes do not include ReadWriteMany.
+*/}}
+{{- define "flightroom.singleNodeVolume" -}}
+{{- if and .Values.persistence.enabled (not (has "ReadWriteMany" .Values.persistence.accessModes)) }}
+{{- "true" }}
+{{- end }}
+{{- end }}
+
+{{/*
+Deployment strategy type: strategy.type wins, otherwise Recreate on a single
+node volume and RollingUpdate on a shared one.
+*/}}
+{{- define "flightroom.strategyType" -}}
+{{- default (ternary "Recreate" "RollingUpdate" (eq (include "flightroom.singleNodeVolume" .) "true")) .Values.strategy.type }}
+{{- end }}
+
+{{/*
+Fails the render on value combinations that cannot work.
+*/}}
+{{- define "flightroom.validateValues" -}}
+{{- if and (include "flightroom.singleNodeVolume" .) (or .Values.autoscaling.enabled (gt (int .Values.replicaCount) 1)) }}
+{{- fail (printf "persistence.accessModes is %s: the volume attaches to a single node, so replicaCount > 1 or autoscaling.enabled would leave the other pods unable to mount it. Use a ReadWriteMany volume (persistence.accessModes: [ReadWriteMany], on a StorageClass that supports it) or keep replicaCount: 1 with autoscaling disabled." (join ", " .Values.persistence.accessModes)) }}
 {{- end }}
 {{- end }}
 
@@ -77,7 +104,7 @@ Name of the PersistentVolumeClaim holding the uploaded microfrontends.
 Folder the microfrontends are stored in: persistence.mountPath wins, otherwise
 the value of MICROFRONTEND_HOST_FOLDER, otherwise the application default.
 */}}
-{{- define "mfe-orchestrator.microfrontendFolder" -}}
+{{- define "flightroom.microfrontendFolder" -}}
 {{- $fromEnv := "" }}
 {{- with .Values.env }}
 {{- $fromEnv = default "" (get . "MICROFRONTEND_HOST_FOLDER") }}
@@ -89,9 +116,9 @@ the value of MICROFRONTEND_HOST_FOLDER, otherwise the application default.
 Environment variables of a values map, filtered and quoted, as "KEY: value"
 lines. Empty strings and nulls are dropped so that the application keeps its
 own defaults instead of receiving an empty variable.
-Usage: include "mfe-orchestrator.envEntries" .Values.env
+Usage: include "flightroom.envEntries" .Values.env
 */}}
-{{- define "mfe-orchestrator.envEntries" -}}
+{{- define "flightroom.envEntries" -}}
 {{- range $key, $value := . }}
 {{- if not (kindIs "invalid" $value) }}
 {{- if ne (toString $value) "" }}
@@ -104,7 +131,7 @@ Usage: include "mfe-orchestrator.envEntries" .Values.env
 {{/*
 True when the given map has at least one usable entry.
 */}}
-{{- define "mfe-orchestrator.hasEnvEntries" -}}
+{{- define "flightroom.hasEnvEntries" -}}
 {{- $found := "" }}
 {{- range $key, $value := . }}
 {{- if not (kindIs "invalid" $value) }}

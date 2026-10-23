@@ -5,7 +5,7 @@
 replicaCount: 1
 
 image:
-  repository: lory1990/mfe-orchestrator
+  repository: lory1990/flightroom
   pullPolicy: IfNotPresent
   # Overrides the image tag, which defaults to the chart appVersion.
   tag: ""
@@ -191,9 +191,9 @@ envSecrets:
 ## Names of Secrets and ConfigMaps that already exist in the namespace and hold
 ## further environment variables (all of their keys are injected as-is).
 existingSecret: []
-# - mfe-orchestrator-credentials
+# - flightroom-credentials
 existingConfigMap: []
-# - mfe-orchestrator-extra-config
+# - flightroom-extra-config
 
 ## Raw container env entries, for values that must come from somewhere else
 ## (another Secret key, a field ref, ...). These win over `env`/`envSecrets`.
@@ -217,6 +217,8 @@ persistence:
   existingClaim: ""
   # "" uses the cluster default StorageClass, "-" disables dynamic provisioning.
   storageClass: ""
+  # Also describe existingClaim here. More than one pod (replicaCount > 1 or
+  # autoscaling) needs ReadWriteMany: the render fails otherwise.
   accessModes:
     - ReadWriteOnce
   size: 8Gi
@@ -253,14 +255,14 @@ ingress:
   annotations: {}
     # nginx.ingress.kubernetes.io/proxy-body-size: 50m
   hosts:
-    - host: mfe-orchestrator.local
+    - host: flightroom.local
       paths:
         - path: /
           pathType: Prefix
   tls: []
-  # - secretName: mfe-orchestrator-tls
+  # - secretName: flightroom-tls
   #   hosts:
-  #     - mfe-orchestrator.local
+  #     - flightroom.local
 
 ## ---------------------------------------------------------------------------
 ## Workload settings
@@ -315,10 +317,12 @@ autoscaling:
 ## Roll the pods when the rendered ConfigMap/Secret changes.
 restartOnConfigChange: true
 
-## Deployment strategy. With persistence enabled on a ReadWriteOnce volume,
-## Recreate avoids two pods fighting over the same PVC.
+## Deployment strategy. Left empty, the type is Recreate when persistence is on
+## a volume without ReadWriteMany (a ReadWriteOnce claim attaches to one node,
+## so a surge pod scheduled elsewhere never starts and the rollout hangs), and
+## RollingUpdate otherwise. rollingUpdate applies only to RollingUpdate.
 strategy:
-  type: RollingUpdate
+  type: ""
   rollingUpdate:
     maxSurge: 1
     maxUnavailable: 0

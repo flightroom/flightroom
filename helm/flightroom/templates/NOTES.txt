@@ -8,14 +8,14 @@ Reach the console:
   {{- end }}
 {{- end }}
 {{- else if contains "NodePort" .Values.service.type }}
-  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "mfe-orchestrator.fullname" . }})
+  export NODE_PORT=$(kubectl get --namespace {{ .Release.Namespace }} -o jsonpath="{.spec.ports[0].nodePort}" services {{ include "flightroom.fullname" . }})
   export NODE_IP=$(kubectl get nodes --namespace {{ .Release.Namespace }} -o jsonpath="{.items[0].status.addresses[0].address}")
   echo http://$NODE_IP:$NODE_PORT
 {{- else if contains "LoadBalancer" .Values.service.type }}
   It may take a few minutes for the LoadBalancer IP to be available:
-  kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "mfe-orchestrator.fullname" . }}
+  kubectl get --namespace {{ .Release.Namespace }} svc -w {{ include "flightroom.fullname" . }}
 {{- else }}
-  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "mfe-orchestrator.fullname" . }} 8080:{{ .Values.service.port }}
+  kubectl --namespace {{ .Release.Namespace }} port-forward svc/{{ include "flightroom.fullname" . }} 8080:{{ .Values.service.port }}
   echo http://127.0.0.1:8080
 {{- end }}
 
@@ -65,4 +65,4 @@ All environment variables can be configured from values.yaml:
   envSecrets  sensitive variables   (rendered into a Secret)
   extraEnv    raw env entries, e.g. valueFrom references
 
-See helm/mfe-orchestrator/README.md for the full list.
+See helm/flightroom/README.md for the full list.

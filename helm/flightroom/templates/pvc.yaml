@@ -2,9 +2,9 @@
 apiVersion: v1
 kind: PersistentVolumeClaim
 metadata:
-  name: {{ include "mfe-orchestrator.pvcName" . }}
+  name: {{ include "flightroom.pvcName" . }}
   labels:
-    {{- include "mfe-orchestrator.labels" . | nindent 4 }}
+    {{- include "flightroom.labels" . | nindent 4 }}
   {{- if or .Values.persistence.annotations .Values.commonAnnotations }}
   annotations:
     {{- with .Values.commonAnnotations }}
