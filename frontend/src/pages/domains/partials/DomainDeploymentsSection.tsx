@@ -6,7 +6,7 @@ import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
 import { DeployedFrontend, DomainDeployments, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
 import { CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
-import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
+import { exposedOrigin, useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useThemeStore from "@/store/useThemeStore"
 
@@ -105,7 +105,7 @@ const FrontendUrls: React.FC<{ frontend: Frontend; frontends: Frontend[]; origin
 export const DomainDeploymentsSection: React.FC<{ deployments: DomainDeployments; frontends: Frontend[] }> = ({ deployments, frontends }) => {
     const { t } = useTranslation()
     const exposure = useProjectStore(state => state.project?.exposure)
-    const projectEnvironments = useProjectStore(state => state.environments)
+    const projectEnvironments = useProjectEnvironmentsQuery().data
     const originOf = (environmentId: string) => {
         const environment = projectEnvironments?.find(candidate => candidate._id === environmentId)
         return exposure?.domain && environment ? exposedOrigin(exposure, environment) : undefined

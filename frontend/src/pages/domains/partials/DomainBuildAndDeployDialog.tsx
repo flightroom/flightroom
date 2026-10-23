@@ -11,6 +11,7 @@ import TextField from "@/components/input/TextField.rhf"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
 import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildResult, type DomainRelease, type DomainReleaseMember, isReleaseRunning } from "@/hooks/apiClients/useDomainsApi"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { cn } from "@/utils/styleUtils"
@@ -18,6 +19,8 @@ import { DomainBuildOutcomes, VERSION } from "./DomainBuildDialog"
 
 /** How often a running release is read again */
 const POLL_EVERY_MS = 5_000
+
+const NO_ENVIRONMENTS: EnvironmentDTO[] = []
 
 const STEPS = ["building", "waiting_ci", "updating_versions", "deploying"] as const
 
@@ -55,9 +58,10 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     /** The release started or followed here: still shown once over, until the dialog is closed */
     const [followedId, setFollowedId] = useState<string | undefined>()
 
-    const environments = projectStore.environments ?? []
+    // Read here, not from the store: the store has them only once a page under the environments gate was opened
+    const environments = useProjectEnvironmentsQuery().data ?? NO_ENVIRONMENTS
     // A pick of an environment deleted since, or of another project, does not stick
-    const selected = environments.find(candidate => candidate._id === environment?._id) ?? projectStore.environment
+    const selected = environments.find(candidate => candidate._id === environment?._id) ?? environments.find(candidate => candidate._id === projectStore.environment?._id) ?? environments[0]
     const queryKey = ["domain-release", domain._id]
 
     // Read even with the dialog closed: the end of a release is told wherever the domain is open
