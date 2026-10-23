@@ -25,7 +25,7 @@ import Storage from "../models/StorageModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { CONTAINER_REGISTRY } from "../types/BackendStack"
-import { designSystemOf, effectiveDesignSystem, IDesignSystem, redactDesignSystem } from "../types/DesignSystem"
+import { designSystemOf, effectiveDesignSystem, IDesignSystem, plainDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
@@ -354,27 +354,27 @@ export class ProjectService extends BaseAuthorizedService {
         const { frontend, backend } = project.technologies ?? {}
         const projectDesignSystem = await projectDesignSystemOf(project)
         const ownDesignSystem = filters.frontend?.designSystem?.packageName ? filters.frontend.designSystem : undefined
-        // Read by agents only: the credentials of the npmrc never come along
+        // npmrc whole: MCP hands it to the client to install the package, the assistant's replacer masks it for its model
         return {
             project: {
                 id: project._id.toString(),
                 name: project.name,
                 context: project.context || undefined,
                 technologies: frontend || backend ? { ...(frontend ? { frontend } : {}), ...(backend ? { backend } : {}) } : undefined,
-                designSystem: redactDesignSystem(projectDesignSystem.designSystem),
+                designSystem: plainDesignSystem(projectDesignSystem.designSystem),
                 designSystemSource: projectDesignSystem.source
             },
             domains: domains.map(toContextEntry),
             frontends: frontends.map(toContextEntry),
             backends: backends.map(toContextEntry),
-            designSystem: filters.frontend ? redactDesignSystem(effectiveDesignSystem(ownDesignSystem, projectDesignSystem.designSystem)) : undefined,
+            designSystem: filters.frontend ? plainDesignSystem(effectiveDesignSystem(ownDesignSystem, projectDesignSystem.designSystem)) : undefined,
             designSystemSource: filters.frontend ? (ownDesignSystem ? "frontend" : projectDesignSystem.source) : undefined
         }
     }
 
     /**
      * The .npmrc of the design system the project's frontends build with, or one frontend's, whole: credentials
-     * included. Only `design_system_npmrc_get` hands it out, for the user to install the package on their machine.
+     * included: what `design_system_npmrc_get` hands an MCP client to install the package.
      */
     async getDesignSystemNpmrc(projectId: string, frontendId?: string): Promise<{ packageName: string; source: DesignSystemSource; npmrc: string }> {
         const projectIdObj = toObjectId(projectId)

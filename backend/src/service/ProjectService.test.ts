@@ -495,13 +495,13 @@ describe("getContext", () => {
         expect(context.project.technologies).toEqual({ backend: "QUARKUS" })
     })
 
-    it("Given a project with a design system, when the context is read, then it comes back with the credentials of its npmrc masked", async () => {
+    it("Given a project with a design system, when the context is read, then it comes back with its npmrc whole", async () => {
         const designSystem = { packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123" }
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem } as never)
 
         const context = await new ProjectService(aUser()).getContext(projectId)
 
-        expect(context.project.designSystem).toEqual({ packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=***" })
+        expect(context.project.designSystem).toEqual(designSystem)
         expect(context.project.designSystemSource).toBe("project")
         // No frontend focus, no frontend to resolve one for
         expect(context.designSystem).toBeUndefined()
@@ -533,12 +533,12 @@ describe("getContext", () => {
             } as never)
         })
 
-        it("Given a project without its own, when the context is read, then the organization's comes back as the project's, masked", async () => {
+        it("Given a project without its own, when the context is read, then the organization's comes back as the project's, whole", async () => {
             vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId } as never)
 
             const context = await new ProjectService(aUser()).getContext(projectId)
 
-            expect(context.project.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
+            expect(context.project.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" })
             expect(context.project.designSystemSource).toBe("organization")
         })
 
@@ -548,7 +548,7 @@ describe("getContext", () => {
 
             const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
 
-            expect(context.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
+            expect(context.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" })
             expect(context.designSystemSource).toBe("organization")
         })
 

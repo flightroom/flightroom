@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest"
 import Frontend from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
-import { describeDesignSystem, designSystemOf, effectiveDesignSystem, redactDesignSystems, redactNpmrc } from "./DesignSystem"
+import { describeDesignSystem, designSystemOf, designSystemsForMcp, effectiveDesignSystem, NPMRC_USAGE, redactDesignSystems, redactNpmrc } from "./DesignSystem"
 
 describe("redactNpmrc", () => {
     it.each([
@@ -105,6 +105,23 @@ describe("redactDesignSystems", () => {
 
         expect(serialised.organization.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
         expect(serialised.organization.name).toBe("Acme")
+    })
+})
+
+describe("designSystemsForMcp", () => {
+    it("Given a frontend document serialised for an MCP client, when it carries a design system, then its npmrc reaches it whole with how to use it", () => {
+        const npmrc = "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123"
+        const frontend = new Frontend({ slug: "catalog", name: "Catalog", version: "1.0.0", designSystem: { packageName: "@acme/ui", npmrc } })
+
+        const serialised = JSON.parse(JSON.stringify({ ...frontend.toObject(), aiContext: { project: { designSystem: frontend.designSystem } } }, designSystemsForMcp))
+
+        expect(serialised.designSystem).toEqual({ packageName: "@acme/ui", npmrc, npmrcUsage: NPMRC_USAGE })
+        expect(serialised.aiContext.project.designSystem.npmrc).toContain("npm_abc123")
+        expect(serialised.slug).toBe("catalog")
+    })
+
+    it("Given a design system without an npmrc, when serialised for an MCP client, then it gets no usage note", () => {
+        expect(JSON.parse(JSON.stringify({ designSystem: { packageName: "@acme/ui" } }, designSystemsForMcp))).toEqual({ designSystem: { packageName: "@acme/ui" } })
     })
 })
 

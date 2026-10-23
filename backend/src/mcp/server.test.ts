@@ -93,8 +93,8 @@ describe("MCP tool registry", () => {
         expect(registered).not.toContain("console_only_probe")
     })
 
-    it("given the tool handing out the whole npmrc, when read, then it is MCP-only, needs mfe:write and is not read-only to the client", () => {
-        expect(toolNamed("design_system_npmrc_get")).toMatchObject({ scope: MCP_SCOPE_WRITE, mcpOnly: true, annotations: { readOnlyHint: false } })
+    it("given the tool handing out the whole npmrc, when read, then it is MCP-only and read-only, as the npmrc every design system carries", () => {
+        expect(toolNamed("design_system_npmrc_get")).toMatchObject({ scope: MCP_SCOPE_READ, mcpOnly: true, annotations: { readOnlyHint: true } })
     })
 
     it("given the organization tools, when read, then they are read-only and span the shared projects instead of picking one", () => {
