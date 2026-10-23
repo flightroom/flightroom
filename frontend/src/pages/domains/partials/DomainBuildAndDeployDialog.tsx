@@ -37,7 +37,7 @@ const memberState = (member: DomainReleaseMember) => (!member.tagged ? "untouche
 
 /**
  * Builds and deploys the domain in one go: creates the version as {@link DomainBuildButton} does, then the
- * console waits for the CI of every tagged repository, sets that version on their frontends and services and
+ * console waits for the CI of every tagged repository, sets that version on their frontends and backends and
  * deploys the domain to the environment picked. The steps after the build run in the backend: the dialog only
  * follows them, and opened again while a release runs it shows that release instead of the form.
  */
@@ -251,7 +251,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                         <FormProvider {...form}>
                             <form onSubmit={form.handleSubmit(onSubmit)}>
                                 <div className={cn("mt-2 mb-4 space-y-2", submitting && "pointer-events-none opacity-60")}>
-                                    <TextField name="version" label={t("domains.build.version")} placeholder={t("services.build.versionPlaceholder")} required />
+                                    <TextField name="version" label={t("domains.build.version")} placeholder={t("backends.build.versionPlaceholder")} required />
                                     <TextField name="branch" label={t("domains.build.branch")} placeholder="main" />
                                     <p className="text-xs text-foreground-secondary">{t("domains.build.branch_hint")}</p>
                                     <div className="pt-2">
@@ -266,7 +266,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                                         type="submit"
                                         disabled={submitting || !form.formState.isValid || !selected?._id}
                                         loading={submitting}
-                                        loadingLabel={t("services.build.building")}
+                                        loadingLabel={t("backends.build.building")}
                                         dataTestId="domain-build-and-deploy-confirm"
                                     >
                                         <Workflow />

@@ -13,7 +13,7 @@ export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 /** In the first line of every values file the console writes: what tells it from one someone else put there */
 export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: mfe-orchestrator"
 
-/** What a values file is made from: a backend service, or a DOCKER, which runs as a container the same way */
+/** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
 export interface GitOpsApplication {
     slug: string
     /** The latest version the CI registered, or the one set by hand: the tag of the image */
@@ -26,7 +26,7 @@ export interface GitOpsApplication {
     readinessPath?: string
     configMapIds?: unknown[]
     secretIds?: unknown[]
-    /** A backend service or a maintenance agent: each one is a Secret of its own in the configuration repository */
+    /** A backend or a maintenance agent: each one is a Secret of its own in the configuration repository */
     resourceIds?: unknown[]
     /** A maintenance agent only: what its CronJob is made from */
     maintenance?: ApplicationMaintenance
@@ -39,11 +39,12 @@ export interface ApplicationMaintenance {
     schedule?: string | null
     timeZone?: string | null
     runPath: string
-    /** The services and frontends it maintains, handed to the container as MAINTAINED_TARGETS */
+    /** The backends and frontends it maintains, handed to the container as MAINTAINED_TARGETS */
     targets: MaintainedTarget[]
 }
 
 export interface MaintainedTarget {
+    /** "service" for a backend: the name the containers of the agents already read in MAINTAINED_TARGETS */
     kind: "service" | "frontend"
     slug: string
     /** Inside the namespace of the environment, for those that run as a container */

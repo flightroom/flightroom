@@ -29,7 +29,7 @@ project id>`, so two projects with the same slug, in two organizations, never me
 | AppProject | `<project>` | Lets the applications of the project read its two repositories only, and write only to the namespaces of its environments. Namespace is the one cluster-wide kind it may create. |
 | Repository credentials | one per repository | Read-only, over HTTPS. Those of the configuration repository, which holds the secrets in plaintext, are scoped to the AppProject. Those of the applications repository, which holds Helm values only, are global: the git generator of an ApplicationSet reads the repository outside of any AppProject. |
 | ApplicationSet | `<project>.environments` | Lists the environments of the project. Argo CD makes from it an Application per environment, `<project>.<environment>`, syncing the folder `<environment>/` (its `namespace.yaml`, `configMaps/*.yaml` and `secrets/*.yaml`) from the default branch of the configuration repository into the namespace of the environment. Automated, with prune and self-heal. The environments are listed rather than found in the repository: a git generator would read the configuration repository outside of the AppProject, and it holds the secrets. |
-| ApplicationSet | `<project>.<application>` | Only with an applications repository, one per backend service and per frontend that runs as a container, once it has a version and an image: its own, or `<containerRegistry>/<application>` when the project has a container registry. Makes an Application per environment, `<project>.<application>-<environment>`, for every environment whose branch holds `<application>.yaml`, installed with `microservice-chart/` of that branch and `../<application>.yaml` as values file. An environment whose branch does not exist yet is left out of the list: Argo CD fails an ApplicationSet that names a revision it cannot find. Labelled `mfe-orchestrator/application: <application>`. |
+| ApplicationSet | `<project>.<application>` | Only with an applications repository, one per backend and per frontend that runs as a container, once it has a version and an image: its own, or `<containerRegistry>/<application>` when the project has a container registry. Makes an Application per environment, `<project>.<application>-<environment>`, for every environment whose branch holds `<application>.yaml`, installed with `microservice-chart/` of that branch and `../<application>.yaml` as values file. An environment whose branch does not exist yet is left out of the list: Argo CD fails an ApplicationSet that names a revision it cannot find. Labelled `mfe-orchestrator/application: <application>`. |
 
 > **Never put a secret in the Helm values.** The applications repository is registered globally, so
 > every AppProject of the Argo CD instance may read it. Secrets belong in the secrets of the project,
@@ -38,14 +38,14 @@ project id>`, so two projects with the same slug, in two organizations, never me
 Every name fits 63 characters, as Argo CD tracks resources with it in a label: a part that would not fit
 is cut and ends with a hash. The Helm release of an application is its slug, and Helm refuses a release
 name longer than **53 characters**: an application with a longer slug fails to sync, with that error in
-Argo CD. Keep the slugs of services and frontends shorter.
+Argo CD. Keep the slugs of backends and frontends shorter.
 
 Before writing anything, the console checks that every name it is about to take is free or already its
 own, and that no repository it registers is already registered in Argo CD by someone else. An object
 the account of the token may not read counts as taken. Anything taken stops the initialization with
 nothing changed: rename or remove it in Argo CD, then initialize again. Two objects of the project
 that would take the same name stop it too: `orders-api` in `dev` and `orders` in `api-dev` are both
-`<project>.orders-api-dev`, and a service named `environments` would take the ApplicationSet of the
+`<project>.orders-api-dev`, and a backend named `environments` would take the ApplicationSet of the
 environments. Rename one of them.
 
 ### The Namespace is never pruned
@@ -58,7 +58,7 @@ not take them down with it.
 ### The applications are never deleted by their ApplicationSet
 
 Each ApplicationSet carries `syncPolicy.applicationsSync: create-update`: it creates and updates its
-applications, and never deletes one. Were the values file of a service wiped from a branch by mistake,
+applications, and never deletes one. Were the values file of a backend wiped from a branch by mistake,
 its application in that environment would otherwise go with it, and its workloads with it. An
 application whose values file is gone for good is deleted by hand in Argo CD.
 
@@ -76,7 +76,7 @@ data:
 
 Initializing again re-aligns Argo CD with the project: **after adding or deleting an environment, or
 changing the GitOps repositories, initialize again.** Between two initializations every deploy upserts
-the ApplicationSet of each service and frontend, so a service deployed for the first time gets its
+the ApplicationSet of each backend and frontend, so a backend deployed for the first time gets its
 Applications without one. A deploy that cannot align Argo CD still goes through, and why shows in the
 settings, apart from the errors of the initialization; the next deploy that aligns it clears it. A deploy
 does not align while an initialization runs, nor when Argo CD was handed another applications repository
@@ -88,16 +88,16 @@ for dead and the next may start; should the first come back, it stops instead of
 second stored.
 
 - The new environments join the list of `<project>.environments` and of the ApplicationSet of every
-  service and frontend, once their branch exists.
+  backend and frontend, once their branch exists.
 - Those of the environments that no longer exist leave the lists, and Argo CD deletes the Application of
   each: `<project>.environments` has `preserveResourcesOnDeletion`, so what it deployed stays in the
-  cluster until you remove it; the Applications of the services were never deleted by their ApplicationSet
+  cluster until you remove it; the Applications of the backends were never deleted by their ApplicationSet
   and are left, to delete by hand.
-- The ApplicationSet of a service or frontend that no longer exists is deleted, and with it, through their
+- The ApplicationSet of a backend or frontend that no longer exists is deleted, and with it, through their
   owner references, the Applications it generated; their workloads stay, as the generated Applications
   carry no finalizer.
 - The ApplicationSets an earlier version of the console made per environment,
-  `<project>.<environment>.applications`, are deleted the same way once those of the services are in. Only
+  `<project>.<environment>.applications`, are deleted the same way once those of the backends are in. Only
   an initialization does it: until then, a deploy leaves Argo CD as it is. Their
   workloads stay, and the new Applications take them over: the Helm release and the namespace are the same.
 - The Applications an earlier version of the console made itself per environment,
@@ -118,13 +118,13 @@ or Azure DevOps token you pasted is yours to revoke.
 
 ### Maintenance agents
 
-A maintenance agent is deployed like a service, with its values file on the branch of each environment,
+A maintenance agent is deployed like a backend, with its values file on the branch of each environment,
 and gets a CronJob from `templates/cronjob.yaml` of the chart. The template is written as a file of its
 own, so the branches whose chart predates it get it with their next deploy; the rest of the chart is left
 as the team changed it.
 
 - **job**: the CronJob runs the image of the agent, and its Deployment has no replicas.
-- **container**: the Deployment runs as for a service, and the CronJob POSTs to the run path of the agent
+- **container**: the Deployment runs as for a backend, and the CronJob POSTs to the run path of the agent
   (`http://<slug>/run` by default) with `curlimages/curl`.
 
 Without a schedule the CronJob is suspended. Play in the console asks Argo CD to run the `create-job`
@@ -132,8 +132,9 @@ action on it, which creates a Job right away, for both kinds and whatever the sc
 `applications, *, mfe-*/*` below already allows it. An account given narrower rules needs
 `applications, action/batch/CronJob/create-job, mfe-*/*`.
 
-The services and frontends the agent maintains reach its container as JSON in `MAINTAINED_TARGETS`, with
-the URL inside the namespace of those that run as a container.
+The backends and frontends the agent maintains reach its container as JSON in `MAINTAINED_TARGETS`, with
+the URL inside the namespace of those that run as a container. A backend keeps `"kind": "service"` in that
+JSON, the name the containers of the agents already read.
 
 ## Network
 

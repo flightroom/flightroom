@@ -152,7 +152,7 @@ describe("renderApplicationValues, maintenance agent", () => {
         expect(agent({}).env).toEqual([{ name: "MAINTAINED_TARGETS", value: JSON.stringify(targets) }])
     })
 
-    it("given a service, when its values are rendered, then there is no CronJob", () => {
+    it("given a backend, when its values are rendered, then there is no CronJob", () => {
         const values = parse(renderApplicationValues({ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, environment, mapNames))
 
         expect(values.maintenance).toBeUndefined()

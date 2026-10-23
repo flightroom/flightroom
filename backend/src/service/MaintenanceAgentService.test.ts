@@ -20,12 +20,12 @@ vi.mock("./ArgoCdService", () => ({
 }))
 
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
+import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import MaintenanceRun, { MaintenanceRunStatus } from "../models/MaintenanceRunModel"
 import Project from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import { MaintenanceAgentDTO, MaintenanceAgentKind } from "../types/MaintenanceAgent"
 import MaintenanceAgentService from "./MaintenanceAgentService"
 
@@ -66,7 +66,7 @@ describe("MaintenanceAgentService.create", () => {
 
     beforeEach(() => {
         vi.spyOn(MaintenanceAgent, "exists").mockResolvedValue(null)
-        vi.spyOn(Service, "exists").mockResolvedValue(null)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null)
         vi.spyOn(Frontend, "exists").mockResolvedValue(null)
         write = vi.spyOn(MaintenanceAgent, "create").mockImplementation((async (doc: unknown) => doc) as never) as unknown as ReturnType<typeof vi.fn>
     })
@@ -88,17 +88,17 @@ describe("MaintenanceAgentService.create", () => {
         expect(await codeOf(create({ schedule: "0 3 * * *", timeZone: "Mars/Olympus" }))).toBe("MAINTENANCE_AGENT_TIMEZONE_INVALID")
     })
 
-    it("given the slug of a service, when it is created, then it is refused: their values files would be the same", async () => {
-        vi.spyOn(Service, "exists").mockResolvedValue({ _id: new Types.ObjectId() } as never)
+    it("given the slug of a backend, when it is created, then it is refused: their values files would be the same", async () => {
+        vi.spyOn(Backend, "exists").mockResolvedValue({ _id: new Types.ObjectId() } as never)
 
         expect(await codeOf(create())).toBe("MAINTENANCE_AGENT_SLUG_TAKEN")
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("given a service of another project among its targets, when it is created, then it is refused", async () => {
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+    it("given a backend of another project among its targets, when it is created, then it is refused", async () => {
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
 
-        expect(await codeOf(create({ serviceIds: [String(new Types.ObjectId())] }))).toBe("MAINTENANCE_AGENT_TARGET_INVALID")
+        expect(await codeOf(create({ backendIds: [String(new Types.ObjectId())] }))).toBe("MAINTENANCE_AGENT_TARGET_INVALID")
     })
 
     it("given the same frontend twice, when it is created, then it is maintained once", async () => {
@@ -115,16 +115,16 @@ describe("MaintenanceAgentService.update", () => {
     it("given a domain-scoped member, when they save the targets they see, then those of other domains stay", async () => {
         const mine = String(new Types.ObjectId())
         const hidden = new Types.ObjectId()
-        const agent = { _id: new Types.ObjectId(), projectId, name: "Cleaner", serviceIds: [new Types.ObjectId(mine), hidden], frontendIds: [], configMapIds: [], secretIds: [], resourceIds: [] }
+        const agent = { _id: new Types.ObjectId(), projectId, name: "Cleaner", backendIds: [new Types.ObjectId(mine), hidden], frontendIds: [], configMapIds: [], secretIds: [], resourceIds: [] }
         const service = serviceAs()
         vi.spyOn(service as unknown as Internals, "getDomainScope").mockResolvedValue([String(new Types.ObjectId())] as never)
         vi.spyOn(MaintenanceAgent, "findById").mockResolvedValue(agent as never)
-        vi.spyOn(Service, "find").mockResolvedValue([{ _id: hidden }] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([{ _id: hidden }] as never)
         const write = vi.spyOn(MaintenanceAgent, "findByIdAndUpdate").mockResolvedValue(agent as never)
 
-        await service.update(String(agent._id), { serviceIds: [mine] } as MaintenanceAgentDTO)
+        await service.update(String(agent._id), { backendIds: [mine] } as MaintenanceAgentDTO)
 
-        expect((write.mock.calls[0][1] as MaintenanceAgentDTO).serviceIds).toEqual([mine, String(hidden)])
+        expect((write.mock.calls[0][1] as MaintenanceAgentDTO).backendIds).toEqual([mine, String(hidden)])
     })
 })
 

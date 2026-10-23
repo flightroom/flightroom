@@ -5,12 +5,12 @@ vi.mock("..", () => ({
     fastify: { log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }, config: {} }
 }))
 
+import Backend from "../models/BackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import FrontendDeployment from "../models/FrontendDeploymentModel"
 import Frontend, { FrontendKind } from "../models/FrontendModel"
-import Service from "../models/ServiceModel"
 import { ProjectBuildStatusDTO } from "../types/BuildStatusDTO"
 import BuildStatusService from "./BuildStatusService"
 
@@ -28,7 +28,7 @@ describe("BuildStatusService, FRONTEND", () => {
         const shell = { _id: new Types.ObjectId(), projectId, name: "Shell", slug: "shell", kind: FrontendKind.DOCKER, version: "1.4.0" }
         const cart = { _id: new Types.ObjectId(), projectId, name: "Cart", slug: "cart", version: "2.0.0" }
         vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([shell, cart]))
-        vi.spyOn(Service, "find").mockReturnValue(sortedFind([]))
+        vi.spyOn(Backend, "find").mockReturnValue(sortedFind([]))
         vi.spyOn(Environment, "find").mockReturnValue(sortedFind([dev]))
         // Even a DOCKER sits in the snapshot: what it holds there is not what runs
         vi.spyOn(Deployment, "find").mockResolvedValue([{ environmentId: dev._id, frontends: [{ ...shell, version: "0.1.0" }, cart] }] as never)

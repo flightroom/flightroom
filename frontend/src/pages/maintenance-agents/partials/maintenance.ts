@@ -5,10 +5,10 @@ import useMaintenanceAgentsApi, { MaintenanceAgent } from "@/hooks/apiClients/us
 import useProjectStore from "@/store/useProjectStore"
 
 export const MAINTENANCE_LIST_PATH = "/maintenance-agents"
-/** Singular, as for the services: the sidebar lights its item on /maintenance-agent/... too */
+/** Singular, as for the backends: the sidebar lights its item on /maintenance-agent/... too */
 export const maintenanceAgentPath = (id: string) => `/maintenance-agent/${id}`
 
-/** Same rule as the slug of a service: it names the workspace folder and the image */
+/** Same rule as the slug of a backend: it names the workspace folder and the image */
 export const MAINTENANCE_SLUG = /^[a-z0-9][a-z0-9-]{1,49}$/
 
 /** The macros the backend accepts besides the five fields */

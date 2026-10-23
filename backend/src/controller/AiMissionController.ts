@@ -17,7 +17,7 @@ const createBodySchema = {
         mode: { type: "string", enum: ["global", "perRepository"] },
         all: { type: "boolean" },
         frontendIds: ids,
-        serviceIds: ids,
+        backendIds: ids,
         concurrency: { type: "integer", minimum: 1, maximum: 10 },
         effort: { type: "string", enum: LLM_EFFORTS },
         // An id of the organization's AIs, or `system`

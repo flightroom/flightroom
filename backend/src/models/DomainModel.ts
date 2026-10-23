@@ -6,8 +6,8 @@ export const DOMAIN_NAME_MAX_LENGTH = 100
 export const DOMAIN_DESCRIPTION_MAX_LENGTH = 2000
 
 /**
- * A functional domain of a project: a named group of frontends and services. Membership lives
- * on the members (their optional `domainId`), so a frontend or a service is in one domain at most.
+ * A functional domain of a project: a named group of frontends and backends. Membership lives
+ * on the members (their optional `domainId`), so a frontend or a backend is in one domain at most.
  */
 export interface IDomain extends Document<ObjectId> {
     projectId: Schema.Types.ObjectId

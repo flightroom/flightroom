@@ -34,12 +34,13 @@ export const projectWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "
 export const frontendWorkspacePath = (root: string, owner: WorkspaceOwner) => path.join(projectWorkspacePath(root, owner), safeSegment(owner.frontendSlug))
 
 /**
- * `<project folder>/<serviceSlug>.service`. A service may share its slug with a frontend of the
+ * `<project folder>/<backendSlug>.service`. A backend may share its slug with a frontend of the
  * project: the suffix keeps the two clones (and the locks named after their folder) apart, and no
- * frontend folder can end with it since a slug segment holds no dot.
+ * frontend folder can end with it since a slug segment holds no dot. The suffix keeps the name the
+ * entity had before it was called backend: the clones already on disk, with their unpushed changes, live there.
  */
-export const serviceWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "organization" | "project"> & { serviceSlug: string }) =>
-    path.join(projectWorkspacePath(root, owner), `${safeSegment(owner.serviceSlug)}.service`)
+export const backendWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "organization" | "project"> & { backendSlug: string }) =>
+    path.join(projectWorkspacePath(root, owner), `${safeSegment(owner.backendSlug)}.service`)
 
 /** `<project folder>/variables.gitops`: the repository config maps and secrets are committed to. No slug holds a dot, so no component folder can take it. */
 export const gitOpsWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "organization" | "project">) => path.join(projectWorkspacePath(root, owner), "variables.gitops")

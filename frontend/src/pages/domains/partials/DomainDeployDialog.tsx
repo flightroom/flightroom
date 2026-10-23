@@ -12,7 +12,7 @@ import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 /**
- * Deploys one functional domain to the environment picked: only its frontends and services move, the
+ * Deploys one functional domain to the environment picked: only its frontends and backends move, the
  * other domains keep what the environment serves. Without environments there is nothing to deploy to.
  */
 export const DomainDeployButton: React.FC<{ domain: Domain }> = ({ domain }) => {

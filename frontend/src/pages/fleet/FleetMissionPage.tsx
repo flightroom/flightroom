@@ -20,14 +20,14 @@ const RepositoryRow: React.FC<{ repository: AiMissionRepositoryView; missionRunn
     const { t } = useTranslation()
     const openAgentJob = useOpenAgentJob()
     const state = repositoryState(repository, missionRunning)
-    const Icon = repository.kind === "service" ? Server : LayoutDashboard
+    const Icon = repository.kind === "backend" ? Server : LayoutDashboard
 
     return (
         <li className="flex flex-col gap-1 border-b border-divider px-3 py-2.5 last:border-b-0" data-testid={`fleet-repository-${repository.id}`}>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1.5">
                 <span className="flex min-w-0 flex-[1_1_200px] items-center gap-2">
                     <Icon className="size-4 shrink-0 text-foreground-secondary" aria-hidden="true" />
-                    <span className="sr-only">{t(repository.kind === "service" ? "domains.galaxy.kind_service" : "domains.galaxy.kind_frontend")}</span>
+                    <span className="sr-only">{t(repository.kind === "backend" ? "domains.galaxy.kind_backend" : "domains.galaxy.kind_frontend")}</span>
                     <span className="min-w-0 truncate font-medium text-foreground" title={repository.name}>
                         {repository.name}
                     </span>

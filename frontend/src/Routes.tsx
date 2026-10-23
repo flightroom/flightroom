@@ -1,5 +1,5 @@
 import { lazy } from "react"
-import { Navigate, Route, Routes as RRDRoutes } from "react-router-dom"
+import { Navigate, Route, Routes as RRDRoutes, useLocation } from "react-router-dom"
 import Auth0Wrapper from "./authentication/Auth0AuthWrapper"
 import GoogleAuthWrapper from "./authentication/GoogleAuthWrapper"
 import MicrosoftAuthWrapper from "./authentication/MicrosoftAuthWrapper"
@@ -21,9 +21,9 @@ const DomainDeploymentsMatrix = lazy(() => import("./pages/domains/DomainDeploym
 const Frontends = lazy(() => import("./pages/frontends/Frontends"))
 const AddFrontend = lazy(() => import("./pages/frontends/AddFrontend"))
 const FrontendAiWorkspace = lazy(() => import("./pages/frontends/FrontendAiWorkspace"))
-const Services = lazy(() => import("./pages/services/Services"))
-const AddService = lazy(() => import("./pages/services/AddService"))
-const ServiceDetail = lazy(() => import("./pages/services/ServiceDetail"))
+const Backends = lazy(() => import("./pages/backends/Backends"))
+const AddBackend = lazy(() => import("./pages/backends/AddBackend"))
+const BackendDetail = lazy(() => import("./pages/backends/BackendDetail"))
 const MaintenanceAgents = lazy(() => import("./pages/maintenance-agents/MaintenanceAgents"))
 const AddMaintenanceAgent = lazy(() => import("./pages/maintenance-agents/AddMaintenanceAgent"))
 const MaintenanceAgentDetail = lazy(() => import("./pages/maintenance-agents/MaintenanceAgentDetail"))
@@ -108,6 +108,12 @@ const OAuthRoutes: React.FC = () => {
     )
 }
 
+/** The pages of the backends were under /services and /service until the entity was renamed: old links and bookmarks land on the new ones */
+const LegacyBackendRedirect: React.FC = () => {
+    const { pathname, search, hash } = useLocation()
+    return <Navigate to={`${pathname.replace(/^\/services?(?=\/|$)/, match => (match === "/services" ? "/backends" : "/backend"))}${search}${hash}`} replace />
+}
+
 /**
  * The console opens on the AI agent; without an AI provider its page sends on to /frontends.
  * Safety net: a login that lands on "/" instead of the consent page resumes the pending consent.
@@ -139,12 +145,14 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/frontend/new" element={<RouteWithSuspense element={<AddFrontend />} />} />
                 <Route path="/frontend/:id" element={<RouteWithSuspense element={<FrontendAiWorkspace />} />} />
                 <Route path="/frontend/:id/settings" element={<RouteWithSuspense element={<AddFrontend />} />} />
-                <Route path="/services" element={<RouteWithSuspense element={<Services />} />} />
-                <Route path="/service/new" element={<RouteWithSuspense element={<AddService />} />} />
-                <Route path="/service/:id" element={<RouteWithSuspense element={<ServiceDetail view="ai" />} />} />
-                <Route path="/service/:id/ai" element={<RouteWithSuspense element={<ServiceDetail view="ai" />} />} />
-                <Route path="/service/:id/overview" element={<RouteWithSuspense element={<ServiceDetail />} />} />
-                <Route path="/service/:id/settings" element={<RouteWithSuspense element={<AddService />} />} />
+                <Route path="/backends" element={<RouteWithSuspense element={<Backends />} />} />
+                <Route path="/backend/new" element={<RouteWithSuspense element={<AddBackend />} />} />
+                <Route path="/backend/:id" element={<RouteWithSuspense element={<BackendDetail view="ai" />} />} />
+                <Route path="/backend/:id/ai" element={<RouteWithSuspense element={<BackendDetail view="ai" />} />} />
+                <Route path="/backend/:id/overview" element={<RouteWithSuspense element={<BackendDetail />} />} />
+                <Route path="/backend/:id/settings" element={<RouteWithSuspense element={<AddBackend />} />} />
+                <Route path="/services" element={<LegacyBackendRedirect />} />
+                <Route path="/service/*" element={<LegacyBackendRedirect />} />
                 <Route path="/maintenance-agents" element={<RouteWithSuspense element={<MaintenanceAgents />} />} />
                 <Route path="/maintenance-agent/new" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
                 <Route path="/maintenance-agent/:id" element={<RouteWithSuspense element={<MaintenanceAgentDetail />} />} />

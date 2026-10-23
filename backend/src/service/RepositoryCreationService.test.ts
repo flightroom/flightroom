@@ -25,10 +25,10 @@ vi.mock("./TemplateScaffoldService", async importOriginal => ({
 }))
 
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import BaseAuthorizedService from "./BaseAuthorizedService"
@@ -62,7 +62,7 @@ describe("RepositoryCreationService", () => {
         vi.spyOn(UserProject, "findOne").mockImplementation((() => Promise.resolve({ role })) as never)
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId() } as never)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, projectId } as never)
-        for (const model of [Frontend, Service] as const) {
+        for (const model of [Frontend, Backend] as const) {
             vi.spyOn(model as typeof Frontend, "findById").mockImplementation((() => Promise.resolve(member)) as never)
             vi.spyOn(model as typeof Frontend, "findOneAndUpdate").mockImplementation(((filter: Record<string, unknown>, set: Record<string, unknown>) => {
                 if (linkedMeanwhile) return Promise.resolve(null)
@@ -121,7 +121,7 @@ describe("RepositoryCreationService", () => {
     it("given a repository linked by another request meanwhile, when the creation saves, then it is refused as already linked", async () => {
         linkedMeanwhile = true
 
-        await expect(service().createServiceRepository(String(member._id), input({ repositoryName: "checkout-be" }))).rejects.toMatchObject({
+        await expect(service().createBackendRepository(String(member._id), input({ repositoryName: "checkout-be" }))).rejects.toMatchObject({
             code: "REPOSITORY_ALREADY_LINKED",
             statusCode: 409
         })
@@ -138,8 +138,8 @@ describe("RepositoryCreationService", () => {
         expect(saved?.set).not.toHaveProperty("stack")
     })
 
-    it("given a service without a template, when its repository is created, then the default service template is scaffolded with the service placeholders", async () => {
-        await service().createServiceRepository(String(member._id), input({ repositoryName: "checkout-be" }))
+    it("given a backend without a template, when its repository is created, then the default backend template is scaffolded with the backend placeholders", async () => {
+        await service().createBackendRepository(String(member._id), input({ repositoryName: "checkout-be" }))
 
         const [, , slug, template, options] = createRepository.mock.calls[0] as unknown as [unknown, unknown, string, { slug: string }, { placeholders: Record<string, string> }]
         expect(slug).toBe("checkout")
@@ -148,11 +148,11 @@ describe("RepositoryCreationService", () => {
         expect(saved?.set).toMatchObject({ template: "service-node-fastify", stack: { runtime: "NODE", source: "TEMPLATE" } })
     })
 
-    it("given a project whose backend technology is Python, when a service repository is created without a template, then the Python template is scaffolded instead of the default", async () => {
+    it("given a project whose backend technology is Python, when a backend repository is created without a template, then the Python template is scaffolded instead of the default", async () => {
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), technologies: { backend: "PYTHON" } } as never)
         getAll.mockResolvedValue([fastifyTemplate, remote, { slug: "service-python-fastapi", type: "service", framework: "Python", compiler: "docker" }])
 
-        await service().createServiceRepository(String(member._id), input({ repositoryName: "checkout-be" }))
+        await service().createBackendRepository(String(member._id), input({ repositoryName: "checkout-be" }))
 
         expect(saved?.set).toMatchObject({ template: "service-python-fastapi", stack: { runtime: "PYTHON" } })
     })
@@ -175,7 +175,7 @@ describe("RepositoryCreationService", () => {
     it("given a connection of another project, when a repository is created with it, then it is not found", async () => {
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, projectId: new Types.ObjectId() } as never)
 
-        await expect(service().createServiceRepository(String(member._id), input())).rejects.toBeInstanceOf(EntityNotFoundError)
+        await expect(service().createBackendRepository(String(member._id), input())).rejects.toBeInstanceOf(EntityNotFoundError)
         expect(createRepository).not.toHaveBeenCalled()
     })
 
@@ -185,8 +185,8 @@ describe("RepositoryCreationService", () => {
     })
 
     it.each([
-        ["a service", "createServiceRepository", "vite-remote-react", "FRONTEND_TEMPLATE_NOT_ALLOWED"],
-        ["a frontend", "createFrontendRepository", "service-node-fastify", "SERVICE_TEMPLATE_NOT_ALLOWED"]
+        ["a backend", "createBackendRepository", "vite-remote-react", "FRONTEND_TEMPLATE_NOT_ALLOWED"],
+        ["a frontend", "createFrontendRepository", "service-node-fastify", "BACKEND_TEMPLATE_NOT_ALLOWED"]
     ] as const)("given %s, when its repository is created from a template of the other kind, then it is refused", async (_kind, method, template, code) => {
         await expect(service()[method](String(member._id), input({ template }))).rejects.toMatchObject({ code })
         expect(createRepository).not.toHaveBeenCalled()

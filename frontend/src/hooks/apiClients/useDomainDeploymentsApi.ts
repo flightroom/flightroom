@@ -15,8 +15,8 @@ export interface DeployedFrontend {
     canary: { type: CanaryType; deploymentType: CanaryDeploymentType; percentage: number; version: string | null } | null
 }
 
-/** A service of the domain as the active deployment, or else the deploy pipeline, has it for the environment */
-export interface DeployedService {
+/** A backend of the domain as the active deployment, or else the deploy pipeline, has it for the environment */
+export interface DeployedBackend {
     _id: string
     slug: string
     name: string
@@ -30,7 +30,7 @@ export interface EnvironmentDeployment {
     /** The deployment the environment serves, null when nothing was ever deployed there */
     deployment: { deploymentId: string; deployedAt: string } | null
     frontends: DeployedFrontend[]
-    services: DeployedService[]
+    backends: DeployedBackend[]
 }
 
 export interface DomainDeployments {

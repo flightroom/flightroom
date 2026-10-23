@@ -12,7 +12,7 @@ interface DomainHeaderProps {
     active: "ai" | "overview"
 }
 
-/** The header of the domain workspace, in the same frame as those of a frontend and of a service, with the build, the build and deploy, and the deploy of the domain. */
+/** The header of the domain workspace, in the same frame as those of a frontend and of a backend, with the build, the build and deploy, and the deploy of the domain. */
 export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active }) => {
     const { t } = useTranslation()
 

@@ -1,9 +1,9 @@
 import { FrontendFramework } from "./FrontendStack"
 
 /**
- * The backend technologies a project can pick as its default for new services. They name what the
+ * The backend technologies a project can pick as its default for new backends. They name what the
  * team builds with rather than a runtime: Spring Boot, Quarkus and Micronaut all run on Java, but an
- * agent scaffolding a service has to know which one the team expects.
+ * agent scaffolding a backend has to know which one the team expects.
  */
 export enum BackendTechnology {
     NODE = "NODE",
@@ -17,7 +17,7 @@ export enum BackendTechnology {
 
 /**
  * The default technologies of a project, one per side. They guide users and AI agents creating a
- * frontend or a service (the template proposed first, what an agent picks when the user says
+ * frontend or a backend (the template proposed first, what an agent picks when the user says
  * nothing), and never block another choice.
  */
 export interface IProjectTechnologies {
@@ -43,7 +43,7 @@ const BACKEND_TECHNOLOGY_BY_NAME: Record<string, BackendTechnology> = {
 }
 
 /**
- * The service templates and the stacks of the services spell their framework freely ("Node.js",
+ * The backend templates and the stacks of the backends spell their framework freely ("Node.js",
  * "Spring Boot", ".NET"), so it is normalised to compare it with the project's choice. An unknown
  * value is undefined: a template no technology is recognised in matches none.
  */
@@ -83,7 +83,7 @@ export const describeProjectTechnologies = (technologies?: IProjectTechnologies)
     return [
         "<project_technologies>",
         ...lines,
-        "The team chose these as the default technologies of the project: use them for anything new (a frontend, a service, the stack of new code) unless the user explicitly asks for another. An existing repository keeps the stack it is built with.",
+        "The team chose these as the default technologies of the project: use them for anything new (a frontend, a backend, the stack of new code) unless the user explicitly asks for another. An existing repository keeps the stack it is built with.",
         "</project_technologies>"
     ].join("\n")
 }

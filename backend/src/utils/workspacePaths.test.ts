@@ -2,7 +2,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { frontendWorkspacePath, isProtectedPath, isSecretPath, normalizeRelativePath, resolveInsideWorkingCopy, serviceWorkspacePath, WorkspacePathError } from "./workspacePaths"
+import { backendWorkspacePath, frontendWorkspacePath, isProtectedPath, isSecretPath, normalizeRelativePath, resolveInsideWorkingCopy, WorkspacePathError } from "./workspacePaths"
 
 const owner = {
     organization: { slug: "acme", id: "64b000000000000000000001" },
@@ -20,15 +20,15 @@ describe("frontendWorkspacePath", () => {
     })
 })
 
-describe("serviceWorkspacePath", () => {
-    it("Given a service with the slug of a frontend, when the path is built, then the two folders differ", () => {
-        const service = serviceWorkspacePath("/repositories", { ...owner, serviceSlug: "catalog" })
-        expect(service).toBe("/repositories/acme-64b000000000000000000001/portal-64b000000000000000000002/catalog.service")
-        expect(service).not.toBe(frontendWorkspacePath("/repositories", owner))
+describe("backendWorkspacePath", () => {
+    it("Given a backend with the slug of a frontend, when the path is built, then the two folders differ", () => {
+        const backend = backendWorkspacePath("/repositories", { ...owner, backendSlug: "catalog" })
+        expect(backend).toBe("/repositories/acme-64b000000000000000000001/portal-64b000000000000000000002/catalog.service")
+        expect(backend).not.toBe(frontendWorkspacePath("/repositories", owner))
     })
 
     it("Given an unsafe slug, when the path is built, then it is refused", () => {
-        expect(() => serviceWorkspacePath("/repositories", { ...owner, serviceSlug: "../etc" })).toThrow(/workspace folder name/)
+        expect(() => backendWorkspacePath("/repositories", { ...owner, backendSlug: "../etc" })).toThrow(/workspace folder name/)
     })
 })
 

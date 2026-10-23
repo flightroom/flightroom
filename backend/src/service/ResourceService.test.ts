@@ -1,8 +1,8 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import Resource from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { RESOURCE_CATALOG } from "../types/ResourceCatalog"
@@ -408,13 +408,13 @@ describe("ResourceService.update", () => {
         secrets: [{ field: "password", value: "stored-password", overrides: [] }]
     }
     let write: ReturnType<typeof vi.fn>
-    let services: ReturnType<typeof vi.fn>
+    let backends: ReturnType<typeof vi.fn>
 
     beforeEach(() => {
         allowAccess()
         vi.spyOn(Resource, "findById").mockResolvedValue(resource as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
-        services = vi.spyOn(Service, "find").mockResolvedValue([] as never) as unknown as ReturnType<typeof vi.fn>
+        backends = vi.spyOn(Backend, "find").mockResolvedValue([] as never) as unknown as ReturnType<typeof vi.fn>
         write = vi.spyOn(Resource, "findByIdAndUpdate").mockResolvedValue(resource as never) as unknown as ReturnType<typeof vi.fn>
     })
 
@@ -425,11 +425,11 @@ describe("ResourceService.update", () => {
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("given a description only, when it is updated, then neither the environments nor the services are read", async () => {
+    it("given a description only, when it is updated, then neither the environments nor the backends are read", async () => {
         await update({ description: "Main Postgres", type: "database" })
 
         expect(Environment.find).not.toHaveBeenCalled()
-        expect(services).not.toHaveBeenCalled()
+        expect(backends).not.toHaveBeenCalled()
         expect(write.mock.calls[0][1]).toEqual({ $set: { description: "Main Postgres" } })
     })
 
@@ -480,18 +480,18 @@ describe("ResourceService.update", () => {
         expect(write.mock.calls[0][1]).toEqual({ $set: { envPrefix: null } })
     })
 
-    it("given a rename to variables a config map of an attaching service sets, when it is updated, then it is refused and nothing is written", async () => {
-        services.mockResolvedValue([{ name: "Billing API", configMapIds: [configMapId], secretIds: [], resourceIds: [resourceId] }])
+    it("given a rename to variables a config map of an attaching backend sets, when it is updated, then it is refused and nothing is written", async () => {
+        backends.mockResolvedValue([{ name: "Billing API", configMapIds: [configMapId], secretIds: [], resourceIds: [resourceId] }])
         vi.spyOn(ConfigMap, "find").mockResolvedValue([{ _id: configMapId, name: "billing", entries: [{ key: "DB_BILLING_HOST" }] }] as never)
         vi.spyOn(Secret, "find").mockResolvedValue([] as never)
         vi.spyOn(Resource, "find").mockResolvedValue([resource] as never)
 
-        await expect(update({ name: "billing" })).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED", details: { key: "DB_BILLING_HOST", service: "Billing API" } })
+        await expect(update({ name: "billing" })).rejects.toMatchObject({ code: "BACKEND_VARIABLE_KEY_DUPLICATED", details: { key: "DB_BILLING_HOST", backend: "Billing API" } })
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("given a rename no other variable of the attaching services clashes with, when it is updated, then it is written", async () => {
-        services.mockResolvedValue([{ name: "Billing API", configMapIds: [configMapId], secretIds: [], resourceIds: [resourceId] }])
+    it("given a rename no other variable of the attaching backends clashes with, when it is updated, then it is written", async () => {
+        backends.mockResolvedValue([{ name: "Billing API", configMapIds: [configMapId], secretIds: [], resourceIds: [resourceId] }])
         vi.spyOn(ConfigMap, "find").mockResolvedValue([{ _id: configMapId, name: "billing", entries: [{ key: "DB_ORDERS_HOST" }] }] as never)
         vi.spyOn(Secret, "find").mockResolvedValue([] as never)
         vi.spyOn(Resource, "find").mockResolvedValue([resource] as never)
@@ -562,7 +562,7 @@ describe("the API document of a resource", () => {
     beforeEach(() => {
         allowAccess()
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }] as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
     })
 
     it("given a document, when an api is created, then it is written with its size in bytes", async () => {
@@ -660,7 +660,7 @@ describe("a generic resource", () => {
         allowAccess()
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
         vi.spyOn(Resource, "findById").mockResolvedValue(stored as never)
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         create = vi.spyOn(Resource, "create").mockImplementation((async (document: unknown) => document) as never) as unknown as ReturnType<typeof vi.fn>
         write = vi.spyOn(Resource, "findByIdAndUpdate").mockResolvedValue(stored as never) as unknown as ReturnType<typeof vi.fn>
     })
@@ -776,16 +776,16 @@ describe("ResourceService.delete", () => {
         vi.spyOn(Resource, "findById").mockResolvedValue({ _id: resourceId, projectId, name: "orders", type: "database", variant: "credentials" } as never)
     })
 
-    it("given a resource a service attaches, when it is deleted, then it is refused with the service named", async () => {
-        vi.spyOn(Service, "find").mockResolvedValue([{ name: "Orders API" }] as never)
+    it("given a resource a backend attaches, when it is deleted, then it is refused with the backend named", async () => {
+        vi.spyOn(Backend, "find").mockResolvedValue([{ name: "Orders API" }] as never)
         const remove = vi.spyOn(Resource, "findByIdAndDelete")
 
-        await expect(new ResourceService().delete(String(resourceId))).rejects.toMatchObject({ code: "RESOURCE_IN_USE", statusCode: 409, details: { services: ["Orders API"] } })
+        await expect(new ResourceService().delete(String(resourceId))).rejects.toMatchObject({ code: "RESOURCE_IN_USE", statusCode: 409, details: { backends: ["Orders API"] } })
         expect(remove).not.toHaveBeenCalled()
     })
 
-    it("given a resource no service attaches, when it is deleted, then it is gone", async () => {
-        vi.spyOn(Service, "find").mockResolvedValue([] as never)
+    it("given a resource no backend attaches, when it is deleted, then it is gone", async () => {
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         const remove = vi.spyOn(Resource, "findByIdAndDelete").mockResolvedValue(null)
 
         await new ResourceService().delete(String(resourceId))
@@ -801,13 +801,13 @@ describe("domain scope", () => {
     const shared = new Types.ObjectId()
 
     beforeEach(() => {
-        vi.spyOn(Service, "find").mockResolvedValue([
+        vi.spyOn(Backend, "find").mockResolvedValue([
             { domainId: ownDomain, resourceIds: [own, shared] },
             { domainId: otherDomain, resourceIds: [shared] }
         ] as never)
     })
 
-    it("given a resource shared with a service of another domain, when the resources in scope are listed, then only the one of the domain is", async () => {
+    it("given a resource shared with a backend of another domain, when the resources in scope are listed, then only the one of the domain is", async () => {
         expect(await resourceIdsInScope(projectId as never, [String(ownDomain)])).toEqual(new Set([String(own)]))
     })
 
@@ -815,33 +815,33 @@ describe("domain scope", () => {
         await expect(ensureAttachableResources([String(ownDomain)], projectId as never, { resourceIds: [String(shared)] })).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN" })
     })
 
-    it("given a resource the service already attaches, when a domain-scoped member saves it, then nothing is read", async () => {
+    it("given a resource the backend already attaches, when a domain-scoped member saves it, then nothing is read", async () => {
         await ensureAttachableResources([String(ownDomain)], projectId as never, { resourceIds: [String(shared)] }, { resourceIds: [shared] })
 
-        expect(Service.find).not.toHaveBeenCalled()
+        expect(Backend.find).not.toHaveBeenCalled()
     })
 
-    it("given a service attaching a resource the member cannot see, when they save it without, then it stays attached after theirs", async () => {
+    it("given a backend attaching a resource the member cannot see, when they save it without, then it stays attached after theirs", async () => {
         const saved = await withResourcesOutOfScope([String(ownDomain)], projectId as never, { name: "Orders", resourceIds: [] as unknown[] }, { resourceIds: [own, shared] })
 
         // The one they see they may take away; the one shared with another domain stays
         expect(saved).toEqual({ name: "Orders", resourceIds: [shared] })
     })
 
-    it("given no list of resources, or a member of the whole project, when the service is saved, then the list is left as sent and nothing is read", async () => {
+    it("given no list of resources, or a member of the whole project, when the backend is saved, then the list is left as sent and nothing is read", async () => {
         const dto = { resourceIds: [String(own)] }
 
         const withoutList: { name: string; resourceIds?: unknown[] } = { name: "Orders" }
 
         expect(await withResourcesOutOfScope([String(ownDomain)], projectId as never, withoutList, { resourceIds: [shared] })).toEqual({ name: "Orders" })
         expect(await withResourcesOutOfScope(undefined, projectId as never, dto, { resourceIds: [shared] })).toBe(dto)
-        expect(Service.find).not.toHaveBeenCalled()
+        expect(Backend.find).not.toHaveBeenCalled()
     })
 
     it("given a member of the whole project, when resources are attached, then nothing is read", async () => {
         await ensureAttachableResources(undefined, projectId as never, { resourceIds: [String(shared)] })
 
-        expect(Service.find).not.toHaveBeenCalled()
+        expect(Backend.find).not.toHaveBeenCalled()
     })
 
     it("given a domain-scoped member, when a resource shared with another domain is read, then it is forbidden", async () => {

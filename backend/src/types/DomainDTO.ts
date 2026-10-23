@@ -7,10 +7,10 @@ interface DomainDTO {
     context?: string | null
 }
 
-/** Frontends and services of the project to put in a domain */
+/** Frontends and backends of the project to put in a domain */
 export interface DomainMembersDTO {
     frontendIds?: string[]
-    serviceIds?: string[]
+    backendIds?: string[]
 }
 
 /** Why a repository of a domain build was not tagged */
@@ -21,7 +21,7 @@ export interface DomainBuildRepository {
     /** Stable across builds: the connection, the repository id or name, and the GitLab path when there is one */
     id: string
     repository: string
-    members: { kind: "frontend" | "service"; _id: string; name: string }[]
+    members: { kind: "frontend" | "backend"; _id: string; name: string }[]
     /** ready: checked, but left untagged because another repository failed its check */
     status: "tagged" | "ready" | "failed"
     reason?: DomainBuildFailure

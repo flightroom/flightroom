@@ -31,9 +31,9 @@ interface ImportRepositoriesDialogProps {
     onOpenChange: (open: boolean) => void
     /** Code repository connections configured on the project (GitHub account/org, GitLab group, Azure DevOps project). */
     codeRepositories: ICodeRepository[]
-    /** One frontend per repository when omitted, one service otherwise. */
+    /** One frontend per repository when omitted, one backend otherwise. */
     target?: ImportTarget
-    /** The functional domain every imported frontend or service is put in. */
+    /** The functional domain every imported frontend or backend is put in. */
     domainId?: string
 }
 
@@ -43,8 +43,8 @@ export const ImportRepositoriesDialog: React.FC<ImportRepositoriesDialogProps> =
     const notifications = useToastNotificationStore()
     const queryClient = useQueryClient()
     const projectId = useProjectStore().project?._id
-    // Only what names the result differs between frontends and services: the rest of the copy is shared.
-    const targetKeys = target === "service" ? "services.import" : "frontend.import"
+    // Only what names the result differs between frontends and backends: the rest of the copy is shared.
+    const targetKeys = target === "backend" ? "backends.import" : "frontend.import"
 
     const defaultCodeRepositoryId = useMemo(() => codeRepositories.find(repository => repository.default)?._id ?? codeRepositories[0]?._id, [codeRepositories])
 
@@ -109,7 +109,7 @@ export const ImportRepositoriesDialog: React.FC<ImportRepositoriesDialogProps> =
                 notifications.showInfoNotification({ message: t("frontend.import.nothingImported") })
             }
 
-            await queryClient.invalidateQueries({ queryKey: target === "service" ? ["services", projectId] : ["frontends-by-project-id", projectId] })
+            await queryClient.invalidateQueries({ queryKey: target === "backend" ? ["backends", projectId] : ["frontends-by-project-id", projectId] })
             if (domainId) {
                 await queryClient.invalidateQueries({ queryKey: ["domains"] })
             }

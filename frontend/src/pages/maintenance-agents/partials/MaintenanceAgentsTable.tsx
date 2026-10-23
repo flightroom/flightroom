@@ -23,7 +23,7 @@ export const MaintenanceAgentsTable: React.FC<{ agents: MaintenanceAgent[]; onRu
                         <TableHead>{t("maintenance.status.label")}</TableHead>
                         <TableHead>{t("maintenance.targets.title")}</TableHead>
                         <TableHead>{t("maintenance.runs.last_run")}</TableHead>
-                        <TableHead>{t("services.latest_version")}</TableHead>
+                        <TableHead>{t("backends.latest_version")}</TableHead>
                         {onRun && <TableHead className="text-right">{t("common.actions")}</TableHead>}
                     </TableRow>
                 </TableHeader>
@@ -45,7 +45,7 @@ export const MaintenanceAgentsTable: React.FC<{ agents: MaintenanceAgent[]; onRu
                             <TableCell>
                                 <StatusLight status={maintenanceStatusOf(agent, now)} />
                             </TableCell>
-                            <TableCell className="whitespace-nowrap text-foreground-secondary">{agent.serviceIds.length + agent.frontendIds.length}</TableCell>
+                            <TableCell className="whitespace-nowrap text-foreground-secondary">{agent.backendIds.length + agent.frontendIds.length}</TableCell>
                             <TableCell className="whitespace-nowrap text-foreground-secondary">{agent.lastRun ? new Date(agent.lastRun.at).toLocaleString() : "—"}</TableCell>
                             <TableCell>{agent.version ? <Badge>{agent.version}</Badge> : <span className="text-foreground-secondary">—</span>}</TableCell>
                             {onRun && (

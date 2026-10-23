@@ -3,16 +3,16 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainDeploymentsApi from "@/hooks/apiClients/useDomainDeploymentsApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
-import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
 import DomainDeploymentsSection from "./partials/DomainDeploymentsSection"
 import DomainHeader from "./partials/DomainHeader"
 import DomainResourcesSection from "./partials/DomainResourcesSection"
 
-/** What the domain runs and reaches, next to Edit with AI: the versions deployed in each environment, the resources of its services, the AI tokens it spent. */
+/** What the domain runs and reaches, next to Edit with AI: the versions deployed in each environment, the resources of its backends, the AI tokens it spent. */
 const DomainOverview: React.FC = () => {
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
@@ -20,11 +20,11 @@ const DomainOverview: React.FC = () => {
     const domainsApi = useDomainsApi()
     const domainDeploymentsApi = useDomainDeploymentsApi()
     const frontendsApi = useFrontendsApi()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
 
     const domainQuery = useQuery({ queryKey: ["domain", id], queryFn: () => domainsApi.getSingle(id!), enabled: !!id })
     const deploymentsQuery = useQuery({ queryKey: ["domain-deployments", id], queryFn: () => domainDeploymentsApi.getByDomain(id!), enabled: !!id })
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
     // Every frontend of the project, not only the domain's: the DOCKER that serves a bundle may sit in another domain
     const frontendsQuery = useQuery({
         queryKey: ["frontends-by-project-id", projectId],
@@ -33,7 +33,7 @@ const DomainOverview: React.FC = () => {
     })
 
     // Not an ApiStatusHandler: it unmounts its children on every background refetch, and with them an open dialog of the header or of the resources.
-    const queries = [domainQuery, deploymentsQuery, servicesQuery, frontendsQuery]
+    const queries = [domainQuery, deploymentsQuery, backendsQuery, frontendsQuery]
     if (queries.some(query => query.isPending)) {
         return (
             <div className="flex min-h-[200px] items-center justify-center">
@@ -52,13 +52,13 @@ const DomainOverview: React.FC = () => {
         )
     }
 
-    const services = (servicesQuery.data ?? []).filter(service => service.domainId === id && service._id)
+    const backends = (backendsQuery.data ?? []).filter(backend => backend.domainId === id && backend._id)
 
     return (
         <div className="flex min-h-full flex-col gap-6">
             <DomainHeader domain={domainQuery.data} active="overview" />
             {deploymentsQuery.data && <DomainDeploymentsSection deployments={deploymentsQuery.data} frontends={frontendsQuery.data ?? []} />}
-            <DomainResourcesSection services={services} />
+            <DomainResourcesSection backends={backends} />
             <AiUsageSummary target={{ kind: "domain", id: id! }} />
         </div>
     )

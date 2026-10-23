@@ -2,14 +2,14 @@ import { z } from "zod"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import { DOMAIN_DESCRIPTION_MAX_LENGTH, DOMAIN_NAME_MAX_LENGTH } from "../../models/DomainModel"
 import { CONTEXT_MAX_LENGTH } from "../../models/ProjectModel"
+import BackendService from "../../service/BackendService"
 import DomainService from "../../service/DomainService"
 import FrontendService from "../../service/FrontendService"
 import ProjectService from "../../service/ProjectService"
 import { ResourceService } from "../../service/ResourceService"
-import ServiceService from "../../service/ServiceService"
+import { BACKEND_VERSION } from "../../types/BackendStack"
 import DomainDTO from "../../types/DomainDTO"
 import { resourceEnvKeys } from "../../types/ResourceCatalog"
-import { SERVICE_VERSION } from "../../types/ServiceStack"
 import { isValidRefName } from "../../utils/gitRefUtils"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
@@ -30,7 +30,7 @@ const getExisting = async (id: string, { principal }: McpToolContext) => {
     return domain
 }
 
-/** The domain a frontend or a service is put in, for its create and update tools. */
+/** The domain a frontend or a backend is put in, for its create and update tools. */
 export const memberDomainId = objectId("Id of a domain of this project, from domains_list")
     .nullable()
     .optional()
@@ -62,11 +62,11 @@ export const filterByDomain = async <Member extends { domainId?: unknown }>(memb
 }
 
 /**
- * The resources the services of a domain attach, each with the variables it sets and the services using it:
+ * The resources the backends of a domain attach, each with the variables it sets and the backends using it:
  * read only when one of them attaches any, never a value.
  */
-const domainResources = async (services: { slug: string; resourceIds?: unknown[] }[], context: McpToolContext) => {
-    const ids = new Set(services.flatMap(service => (service.resourceIds ?? []).map(String)))
+const domainResources = async (backends: { slug: string; resourceIds?: unknown[] }[], context: McpToolContext) => {
+    const ids = new Set(backends.flatMap(backend => (backend.resourceIds ?? []).map(String)))
     if (ids.size === 0) return []
     const resources = await new ResourceService(context.principal).getByProjectId(context.projectId)
     return resources
@@ -77,7 +77,7 @@ const domainResources = async (services: { slug: string; resourceIds?: unknown[]
             type: resource.type,
             variant: resource.variant,
             env: resourceEnvKeys(resource).map(({ key }) => key),
-            usedBy: services.filter(service => (service.resourceIds ?? []).some(id => String(id) === String(resource._id))).map(service => service.slug)
+            usedBy: backends.filter(backend => (backend.resourceIds ?? []).some(id => String(id) === String(resource._id))).map(backend => backend.slug)
         }))
 }
 
@@ -88,7 +88,7 @@ export const domainTools = [
     defineTool({
         name: "domains_list",
         title: "List domains",
-        description: "The functional domains of the project, by name, each with how many frontends and services (backend) it groups.",
+        description: "The functional domains of the project, by name, each with how many frontends and backends it groups.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,
@@ -98,23 +98,23 @@ export const domainTools = [
         name: "domain_get",
         title: "Get domain",
         description:
-            "One functional domain of the project, with the id, name and slug of each frontend and service in it, the resources its services attach (with the environment variables each sets), and aiContext: what the team wrote for AI agents about the domain, each of its frontends and services, and the project. Follow it when working on the domain.",
+            "One functional domain of the project, with the id, name and slug of each frontend and backend in it, the resources its backends attach (with the environment variables each sets), and aiContext: what the team wrote for AI agents about the domain, each of its frontends and backends, and the project. Follow it when working on the domain.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ domainId }),
         run: async (args, context) => {
             const domain = await getExisting(args.domainId, context)
-            const [frontends, services, aiContext] = await Promise.all([
+            const [frontends, backends, aiContext] = await Promise.all([
                 new FrontendService(context.principal).getByProjectId(context.projectId),
-                new ServiceService(context.principal).getByProjectId(context.projectId),
+                new BackendService(context.principal).getByProjectId(context.projectId),
                 new ProjectService(context.principal).getContext(context.projectId, { domainId: String(domain._id) })
             ])
             const inDomain = (member: { domainId?: unknown }) => matchesDomain(member, String(domain._id))
-            const resources = await domainResources(services.filter(inDomain), context)
+            const resources = await domainResources(backends.filter(inDomain), context)
             return {
                 ...domain.toObject(),
                 frontends: frontends.filter(inDomain).map(toMember),
-                services: services.filter(inDomain).map(toMember),
+                backends: backends.filter(inDomain).map(toMember),
                 ...(resources.length ? { resources } : {}),
                 aiContext
             }
@@ -123,7 +123,7 @@ export const domainTools = [
     defineTool({
         name: "domain_create",
         title: "Create domain",
-        description: "Adds a functional domain to the project, a named group of frontends and services. Put members in it with frontend_update or service_update and its id as domainId.",
+        description: "Adds a functional domain to the project, a named group of frontends and backends. Put members in it with frontend_update or backend_update and its id as domainId.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: z.object({
@@ -156,12 +156,12 @@ export const domainTools = [
         name: "domain_trigger_build",
         title: "Trigger domain build",
         description:
-            "Tags the repository of every frontend and service of the domain with the same version, on the same branch, which starts the CI pipeline of each. A repository shared by members is tagged once. Every repository is checked first (connection, branch, a tag of that version): when one fails, none is tagged and the error lists each. The result tells, per repository, whether it was tagged.",
+            "Tags the repository of every frontend and backend of the domain with the same version, on the same branch, which starts the CI pipeline of each. A repository shared by members is tagged once. Every repository is checked first (connection, branch, a tag of that version): when one fails, none is tagged and the error lists each. The result tells, per repository, whether it was tagged.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         inputSchema: z.object({
             domainId,
-            version: z.string().regex(SERVICE_VERSION, "letters, digits, dots, dashes and underscores, at most 128").describe("Version to tag every repository with, e.g. 1.4.0"),
+            version: z.string().regex(BACKEND_VERSION, "letters, digits, dots, dashes and underscores, at most 128").describe("Version to tag every repository with, e.g. 1.4.0"),
             branch: z.string().refine(isValidRefName, "a valid git branch name, at most 255 characters").optional().describe("Branch to tag in every repository, main when omitted")
         }),
         run: (args, { principal }) => new DomainService(principal).build(args.domainId, args.version, args.branch)
@@ -169,7 +169,7 @@ export const domainTools = [
     defineTool({
         name: "domain_delete",
         title: "Delete domain",
-        description: 'Deletes a functional domain. Its frontends and services are kept: they become "no domain".',
+        description: 'Deletes a functional domain. Its frontends and backends are kept: they become "no domain".',
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
         inputSchema: z.object({ domainId }),

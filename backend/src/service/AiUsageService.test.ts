@@ -2,10 +2,10 @@ import { PipelineStage, Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import UserCannotAccessThisOrganizationError from "../errors/UserCannotAccessThisOrganizationError"
 import AiUsage from "../models/AiUsageModel"
+import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import AiUsageService, { componentPipeline, periodStart, recordAiUsage } from "./AiUsageService"
@@ -144,22 +144,22 @@ describe("AiUsageService", () => {
         const catalogApi = new Types.ObjectId()
         const checkout = new Types.ObjectId()
         const documents = [
-            // A job on two frontends and a service, asked from the checkout domain: a third each.
-            { domainId: checkout, frontendIds: [catalog, cart], serviceIds: [catalogApi], inputTokens: 300, cachedInputTokens: 90, outputTokens: 30, createdAt: new Date("2026-10-20") },
+            // A job on two frontends and a backend, asked from the checkout domain: a third each.
+            { domainId: checkout, frontendIds: [catalog, cart], backendIds: [catalogApi], inputTokens: 300, cachedInputTokens: 90, outputTokens: 30, createdAt: new Date("2026-10-20") },
             // A job on the catalog alone, from the same domain: all of it.
-            { domainId: checkout, frontendIds: [catalog], serviceIds: [], inputTokens: 50, cachedInputTokens: 0, outputTokens: 5, createdAt: new Date("2026-10-21") },
-            // Another domain, on the cart alone: none of the catalog, the service or the checkout domain.
-            { domainId: new Types.ObjectId(), frontendIds: [cart], serviceIds: [], inputTokens: 1_000, cachedInputTokens: 500, outputTokens: 100, createdAt: new Date("2026-10-21") },
-            // The catalog and the service again, but before the last 30 days.
-            { domainId: checkout, frontendIds: [catalog], serviceIds: [catalogApi], inputTokens: 4_000, cachedInputTokens: 0, outputTokens: 400, createdAt: new Date("2026-08-01") }
+            { domainId: checkout, frontendIds: [catalog], backendIds: [], inputTokens: 50, cachedInputTokens: 0, outputTokens: 5, createdAt: new Date("2026-10-21") },
+            // Another domain, on the cart alone: none of the catalog, the backend or the checkout domain.
+            { domainId: new Types.ObjectId(), frontendIds: [cart], backendIds: [], inputTokens: 1_000, cachedInputTokens: 500, outputTokens: 100, createdAt: new Date("2026-10-21") },
+            // The catalog and the backend again, but before the last 30 days.
+            { domainId: checkout, frontendIds: [catalog], backendIds: [catalogApi], inputTokens: 4_000, cachedInputTokens: 0, outputTokens: 400, createdAt: new Date("2026-08-01") }
         ]
 
         it("Given jobs on several repositories, when a frontend's total is computed, then it counts an equal share of each job on it and nothing of the others", () => {
             expect(groupOver(componentPipeline("frontendIds", catalog, "30d"), documents)).toEqual({ inputTokens: 150, cachedInputTokens: 30, outputTokens: 15 })
         })
 
-        it("Given a job on two frontends and a service, when the service's total is computed, then it counts a third", () => {
-            expect(groupOver(componentPipeline("serviceIds", catalogApi, "30d"), documents)).toEqual({ inputTokens: 100, cachedInputTokens: 30, outputTokens: 10 })
+        it("Given a job on two frontends and a backend, when the backend's total is computed, then it counts a third", () => {
+            expect(groupOver(componentPipeline("backendIds", catalogApi, "30d"), documents)).toEqual({ inputTokens: 100, cachedInputTokens: 30, outputTokens: 10 })
         })
 
         it("Given jobs on several repositories, when their domain's total is computed, then the domain counts all of them and nothing of another domain", () => {
@@ -170,7 +170,7 @@ describe("AiUsageService", () => {
             expect(groupOver(componentPipeline("frontendIds", catalog, "all"), documents)).toEqual({ inputTokens: 2_150, cachedInputTokens: 30, outputTokens: 215 })
         })
 
-        it("Given a document with no list of services, when the share is computed, then the missing list counts as empty", () => {
+        it("Given a document with no list of backends, when the share is computed, then the missing list counts as empty", () => {
             expect(groupOver(componentPipeline("frontendIds", catalog, "all"), [{ frontendIds: [catalog, cart], inputTokens: 8, cachedInputTokens: 0, outputTokens: 2 }])).toEqual({
                 inputTokens: 4,
                 cachedInputTokens: 0,
@@ -192,7 +192,7 @@ describe("AiUsageService", () => {
         it("Given the last 30 days, when the pipeline is built, then it matches the id as an ObjectId and the documents from 30 days back", () => {
             const id = new Types.ObjectId()
 
-            expect(matchOf(componentPipeline("serviceIds", String(id), "30d"))).toEqual({ serviceIds: id, createdAt: { $gte: new Date("2026-09-22T10:00:00.000Z") } })
+            expect(matchOf(componentPipeline("backendIds", String(id), "30d"))).toEqual({ backendIds: id, createdAt: { $gte: new Date("2026-09-22T10:00:00.000Z") } })
         })
 
         it("Given all time, when the pipeline is built, then it matches no date", () => {
@@ -202,7 +202,7 @@ describe("AiUsageService", () => {
         })
     })
 
-    describe("forFrontend and forService", () => {
+    describe("forFrontend and forBackend", () => {
         const gate = () => vi.mocked((BaseAuthorizedService.prototype as unknown as WithGates).ensureAccessToProject)
 
         it("Given a frontend whose project the user cannot open, when its usage is asked, then the project of the frontend is checked and nothing is summed", async () => {
@@ -216,13 +216,13 @@ describe("AiUsageService", () => {
             expect(AiUsage.aggregate).not.toHaveBeenCalled()
         })
 
-        it("Given a service whose project the user cannot open, when its usage is asked, then the project of the service is checked and nothing is summed", async () => {
-            const serviceId = new Types.ObjectId()
+        it("Given a backend whose project the user cannot open, when its usage is asked, then the project of the backend is checked and nothing is summed", async () => {
+            const backendId = new Types.ObjectId()
             const ownProject = new Types.ObjectId()
-            vi.spyOn(Service, "findById").mockResolvedValue({ _id: serviceId, projectId: ownProject } as never)
+            vi.spyOn(Backend, "findById").mockResolvedValue({ _id: backendId, projectId: ownProject } as never)
             gate().mockRejectedValue(new Error("not your project"))
 
-            await expect(service().forService(String(serviceId), "30d")).rejects.toThrow("not your project")
+            await expect(service().forBackend(String(backendId), "30d")).rejects.toThrow("not your project")
             expect(gate()).toHaveBeenCalledWith(ownProject)
             expect(AiUsage.aggregate).not.toHaveBeenCalled()
         })
@@ -237,10 +237,10 @@ describe("AiUsageService", () => {
             expect(AiUsage.aggregate).not.toHaveBeenCalled()
         })
 
-        it("Given a service that does not exist, when its usage is asked, then it answers not found", async () => {
-            vi.spyOn(Service, "findById").mockResolvedValue(null as never)
+        it("Given a backend that does not exist, when its usage is asked, then it answers not found", async () => {
+            vi.spyOn(Backend, "findById").mockResolvedValue(null as never)
 
-            await expect(service().forService(String(new Types.ObjectId()), "30d")).rejects.toMatchObject({ statusCode: 404 })
+            await expect(service().forBackend(String(new Types.ObjectId()), "30d")).rejects.toMatchObject({ statusCode: 404 })
             expect(AiUsage.aggregate).not.toHaveBeenCalled()
         })
     })

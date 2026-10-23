@@ -1,6 +1,6 @@
+import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import type { Market } from "@/hooks/apiClients/useMarketApi"
-import type { Service } from "@/hooks/apiClients/useServicesApi"
 
 /** Le tecnologie di default che un progetto puo' scegliere: stessi valori dell'API */
 export const FRONTEND_TECHNOLOGIES = ["REACT", "VUE", "ANGULAR"] as const
@@ -64,17 +64,17 @@ export const frontendTechnologyOf = (frontend: Pick<Frontend, "stack">): Fronten
 /** Dal framework rilevato, altrimenti dal runtime: JAVA da solo non dice se e' Spring Boot, Quarkus o Micronaut */
 const RUNTIME_TECHNOLOGIES: Partial<Record<string, BackendTechnology>> = { NODE: "NODE", PYTHON: "PYTHON", GO: "GO", DOTNET: "DOTNET" }
 
-export const backendTechnologyOf = (service: Pick<Service, "stack">): BackendTechnology | undefined => {
-    const technology = normalizeTechnology(service.stack?.framework)
+export const backendTechnologyOf = (backend: Pick<Backend, "stack">): BackendTechnology | undefined => {
+    const technology = normalizeTechnology(backend.stack?.framework)
     if (isBackendTechnology(technology)) return technology
-    return service.stack?.runtime ? RUNTIME_TECHNOLOGIES[service.stack.runtime] : undefined
+    return backend.stack?.runtime ? RUNTIME_TECHNOLOGIES[backend.stack.runtime] : undefined
 }
 
 /** Un template di servizio porta una tecnologia backend, gli altri (remote, host) una frontend */
 export const technologyOfMarket = (market: Pick<Market, "framework" | "type">): Technology | undefined => {
     const technology = normalizeTechnology(market.framework)
-    const isService = market.type?.trim().toLowerCase() === "service"
-    return (isService ? isBackendTechnology(technology) : isFrontendTechnology(technology)) ? technology : undefined
+    const isBackend = market.type?.trim().toLowerCase() === "service"
+    return (isBackend ? isBackendTechnology(technology) : isFrontendTechnology(technology)) ? technology : undefined
 }
 
 /** Il template usa la tecnologia di default del progetto per il suo tipo */

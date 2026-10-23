@@ -12,6 +12,7 @@ import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
+import Backend from "../models/BackendModel"
 import BuiltFrontend, { IBuiltFrontend } from "../models/BuiltFrontendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import { CONTAINER_DEFAULTS } from "../models/ContainerFields"
@@ -19,17 +20,16 @@ import FrontendDeployment from "../models/FrontendDeploymentModel"
 import Frontend, { FrontendKind, HostedOn, IFrontend, IHostFrontend } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { IProject } from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import Storage, { StorageType } from "../models/StorageModel"
+import { isBackendTemplateType } from "../types/BackendStack"
 import { designSystemOf } from "../types/DesignSystem"
 import FrontendDTO from "../types/FrontendDTO"
 import { FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
-import { isServiceTemplateType } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
+import { ensurePlainFields, imageRepositoryOf, isNewerVersion, parseRegistration, withManualVersion, withNormalizedReferences } from "./BackendService"
 import BaseAuthorizedService, { domainScopeForbidden, ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged, isInDomainScope } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
-import { ensurePlainFields, imageRepositoryOf, isNewerVersion, parseRegistration, withManualVersion, withNormalizedReferences } from "./ServiceService"
 import TemplateScaffoldService from "./TemplateScaffoldService"
 import { ensureAttachableMaps } from "./VariableMapService"
 import { forgetFrontends } from "./workspace/workspaceCleanup"
@@ -67,7 +67,7 @@ const ensureDockerHasNoParents = (kind: FrontendKind | undefined, parentIds: unk
 /** Matches a document with no parents: what a write making it a DOCKER requires of what is stored at that moment */
 const WITHOUT_PARENTS = { $or: [{ parentIds: { $exists: false } }, { parentIds: { $size: 0 } }] }
 
-/** The service defaults a DOCKER gets for what neither the caller nor what is stored says */
+/** The backend defaults a DOCKER gets for what neither the caller nor what is stored says */
 const withDockerDefaults = <T extends Pick<FrontendDTO, "kind" | "port" | "livenessPath" | "readinessPath">>(fields: T, existing?: IFrontend): T => {
     if ((fields.kind ?? existing?.kind) !== FrontendKind.DOCKER) return fields
     return {
@@ -99,12 +99,12 @@ export class FrontendService extends BaseAuthorizedService {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
 
-        // Resources go to backend services only: a DOCKER shares their container fields, not those
+        // Resources go to backends only: a DOCKER shares their container fields, not those
         const { resourceIds: _resourceIds, ...dto } = body as FrontendDTO & { resourceIds?: unknown }
         ensurePlainFields(dto, "FRONTEND_INVALID")
         ensureValidKind(dto.kind)
         ensureDockerHasNoParents(dto.kind, dto.parentIds, dto.slug)
-        // The version of a DOCKER is the tag of its image, as for a service; a BUNDLE's names an uploaded bundle
+        // The version of a DOCKER is the tag of its image, as for a backend; a BUNDLE's names an uploaded bundle
         const frontend = withDockerDefaults(await withNormalizedReferences(dto.kind === FrontendKind.DOCKER ? withManualVersion(dto) : dto, projectIdObj))
 
         // Checked before the repository is created, as the domain and the slug below
@@ -120,7 +120,7 @@ export class FrontendService extends BaseAuthorizedService {
         await this.ensureReferencesInScope(projectIdObj, scope, frontend)
         await ensureAttachableMaps(scope, projectIdObj, frontend)
         ensureOnlyNewRepositoryLinked(scope, frontend.codeRepository)
-        // A DOCKER starts without one, like a service: its first registered version sets it
+        // A DOCKER starts without one, like a backend: its first registered version sets it
         if (dto.kind !== FrontendKind.DOCKER && (typeof dto.version !== "string" || !dto.version.trim())) {
             throw createBusinessException({ code: "BUNDLE_VERSION_REQUIRED", message: "A BUNDLE frontend needs a version" })
         }
@@ -139,7 +139,7 @@ export class FrontendService extends BaseAuthorizedService {
 
         if (frontend.codeRepository && frontend.codeRepository.enabled) {
             const codeRepository = await CodeRepository.findById(frontend.codeRepository.codeRepositoryId)
-            // A connection of another project would lend this one its access token, as for a service
+            // A connection of another project would lend this one its access token, as for a backend
             if (!codeRepository || String(codeRepository.projectId) !== String(projectIdObj)) {
                 throw new EntityNotFoundError(String(frontend.codeRepository.codeRepositoryId))
             }
@@ -148,12 +148,12 @@ export class FrontendService extends BaseAuthorizedService {
                 await this.ensureNotViewer(projectIdObj, { code: "REPOSITORY_CREATE_FORBIDDEN", message: "A viewer cannot create a code repository" })
                 const template = frontend.codeRepository.createData.template ? await new MarketService().getSingle(frontend.codeRepository.createData.template) : null
 
-                // Checked before anything is created at the provider: a service template scaffolds a
+                // Checked before anything is created at the provider: a backend template scaffolds a
                 // Docker image, which nothing can load as a frontend
-                if (template && isServiceTemplateType(template.type)) {
+                if (template && isBackendTemplateType(template.type)) {
                     throw createBusinessException({
-                        code: "SERVICE_TEMPLATE_NOT_ALLOWED",
-                        message: `"${template.slug}" is a backend service template: create a service from it, not a frontend`
+                        code: "BACKEND_TEMPLATE_NOT_ALLOWED",
+                        message: `"${template.slug}" is a backend template: create a backend from it, not a frontend`
                     })
                 }
 
@@ -183,11 +183,11 @@ export class FrontendService extends BaseAuthorizedService {
     }
 
     /**
-     * A domain-scoped member references only the frontends and services they can see, as setRelation
-     * and linkService require: a parent or a service of another domain given in the body would tie theirs to
+     * A domain-scoped member references only the frontends and backends they can see, as setRelation
+     * and linkBackend require: a parent or a backend of another domain given in the body would tie theirs to
      * something out of their reach. The references already stored stay, whoever added them.
      */
-    private async ensureReferencesInScope(projectId: Schema.Types.ObjectId, scope: string[] | undefined, fields: { parentIds?: unknown; serviceIds?: unknown }, existing?: IFrontend) {
+    private async ensureReferencesInScope(projectId: Schema.Types.ObjectId, scope: string[] | undefined, fields: { parentIds?: unknown; backendIds?: unknown }, existing?: IFrontend) {
         if (!scope) return
         const added = (given: unknown, stored: unknown[] = []) => {
             if (given === undefined || given === null) return []
@@ -195,14 +195,14 @@ export class FrontendService extends BaseAuthorizedService {
             return [...new Set((Array.isArray(given) ? given : [given]).map(String))].filter(id => !kept.has(id))
         }
         const parentIds = added(fields.parentIds, existing?.parentIds)
-        const serviceIds = added(fields.serviceIds, existing?.serviceIds)
+        const backendIds = added(fields.backendIds, existing?.backendIds)
         const ofProject = (ids: string[]) => ({ _id: { $in: ids.map(id => toObjectId(id)) }, projectId })
         const referenced = [
             ...(parentIds.length > 0 ? await Frontend.find(ofProject(parentIds), { domainId: 1 }) : []),
-            ...(serviceIds.length > 0 ? await Service.find(ofProject(serviceIds), { domainId: 1 }) : [])
+            ...(backendIds.length > 0 ? await Backend.find(ofProject(backendIds), { domainId: 1 }) : [])
         ]
         // One not found is of another project or deleted: as much out of their reach
-        if (referenced.length !== parentIds.length + serviceIds.length || referenced.some(component => !isInDomainScope(scope, component.domainId))) {
+        if (referenced.length !== parentIds.length + backendIds.length || referenced.some(component => !isInDomainScope(scope, component.domainId))) {
             throw domainScopeForbidden()
         }
     }
@@ -231,7 +231,7 @@ export class FrontendService extends BaseAuthorizedService {
         await this.ensureAccessToFrontend(frontend)
 
         // Never moved to another project, nor given another identity, through an update: the slug is
-        // in the upload URL the CI of the repository calls, as for a service. Nor given resources, which go to backend services only
+        // in the upload URL the CI of the repository calls, as for a backend. Nor given resources, which go to backends only
         const {
             _id: _mongoId,
             projectId: _projectId,
@@ -244,7 +244,7 @@ export class FrontendService extends BaseAuthorizedService {
         const kind = fields.kind ?? frontend.kind
         // Both sides of the rule can change here: parents given to a DOCKER, or a frontend with parents made one
         ensureDockerHasNoParents(kind, fields.parentIds ?? frontend.parentIds, frontend.slug)
-        // The version of a DOCKER is the tag of its image, as for a service; a BUNDLE's names an uploaded bundle
+        // The version of a DOCKER is the tag of its image, as for a backend; a BUNDLE's names an uploaded bundle
         const checked = kind === FrontendKind.DOCKER ? withManualVersion(fields) : fields
         const allowed: Partial<FrontendDTO> & Record<string, unknown> = withDockerDefaults(await withNormalizedReferences(checked, frontend.projectId, frontend), frontend)
         // The orchestrator draws no canary for a DOCKER: one left enabled would only mislead the console
@@ -502,7 +502,7 @@ export class FrontendService extends BaseAuthorizedService {
 
     /**
      * Called by the CI of a DOCKER with the deploy API key once the image of `version` is pushed, as
-     * for a service: registering the same version again replaces what was stored for it, the DOCKER
+     * for a backend: registering the same version again replaces what was stored for it, the DOCKER
      * moves to `version` only when it is newer and learns its image repository from the first
      * registration. A BUNDLE uploads its bundle instead. MANAGER keys only.
      */
@@ -512,7 +512,7 @@ export class FrontendService extends BaseAuthorizedService {
         }
         const registration = parseRegistration(body)
         if (typeof version !== "string" || !version.trim()) {
-            throw createBusinessException({ code: "SERVICE_VERSION_INVALID", message: "The version is required" })
+            throw createBusinessException({ code: "BACKEND_VERSION_INVALID", message: "The version is required" })
         }
 
         const project = await Project.findById(projectId)
@@ -556,7 +556,7 @@ export class FrontendService extends BaseAuthorizedService {
             built = await upsert()
         }
 
-        // Compare and set on the version that was read, as for a service: two pipelines finishing
+        // Compare and set on the version that was read, as for a backend: two pipelines finishing
         // together cannot move the DOCKER back to the older of the two
         let current: IFrontend | null = frontend
         for (let attempt = 0; current && attempt < 3; attempt++) {
@@ -612,32 +612,32 @@ export class FrontendService extends BaseAuthorizedService {
         return await remote.save()
     }
 
-    /** Links a backend service the frontend calls: both must belong to the same project. */
-    async linkService(frontendId: string, serviceId: string): Promise<IFrontend> {
+    /** Links a backend the frontend calls: both must belong to the same project. */
+    async linkBackend(frontendId: string, backendId: string): Promise<IFrontend> {
         const frontend = await this.getById(frontendId)
         if (!frontend) {
             throw new EntityNotFoundError(frontendId)
         }
-        const service = await Service.findById(toObjectId(serviceId))
-        if (!service || service.projectId.toString() !== frontend.projectId.toString()) {
-            throw new EntityNotFoundError(serviceId)
+        const backend = await Backend.findById(toObjectId(backendId))
+        if (!backend || backend.projectId.toString() !== frontend.projectId.toString()) {
+            throw new EntityNotFoundError(backendId)
         }
-        // A domain-scoped member links only services they can see
-        await this.ensureInDomainScope(service.projectId, service.domainId)
+        // A domain-scoped member links only backends they can see
+        await this.ensureInDomainScope(backend.projectId, backend.domainId)
 
-        if (!frontend.serviceIds?.some(id => id.toString() === service._id.toString())) {
-            frontend.serviceIds = [...(frontend.serviceIds ?? []), service._id]
+        if (!frontend.backendIds?.some(id => id.toString() === backend._id.toString())) {
+            frontend.backendIds = [...(frontend.backendIds ?? []), backend._id]
         }
         return await frontend.save()
     }
 
-    /** No check on the service: a link to a service deleted since must still be removable. */
-    async unlinkService(frontendId: string, serviceId: string): Promise<IFrontend> {
+    /** No check on the backend: a link to a backend deleted since must still be removable. */
+    async unlinkBackend(frontendId: string, backendId: string): Promise<IFrontend> {
         const frontend = await this.getById(frontendId)
         if (!frontend) {
             throw new EntityNotFoundError(frontendId)
         }
-        frontend.serviceIds = (frontend.serviceIds ?? []).filter(id => id.toString() !== serviceId)
+        frontend.backendIds = (frontend.backendIds ?? []).filter(id => id.toString() !== backendId)
         return await frontend.save()
     }
 

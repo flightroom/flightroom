@@ -20,10 +20,10 @@ export const MISSIONS_POLL_INTERVAL_MS = 5000
 export interface AiMissionCreateInput {
     prompt: string
     mode: AiMissionMode
-    /** Every frontend and service with a linked repository: the ids are then left out. */
+    /** Every frontend and backend with a linked repository: the ids are then left out. */
     all?: boolean
     frontendIds?: string[]
-    serviceIds?: string[]
+    backendIds?: string[]
     /** Only in per repository mode. */
     concurrency?: number
     effort?: LlmEffort
@@ -32,7 +32,7 @@ export interface AiMissionCreateInput {
 
 /** One repository of the mission and what its job did so far. */
 export interface AiMissionRepositoryView {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     id: string
     name: string
     domainId?: string
@@ -83,9 +83,9 @@ export interface AiMissionView {
     updatedAt: string
 }
 
-/** A frontend or a service the current user may start a mission on. */
+/** A frontend or a backend the current user may start a mission on. */
 export interface AiMissionRepositoryOption {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     id: string
     name: string
     domainId?: string

@@ -1,26 +1,26 @@
 import { isValidObjectId, ObjectId, Schema } from "mongoose"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
-import BuiltService, { IBuiltService } from "../models/BuiltServiceModel"
+import BackendDeployment from "../models/BackendDeploymentModel"
+import Backend from "../models/BackendModel"
+import BuiltBackend, { IBuiltBackend } from "../models/BuiltBackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import MaintenanceAgent, { IMaintenanceAgent } from "../models/MaintenanceAgentModel"
 import MaintenanceRun, { IMaintenanceRun, MaintenanceRunStatus } from "../models/MaintenanceRunModel"
 import Project from "../models/ProjectModel"
-import ServiceDeployment from "../models/ServiceDeploymentModel"
-import Service from "../models/ServiceModel"
+import { BACKEND_SLUG, BACKEND_VERSION, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { canonicalTimeZone, isValidSchedule, MaintenanceAgentDTO, MaintenanceAgentKind } from "../types/MaintenanceAgent"
-import { isServiceTemplateType, parseRuntime, SERVICE_SLUG, SERVICE_VERSION } from "../types/ServiceStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
+import { withManualVersion, withNormalizedReferences } from "./BackendService"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import { isDeployable } from "./gitops/applicationManifests"
 import MarketService from "./MarketService"
 import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
-import { withManualVersion, withNormalizedReferences } from "./ServiceService"
 import TemplateScaffoldService, { placeholderDomain } from "./TemplateScaffoldService"
 import { ensureAttachableMaps } from "./VariableMapService"
 
@@ -33,15 +33,15 @@ const invalid = (code: string, message: string, statusCode?: number) => createBu
 
 /**
  * The slug names the repository folder, the CI registration URL and the values file in the GitOps repository,
- * where it sits next to those of the services and the frontends: none of them may have it already.
+ * where it sits next to those of the backends and the frontends: none of them may have it already.
  */
 const ensureSlugFree = async (slug: string, projectId: Schema.Types.ObjectId) => {
-    if (!SERVICE_SLUG.test(slug)) {
+    if (!BACKEND_SLUG.test(slug)) {
         throw invalid("MAINTENANCE_AGENT_SLUG_INVALID", `"${slug}" is not a valid slug: 2 to 50 lowercase letters, digits or dashes, not starting with a dash`)
     }
-    const taken = (await MaintenanceAgent.exists({ slug, projectId })) || (await Service.exists({ slug, projectId })) || (await Frontend.exists({ slug, projectId }))
+    const taken = (await MaintenanceAgent.exists({ slug, projectId })) || (await Backend.exists({ slug, projectId })) || (await Frontend.exists({ slug, projectId }))
     if (taken) {
-        throw invalid("MAINTENANCE_AGENT_SLUG_TAKEN", `A maintenance agent, a service or a frontend with slug "${slug}" already exists in this project`, 409)
+        throw invalid("MAINTENANCE_AGENT_SLUG_TAKEN", `A maintenance agent, a backend or a frontend with slug "${slug}" already exists in this project`, 409)
     }
 }
 
@@ -71,7 +71,7 @@ export const withNormalizedRunning = <T extends Pick<MaintenanceAgentDTO, "kind"
 
 const uniqueIds = (ids: unknown): string[] | undefined => {
     if (ids === undefined) return undefined
-    if (!Array.isArray(ids)) throw invalid("MAINTENANCE_AGENT_TARGET_INVALID", "The services and the frontends it maintains are lists of ids")
+    if (!Array.isArray(ids)) throw invalid("MAINTENANCE_AGENT_TARGET_INVALID", "The backends and the frontends it maintains are lists of ids")
     return [...new Set(ids.map(String))]
 }
 
@@ -100,30 +100,30 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
     }
 
     /**
-     * The services and the frontends it maintains, each of the project and, for a domain-scoped member, in their
+     * The backends and the frontends it maintains, each of the project and, for a domain-scoped member, in their
      * domains: an agent of theirs must not reach into the containers of another domain. Those it maintains already
      * stay, and those out of their reach are put back: their console never lists them, so it cannot send them.
      */
-    private async withCheckedTargets<T extends Pick<MaintenanceAgentDTO, "serviceIds" | "frontendIds">>(fields: T, projectId: Schema.Types.ObjectId, existing?: IMaintenanceAgent): Promise<T> {
+    private async withCheckedTargets<T extends Pick<MaintenanceAgentDTO, "backendIds" | "frontendIds">>(fields: T, projectId: Schema.Types.ObjectId, existing?: IMaintenanceAgent): Promise<T> {
         const checked = { ...fields }
         const scope = await this.getDomainScope(projectId)
         for (const [field, model] of [
-            ["serviceIds", Service],
+            ["backendIds", Backend],
             ["frontendIds", Frontend]
         ] as const) {
             const ids = uniqueIds(checked[field])
             if (ids === undefined) continue
             const kept = new Set((existing?.[field] ?? []).map(String))
             if (scope && kept.size > 0) {
-                const hidden = await (model as typeof Service).find({ _id: { $in: [...kept].map(toObjectId) }, domainId: { $nin: scope.map(toObjectId) } }, { _id: 1 })
+                const hidden = await (model as typeof Backend).find({ _id: { $in: [...kept].map(toObjectId) }, domainId: { $nin: scope.map(toObjectId) } }, { _id: 1 })
                 for (const target of hidden) if (!ids.includes(String(target._id))) ids.push(String(target._id))
             }
             const added = ids.filter(id => !kept.has(id))
             checked[field] = ids
             if (added.length === 0) continue
-            const targets = await (model as typeof Service).find({ _id: { $in: added.map(toObjectId) }, projectId }, { domainId: 1 })
+            const targets = await (model as typeof Backend).find({ _id: { $in: added.map(toObjectId) }, projectId }, { domainId: 1 })
             if (targets.length !== added.length) {
-                throw invalid("MAINTENANCE_AGENT_TARGET_INVALID", `Some of the ${field === "serviceIds" ? "services" : "frontends"} it maintains are not of this project`)
+                throw invalid("MAINTENANCE_AGENT_TARGET_INVALID", `Some of the ${field === "backendIds" ? "backends" : "frontends"} it maintains are not of this project`)
             }
             for (const target of targets) await this.ensureInDomainScope(projectId, target.domainId)
         }
@@ -141,7 +141,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
         if (agent.domainId !== undefined) {
             agent.domainId = await resolveDomainId(agent.domainId, projectIdObj)
         }
-        // As for a service: a domain-scoped member creates only inside their domains
+        // As for a backend: a domain-scoped member creates only inside their domains
         await this.ensureInDomainScope(projectIdObj, agent.domainId)
         const scope = await this.getDomainScope(projectIdObj)
         await ensureAttachableMaps(scope, projectIdObj, agent)
@@ -166,12 +166,12 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
             const createData = agent.codeRepository.createData
             if (createData) {
                 await this.ensureNotViewer(projectIdObj, { code: "REPOSITORY_CREATE_FORBIDDEN", message: "A viewer cannot create a code repository" })
-                // Scaffolded from the templates of the backend services: an agent is a container built the same way
+                // Scaffolded from the templates of the backends: an agent is a container built the same way
                 const template = createData.template ? await new MarketService().getSingle(createData.template) : null
                 if (createData.template && !template) {
                     throw invalid("TEMPLATE_NOT_FOUND", `There is no template "${createData.template}"`)
                 }
-                if (template && !isServiceTemplateType(template.type)) {
+                if (template && !isBackendTemplateType(template.type)) {
                     throw invalid("FRONTEND_TEMPLATE_NOT_ALLOWED", `"${template.slug}" is a frontend template: a maintenance agent is made from a backend one`)
                 }
 
@@ -180,7 +180,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
                 })
 
                 if (template) {
-                    const defaults = template.serviceDefaults
+                    const defaults = template.backendDefaults
                     if (defaults) {
                         agent.port ??= defaults.port
                         agent.livenessPath ??= defaults.livenessPath
@@ -200,7 +200,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
     async update(id: string | ObjectId, updates: MaintenanceAgentDTO): Promise<IMaintenanceAgent | null> {
         const agent = await this.getExisting(id)
 
-        // The slug is in the registration URL its CI calls and names its values file: fixed, as for a service
+        // The slug is in the registration URL its CI calls and names its values file: fixed, as for a backend
         const {
             id: _id,
             _id: _mongoId,
@@ -242,25 +242,25 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
 
     async delete(id: string | ObjectId): Promise<IMaintenanceAgent | null> {
         const agent = await this.getExisting(id)
-        await BuiltService.deleteMany({ serviceId: agent._id })
-        await ServiceDeployment.deleteMany({ serviceId: agent._id })
+        await BuiltBackend.deleteMany({ backendId: agent._id })
+        await BackendDeployment.deleteMany({ backendId: agent._id })
         await MaintenanceRun.deleteMany({ agentId: agent._id })
         return await MaintenanceAgent.findByIdAndDelete(agent._id)
     }
 
-    /** Registered versions, newest first: its CI registers them as a service's, see registerVersionWithPermissionCheck */
-    async getVersionsById(id: string): Promise<IBuiltService[]> {
+    /** Registered versions, newest first: its CI registers them as a backend's, see registerVersionWithPermissionCheck */
+    async getVersionsById(id: string): Promise<IBuiltBackend[]> {
         const agent = await this.getExisting(id)
-        return await BuiltService.find({ serviceId: agent._id }).sort({ createdAt: -1 })
+        return await BuiltBackend.find({ backendId: agent._id }).sort({ createdAt: -1 })
     }
 
     /** Tags the repository with `version`: the tag starts the pipeline that builds and pushes the image */
     async build(id: string, version: string, branch?: string): Promise<void> {
-        if (typeof version !== "string" || !SERVICE_VERSION.test(version)) {
-            throw invalid("SERVICE_VERSION_INVALID", "The version may hold only letters, digits, dots, dashes and underscores (at most 128)")
+        if (typeof version !== "string" || !BACKEND_VERSION.test(version)) {
+            throw invalid("BACKEND_VERSION_INVALID", "The version may hold only letters, digits, dots, dashes and underscores (at most 128)")
         }
         const agent = await this.getExisting(id)
-        await this.ensureNotViewer(agent.projectId, { code: "SERVICE_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a maintenance agent" })
+        await this.ensureNotViewer(agent.projectId, { code: "BACKEND_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a maintenance agent" })
         await new TemplateScaffoldService(this.user).createTag(agent.codeRepository, agent.projectId, version, branch)
     }
 

@@ -9,22 +9,22 @@ import ProjectService from "../../service/ProjectService"
 import RepositoryRenameService, { isValidRepositoryName } from "../../service/RepositoryRenameService"
 import StackDetectionService from "../../service/StackDetectionService"
 import { StorageService } from "../../service/StorageService"
+import { BACKEND_HTTP_PATH } from "../../types/BackendStack"
 import { DESIGN_SYSTEM_MAX_LENGTH, NPM_PACKAGE_NAME } from "../../types/DesignSystem"
 import { isExposurePath } from "../../types/Exposure"
 import FrontendDTO from "../../types/FrontendDTO"
 import { FrontendCompiler, FrontendFramework } from "../../types/FrontendStack"
-import { SERVICE_HTTP_PATH } from "../../types/ServiceStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
 
 const frontendId = objectId("Id of the frontend")
 
-const httpPath = z.string().regex(SERVICE_HTTP_PATH, 'starts with "/", at most 256 characters, no whitespace')
+const httpPath = z.string().regex(BACKEND_HTTP_PATH, 'starts with "/", at most 256 characters, no whitespace')
 
 /**
- * The fields of what runs as a container of its own: a backend service, and a frontend of kind
- * DOCKER. Here rather than in serviceTools, which already imports this module.
+ * The fields of what runs as a container of its own: a backend, and a frontend of kind
+ * DOCKER. Here rather than in backendTools, which already imports this module.
  */
 export const containerFields = {
     image: z
@@ -61,12 +61,12 @@ export const containerFields = {
         .array(objectId("Id of a config map of the project, from config_maps_list"))
         .max(50)
         .optional()
-        .describe("Config maps whose keys reach the container as environment variables: a service, or a frontend of kind DOCKER. Replaced as a whole"),
+        .describe("Config maps whose keys reach the container as environment variables: a backend, or a frontend of kind DOCKER. Replaced as a whole"),
     secretIds: z
         .array(objectId("Id of a secret of the project, from secrets_list"))
         .max(50)
         .optional()
-        .describe("Secrets whose keys reach the container as environment variables: a service, or a frontend of kind DOCKER. Replaced as a whole")
+        .describe("Secrets whose keys reach the container as environment variables: a backend, or a frontend of kind DOCKER. Replaced as a whole")
 }
 
 /** The design system of an organization, a project or a frontend, replaced as a whole: null removes it */
@@ -106,7 +106,7 @@ const frontendFields = {
         .enum(FrontendKind)
         .optional()
         .describe(
-            "BUNDLE (default): a static bundle uploaded to and served by the orchestrator. DOCKER: an app built into an image and served by its own container, like a backend service; it never has parentIds"
+            "BUNDLE (default): a static bundle uploaded to and served by the orchestrator. DOCKER: an app built into an image and served by its own container, like a backend; it never has parentIds"
         ),
     path: z.string().max(500).optional(),
     continuousDeployment: z.boolean().optional(),
@@ -153,7 +153,7 @@ export const createSchema = z.object(frontendFields)
 const updateSchema = z.object({ frontendId, ...createSchema.omit({ slug: true }).partial().shape })
 
 /**
- * References in the input are checked through the services before anything is written: the
+ * References in the input are checked through the backends before anything is written: the
  * frontend service resolves the code repository by id without an access check, so a foreign
  * repository id would otherwise link this project to another project's credentials. Services use
  * it too, for their code repository and domain.

@@ -58,7 +58,7 @@ export const mapWithConcurrency = async <T, R>(items: T[], concurrency: number, 
     return results
 }
 
-/** The name a provider knows the repository of a frontend or a service by. */
+/** The name a provider knows the repository of a frontend or a backend by. */
 export const repositoryNameFor = (repository: ICodeRepositoryFrontend | undefined, codeRepository: ICodeRepository): string => {
     if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
         return repository?.name || repository?.repositoryId || ""

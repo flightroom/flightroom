@@ -25,8 +25,8 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
+import useBackendsApi, { type Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
-import useServicesApi, { type Service } from "@/hooks/apiClients/useServicesApi"
 import { resourcePath, typeLabel, useDetachResource, useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -35,13 +35,13 @@ interface AttachResourceDialogProps {
     open: boolean
     onOpenChange: (open: boolean) => void
     resources: Resource[]
-    services: Service[]
+    backends: Backend[]
 }
 
-/** Attaches a resource of the project to services of the domain: only backends attach resources, a frontend would ship their secrets */
-const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpenChange, resources, services }) => {
+/** Attaches a resource of the project to backends of the domain: only backends attach resources, a frontend would ship their secrets */
+const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpenChange, resources, backends }) => {
     const { t } = useTranslation()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const queryClient = useQueryClient()
     const notifications = useToastNotificationStore()
     const idPrefix = useId()
@@ -49,8 +49,8 @@ const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpe
     const [selected, setSelected] = useState<string[]>([])
     const [saving, setSaving] = useState(false)
 
-    const attaches = (service: Service) => Boolean(resourceId && service.resourceIds?.includes(resourceId))
-    const toAttach = services.filter(service => selected.includes(service._id!) && !attaches(service))
+    const attaches = (backend: Backend) => Boolean(resourceId && backend.resourceIds?.includes(resourceId))
+    const toAttach = backends.filter(backend => selected.includes(backend._id!) && !attaches(backend))
 
     const changeOpen = (value: boolean) => {
         if (saving) return
@@ -67,12 +67,12 @@ const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpe
         setSaving(true)
         try {
             // One at a time: a refusal (e.g. a variable clash) stops before the next one, and its toast says why
-            for (const service of toAttach) {
+            for (const backend of toAttach) {
                 // Read again: the list may predate another attach, which the PUT would otherwise drop
-                const current = await servicesApi.getSingle(service._id!)
+                const current = await backendsApi.getSingle(backend._id!)
                 if (current.resourceIds?.includes(resourceId)) continue
-                await servicesApi.update(service._id!, { resourceIds: [...(current.resourceIds ?? []), resourceId] })
-                queryClient.invalidateQueries({ queryKey: ["service", service._id] })
+                await backendsApi.update(backend._id!, { resourceIds: [...(current.resourceIds ?? []), resourceId] })
+                queryClient.invalidateQueries({ queryKey: ["backend", backend._id] })
             }
             const resource = resources.find(candidate => candidate._id === resourceId)
             notifications.showSuccessNotification({ message: t("domains.resources.attach.success", { resource: resource?.name, count: toAttach.length }) })
@@ -81,7 +81,7 @@ const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpe
         } catch {
             setSaving(false)
         } finally {
-            queryClient.invalidateQueries({ queryKey: ["services"] })
+            queryClient.invalidateQueries({ queryKey: ["backends"] })
         }
     }
 
@@ -118,21 +118,21 @@ const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpe
                                 </Select>
                             </div>
                             <fieldset className="flex flex-col gap-2">
-                                <legend className="mb-2 text-sm font-medium">{t("domains.resources.attach.services")}</legend>
-                                {services.map(service => {
-                                    const checkboxId = `${idPrefix}-${service._id}`
-                                    const attached = attaches(service)
+                                <legend className="mb-2 text-sm font-medium">{t("domains.resources.attach.backends")}</legend>
+                                {backends.map(backend => {
+                                    const checkboxId = `${idPrefix}-${backend._id}`
+                                    const attached = attaches(backend)
                                     return (
-                                        <div key={service._id} className="flex items-center gap-2">
+                                        <div key={backend._id} className="flex items-center gap-2">
                                             <Checkbox
                                                 id={checkboxId}
-                                                checked={attached || selected.includes(service._id!)}
+                                                checked={attached || selected.includes(backend._id!)}
                                                 disabled={saving || !resourceId || attached}
-                                                onCheckedChange={checked => setSelected(current => (checked === true ? [...current, service._id!] : current.filter(id => id !== service._id)))}
-                                                dataTestId={`domain-attach-resource-service-${service.slug}`}
+                                                onCheckedChange={checked => setSelected(current => (checked === true ? [...current, backend._id!] : current.filter(id => id !== backend._id)))}
+                                                dataTestId={`domain-attach-resource-backend-${backend.slug}`}
                                             />
                                             <Label htmlFor={checkboxId} className="min-w-0 flex-1 cursor-pointer truncate">
-                                                {service.name}
+                                                {backend.name}
                                             </Label>
                                             {attached && <Badge variant="outline">{t("domains.resources.attach.already_attached")}</Badge>}
                                         </div>
@@ -156,18 +156,18 @@ const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpe
 }
 
 /**
- * Each backend service of the domain with the resources it attaches: what the agent is told the domain can reach.
- * Only services attach resources, so a domain without one has nothing to show. An editor detaches each one from here.
+ * Each backend of the domain with the resources it attaches: what the agent is told the domain can reach.
+ * Only backends attach resources, so a domain without one has nothing to show. An editor detaches each one from here.
  */
-export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ services }) => {
+export const DomainResourcesSection: React.FC<{ backends: Backend[] }> = ({ backends }) => {
     const { t } = useTranslation()
-    const resourcesQuery = useResourcesQuery(services.length > 0)
+    const resourcesQuery = useResourcesQuery(backends.length > 0)
     const isViewer = useIsProjectViewer()
     const detach = useDetachResource()
     const [attachOpen, setAttachOpen] = useState(false)
 
     // A list that cannot be read hides the section: the rest of the overview does not depend on it
-    if (services.length === 0 || !resourcesQuery.data) return null
+    if (backends.length === 0 || !resourcesQuery.data) return null
     const resources = resourcesQuery.data
 
     return (
@@ -177,7 +177,7 @@ export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ serv
                     <CardTitle className="mb-0">{t("domains.resources.title")}</CardTitle>
                     <CardDescription>{t("domains.resources.description")}</CardDescription>
                 </div>
-                {/* A viewer may look, not change what the services receive */}
+                {/* A viewer may look, not change what the backends receive */}
                 {!isViewer && (
                     <Button variant="secondary" onClick={() => setAttachOpen(true)} dataTestId="domain-attach-resource">
                         <Plus />
@@ -187,15 +187,15 @@ export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ serv
             </CardHeader>
             <CardContent className="pt-3">
                 <ul className="flex flex-col divide-y divide-divider">
-                    {services.map(service => {
-                        const attached = resources.filter(resource => service.resourceIds?.includes(resource._id!))
+                    {backends.map(backend => {
+                        const attached = resources.filter(resource => backend.resourceIds?.includes(resource._id!))
                         return (
-                            <li key={service._id} className="flex flex-col gap-2 py-3" data-testid={`domain-resources-service-${service.slug}`}>
-                                <Link to={`/service/${service._id}/overview`} className="w-fit text-sm font-semibold underline-offset-4 hover:underline">
-                                    {service.name}
+                            <li key={backend._id} className="flex flex-col gap-2 py-3" data-testid={`domain-resources-backend-${backend.slug}`}>
+                                <Link to={`/backend/${backend._id}/overview`} className="w-fit text-sm font-semibold underline-offset-4 hover:underline">
+                                    {backend.name}
                                 </Link>
                                 {attached.length === 0 ? (
-                                    <p className="text-sm text-foreground-secondary">{t("domains.resources.service_none")}</p>
+                                    <p className="text-sm text-foreground-secondary">{t("domains.resources.backend_none")}</p>
                                 ) : (
                                     <ul className="flex flex-col gap-1">
                                         {attached.map(resource => (
@@ -212,10 +212,10 @@ export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ serv
                                                         size="icon-sm"
                                                         className="ml-auto"
                                                         disabled={detach.isPending}
-                                                        aria-label={t("domains.resources.detach", { resource: resource.name, service: service.name })}
-                                                        title={t("domains.resources.detach", { resource: resource.name, service: service.name })}
-                                                        onClick={() => detach.mutate({ service, resource })}
-                                                        dataTestId={`domain-detach-resource-${service.slug}-${resource._id}`}
+                                                        aria-label={t("domains.resources.detach", { resource: resource.name, backend: backend.name })}
+                                                        title={t("domains.resources.detach", { resource: resource.name, backend: backend.name })}
+                                                        onClick={() => detach.mutate({ backend, resource })}
+                                                        dataTestId={`domain-detach-resource-${backend.slug}-${resource._id}`}
                                                     >
                                                         <X />
                                                     </Button>
@@ -229,7 +229,7 @@ export const DomainResourcesSection: React.FC<{ services: Service[] }> = ({ serv
                     })}
                 </ul>
             </CardContent>
-            {!isViewer && <AttachResourceDialog open={attachOpen} onOpenChange={setAttachOpen} resources={resources} services={services} />}
+            {!isViewer && <AttachResourceDialog open={attachOpen} onOpenChange={setAttachOpen} resources={resources} backends={backends} />}
         </Card>
     )
 }

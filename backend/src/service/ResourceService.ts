@@ -1,10 +1,10 @@
 import { ObjectId, Schema } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Resource, { IResource, IResourceValue } from "../models/ResourceModel"
-import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import {
     isResourceType,
@@ -292,24 +292,24 @@ const keysOf = (resource: ResourceNaming): string =>
         .join(",")
 
 /**
- * The resources a domain-scoped member may see and edit: those attached to at least one service, all of
- * them in `scope`, as for the maps. Only services attach resources.
+ * The resources a domain-scoped member may see and edit: those attached to at least one backend, all of
+ * them in `scope`, as for the maps. Only backends attach resources.
  */
 export const resourceIdsInScope = async (projectId: Schema.Types.ObjectId, scope: string[]): Promise<Set<string>> => {
     const filter = { projectId, resourceIds: { $exists: true, $ne: [] } }
-    const services = [...(await Service.find(filter, { domainId: 1, resourceIds: 1 })), ...(await MaintenanceAgent.find(filter, { domainId: 1, resourceIds: 1 }))]
+    const backends = [...(await Backend.find(filter, { domainId: 1, resourceIds: 1 })), ...(await MaintenanceAgent.find(filter, { domainId: 1, resourceIds: 1 }))]
     const inScope = new Set<string>()
     const outOfScope = new Set<string>()
-    for (const service of services) {
-        const target = service.domainId && scope.includes(String(service.domainId)) ? inScope : outOfScope
-        for (const id of service.resourceIds ?? []) target.add(String(id))
+    for (const backend of backends) {
+        const target = backend.domainId && scope.includes(String(backend.domainId)) ? inScope : outOfScope
+        for (const id of backend.resourceIds ?? []) target.add(String(id))
     }
     return new Set([...inScope].filter(id => !outOfScope.has(id)))
 }
 
 /**
- * A domain-scoped member attaches to a service only the resources they can see, as for the maps: anything
- * else would hand them the credentials of another domain. The resources the service already attaches stay.
+ * A domain-scoped member attaches to a backend only the resources they can see, as for the maps: anything
+ * else would hand them the credentials of another domain. The resources the backend already attaches stay.
  */
 export const ensureAttachableResources = async (scope: string[] | undefined, projectId: Schema.Types.ObjectId, dto: { resourceIds?: unknown }, existing?: { resourceIds?: unknown[] }) => {
     if (!scope) return
@@ -321,7 +321,7 @@ export const ensureAttachableResources = async (scope: string[] | undefined, pro
 }
 
 /**
- * The list of resources a domain-scoped member saves a service with, with the resources it attaches that they
+ * The list of resources a domain-scoped member saves a backend with, with the resources it attaches that they
  * cannot see put back: they can neither add those nor take them away, and the console never shows them. Merged
  * before the list is checked, so that a clash of what they add with one of those is refused too.
  */
@@ -338,7 +338,7 @@ export const withResourcesOutOfScope = async <T extends { resourceIds?: unknown 
     return hidden.length > 0 ? { ...dto, resourceIds: [...dto.resourceIds, ...hidden] } : dto
 }
 
-/** The resources of a project, which its backend services attach */
+/** The resources of a project, which its backends attach */
 export class ResourceService extends BaseAuthorizedService {
     /** The types a resource can be, with their variants and fields */
     catalog(): ResourceTypeSpec[] {
@@ -492,7 +492,7 @@ export class ResourceService extends BaseAuthorizedService {
         ensureNoReservedKey(next)
         // A rename, a prefix or a variant renames its variables: they must not clash where it is attached
         if (keysOf(next) !== keysOf(resource)) {
-            await this.ensureNoClashInAttachingServices(resource, next)
+            await this.ensureNoClashInAttachingBackends(resource, next)
         }
         // A document removed goes with its size; one replaced brings its own
         const { apiSpec, ...set } = fields
@@ -514,23 +514,23 @@ export class ResourceService extends BaseAuthorizedService {
         return apiSpec
     }
 
-    /** The services and the maintenance agents attaching this resource; a frontend never does */
+    /** The backends and the maintenance agents attaching this resource; a frontend never does */
     private async attachedTo(resource: IResource) {
         const filter = { projectId: resource.projectId, resourceIds: resource._id }
         const projection = { name: 1, configMapIds: 1, secretIds: 1, resourceIds: 1 }
-        return [...(await Service.find(filter, projection)), ...(await MaintenanceAgent.find(filter, projection))]
+        return [...(await Backend.find(filter, projection)), ...(await MaintenanceAgent.find(filter, projection))]
     }
 
-    /** The new variables must not collide with those of anything else attached to a service using this resource */
-    private async ensureNoClashInAttachingServices(resource: IResource, next: ResourceNaming) {
-        const services = await this.attachedTo(resource)
-        if (services.length === 0) return
+    /** The new variables must not collide with those of anything else attached to a backend using this resource */
+    private async ensureNoClashInAttachingBackends(resource: IResource, next: ResourceNaming) {
+        const backends = await this.attachedTo(resource)
+        if (backends.length === 0) return
 
         // One read per kind for all of them; this resource is read with its new variables, not the stored ones
         const projectId = resource.projectId
-        const configMaps = await ConfigMap.find({ _id: { $in: services.flatMap(service => service.configMapIds ?? []) }, projectId }, keysOnly)
-        const secrets = await Secret.find({ _id: { $in: services.flatMap(service => service.secretIds ?? []) }, projectId }, keysOnly)
-        const resources = await Resource.find({ _id: { $in: services.flatMap(service => service.resourceIds ?? []) }, projectId }, resourceNaming)
+        const configMaps = await ConfigMap.find({ _id: { $in: backends.flatMap(backend => backend.configMapIds ?? []) }, projectId }, keysOnly)
+        const secrets = await Secret.find({ _id: { $in: backends.flatMap(backend => backend.secretIds ?? []) }, projectId }, keysOnly)
+        const resources = await Resource.find({ _id: { $in: backends.flatMap(backend => backend.resourceIds ?? []) }, projectId }, resourceNaming)
         const byId = new Map<string, KeyedMap>([
             ...configMaps.map(other => [`configMap:${other._id}`, other] as const),
             ...secrets.map(other => [`secret:${other._id}`, other] as const),
@@ -538,30 +538,30 @@ export class ResourceService extends BaseAuthorizedService {
             [`resource:${resource._id}`, resourceKeys(next)]
         ])
 
-        for (const service of services) {
+        for (const backend of backends) {
             const attached = [
-                ...(service.configMapIds ?? []).map(id => `configMap:${id}`),
-                ...(service.secretIds ?? []).map(id => `secret:${id}`),
-                ...(service.resourceIds ?? []).map(id => `resource:${id}`)
+                ...(backend.configMapIds ?? []).map(id => `configMap:${id}`),
+                ...(backend.secretIds ?? []).map(id => `secret:${id}`),
+                ...(backend.resourceIds ?? []).map(id => `resource:${id}`)
             ]
             ensureNoKeyClash(
                 attached.flatMap(key => byId.get(key) ?? []),
-                service.name
+                backend.name
             )
         }
     }
 
-    /** Refused while a service attaches it: deleting it would silently take variables away from a running container */
+    /** Refused while a backend attaches it: deleting it would silently take variables away from a running container */
     async delete(id: string | ObjectId): Promise<IResource | null> {
         const resource = await this.getById(id)
         await this.ensureWholeProject(resource.projectId)
-        const services = await this.attachedTo(resource)
-        if (services.length > 0) {
+        const backends = await this.attachedTo(resource)
+        if (backends.length > 0) {
             throw createBusinessException({
                 code: "RESOURCE_IN_USE",
-                message: `"${resource.name}" is attached to ${services.map(service => service.name).join(", ")}: detach it first`,
+                message: `"${resource.name}" is attached to ${backends.map(backend => backend.name).join(", ")}: detach it first`,
                 statusCode: 409,
-                details: { services: services.map(service => service.name) }
+                details: { backends: backends.map(backend => backend.name) }
             })
         }
         return Resource.findByIdAndDelete(resource._id)

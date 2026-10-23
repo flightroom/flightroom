@@ -4,8 +4,8 @@ import { ApiKeyRole } from "../models/ApiKeyModel"
 import FrontendDeployment, { IFrontendDeployment } from "../models/FrontendDeploymentModel"
 import Frontend, { FrontendKind } from "../models/FrontendModel"
 import { toObjectId } from "../utils/mongooseUtils"
+import { findEnvironmentBySlug, parseRegistration } from "./BackendDeploymentService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
-import { findEnvironmentBySlug, parseRegistration } from "./ServiceDeploymentService"
 
 export type LatestFrontendDeployment = { _id: { frontendId: unknown; environmentId: unknown }; version: string; deployedAt: Date }
 
@@ -26,7 +26,7 @@ export const findLatestFrontendDeployments = async (frontendIds: unknown[], envi
 export class FrontendDeploymentService extends BaseAuthorizedService {
     /**
      * Called by the deploy pipeline of the customer with the deploy API key once `version` of a DOCKER
-     * runs in the environment, exactly as for a service: every call is kept, the latest by date is the
+     * runs in the environment, exactly as for a backend: every call is kept, the latest by date is the
      * version running there. A BUNDLE is deployed by the orchestrator itself, so it is refused.
      */
     async registerWithPermissionCheck(frontendSlug: string, environmentSlug: string, projectId: string, body: unknown, apiKeyRole?: ApiKeyRole): Promise<IFrontendDeployment> {

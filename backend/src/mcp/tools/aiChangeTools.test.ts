@@ -59,7 +59,7 @@ vi.mock("../../service/aiChange/AiChangeJobService", () => ({
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const FRONTEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
-const SERVICE = "eeeeeeeeeeeeeeeeeeeeeeee"
+const BACKEND = "eeeeeeeeeeeeeeeeeeeeeeee"
 const CHANGE = "cccccccccccccccccccccccc"
 const JOB = "dddddddddddddddddddddddd"
 
@@ -153,21 +153,21 @@ describe("AI change tools", () => {
             expect(tool("ai_change_start").inputSchema.safeParse({ frontendId: FRONTEND, prompt: "  " }).success).toBe(false)
         })
 
-        it("given a service, when started, then the change works on the repository of the service", async () => {
-            createChange.mockResolvedValue({ ...changeDocument("PENDING"), frontendId: undefined, serviceId: SERVICE })
+        it("given a backend, when started, then the change works on the repository of the backend", async () => {
+            createChange.mockResolvedValue({ ...changeDocument("PENDING"), frontendId: undefined, backendId: BACKEND })
 
-            await run("ai_change_start", { serviceId: SERVICE, prompt: "Add a health check" })
+            await run("ai_change_start", { backendId: BACKEND, prompt: "Add a health check" })
 
-            expect(createChange).toHaveBeenCalledWith({ kind: "service", id: SERVICE }, expect.objectContaining({ prompt: "Add a health check" }))
+            expect(createChange).toHaveBeenCalledWith({ kind: "backend", id: BACKEND }, expect.objectContaining({ prompt: "Add a health check" }))
         })
 
-        it("given both a frontend and a service, or neither, when the input is validated, then it is refused", () => {
+        it("given both a frontend and a backend, or neither, when the input is validated, then it is refused", () => {
             const schema = tool("ai_change_start").inputSchema
-            expect(schema.safeParse({ frontendId: FRONTEND, serviceId: SERVICE, prompt: "Add a footer" }).success).toBe(false)
+            expect(schema.safeParse({ frontendId: FRONTEND, backendId: BACKEND, prompt: "Add a footer" }).success).toBe(false)
             expect(schema.safeParse({ prompt: "Add a footer" }).success).toBe(false)
         })
 
-        it("given a viewer, when started, then the service's refusal surfaces", async () => {
+        it("given a viewer, when started, then the backend's refusal surfaces", async () => {
             createChange.mockRejectedValue(forbidden())
 
             await expect(run("ai_change_start", { frontendId: FRONTEND, prompt: "Add a footer" })).rejects.toMatchObject({ code: "AI_CHANGE_FORBIDDEN" })
@@ -182,12 +182,12 @@ describe("AI change tools", () => {
             expect(listChanges).toHaveBeenCalledWith({ kind: "frontend", id: FRONTEND })
         })
 
-        it("given a service, when listed, then the changes of the service are", async () => {
+        it("given a backend, when listed, then the changes of the backend are", async () => {
             listChanges.mockResolvedValue([])
 
-            await run("ai_changes_list", { serviceId: SERVICE })
+            await run("ai_changes_list", { backendId: BACKEND })
 
-            expect(listChanges).toHaveBeenCalledWith({ kind: "service", id: SERVICE })
+            expect(listChanges).toHaveBeenCalledWith({ kind: "backend", id: BACKEND })
             expect(tool("ai_changes_list").inputSchema.safeParse({}).success).toBe(false)
         })
 
@@ -223,7 +223,7 @@ describe("AI change tools", () => {
     })
 
     describe("ai_change_apply", () => {
-        it("given a proposal, when applied, then the whole change reaches the service and its commit on the base comes back", async () => {
+        it("given a proposal, when applied, then the whole change reaches the backend and its commit on the base comes back", async () => {
             applyChange.mockResolvedValue({ ...changeDocument("APPLIED"), commit: "abc123" })
 
             const result = await run("ai_change_apply", { changeId: CHANGE })
@@ -232,7 +232,7 @@ describe("AI change tools", () => {
             expect(result).toMatchObject({ status: "APPLIED", commit: "abc123" })
         })
 
-        it("given a viewer, when applied, then the service's refusal surfaces", async () => {
+        it("given a viewer, when applied, then the backend's refusal surfaces", async () => {
             applyChange.mockRejectedValue(forbidden())
 
             await expect(run("ai_change_apply", { changeId: CHANGE })).rejects.toMatchObject({ code: "AI_CHANGE_FORBIDDEN" })
@@ -259,7 +259,7 @@ describe("AI change tools", () => {
             expect(discardChange).toHaveBeenCalledWith(CHANGE)
         })
 
-        it("given a change that is not a proposal, when discarded, then the service's refusal surfaces", async () => {
+        it("given a change that is not a proposal, when discarded, then the backend's refusal surfaces", async () => {
             discardChange.mockRejectedValue(createBusinessException({ code: "AI_CHANGE_NOT_PROPOSED", message: "Only a proposal can be discarded", statusCode: 409 }))
 
             await expect(run("ai_change_discard", { changeId: CHANGE })).rejects.toMatchObject({ code: "AI_CHANGE_NOT_PROPOSED" })
@@ -267,16 +267,16 @@ describe("AI change tools", () => {
     })
 
     describe("ai_job_start", () => {
-        it("given services and base branches, when started, then the job is a selection of them starting from those branches", async () => {
+        it("given backends and base branches, when started, then the job is a selection of them starting from those branches", async () => {
             createJob.mockResolvedValue(jobView("PENDING"))
 
-            await run("ai_job_start", { prompt: "Rename the price API", frontendIds: [FRONTEND], serviceIds: [SERVICE], baseBranches: { [SERVICE]: "develop" } })
+            await run("ai_job_start", { prompt: "Rename the price API", frontendIds: [FRONTEND], backendIds: [BACKEND], baseBranches: { [BACKEND]: "develop" } })
 
-            expect(createJob).toHaveBeenCalledWith(PROJECT, expect.objectContaining({ scope: "selection", frontendIds: [FRONTEND], serviceIds: [SERVICE], baseBranches: { [SERVICE]: "develop" } }))
+            expect(createJob).toHaveBeenCalledWith(PROJECT, expect.objectContaining({ scope: "selection", frontendIds: [FRONTEND], backendIds: [BACKEND], baseBranches: { [BACKEND]: "develop" } }))
         })
 
-        it("given a domain with services, when the input is validated, then it is refused", () => {
-            expect(tool("ai_job_start").inputSchema.safeParse({ prompt: "Rename", domainId: PROJECT, serviceIds: [SERVICE] }).success).toBe(false)
+        it("given a domain with backends, when the input is validated, then it is refused", () => {
+            expect(tool("ai_job_start").inputSchema.safeParse({ prompt: "Rename", domainId: PROJECT, backendIds: [BACKEND] }).success).toBe(false)
         })
 
         it("given no frontend, when started, then the job is global on the tool's project and the view carries its id, usage and repositories", async () => {
@@ -294,14 +294,14 @@ describe("AI change tools", () => {
             expect(result.recentEvents).toHaveLength(10)
         })
 
-        /** A global job takes the services too: their id must not read as a frontend's */
-        it("given a job on a service, when it is viewed, then the repository is named a service with its serviceId", async () => {
+        /** A global job takes the backends too: their id must not read as a frontend's */
+        it("given a job on a backend, when it is viewed, then the repository is named a backend with its backendId", async () => {
             const view = jobView("PENDING")
-            createJob.mockResolvedValue({ ...view, repositories: [{ ...view.repositories[0], kind: "service", frontendName: "Orders API", frontendSlug: "orders-api" }] })
+            createJob.mockResolvedValue({ ...view, repositories: [{ ...view.repositories[0], kind: "backend", frontendName: "Orders API", frontendSlug: "orders-api" }] })
 
             const result = (await run("ai_job_start", { prompt: "Rename the price API" })) as { repositories: Record<string, unknown>[] }
 
-            expect(result.repositories[0]).toMatchObject({ kind: "service", serviceId: FRONTEND, service: "Orders API" })
+            expect(result.repositories[0]).toMatchObject({ kind: "backend", backendId: FRONTEND, backend: "Orders API" })
             expect(result.repositories[0]).not.toHaveProperty("frontendId")
             expect(result.repositories[0]).not.toHaveProperty("frontend")
         })
@@ -329,7 +329,7 @@ describe("AI change tools", () => {
             expect(result).toMatchObject({ jobId: CHANGE, parentJobId: JOB, rootJobId: JOB })
         })
 
-        it("given a job still running, when followed up, then the service's refusal surfaces", async () => {
+        it("given a job still running, when followed up, then the backend's refusal surfaces", async () => {
             followUpJob.mockRejectedValue(createBusinessException({ code: "AI_JOB_NOT_DONE", message: "The job has not finished yet", statusCode: 409 }))
 
             await expect(run("ai_job_follow_up", { jobId: JOB, prompt: "Also rename the tests" })).rejects.toMatchObject({ code: "AI_JOB_NOT_DONE" })
@@ -346,7 +346,7 @@ describe("AI change tools", () => {
             expect(tool("ai_models_list").annotations).toMatchObject({ readOnlyHint: true })
         })
 
-        it("given an AI, when a change, a job or a follow-up is started, then it reaches the service and the views carry the AI used", async () => {
+        it("given an AI, when a change, a job or a follow-up is started, then it reaches the backend and the views carry the AI used", async () => {
             createChange.mockResolvedValue({ ...changeDocument("PENDING"), aiModelId: "system" })
             createJob.mockResolvedValue({ ...jobView("PENDING"), aiModelId: "system" })
             followUpJob.mockResolvedValue({ ...jobView("PENDING"), aiModelId: "system" })
@@ -363,7 +363,7 @@ describe("AI change tools", () => {
     })
 
     describe("effort", () => {
-        it("given an effort, when a change, a job or a follow-up is started, then it reaches the service and the views carry the effort used", async () => {
+        it("given an effort, when a change, a job or a follow-up is started, then it reaches the backend and the views carry the effort used", async () => {
             createChange.mockResolvedValue({ ...changeDocument("PENDING"), effort: "low" })
             createJob.mockResolvedValue({ ...jobView("PENDING"), effort: "xhigh" })
             followUpJob.mockResolvedValue({ ...jobView("PENDING"), effort: "max" })
@@ -432,7 +432,7 @@ describe("AI change tools", () => {
 
     describe("ai_domain_plan", () => {
         it("given a domain and a request, when planned, then the plan comes back and nothing is written", async () => {
-            const plan = { frontends: [{ name: "Orders", slug: "orders", template: "vite-react", repositoryName: "orders-fe" }], services: [] }
+            const plan = { frontends: [{ name: "Orders", slug: "orders", template: "vite-react", repositoryName: "orders-fe" }], backends: [] }
             planDomain.mockResolvedValue(plan)
 
             expect(await run("ai_domain_plan", { domainId: FRONTEND, prompt: "Track orders" })).toEqual(plan)

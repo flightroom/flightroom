@@ -462,7 +462,7 @@ describe("ApiSpecReader", () => {
     it("given an unknown resource, one without a document or no resource at all, when read, then it says so", async () => {
         const reader = new ApiSpecReader([{ resource: "payments" }, { resource: "legacy", specUrl: "https://legacy.example.com/swagger.yaml" }], vi.fn())
 
-        await expect(reader.read({ resource: "orders" })).rejects.toThrow('"orders" is not an api resource of the services of this job: one of payments, legacy')
+        await expect(reader.read({ resource: "orders" })).rejects.toThrow('"orders" is not an api resource of the backends of this job: one of payments, legacy')
         await expect(reader.read({ resource: "payments" })).rejects.toThrow('"payments" has no API document')
         await expect(reader.read({})).rejects.toThrow('Missing argument "resource"')
     })

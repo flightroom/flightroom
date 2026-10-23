@@ -10,30 +10,30 @@ import { useWorkingAgentJobs } from "@/components/ai-agents/WorkingAgentsIndicat
 import { Badge, Button } from "@/components/atoms"
 import { resourceBrand, resourceTypeGlyph } from "@/components/resource/resourceIcons"
 import useAiJobsApi, { AiWorkingJob } from "@/hooks/apiClients/useAiJobsApi"
+import { Backend } from "@/hooks/apiClients/useBackendsApi"
 import { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useMaintenanceAgentsApi, { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
-import { Service } from "@/hooks/apiClients/useServicesApi"
 import { resourcePath, typeLabel, variantLabel } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
 import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
 
 interface DomainGalaxyProps {
     domains: Domain[]
-    /** Left out on the map of the backends: only the services are worlds there */
+    /** Left out on the map of the backends: only the backends are worlds there */
     frontends?: Frontend[]
-    services: Service[]
+    backends: Backend[]
     /** The relations drawn by hand between the domains */
     links: DomainLink[]
     /** A relation drawn from one domain to another, to be confirmed and saved; without it the relations are only shown */
     onLink?: (sourceDomainId: string, targetDomainId: string) => void
     /** A relation the user asked to delete */
     onUnlink?: (link: DomainLink) => void
-    /** The resources of the project: drawn as moons of the services shown that attach them */
+    /** The resources of the project: drawn as moons of the backends shown that attach them */
     resources?: Resource[]
-    /** The whole project (the domains page) or its backends only (the services page): it changes the captions, the legend and the hints */
+    /** The whole project (the domains page) or its backends only (the backends page): it changes the captions, the legend and the hints */
     scope?: "project" | "backend"
 }
 
@@ -49,10 +49,10 @@ interface RelationSegment {
     to: Point
 }
 
-/** A frontend or a service: the worlds of the galaxies, the only nodes the forces move */
+/** A frontend or a backend: the worlds of the galaxies, the only nodes the forces move */
 interface World {
     id: string
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     name: string
     slug: string
     version?: string
@@ -67,7 +67,7 @@ interface World {
 interface Lane {
     from: string
     to: string
-    kind: "relation" | "service"
+    kind: "relation" | "backend"
     /** Between members of two different galaxies */
     bridge: boolean
     /** How much longer the lane is for the moons of its two worlds, so they do not run into each other */
@@ -88,7 +88,7 @@ interface Galaxy {
 type StarNode = NodeObject<World>
 
 /**
- * A resource attached to a service, orbiting it. A resource several services attach is a moon of each
+ * A resource attached to a backend, orbiting it. A resource several backends attach is a moon of each
  * of them. Where it was drawn on the last frame is written on it by the painter, never allocated per frame.
  */
 interface Moon {
@@ -96,7 +96,7 @@ interface Moon {
     name: string
     /** Its type and variant, for the tooltip */
     label: string
-    /** Every service shown that attaches it, its own world included */
+    /** Every backend shown that attaches it, its own world included */
     users: string[]
     world: StarNode
     radius: number
@@ -211,7 +211,7 @@ interface Sky {
     /** The labels and the dust of the background */
     ink: string
     dustAlpha: number
-    service: string
+    backend: string
     moon: string
     /** The far side of a moon, away from its world */
     moonShadow: string
@@ -237,7 +237,7 @@ const SKIES: Record<"dark" | "light", Sky> = {
         space: "#07202D", // charcoal-950
         ink: "38 44% 96%", // foreground (dark)
         dustAlpha: 1,
-        service: "162 28% 61%", // zomp-400
+        backend: "162 28% 61%", // zomp-400
         moon: "162 51% 81%", // zomp-200
         moonShadow: "203 37% 10% / 0.45",
         orbitAlpha: 0.16,
@@ -254,7 +254,7 @@ const SKIES: Record<"dark" | "light", Sky> = {
         space: "#EFF8FE", // charcoal-50
         ink: "203 37% 22%", // charcoal-900
         dustAlpha: 0.35,
-        service: "163 27% 41%", // zomp-600
+        backend: "163 27% 41%", // zomp-600
         moon: "164 33% 31%", // zomp-700
         moonShadow: "203 37% 12% / 0.35",
         orbitAlpha: 0.22,
@@ -423,7 +423,7 @@ const phaseOf = (id: string) => {
 }
 
 /**
- * The moons of a service, from the first orbit out: as many on an orbit as fit with room between them,
+ * The moons of a backend, from the first orbit out: as many on an orbit as fit with room between them,
  * evenly spread, each orbit slower than the one inside it.
  */
 const placeMoons = (world: StarNode, attached: Omit<Moon, "world" | "radius" | "orbit" | "phase" | "speed" | "x" | "y" | "frame">[]): Moon[] => {
@@ -472,7 +472,7 @@ const bodyColors = (sky: Sky) => ({
     parkedRocket: { windowColor: sky.space, flameColor: `hsl(${sky.canary})`, flame: 3 },
     panel: `hsl(${sky.ink} / 0.55)`,
     tether: `hsl(${sky.ink} / 0.28)`,
-    stationLight: { scheduled: `hsl(${sky.service})`, standby: `hsl(${sky.canary})`, failed: `hsl(${sky.alarm})` } satisfies Record<StationStatus, string>
+    stationLight: { scheduled: `hsl(${sky.backend})`, standby: `hsl(${sky.canary})`, failed: `hsl(${sky.alarm})` } satisfies Record<StationStatus, string>
 })
 type BodyColors = ReturnType<typeof bodyColors>
 
@@ -644,12 +644,12 @@ const useIsDark = () => {
 }
 
 /**
- * The whole project as a sky: every domain a galaxy, its frontends and services the worlds in it,
- * members in no domain in a grey nebula. The resources a service attaches are its moons, an agent at
+ * The whole project as a sky: every domain a galaxy, its frontends and backends the worlds in it,
+ * members in no domain in a grey nebula. The resources a backend attaches are its moons, an agent at
  * work on a world a ship orbiting it. Links across two domains are drawn as bridges between the
  * galaxies, the ones the domain diagram has to leave out.
  */
-export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRONTENDS, services, links, onLink, onUnlink, resources = NO_RESOURCES, scope = "project" }) => {
+export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRONTENDS, backends, links, onLink, onUnlink, resources = NO_RESOURCES, scope = "project" }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const graphRef = useRef<ForceGraphMethods<StarNode, LaneLink>>(undefined)
@@ -711,24 +711,24 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                 galaxyId: galaxyOf(mfe.domainId),
                 canary: mfe.canary?.enabled ? mfe.canary.percentage : undefined
             })),
-            ...services.map(service => ({
-                id: service._id!,
-                kind: "service" as const,
-                name: service.name,
-                slug: service.slug,
-                version: service.version,
-                galaxyId: galaxyOf(service.domainId),
+            ...backends.map(backend => ({
+                id: backend._id!,
+                kind: "backend" as const,
+                name: backend.name,
+                slug: backend.slug,
+                version: backend.version,
+                galaxyId: galaxyOf(backend.domainId),
                 canary: undefined
             }))
         ]
         const galaxyById = new Map(members.map(member => [member.id, member.galaxyId]))
 
-        // A resource is drawn only as a moon of the services shown that attach it, of each of them.
+        // A resource is drawn only as a moon of the backends shown that attach it, of each of them.
         const attachedBy = new Map<string, Resource[]>()
         const usersOf = new Map<string, string[]>()
         for (const resource of resources) {
             if (!resource._id) continue
-            const users = services.filter(service => service._id && service.resourceIds?.includes(resource._id!)).map(service => service._id!)
+            const users = backends.filter(backend => backend._id && backend.resourceIds?.includes(resource._id!)).map(backend => backend._id!)
             usersOf.set(resource._id, users)
             for (const id of users) attachedBy.set(id, [...(attachedBy.get(id) ?? []), resource])
         }
@@ -736,7 +736,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         // Links to something that is not on the map are left out: there is no world to draw them to.
         const lanes = [
             ...frontends.flatMap(mfe => (mfe.parentIds ?? []).filter(parentId => galaxyById.has(parentId)).map(parentId => ({ from: parentId, to: mfe._id!, kind: "relation" as const }))),
-            ...frontends.flatMap(mfe => (mfe.serviceIds ?? []).filter(serviceId => galaxyById.has(serviceId)).map(serviceId => ({ from: mfe._id!, to: serviceId, kind: "service" as const })))
+            ...frontends.flatMap(mfe => (mfe.backendIds ?? []).filter(backendId => galaxyById.has(backendId)).map(backendId => ({ from: mfe._id!, to: backendId, kind: "backend" as const })))
         ]
 
         // The attached resources make a world bigger, as the links do: its moons stay in proportion.
@@ -750,8 +750,8 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         const countIn = (galaxyId: string, kind: World["kind"]) => members.filter(member => member.galaxyId === galaxyId && member.kind === kind).length
         const caption = (galaxyId: string) =>
             isBackend
-                ? t("domains.backend_count", { count: countIn(galaxyId, "service") })
-                : `${t("domains.frontend_count", { count: countIn(galaxyId, "frontend") })} · ${t("domains.backend_count", { count: countIn(galaxyId, "service") })}`
+                ? t("domains.backend_count", { count: countIn(galaxyId, "backend") })
+                : `${t("domains.frontend_count", { count: countIn(galaxyId, "frontend") })} · ${t("domains.backend_count", { count: countIn(galaxyId, "backend") })}`
         const galaxyList = [
             ...domains.map((domain, index) => ({ id: domain._id, name: domain.name, domainId: domain._id, caption: caption(domain._id), paletteIndex: index })),
             ...(members.some(member => member.galaxyId === NO_DOMAIN) ? [{ id: NO_DOMAIN, name: t("domains.no_domain"), caption: caption(NO_DOMAIN) }] : [])
@@ -825,7 +825,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                 }))
             }
         }
-    }, [domains, frontends, services, resources, isBackend, t])
+    }, [domains, frontends, backends, resources, isBackend, t])
 
     useEffect(() => {
         previousNodesRef.current = graphData.nodes
@@ -873,7 +873,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         const nodes = new Map(graphData.nodes.map(node => [node.id, node]))
         const byWorld = new Map<string, MaintenanceAgent[]>()
         for (const agent of maintenanceAgents) {
-            const targets = [...(agent.serviceIds ?? []), ...(agent.frontendIds ?? [])]
+            const targets = [...(agent.backendIds ?? []), ...(agent.frontendIds ?? [])]
             if (targets.length !== 1 || !nodes.has(targets[0])) continue
             byWorld.set(targets[0], [...(byWorld.get(targets[0]) ?? []), agent])
         }
@@ -1127,7 +1127,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             const x = node.x ?? 0
             const y = node.y ?? 0
             const r = node.radius
-            const hue = node.kind === "service" ? sky.service : primaryHue
+            const hue = node.kind === "backend" ? sky.backend : primaryHue
             const highlighted = neighbourIds?.has(node.id) ?? false
             ctx.globalAlpha = neighbourIds && !highlighted ? DIMMED_ALPHA : 1
 
@@ -1228,7 +1228,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
         ctx.fill()
     }, [])
 
-    const laneHue = useCallback((link: LaneLink) => (link.bridge ? sky.bridge : link.kind === "service" ? sky.service : primaryHue), [primaryHue, sky])
+    const laneHue = useCallback((link: LaneLink) => (link.bridge ? sky.bridge : link.kind === "backend" ? sky.backend : primaryHue), [primaryHue, sky])
     const isLit = useCallback((link: LaneLink) => hovered?.kind === "world" && (link.from === hovered.node.id || link.to === hovered.node.id), [hovered])
 
     const linkColor = useCallback(
@@ -1298,7 +1298,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             // A ship or a moon drawn over a world: the click is for it.
             const graph = graphRef.current
             if (graph && openBody(graph.screen2GraphCoords(event.offsetX, event.offsetY))) return
-            navigate(node.kind === "service" ? `/service/${node.id}` : `/frontend/${node.id}`)
+            navigate(node.kind === "backend" ? `/backend/${node.id}` : `/frontend/${node.id}`)
         },
         [linking, pickForLink, galaxies, navigate, openBody]
     )
@@ -1323,13 +1323,13 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             setSelectedLinkId(relation ? relation.link._id : null)
             if (relation) return
             if (!hit) return fitAll()
-            // On the map of the backends a second click opens the service nearest to it, not the domain:
-            // a click on the name of a world, just outside its star, is for that service.
+            // On the map of the backends a second click opens the backend nearest to it, not the domain:
+            // a click on the name of a world, just outside its star, is for that backend.
             if (hit.id === focusedGalaxyId && isBackend) {
                 const nearest = (membersByGalaxy.get(hit.id) ?? [])
                     .map(node => ({ node, distance: Math.hypot(point.x - (node.x ?? 0), point.y - (node.y ?? 0)) }))
                     .sort((a, b) => a.distance - b.distance)[0]
-                if (nearest) navigate(`/service/${nearest.node.id}`)
+                if (nearest) navigate(`/backend/${nearest.node.id}`)
                 return
             }
             if (hit.id === focusedGalaxyId && hit.domainId) return navigate(`/domain/${hit.domainId}`)
@@ -1440,7 +1440,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                 </div>
                 <div className="text-foreground-secondary">{target.node.slug}</div>
                 <div className="mt-1 text-foreground-secondary">
-                    {t(target.node.kind === "service" ? "domains.galaxy.kind_service" : "domains.galaxy.kind_frontend")}
+                    {t(target.node.kind === "backend" ? "domains.galaxy.kind_backend" : "domains.galaxy.kind_frontend")}
                     {hoveredGalaxy && ` · ${hoveredGalaxy.name}`}
                 </div>
                 {target.node.canary !== undefined && <div className="mt-1 font-medium text-warning">{t("domains.galaxy.canary", { percentage: target.node.canary })}</div>}
@@ -1503,7 +1503,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                     nodePointerAreaPaint={paintPointerArea}
                     linkColor={linkColor}
                     linkWidth={link => (isLit(link) ? 1.6 : link.bridge ? 1.4 : 0.8)}
-                    linkLineDash={link => (link.kind === "service" ? [3, 2] : null)}
+                    linkLineDash={link => (link.kind === "backend" ? [3, 2] : null)}
                     linkCurvature={link => (link.bridge ? 0.15 : 0)}
                     linkDirectionalParticles={link => (!reducedMotion && (link.bridge || isLit(link)) ? 2 : 0)}
                     linkDirectionalParticleSpeed={0.005}

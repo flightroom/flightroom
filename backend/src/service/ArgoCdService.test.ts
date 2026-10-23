@@ -7,11 +7,11 @@ vi.mock("..", () => ({ fastify: { log: { error: vi.fn(), warn: vi.fn() }, config
 import ArgoCdClient, { ArgoCdResource } from "../client/ArgoCdClient"
 import GitlabClient from "../client/GitlabClient"
 import { createBusinessException } from "../errors/BusinessException"
+import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Project, { IArgoCdRepositoryCredential, IProjectArgoCd } from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
@@ -107,7 +107,7 @@ beforeEach(() => {
     vi.spyOn(CodeRepository, "findOne").mockImplementation(((filter: { _id: unknown }) =>
         Promise.resolve(String(filter._id) === String(gitlabConnectionId) ? gitlabConnection : githubConnection)) as never)
     vi.spyOn(CodeRepository, "find").mockResolvedValue([gitlabConnection, githubConnection] as never)
-    vi.spyOn(Service, "find").mockResolvedValue([{ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, { slug: "draft" }] as never)
+    vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, { slug: "draft" }] as never)
     vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "checkout", version: "2.0.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
     vi.spyOn(CodeRepositoryService.prototype, "getBranches").mockImplementation(async () => {
         calls.push("branches")
@@ -355,7 +355,7 @@ describe("ArgoCdService.initialize", () => {
         expect(calls.some(call => call.startsWith("argo:upsert") || call.startsWith("gitlab:"))).toBe(false)
     })
 
-    it("given a project, when it is initialized, then the console makes no Application: the ApplicationSet of the environments and one per deployable service and frontend", async () => {
+    it("given a project, when it is initialized, then the console makes no Application: the ApplicationSet of the environments and one per deployable backend and frontend", async () => {
         await initialize()
 
         expect(calls.filter(call => call.startsWith("argo:upsertApplication"))).toEqual([
@@ -387,12 +387,12 @@ describe("ArgoCdService.initialize", () => {
         expect(JSON.stringify(orders)).not.toContain(applicationName(String(projectId), "shop", "orders", "production"))
     })
 
-    it("given a service whose Application would take the name of another, when it is initialized, then it is refused before anything is written", async () => {
+    it("given a backend whose Application would take the name of another, when it is initialized, then it is refused before anything is written", async () => {
         vi.mocked(Environment.find).mockResolvedValue([
             { slug: "development", projectId },
             { slug: "checkout-development", projectId }
         ] as never)
-        vi.mocked(Service.find).mockResolvedValue([{ slug: "orders-checkout", version: "1", image: { repository: "orders" } }] as never)
+        vi.mocked(Backend.find).mockResolvedValue([{ slug: "orders-checkout", version: "1", image: { repository: "orders" } }] as never)
         vi.mocked(Frontend.find).mockResolvedValue([{ slug: "orders", version: "1", image: { repository: "orders" } }] as never)
         vi.mocked(CodeRepositoryService.prototype.getBranches).mockResolvedValue([{ branch: "development" }, { branch: "checkout-development" }] as never)
 
@@ -496,7 +496,7 @@ describe("ArgoCdService.alignApplications", () => {
     const updates = () => vi.mocked(Project.updateOne).mock.calls.map(([filter, update]) => ({ filter, update: update as { $set?: Record<string, unknown>; $unset?: Record<string, unknown> } }))
     const storedError = () => updates().find(({ update }) => update.$set?.["argoCd.alignError"])
 
-    it("given Argo CD initialized, when a deploy aligns it, then the ApplicationSet of every deployable service and frontend is upserted and nothing else", async () => {
+    it("given Argo CD initialized, when a deploy aligns it, then the ApplicationSet of every deployable backend and frontend is upserted and nothing else", async () => {
         previous = initialized()
 
         await align()
@@ -505,10 +505,10 @@ describe("ArgoCdService.alignApplications", () => {
         expect(storedError()).toBeUndefined()
     })
 
-    it("given a container registry in the project, when a deploy aligns it, then a service with a version and no image gets its ApplicationSet too", async () => {
+    it("given a container registry in the project, when a deploy aligns it, then a backend with a version and no image gets its ApplicationSet too", async () => {
         previous = initialized()
         vi.mocked(Project.findById).mockImplementation(() => ({ _id: projectId, slug: "shop", gitOps, argoCd: previous, containerRegistry: "ghcr.io/acme" }) as never)
-        vi.mocked(Service.find).mockResolvedValue([{ slug: "draft", version: "0.1.0" }] as never)
+        vi.mocked(Backend.find).mockResolvedValue([{ slug: "draft", version: "0.1.0" }] as never)
 
         await align()
 
@@ -584,9 +584,9 @@ describe("ArgoCdService.alignApplications", () => {
         expect(storedError()).toMatchObject({ filter: { "argoCd.initializingAt": { $exists: false } }, update: { $set: { "argoCd.alignError": { code: "ARGOCD_NAME_CONFLICT" } } } })
     })
 
-    it("given a service named after the ApplicationSet of the environments, when a deploy aligns it, then that one is not overwritten", async () => {
+    it("given a backend named after the ApplicationSet of the environments, when a deploy aligns it, then that one is not overwritten", async () => {
         previous = initialized()
-        vi.mocked(Service.find).mockResolvedValue([{ slug: "environments", version: "1", image: { repository: "environments" } }] as never)
+        vi.mocked(Backend.find).mockResolvedValue([{ slug: "environments", version: "1", image: { repository: "environments" } }] as never)
 
         await align()
 

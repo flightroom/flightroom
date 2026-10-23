@@ -141,7 +141,7 @@ describe("AssistantController", () => {
         expect(chat).not.toHaveBeenCalled()
     })
 
-    it("Given a chosen effort, when the question is answered, then it reaches the service, the reasoning streams as thinking frames and the usage records the effort", async () => {
+    it("Given a chosen effort, when the question is answered, then it reaches the backend, the reasoning streams as thinking frames and the usage records the effort", async () => {
         const usage = { inputTokens: 10, cachedInputTokens: 0, outputTokens: 5 }
         chat.mockImplementation(async (_projectId, _request, handlers) => {
             handlers.onThinking("Check the logs.")
@@ -197,7 +197,7 @@ describe("AssistantController", () => {
         // The assistant works on the whole project: no domain nor repository is credited.
         expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("domainId")
         expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("frontendIds")
-        expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("serviceIds")
+        expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("backendIds")
     })
 
     it("Given an answer failing after two model rounds, when it ends with an error, then the ledger still counts both rounds and the usage document stays for finished answers", async () => {

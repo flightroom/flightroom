@@ -6,7 +6,7 @@ import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
 import { DeployedFrontend, DomainDeployments, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
 import { CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
-import { exposedOrigin } from "@/pages/services/partials/serviceVariables"
+import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useThemeStore from "@/store/useThemeStore"
 
@@ -114,7 +114,7 @@ export const DomainDeploymentsSection: React.FC<{ deployments: DomainDeployments
     // Every environment lists the same members, in the same order
     const members = [
         ...(environments[0]?.frontends ?? []).map(frontend => ({ ...frontend, kind: "frontend" as const })),
-        ...(environments[0]?.services ?? []).map(service => ({ ...service, kind: "backend" as const }))
+        ...(environments[0]?.backends ?? []).map(backend => ({ ...backend, kind: "backend" as const }))
     ]
 
     return (
@@ -150,7 +150,7 @@ export const DomainDeploymentsSection: React.FC<{ deployments: DomainDeployments
                                                 <span className="flex items-center gap-1.5 text-sm">
                                                     <Icon className="size-3.5 shrink-0 text-foreground-secondary" aria-hidden="true" />
                                                     <span className="sr-only">{t(`domains.deployments.${member.kind}`)}</span>
-                                                    <Link to={`/${member.kind === "frontend" ? "frontend" : "service"}/${member._id}`} title={member.slug} className="font-medium hover:underline">
+                                                    <Link to={`/${member.kind === "frontend" ? "frontend" : "backend"}/${member._id}`} title={member.slug} className="font-medium hover:underline">
                                                         {member.name}
                                                     </Link>
                                                 </span>
@@ -159,7 +159,7 @@ export const DomainDeploymentsSection: React.FC<{ deployments: DomainDeployments
                                                 const deployed =
                                                     member.kind === "frontend"
                                                         ? entry.frontends.find(frontend => frontend._id === member._id)
-                                                        : entry.services.find(service => service._id === member._id)
+                                                        : entry.backends.find(backend => backend._id === member._id)
                                                 const frontend = member.kind === "frontend" ? frontends.find(candidate => candidate._id === member._id) : undefined
                                                 return (
                                                     <TableCell key={entry.environment._id}>

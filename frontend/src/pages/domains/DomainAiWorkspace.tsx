@@ -9,9 +9,9 @@ import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBra
 import { jobErrorMessage } from "@/components/assistant/AssistantJobThread"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import useAiJobsApi, { AiJob, DomainPlan } from "@/hooks/apiClients/useAiJobsApi"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
-import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import useProjectStore from "@/store/useProjectStore"
 import DomainHeader from "./partials/DomainHeader"
 import DomainScaffoldDialog, { repositoryNameFor, ScaffoldItem } from "./partials/DomainScaffoldDialog"
@@ -20,7 +20,7 @@ import DomainScaffoldDialog, { repositoryNameFor, ScaffoldItem } from "./partial
 const MAX_REPOSITORIES = 10
 
 interface DomainRepository {
-    kind: "frontend" | "service"
+    kind: "frontend" | "backend"
     id: string
     name: string
     slug: string
@@ -32,7 +32,7 @@ interface DomainRepository {
 /** The rows of the creation dialog for what the AI proposes in an empty domain. */
 const planItems = (plan: DomainPlan): ScaffoldItem[] => [
     ...plan.frontends.map((component, index) => ({ ...component, key: `frontend-${index}`, kind: "frontend" as const })),
-    ...plan.services.map((component, index) => ({ ...component, key: `service-${index}`, kind: "service" as const }))
+    ...plan.backends.map((component, index) => ({ ...component, key: `backend-${index}`, kind: "backend" as const }))
 ]
 
 /** The rows of the creation dialog for members without a repository: one each, named after its slug. */
@@ -78,7 +78,7 @@ interface ScaffoldState {
 }
 
 /**
- * The landing screen of a functional domain: Edit with AI, the same workspace as a frontend's and a service's,
+ * The landing screen of a functional domain: Edit with AI, the same workspace as a frontend's and a backend's,
  * on every repository of the domain at once. With nothing to work on yet, Generate first offers to create it: the
  * components the AI proposes for an empty domain, or the repositories of members that have none.
  */
@@ -89,7 +89,7 @@ const DomainAiWorkspace: React.FC = () => {
     const aiModels = useProjectAiModels()
     const domainsApi = useDomainsApi()
     const frontendsApi = useFrontendsApi()
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const aiJobsApi = useAiJobsApi()
     const [scaffold, setScaffold] = useState<ScaffoldState>({ open: false, items: [], prompt: "" })
 
@@ -99,14 +99,14 @@ const DomainAiWorkspace: React.FC = () => {
         queryFn: () => frontendsApi.getByProjectId(projectId!),
         enabled: !!projectId
     })
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
 
     const planMutation = useMutation({
         mutationFn: (prompt: string) => aiJobsApi.planDomain({ domainId: id!, prompt, aiModelId: aiModels.selected?.id }, { customErrorMessage: error => jobErrorMessage(t, error, "plan") })
     })
 
     // Not an ApiStatusHandler: it unmounts its children on every background refetch, and the workspace holds a draft prompt.
-    const queries = [domainQuery, frontendsQuery, servicesQuery]
+    const queries = [domainQuery, frontendsQuery, backendsQuery]
     if (queries.some(query => query.isPending)) {
         return (
             <div className="flex min-h-[200px] items-center justify-center">
@@ -127,7 +127,7 @@ const DomainAiWorkspace: React.FC = () => {
 
     const domain = domainQuery.data
     const frontends = (frontendsQuery.data ?? []).filter(frontend => frontend.domainId === id && frontend._id)
-    const services = (servicesQuery.data ?? []).filter(service => service.domainId === id && service._id)
+    const backends = (backendsQuery.data ?? []).filter(backend => backend.domainId === id && backend._id)
     const repositories: DomainRepository[] = [
         ...frontends.map(frontend => ({
             kind: "frontend" as const,
@@ -137,13 +137,13 @@ const DomainAiWorkspace: React.FC = () => {
             template: frontend.template,
             linked: Boolean(frontend.codeRepository?.enabled)
         })),
-        ...services.map(service => ({
-            kind: "service" as const,
-            id: service._id!,
-            name: service.name,
-            slug: service.slug,
-            template: service.template,
-            linked: Boolean(service.codeRepository?.enabled)
+        ...backends.map(backend => ({
+            kind: "backend" as const,
+            id: backend._id!,
+            name: backend.name,
+            slug: backend.slug,
+            template: backend.template,
+            linked: Boolean(backend.codeRepository?.enabled)
         }))
     ]
     const linked = repositories.filter(repository => repository.linked)
@@ -174,7 +174,7 @@ const DomainAiWorkspace: React.FC = () => {
                     key={id}
                     target={{ kind: "domain", id: id! }}
                     name={domain.name}
-                    repositories={[...frontends.flatMap(frontend => workspaceRepositoriesOf("frontend", frontend)), ...services.flatMap(service => workspaceRepositoriesOf("service", service))]}
+                    repositories={[...frontends.flatMap(frontend => workspaceRepositoriesOf("frontend", frontend)), ...backends.flatMap(backend => workspaceRepositoriesOf("backend", backend))]}
                     composer={{
                         context: <DomainRepositoriesContext repositories={repositories} />,
                         blocked: linked.length > MAX_REPOSITORIES,

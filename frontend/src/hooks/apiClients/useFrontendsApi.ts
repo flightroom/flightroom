@@ -1,8 +1,8 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
+import type { Backend, BuiltBackend } from "./useBackendsApi"
 import type { DesignSystem } from "./useProjectApi"
 import type { IFrontendStackDTO } from "./useServeApi"
-import type { BuiltService, Service } from "./useServicesApi"
 
 export enum HostedOn {
     MFE_ORCHESTRATOR_HUB = "MFE_ORCHESTRATOR_HUB",
@@ -23,7 +23,7 @@ export enum CanaryType {
 
 /**
  * How it is served. A BUNDLE is a static bundle served by Flightroom; a DOCKER is an app
- * built into a Docker image and served by its own container, like a backend service. Chosen by hand
+ * built into a Docker image and served by its own container, like a backend. Chosen by hand
  * only: neither the template nor the host/remote role sets it.
  */
 export enum FrontendKind {
@@ -31,8 +31,8 @@ export enum FrontendKind {
     DOCKER = "DOCKER"
 }
 
-/** What a DOCKER declares about its container: the same fields as a service, with the same meaning. */
-export type FrontendContainer = Partial<Pick<Service, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "env" | "configMapIds" | "secretIds">>
+/** What a DOCKER declares about its container: the same fields as a backend, with the same meaning. */
+export type FrontendContainer = Partial<Pick<Backend, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "env" | "configMapIds" | "secretIds">>
 
 export enum CanaryDeploymentType {
     BASED_ON_VERSION = "BASED_ON_VERSION",
@@ -120,8 +120,8 @@ export interface Frontend extends FrontendContainer {
     createdAt?: Date
     updatedAt?: Date
     parentIds?: string[]
-    /** Backend services this frontend calls, linked by hand */
-    serviceIds?: string[]
+    /** Backends this frontend calls, linked by hand */
+    backendIds?: string[]
     position?: {
         x: number
         y: number
@@ -130,8 +130,8 @@ export interface Frontend extends FrontendContainer {
     }
 }
 
-/** A registered version. A DOCKER frontend's carries the image its pipeline published, like a service's. */
-export interface BuiltFrontend extends Omit<BuiltService, "serviceId" | "image">, Partial<Pick<BuiltService, "image">> {
+/** A registered version. A DOCKER frontend's carries the image its pipeline published, like a backend's. */
+export interface BuiltFrontend extends Omit<BuiltBackend, "backendId" | "image">, Partial<Pick<BuiltBackend, "image">> {
     frontendId: string
 }
 
@@ -145,7 +145,7 @@ const FRONTEND_ERROR_KEYS: Record<string, string> = {
     BUILD_REPOSITORY_NOT_FOUND: "frontend.errors.build_repository_not_found"
 }
 
-/** A new repository, scaffolded from a template, for a frontend or a service that has none. */
+/** A new repository, scaffolded from a template, for a frontend or a backend that has none. */
 export interface CreateMemberRepositoryDTO {
     codeRepositoryId: string
     repositoryName: string
@@ -293,17 +293,17 @@ const useFrontendsApi = () => {
         return response.data
     }
 
-    const linkService = async (frontendId: string, serviceId: string) => {
+    const linkBackend = async (frontendId: string, backendId: string) => {
         const response = await apiClient.doRequest({
-            url: `/api/frontends/${frontendId}/services/${serviceId}`,
+            url: `/api/frontends/${frontendId}/backends/${backendId}`,
             method: "PUT"
         })
         return response.data
     }
 
-    const unlinkService = async (frontendId: string, serviceId: string) => {
+    const unlinkBackend = async (frontendId: string, backendId: string) => {
         const response = await apiClient.doRequest({
-            url: `/api/frontends/${frontendId}/services/${serviceId}`,
+            url: `/api/frontends/${frontendId}/backends/${backendId}`,
             method: "DELETE"
         })
         return response.data
@@ -325,8 +325,8 @@ const useFrontendsApi = () => {
         setDimensions,
         setRelation,
         removeRelation,
-        linkService,
-        unlinkService
+        linkBackend,
+        unlinkBackend
     }
 }
 

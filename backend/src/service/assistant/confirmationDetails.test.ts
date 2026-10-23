@@ -13,7 +13,7 @@ const projectById = vi.fn()
 const projectUsers = vi.fn()
 const aiChange = vi.fn()
 const aiJob = vi.fn()
-const serviceById = vi.fn()
+const backendById = vi.fn()
 const domainById = vi.fn()
 
 vi.mock("../EnvironmentService", () => ({
@@ -49,9 +49,9 @@ vi.mock("../UserProjectService", () => ({
         getProjectUsers = projectUsers
     }
 }))
-vi.mock("../ServiceService", () => ({
+vi.mock("../BackendService", () => ({
     default: class {
-        getById = serviceById
+        getById = backendById
     }
 }))
 vi.mock("../DomainService", () => ({
@@ -133,7 +133,7 @@ describe("describeConfirmation", () => {
             projectUsers,
             aiChange,
             aiJob,
-            serviceById,
+            backendById,
             domainById
         ])
             mock.mockReset()
@@ -230,32 +230,32 @@ describe("describeConfirmation", () => {
         expect(details).toHaveLength(4)
     })
 
-    it("Given an AI change of a service, when described, then the service is shown by its name", async () => {
-        aiChange.mockResolvedValue({ serviceId: CHECKOUT, prompt: "Add a health route", files: [] })
-        serviceById.mockResolvedValue({ _id: CHECKOUT, name: "Orders API" })
+    it("Given an AI change of a backend, when described, then the backend is shown by its name", async () => {
+        aiChange.mockResolvedValue({ backendId: CHECKOUT, prompt: "Add a health route", files: [] })
+        backendById.mockResolvedValue({ _id: CHECKOUT, name: "Orders API" })
 
         const details = await describeConfirmation(toolNamed("ai_change_apply"), { changeId: CHANGE }, context)
 
-        expect(serviceById).toHaveBeenCalledWith(CHECKOUT)
-        expect(details[1]).toEqual({ label: "service", value: "Orders API" })
+        expect(backendById).toHaveBeenCalledWith(CHECKOUT)
+        expect(details[1]).toEqual({ label: "backend", value: "Orders API" })
     })
 
-    it("Given an AI change of a service that cannot be read, when described, then its id is shown instead", async () => {
-        aiChange.mockResolvedValue({ serviceId: CHECKOUT, prompt: "Add a health route", files: [] })
-        serviceById.mockRejectedValue(new Error("forbidden"))
+    it("Given an AI change of a backend that cannot be read, when described, then its id is shown instead", async () => {
+        aiChange.mockResolvedValue({ backendId: CHECKOUT, prompt: "Add a health route", files: [] })
+        backendById.mockRejectedValue(new Error("forbidden"))
 
         const details = await describeConfirmation(toolNamed("ai_change_apply"), { changeId: CHANGE }, context)
 
-        expect(details[1]).toEqual({ label: "service", value: CHECKOUT })
+        expect(details[1]).toEqual({ label: "backend", value: CHECKOUT })
     })
 
-    it("Given a service or a domain to delete, when described, then it is shown by its name", async () => {
-        serviceById.mockResolvedValue({ _id: CHECKOUT, name: "Orders API" })
+    it("Given a backend or a domain to delete, when described, then it is shown by its name", async () => {
+        backendById.mockResolvedValue({ _id: CHECKOUT, name: "Orders API" })
         domainById.mockResolvedValue({ _id: CHANGE, name: "Payments" })
 
-        expect(await describeConfirmation(toolNamed("service_delete"), { serviceId: CHECKOUT }, context)).toEqual([
+        expect(await describeConfirmation(toolNamed("backend_delete"), { backendId: CHECKOUT }, context)).toEqual([
             { label: "project", value: "Shop" },
-            { label: "service", value: "Orders API" }
+            { label: "backend", value: "Orders API" }
         ])
         expect(await describeConfirmation(toolNamed("domain_delete"), { domainId: CHANGE }, context)).toEqual([
             { label: "project", value: "Shop" },

@@ -9,7 +9,7 @@ import { z } from "zod"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useMaintenanceAgentsApi, { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
-import { useProjectEnvironmentsQuery } from "@/pages/services/partials/serviceVariables"
+import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 interface MaintenanceRunDialogProps {

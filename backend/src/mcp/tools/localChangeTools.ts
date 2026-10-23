@@ -7,15 +7,15 @@ import { defineTool, objectId, READ_ONLY_EXTERNAL, WRITE_EXTERNAL } from "../too
 
 /** One of the two: a refinement would stop the server from adding `projectId` to the schema. */
 const target = {
-    frontendId: objectId("Id of the frontend, from frontends_list. Pass this or serviceId").optional(),
-    serviceId: objectId("Id of the backend service, from services_list. Pass this or frontendId").optional()
+    frontendId: objectId("Id of the frontend, from frontends_list. Pass this or backendId").optional(),
+    backendId: objectId("Id of the backend, from backends_list. Pass this or frontendId").optional()
 }
 
-const refOf = (args: { frontendId?: string; serviceId?: string }): RepositoryComponentRef => {
-    if (Boolean(args.frontendId) === Boolean(args.serviceId)) {
-        throw createBusinessException({ code: "LOCAL_CHANGE_TARGET", message: "Pass either frontendId or serviceId", statusCode: 400 })
+const refOf = (args: { frontendId?: string; backendId?: string }): RepositoryComponentRef => {
+    if (Boolean(args.frontendId) === Boolean(args.backendId)) {
+        throw createBusinessException({ code: "LOCAL_CHANGE_TARGET", message: "Pass either frontendId or backendId", statusCode: 400 })
     }
-    return args.serviceId ? { kind: "service", id: args.serviceId } : { kind: "frontend", id: args.frontendId! }
+    return args.backendId ? { kind: "backend", id: args.backendId } : { kind: "frontend", id: args.frontendId! }
 }
 
 /**
@@ -28,7 +28,7 @@ export const localChangeTools = [
         name: "repository_checkout_get",
         title: "Get repository checkout",
         description:
-            "Where to clone the repository of a frontend or a backend service (HTTPS URL without credentials: clone it with your own git access), its default branch, and aiContext: what the team wrote for AI agents about it, its domain and the project. Follow aiContext while editing. When done, send the change with code_change_submit, or push it yourself if you have write access.",
+            "Where to clone the repository of a frontend or a backend (HTTPS URL without credentials: clone it with your own git access), its default branch, and aiContext: what the team wrote for AI agents about it, its domain and the project. Follow aiContext while editing. When done, send the change with code_change_submit, or push it yourself if you have write access.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY_EXTERNAL,
         inputSchema: z.object(target),
@@ -38,7 +38,7 @@ export const localChangeTools = [
         name: "code_change_submit",
         title: "Submit code change",
         description:
-            "Pushes files edited in a local clone to a new branch of the repository of a frontend or a backend service and opens a pull request against baseBranch; the base branch itself is never written. " +
+            "Pushes files edited in a local clone to a new branch of the repository of a frontend or a backend and opens a pull request against baseBranch; the base branch itself is never written. " +
             "Send the full new content of every created or updated file (text only) and the deleted paths. baseCommit is the commit your clone started from (`git rev-parse HEAD` before your edits, or `git merge-base HEAD origin/<baseBranch>`): " +
             "if baseBranch moved since, the change is refused when one of your files changed there too, or when that commit cannot be checked; pull and submit again. " +
             "CI workflows, lockfiles and registry configuration cannot be changed this way. Returns the branch, the commit and the pull request URL.",
@@ -66,6 +66,6 @@ export const localChangeTools = [
                 .min(1)
                 .max(MAX_SUBMITTED_FILES)
         }),
-        run: async ({ frontendId, serviceId, ...input }, { principal }) => new LocalChangeService(principal).submit(refOf({ frontendId, serviceId }), input)
+        run: async ({ frontendId, backendId, ...input }, { principal }) => new LocalChangeService(principal).submit(refOf({ frontendId, backendId }), input)
     })
 ]

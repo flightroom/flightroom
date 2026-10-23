@@ -43,10 +43,10 @@ vi.mock("./CodeRepositoryService", () => ({
 }))
 
 import { BusinessException } from "../errors/BusinessException"
+import Backend from "../models/BackendModel"
 import { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
-import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "./BaseAuthorizedService"
@@ -79,7 +79,7 @@ const providerError = (status: number, data: unknown) => {
 }
 
 let updateFrontends: ReturnType<typeof vi.fn>
-let updateServices: ReturnType<typeof vi.fn>
+let updateBackends: ReturnType<typeof vi.fn>
 
 /** Renames with the frontend given; the writes are answered by the spies above. */
 const rename = (document: ReturnType<typeof frontend>, name: unknown) => {
@@ -104,7 +104,7 @@ beforeEach(() => {
     vi.spyOn(base, "getUser").mockReturnValue({ _id: new Types.ObjectId() })
     vi.spyOn(UserProject, "findOne").mockResolvedValue({ role: RoleInProject.MEMBER } as never)
     updateFrontends = vi.spyOn(Frontend, "updateMany").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
-    updateServices = vi.spyOn(Service, "updateMany").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
+    updateBackends = vi.spyOn(Backend, "updateMany").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
 })
 
 afterEach(() => {
@@ -151,7 +151,7 @@ describe("RepositoryRenameService.renameFrontendRepository", () => {
         })
     })
 
-    it("given other frontends and services linked to the same repository, when renamed, then their links follow too", async () => {
+    it("given other frontends and backends linked to the same repository, when renamed, then their links follow too", async () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.GITHUB, { githubData: { userName: "jane" } }))
         githubRename.mockResolvedValue({ id: 42, name: "checkout-web" })
         const document = frontend({ name: "checkout", repositoryId: "42" })
@@ -160,7 +160,7 @@ describe("RepositoryRenameService.renameFrontendRepository", () => {
 
         const sameRepository = [{ "codeRepository.repositoryId": "42" }, { "codeRepository.name": "checkout" }]
         expect(updateFrontends.mock.calls[0][0]).toEqual({ projectId, "codeRepository.codeRepositoryId": codeRepositoryId, $or: [{ _id: document._id }, ...sameRepository] })
-        expect(updateServices.mock.calls[0][0]).toEqual({ projectId, "codeRepository.codeRepositoryId": codeRepositoryId, $or: sameRepository })
+        expect(updateBackends.mock.calls[0][0]).toEqual({ projectId, "codeRepository.codeRepositoryId": codeRepositoryId, $or: sameRepository })
     })
 
     it("given a GitLab project, when renamed, then it is checked by its id and its path moves with the name", async () => {
@@ -182,7 +182,7 @@ describe("RepositoryRenameService.renameFrontendRepository", () => {
         expect(gitlabRename).toHaveBeenCalledWith(99, "checkout-web")
         expect(written()).toMatchObject({ "codeRepository.repositoryId": "99", "codeRepository.gitlab.path": "web/checkout-web" })
         // Two groups can hold a repository of the same name: on GitLab the path tells them apart
-        expect(updateServices.mock.calls[0][0].$or).toEqual([{ "codeRepository.repositoryId": "99" }, { "codeRepository.gitlab.path": "web/checkout" }])
+        expect(updateBackends.mock.calls[0][0].$or).toEqual([{ "codeRepository.repositoryId": "99" }, { "codeRepository.gitlab.path": "web/checkout" }])
     })
 
     it("given a GitLab link with a name only, when renamed, then the project is found by its full path", async () => {
@@ -337,10 +337,10 @@ describe("RepositoryRenameService.renameFrontendRepository", () => {
 
         it.each([
             ["a frontend", "frontend"],
-            ["a service", "service"]
+            ["a backend", "backend"]
         ])("given %s of another domain or of none linked to the same repository, when renamed, then it is refused before the provider is reached", async (_case, outside) => {
             const frontendsOutside = vi.spyOn(Frontend, "exists").mockResolvedValue((outside === "frontend" ? { _id: new Types.ObjectId() } : null) as never)
-            vi.spyOn(Service, "exists").mockResolvedValue((outside === "service" ? { _id: new Types.ObjectId() } : null) as never)
+            vi.spyOn(Backend, "exists").mockResolvedValue((outside === "backend" ? { _id: new Types.ObjectId() } : null) as never)
             const document = scopedDocument()
 
             await expect(scopedRename(document, "checkout-web")).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN", statusCode: 403 })
@@ -357,7 +357,7 @@ describe("RepositoryRenameService.renameFrontendRepository", () => {
 
         it("given every link to the repository in their domains, when renamed, then it goes through", async () => {
             vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
-            vi.spyOn(Service, "exists").mockResolvedValue(null as never)
+            vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
 
             await scopedRename(scopedDocument(), "checkout-web")
 

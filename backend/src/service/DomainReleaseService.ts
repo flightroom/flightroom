@@ -2,12 +2,12 @@ import { isValidObjectId, ObjectId } from "mongoose"
 import { fastify } from ".."
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend from "../models/BackendModel"
+import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
-import BuiltService from "../models/BuiltServiceModel"
 import DomainRelease, { DomainReleaseStatus, DomainReleaseStep, IDomainRelease, IDomainReleaseMember } from "../models/DomainReleaseModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
-import Service from "../models/ServiceModel"
 import User, { UserStatus } from "../models/UserModel"
 import { BuildStatus } from "../types/BuildStatusDTO"
 import { DomainBuildRepository } from "../types/DomainDTO"
@@ -76,7 +76,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
         }
 
         const inDomain = { projectId: domain.projectId, domainId: domain._id }
-        const [frontends, services] = await Promise.all([Frontend.find(inDomain, { name: 1 }), Service.find(inDomain, { name: 1 })])
+        const [frontends, backends] = await Promise.all([Frontend.find(inDomain, { name: 1 }), Backend.find(inDomain, { name: 1 })])
         let release: IDomainRelease
         try {
             release = await DomainRelease.create({
@@ -90,7 +90,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
                 active: true,
                 members: [
                     ...frontends.map(member => ({ kind: "frontend" as const, _id: member._id, name: member.name })),
-                    ...services.map(member => ({ kind: "service" as const, _id: member._id, name: member.name }))
+                    ...backends.map(member => ({ kind: "backend" as const, _id: member._id, name: member.name }))
                 ]
             })
         } catch (error) {
@@ -176,7 +176,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
 
             if (!(await this.claim(release, DomainReleaseStatus.UPDATING_VERSIONS, DomainReleaseStatus.DEPLOYING))) return
             step = DomainReleaseStatus.DEPLOYING
-            // As the deploy button of the domain: only its frontends and services move
+            // As the deploy button of the domain: only its frontends and backends move
             const [deployment] = await new DeploymentService(this.user).createMultiple([String(release.environmentId)], String(release.domainId))
             await DomainRelease.updateOne(
                 { _id: release._id, status: DomainReleaseStatus.DEPLOYING },
@@ -198,11 +198,11 @@ export class DomainReleaseService extends BaseAuthorizedService {
         const pending = release.members.filter(member => member.tagged && !member.built)
         if (pending.length === 0) return []
         const idsOf = (kind: IDomainReleaseMember["kind"]) => pending.filter(member => member.kind === kind).map(member => member._id)
-        const [frontends, services] = await Promise.all([
+        const [frontends, backends] = await Promise.all([
             BuiltFrontend.find({ frontendId: { $in: idsOf("frontend") }, version: release.version }, { frontendId: 1 }),
-            BuiltService.find({ serviceId: { $in: idsOf("service") }, version: release.version }, { serviceId: 1 })
+            BuiltBackend.find({ backendId: { $in: idsOf("backend") }, version: release.version }, { backendId: 1 })
         ])
-        const built = new Set([...frontends.map(entry => String(entry.frontendId)), ...services.map(entry => String(entry.serviceId))])
+        const built = new Set([...frontends.map(entry => String(entry.frontendId)), ...backends.map(entry => String(entry.backendId))])
         if (built.size > 0) {
             const members = release.members.map(member => ({ ...member, built: member.built || built.has(String(member._id)) }))
             await DomainRelease.updateOne({ _id: release._id }, { $set: { members } })
@@ -222,7 +222,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
                 const row =
                     member.kind === "frontend"
                         ? snapshot.frontends.find(candidate => candidate.frontendId === String(member._id))
-                        : snapshot.services.find(candidate => candidate.serviceId === String(member._id))
+                        : snapshot.backends.find(candidate => candidate.backendId === String(member._id))
                 const runs = row?.builds.filter(run => run.ref === release.version) ?? []
                 return runs.length > 0 && runs.every(run => run.status === BuildStatus.FAILED || run.status === BuildStatus.CANCELED)
             })
@@ -233,7 +233,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
     }
 
     /**
-     * Sets the version of the release on every member it built, a BUNDLE frontend as a DOCKER one and a service:
+     * Sets the version of the release on every member it built, a BUNDLE frontend as a DOCKER one and a backend:
      * the release decides the version, unlike a CI registration that moves it only to a newer one. A member
      * taken out of the domain since is left alone, the deploy of the domain no longer ships it.
      */
@@ -241,7 +241,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
         const idsOf = (kind: IDomainReleaseMember["kind"]) => release.members.filter(member => member.kind === kind && member.tagged).map(member => member._id)
         const inDomain = { projectId: release.projectId, domainId: release.domainId }
         await Frontend.updateMany({ _id: { $in: idsOf("frontend") }, ...inDomain }, { $set: { version: release.version } })
-        await Service.updateMany({ _id: { $in: idsOf("service") }, ...inDomain }, { $set: { version: release.version } })
+        await Backend.updateMany({ _id: { $in: idsOf("backend") }, ...inDomain }, { $set: { version: release.version } })
     }
 }
 

@@ -138,7 +138,7 @@ interface TargetOption {
 }
 
 /** The members of one kind the agent maintains, each removable, and a search to add the others */
-export const MaintenanceTargetPicker: React.FC<{ name: "serviceIds" | "frontendIds"; options: TargetOption[]; title: string; dotClassName: string }> = ({ name, options, title, dotClassName }) => {
+export const MaintenanceTargetPicker: React.FC<{ name: "backendIds" | "frontendIds"; options: TargetOption[]; title: string; dotClassName: string }> = ({ name, options, title, dotClassName }) => {
     const { t } = useTranslation()
     const { control } = useFormContext()
     const [open, setOpen] = useState(false)
@@ -254,28 +254,28 @@ export const MaintenanceRuntimeFields: React.FC = () => {
     const hasImage = Boolean(watch("image.repository")?.trim())
     const hasVersion = Boolean(watch("version")?.trim())
     const imageHint = hasImage
-        ? t("services.image_repository_hint")
+        ? t("backends.image_repository_hint")
         : containerRegistry
-          ? t("services.image_repository_hint_registry", { image: `${containerRegistry}/${watch("slug") || "<slug>"}` })
+          ? t("backends.image_repository_hint_registry", { image: `${containerRegistry}/${watch("slug") || "<slug>"}` })
           : hasVersion
-            ? t("services.image_repository_missing")
-            : t("services.image_repository_hint")
+            ? t("backends.image_repository_missing")
+            : t("backends.image_repository_hint")
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="mb-0">{t("services.runtime_settings")}</CardTitle>
+                <CardTitle className="mb-0">{t("backends.runtime_settings")}</CardTitle>
                 <CardDescription>{isContainer ? t("maintenance.runtime.container_description") : t("maintenance.runtime.job_description")}</CardDescription>
             </CardHeader>
             <CardContent className="grid grid-cols-1 gap-x-4 gap-y-2 pt-3 md:grid-cols-2">
-                <TextField name="image.repository" label={t("services.image_repository")} placeholder="ghcr.io/acme/cleanup-agent" description={imageHint} />
-                <TextField name="version" label={t("services.version")} placeholder="1.0.0" description={t("services.version_hint")} />
+                <TextField name="image.repository" label={t("backends.image_repository")} placeholder="ghcr.io/acme/cleanup-agent" description={imageHint} />
+                <TextField name="version" label={t("backends.version")} placeholder="1.0.0" description={t("backends.version_hint")} />
                 {isContainer && (
                     <>
                         <TextField name="runPath" label={t("maintenance.run_path")} placeholder="/run" description={t("maintenance.run_path_hint")} required />
-                        <TextField name="port" type="number" label={t("services.port")} required />
-                        <TextField name="livenessPath" label={t("services.liveness_path")} placeholder="/health/live" description={t("services.liveness_path_hint")} required />
-                        <TextField name="readinessPath" label={t("services.readiness_path")} placeholder="/health/ready" description={t("services.readiness_path_hint")} required />
+                        <TextField name="port" type="number" label={t("backends.port")} required />
+                        <TextField name="livenessPath" label={t("backends.liveness_path")} placeholder="/health/live" description={t("backends.liveness_path_hint")} required />
+                        <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
                     </>
                 )}
             </CardContent>

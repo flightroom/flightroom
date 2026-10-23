@@ -46,7 +46,7 @@ puts it in front of users.
 
 1. **Describe it.** Write what the app or agent should do, the way you would
    explain it to a colleague. Flightroom proposes the web interfaces and backend
-   services it needs, and you adjust the proposal.
+   backends it needs, and you adjust the proposal.
 2. **The AI builds it in your repositories.** Each repository is created in your
    GitHub, GitLab or Azure DevOps from one of Flightroom's templates, CI
    included, and the AI writes the first version on a branch.
@@ -77,13 +77,13 @@ Argo CD applies.
 **Build with AI**
 
 - **Generate a domain** — on an empty functional domain the AI proposes up to
-  three web interfaces and three backend services, and you edit the proposal
+  three web interfaces and three backends, and you edit the proposal
   before anything is created.
-- **Refine through chat** — ask for the next change on any frontend, service or
+- **Refine through chat** — ask for the next change on any frontend, backend or
   domain; it lands on its own branch, ready to open as a pull request, apply or
   discard.
-- **Your stack** — web interfaces in React, Angular or Vue; services in Node.js,
-  Python, Spring Boot or Quarkus. An agent is a service that calls the AI model
+- **Your stack** — web interfaces in React, Angular or Vue; backends in Node.js,
+  Python, Spring Boot or Quarkus. An agent is a backend that calls the AI model
   your organization chose: built, reviewed and deployed like any other.
 - **Console assistant** — ask the console to act for you, with a confirmation
   before anything destructive.
@@ -100,7 +100,7 @@ Argo CD applies.
 - **Immutable deployments, one-click rollback** — every deploy is a snapshot;
   rolling back re-activates the previous one.
 - **Config maps, secrets and resources** — one value per environment, and
-  databases attached to the services that need them.
+  databases attached to the backends that need them.
 - **Build status, live** — pipeline runs from GitHub Actions, GitLab CI and Azure
   DevOps, streamed to the console.
 
@@ -142,7 +142,7 @@ host application its runtime configuration, composed with Module Federation:
 
 Flightroom runs a remote [MCP](https://modelcontextprotocol.io) server, so
 Claude, ChatGPT, Gemini, Claude Code, Cursor, VS Code and Gemini CLI can read
-your projects, create and change frontends and services, and deploy, with your
+your projects, create and change frontends and backends, and deploy, with your
 role on each project. The client signs in with OAuth: you log in to the console,
 pick the projects to share and whether the client may change things.
 
@@ -199,7 +199,7 @@ The full documentation lives at
 **[flightroom.dev/documentation](https://flightroom.dev/documentation/)**:
 
 - **[Quick start](https://flightroom.dev/documentation/docs/quick-start)** - describe an app, review it, deploy it
-- **[Core concepts](https://flightroom.dev/documentation/docs/core-concepts)** - organizations, projects, domains, frontends, services, environments and deployments
+- **[Core concepts](https://flightroom.dev/documentation/docs/core-concepts)** - organizations, projects, domains, frontends, backends, environments and deployments
 - **[Generate a domain with AI](https://flightroom.dev/documentation/docs/build-with-ai/generate-a-domain)** - from a description to repositories and a first version
 - **[AI changes](https://flightroom.dev/documentation/docs/build-with-ai/ai-changes)** - branches, pull requests and what the AI can touch
 - **[Deploy to Kubernetes](https://flightroom.dev/documentation/docs/kubernetes/overview)** - GitOps repositories, Argo CD and environments

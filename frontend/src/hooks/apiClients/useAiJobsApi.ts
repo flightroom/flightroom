@@ -16,11 +16,11 @@ export interface AiUsage {
     outputTokens: number
 }
 
-/** What the job did on one repository: the `AiChangeRequest` reviewed on the frontend (or service) page, without file contents. */
+/** What the job did on one repository: the `AiChangeRequest` reviewed on the frontend (or backend) page, without file contents. */
 export interface AiJobRepository {
     requestId: string
-    /** Whose repository it is: the `frontend*` fields describe a service too. */
-    kind: "frontend" | "service"
+    /** Whose repository it is: the `frontend*` fields describe a backend too. */
+    kind: "frontend" | "backend"
     frontendId: string
     frontendName: string
     frontendSlug: string
@@ -73,14 +73,14 @@ export interface AiJob {
     updatedAt: string
 }
 
-/** An agent at work: a job (of a mission or not) or a change request started on a frontend or service page. */
+/** An agent at work: a job (of a mission or not) or a change request started on a frontend or backend page. */
 export interface AiWorkingJob {
     /** A job id, or the id of a change request that has no job. */
     jobId: string
-    /** A job opens in the assistant; a request has no job, it is shown on its frontend or service page. */
+    /** A job opens in the assistant; a request has no job, it is shown on its frontend or backend page. */
     kind: "job" | "request"
     missionId?: string
-    /** The frontends and services it works on. */
+    /** The frontends and backends it works on. */
     componentIds: string[]
 }
 
@@ -88,11 +88,11 @@ export interface AiWorkingJob {
 export type CreateAiJobDTO = (
     | { prompt: string; scope: "global" }
     | { prompt: string; scope: "domain"; domainId: string }
-    | { prompt: string; scope: "selection"; frontendIds: string[]; serviceIds?: string[] }
+    | { prompt: string; scope: "selection"; frontendIds: string[]; backendIds?: string[] }
 ) & {
     effort?: LlmEffort
     aiModelId?: string
-    /** The branch each repository starts from, by frontend or service id: its default branch when left out. */
+    /** The branch each repository starts from, by frontend or backend id: its default branch when left out. */
     baseBranches?: Record<string, string>
 }
 
@@ -100,14 +100,14 @@ export interface FollowUpAiJobDTO {
     prompt: string
     /** A subset of the parent's repositories; all of them when missing. */
     frontendIds?: string[]
-    serviceIds?: string[]
+    backendIds?: string[]
     /** The parent's effort when missing. */
     effort?: LlmEffort
     /** The parent's AI when missing and the project can still use it, else the default one. */
     aiModelId?: string
 }
 
-/** A frontend or a service the AI proposes to create in a domain that has none, with the repository it would be scaffolded in. */
+/** A frontend or a backend the AI proposes to create in a domain that has none, with the repository it would be scaffolded in. */
 export interface DomainPlanComponent {
     name: string
     slug: string
@@ -127,7 +127,7 @@ export interface DomainPlanDTO {
 
 export interface DomainPlan {
     frontends: DomainPlanComponent[]
-    services: DomainPlanComponent[]
+    backends: DomainPlanComponent[]
 }
 
 /** Project-scoped: the API client sends the `Project-Id` header of the open project. */
@@ -184,7 +184,7 @@ const useAiJobsApi = () => {
         return response.data
     }
 
-    /** The agents of anyone in the project at work right now, with the frontends and services each works on. */
+    /** The agents of anyone in the project at work right now, with the frontends and backends each works on. */
     const working = async (metadata?: IClientRequestMetadataExtended): Promise<AiWorkingJob[]> => {
         const response = await apiClient.doRequest<AiWorkingJob[]>({
             url: "/api/ai-jobs/working",
@@ -216,7 +216,7 @@ const useAiJobsApi = () => {
         return response.data
     }
 
-    /** What the AI proposes to create in a domain without frontends nor services, for the request: nothing is created yet. */
+    /** What the AI proposes to create in a domain without frontends nor backends, for the request: nothing is created yet. */
     const planDomain = async (data: DomainPlanDTO, metadata?: IClientRequestMetadataExtended): Promise<DomainPlan> => {
         const response = await apiClient.doRequest<DomainPlan, DomainPlanDTO>({
             url: "/api/ai-jobs/domain-plan",

@@ -8,22 +8,22 @@ import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import useServicesApi from "@/hooks/apiClients/useServicesApi"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { resourcePath, typeLabel, useResourcesQuery, variantLabel } from "./partials/resources"
 
-/** The resources of the project, with the services attaching each one */
+/** The resources of the project, with the backends attaching each one */
 const Resources: React.FC = () => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const projectId = useProjectStore(state => state.project?._id)
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
     const [searchTerm, setSearchTerm] = useState("")
 
     const resourcesQuery = useResourcesQuery()
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
 
-    const servicesOf = useCallback((resourceId: string) => (servicesQuery.data ?? []).filter(service => service.resourceIds?.includes(resourceId)), [servicesQuery.data])
+    const backendsOf = useCallback((resourceId: string) => (backendsQuery.data ?? []).filter(backend => backend.resourceIds?.includes(resourceId)), [backendsQuery.data])
 
     const filtered = useMemo(() => {
         const term = searchTerm.trim().toLowerCase()
@@ -35,10 +35,10 @@ const Resources: React.FC = () => {
                 typeLabel(t, resource.type),
                 variantLabel(t, resource.type, resource.variant),
                 ...resource.env.map(key => key.key),
-                ...servicesOf(resource._id!).map(service => service.name)
+                ...backendsOf(resource._id!).map(backend => backend.name)
             ].some(text => text.toLowerCase().includes(term))
         )
-    }, [resourcesQuery.data, searchTerm, servicesOf, t])
+    }, [resourcesQuery.data, searchTerm, backendsOf, t])
 
     const hasResources = (resourcesQuery.data?.length ?? 0) > 0
     const onCreate = () => navigate(resourcePath("new"))
@@ -67,7 +67,7 @@ const Resources: React.FC = () => {
                 </Button>
             }
         >
-            <ApiStatusHandler queries={[resourcesQuery, servicesQuery]}>
+            <ApiStatusHandler queries={[resourcesQuery, backendsQuery]}>
                 {!hasResources ? (
                     <EmptyState
                         variant="outlined"
@@ -111,7 +111,7 @@ const Resources: React.FC = () => {
                             </TableHeader>
                             <TableBody>
                                 {filtered.map(resource => {
-                                    const services = servicesOf(resource._id!)
+                                    const backends = backendsOf(resource._id!)
                                     return (
                                         <TableRow key={resource._id} className="cursor-pointer border-divider hover:bg-primary/5" onClick={() => navigate(resourcePath(resource._id!))}>
                                             <TableCell className="max-w-[16rem] font-mono font-medium" title={resource.name}>
@@ -133,11 +133,11 @@ const Resources: React.FC = () => {
                                                 {resource.env.length}
                                             </TableCell>
                                             <TableCell>
-                                                {services.length > 0 ? (
+                                                {backends.length > 0 ? (
                                                     <div className="flex flex-wrap gap-1">
-                                                        {services.map(service => (
-                                                            <Link key={service._id} to={`/service/${service._id}`} onClick={event => event.stopPropagation()}>
-                                                                <Badge variant="outline">{service.name}</Badge>
+                                                        {backends.map(backend => (
+                                                            <Link key={backend._id} to={`/backend/${backend._id}`} onClick={event => event.stopPropagation()}>
+                                                                <Badge variant="outline">{backend.name}</Badge>
                                                             </Link>
                                                         ))}
                                                     </div>

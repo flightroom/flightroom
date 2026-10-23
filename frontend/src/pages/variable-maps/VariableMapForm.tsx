@@ -12,12 +12,12 @@ import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
+import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
-import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
 import useVariableMapsApi, { VariableMap, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import { useProjectEnvironmentsQuery } from "../services/partials/serviceVariables"
+import { useProjectEnvironmentsQuery } from "../backends/partials/backendVariables"
 import VariableEntriesFields from "./partials/VariableEntriesFields"
 import { fromFormEntries, toFormEntries, VARIABLE_KEY, VARIABLE_MAP_KINDS, VARIABLE_MAP_NAME } from "./partials/variableMaps"
 
@@ -45,8 +45,8 @@ const createFormSchema = (messages: { name: string; key: string; keyDuplicated: 
 
 type FormSchema = ReturnType<typeof createFormSchema>
 
-/** Who receives the values of this map: each service attaching it, linked */
-const UsedBySection: React.FC<{ services: Service[] }> = ({ services }) => {
+/** Who receives the values of this map: each backend attaching it, linked */
+const UsedBySection: React.FC<{ backends: Backend[] }> = ({ backends }) => {
     const { t } = useTranslation()
 
     return (
@@ -56,11 +56,11 @@ const UsedBySection: React.FC<{ services: Service[] }> = ({ services }) => {
                 <CardDescription>{t("variableMaps.used_by.description")}</CardDescription>
             </CardHeader>
             <CardContent className="pt-3">
-                {services.length > 0 ? (
+                {backends.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                        {services.map(service => (
-                            <Link key={service._id} to={`/service/${service._id}`}>
-                                <Badge variant="outline">{service.name}</Badge>
+                        {backends.map(backend => (
+                            <Link key={backend._id} to={`/backend/${backend._id}`}>
+                                <Badge variant="outline">{backend.name}</Badge>
                             </Link>
                         ))}
                     </div>
@@ -126,18 +126,18 @@ const VariableMapDangerZone: React.FC<{ kind: VariableMapKind; map: VariableMap;
 interface VariableMapFormContentProps {
     kind: VariableMapKind
     environments: EnvironmentDTO[]
-    services: Service[]
+    backends: Backend[]
     map?: VariableMap
 }
 
-const VariableMapFormContent: React.FC<VariableMapFormContentProps> = ({ kind, environments, services, map }) => {
+const VariableMapFormContent: React.FC<VariableMapFormContentProps> = ({ kind, environments, backends, map }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const notifications = useToastNotificationStore()
     const api = useVariableMapsApi(kind)
     const { listPath, detailPath, i18n: prefix } = VARIABLE_MAP_KINDS[kind]
-    const attaching = services.filter(service => (kind === "configMap" ? service.configMapIds : service.secretIds)?.includes(map?._id ?? ""))
+    const attaching = backends.filter(backend => (kind === "configMap" ? backend.configMapIds : backend.secretIds)?.includes(map?._id ?? ""))
 
     const formSchema = useMemo(
         () =>
@@ -194,7 +194,7 @@ const VariableMapFormContent: React.FC<VariableMapFormContentProps> = ({ kind, e
 
                     <VariableEntriesFields kind={kind} environments={environments} />
 
-                    {map && <UsedBySection services={attaching} />}
+                    {map && <UsedBySection backends={attaching} />}
 
                     {map && <VariableMapDangerZone kind={kind} map={map} inUse={attaching.length > 0} />}
 
@@ -218,17 +218,17 @@ const VariableMapForm: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
     const isEdit = Boolean(id) && id !== "new"
     const projectId = useProjectStore(state => state.project?._id)
     const api = useVariableMapsApi(kind)
-    const servicesApi = useServicesApi()
+    const backendsApi = useBackendsApi()
 
     const mapQuery = useQuery({ queryKey: ["variable-map", kind, id], queryFn: () => api.getSingle(id!), enabled: isEdit })
-    const servicesQuery = useQuery({ queryKey: ["services", projectId], queryFn: servicesApi.getAll, enabled: !!projectId })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
     // Before the form mounts: its default values hold one value per environment
     const environmentsQuery = useProjectEnvironmentsQuery()
 
     return (
-        <ApiStatusHandler queries={[mapQuery, servicesQuery, environmentsQuery]} interceptEmpty={false}>
+        <ApiStatusHandler queries={[mapQuery, backendsQuery, environmentsQuery]} interceptEmpty={false}>
             {/* Keyed: going from one map to another reuses the route, and the form must start over */}
-            <VariableMapFormContent key={mapQuery.data?._id ?? "new"} kind={kind} environments={environmentsQuery.data ?? []} services={servicesQuery.data ?? []} map={mapQuery.data} />
+            <VariableMapFormContent key={mapQuery.data?._id ?? "new"} kind={kind} environments={environmentsQuery.data ?? []} backends={backendsQuery.data ?? []} map={mapQuery.data} />
         </ApiStatusHandler>
     )
 }
