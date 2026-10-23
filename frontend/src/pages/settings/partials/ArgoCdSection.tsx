@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardDescription, CardHeader, CardTitle, Input, Label } from "@flightroom/design-system"
+import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, Input, Label } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -27,6 +27,7 @@ export const ArgoCdSection: React.FC<ArgoCdSectionProps> = ({ projectId }) => {
     const [url, setUrl] = useState("")
     const [token, setToken] = useState("")
     const [repositoryToken, setRepositoryToken] = useState("")
+    const [insecure, setInsecure] = useState(false)
 
     const argoCdQuery = useQuery({
         queryKey: ["argocd", projectId],
@@ -40,14 +41,16 @@ export const ArgoCdSection: React.FC<ArgoCdSectionProps> = ({ projectId }) => {
         setUrl(status?.url ?? "")
         setToken("")
         setRepositoryToken("")
-    }, [status?.url])
+        setInsecure(status?.insecure ?? false)
+    }, [status?.url, status?.insecure])
 
     const initializeMutation = useMutation({
         mutationFn: () =>
             argoCdApi.initializeArgoCd(projectId, {
                 url: normalizeUrl(url),
                 token: token.trim() || undefined,
-                repositoryToken: repositoryToken.trim() || undefined
+                repositoryToken: repositoryToken.trim() || undefined,
+                insecure
             }),
         onSuccess: () => {
             setToken("")
@@ -86,6 +89,23 @@ export const ArgoCdSection: React.FC<ArgoCdSectionProps> = ({ projectId }) => {
                     <div className="flex flex-col gap-1">
                         <Label htmlFor="argocd-url">{t("settings.argoCd.url")}</Label>
                         <Input id="argocd-url" value={url} placeholder="https://argocd.example.com" disabled={disabled} onChange={event => setUrl(event.target.value)} fullWidth />
+                    </div>
+
+                    <div className="flex flex-col gap-1">
+                        <div className="flex items-center gap-3">
+                            <Checkbox
+                                id="argocd-insecure"
+                                checked={insecure}
+                                disabled={disabled}
+                                aria-describedby="argocd-insecure-hint"
+                                onCheckedChange={checked => setInsecure(checked === true)}
+                                dataTestId="argocd-insecure"
+                            />
+                            <Label htmlFor="argocd-insecure">{t("settings.argoCd.insecure")}</Label>
+                        </div>
+                        <span id="argocd-insecure-hint" className="text-xs text-foreground-secondary">
+                            {t("settings.argoCd.insecureHint")}
+                        </span>
                     </div>
 
                     <div className="flex flex-col gap-1">
