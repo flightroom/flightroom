@@ -743,16 +743,17 @@ describe("a generic resource", () => {
         expect(JSON.stringify($set)).not.toContain("stored-token")
     })
 
-    it("given a secret variable turned plain and sent back as the placeholder, when it is updated, then the stored credential is not what is written", async () => {
-        await update({
-            customFields: [
-                { name: "BASE_URL", secret: false },
-                { name: "TOKEN", secret: false }
-            ],
-            fields: { TOKEN: { value: SECRET_PLACEHOLDER } }
-        })
-
-        expect(JSON.stringify(write.mock.calls[0][1].$set)).not.toContain("stored-token")
+    it("given a secret variable turned plain and sent back as the placeholder, when it is updated, then it is refused and nothing is written", async () => {
+        await expect(
+            update({
+                customFields: [
+                    { name: "BASE_URL", secret: false },
+                    { name: "TOKEN", secret: false }
+                ],
+                fields: { TOKEN: { value: SECRET_PLACEHOLDER } }
+            })
+        ).rejects.toMatchObject({ code: "RESOURCE_VALUE_INVALID" })
+        expect(write).not.toHaveBeenCalled()
     })
 
     it("given a plain variable turned secret, when it is updated, then its stored value is dropped", async () => {

@@ -152,6 +152,10 @@ const normalizeField = (spec: ResourceFieldSpec, sent: unknown, environmentIds: 
             onKept?.(environment)
             return kept
         }
+        // A variable of a generic turned plain, sent back as it was masked: the mask is not a value
+        if (value === SECRET_PLACEHOLDER) {
+            throw createBusinessException({ code: "RESOURCE_VALUE_INVALID", message: `"${spec.name}" is not a credential: type its value` })
+        }
         ensureValidValue(spec, value)
         return value
     }
