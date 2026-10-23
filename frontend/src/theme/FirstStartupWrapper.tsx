@@ -16,7 +16,7 @@ import useUserStore from "@/store/useUserStore"
 interface RegisterFirstUserData {
     email: string
     password: string
-    project: string
+    organization: string
 }
 
 const RegisterFirstUser: React.FC = () => {
@@ -29,7 +29,7 @@ const RegisterFirstUser: React.FC = () => {
 
     const onSubmit = async (data: RegisterFirstUserData) => {
         try {
-            await startupApi.createFirstUserAndProject(data)
+            await startupApi.createFirstUserAndOrganization(data)
             query.invalidateQueries({ queryKey: ["first-startup-users"] })
         } catch (error) {
             console.log(error)
@@ -87,16 +87,16 @@ const RegisterFirstUser: React.FC = () => {
                             autoComplete="new-password"
                         />
                         <TextField
-                            name="project"
-                            label={t("setup.project_name")}
+                            name="organization"
+                            label={t("setup.organization_name")}
                             rules={{
                                 required: t("common.required_field") as string,
                                 minLength: {
-                                    value: 3,
-                                    message: t("setup.project_name_min_length") as string
+                                    value: 2,
+                                    message: t("organization.name_min_length") as string
                                 }
                             }}
-                            placeholder={t("setup.project_name_placeholder")}
+                            placeholder={t("organization.name_placeholder")}
                         />
                         <div className="flex justify-center">
                             <Button type="submit">{t("common.create")}</Button>
