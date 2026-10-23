@@ -44,12 +44,15 @@ vi.mock("./CodeRepositoryService", () => ({
 
 import { BusinessException } from "../errors/BusinessException"
 import { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { isValidRepositoryName, RepositoryRenameService } from "./RepositoryRenameService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId()
 const codeRepositoryId = new Types.ObjectId()
@@ -57,8 +60,8 @@ const codeRepositoryId = new Types.ObjectId()
 type Spied = { ensureAccessToProject: () => Promise<void>; getUser: () => unknown; isOrganizationAdmin: () => Promise<boolean> }
 const base = BaseAuthorizedService.prototype as unknown as Spied
 
-const microfrontend = (codeRepository: Record<string, unknown>) =>
-    new Microfrontend({
+const frontend = (codeRepository: Record<string, unknown>) =>
+    new Frontend({
         projectId,
         name: "Checkout",
         slug: "checkout",
@@ -75,17 +78,17 @@ const providerError = (status: number, data: unknown) => {
     return error
 }
 
-let updateMicrofrontends: ReturnType<typeof vi.fn>
+let updateFrontends: ReturnType<typeof vi.fn>
 let updateServices: ReturnType<typeof vi.fn>
 
-/** Renames with the microfrontend given; the writes are answered by the spies above. */
-const rename = (document: ReturnType<typeof microfrontend>, name: unknown) => {
-    vi.spyOn(Microfrontend, "findById").mockResolvedValue(document as never)
-    return new RepositoryRenameService().renameMicrofrontendRepository(document._id.toString(), name)
+/** Renames with the frontend given; the writes are answered by the spies above. */
+const rename = (document: ReturnType<typeof frontend>, name: unknown) => {
+    vi.spyOn(Frontend, "findById").mockResolvedValue(document as never)
+    return new RepositoryRenameService().renameFrontendRepository(document._id.toString(), name)
 }
 
 /** The `$set` written to the links of the renamed repository. */
-const written = () => updateMicrofrontends.mock.calls[0][1].$set
+const written = () => updateFrontends.mock.calls[0][1].$set
 
 const errorOf = async (promise: Promise<unknown>) => {
     try {
@@ -100,7 +103,7 @@ beforeEach(() => {
     vi.spyOn(base, "ensureAccessToProject").mockResolvedValue()
     vi.spyOn(base, "getUser").mockReturnValue({ _id: new Types.ObjectId() })
     vi.spyOn(UserProject, "findOne").mockResolvedValue({ role: RoleInProject.MEMBER } as never)
-    updateMicrofrontends = vi.spyOn(Microfrontend, "updateMany").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
+    updateFrontends = vi.spyOn(Frontend, "updateMany").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
     updateServices = vi.spyOn(Service, "updateMany").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
 })
 
@@ -124,7 +127,7 @@ describe("isValidRepositoryName", () => {
     })
 })
 
-describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
+describe("RepositoryRenameService.renameFrontendRepository", () => {
     it("given a GitHub repository, when renamed, then the provider is asked by the current name and the new name, id and clone URLs are stored", async () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.GITHUB, { githubData: { organizationId: "acme" } }))
         githubRename.mockResolvedValue({
@@ -133,12 +136,12 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
             clone_url: "https://github.com/acme/checkout-web.git",
             ssh_url: "git@github.com:acme/checkout-web.git"
         })
-        const document = microfrontend({ name: "checkout", repositoryId: "checkout", repositoryData: { clone_url: "https://github.com/acme/checkout.git" } })
+        const document = frontend({ name: "checkout", repositoryId: "checkout", repositoryData: { clone_url: "https://github.com/acme/checkout.git" } })
 
         await rename(document, "  checkout-web ")
 
         expect(githubRename).toHaveBeenCalledWith({ accessToken: "token", orgName: "acme", userName: undefined, repositoryName: "checkout", newName: "checkout-web" })
-        // Only the link changes: the microfrontend keeps its own name and slug
+        // Only the link changes: the frontend keeps its own name and slug
         expect(written()).toEqual({
             "codeRepository.name": "checkout-web",
             "codeRepository.repositoryId": "42",
@@ -148,15 +151,15 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         })
     })
 
-    it("given other microfrontends and services linked to the same repository, when renamed, then their links follow too", async () => {
+    it("given other frontends and services linked to the same repository, when renamed, then their links follow too", async () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.GITHUB, { githubData: { userName: "jane" } }))
         githubRename.mockResolvedValue({ id: 42, name: "checkout-web" })
-        const document = microfrontend({ name: "checkout", repositoryId: "42" })
+        const document = frontend({ name: "checkout", repositoryId: "42" })
 
         await rename(document, "checkout-web")
 
         const sameRepository = [{ "codeRepository.repositoryId": "42" }, { "codeRepository.name": "checkout" }]
-        expect(updateMicrofrontends.mock.calls[0][0]).toEqual({ projectId, "codeRepository.codeRepositoryId": codeRepositoryId, $or: [{ _id: document._id }, ...sameRepository] })
+        expect(updateFrontends.mock.calls[0][0]).toEqual({ projectId, "codeRepository.codeRepositoryId": codeRepositoryId, $or: [{ _id: document._id }, ...sameRepository] })
         expect(updateServices.mock.calls[0][0]).toEqual({ projectId, "codeRepository.codeRepositoryId": codeRepositoryId, $or: sameRepository })
     })
 
@@ -170,7 +173,7 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
             http_url_to_repo: "https://gitlab.acme.dev/web/checkout-web.git",
             ssh_url_to_repo: "git@gitlab.acme.dev:web/checkout-web.git"
         })
-        const document = microfrontend({ name: "checkout", repositoryId: "99", gitlab: { groupId: 7, path: "web/checkout" } })
+        const document = frontend({ name: "checkout", repositoryId: "99", gitlab: { groupId: 7, path: "web/checkout" } })
 
         await rename(document, "checkout-web")
 
@@ -187,7 +190,7 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         gitlabGet.mockResolvedValue({ id: 5, name: "checkout" })
         gitlabRename.mockResolvedValue({ id: 5, name: "checkout-web" })
 
-        await rename(microfrontend({ name: "checkout" }), "checkout-web")
+        await rename(frontend({ name: "checkout" }), "checkout-web")
 
         expect(gitlabGet).toHaveBeenCalledWith(encodeURIComponent("acme/web/checkout"))
     })
@@ -197,7 +200,7 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         azureGet.mockResolvedValue({ id: "guid-1", name: "checkout" })
         azureRename.mockResolvedValue({ id: "guid-1", name: "checkout-web", remoteUrl: "https://dev.azure.com/acme/Web/_git/checkout-web" })
 
-        await rename(microfrontend({ name: "checkout", repositoryId: "checkout" }), "checkout-web")
+        await rename(frontend({ name: "checkout", repositoryId: "checkout" }), "checkout-web")
 
         expect(azureGet).toHaveBeenCalledWith("token", "acme", "p-1", "checkout")
         expect(azureRename).toHaveBeenCalledWith("token", "acme", "p-1", "guid-1", "checkout-web")
@@ -208,27 +211,27 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.AZURE_DEV_OPS, { azureData: { organization: "acme", projectId: "p-1", projectName: "Web" } }))
         azureGet.mockResolvedValue({ id: "guid-a", name: "orders" })
 
-        const error = await errorOf(rename(microfrontend({ name: "checkout", repositoryId: "guid-a" }), "checkout-web"))
+        const error = await errorOf(rename(frontend({ name: "checkout", repositoryId: "guid-a" }), "checkout-web"))
 
         expect(error).toMatchObject({ code: "REPOSITORY_LINK_INCONSISTENT", statusCode: 409 })
         expect(azureRename).not.toHaveBeenCalled()
-        expect(updateMicrofrontends).not.toHaveBeenCalled()
+        expect(updateFrontends).not.toHaveBeenCalled()
     })
 
     it("given the name it already has, when renamed, then neither the provider nor the database is touched", async () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.GITHUB, { githubData: { userName: "jane" } }))
 
-        await rename(microfrontend({ name: "checkout", repositoryId: "42" }), "checkout")
+        await rename(frontend({ name: "checkout", repositoryId: "42" }), "checkout")
 
         expect(githubRename).not.toHaveBeenCalled()
-        expect(updateMicrofrontends).not.toHaveBeenCalled()
+        expect(updateFrontends).not.toHaveBeenCalled()
     })
 
     it("given an invalid or missing name, when renamed, then it is refused before anything is read", async () => {
-        const find = vi.spyOn(Microfrontend, "findById")
+        const find = vi.spyOn(Frontend, "findById")
 
         for (const name of ["team/checkout", 123, undefined]) {
-            const error = await errorOf(new RepositoryRenameService().renameMicrofrontendRepository(new Types.ObjectId().toString(), name))
+            const error = await errorOf(new RepositoryRenameService().renameFrontendRepository(new Types.ObjectId().toString(), name))
             expect(error, String(name)).toMatchObject({ code: "INVALID_REPOSITORY_NAME", statusCode: 400 })
         }
         expect(find).not.toHaveBeenCalled()
@@ -239,7 +242,7 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         vi.spyOn(Project, "findById").mockResolvedValue({ organizationId: new Types.ObjectId() } as never)
         vi.spyOn(base, "isOrganizationAdmin").mockResolvedValue(false)
 
-        const error = await errorOf(rename(microfrontend({ name: "checkout" }), "checkout-web"))
+        const error = await errorOf(rename(frontend({ name: "checkout" }), "checkout-web"))
 
         expect(error).toMatchObject({ code: "REPOSITORY_RENAME_FORBIDDEN", statusCode: 403 })
         expect(findCodeRepository).not.toHaveBeenCalled()
@@ -252,13 +255,13 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.GITHUB, { githubData: { userName: "jane" } }))
         githubRename.mockResolvedValue({ id: 42, name: "checkout-web" })
 
-        await rename(microfrontend({ name: "checkout" }), "checkout-web")
+        await rename(frontend({ name: "checkout" }), "checkout-web")
 
         expect(githubRename).toHaveBeenCalledTimes(1)
     })
 
-    it("given a microfrontend without a linked repository, when renamed, then it is refused", async () => {
-        const error = await errorOf(rename(microfrontend({ enabled: false }), "checkout-web"))
+    it("given a frontend without a linked repository, when renamed, then it is refused", async () => {
+        const error = await errorOf(rename(frontend({ enabled: false }), "checkout-web"))
 
         expect(error).toMatchObject({ code: "REPOSITORY_NOT_LINKED", statusCode: 422 })
         expect(findCodeRepository).not.toHaveBeenCalled()
@@ -267,7 +270,7 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
     it("given a connection of another project, when renamed, then the connection is not found and the provider is not called", async () => {
         findCodeRepository.mockResolvedValue({ ...connection(CodeRepositoryProvider.GITHUB, {}), projectId: new Types.ObjectId() })
 
-        await expect(rename(microfrontend({ name: "checkout" }), "checkout-web")).rejects.toThrow()
+        await expect(rename(frontend({ name: "checkout" }), "checkout-web")).rejects.toThrow()
         expect(githubRename).not.toHaveBeenCalled()
     })
 
@@ -275,10 +278,10 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.GITHUB, { githubData: { userName: "jane" } }))
         githubRename.mockRejectedValue(providerError(422, { message: "Repository creation failed.", errors: [{ message: "name already exists on this account" }] }))
 
-        const error = await errorOf(rename(microfrontend({ name: "checkout" }), "checkout-web"))
+        const error = await errorOf(rename(frontend({ name: "checkout" }), "checkout-web"))
 
         expect(error).toMatchObject({ code: "REPOSITORY_NAME_TAKEN", statusCode: 409 })
-        expect(updateMicrofrontends).not.toHaveBeenCalled()
+        expect(updateFrontends).not.toHaveBeenCalled()
     })
 
     it("given a GitLab answer that the path is taken, when renamed, then it is a conflict too", async () => {
@@ -286,7 +289,7 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         gitlabGet.mockResolvedValue({ id: 1, name: "checkout" })
         gitlabRename.mockRejectedValue(providerError(400, { message: { path: ["has already been taken"] } }))
 
-        expect(await errorOf(rename(microfrontend({ name: "checkout", repositoryId: "1" }), "checkout-web"))).toMatchObject({ code: "REPOSITORY_NAME_TAKEN" })
+        expect(await errorOf(rename(frontend({ name: "checkout", repositoryId: "1" }), "checkout-web"))).toMatchObject({ code: "REPOSITORY_NAME_TAKEN" })
     })
 
     it("given a provider that refuses for another reason, when renamed, then its reason is passed on readable", async () => {
@@ -294,7 +297,7 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         gitlabGet.mockResolvedValue({ id: 1, name: "checkout" })
         gitlabRename.mockRejectedValue(providerError(400, { message: { path: ["must not start with a special character", "cannot end with .atom"] } }))
 
-        expect(await errorOf(rename(microfrontend({ name: "checkout", repositoryId: "1" }), "checkout-web"))).toMatchObject({
+        expect(await errorOf(rename(frontend({ name: "checkout", repositoryId: "1" }), "checkout-web"))).toMatchObject({
             code: "REPOSITORY_RENAME_FAILED",
             statusCode: 422,
             message: "path must not start with a special character, cannot end with .atom"
@@ -304,9 +307,9 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
     it("given a rename the database fails to record, when renamed, then the error names the new name so the link can be fixed", async () => {
         findCodeRepository.mockResolvedValue(connection(CodeRepositoryProvider.GITHUB, { githubData: { userName: "jane" } }))
         githubRename.mockResolvedValue({ id: 42, name: "checkout-web" })
-        updateMicrofrontends.mockRejectedValue(new Error("connection lost"))
+        updateFrontends.mockRejectedValue(new Error("connection lost"))
 
-        const error = await errorOf(rename(microfrontend({ name: "checkout" }), "checkout-web"))
+        const error = await errorOf(rename(frontend({ name: "checkout" }), "checkout-web"))
 
         expect(error).toMatchObject({ code: "REPOSITORY_RENAMED_NOT_RECORDED", statusCode: 500 })
         expect(error.message).toContain('"checkout-web"')
@@ -315,14 +318,14 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
     describe("by a member assigned to some domains", () => {
         const ownDomain = new Types.ObjectId()
         const scopedDocument = () => {
-            const document = microfrontend({ name: "checkout", repositoryId: "42" })
+            const document = frontend({ name: "checkout", repositoryId: "42" })
             document.domainId = ownDomain as never
             return document
         }
         /** As `rename`, by a principal: the domain scope is read from their membership. */
-        const scopedRename = (document: ReturnType<typeof microfrontend>, name: string) => {
-            vi.spyOn(Microfrontend, "findById").mockResolvedValue(document as never)
-            return new RepositoryRenameService({ _id: new Types.ObjectId() } as never).renameMicrofrontendRepository(document._id.toString(), name)
+        const scopedRename = (document: ReturnType<typeof frontend>, name: string) => {
+            vi.spyOn(Frontend, "findById").mockResolvedValue(document as never)
+            return new RepositoryRenameService({ _id: new Types.ObjectId() } as never).renameFrontendRepository(document._id.toString(), name)
         }
 
         beforeEach(() => {
@@ -333,18 +336,18 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         })
 
         it.each([
-            ["a microfrontend", "microfrontend"],
+            ["a frontend", "frontend"],
             ["a service", "service"]
         ])("given %s of another domain or of none linked to the same repository, when renamed, then it is refused before the provider is reached", async (_case, outside) => {
-            const microfrontendsOutside = vi.spyOn(Microfrontend, "exists").mockResolvedValue((outside === "microfrontend" ? { _id: new Types.ObjectId() } : null) as never)
+            const frontendsOutside = vi.spyOn(Frontend, "exists").mockResolvedValue((outside === "frontend" ? { _id: new Types.ObjectId() } : null) as never)
             vi.spyOn(Service, "exists").mockResolvedValue((outside === "service" ? { _id: new Types.ObjectId() } : null) as never)
             const document = scopedDocument()
 
             await expect(scopedRename(document, "checkout-web")).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN", statusCode: 403 })
             expect(githubRename).not.toHaveBeenCalled()
-            expect(updateMicrofrontends).not.toHaveBeenCalled()
+            expect(updateFrontends).not.toHaveBeenCalled()
             // The same links the rename writes to, outside the scope: $nin also takes those of no domain
-            expect(microfrontendsOutside).toHaveBeenCalledWith({
+            expect(frontendsOutside).toHaveBeenCalledWith({
                 projectId,
                 "codeRepository.codeRepositoryId": codeRepositoryId,
                 $or: [{ _id: document._id }, { "codeRepository.repositoryId": "42" }, { "codeRepository.name": "checkout" }],
@@ -353,13 +356,13 @@ describe("RepositoryRenameService.renameMicrofrontendRepository", () => {
         })
 
         it("given every link to the repository in their domains, when renamed, then it goes through", async () => {
-            vi.spyOn(Microfrontend, "exists").mockResolvedValue(null as never)
+            vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
             vi.spyOn(Service, "exists").mockResolvedValue(null as never)
 
             await scopedRename(scopedDocument(), "checkout-web")
 
             expect(githubRename).toHaveBeenCalledTimes(1)
-            expect(updateMicrofrontends).toHaveBeenCalledTimes(1)
+            expect(updateFrontends).toHaveBeenCalledTimes(1)
         })
     })
 })

@@ -1,10 +1,10 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 
-/** A version of a microfrontend: a bundle uploaded to the orchestrator, or for a FRONTEND an image the CI pushed and registered */
+/** A version of a frontend: a bundle uploaded to the orchestrator, or for a DOCKER an image the CI pushed and registered */
 export interface IBuiltFrontend extends Document<ObjectId> {
-    microfrontendId: ObjectId
+    frontendId: ObjectId
     version: string
-    /** FRONTEND only. Full reference, e.g. ghcr.io/acme/shell:1.2.0 */
+    /** DOCKER only. Full reference, e.g. ghcr.io/acme/shell:1.2.0 */
     image?: string
     digest?: string
     commitSha?: string
@@ -14,9 +14,9 @@ export interface IBuiltFrontend extends Document<ObjectId> {
 
 const builtFrontendSchema = new Schema<IBuiltFrontend>(
     {
-        microfrontendId: {
+        frontendId: {
             type: Schema.Types.ObjectId,
-            ref: "Microfrontend",
+            ref: "Frontend",
             required: true,
             index: true
         },
@@ -48,9 +48,9 @@ const builtFrontendSchema = new Schema<IBuiltFrontend>(
 )
 
 // Index for faster lookups by project and status
-builtFrontendSchema.index({ microfrontendId: 1, version: 1 })
-// A version of a FRONTEND is registered once, a CI rerun replacing it: uploads of a bundle carry no image and stay out of it
-builtFrontendSchema.index({ microfrontendId: 1, version: 1 }, { name: "microfrontendId_1_version_1_image", unique: true, partialFilterExpression: { image: { $exists: true } } })
+builtFrontendSchema.index({ frontendId: 1, version: 1 })
+// A version of a DOCKER is registered once, a CI rerun replacing it: uploads of a bundle carry no image and stay out of it
+builtFrontendSchema.index({ frontendId: 1, version: 1 }, { name: "frontendId_1_version_1_image", unique: true, partialFilterExpression: { image: { $exists: true } } })
 
 const BuiltFrontend = mongoose.model<IBuiltFrontend>("BuiltFrontend", builtFrontendSchema)
 export default BuiltFrontend

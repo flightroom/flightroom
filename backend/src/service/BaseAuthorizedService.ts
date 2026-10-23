@@ -7,7 +7,8 @@ import UserCannotAccessThisProjectError from "../errors/UserCannotAccessThisProj
 import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend, IMicrofrontend } from "../models/MicrofrontendModel"
+import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Service, { IService } from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
@@ -40,7 +41,7 @@ export const DOMAIN_SCOPE_FORBIDDEN = "DOMAIN_SCOPE_FORBIDDEN"
 export const domainScopeForbidden = () => createBusinessException({ code: DOMAIN_SCOPE_FORBIDDEN, message: "This action is outside the domains you are assigned to", statusCode: 403 })
 
 /**
- * Whether something of `domainId` lies inside `scope`. No scope is the whole project; a microfrontend or
+ * Whether something of `domainId` lies inside `scope`. No scope is the whole project; a frontend or
  * a service in no domain is outside every scope, since nobody assigned it to the member.
  */
 export const isInDomainScope = (scope: string[] | undefined, domainId: unknown): boolean =>
@@ -73,7 +74,7 @@ const carriesOnlyStored = (given: unknown, stored: unknown): boolean => {
 }
 
 /*
- * Linking a microfrontend or a service to a code repository is an act on the whole project: a repository
+ * Linking a frontend or a service to a code repository is an act on the whole project: a repository
  * can be the code of components of other domains, and every field that names it (the id at the provider,
  * the name, the clone URLs, the GitLab path, the provider data, the connection) can point the link
  * elsewhere. So a domain-scoped member never chooses an existing repository: they keep the stored link, or
@@ -349,15 +350,15 @@ export default abstract class BaseAuthorizedService {
         return this.hasAccessToEnvironment(deployment.environmentId, session)
     }
 
-    protected async ensureAccessToMicrofrontend(microfrontend: IMicrofrontend) {
-        return this.ensureAccessToDomainMember(microfrontend)
+    protected async ensureAccessToFrontend(frontend: IFrontend) {
+        return this.ensureAccessToDomainMember(frontend)
     }
 
     protected async ensureAccessToService(service: IService) {
         return this.ensureAccessToDomainMember(service)
     }
 
-    /** The access to the project of a microfrontend or a service, then to its domain for a domain-scoped member. */
+    /** The access to the project of a frontend or a service, then to its domain for a domain-scoped member. */
     protected async ensureAccessToDomainMember(member: DomainMember) {
         await this.ensureAccessToProject(member.projectId)
         await this.ensureInDomainScope(member.projectId, member.domainId)
@@ -417,23 +418,25 @@ export default abstract class BaseAuthorizedService {
 
     /**
      * Refuses a domain-scoped member a write to the repository `link` points to (a commit, a branch, a pull
-     * request, a tag) when a microfrontend or a service of another domain, or of none, is linked to the same
+     * request, a tag) when a frontend or a service of another domain, or of none, is linked to the same
      * repository: what they write there becomes the code of components nobody assigned to them. `owner` is
      * the component the write is for; `provider` spares reading the connection when the caller holds it. A
      * member of the whole project passes without a query.
      */
-    protected async ensureRepositoryInDomainScope(owner: RepositoryLinkOwner, link: ICodeRepositoryMicrofrontend | undefined, provider?: CodeRepositoryProvider): Promise<void> {
+    protected async ensureRepositoryInDomainScope(owner: RepositoryLinkOwner, link: ICodeRepositoryFrontend | undefined, provider?: CodeRepositoryProvider): Promise<void> {
         const scope = await this.getDomainScope(owner.projectId)
         if (!scope || !link?.codeRepositoryId) return
         // The provider decides whether a name or a GitLab path tells the repository
         const links = linksToRepository(owner, provider ?? (await CodeRepository.findById(link.codeRepositoryId, { provider: 1 }))?.provider, link)
         // $nin also matches a document with no domain at all
         const outside = { domainId: { $nin: scope.map(id => toObjectId(id)) } }
-        const [microfrontendOutside, serviceOutside] = await Promise.all([
-            links.microfrontends ? Microfrontend.exists({ ...links.microfrontends, ...outside }) : null,
-            links.services ? Service.exists({ ...links.services, ...outside }) : null
+        // A maintenance agent links its repository as a service does
+        const [frontendOutside, serviceOutside, agentOutside] = await Promise.all([
+            links.frontends ? Frontend.exists({ ...links.frontends, ...outside }) : null,
+            links.services ? Service.exists({ ...links.services, ...outside }) : null,
+            links.services ? MaintenanceAgent.exists({ ...links.services, ...outside }) : null
         ])
-        if (microfrontendOutside || serviceOutside) {
+        if (frontendOutside || serviceOutside || agentOutside) {
             throw domainScopeForbidden()
         }
     }
@@ -479,7 +482,10 @@ export default abstract class BaseAuthorizedService {
         const membership = await UserProject.findOne({ userId: user._id, projectId: toObjectId(projectId), invitationToken: null })
         if (membership?.role !== RoleInProject.VIEWER) return
         const project = await Project.findById(projectId, { organizationId: 1 })
-        if (project && (await this.isOrganizationAdmin(project.organizationId))) return
+        // The stored role, not the guarded one: a principal bound to the project (an MCP token) of an
+        // administrator still acts there as an owner, as hasAccessToProject and the domain scope let it.
+        const role = project ? await this.findRoleInOrganization(project.organizationId) : undefined
+        if (role && ORGANIZATION_ADMIN_ROLES.includes(role)) return
         throw createBusinessException({ ...forbidden, statusCode: 403 })
     }
 

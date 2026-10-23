@@ -335,8 +335,8 @@ export default fastifyPlugin(
                     type: "number",
                     default: 20
                 },
-                // Where the repositories behind the microfrontends are cloned to be edited with AI,
-                // as <org>/<project>/<microfrontend>. A cache: deleting it only costs a new clone.
+                // Where the repositories behind the frontends are cloned to be edited with AI,
+                // as <org>/<project>/<frontend>. A cache: deleting it only costs a new clone.
                 REPOSITORIES_FOLDER: {
                     type: "string",
                     default: "/repositories"

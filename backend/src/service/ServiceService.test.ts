@@ -33,15 +33,19 @@ import { ApiKeyRole } from "../models/ApiKeyModel"
 import BuiltService from "../models/BuiltServiceModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
-import Environment from "../models/EnvironmentModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
+import Resource from "../models/ResourceModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
-import { MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
+import { FrontendStackSource } from "../types/FrontendStack"
 import ServiceDTO from "../types/ServiceDTO"
 import { ServiceRuntime } from "../types/ServiceStack"
-import ServiceService, { imageRepositoryOf, isNewerVersion, normalizeUrls } from "./ServiceService"
+import ServiceService, { imageRepositoryOf, isNewerVersion } from "./ServiceService"
+
+withNoMaintenanceAgents()
 
 const projectId = new Types.ObjectId().toString()
 const serviceId = new Types.ObjectId()
@@ -75,6 +79,19 @@ describe("ServiceService.registerVersionWithPermissionCheck", () => {
         await expect(refusal).rejects.toMatchObject({ statusCode: 403 })
         expect(findOne).not.toHaveBeenCalled()
         expect(upsert).not.toHaveBeenCalled()
+        expect(updateOne).not.toHaveBeenCalled()
+    })
+
+    it("given no service but a maintenance agent with the slug, when its CI registers a version, then the agent moves to it", async () => {
+        const agentId = new Types.ObjectId()
+        findOne.mockResolvedValue(null)
+        vi.spyOn(MaintenanceAgent, "findOne").mockResolvedValue({ _id: agentId, slug: "cleaner" } as never)
+        const agentUpdate = vi.spyOn(MaintenanceAgent, "updateOne").mockResolvedValue({ matchedCount: 1 } as never)
+
+        await register({ image: "ghcr.io/acme/cleaner:1.2.0" }, "cleaner")
+
+        expect(upsert.mock.calls[0][0]).toEqual({ serviceId: agentId, version: "1.2.0" })
+        expect(agentUpdate).toHaveBeenCalledWith({ _id: agentId, version: null }, { $set: { version: "1.2.0", "image.repository": "ghcr.io/acme/cleaner" } })
         expect(updateOne).not.toHaveBeenCalled()
     })
 
@@ -212,11 +229,11 @@ describe("ServiceService.create", () => {
             placeholders: { "%serviceSlug%": "orders-api", "%domain%": "https://console.example.com" }
         })
         expect(written.template).toBe("service-node-fastify")
-        expect(written.stack).toEqual({ runtime: ServiceRuntime.NODE, framework: "Node.js", source: MicrofrontendStackSource.TEMPLATE })
+        expect(written.stack).toEqual({ runtime: ServiceRuntime.NODE, framework: "Node.js", source: FrontendStackSource.TEMPLATE })
         expect(written.codeRepository?.createData).toBeUndefined()
     })
 
-    it("given a microfrontend template, when a service is created, then it is refused before any repository is created", async () => {
+    it("given a frontend template, when a service is created, then it is refused before any repository is created", async () => {
         await expect(create({ slug: "vite-remote-react", type: "remote", compiler: "vite", framework: "React" })).rejects.toBeInstanceOf(BusinessException)
         expect(createRepository).not.toHaveBeenCalled()
     })
@@ -313,6 +330,21 @@ describe("ServiceService.update", () => {
         expect(write.mock.calls[0][1]).toEqual({ name: "Orders" })
     })
 
+    it("given a version set by hand, when a service is updated, then it is written trimmed", async () => {
+        const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
+
+        await new ServiceService().update(String(serviceId), { name: "Orders", version: " 1.4.0 " } as ServiceDTO)
+
+        expect(write.mock.calls[0][1]).toEqual({ name: "Orders", version: "1.4.0" })
+    })
+
+    it.each(["", "1.4.0+build", "release/1"])("given the version %j, when a service is updated, then it is refused before anything is written", async version => {
+        const write = vi.spyOn(Service, "findByIdAndUpdate")
+
+        await expect(new ServiceService().update(String(serviceId), { name: "Orders", version } as ServiceDTO)).rejects.toMatchObject({ code: "SERVICE_VERSION_INVALID" })
+        expect(write).not.toHaveBeenCalled()
+    })
+
     it("given new probe and docs paths, when a service is updated, then they are written and validated", async () => {
         const write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never)
         const paths = { livenessPath: "/q/health/live", readinessPath: "/q/health/ready", docsPath: "/q/swagger-ui", openApiPath: "/q/openapi" }
@@ -367,9 +399,7 @@ describe("ServiceService.update", () => {
     })
 })
 
-describe("ServiceService.update of the attached maps and the base URLs", () => {
-    const development = new Types.ObjectId().toString()
-    const production = new Types.ObjectId().toString()
+describe("ServiceService.update of the attached maps", () => {
     const logging = new Types.ObjectId().toString()
     const database = new Types.ObjectId().toString()
     const service = { _id: serviceId, projectId, slug: "orders-api", name: "Orders API", configMapIds: [logging], secretIds: [] }
@@ -380,7 +410,6 @@ describe("ServiceService.update of the attached maps and the base URLs", () => {
     beforeEach(() => {
         vi.spyOn(Service, "findById").mockResolvedValue(service as never)
         vi.spyOn(ServiceService.prototype as unknown as { ensureAccessToService: () => Promise<void> }, "ensureAccessToService").mockResolvedValue(undefined)
-        vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
         configMaps = vi.spyOn(ConfigMap, "find").mockResolvedValue([{ _id: logging, name: "logging", entries: [{ key: "LOG_LEVEL" }] }] as never) as unknown as ReturnType<typeof vi.fn>
         secrets = vi.spyOn(Secret, "find").mockResolvedValue([{ _id: database, name: "database", entries: [{ key: "DATABASE_PASSWORD" }] }] as never) as unknown as ReturnType<typeof vi.fn>
         write = vi.spyOn(Service, "findByIdAndUpdate").mockResolvedValue(service as never) as unknown as ReturnType<typeof vi.fn>
@@ -433,64 +462,48 @@ describe("ServiceService.update of the attached maps and the base URLs", () => {
         expect(write).not.toHaveBeenCalled()
     })
 
-    it("given base URLs only, when the service is updated, then they are written normalised and the variables are left alone", async () => {
-        await update({
-            urls: [
-                { environmentId: development, url: " https://orders.dev.acme.com/ " },
-                { environmentId: production, url: "" }
-            ]
+    describe("and of the resources", () => {
+        const orders = new Types.ObjectId().toString()
+        let resources: ReturnType<typeof vi.fn>
+
+        beforeEach(() => {
+            resources = vi.spyOn(Resource, "find").mockResolvedValue([{ _id: orders, name: "orders", type: "database", variant: "credentials" }] as never) as unknown as ReturnType<typeof vi.fn>
         })
 
-        expect(write.mock.calls[0][1]).toEqual({ name: "Orders API", urls: [{ environmentId: development, url: "https://orders.dev.acme.com" }] })
-    })
-})
+        const attach = (resourceIds: string[]) => {
+            // The service attaches no secret: the read of them finds none
+            secrets.mockResolvedValue([])
+            return update({ resourceIds })
+        }
 
-describe("normalizeUrls", () => {
-    const development = new Types.ObjectId().toString()
-    const production = new Types.ObjectId().toString()
-    const environments = new Set([development, production])
+        it("given the secrets only of a service with no resource, when it is updated, then no resource is read nor written", async () => {
+            await update({ secretIds: [database] })
 
-    it("given padded URLs with trailing slashes and a blank one, when normalised, then they are trimmed and the blank environment is left out", () => {
-        expect(
-            normalizeUrls(
-                [
-                    { environmentId: development, url: "  https://orders.dev.acme.com/api//  " },
-                    { environmentId: production, url: "   " }
-                ],
-                environments
-            )
-        ).toEqual([{ environmentId: development, url: "https://orders.dev.acme.com/api" }])
-    })
+            expect(resources).not.toHaveBeenCalled()
+            expect(write.mock.calls[0][1]).not.toHaveProperty("resourceIds")
+        })
 
-    it("given a URL with a port, when normalised, then it is kept", () => {
-        expect(normalizeUrls([{ environmentId: development, url: "http://localhost:8080" }], environments)).toEqual([{ environmentId: development, url: "http://localhost:8080" }])
-    })
+        it("given a resource of the project listed twice, when the service is updated, then it is written once and checked against the maps it has", async () => {
+            await attach([orders, orders])
 
-    it.each([
-        ["a relative URL", [{ environmentId: development, url: "orders.acme.com" }], "SERVICE_URL_INVALID"],
-        ["another scheme", [{ environmentId: development, url: "ftp://orders.acme.com" }], "SERVICE_URL_INVALID"],
-        ["a URL with whitespace", [{ environmentId: development, url: "https://orders acme.com" }], "SERVICE_URL_INVALID"],
-        ["a URL too long", [{ environmentId: development, url: `https://acme.com/${"x".repeat(2048)}` }], "SERVICE_URL_INVALID"],
-        ["a URL with a query", [{ environmentId: development, url: "https://orders.acme.com?tenant=a" }], "SERVICE_URL_INVALID"],
-        ["a URL with a fragment", [{ environmentId: development, url: "https://orders.acme.com#top" }], "SERVICE_URL_INVALID"],
-        ["a URL with credentials", [{ environmentId: development, url: "https://user:pass@orders.acme.com" }], "SERVICE_URL_INVALID"],
-        ["a URL made of slashes only", [{ environmentId: development, url: "///" }], "SERVICE_URL_INVALID"],
-        ["an environment of another project", [{ environmentId: new Types.ObjectId().toString(), url: "https://acme.com" }], "SERVICE_URL_ENVIRONMENT_UNKNOWN"],
-        [
-            "two URLs for one environment",
-            [
-                { environmentId: development, url: "https://a.acme.com" },
-                { environmentId: development, url: "https://b.acme.com" }
-            ],
-            "SERVICE_URL_ENVIRONMENT_DUPLICATED"
-        ],
-        ["something that is not a list", { environmentId: development, url: "https://acme.com" }, "SERVICE_URLS_INVALID"]
-    ])("given %s, when normalised, then it is refused", (_case, urls, code) => {
-        expect(() => normalizeUrls(urls, environments)).toThrow(expect.objectContaining({ code }))
-    })
+            expect(resources.mock.calls[0][0]).toMatchObject({ projectId })
+            expect(configMaps).toHaveBeenCalled()
+            expect(write.mock.calls[0][1]).toEqual({ name: "Orders API", resourceIds: [orders] })
+        })
 
-    it("given a null entry, when normalised, then it is skipped rather than crashing", () => {
-        expect(normalizeUrls([null], environments)).toEqual([])
+        it("given a resource that is not one of the project, when the service is updated, then it is refused and nothing is written", async () => {
+            resources.mockResolvedValue([])
+
+            await expect(attach([new Types.ObjectId().toString()])).rejects.toMatchObject({ code: "SERVICE_RESOURCE_UNKNOWN" })
+            expect(write).not.toHaveBeenCalled()
+        })
+
+        it("given a resource setting a key a config map of the service sets, when the service is updated, then it is refused and nothing is written", async () => {
+            configMaps.mockResolvedValue([{ _id: logging, name: "logging", entries: [{ key: "DB_ORDERS_HOST" }] }])
+
+            await expect(attach([orders])).rejects.toMatchObject({ code: "SERVICE_VARIABLE_KEY_DUPLICATED" })
+            expect(write).not.toHaveBeenCalled()
+        })
     })
 })
 

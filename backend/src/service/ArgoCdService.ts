@@ -6,7 +6,8 @@ import { BusinessException, createBusinessException } from "../errors/BusinessEx
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend, { ICodeRepositoryMicrofrontend, MicrofrontendKind } from "../models/MicrofrontendModel"
+import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { IArgoCdError, IArgoCdRepositoryCredential, IArgoCdRepositoryRegistration, IProjectArgoCd, IProjectGitOps } from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -15,7 +16,7 @@ import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
 import { GitOpsApplication, isDeployable } from "./gitops/applicationManifests"
-import { APPLICATION_LABEL, appProjectName, buildApplicationSets, buildArgoCdState, COMPONENT_LABEL, clashingName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
+import { APPLICATION_LABEL, applicationName, appProjectName, buildApplicationSets, buildArgoCdState, COMPONENT_LABEL, clashingName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
 
@@ -71,7 +72,7 @@ interface PendingDeployToken {
 
 interface RepositoryTarget {
     kind: ArgoCdRepositoryKind
-    link: ICodeRepositoryMicrofrontend
+    link: ICodeRepositoryFrontend
     connection: ICodeRepository
     repoUrl: string
     /** The AppProject the credentials are scoped to; global when unset */
@@ -101,17 +102,17 @@ const normalizeUrl = (value: unknown): string => {
 }
 
 /** The GitOps repositories of the project, configuration first; none while GitOps is off */
-const linksOf = (gitOps?: IProjectGitOps): Array<[ArgoCdRepositoryKind, ICodeRepositoryMicrofrontend]> => {
+const linksOf = (gitOps?: IProjectGitOps): Array<[ArgoCdRepositoryKind, ICodeRepositoryFrontend]> => {
     if (!gitOps?.enabled) return []
-    const links: Array<[ArgoCdRepositoryKind, ICodeRepositoryMicrofrontend | undefined]> = [
+    const links: Array<[ArgoCdRepositoryKind, ICodeRepositoryFrontend | undefined]> = [
         ["configuration", gitOps.codeRepository],
         ["applications", gitOps.applicationsCodeRepository]
     ]
-    return links.filter((entry): entry is [ArgoCdRepositoryKind, ICodeRepositoryMicrofrontend] => Boolean(entry[1]))
+    return links.filter((entry): entry is [ArgoCdRepositoryKind, ICodeRepositoryFrontend] => Boolean(entry[1]))
 }
 
 /** GitLab takes the numeric id or the full path of a project, never a bare name */
-const gitlabAddressOf = (link: ICodeRepositoryMicrofrontend, codeRepository: ICodeRepository): string => {
+const gitlabAddressOf = (link: ICodeRepositoryFrontend, codeRepository: ICodeRepository): string => {
     const groupPath = codeRepository.gitlabData?.groupPath
     return encodeURIComponent(link.repositoryId || link.gitlab?.path || (groupPath ? `${groupPath}/${link.name}` : link.name))
 }
@@ -141,11 +142,15 @@ const nameClash = (name: string) =>
         details: { name }
     })
 
-/** The services and frontends a deploy writes the values of: those with an image and a version */
-const deployableSlugs = async (projectId: Schema.Types.ObjectId): Promise<string[]> => {
+/** The services, frontends and maintenance agents a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
+const deployableSlugs = async (projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<string[]> => {
     const fields = { slug: 1, version: 1, image: 1 }
-    const applications: GitOpsApplication[] = [...(await Service.find({ projectId }, fields)), ...(await Microfrontend.find({ projectId, kind: MicrofrontendKind.FRONTEND }, fields))]
-    return applications.filter(isDeployable).map(application => application.slug)
+    const applications: GitOpsApplication[] = [
+        ...(await Service.find({ projectId }, fields)),
+        ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields)),
+        ...(await MaintenanceAgent.find({ projectId }, fields))
+    ]
+    return applications.filter(application => isDeployable(application, containerRegistry)).map(application => application.slug)
 }
 
 const environmentsOf = async (projectId: Schema.Types.ObjectId) =>
@@ -181,6 +186,13 @@ const gitOpsRequired = () =>
         statusCode: 422
     })
 
+const notConfigured = () =>
+    createBusinessException({
+        code: "ARGOCD_NOT_CONFIGURED",
+        message: "The project deploys through no Argo CD: turn GitOps on with an applications repository and initialize Argo CD, then deploy the agent",
+        statusCode: 422
+    })
+
 const tokenRequired = () =>
     createBusinessException({
         code: "ARGOCD_TOKEN_REQUIRED",
@@ -202,6 +214,24 @@ const tokenRequired = () =>
  * registered globally, as the git generator of an ApplicationSet reads it outside of any AppProject.
  */
 export class ArgoCdService extends BaseAuthorizedService {
+    /**
+     * Starts the CronJob of the application `slug` in `environment` now, through the Application the ApplicationSet
+     * of `slug` generated there. The CronJob is named after the Helm release, which is the slug. Whoever calls it
+     * checks who may.
+     */
+    async createJobFromCronJob(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }): Promise<void> {
+        const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
+        const argoCd = project?.argoCd
+        if (!project || !project.gitOps?.enabled || !project.gitOps.applicationsCodeRepository || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) throw notConfigured()
+        const client = new ArgoCdClient(argoCd.url, argoCd.token)
+        await client.createJobFromCronJob(
+            applicationName(String(projectId), project.slug, slug, environmentSlug(environment)),
+            appProjectName(String(projectId), project.slug),
+            environmentNamespace(environment),
+            slug
+        )
+    }
+
     /** Any member of the project sees where it is deployed from; the credentials stay behind */
     async get(projectId: string | Schema.Types.ObjectId): Promise<ArgoCdStatusDTO> {
         const projectIdObj = toObjectId(projectId)
@@ -243,7 +273,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         await this.acquire(projectIdObj, lease)
         try {
             // Read again under the lease: a run that ended meanwhile may have rotated the tokens read above
-            const current = await Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1 })
+            const current = await Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 })
             if (!current) throw new ProjectNotFoundError(String(projectId))
             const gitOps = current.gitOps
             if (!gitOps?.enabled || !gitOps.codeRepository) throw gitOpsRequired()
@@ -278,7 +308,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                     configurationRepoUrl: repoUrlOf("configuration"),
                     applicationsRepoUrl: repoUrlOf("applications"),
                     environments,
-                    ...(applicationsTarget ? { applications: await deployableSlugs(projectIdObj), applicationBranches: await this.branchesOf(applicationsTarget) } : {})
+                    ...(applicationsTarget ? { applications: await deployableSlugs(projectIdObj, current.containerRegistry), applicationBranches: await this.branchesOf(applicationsTarget) } : {})
                 })
                 const clash = clashingName(state)
                 if (clash) throw nameClash(clash)
@@ -406,7 +436,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         // Stored only while no initialization runs: the one that runs re-aligns everything, and saves over it
         const idle = { _id: projectId, "argoCd.initializingAt": { $exists: false } }
         try {
-            const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
+            const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 })
             const argoCd = project?.argoCd
             const link = project?.gitOps?.enabled ? project.gitOps.applicationsCodeRepository : undefined
             if (!project || !link || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) return
@@ -432,7 +462,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                 configurationRepoUrl: argoCd.repositories?.configuration?.repoUrl,
                 applicationsRepoUrl: repoUrl,
                 environments: await environmentsOf(projectId),
-                applications: await deployableSlugs(projectId),
+                applications: await deployableSlugs(projectId, project.containerRegistry),
                 applicationBranches: await this.branchesOf({ link, connection })
             }
             const clash = clashingName(buildArgoCdState(target))

@@ -16,10 +16,10 @@ const STATUS_VARIANT: Record<AiChangeStatus, IBadgeProps["variant"]> = {
     FAILED: "destructive"
 }
 
-/** The status of an AI change request, shared by the microfrontend page and the job tabs of the assistant. */
+/** The status of an AI change request, shared by the frontend page and the job tabs of the assistant. */
 export const StatusBadge: React.FC<{ status: AiChangeStatus }> = ({ status }) => {
     const { t } = useTranslation()
-    return <Badge variant={STATUS_VARIANT[status]}>{t(`microfrontend.aiChange.status.${status}`)}</Badge>
+    return <Badge variant={STATUS_VARIANT[status]}>{t(`frontend.aiChange.status.${status}`)}</Badge>
 }
 
 /** What the agent did, step by step: `live` announces new steps to screen readers. */
@@ -38,11 +38,11 @@ export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean }> =
             ref={containerRef}
             role="log"
             aria-live={live ? "polite" : "off"}
-            aria-label={t("microfrontend.aiChange.progress_log")}
+            aria-label={t("frontend.aiChange.progress_log")}
             className="max-h-64 overflow-auto rounded-md border border-divider bg-muted/40 p-3 text-xs"
         >
             {events.length === 0 ? (
-                <p className="text-muted-foreground">{t("microfrontend.aiChange.progress_empty")}</p>
+                <p className="text-muted-foreground">{t("frontend.aiChange.progress_empty")}</p>
             ) : (
                 <ol className="flex flex-col gap-1">
                     {events.map((event, index) => (
@@ -50,7 +50,7 @@ export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean }> =
                             <time dateTime={event.at} className="shrink-0 font-mono text-muted-foreground">
                                 {format(new Date(event.at), "HH:mm:ss")}
                             </time>
-                            {event.kind === "info" && <span className="font-medium">{t(`microfrontend.aiChange.events.${event.message}`, { defaultValue: event.message })}</span>}
+                            {event.kind === "info" && <span className="font-medium">{t(`frontend.aiChange.events.${event.message}`, { defaultValue: event.message })}</span>}
                             {event.kind === "tool" && <span className="break-all font-mono text-muted-foreground">{event.message}</span>}
                             {event.kind === "text" && <span className="whitespace-pre-wrap break-words">{event.message}</span>}
                             {/* Muted and apart from what the agent said: how it reasoned, not what it did. */}

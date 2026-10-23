@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [6.0.0] - 2026-10-23
+
+### Changed
+
+- **The Helm Chart Is Now `flightroom`, Published On ghcr.io** (breaking): the chart moved from `helm/mfe-orchestrator` to `helm/flightroom` and every release pushes it to `oci://ghcr.io/flightroom/charts/flightroom`, so Helm and Argo CD install it without cloning the repository. Chart `0.3.0` defaults to `lory1990/flightroom` at the release tag instead of `lory1990/mfe-orchestrator:4.0.0`. The name is part of the Deployment selector and of every resource name, so upgrading an existing release recreates the resources and deletes the PVC of the uploaded bundles unless it is annotated `helm.sh/resource-policy=keep` and mounted back with `persistence.existingClaim`: the chart README has the steps. The release workflow fails when the chart `appVersion` is not the tag being released or the chart version is already published
+- **One Pod Per ReadWriteOnce Volume**: the chart refuses to render `replicaCount > 1` or `autoscaling.enabled` on a volume without `ReadWriteMany`, where the second pod could never mount the claim, and switches such a deployment to the `Recreate` strategy unless `strategy.type` is set: the rolling update with `maxUnavailable: 0` hung whenever the new pod was scheduled on another node
+
+- **One Endpoint, Shared By Every Environment**: the **Endpoint** card of a service and of a DOCKER frontend is now an **Expose** switch and a single exposure path, the same on the host of every environment, instead of a base URL typed per environment. Exposed, the path is required and the card previews the resulting URL in each environment (`https://<environment host><path>`, plain HTTP when the project has no certificate issuer); off, `exposurePath` is saved as `null` and the application gets no route. The service overview and the serve API derive the URL the same way, so the URL handed out for a DOCKER frontend follows its exposure path instead of a hand-written one
+- **A DOCKER Frontend May Be Not Exposed**: like a service, it no longer needs an exposure path, through the console, the REST API and the MCP `frontend_create`, `frontend_scaffold` and `frontend_update` tools. A new DOCKER frontend still starts exposed in the console, since it is usually the shell
+
+### Removed
+
+- **Per-Environment `urls` Of Services And DOCKER Frontends**: the field is gone from the REST API, the MCP `service_*` and `frontend_*` tools and the GitOps values, which no longer carry an `ingress` block: the HTTPRoute of the exposure path covers it. Stored values are ignored
+- **`DOCKER_FRONTEND_EXPOSURE_PATH_REQUIRED`**: the error is no longer raised
+
+---
+
 ## [5.1.0] - 2026-10-22
 
 ### Changed

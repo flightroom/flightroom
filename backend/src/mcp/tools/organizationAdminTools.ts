@@ -4,6 +4,7 @@ import OrganizationService from "../../service/OrganizationService"
 import UserOrganizationService from "../../service/UserOrganizationService"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, objectId, READ_ONLY, WRITE } from "../toolDefinition"
+import { designSystemInput } from "./frontendTools"
 
 const organizationId = objectId("Id of the organization, from organizations_list")
 const userId = objectId("Id of the user, from organization_members_list")
@@ -28,7 +29,7 @@ export const organizationAdminTools = [
     defineTool({
         name: "organization_settings_get",
         title: "Get organization settings",
-        description: "Name, slug and description of an organization, your role in it, and how many projects and members (pending invitations included) it has.",
+        description: "Name, slug, description and design system of an organization, your role in it, and how many projects and members (pending invitations included) it has.",
         scope: MCP_SCOPE_READ,
         projectScoped: false,
         consoleOnly: true,
@@ -39,7 +40,8 @@ export const organizationAdminTools = [
     defineTool({
         name: "organization_update",
         title: "Update organization",
-        description: "Renames an organization (its slug follows the name) or changes its description. Owners and admins only. Pass description null to remove it.",
+        description:
+            "Renames an organization (its slug follows the name) or changes its description or its design system, the UI library of the frontends of every project that does not set its own. Owners and admins only. Pass description or designSystem null to remove it.",
         scope: MCP_SCOPE_WRITE,
         projectScoped: false,
         consoleOnly: true,
@@ -47,7 +49,8 @@ export const organizationAdminTools = [
         inputSchema: z.object({
             organizationId,
             name: z.string().trim().min(1).max(255).optional(),
-            description: z.string().max(2000).nullable().optional()
+            description: z.string().max(2000).nullable().optional(),
+            designSystem: designSystemInput.describe("The design system of the projects without their own, and of their frontends without their own. Replaced as a whole")
         }),
         run: ({ organizationId: id, ...changes }, { principal }) => new OrganizationService(principal).update(id, changes)
     }),

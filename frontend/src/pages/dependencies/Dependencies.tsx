@@ -7,15 +7,15 @@ import AskAssistantButton from "@/components/assistant/AskAssistantButton"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import useDependenciesApi, { MicrofrontendScanTarget } from "@/hooks/apiClients/useDependenciesApi"
+import useDependenciesApi, { FrontendScanTarget } from "@/hooks/apiClients/useDependenciesApi"
 import useProjectStore from "@/store/useProjectStore"
-import { AlignPeerDependenciesDialog, BranchSelection, DependencyAlignmentTable, isOutdated, MicrofrontendDependencyList } from "./partials"
+import { AlignPeerDependenciesDialog, BranchSelection, DependencyAlignmentTable, FrontendDependencyList, isOutdated } from "./partials"
 
-/** Branch selected for each microfrontend, falling back to the default branch of its repository */
-const toDefaultBranches = (targets: MicrofrontendScanTarget[]): Record<string, string> =>
+/** Branch selected for each frontend, falling back to the default branch of its repository */
+const toDefaultBranches = (targets: FrontendScanTarget[]): Record<string, string> =>
     targets.reduce<Record<string, string>>((accumulator, target) => {
         if (target.defaultBranch) {
-            accumulator[target.microfrontendId] = target.defaultBranch
+            accumulator[target.frontendId] = target.defaultBranch
         }
         return accumulator
     }, {})
@@ -49,10 +49,7 @@ const Dependencies: React.FC = () => {
         enabled: Boolean(project?._id) && targetsQuery.isSuccess
     })
 
-    const hasPendingBranchChanges = useMemo(
-        () => targets.some(target => selectedBranches[target.microfrontendId] !== appliedBranches[target.microfrontendId]),
-        [targets, selectedBranches, appliedBranches]
-    )
+    const hasPendingBranchChanges = useMemo(() => targets.some(target => selectedBranches[target.frontendId] !== appliedBranches[target.frontendId]), [targets, selectedBranches, appliedBranches])
 
     const onRescan = () => {
         if (hasPendingBranchChanges) {
@@ -63,12 +60,12 @@ const Dependencies: React.FC = () => {
     }
 
     const report = reportQuery.data
-    const microfrontends = report?.microfrontends || []
+    const frontends = report?.frontends || []
     const peerDependencyIssues = report?.peerDependencyIssues || []
     const sharedDependencyIssues = report?.sharedDependencyIssues || []
 
-    const uniquePackages = new Set(microfrontends.flatMap(microfrontend => microfrontend.dependencies.map(dependency => dependency.name)))
-    const outdatedPackages = new Set(microfrontends.flatMap(microfrontend => microfrontend.dependencies.filter(isOutdated).map(dependency => dependency.name)))
+    const uniquePackages = new Set(frontends.flatMap(frontend => frontend.dependencies.map(dependency => dependency.name)))
+    const outdatedPackages = new Set(frontends.flatMap(frontend => frontend.dependencies.filter(isOutdated).map(dependency => dependency.name)))
     const misalignedPeerCount = peerDependencyIssues.length
 
     return (
@@ -105,15 +102,11 @@ const Dependencies: React.FC = () => {
 
                 <section>
                     <SectionHeader title={t("dependencies.branch_selection_title")} />
-                    <BranchSelection
-                        targets={targets}
-                        selectedBranches={selectedBranches}
-                        onChange={(microfrontendId, branch) => setBranchOverrides(current => ({ ...current, [microfrontendId]: branch }))}
-                    />
+                    <BranchSelection targets={targets} selectedBranches={selectedBranches} onChange={(frontendId, branch) => setBranchOverrides(current => ({ ...current, [frontendId]: branch }))} />
                 </section>
 
                 <div className="grid gap-4 grid-cols-[repeat(auto-fill,minmax(180px,1fr))]">
-                    <StatTile size="sm" label={t("dependencies.summary_microfrontends")} value={microfrontends.length} />
+                    <StatTile size="sm" label={t("dependencies.summary_frontends")} value={frontends.length} />
                     <StatTile size="sm" label={t("dependencies.summary_packages")} value={uniquePackages.size} />
                     <StatTile size="sm" label={t("dependencies.summary_outdated")} value={outdatedPackages.size} />
                     <StatTile size="sm" label={t("dependencies.summary_peer_misaligned")} value={misalignedPeerCount} />
@@ -132,7 +125,7 @@ const Dependencies: React.FC = () => {
 
                 <section>
                     <SectionHeader
-                        title={t("dependencies.per_microfrontend_title")}
+                        title={t("dependencies.per_frontend_title")}
                         actions={
                             <label className="flex items-center gap-2 text-sm">
                                 <Checkbox checked={onlyOutdated} onCheckedChange={checked => setOnlyOutdated(checked === true)} />
@@ -140,7 +133,7 @@ const Dependencies: React.FC = () => {
                             </label>
                         }
                     />
-                    <MicrofrontendDependencyList microfrontends={microfrontends} onlyOutdated={onlyOutdated} />
+                    <FrontendDependencyList frontends={frontends} onlyOutdated={onlyOutdated} />
                 </section>
 
                 {report?.scannedAt && <p className="text-xs text-foreground-secondary">{t("dependencies.scanned_at", { date: new Date(report.scannedAt).toLocaleString() })}</p>}

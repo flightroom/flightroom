@@ -628,7 +628,7 @@ class GithubClient {
      * The most recent Actions runs of a repository, newest first.
      *
      * Only the first page is read: the build screen shows a handful of runs per
-     * microfrontend and this endpoint is polled, so walking the pagination would
+     * frontend and this endpoint is polled, so walking the pagination would
      * burn the token's rate limit for rows nobody looks at.
      */
     async getWorkflowRuns(accessToken: string, repositoryName: string, perPage: number, orgName?: string, userName?: string): Promise<GithubWorkflowRun[]> {
@@ -680,9 +680,10 @@ class GithubClient {
         )
     }
 
+    /** The branch is one path segment, encoded as Octokit does: release/1.4 is read as release%2F1.4 */
     async getBranchCommitSha(accessToken: string, repositoryName: string, branchName: string, orgName?: string, userName?: string): Promise<string> {
         const response = await axios.request<GithubBranch>({
-            url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/branches/${branchName}`,
+            url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/branches/${encodeURIComponent(branchName)}`,
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
@@ -691,6 +692,27 @@ class GithubClient {
         })
 
         return response.data.commit.sha
+    }
+
+    /** Whether the repository has the tag: the single ref endpoint matches the exact name, and answers 404 without it */
+    async tagExists(accessToken: string, repositoryName: string, tag: string, orgName?: string, userName?: string): Promise<boolean> {
+        try {
+            const response = await axios.request({
+                url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/git/ref/tags/${encodeURIComponent(tag)}`,
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: "application/vnd.github.v3+json",
+                    "User-Agent": "Flightroom"
+                }
+            })
+            // A list answers the refs that only start with the name: none of them is the tag
+            return !Array.isArray(response.data)
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return false
+            }
+            throw error
+        }
     }
 
     async createTag(accessToken: string, repositoryName: string, tag: string, sha: string, orgName?: string, userName?: string): Promise<void> {

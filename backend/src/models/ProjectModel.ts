@@ -1,18 +1,23 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
+import { IDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
+import { FrontendFramework } from "../types/FrontendStack"
+import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
+import { CONTAINER_REGISTRY } from "../types/ServiceStack"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
-import type { ICodeRepositoryMicrofrontend } from "./MicrofrontendModel"
+import { designSystemSchema } from "./DesignSystemSchema"
+import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
-/** Upper bound of a context, of a project, a domain, a microfrontend or a service: it ends up in the prompt of every agent reading it. */
+/** Upper bound of a context, of a project, a domain, a frontend or a service: it ends up in the prompt of every agent reading it. */
 export const CONTEXT_MAX_LENGTH = 20_000
 
 /** Config maps and secrets committed to a repository as Kubernetes manifests, every time one is saved */
 export interface IProjectGitOps {
     enabled: boolean
-    /** Linked like the repository of a microfrontend, through one of the connections of the project */
-    codeRepository?: ICodeRepositoryMicrofrontend
+    /** Linked like the repository of a frontend, through one of the connections of the project */
+    codeRepository?: ICodeRepositoryFrontend
     /** Where the Helm values of the applications go, one branch per environment; none when left out */
-    applicationsCodeRepository?: ICodeRepositoryMicrofrontend
+    applicationsCodeRepository?: ICodeRepositoryFrontend
 }
 
 /**
@@ -20,8 +25,8 @@ export interface IProjectGitOps {
  * official template-pipelines: a repository with the same layout. Unset, the official ones are used.
  */
 export interface IProjectPipelines {
-    /** Linked like the repository of a microfrontend, through one of the connections of the project */
-    codeRepository: ICodeRepositoryMicrofrontend
+    /** Linked like the repository of a frontend, through one of the connections of the project */
+    codeRepository: ICodeRepositoryFrontend
     /** The branch or tag read; the default branch of the repository when left out */
     ref?: string
 }
@@ -114,10 +119,22 @@ export interface IProject extends Document<ObjectId> {
     exposure?: IProjectExposure
     pipelines?: IProjectPipelines
     /**
+     * Where the images of the services and of the DOCKER frontends are pushed, e.g. `ghcr.io/acme`: one with no
+     * image repository of its own is deployed as `<containerRegistry>/<slug>`.
+     */
+    containerRegistry?: string
+    /**
      * The AIs of the organization the project may use, by id (`system` for the one of the environment).
      * Unset: all of them, the ones added later included. Empty: AI is off for the project.
      */
     aiModelIds?: string[]
+    /**
+     * The default frontend and backend technology the team picked. They guide users and AI agents creating
+     * a frontend or a service, and are never enforced: another stack can still be chosen for any of them.
+     */
+    technologies?: IProjectTechnologies
+    /** The UI library the frontends are built with, unless one has its own; unset, the organization's. Guides users and AI agents, never enforced */
+    designSystem?: IDesignSystem
     createdAt: Date
     updatedAt: Date
 }
@@ -180,8 +197,20 @@ const projectSchema = new Schema<IProject>(
             codeRepository: { type: Schema.Types.Mixed },
             ref: { type: String, trim: true }
         },
+        containerRegistry: { type: String, trim: true, match: CONTAINER_REGISTRY },
         // No default: an empty array would turn AI off, where unset means every AI of the organization
-        aiModelIds: { type: [String], default: undefined }
+        aiModelIds: { type: [String], default: undefined },
+        technologies: {
+            type: new Schema<IProjectTechnologies>(
+                {
+                    frontend: { type: String, enum: Object.values(FrontendFramework) },
+                    backend: { type: String, enum: Object.values(BackendTechnology) }
+                },
+                { _id: false }
+            ),
+            required: false
+        },
+        designSystem: { type: designSystemSchema, required: false }
     },
     {
         timestamps: true

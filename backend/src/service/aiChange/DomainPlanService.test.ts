@@ -16,13 +16,20 @@ vi.mock("../MarketService", () => ({
 import { BusinessException } from "../../errors/BusinessException"
 import AiModel from "../../models/AiModelModel"
 import Domain from "../../models/DomainModel"
-import Microfrontend from "../../models/MicrofrontendModel"
+import Frontend from "../../models/FrontendModel"
+import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
+import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
 import { IUser } from "../../models/UserModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
+import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
+import { FrontendFramework } from "../../types/FrontendStack"
+import { BackendTechnology } from "../../types/ProjectTechnology"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import DomainPlanService, { sanitizePlan } from "./DomainPlanService"
+
+withNoMaintenanceAgents()
 
 type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
 
@@ -42,31 +49,47 @@ const templates = [
 const planned = (slug: string, template: string, repositoryName: string) => ({ name: slug, slug, template, repositoryName, reason: `${slug} reason` })
 
 describe("sanitizePlan", () => {
-    const none = () => ({ microfrontend: new Set<string>(), service: new Set<string>() })
+    const none = () => ({ frontend: new Set<string>(), service: new Set<string>() })
 
     it("given templates of the wrong kind or unknown, when the plan is sanitized, then each becomes the default of its kind", () => {
         const plan = sanitizePlan(
-            { microfrontends: [planned("orders", "service-node-fastify", "orders-fe"), planned("cart", "soon-remote", "cart-fe")], services: [planned("orders", "nope", "orders-be")] },
+            { frontends: [planned("orders", "service-node-fastify", "orders-fe"), planned("cart", "soon-remote", "cart-fe")], services: [planned("orders", "nope", "orders-be")] },
             templates,
             none()
         )
 
-        expect(plan.microfrontends.map(item => item.template)).toEqual(["vite-remote-react", "vite-remote-react"])
+        expect(plan.frontends.map(item => item.template)).toEqual(["vite-remote-react", "vite-remote-react"])
+        expect(plan.services[0].template).toBe("service-node-fastify")
+    })
+
+    it("given an unknown template in a project with default technologies, when the plan is sanitized, then it becomes the template of the kind built with them", () => {
+        const plan = sanitizePlan({ frontends: [planned("orders", "nope", "orders-fe")], services: [planned("orders", "nope", "orders-be")] }, templates, none(), {
+            frontend: FrontendFramework.VUE,
+            backend: BackendTechnology.PYTHON
+        })
+
+        expect(plan.frontends[0].template).toBe("vite-remote-vue")
+        expect(plan.services[0].template).toBe("service-python-fastapi")
+    })
+
+    it("given a technology no template is built with, when the plan is sanitized, then the default of the kind is used", () => {
+        const plan = sanitizePlan({ frontends: [], services: [planned("orders", "nope", "orders-be")] }, templates, none(), { backend: BackendTechnology.MICRONAUT })
+
         expect(plan.services[0].template).toBe("service-node-fastify")
     })
 
     it("given a slug taken in the project, when the plan is sanitized, then it gets a number and the repository is named after the new slug", () => {
-        const plan = sanitizePlan({ microfrontends: [planned("orders", "vite-remote-vue", "orders-fe")], services: [] }, templates, {
-            microfrontend: new Set(["orders"]),
+        const plan = sanitizePlan({ frontends: [planned("orders", "vite-remote-vue", "orders-fe")], services: [] }, templates, {
+            frontend: new Set(["orders"]),
             service: new Set()
         })
 
-        expect(plan.microfrontends[0]).toMatchObject({ slug: "orders-2", repositoryName: "orders-2-fe", template: "vite-remote-vue" })
+        expect(plan.frontends[0]).toMatchObject({ slug: "orders-2", repositoryName: "orders-2-fe", template: "vite-remote-vue" })
     })
 
     it("given names the platform refuses, when the plan is sanitized, then the slug is made kebab case and the repository ends with the suffix of its kind", () => {
         const plan = sanitizePlan(
-            { microfrontends: [], services: [{ name: "Order API", slug: "Order API!", template: "service-python-fastapi", repositoryName: "order api", reason: "" }] },
+            { frontends: [], services: [{ name: "Order API", slug: "Order API!", template: "service-python-fastapi", repositoryName: "order api", reason: "" }] },
             templates,
             none()
         )
@@ -75,13 +98,13 @@ describe("sanitizePlan", () => {
     })
 
     it("given more components than allowed, when the plan is sanitized, then only the first three of each kind are kept", () => {
-        const plan = sanitizePlan({ microfrontends: ["a1", "b2", "c3", "d4"].map(slug => planned(slug, "vite-remote-react", `${slug}-fe`)), services: [] }, templates, none())
+        const plan = sanitizePlan({ frontends: ["a1", "b2", "c3", "d4"].map(slug => planned(slug, "vite-remote-react", `${slug}-fe`)), services: [] }, templates, none())
 
-        expect(plan.microfrontends.map(item => item.slug)).toEqual(["a1", "b2", "c3"])
+        expect(plan.frontends.map(item => item.slug)).toEqual(["a1", "b2", "c3"])
     })
 
     it("given two components of a kind with the same slug, when the plan is sanitized, then neither their slugs nor their repositories clash", () => {
-        const plan = sanitizePlan({ microfrontends: [], services: [planned("orders", "service-node-fastify", "orders-be"), planned("orders", "service-node-fastify", "orders-be")] }, templates, none())
+        const plan = sanitizePlan({ frontends: [], services: [planned("orders", "service-node-fastify", "orders-be"), planned("orders", "service-node-fastify", "orders-be")] }, templates, none())
 
         expect(plan.services.map(item => [item.slug, item.repositoryName])).toEqual([
             ["orders", "orders-be"],
@@ -93,38 +116,41 @@ describe("sanitizePlan", () => {
 describe("sanitizePlan with long repository names", () => {
     it("given two components asking for the same 100 character repository name, when the plan is sanitized, then the numbered one still fits 100 characters", () => {
         const long = `${"a".repeat(97)}-fe`
-        const plan = sanitizePlan({ microfrontends: [planned("one", "vite-remote-react", long), planned("two", "vite-remote-react", long)], services: [] }, templates, {
-            microfrontend: new Set(),
+        const plan = sanitizePlan({ frontends: [planned("one", "vite-remote-react", long), planned("two", "vite-remote-react", long)], services: [] }, templates, {
+            frontend: new Set(),
             service: new Set()
         })
 
-        expect(plan.microfrontends[0].repositoryName).toBe(long)
-        expect(plan.microfrontends[1].repositoryName).toHaveLength(100)
-        expect(plan.microfrontends[1].repositoryName).toMatch(/^a+-2-fe$/)
+        expect(plan.frontends[0].repositoryName).toBe(long)
+        expect(plan.frontends[1].repositoryName).toHaveLength(100)
+        expect(plan.frontends[1].repositoryName).toMatch(/^a+-2-fe$/)
     })
 })
 
 describe("DomainPlanService.plan", () => {
     let role: RoleInProject
-    let members: { microfrontend: boolean; service: boolean }
+    let members: { frontend: boolean; service: boolean }
 
     beforeEach(() => {
         role = RoleInProject.MEMBER
-        members = { microfrontend: false, service: false }
+        members = { frontend: false, service: false }
         const gates = BaseAuthorizedService.prototype as unknown as WithGates
         vi.spyOn(gates, "ensureAccessToProject").mockResolvedValue(undefined)
         vi.spyOn(gates, "isOrganizationAdmin").mockResolvedValue(false)
         vi.spyOn(UserProject, "findOne").mockImplementation((() => Promise.resolve({ role })) as never)
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), name: "Shop", context: "Shop context" } as never)
+        // Nor a design system
+        vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
         // The organization defines no AI: the system one, from the configuration the service is given, answers
         vi.spyOn(AiModel, "find").mockResolvedValue([] as never)
         vi.spyOn(Domain, "findOne").mockResolvedValue(domain as never)
-        vi.spyOn(Microfrontend, "exists").mockImplementation((() => Promise.resolve(members.microfrontend ? { _id: new Types.ObjectId() } : null)) as never)
+        vi.spyOn(Frontend, "exists").mockImplementation((() => Promise.resolve(members.frontend ? { _id: new Types.ObjectId() } : null)) as never)
         vi.spyOn(Service, "exists").mockImplementation((() => Promise.resolve(members.service ? { _id: new Types.ObjectId() } : null)) as never)
-        vi.spyOn(Microfrontend, "find").mockResolvedValue([{ slug: "catalog" }] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "catalog" }] as never)
         vi.spyOn(Service, "find").mockResolvedValue([] as never)
+        vi.spyOn(Resource, "find").mockResolvedValue([] as never)
         getAll.mockResolvedValue(templates)
-        json.mockResolvedValue({ microfrontends: [planned("checkout", "vite-remote-react", "checkout-fe")], services: [planned("orders", "service-node-fastify", "orders-be")] })
+        json.mockResolvedValue({ frontends: [planned("checkout", "vite-remote-react", "checkout-fe")], services: [planned("orders", "service-node-fastify", "orders-be")] })
     })
 
     afterEach(() => {
@@ -137,7 +163,7 @@ describe("DomainPlanService.plan", () => {
     it("given a domain without members, when a plan is asked, then the model reads the request, the contexts and the templates and its plan comes back", async () => {
         const result = await plan()
 
-        expect(result.microfrontends).toEqual([planned("checkout", "vite-remote-react", "checkout-fe")])
+        expect(result.frontends).toEqual([planned("checkout", "vite-remote-react", "checkout-fe")])
         expect(result.services).toEqual([planned("orders", "service-node-fastify", "orders-be")])
         const request = json.mock.calls[0][0] as { user: string }
         for (const expected of [
@@ -147,7 +173,7 @@ describe("DomainPlanService.plan", () => {
             "Prices are in cents",
             "vite-remote-react (default)",
             "service-node-fastify (default)",
-            "microfrontends: catalog"
+            "frontends: catalog"
         ]) {
             expect(request.user).toContain(expected)
         }
@@ -156,7 +182,82 @@ describe("DomainPlanService.plan", () => {
         expect(request.user).not.toContain("soon-remote")
     })
 
-    it.each(["microfrontend", "service"] as const)("given a domain with a %s, when a plan is asked, then it is refused without calling the model", async kind => {
+    it("given a project with default technologies, when a plan is asked, then the model is told them and the templates built with them are marked and default", async () => {
+        vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), name: "Shop", technologies: { frontend: "VUE", backend: "PYTHON" } } as never)
+
+        await plan()
+
+        const request = json.mock.calls[0][0] as { user: string; system: string }
+        expect(request.user).toContain("<project_technologies>\nfrontend: Vue\nbackend: Python\n")
+        expect(request.user).toContain("- vite-remote-vue (default) (project technology)")
+        expect(request.user).toContain("- service-python-fastapi (default) (project technology)")
+        expect(request.user).toContain("- vite-remote-react: ")
+        expect(request.system).toContain("project technology")
+    })
+
+    it("given a project without a design system in an organization with one, when a plan is asked, then the model is told the organization's by name only", async () => {
+        vi.spyOn(Organization, "findById").mockResolvedValue({ designSystem: { packageName: "@acme/brand", version: "^2.0.0", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } } as never)
+
+        await plan()
+
+        const request = json.mock.calls[0][0] as { user: string }
+        expect(request.user).toContain("<project_design_system>\npackage: @acme/brand\nversion: ^2.0.0\n")
+        expect(request.user).not.toContain("npm_abc123")
+    })
+
+    it("given a project without a design system in an organization without one, when a plan is asked, then the model is told none", async () => {
+        await plan()
+
+        expect((json.mock.calls[0][0] as { user: string }).user).not.toContain("<project_design_system>")
+    })
+
+    it("given resources in the project, when a plan is asked, then the model is told them by name and type and not to plan a component for one", async () => {
+        vi.spyOn(Resource, "find").mockResolvedValue([
+            { name: "orders", type: "database", description: "Main Postgres" },
+            { name: "mailer", type: "smtp" }
+        ] as never)
+
+        await plan()
+
+        const request = json.mock.calls[0][0] as { user: string; system: string }
+        expect(request.user).toContain("<project_resources>\n- orders (database): Main Postgres\n- mailer (smtp)\n</project_resources>")
+        expect(request.system).toContain("do not plan a component that only provides one of them")
+        expect(Resource.find).toHaveBeenCalledWith({ projectId: expect.anything() }, { name: 1, type: 1, description: 1 })
+    })
+
+    it("given a member scoped to the domain, when a plan is asked, then only the resources they may read are listed", async () => {
+        const own = new Types.ObjectId()
+        const shared = new Types.ObjectId()
+        vi.spyOn(BaseAuthorizedService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([String(domain._id)])
+        vi.spyOn(Service, "find").mockImplementation(((filter: Record<string, unknown>) =>
+            Promise.resolve(
+                filter.resourceIds
+                    ? [
+                          { domainId: domain._id, resourceIds: [own, shared] },
+                          { domainId: new Types.ObjectId(), resourceIds: [shared] }
+                      ]
+                    : []
+            )) as never)
+
+        await plan()
+
+        const [filter] = vi.mocked(Resource.find).mock.calls[0] as unknown as [{ projectId: unknown; _id: { $in: unknown[] } }]
+        expect(filter._id.$in.map(String)).toEqual([String(own)])
+    })
+
+    it("given no resource in the project, when a plan is asked, then no resources block is sent", async () => {
+        await plan()
+
+        expect((json.mock.calls[0][0] as { user: string }).user).not.toContain("<project_resources>")
+    })
+
+    it("given a project without technologies, when a plan is asked, then no technologies block is sent", async () => {
+        await plan()
+
+        expect((json.mock.calls[0][0] as { user: string }).user).not.toContain("<project_technologies>")
+    })
+
+    it.each(["frontend", "service"] as const)("given a domain with a %s, when a plan is asked, then it is refused without calling the model", async kind => {
         members[kind] = true
 
         await expect(plan()).rejects.toMatchObject({ code: "AI_DOMAIN_PLAN_HAS_MEMBERS", statusCode: 422 })

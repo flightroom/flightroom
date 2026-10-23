@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle, Spinner, Textarea } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
-import { AlertTriangle, ArrowUp, ExternalLink, GitBranch, Server } from "lucide-react"
+import { AlertTriangle, ArrowUp, ExternalLink, Eye, GitBranch, Server, Square } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -13,6 +13,7 @@ import { effortsOf } from "@/hooks/apiClients/useAiModelsApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
+import { cn } from "@/utils/styleUtils"
 import AiModelSelect from "./AiModelSelect"
 import AnswerUsage from "./AnswerUsage"
 import AssistantMessageText from "./AssistantMessageText"
@@ -23,13 +24,15 @@ export const POLL_INTERVAL_MS = 2000
 export const PROMPT_MAX_LENGTH = 8000
 
 /** Error codes of the job endpoints that have a message of their own. */
-const JOB_ERROR_CODES = new Set([
+export const JOB_ERROR_CODES = new Set([
     "ASSISTANT_DISABLED",
     "AI_CHANGE_FORBIDDEN",
     "AI_CHANGE_NOT_PROPOSED",
     "AI_CHANGE_TOO_MANY",
     "AI_JOB_FOLLOW_UP_RUNNING",
     "AI_JOB_NOT_DONE",
+    "AI_JOB_NOT_OWNER",
+    "AI_JOB_NOT_RUNNING",
     "AI_JOB_NO_REPOSITORIES",
     "AI_JOB_TOO_MANY_REPOSITORIES",
     "AI_DOMAIN_PLAN_HAS_MEMBERS",
@@ -56,6 +59,17 @@ export const sumUsage = (jobs: AiJob[]): AiUsage =>
         { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 }
     )
 
+/** In place of the actions on a job or a mission someone else started: only they, or an organization administrator, act on it. */
+export const ReadOnlyNote: React.FC<{ name?: string; className?: string }> = ({ name, className }) => {
+    const { t } = useTranslation()
+    return (
+        <p className={cn("flex items-center gap-1.5 text-xs text-foreground-secondary", className)} data-testid="ai-read-only-note">
+            <Eye className="size-3.5 shrink-0" aria-hidden="true" />
+            {t("assistant.jobs.read_only", { name: name ?? t("fleet.someone") })}
+        </p>
+    )
+}
+
 /** Still moving: the agent works, or a proposal is being pushed. */
 const isBusy = (job: AiJob) => isAiJobActive(job.status) || job.repositories.some(repository => repository.status === "APPLYING")
 
@@ -70,7 +84,7 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
     return (
         <li className="flex flex-col gap-1 rounded-md border border-divider px-3 py-2 text-sm">
             <div className="flex items-center gap-2">
-                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{repository.microfrontendName}</span>
+                <span className="min-w-0 flex-1 truncate font-medium text-foreground">{repository.frontendName}</span>
                 {repository.kind === "service" && (
                     <Badge variant="outline">
                         <Server className="size-3" aria-hidden="true" />
@@ -81,14 +95,10 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
             </div>
             <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-foreground-secondary">
                 <span>{t("assistant.jobs.files", { count: repository.files.length })}</span>
-                {/* The review happens on the microfrontend (or service) page: diff, file selection, apply and discard. */}
+                {/* The review happens on the frontend (or service) page: diff, file selection, apply and discard. */}
                 <Link
-                    to={
-                        repository.kind === "service"
-                            ? `/service/${repository.microfrontendId}?change=${repository.requestId}`
-                            : `/microfrontend/${repository.microfrontendId}?change=${repository.requestId}`
-                    }
-                    aria-label={t("assistant.jobs.diff_label", { name: repository.microfrontendName })}
+                    to={repository.kind === "service" ? `/service/${repository.frontendId}?change=${repository.requestId}` : `/frontend/${repository.frontendId}?change=${repository.requestId}`}
+                    aria-label={t("assistant.jobs.diff_label", { name: repository.frontendName })}
                     className="font-medium text-primary-strong underline-offset-4 hover:underline"
                 >
                     {t("assistant.jobs.diff")}
@@ -100,9 +110,9 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
                         rel="noopener noreferrer"
                         className="inline-flex items-center gap-1 font-medium text-primary-strong underline-offset-4 hover:underline"
                     >
-                        {t("microfrontend.aiChange.pull_request")}
+                        {t("frontend.aiChange.pull_request")}
                         <ExternalLink className="size-3" aria-hidden="true" />
-                        <span className="sr-only">{t("microfrontend.aiChange.opens_new_tab")}</span>
+                        <span className="sr-only">{t("frontend.aiChange.opens_new_tab")}</span>
                     </a>
                 )}
             </div>
@@ -116,6 +126,7 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
 const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
     const { t } = useTranslation()
     const active = isAiJobActive(job.status)
+    const stopped = Boolean(job.stoppedAt)
 
     return (
         <div className="flex flex-col gap-2 text-sm text-foreground">
@@ -123,7 +134,9 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
                 <AssistantMessageText text={job.prompt} />
             </div>
             <div className="flex flex-wrap items-center gap-2">
-                <Badge variant={job.status === "FAILED" ? "destructive" : job.status === "DONE" ? "accent" : "outline"}>{t(`assistant.jobs.status.${job.status}`)}</Badge>
+                <Badge variant={stopped ? "outline" : job.status === "FAILED" ? "destructive" : job.status === "DONE" ? "accent" : "outline"}>
+                    {t(stopped ? "assistant.jobs.status.STOPPED" : `assistant.jobs.status.${job.status}`)}
+                </Badge>
                 {job.scope === "global" && <Badge variant="outline">{t("assistant.jobs.scope_global")}</Badge>}
                 {job.scope === "domain" && <Badge variant="outline">{t("assistant.jobs.scope_domain")}</Badge>}
             </div>
@@ -132,18 +145,19 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
             ) : (
                 Boolean(job.events?.length) && (
                     <details className="text-xs">
-                        <summary className="cursor-pointer text-foreground-secondary">{t("microfrontend.aiChange.show_progress_log")}</summary>
+                        <summary className="cursor-pointer text-foreground-secondary">{t("frontend.aiChange.show_progress_log")}</summary>
                         <div className="mt-2">
                             <ProgressLog events={job.events ?? []} live={false} />
                         </div>
                     </details>
                 )
             )}
-            {job.status === "FAILED" && (
+            {stopped && <p className="text-xs text-foreground-secondary">{t("frontend.aiChange.stopped_description")}</p>}
+            {job.status === "FAILED" && !stopped && (
                 <Alert variant="destructive">
                     <AlertTriangle className="size-4" aria-hidden="true" />
                     <AlertTitle>{t("assistant.jobs.failed_title")}</AlertTitle>
-                    <AlertDescription className="whitespace-pre-wrap break-words">{job.error || t("microfrontend.aiChange.errors.generic")}</AlertDescription>
+                    <AlertDescription className="whitespace-pre-wrap break-words">{job.error || t("frontend.aiChange.errors.generic")}</AlertDescription>
                 </Alert>
             )}
             {job.summary && !active && <AssistantMessageText text={job.summary} />}
@@ -201,15 +215,42 @@ export const ApplyAllButton: React.FC<ApplyAllButtonProps> = ({ job, requestIds,
     )
 }
 
+interface StopJobButtonProps {
+    job: AiJob
+    /** Told with the stopped job, or without one when the stop was refused (the agent finished meanwhile). */
+    onStopped: (stopped?: AiJob) => void
+    dataTestId: string
+}
+
+/** Stops the agent at once, in place of the send button while it works: what it did so far is dropped, nothing is pushed. */
+export const StopJobButton: React.FC<StopJobButtonProps> = ({ job, onStopped, dataTestId }) => {
+    const { t } = useTranslation()
+    const aiJobsApi = useAiJobsApi()
+    const notifications = useToastNotificationStore()
+
+    const stopMutation = useMutation({
+        mutationFn: () => aiJobsApi.stop(job._id, { customErrorMessage: error => jobErrorMessage(t, error, "stop") }),
+        onSuccess: () => notifications.showInfoNotification({ message: t("assistant.jobs.stopped_success") }),
+        onSettled: stopped => onStopped(stopped)
+    })
+
+    return (
+        <Button type="button" variant="secondary" size="icon" aria-label={t("assistant.jobs.stop")} disabled={stopMutation.isPending} onClick={() => stopMutation.mutate()} dataTestId={dataTestId}>
+            {stopMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <Square aria-hidden="true" />}
+        </Button>
+    )
+}
+
 interface FollowUpFormProps {
     projectId: string
     latest: AiJob
     /** The job the follow-up refines: the latest one that finished with proposals still open. */
     target?: AiJob
+    onStopped: () => void
 }
 
 /** Asks the agent to go on from the latest proposal: a child job, which the tab follows from then on. */
-const FollowUpForm: React.FC<FollowUpFormProps> = ({ projectId, latest, target }) => {
+const FollowUpForm: React.FC<FollowUpFormProps> = ({ projectId, latest, target, onStopped }) => {
     const { t } = useTranslation()
     const aiJobsApi = useAiJobsApi()
     const [draft, setDraft] = useState("")
@@ -267,15 +308,19 @@ const FollowUpForm: React.FC<FollowUpFormProps> = ({ projectId, latest, target }
                         }
                     }}
                 />
-                <Button
-                    type="submit"
-                    size="icon"
-                    aria-label={t("assistant.jobs.follow_up_send")}
-                    disabled={!draft.trim() || !ready || followUpMutation.isPending}
-                    dataTestId="assistant-job-follow-up-send"
-                >
-                    {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp />}
-                </Button>
+                {isAiJobActive(latest.status) ? (
+                    <StopJobButton job={latest} onStopped={onStopped} dataTestId="assistant-job-stop" />
+                ) : (
+                    <Button
+                        type="submit"
+                        size="icon"
+                        aria-label={t("assistant.jobs.follow_up_send")}
+                        disabled={!draft.trim() || !ready || followUpMutation.isPending}
+                        dataTestId="assistant-job-follow-up-send"
+                    >
+                        {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp />}
+                    </Button>
+                )}
             </div>
             {/* Below the field, not next to it: the panel is too narrow for both. */}
             <div className="flex items-center justify-end gap-2">
@@ -335,7 +380,7 @@ const AssistantJobThread: React.FC<AssistantJobThreadProps> = ({ projectId, tab 
         const failed = repositories.filter(repository => repository.status !== "APPLIED").length
         if (failed === 0) notifications.showSuccessNotification({ message: t("assistant.jobs.apply_all_success") })
         else notifications.showWarningNotification({ message: t("assistant.jobs.apply_all_failed", { count: failed, total: pending.requestIds.length }) })
-        // The microfrontend pages show the same requests.
+        // The frontend pages show the same requests.
         queryClient.invalidateQueries({ queryKey: ["ai-changes"] })
         queryClient.invalidateQueries({ queryKey: ["ai-change"] })
     }, [chainQuery.data])
@@ -371,7 +416,7 @@ const AssistantJobThread: React.FC<AssistantJobThreadProps> = ({ projectId, tab 
                 <AnswerUsage usage={latest.usage} label={t("assistant.jobs.usage_latest")} hint={t("assistant.jobs.usage_hint")} effort={latest.effort} />
                 {chain.length > 1 && <AnswerUsage usage={sumUsage(chain)} label={t("assistant.jobs.usage_total", { count: chain.length })} hint={t("assistant.jobs.usage_hint")} />}
                 {chainQuery.isError && <p className="text-xs text-destructive">{t("assistant.jobs.errors.load")}</p>}
-                {target && proposed.length > 0 && (
+                {target?.canAct && proposed.length > 0 && (
                     <div className="flex justify-end pt-1">
                         <ApplyAllButton job={target} requestIds={proposed.map(repository => repository.requestId)} onApplying={onApplying} />
                     </div>
@@ -384,7 +429,12 @@ const AssistantJobThread: React.FC<AssistantJobThreadProps> = ({ projectId, tab 
                 ))}
             </div>
 
-            <FollowUpForm projectId={projectId} latest={latest} target={target} />
+            {/* Stopped while it works, refined once done: by who started it, or an organization administrator, only. */}
+            {(isAiJobActive(latest.status) ? latest : (target ?? latest)).canAct ? (
+                <FollowUpForm projectId={projectId} latest={latest} target={target} onStopped={() => chainQuery.refetch()} />
+            ) : (
+                <ReadOnlyNote name={(target ?? latest).userName} className="border-t border-divider px-4 py-3" />
+            )}
         </div>
     )
 }

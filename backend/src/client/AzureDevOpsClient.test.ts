@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosHeaders } from "axios"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { BusinessException } from "../errors/BusinessException"
-import AzureDevOpsClient, { AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED } from "./AzureDevOpsClient"
+import AzureDevOpsClient, { AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED, AzureBranchNotFoundError } from "./AzureDevOpsClient"
 
 const answered = (status: number) =>
     new AxiosError("Request failed", String(status), undefined, undefined, {
@@ -40,5 +40,56 @@ describe("AzureDevOpsClient variable groups", () => {
         vi.spyOn(axios, "request").mockResolvedValue({ data: { value: [{ name: "GROUP", variables: { SECRET: {} } }] } })
 
         await expect(new AzureDevOpsClient().checkOrganizationSecretExists(params)).resolves.toBe(true)
+    })
+})
+
+describe("AzureDevOpsClient.tagExists", () => {
+    /** The refs filter is a prefix: asking for 1.2 lists 1.2.0 too */
+    it("given only tags that start with the name, when the tag is looked up, then it does not exist", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue({ data: { count: 1, value: [{ name: "refs/tags/1.2.0", objectId: "a" }] } })
+
+        await expect(new AzureDevOpsClient().tagExists("pat", "org", "project", "repo", "1.2")).resolves.toBe(false)
+    })
+
+    it("given the tag among the refs, when it is looked up, then it exists", async () => {
+        const request = vi.spyOn(axios, "request").mockResolvedValue({ data: { count: 2, value: [{ name: "refs/tags/1.2" }, { name: "refs/tags/1.2.0" }] } })
+
+        await expect(new AzureDevOpsClient().tagExists("pat", "org", "project", "repo", "1.2")).resolves.toBe(true)
+        expect(request.mock.calls[0][0]).toMatchObject({ params: { filter: "tags/1.2" } })
+    })
+})
+
+describe("AzureDevOpsClient.getBranchCommitId", () => {
+    /** The heads filter is a prefix: asking for release lists release-2 too */
+    it("given only branches that start with the name, when its commit is read, then the branch is not found", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue({
+            data: {
+                count: 2,
+                value: [
+                    { name: "refs/heads/release-2", objectId: "a" },
+                    { name: "refs/heads/main-old", objectId: "b" }
+                ]
+            }
+        })
+
+        const read = new AzureDevOpsClient().getBranchCommitId("pat", "org", "project", "repo", "release")
+
+        await expect(read).rejects.toBeInstanceOf(AzureBranchNotFoundError)
+        await expect(read).rejects.toThrow("Branch release not found")
+    })
+
+    it("given the branch among those that start with its name, when its commit is read, then it is the exact one", async () => {
+        const request = vi.spyOn(axios, "request").mockResolvedValue({
+            data: {
+                count: 2,
+                value: [
+                    { name: "refs/heads/main-old", objectId: "b" },
+                    { name: "refs/heads/main", objectId: "c" }
+                ]
+            }
+        })
+
+        await expect(new AzureDevOpsClient().getBranchCommitId("pat", "org", "project", "repo", "main")).resolves.toBe("c")
+        expect(request.mock.calls[0][0]).toMatchObject({ params: { filter: "heads/main" } })
     })
 })

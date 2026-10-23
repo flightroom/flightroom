@@ -150,7 +150,7 @@ feat: add deployment dashboard page
 
 ### Feature with Scope
 ```
-feat(api): add GET /microfrontends endpoint
+feat(api): add GET /frontends endpoint
 ```
 
 ### Bug Fix

@@ -16,7 +16,7 @@ const gitlab = { provider: CodeRepositoryProvider.GITLAB, accessToken: "glpat", 
 const target = (codeRepository: ICodeRepository, mfeRepository: Record<string, unknown> = {}): WorkspaceTarget => ({
     codeRepository,
     repositoryName: "catalog",
-    component: { kind: "microfrontend", codeRepository: { enabled: true, ...mfeRepository } } as unknown as RepositoryComponent
+    component: { kind: "frontend", codeRepository: { enabled: true, ...mfeRepository } } as unknown as RepositoryComponent
 })
 
 describe("cloneUrlFor", () => {
@@ -66,11 +66,11 @@ describe("RepositoryWorkspaceService.open", () => {
         return new RepositoryWorkspaceService().open(component(kind))
     }
 
-    it("Given a microfrontend pointing at the connection of another project, when it is opened, then it is refused", async () => {
+    it("Given a frontend pointing at the connection of another project, when it is opened, then it is refused", async () => {
         vi.spyOn(RepositoryWorkspaceService.prototype as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue(undefined)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ ...github, projectId: new Types.ObjectId() } as never)
 
-        await expect(new RepositoryWorkspaceService().open(component("microfrontend"))).rejects.toThrow(/does not belong to this project/)
+        await expect(new RepositoryWorkspaceService().open(component("frontend"))).rejects.toThrow(/does not belong to this project/)
     })
 
     it("Given a component without a repository, when it is opened, then it is refused naming its kind", async () => {
@@ -79,11 +79,11 @@ describe("RepositoryWorkspaceService.open", () => {
         await expect(new RepositoryWorkspaceService().open({ ...component("service"), codeRepository: undefined })).rejects.toThrow(/This service has no code repository/)
     })
 
-    it("Given a service and a microfrontend of the same slug, when both are opened, then their working copies live in different folders", async () => {
-        const microfrontendCopy = await opened("microfrontend")
+    it("Given a service and a frontend of the same slug, when both are opened, then their working copies live in different folders", async () => {
+        const frontendCopy = await opened("frontend")
         const serviceCopy = await opened("service")
 
-        expect(microfrontendCopy.workingCopy.dir).toMatch(/\/catalog$/)
+        expect(frontendCopy.workingCopy.dir).toMatch(/\/catalog$/)
         expect(serviceCopy.workingCopy.dir).toMatch(/\/catalog\.service$/)
         expect(serviceCopy.target.component.kind).toBe("service")
         expect(serviceCopy.defaultBranch).toBe("main")

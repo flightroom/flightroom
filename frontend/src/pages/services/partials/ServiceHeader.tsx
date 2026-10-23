@@ -1,5 +1,6 @@
 import { Info, Settings, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge } from "@/components/atoms"
@@ -36,6 +37,7 @@ export const ServiceHeader: React.FC<ServiceHeaderProps> = ({ service, active, a
                     {service.version && <Badge variant="outline">{t("services.version_short", { version: service.version })}</Badge>}
                     <RepositoryLink repository={service.codeRepository} />
                     <TemplateRepositoryLink slug={service.template} />
+                    <ComponentWorkingAgents componentId={service._id} live />
                 </>
             }
             navLabel={t("services.nav_label")}

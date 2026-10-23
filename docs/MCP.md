@@ -31,11 +31,11 @@ layout it is `https://<your console>/api/mcp`.
 
 Two scopes, chosen on the consent page:
 
-- `mfe:read` — read the project: microfrontends, backend services, functional domains, environments,
-  deployments, canary users, global variables, build status, storages and repository connections
-  (credentials masked), dependency and integration plans.
+- `mfe:read` — read the project: frontends, backend services, functional domains, environments,
+  deployments, canary users, global variables, build status, storages, resources and repository
+  connections (credentials masked), dependency and integration plans.
 - `mfe:write` — everything the console does inside a project, **deploy and rollback included**:
-  create and edit microfrontends, services, domains and environments, trigger builds, import
+  create and edit frontends, services, domains and environments, trigger builds, import
   repositories, change global variables, apply dependency alignments and integrations. It also
   allows **creating projects** (see below), which the consent page says next to "Allow changes".
 
@@ -56,64 +56,128 @@ API key creation, discarding an AI change, canary users).
 
 ## Project context
 
-Every project, functional domain, microfrontend and service can carry a **context**: free markdown
+Every project, functional domain, frontend and service can carry a **context**: free markdown
 the team writes for AI agents (domain, conventions, rules). The project one is edited in Settings →
-Project AI context, the domain one in the domain form, the microfrontend and service ones in their
+Project AI context, the domain one in the domain form, the frontend and service ones in their
 "AI context" tab. Each is limited to 20,000 characters.
 
 An agent always gets the contexts of what it works on, the project one included:
 
 | Working on | Contexts returned |
 | --- | --- |
-| a microfrontend (frontend) | the microfrontend, its domain, the project |
+| a frontend (frontend) | the frontend, its domain, the project |
 | a service (backend) | the service, its domain, the project |
-| a domain | the domain, each of its microfrontends and services, the project |
+| a domain | the domain, each of its frontends and services, the project |
 
-- `context_get` (`mfe:read`) takes at most one of `microfrontendId`, `serviceId`, `domainId` and
+- `context_get` (`mfe:read`) takes at most one of `frontendId`, `serviceId`, `domainId` and
   returns the contexts above. Without ids it returns every context of the project. The server
   instructions ask clients to call it before working on a project.
-- `microfrontend_get`, `service_get` and `domain_get` return the same contexts in `aiContext`, so an
+- `frontend_get`, `service_get` and `domain_get` return the same contexts in `aiContext`, so an
   agent that reads what it works on gets its notes without a second call.
-- `project_update`, `domain_create`/`domain_update`, `microfrontend_update` and `service_update`
+- `project_update`, `domain_create`/`domain_update`, `frontend_update` and `service_update`
   (`mfe:write`) change them; `null` removes the project and the domain context.
 - The console assistant reads the same notes through the same tools. The console's AI change jobs
   put the project context, the domain context (of the job's domain, or of the domains its
-  microfrontends and services are in) and the context of each repository in the agent's prompt.
+  frontends and services are in) and the context of each repository in the agent's prompt.
+
+### Design system
+
+The **design system** the frontends are built with (the npm package, a version range, the
+documentation URL, the `.npmrc` the package installs with and notes for agents) is set at three
+levels, the most specific winning:
+
+1. **Organization** (Organization settings → Design system): the one of every project that does not
+   set its own. Only its owners and admins change it.
+2. **Project** (Settings → Design system, "Use a project-specific design system"): replaces the
+   organization's for its frontends; turned off, the project inherits it again.
+3. **Frontend** (its "AI context" tab, "Use its own design system"): replaces the one the project
+   resolves to.
+
+`project.designSystem` in `context_get` is the one of the project, its own or else the
+organization's, and `project.designSystemSource` says which (`project` or `organization`). With a
+`frontendId`, `designSystem` is the one that frontend builds with and `designSystemSource` the level
+it comes from (`frontend`, `project` or `organization`). The AI change jobs put the frontend's in the
+prompt of each frontend repository, telling the agent to build the UI with that package and no other
+UI library; the domain planner is told the project's by name, to pick a frontend template that can
+use it. `project_update`, `frontend_create` and `frontend_update` set it, replaced as a whole; `null`
+goes back to the level above. The organization's is set from the console, and by its assistant
+through `organization_update`, which MCP clients do not get.
+
+The `.npmrc` is stored as pasted and the console shows it whole, but every response that reaches an
+AI (MCP tools, the assistant, the agent prompt) masks its credentials: the value of `_authToken`,
+`_auth`, `_password`, `username`, `email`, `certfile`, `keyfile` and similar keys, scoped or not,
+becomes `***`. Registry and scope lines (`@acme:registry=...`) stay readable, as does a value that
+only names an environment variable (`${NPM_TOKEN}`).
 
 ## Domains and services
 
-A project can group its microfrontends and backend services in **functional domains**. Membership
-lives on the member: each microfrontend or service has an optional `domainId`, so it is in one domain
+A project can group its frontends and backend services in **functional domains**. Membership
+lives on the member: each frontend or service has an optional `domainId`, so it is in one domain
 at most.
 
-- `domains_list` (`mfe:read`) returns the domains with how many microfrontends and services each one
+- `domains_list` (`mfe:read`) returns the domains with how many frontends and services each one
   groups; `domain_get` adds the id, name and slug of every member.
 - `domain_create` and `domain_update` (`mfe:write`) set the name and the description; the slug is
   derived from the name when left out and fixed after creation. `domain_delete` is destructive: the
   members are kept and end up in no domain.
+- `domain_trigger_build` (`mfe:write`) releases a whole domain: it tags the repository of every
+  frontend and service in it with the same version, on the same branch (`main` when left out),
+  and each tag starts the pipeline of its repository. A repository linked to two members is tagged
+  once. Every repository is checked before any tag is made (the connection belongs to the project,
+  the domain scope, the repository and the branch exist, the tag does not): when one fails nothing is
+  tagged and the error lists each failure. A VIEWER of the project cannot run it, nor the build of a
+  single frontend or service. The result tells, per repository, whether it was tagged. The console offers
+  the same as "Build domain" on the domain page, and the REST API as `POST /api/domains/:id/build`.
 - `domain_links_list` (`mfe:read`) returns the relations the team drew by hand between two domains,
   each from `sourceDomainId` to `targetDomainId` with an optional label; `domain_link_create` and
   `domain_link_delete` (`mfe:write`, the delete destructive) draw and remove them. A relation goes one
   way, and deleting a domain deletes its relations.
 - `domain_deployments_get` (`mfe:read`) tells, for one domain or for the whole project, which version of
-  each microfrontend and service runs in each environment: the frontend from the active deployment
+  each frontend and service runs in each environment: the frontend from the active deployment
   snapshot, the backend from the versions the customer's deploy pipeline reported.
 - `services_list`, `service_get` (`mfe:read`) and `service_create`, `service_update`, `service_delete`
   (`mfe:write`, the delete destructive) manage the backend services: name, description, domain,
   context, port, probe and API documentation paths, image repository, the environment variables the
   image reads (names only, never values) and a link to a repository that already exists. The slug is
   fixed after creation. The version comes from the CI, never from a tool.
-- `microfrontend_scaffold` and `service_scaffold` (`mfe:write`) create the microfrontend or the service
+- `frontend_scaffold` and `service_scaffold` (`mfe:write`) create the frontend or the service
   together with a new repository at the provider, from a marketplace template (`templates_list`) and
   through a repository connection of the project (`code_repositories_list`), with its CI pipeline and,
   on GitHub, the deploy secret. Neither the connection's credentials nor that secret are ever part of
   the input or of the result, and the console assistant asks the user before running them. Creating a
   domain creates no repository: scaffold its members with these tools and its `domainId`.
-- `microfrontend_create`, `microfrontend_update`, `service_create` and `service_update` take an optional
+- `frontend_create`, `frontend_update`, `service_create` and `service_update` take an optional
   `domainId`; `null` takes the item out of its domain. A domain of another project is refused before
   anything is written.
-- `microfrontends_list` and `services_list` take an optional `domainId` filter: a domain id, or `none`
+- A service and a frontend of kind `DOCKER` (served by its own Docker container) take an optional
+  `exposurePath`, the same on the host of every environment; `null` means it is not exposed.
+- `frontends_list` and `services_list` take an optional `domainId` filter: a domain id, or `none`
   for the items in no domain.
+
+## Resources
+
+A **resource** is a package of environment variables of a catalog type (`database`, `storage`, `redis`,
+`serviceAccount`, `auth0`, `api`, `ai`, `smtp`) that backend services attach by id (`resourceIds`); a
+frontend never does. Each one becomes a Kubernetes Secret named `<name>.resource` at the next GitOps deploy.
+
+- `resource_types_list` (`mfe:read`) returns the catalog: each type with its variants and their fields
+  (variable suffix, whether it is a credential, required, how it is typed).
+- `resources_list` and `resource_get` (`mfe:read`) return the resources with their fields, the value in
+  every environment and the overrides, and `env`, the variables each one sets. Credentials come back
+  masked, as `secret_get` masks values; the pasted OpenAPI document of an `api` never comes back, only
+  `apiSpec: { present, bytes }`.
+- `resource_create` and `resource_update` (`mfe:write`) write the name, type (fixed once created),
+  variant, description, `envPrefix`, the fields that are no credential and the pasted `apiSpec`. An update
+  merges by field: a field left out keeps its value, one sent as `null` is unset. **A credential field is
+  refused** ("Secret fields of a resource are set from the console"): it is typed in the console only. So is
+  an update changing the variant or where a resource with stored credentials connects (its host, base URL...):
+  those credentials must be typed again (`RESOURCE_SECRET_REENTRY_REQUIRED`, see
+  [SECRETS.md](./SECRETS.md)), which only the console does. `resource_delete` is destructive
+  and refused while a service attaches the resource.
+- `service_create` and `service_update` take `resourceIds` (at most 50, replaced as a whole); a variable
+  of a resource clashing with one of the config maps, secrets or other resources of the service is refused.
+- `domain_get` adds `resources`: the resources the services of the domain attach, each with its `env`
+  keys and `usedBy`, the slugs of those services (left out when none attaches one).
 
 ## Several projects in one connection
 
@@ -122,7 +186,7 @@ at most.
   and shared projects only: never members, never projects that were not shared).
 - Every other tool takes an optional `projectId`. With a single shared project it can be left out;
   with more than one it is required, and a call without it answers with a message pointing at
-  `projects_list`. Every id passed to a tool (microfrontend, environment, deployment, ...) is checked
+  `projects_list`. Every id passed to a tool (frontend, environment, deployment, ...) is checked
   against the project the call picked.
 - A project the user loses access to drops out of the connection on the next request; when none is
   left, the grant is revoked.
@@ -134,7 +198,7 @@ at most.
 returns, that is an organization that already contains a shared project. The user has to administer
 it (owner or admin), as in the console. The user becomes the project's owner and the project is
 added to the grant at once, so the client can go on with `projectId` and set up environments and
-microfrontends, even with an access token minted before the project existed. An organization the
+frontends, even with an access token minted before the project existed. An organization the
 user administers but shared nothing from stays out of reach, and a project API key cannot create
 projects: there is no user to own them.
 
@@ -145,7 +209,7 @@ projects: there is no user to own them.
   organization, project).
 
 Left out on purpose: API keys, creating or editing
-storages and repository connections (their input is a secret), deleting projects, organizations,
+storages and repository connections and the credentials of a resource (their input is a secret), deleting projects, organizations,
 members, invitations, the user profile, bundle upload and the canvas layout.
 
 ## Fallback: a project API key

@@ -1,17 +1,17 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { MicrofrontendStackSource } from "../types/MicrofrontendStack"
+import { FrontendStackSource } from "../types/FrontendStack"
 import { ServicePaths, ServiceRuntime } from "../types/ServiceStack"
-import { CONTAINER_DEFAULTS, exposurePath, IServiceEnvVariable, IServiceUrl, optionalPath, probePath, serviceEnvVariableSchema, serviceUrlSchema } from "./ContainerFields"
-import { ICodeRepositoryMicrofrontend, microfrontendCodeRepositorySchema } from "./MicrofrontendModel"
+import { CONTAINER_DEFAULTS, exposurePath, IServiceEnvVariable, optionalPath, probePath, serviceEnvVariableSchema } from "./ContainerFields"
+import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
-export type { IServiceEnvVariable, IServiceUrl }
+export type { IServiceEnvVariable }
 
 /** Runtime and framework of a backend service, and where that knowledge came from */
 export interface IServiceStack {
     runtime?: ServiceRuntime
     framework?: string
-    source: MicrofrontendStackSource
+    source: FrontendStackSource
     detectedAt?: Date
 }
 
@@ -28,7 +28,7 @@ export interface IService extends Document<ObjectId>, ServicePaths {
     stack?: IServiceStack
     /** The latest version the CI registered */
     version?: string
-    codeRepository?: ICodeRepositoryMicrofrontend
+    codeRepository?: ICodeRepositoryFrontend
     image?: {
         /** Without tag, e.g. ghcr.io/acme/orders-api */
         repository?: string
@@ -36,13 +36,13 @@ export interface IService extends Document<ObjectId>, ServicePaths {
     port: number
     /** The path it is exposed at on the host of every environment, e.g. /api/orders; null when it is not exposed */
     exposurePath?: string | null
-    /** One per environment it is exposed in; an environment left out has no known address */
-    urls: IServiceUrl[]
     env: IServiceEnvVariable[]
     /** Config maps of the project the service receives as environment variables; they live on their own and can be shared */
     configMapIds: Schema.Types.ObjectId[]
     /** Secrets of the project the service receives as environment variables, as for the config maps */
     secretIds: Schema.Types.ObjectId[]
+    /** Resources of the project (a database, a storage...) the service receives as environment variables; a frontend never attaches one */
+    resourceIds: Schema.Types.ObjectId[]
     createdAt: Date
     updatedAt: Date
 }
@@ -61,7 +61,7 @@ const serviceStackSchema = new Schema<IServiceStack>(
         },
         source: {
             type: String,
-            enum: Object.values(MicrofrontendStackSource),
+            enum: Object.values(FrontendStackSource),
             required: true
         },
         detectedAt: {
@@ -117,7 +117,7 @@ const serviceSchema = new Schema<IService>(
             required: false
         },
         codeRepository: {
-            type: microfrontendCodeRepositorySchema,
+            type: frontendCodeRepositorySchema,
             required: false
         },
         image: {
@@ -136,10 +136,6 @@ const serviceSchema = new Schema<IService>(
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,
-        urls: {
-            type: [serviceUrlSchema],
-            default: []
-        },
         env: {
             type: [serviceEnvVariableSchema],
             default: []
@@ -150,6 +146,10 @@ const serviceSchema = new Schema<IService>(
         },
         secretIds: {
             type: [{ type: Schema.Types.ObjectId, ref: "Secret" }],
+            default: []
+        },
+        resourceIds: {
+            type: [{ type: Schema.Types.ObjectId, ref: "Resource" }],
             default: []
         }
     },

@@ -2,9 +2,12 @@ import { isValidObjectId, ObjectId, Schema } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import Resource, { IResource } from "../models/ResourceModel"
 import Service, { IService } from "../models/ServiceModel"
 import { ConfigMap, IVariableMap, IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
+import { ResourceNaming, resourceEnvKeys } from "../types/ResourceCatalog"
 import { SERVICE_VARIABLE_KEY } from "../types/ServiceStack"
 import VariableMapDTO, { VARIABLE_MAP_NAME, VariableMapEntryDTO, VariableMapKind } from "../types/VariableMapDTO"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -80,13 +83,19 @@ export const normalizeEntries = (entries: unknown, kind: VariableMapKind, enviro
     })
 }
 
-type KeyedMap = Pick<IVariableMap, "name"> & { entries: Pick<IVariableMapEntry, "key">[] }
+export type KeyedMap = Pick<IVariableMap, "name"> & { entries: Pick<IVariableMapEntry, "key">[] }
+
+/** What the variables of a resource are named from: enough to compare them with the keys of the maps */
+export type NamedResource = Pick<IResource, "_id" | "name" | "type" | "variant" | "envPrefix">
+
+/** A resource read as a map of its keys: every variable of its variant, set or not */
+export const resourceKeys = (resource: ResourceNaming): KeyedMap => ({ name: resource.name, entries: resourceEnvKeys(resource).map(({ key }) => ({ key })) })
 
 /**
  * Every map attached to one service ends up as variables of one container: a key set by two of them
  * would be there twice, with no telling which value wins.
  */
-const ensureNoKeyClash = (maps: KeyedMap[], serviceName?: string) => {
+export const ensureNoKeyClash = (maps: KeyedMap[], serviceName?: string) => {
     const owners = new Map<string, string>()
     for (const map of maps) {
         for (const { key } of map.entries) {
@@ -103,7 +112,9 @@ const ensureNoKeyClash = (maps: KeyedMap[], serviceName?: string) => {
     }
 }
 
-const keysOnly = "name entries.key"
+export const keysOnly = "name entries.key"
+/** The fields the variables of a resource are named from; never its values */
+export const resourceNaming = "name type variant envPrefix"
 
 /** The maps of the project with these ids, refused when one is missing or of another project */
 const findAttachable = async (kind: VariableMapKind, ids: unknown, projectId: Schema.Types.ObjectId): Promise<{ ids: string[]; maps: KeyedMap[] }> => {
@@ -121,35 +132,60 @@ const findAttachable = async (kind: VariableMapKind, ids: unknown, projectId: Sc
     return { ids: unique, maps }
 }
 
+/** The resources of the project with these ids, refused as for the maps; none to look for reads nothing */
+const findAttachableResources = async (ids: unknown, projectId: Schema.Types.ObjectId): Promise<{ ids: string[]; resources: NamedResource[] }> => {
+    if (!Array.isArray(ids) || ids.length > MAX_ATTACHED_MAPS || !ids.every(isValidObjectId)) {
+        throw createBusinessException({ code: "SERVICE_RESOURCES_INVALID", message: `resourceIds must be a list of at most ${MAX_ATTACHED_MAPS} ids` })
+    }
+
+    const unique = [...new Set(ids.map(String))]
+    if (unique.length === 0) return { ids: [], resources: [] }
+    const resources = await Resource.find({ _id: { $in: unique.map(id => toObjectId(id)) }, projectId }, resourceNaming)
+    if (resources.length !== unique.length) {
+        const found = new Set(resources.map(resource => String(resource._id)))
+        throw createBusinessException({ code: "SERVICE_RESOURCE_UNKNOWN", message: `resourceIds holds ${unique.find(id => !found.has(id))}, which is not a resource of the project` })
+    }
+    return { ids: unique, resources }
+}
+
 /**
  * The maps a service attaches, checked: every id one of the project, no key set by two of them. A list
- * left out is compared as it is stored, and with both left out (an MCP update of the name, say) nothing
- * is read.
+ * left out is compared as it is stored, and with all of them left out (an MCP update of the name, say)
+ * nothing is read. Resources are read only with `resources`: a backend service attaches them, a DOCKER
+ * frontend going through here too does not.
  */
-export const resolveAttachedMaps = async <T extends { configMapIds?: unknown; secretIds?: unknown }>(dto: T, projectId: Schema.Types.ObjectId, existing?: IService): Promise<T> => {
-    if (dto.configMapIds === undefined && dto.secretIds === undefined) return dto
+export const resolveAttachedMaps = async <T extends { configMapIds?: unknown; secretIds?: unknown; resourceIds?: unknown }>(
+    dto: T,
+    projectId: Schema.Types.ObjectId,
+    existing?: IService,
+    options: { resources?: boolean } = {}
+): Promise<T> => {
+    const resourceIds = options.resources ? dto.resourceIds : undefined
+    if (dto.configMapIds === undefined && dto.secretIds === undefined && resourceIds === undefined) return dto
 
     const configMaps = await findAttachable("configMap", dto.configMapIds ?? existing?.configMapIds ?? [], projectId)
     const secrets = await findAttachable("secret", dto.secretIds ?? existing?.secretIds ?? [], projectId)
-    ensureNoKeyClash([...configMaps.maps, ...secrets.maps], existing?.name)
+    const resources = options.resources ? await findAttachableResources(resourceIds ?? existing?.resourceIds ?? [], projectId) : { ids: [], resources: [] }
+    ensureNoKeyClash([...configMaps.maps, ...secrets.maps, ...resources.resources.map(resourceKeys)], existing?.name)
 
     return {
         ...dto,
         ...(dto.configMapIds !== undefined && { configMapIds: configMaps.ids }),
-        ...(dto.secretIds !== undefined && { secretIds: secrets.ids })
+        ...(dto.secretIds !== undefined && { secretIds: secrets.ids }),
+        ...(resourceIds !== undefined && { resourceIds: resources.ids })
     }
 }
 
 /**
  * The maps of this kind a domain-scoped member may see and edit: those attached to at least one service or
- * FRONTEND microfrontend, all of them in `scope`. A map shared with a component of another domain, or of
+ * DOCKER frontend, all of them in `scope`. A map shared with a component of another domain, or of
  * none, or attached to nothing, belongs to nobody assigned to only some domains.
  */
 export const mapIdsInScope = async (kind: VariableMapKind, projectId: Schema.Types.ObjectId, scope: string[]): Promise<Set<string>> => {
     const field = SERVICE_FIELD[kind]
     const attaching = { projectId, [field]: { $exists: true, $ne: [] } }
     const fields = { domainId: 1, configMapIds: 1, secretIds: 1 }
-    const components = [...(await Service.find(attaching, fields)), ...(await Microfrontend.find(attaching, fields))]
+    const components = [...(await Service.find(attaching, fields)), ...(await Frontend.find(attaching, fields)), ...(await MaintenanceAgent.find(attaching, fields))]
     const inScope = new Set<string>()
     const outOfScope = new Set<string>()
     for (const component of components) {
@@ -160,7 +196,7 @@ export const mapIdsInScope = async (kind: VariableMapKind, projectId: Schema.Typ
 }
 
 /**
- * A domain-scoped member attaches to a service or a FRONTEND only the config maps and secrets they can see,
+ * A domain-scoped member attaches to a service or a DOCKER only the config maps and secrets they can see,
  * those attached exclusively to components of their domains: anything else would hand them the values of
  * another domain. The maps the component already attaches stay, whoever attached them. `scope` is the
  * caller's domain scope, nothing to check without one.
@@ -287,16 +323,16 @@ export class VariableMapService extends BaseAuthorizedService {
         }
     }
 
-    /** What attaches this map: its backend services and its FRONTEND microfrontends, each a container of its own */
-    private async attachedTo(map: IVariableMap): Promise<Array<Pick<IService, "name" | "configMapIds" | "secretIds">>> {
+    /** What attaches this map: its backend services, its DOCKER frontends and its maintenance agents, each a container of its own */
+    private async attachedTo(map: IVariableMap): Promise<Array<Pick<IService, "name" | "configMapIds" | "secretIds"> & Partial<Pick<IService, "resourceIds">>>> {
         const filter = { projectId: map.projectId, [this.serviceField]: map._id }
-        const projection = { name: 1, configMapIds: 1, secretIds: 1 }
-        const [services, microfrontends] = await Promise.all([Service.find(filter, projection), Microfrontend.find(filter, projection)])
-        // A FRONTEND carries the same container fields as a service: the projection reads only those
-        return [...services, ...microfrontends] as unknown as Array<Pick<IService, "name" | "configMapIds" | "secretIds">>
+        const projection = { name: 1, configMapIds: 1, secretIds: 1, resourceIds: 1 }
+        const [services, frontends, agents] = await Promise.all([Service.find(filter, projection), Frontend.find(filter, projection), MaintenanceAgent.find(filter, projection)])
+        // A DOCKER carries the same container fields as a service, resources aside: the projection reads only those
+        return [...services, ...frontends, ...agents] as unknown as Array<Pick<IService, "name" | "configMapIds" | "secretIds"> & Partial<Pick<IService, "resourceIds">>>
     }
 
-    /** New keys must not collide with those of the other maps attached to any service or FRONTEND using this one */
+    /** New keys must not collide with those of the other maps attached to any service or DOCKER using this one */
     private async ensureNoClashInAttachingServices(map: IVariableMap, entries: VariableMapEntryDTO[]) {
         const services = await this.attachedTo(map)
         if (services.length === 0) return
@@ -304,14 +340,22 @@ export class VariableMapService extends BaseAuthorizedService {
         // One read per kind for all of them; this map is read with the new entries, not the stored ones
         const configMaps = await ConfigMap.find({ _id: { $in: services.flatMap(service => service.configMapIds ?? []) }, projectId: map.projectId }, keysOnly)
         const secrets = await Secret.find({ _id: { $in: services.flatMap(service => service.secretIds ?? []) }, projectId: map.projectId }, keysOnly)
+        // Read only when one of them attaches a resource: most services attach none
+        const resourceIds = services.flatMap(service => service.resourceIds ?? [])
+        const resources = resourceIds.length > 0 ? await Resource.find({ _id: { $in: resourceIds }, projectId: map.projectId }, resourceNaming) : []
         const byId = new Map<string, KeyedMap>([
             ...configMaps.map(other => [`configMap:${other._id}`, other] as const),
             ...secrets.map(other => [`secret:${other._id}`, other] as const),
+            ...resources.map(resource => [`resource:${resource._id}`, resourceKeys(resource)] as const),
             [`${this.kind}:${map._id}`, { name: map.name, entries }]
         ])
 
         for (const service of services) {
-            const attached = [...(service.configMapIds ?? []).map(id => `configMap:${id}`), ...(service.secretIds ?? []).map(id => `secret:${id}`)]
+            const attached = [
+                ...(service.configMapIds ?? []).map(id => `configMap:${id}`),
+                ...(service.secretIds ?? []).map(id => `secret:${id}`),
+                ...(service.resourceIds ?? []).map(id => `resource:${id}`)
+            ]
             ensureNoKeyClash(
                 attached.flatMap(key => byId.get(key) ?? []),
                 service.name

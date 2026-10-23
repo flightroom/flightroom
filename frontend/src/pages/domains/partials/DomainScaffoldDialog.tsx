@@ -30,15 +30,17 @@ import { jobErrorMessage } from "@/components/assistant/AssistantJobThread"
 import { useEffort } from "@/components/assistant/useEffort"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import useAiJobsApi, { AiJob } from "@/hooks/apiClients/useAiJobsApi"
 import useCodeRepositoriesApi, { CodeRepositoryProvider } from "@/hooks/apiClients/useCodeRepositoriesApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useMarketApi, { Market } from "@/hooks/apiClients/useMarketApi"
-import useMicrofrontendsApi from "@/hooks/apiClients/useMicrofrontendsApi"
 import useServicesApi from "@/hooks/apiClients/useServicesApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
 import useProjectStore from "@/store/useProjectStore"
+import { isRecommendedTemplate, type ProjectTechnologies, technologyOfMarket } from "@/utils/technologies"
 
-export type ScaffoldKind = "microfrontend" | "service"
+export type ScaffoldKind = "frontend" | "service"
 
 /** One row of the dialog: a component to create with its repository, or a member of the domain that only needs the repository. */
 export interface ScaffoldItem {
@@ -62,7 +64,7 @@ const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,49}$/
 const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9_-])?$/
 
 /** The template the backend falls back to for each kind. */
-const DEFAULT_TEMPLATE_SLUGS: Record<ScaffoldKind, string> = { microfrontend: "vite-remote-react", service: "service-node-fastify" }
+const DEFAULT_TEMPLATE_SLUGS: Record<ScaffoldKind, string> = { frontend: "vite-remote-react", service: "service-node-fastify" }
 
 /** What a repository name ends with: `checkout-fe`, `orders-be`. */
 export const repositoryNameFor = (slug: string, kind: ScaffoldKind) => {
@@ -74,14 +76,21 @@ const isServiceTemplate = (template: Market) => template.type?.trim().toLowerCas
 
 const templatesOfKind = (templates: Market[], kind: ScaffoldKind) => templates.filter(template => !template.comingSoon && isServiceTemplate(template) === (kind === "service"))
 
-const defaultTemplateOf = (templates: Market[], kind: ScaffoldKind) =>
+const pickTemplate = (templates: Market[], kind: ScaffoldKind) =>
     templates.find(template => template.slug === DEFAULT_TEMPLATE_SLUGS[kind]) ??
-    (kind === "microfrontend" ? templates.find(template => template.type?.trim().toLowerCase() === "remote") : undefined) ??
+    (kind === "frontend" ? templates.find(template => template.type?.trim().toLowerCase() === "remote") : undefined) ??
     templates[0]
+
+/** The project's default technology first, when a template has it; the usual default otherwise. */
+const defaultTemplateOf = (templates: Market[], kind: ScaffoldKind, technologies?: ProjectTechnologies) =>
+    pickTemplate(
+        templates.filter(template => isRecommendedTemplate(template, technologies)),
+        kind
+    ) ?? pickTemplate(templates, kind)
 
 /** Codes of the creation endpoints with a message of their own; anything else gets the generic one. */
 const CREATE_ERROR_CODES = new Set([
-    "MICROFRONTEND_SLUG_TAKEN",
+    "FRONTEND_SLUG_TAKEN",
     "SERVICE_SLUG_TAKEN",
     "SERVICE_SLUG_INVALID",
     "INVALID_REPOSITORY_NAME",
@@ -92,7 +101,7 @@ const CREATE_ERROR_CODES = new Set([
     "PIPELINE_SOURCE_UNAVAILABLE"
 ])
 
-const SLUG_TAKEN_CODES = new Set(["MICROFRONTEND_SLUG_TAKEN", "SERVICE_SLUG_TAKEN"])
+const SLUG_TAKEN_CODES = new Set(["FRONTEND_SLUG_TAKEN", "SERVICE_SLUG_TAKEN"])
 
 const createErrorMessage = (t: TFunction, error: unknown) => {
     const code = errorCodeOf(error as Error)
@@ -127,9 +136,10 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
     const id = useId()
     const queryClient = useQueryClient()
     const projectId = useProjectStore(state => state.project?._id)
+    const technologies = useProjectStore(state => state.project?.technologies)
     const codeRepositoriesApi = useCodeRepositoriesApi()
     const marketApi = useMarketApi()
-    const microfrontendsApi = useMicrofrontendsApi()
+    const frontendsApi = useFrontendsApi()
     const servicesApi = useServicesApi()
     const aiJobsApi = useAiJobsApi()
     // The effort and the AI the composer that opened the dialog shows: the job starts with them.
@@ -162,7 +172,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
         setIsPrivate(true)
     }, [open, proposed, maxRepositories])
 
-    // As when adding a microfrontend: the only connection, or the default one.
+    // As when adding a frontend: the only connection, or the default one.
     useEffect(() => {
         if (!open || !connectionsQuery.data) return
         const connections = connectionsQuery.data
@@ -172,7 +182,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
     const connection = connections.find(candidate => candidate._id === codeRepositoryId)
     const templateOf = (item: ScaffoldItem) => {
         const ofKind = templatesOfKind(templates, item.kind)
-        return ofKind.find(template => template.slug === item.template) ?? defaultTemplateOf(ofKind, item.kind)
+        return ofKind.find(template => template.slug === item.template) ?? defaultTemplateOf(ofKind, item.kind, technologies)
     }
     const update = (key: string, changes: Partial<ScaffoldItem>) => setItems(current => current.map(item => (item.key === key ? { ...item, ...changes } : item)))
 
@@ -190,7 +200,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
      * before failing on something else: found in this domain, it counts as created.
      */
     const createdEarlier = async (item: ScaffoldItem) => {
-        const members = item.kind === "service" ? await servicesApi.getAll() : ((await microfrontendsApi.getByProjectId(projectId!)) ?? [])
+        const members = item.kind === "service" ? await servicesApi.getAll() : ((await frontendsApi.getByProjectId(projectId!)) ?? [])
         return members.some(member => member.slug === item.slug && member.domainId === domainId)
     }
 
@@ -200,7 +210,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
         // Every row tells its own outcome: no toast per failure.
         const metadata = { silent: true }
         if (item.memberId) {
-            await (item.kind === "service" ? servicesApi.createRepository(item.memberId, repository, metadata) : microfrontendsApi.createRepository(item.memberId, repository, metadata))
+            await (item.kind === "service" ? servicesApi.createRepository(item.memberId, repository, metadata) : frontendsApi.createRepository(item.memberId, repository, metadata))
             return
         }
         const fields = { name: item.name.trim(), slug: item.slug, domainId }
@@ -212,7 +222,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
             createData: { name: repository.repositoryName, private: isPrivate, template }
         }
         if (item.kind === "service") await servicesApi.create({ ...fields, env: [], codeRepository }, metadata)
-        else await microfrontendsApi.create({ ...fields, version: "1.0.0", codeRepository }, metadata)
+        else await frontendsApi.create({ ...fields, version: "1.0.0", codeRepository }, metadata)
     }
 
     const runMutation = useMutation({
@@ -236,7 +246,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                 }
             }
             await Promise.all([
-                queryClient.invalidateQueries({ queryKey: ["microfrontends-by-project-id", projectId] }),
+                queryClient.invalidateQueries({ queryKey: ["frontends-by-project-id", projectId] }),
                 queryClient.invalidateQueries({ queryKey: ["services", projectId] }),
                 queryClient.invalidateQueries({ queryKey: ["domains"] })
             ])
@@ -253,7 +263,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
     const busy = runMutation.isPending
     const noConnection = connectionsQuery.isSuccess && connections.length === 0
     const loading = connectionsQuery.isPending || templatesQuery.isPending
-    const groups = (["microfrontend", "service"] as const).map(kind => ({ kind, items: items.filter(item => item.kind === kind) })).filter(group => group.items.length > 0)
+    const groups = (["frontend", "service"] as const).map(kind => ({ kind, items: items.filter(item => item.kind === kind) })).filter(group => group.items.length > 0)
 
     return (
         <Dialog open={open} onOpenChange={next => !busy && onOpenChange(next)}>
@@ -423,7 +433,10 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                                                             <SelectContent>
                                                                 {ofKind.map(candidate => (
                                                                     <SelectItem key={candidate.slug} value={candidate.slug}>
-                                                                        {candidate.name}
+                                                                        <span className="flex items-center gap-2">
+                                                                            <TechnologyLogo technology={technologyOfMarket(candidate)} decorative />
+                                                                            {candidate.name}
+                                                                        </span>
                                                                     </SelectItem>
                                                                 ))}
                                                             </SelectContent>

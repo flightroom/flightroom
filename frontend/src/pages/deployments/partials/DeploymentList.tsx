@@ -5,12 +5,17 @@ import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
-import useDeploymentsApi, { DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
-import DeploymentMicrofrontendCard from "./DeploymentMicrofrontendCard"
+import ResourceIcon from "@/components/resource/ResourceIcon"
+import { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
+import { exposedOrigin } from "@/pages/services/partials/serviceVariables"
+import useProjectStore from "@/store/useProjectStore"
+import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
+import DeploymentFrontendCard from "./DeploymentFrontendCard"
 import DeploymentServiceCard from "./DeploymentServiceCard"
 
 /** The config maps or the secrets of a deployment, each with the keys it set in the environment */
-const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secret?: boolean }> = ({ title, maps, secret }) => {
+const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secret?: boolean; icon?: (map: DeployedVariableMap) => React.ReactNode }> = ({ title, maps, secret, icon }) => {
     const { t } = useTranslation()
 
     return (
@@ -18,7 +23,10 @@ const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secre
             <h4 className="font-semibold text-primary-strong mb-1">{title}</h4>
             {maps.map(map => (
                 <div key={map._id} className="mt-2">
-                    <p className="text-sm font-medium">{map.name}</p>
+                    <p className="flex items-center gap-2 text-sm font-medium">
+                        {icon?.(map)}
+                        {map.name}
+                    </p>
                     {map.entries.length > 0 ? (
                         <DescriptionList orientation="inline">
                             {map.entries.map(entry => (
@@ -49,25 +57,37 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
     const services = deployment.services ?? []
     const configMaps = deployment.configMaps ?? []
     const secrets = deployment.secrets ?? []
+    const resources = deployment.resources ?? []
+    // The deployment records names and keys only: the icon comes from the resource as it is now, none once it is deleted
+    const resourcesQuery = useResourcesQuery(resources.length > 0)
+    const resourceIcon = (map: DeployedVariableMap) => {
+        const resource = resourcesQuery.data?.find(candidate => candidate._id === map._id)
+        return resource && <ResourceIcon resource={resource} />
+    }
+    const exposure = useProjectStore(state => state.project?.exposure)
+    const environment = useProjectStore(state => state.environments?.find(candidate => candidate._id === deployment.environmentId))
+    // No link without a domain to expose on: the path alone does not open anything
+    const origin = exposure?.domain && environment ? exposedOrigin(exposure, environment) : undefined
+    const exposedUrl = (path?: string | null) => (origin && path ? origin + path : undefined)
 
     return (
         <>
-            {deployment.microfrontends.length > 0 && (
+            {deployment.frontends.length > 0 && (
                 <div>
-                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.microfrontends_title")}</h4>
+                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.frontends_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {deployment.microfrontends.map(microfrontend => (
-                            <DeploymentMicrofrontendCard key={microfrontend._id} microfrontend={microfrontend} />
+                        {deployment.frontends.map(frontend => (
+                            <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
                         ))}
                     </div>
                 </div>
             )}
             {services.length > 0 && (
-                <div className={deployment.microfrontends.length > 0 ? "mt-4" : undefined}>
+                <div className={deployment.frontends.length > 0 ? "mt-4" : undefined}>
                     <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.services_title")}</h4>
                     <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                         {services.map(service => (
-                            <DeploymentServiceCard key={service._id} service={service} />
+                            <DeploymentServiceCard key={service._id} service={service} url={exposedUrl(service.exposurePath)} />
                         ))}
                     </div>
                 </div>
@@ -86,6 +106,8 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
             )}
             {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} />}
             {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} secret />}
+            {/* Recorded keys only, as for a secret: the values stay with the resource */}
+            {resources.length > 0 && <DeployedMaps title={t("deployments.resources_title")} maps={resources} secret icon={resourceIcon} />}
         </>
     )
 }
@@ -105,6 +127,7 @@ export const DeploymentList: React.FC<DeploymentListProps> = ({ environmentId })
     })
 
     const redeployQuery = useMutation({
+        mutationKey: DEPLOY_MUTATION_KEY,
         mutationFn: redeploy,
         onSuccess: () => dataQuery.refetch()
     })

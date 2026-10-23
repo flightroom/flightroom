@@ -230,8 +230,21 @@ class GitLabClient {
     }
 
     async getBranchCommitSha(projectId: string | number, branchName: string): Promise<string> {
-        const res = await this.api.get<GitLabBranch>(`/projects/${projectId}/repository/branches/${branchName}`)
+        const res = await this.api.get<GitLabBranch>(`/projects/${projectId}/repository/branches/${encodeURIComponent(branchName)}`)
         return res.data.commit.id
+    }
+
+    /** Whether the project has the tag: GitLab answers 404 without it */
+    async tagExists(projectId: string | number, tagName: string): Promise<boolean> {
+        try {
+            await this.api.get(`/projects/${projectId}/repository/tags/${encodeURIComponent(tagName)}`)
+            return true
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return false
+            }
+            throw error
+        }
     }
 
     async createTag(projectId: string | number, tagName: string, ref: string): Promise<void> {

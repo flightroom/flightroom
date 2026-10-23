@@ -12,7 +12,7 @@ vi.mock("../../service/workspace/LocalChangeService", () => ({
     }
 }))
 
-const MICROFRONTEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
+const FRONTEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const SERVICE = "cccccccccccccccccccccccc"
 const COMMIT = "a".repeat(40)
 
@@ -22,15 +22,15 @@ const run = (name: string, args: Record<string, unknown>) => tool(name).run(tool
 beforeEach(() => vi.clearAllMocks())
 
 describe("localChangeTools", () => {
-    it("reads the checkout of a microfrontend or a service", async () => {
-        await run("repository_checkout_get", { microfrontendId: MICROFRONTEND })
+    it("reads the checkout of a frontend or a service", async () => {
+        await run("repository_checkout_get", { frontendId: FRONTEND })
         await run("repository_checkout_get", { serviceId: SERVICE })
-        expect(checkout.mock.calls).toEqual([[{ kind: "microfrontend", id: MICROFRONTEND }], [{ kind: "service", id: SERVICE }]])
+        expect(checkout.mock.calls).toEqual([[{ kind: "frontend", id: FRONTEND }], [{ kind: "service", id: SERVICE }]])
     })
 
     it("wants exactly one target", async () => {
-        await expect(run("repository_checkout_get", {})).rejects.toThrow("either microfrontendId or serviceId")
-        await expect(run("repository_checkout_get", { microfrontendId: MICROFRONTEND, serviceId: SERVICE })).rejects.toThrow("either microfrontendId or serviceId")
+        await expect(run("repository_checkout_get", {})).rejects.toThrow("either frontendId or serviceId")
+        await expect(run("repository_checkout_get", { frontendId: FRONTEND, serviceId: SERVICE })).rejects.toThrow("either frontendId or serviceId")
     })
 
     it("submits the change without the target fields", async () => {
@@ -41,8 +41,8 @@ describe("localChangeTools", () => {
 
     it("wants a full commit hash and at least one file", () => {
         const schema = tool("code_change_submit").inputSchema
-        expect(schema.safeParse({ microfrontendId: MICROFRONTEND, baseCommit: "abc123", title: "Fix", files: [{ path: "a", action: "delete" }] }).success).toBe(false)
-        expect(schema.safeParse({ microfrontendId: MICROFRONTEND, baseCommit: COMMIT, title: "Fix", files: [] }).success).toBe(false)
+        expect(schema.safeParse({ frontendId: FRONTEND, baseCommit: "abc123", title: "Fix", files: [{ path: "a", action: "delete" }] }).success).toBe(false)
+        expect(schema.safeParse({ frontendId: FRONTEND, baseCommit: COMMIT, title: "Fix", files: [] }).success).toBe(false)
     })
 
     it("asks the console user before pushing", () => {

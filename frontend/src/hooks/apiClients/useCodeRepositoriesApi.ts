@@ -222,21 +222,21 @@ export interface ImportableRepository {
 }
 
 /** What a repository is imported as */
-export type ImportTarget = "microfrontend" | "service"
+export type ImportTarget = "frontend" | "service"
 
 export interface ImportRepositoriesDTO {
     /** Provider repository ids to import. When empty or omitted, every repository not imported yet is taken. */
     repositoryIds?: string[]
     groupId?: number
     version?: string
-    /** microfrontend when omitted */
+    /** frontend when omitted */
     target?: ImportTarget
-    /** The functional domain every created microfrontend or service is put in */
+    /** The functional domain every created frontend or service is put in */
     domainId?: string
 }
 
 export interface ImportRepositoriesResult {
-    imported: { repositoryId: string; name: string; slug: string; microfrontendId?: string; serviceId?: string }[]
+    imported: { repositoryId: string; name: string; slug: string; frontendId?: string; serviceId?: string }[]
     skipped: { repositoryId: string; name: string; reason: "ALREADY_IMPORTED" | "NOT_FOUND" }[]
     failed: { repositoryId: string; name: string; error: string }[]
 }

@@ -1,8 +1,8 @@
 import useApiClient from "../useApiClient"
-import type { CanaryDeploymentType, CanaryType } from "./useMicrofrontendsApi"
+import type { CanaryDeploymentType, CanaryType } from "./useFrontendsApi"
 
-/** A microfrontend of the domain as the environment serves it */
-export interface DeployedMicrofrontend {
+/** A frontend of the domain as the environment serves it */
+export interface DeployedFrontend {
     _id: string
     slug: string
     name: string
@@ -15,12 +15,12 @@ export interface DeployedMicrofrontend {
     canary: { type: CanaryType; deploymentType: CanaryDeploymentType; percentage: number; version: string | null } | null
 }
 
-/** A service of the domain as the deploy pipeline reported it for the environment */
+/** A service of the domain as the active deployment, or else the deploy pipeline, has it for the environment */
 export interface DeployedService {
     _id: string
     slug: string
     name: string
-    /** The latest version reported; null when none was */
+    /** The version in the active deployment, else the latest one reported; null when neither has one */
     version: string | null
     deployedAt: string | null
 }
@@ -29,7 +29,7 @@ export interface EnvironmentDeployment {
     environment: { _id: string; name: string; slug: string; color: string; isProduction: boolean }
     /** The deployment the environment serves, null when nothing was ever deployed there */
     deployment: { deploymentId: string; deployedAt: string } | null
-    microfrontends: DeployedMicrofrontend[]
+    frontends: DeployedFrontend[]
     services: DeployedService[]
 }
 
@@ -49,12 +49,13 @@ const useDomainDeploymentsApi = () => {
         return response.data
     }
 
-    const getByDomainId = async (domainId: string): Promise<DomainDeployments> => {
+    /** One domain, its environments in their order */
+    const getByDomain = async (domainId: string): Promise<DomainDeployments> => {
         const response = await apiClient.doRequest<DomainDeployments>({ url: `/api/domains/${domainId}/deployments` })
         return response.data
     }
 
-    return { getByProject, getByDomainId }
+    return { getByProject, getByDomain }
 }
 
 export default useDomainDeploymentsApi

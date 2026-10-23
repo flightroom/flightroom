@@ -10,7 +10,8 @@ vi.mock("..", () => ({
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
-import Microfrontend from "../models/MicrofrontendModel"
+import Frontend from "../models/FrontendModel"
+import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
 import Service from "../models/ServiceModel"
 import { IUser } from "../models/UserModel"
@@ -36,7 +37,7 @@ interface FakeProject {
 const aUser = (): IUser => ({ _id: newId(), email: "someone@example.com" }) as unknown as IUser
 
 let projects: FakeProject[]
-let projectMemberships: { userId: ObjectId; projectId: ObjectId; invitationToken?: string }[]
+let projectMemberships: { userId: ObjectId; projectId: ObjectId; invitationToken?: string; role?: string }[]
 let organizationMemberships: { userId: ObjectId; organizationId: ObjectId; role: RoleInOrganization }[]
 
 const sameId = (left: unknown, right: unknown) => String(left) === String(right)
@@ -128,6 +129,23 @@ describe("findMine", () => {
         organizationMemberships.push({ userId, organizationId: first, role: RoleInOrganization.OWNER }, { userId, organizationId: second, role: RoleInOrganization.OWNER })
 
         expect(await namesOf(user, first)).toEqual(["in-first"])
+    })
+
+    /** The console hides what a viewer cannot do: it reads the role here */
+    it("Given a viewer membership and an administered organization, when the list is read, then each project carries the role they act with", async () => {
+        const user = aUser()
+        const administeredOrganization = newId()
+        const viewed = aProject("viewed", newId())
+        const administered = aProject("administered", administeredOrganization)
+        projectMemberships.push({ userId: user._id, projectId: viewed._id, role: "VIEWER" }, { userId: user._id, projectId: administered._id, role: "VIEWER" })
+        organizationMemberships.push({ userId: user._id, organizationId: administeredOrganization, role: RoleInOrganization.ADMIN })
+
+        const roles = (await new ProjectService(user).findMine(user._id)).map(project => [project.name, project.role])
+
+        expect(roles).toEqual([
+            ["viewed", "VIEWER"],
+            ["administered", "OWNER"]
+        ])
     })
 
     it("Given a pending invitation to a project, when the list is read, then the project is not one of theirs yet", async () => {
@@ -234,6 +252,34 @@ describe("update", () => {
         expect(written).toBeUndefined()
     })
 
+    it("Given a container registry with spaces and a trailing slash, when the project is updated, then it is written trimmed without the slash", async () => {
+        await update({ containerRegistry: " ghcr.io/acme/ " })
+
+        expect(written).toEqual({ containerRegistry: "ghcr.io/acme" })
+    })
+
+    it("Given a registry with a port, when the project is updated, then it is written as it is", async () => {
+        await update({ containerRegistry: "registry.example.com:5000" })
+
+        expect(written).toEqual({ containerRegistry: "registry.example.com:5000" })
+    })
+
+    it.each([null, "  "])("Given the container registry %j, when the project is updated, then it is unset", async containerRegistry => {
+        await update({ containerRegistry })
+
+        expect(written).toEqual({ $unset: { containerRegistry: 1 } })
+    })
+
+    it.each([
+        ["a scheme", "https://ghcr.io/acme"],
+        ["a space inside", "ghcr.io/ac me"],
+        ["an image tag", "ghcr.io/acme:latest"],
+        ["something that is not a string", 42]
+    ])("Given a container registry with %s, when the project is updated, then it is refused with a 400 and nothing is written", async (_case, containerRegistry) => {
+        await expect(update({ containerRegistry })).rejects.toMatchObject({ code: "PROJECT_CONTAINER_REGISTRY_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
+    })
+
     it("Given only a description, when the project is updated, then the name is left alone", async () => {
         await update({ description: "the checkout flow" })
 
@@ -250,6 +296,58 @@ describe("update", () => {
         await update({ description: null, context: null })
 
         expect(written).toEqual({ $unset: { description: 1, context: 1 } })
+    })
+
+    it("Given both technologies, when the project is updated, then each is written on its own path", async () => {
+        await update({ technologies: { frontend: "VUE", backend: "MICRONAUT" } })
+
+        expect(written).toEqual({ "technologies.frontend": "VUE", "technologies.backend": "MICRONAUT" })
+    })
+
+    /** A side left out keeps what the project had: the screen may send only the one the user changed. */
+    it("Given only the backend technology, when the project is updated, then the frontend one is left alone", async () => {
+        await update({ technologies: { backend: "SPRING_BOOT" } })
+
+        expect(written).toEqual({ "technologies.backend": "SPRING_BOOT" })
+    })
+
+    it("Given a null side, when the project is updated, then that side only is unset", async () => {
+        await update({ technologies: { frontend: null, backend: "GO" } })
+
+        expect(written).toEqual({ "technologies.backend": "GO", $unset: { "technologies.frontend": 1 } })
+    })
+
+    it("Given null technologies, when the project is updated, then both are unset", async () => {
+        await update({ technologies: null })
+
+        expect(written).toEqual({ $unset: { technologies: 1 } })
+    })
+
+    it.each([
+        ["an unknown frontend", { frontend: "SVELTE" }],
+        ["a backend spelled freely", { backend: "Spring Boot" }],
+        ["a side that is not a string", { frontend: 42 }],
+        ["something that is not an object", "REACT"]
+    ])("Given technologies with %s, when the project is updated, then it is refused with a 400 and nothing is written", async (_case, technologies) => {
+        await expect(update({ technologies })).rejects.toMatchObject({ code: "PROJECT_TECHNOLOGIES_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
+    })
+
+    it("Given a design system, when the project is updated, then it is written whole, trimmed, its npmrc as pasted", async () => {
+        await update({ designSystem: { packageName: " @acme/ui ", version: "^3.2.0", docsUrl: "", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } })
+
+        expect(written).toEqual({ designSystem: { packageName: "@acme/ui", version: "^3.2.0", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } })
+    })
+
+    it("Given a null design system, when the project is updated, then it is unset", async () => {
+        await update({ designSystem: null })
+
+        expect(written).toEqual({ $unset: { designSystem: 1 } })
+    })
+
+    it("Given a design system without its package, when the project is updated, then it is refused with a 400 and nothing is written", async () => {
+        await expect(update({ designSystem: { notes: "Use its tokens." } })).rejects.toMatchObject({ code: "DESIGN_SYSTEM_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
     })
 })
 
@@ -349,9 +447,9 @@ describe("update of the pipeline templates", () => {
 describe("getContext", () => {
     const projectId = String(newId())
     const domainId = newId()
-    const microfrontendId = newId()
+    const frontendId = newId()
     const serviceId = newId()
-    let filters: Record<"domain" | "microfrontend" | "service", Record<string, unknown> | undefined>
+    let filters: Record<"domain" | "frontend" | "service", Record<string, unknown> | undefined>
 
     /** A find that records its filter and answers with one item carrying a context */
     const recordFind = (model: unknown, key: keyof typeof filters, item: Record<string, unknown>) =>
@@ -361,12 +459,14 @@ describe("getContext", () => {
         }) as never)
 
     beforeEach(() => {
-        filters = { domain: undefined, microfrontend: undefined, service: undefined }
+        filters = { domain: undefined, frontend: undefined, service: undefined }
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", context: "shared rules" } as never)
+        // An organization without a design system: the inheritance has tests of its own
+        vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
         // A member of the whole project: the domain scope has tests of its own
         vi.spyOn(ProjectService.prototype as unknown as WithAuthorizationGate, "getDomainScope").mockResolvedValue(undefined)
         recordFind(Domain, "domain", { _id: domainId, slug: "payments", name: "Payments", context: "payments rules" })
-        recordFind(Microfrontend, "microfrontend", { _id: microfrontendId, slug: "catalog", name: "Catalog", context: "catalog rules" })
+        recordFind(Frontend, "frontend", { _id: frontendId, slug: "catalog", name: "Catalog", context: "catalog rules" })
         recordFind(Service, "service", { _id: serviceId, slug: "orders", name: "Orders", context: "orders rules" })
     })
 
@@ -374,12 +474,12 @@ describe("getContext", () => {
         vi.restoreAllMocks()
     })
 
-    it("Given no focus, when the context is read, then the project and every domain, microfrontend and service with a context come back", async () => {
+    it("Given no focus, when the context is read, then the project and every domain, frontend and service with a context come back", async () => {
         const context = await new ProjectService(aUser()).getContext(projectId)
 
         expect(context.project).toMatchObject({ name: "Portal", context: "shared rules" })
         expect(context.domains).toEqual([expect.objectContaining({ slug: "payments", context: "payments rules" })])
-        expect(context.microfrontends).toEqual([expect.objectContaining({ slug: "catalog", context: "catalog rules" })])
+        expect(context.frontends).toEqual([expect.objectContaining({ slug: "catalog", context: "catalog rules" })])
         expect(context.services).toEqual([expect.objectContaining({ slug: "orders", context: "orders rules" })])
         // The ones without a context are left out by the query
         for (const filter of Object.values(filters)) {
@@ -387,13 +487,96 @@ describe("getContext", () => {
         }
     })
 
-    it("Given a microfrontend in a domain, when its context is read, then only its own and its domain's come back with the project's", async () => {
-        vi.spyOn(Microfrontend, "findOne").mockResolvedValue({ _id: microfrontendId, domainId } as never)
+    it("Given a project with default technologies, when the context is read, then they come back with it, a side left unpicked left out", async () => {
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", technologies: { backend: "QUARKUS" } } as never)
 
-        const context = await new ProjectService(aUser()).getContext(projectId, { microfrontendId: String(microfrontendId) })
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.technologies).toEqual({ backend: "QUARKUS" })
+    })
+
+    it("Given a project with a design system, when the context is read, then it comes back with the credentials of its npmrc masked", async () => {
+        const designSystem = { packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123" }
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem } as never)
+
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.designSystem).toEqual({ packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=***" })
+        expect(context.project.designSystemSource).toBe("project")
+        // No frontend focus, no frontend to resolve one for
+        expect(context.designSystem).toBeUndefined()
+        expect(context.designSystemSource).toBeUndefined()
+    })
+
+    it.each([
+        ["its own", { packageName: "@acme/legacy-ui" }, "@acme/legacy-ui", "frontend"],
+        ["none, the project's", undefined, "@acme/ui", "project"]
+    ])("Given a frontend with %s design system and no context, when its context is read, then the design system it builds with comes back", async (_case, own, expected, source) => {
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui" } } as never)
+        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null, designSystem: own } as never)
+        vi.spyOn(Frontend, "find").mockImplementation((() => ({ sort: () => Promise.resolve([]) })) as never)
+
+        const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
+
+        expect(context.frontends).toEqual([])
+        expect(context.designSystem).toEqual({ packageName: expected })
+        expect(context.designSystemSource).toBe(source)
+    })
+
+    describe("with a design system set by the organization", () => {
+        const organizationId = newId()
+
+        beforeEach(() => {
+            vi.spyOn(Organization, "findById").mockResolvedValue({
+                _id: organizationId,
+                designSystem: { packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" }
+            } as never)
+        })
+
+        it("Given a project without its own, when the context is read, then the organization's comes back as the project's, masked", async () => {
+            vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId } as never)
+
+            const context = await new ProjectService(aUser()).getContext(projectId)
+
+            expect(context.project.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
+            expect(context.project.designSystemSource).toBe("organization")
+        })
+
+        it("Given a frontend and a project without their own, when the context of the frontend is read, then it builds with the organization's", async () => {
+            vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId } as never)
+            vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null } as never)
+
+            const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
+
+            expect(context.designSystem).toEqual({ packageName: "@acme/brand", npmrc: "//npm.acme.dev/:_authToken=***" })
+            expect(context.designSystemSource).toBe("organization")
+        })
+
+        it("Given a project with its own, when the context of a frontend without one is read, then the project's wins and the organization is not read", async () => {
+            vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId, designSystem: { packageName: "@acme/ui" } } as never)
+            vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null } as never)
+
+            const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
+
+            expect(context.project).toMatchObject({ designSystem: { packageName: "@acme/ui" }, designSystemSource: "project" })
+            expect(context).toMatchObject({ designSystem: { packageName: "@acme/ui" }, designSystemSource: "project" })
+            expect(Organization.findById).not.toHaveBeenCalled()
+        })
+    })
+
+    it("Given a project without technologies, when the context is read, then none come back", async () => {
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.technologies).toBeUndefined()
+    })
+
+    it("Given a frontend in a domain, when its context is read, then only its own and its domain's come back with the project's", async () => {
+        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId } as never)
+
+        const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
 
         expect(context.project).toMatchObject({ context: "shared rules" })
-        expect(filters.microfrontend).toMatchObject({ _id: microfrontendId })
+        expect(filters.frontend).toMatchObject({ _id: frontendId })
         expect(filters.domain).toMatchObject({ _id: domainId })
         expect(filters.service).toBeUndefined()
         expect(context.services).toEqual([])
@@ -406,24 +589,24 @@ describe("getContext", () => {
 
         expect(filters.service).toMatchObject({ _id: serviceId })
         expect(filters.domain).toBeUndefined()
-        expect(filters.microfrontend).toBeUndefined()
+        expect(filters.frontend).toBeUndefined()
         expect(context.domains).toEqual([])
     })
 
-    it("Given a domain, when its context is read, then its own and the ones of its microfrontends and services come back", async () => {
+    it("Given a domain, when its context is read, then its own and the ones of its frontends and services come back", async () => {
         vi.spyOn(Domain, "findOne").mockResolvedValue({ _id: domainId } as never)
 
         await new ProjectService(aUser()).getContext(projectId, { domainId: String(domainId) })
 
         expect(filters.domain).toMatchObject({ _id: domainId })
-        expect(filters.microfrontend).toMatchObject({ domainId })
+        expect(filters.frontend).toMatchObject({ domainId })
         expect(filters.service).toMatchObject({ domainId })
     })
 
-    it("Given a microfrontend of another project, when its context is read, then it is not found", async () => {
-        vi.spyOn(Microfrontend, "findOne").mockResolvedValue(null as never)
+    it("Given a frontend of another project, when its context is read, then it is not found", async () => {
+        vi.spyOn(Frontend, "findOne").mockResolvedValue(null as never)
 
-        await expect(new ProjectService(aUser()).getContext(projectId, { microfrontendId: String(microfrontendId) })).rejects.toBeInstanceOf(EntityNotFoundError)
+        await expect(new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })).rejects.toBeInstanceOf(EntityNotFoundError)
     })
 })
 

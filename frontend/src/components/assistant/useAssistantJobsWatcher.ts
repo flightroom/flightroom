@@ -1,7 +1,8 @@
-import { useQueries } from "@tanstack/react-query"
+import { useQueries, useQueryClient } from "@tanstack/react-query"
 import { useEffect } from "react"
 import { useTranslation } from "react-i18next"
 import useAiJobsApi, { isAiJobActive } from "@/hooks/apiClients/useAiJobsApi"
+import { AI_USAGE_QUERY_KEY } from "@/hooks/apiClients/useAiUsageApi"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
 import useAssistantStore from "@/store/useAssistantStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -18,6 +19,7 @@ const NO_TABS: AssistantJobTab[] = []
 const useAssistantJobsWatcher = (projectId: string | undefined, enabled: boolean) => {
     const { t } = useTranslation()
     const aiJobsApi = useAiJobsApi()
+    const queryClient = useQueryClient()
     const isOpen = useAssistantStore(state => state.isOpen)
     const tabs = useAssistantJobsStore(state => (projectId && state.tabsByProject[projectId]) || NO_TABS)
     const activeTab = useAssistantJobsStore(state => (projectId && state.activeTabByProject[projectId]) || "project")
@@ -56,13 +58,16 @@ const useAssistantJobsWatcher = (projectId: string | undefined, enabled: boolean
             const visible = useAssistantStore.getState().isOpen ? state.activeTabByProject[projectId] : undefined
             for (const tab of state.tabsByProject[projectId] ?? []) {
                 const before = previous.tabsByProject[projectId]?.find(candidate => candidate.jobId === tab.jobId)
-                if (!before || !isAiJobActive(before.status) || isAiJobActive(tab.status) || tab.status === undefined || visible === tab.rootJobId) continue
+                if (!before || !isAiJobActive(before.status) || isAiJobActive(tab.status) || tab.status === undefined) continue
+                // What the job spent is final now: the AI usage shown anywhere counts it.
+                queryClient.invalidateQueries({ queryKey: [AI_USAGE_QUERY_KEY] })
+                if (visible === tab.rootJobId) continue
                 const notifications = useToastNotificationStore.getState()
                 if (tab.status === "FAILED") notifications.showErrorNotification({ message: t("assistant.jobs.toast_failed", { label: jobTabLabel(t, tab) }) })
                 else notifications.showSuccessNotification({ message: t("assistant.jobs.toast_done", { label: jobTabLabel(t, tab) }) })
             }
         })
-    }, [projectId, t])
+    }, [projectId, t, queryClient])
 }
 
 export default useAssistantJobsWatcher

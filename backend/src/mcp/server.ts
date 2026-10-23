@@ -8,6 +8,7 @@ import UserCannotAccessThisEnvironmentError from "../errors/UserCannotAccessThis
 import UserCannotAccessThisOrganizationError from "../errors/UserCannotAccessThisOrganizationError"
 import UserCannotAccessThisProjectError from "../errors/UserCannotAccessThisProjectError"
 import { RoleInProject } from "../models/UserProjectModel"
+import { redactDesignSystems } from "../types/DesignSystem"
 import { MCP_SCOPE_WRITE } from "../utils/oauthConfig"
 import { McpSession, McpSharedProject, McpToolContext, McpToolDefinition, objectId } from "./toolDefinition"
 import { aiChangeTools } from "./tools/aiChangeTools"
@@ -16,14 +17,16 @@ import { domainDeploymentTools } from "./tools/domainDeploymentTools"
 import { domainLinkTools } from "./tools/domainLinkTools"
 import { domainTools } from "./tools/domainTools"
 import { environmentTools } from "./tools/environmentTools"
+import { frontendTools } from "./tools/frontendTools"
 import { localChangeTools } from "./tools/localChangeTools"
-import { microfrontendTools } from "./tools/microfrontendTools"
+import { maintenanceAgentTools } from "./tools/maintenanceAgentTools"
 import { organizationAdminTools } from "./tools/organizationAdminTools"
 import { organizationTools } from "./tools/organizationTools"
 import { projectAdminTools } from "./tools/projectAdminTools"
 import { projectContentTools } from "./tools/projectContentTools"
 import { projectTools } from "./tools/projectTools"
 import { repositoryTools } from "./tools/repositoryTools"
+import { resourceTools } from "./tools/resourceTools"
 import { scaffoldTools } from "./tools/scaffoldTools"
 import { serviceTools } from "./tools/serviceTools"
 import { variableMapTools } from "./tools/variableMapTools"
@@ -33,7 +36,8 @@ import { variableMapTools } from "./tools/variableMapTools"
  *
  * MCP clients get parity with the console, minus what v1 leaves out on purpose: API keys (creating
  * or showing one hands a long-lived credential to the client), creating or editing storages,
- * databases, repository connections and secrets (their input is a secret), and everything else above the project
+ * databases, repository connections and secrets, and the credential fields of a resource (their input is a secret;
+ * the other fields of a resource are written, its pasted API document never read back), and everything else above the project
  * (deleting projects, managing organizations, members, invitations, the user profile), bundle
  * upload, the canvas layout, bulk deletes and AI code changes (each one runs a paid agent).
  * Code changes made by the client's own agent are offered instead: `repository_checkout_get` says
@@ -52,8 +56,9 @@ import { variableMapTools } from "./tools/variableMapTools"
 export const MCP_TOOLS: McpToolDefinition[] = [
     ...organizationTools,
     ...projectTools,
-    ...microfrontendTools,
+    ...frontendTools,
     ...serviceTools,
+    ...maintenanceAgentTools,
     ...domainTools,
     ...domainLinkTools,
     ...domainDeploymentTools,
@@ -63,6 +68,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     ...scaffoldTools,
     ...configurationTools,
     ...variableMapTools,
+    ...resourceTools,
     ...projectAdminTools,
     ...organizationAdminTools,
     ...projectContentTools,
@@ -72,9 +78,11 @@ export const MCP_TOOLS: McpToolDefinition[] = [
 const SERVER_INSTRUCTIONS =
     "Tools of the Flightroom console, bound to the projects shared when this connection was authorized. " +
     "Call projects_list first: when more than one project is shared, every project tool needs its projectId. " +
-    "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one microfrontend, service or domain, pass its id to context_get, or read aiContext from microfrontend_get, service_get or domain_get: follow those notes. " +
-    "To change the code of a microfrontend or a service: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
-    "Repository naming: every repository you create or rename ends in -fe for a frontend (microfrontend or host, e.g. checkout-fe) and in -be for a backend service (e.g. orders-be). " +
+    "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one frontend, service or domain, pass its id to context_get, or read aiContext from frontend_get, service_get or domain_get: follow those notes. Its project.technologies are the default frontend and backend technologies for anything new, unless the user asks otherwise. " +
+    "When a frontend has a designSystem in aiContext, build its UI with that package (configure the registry from the scope lines of its npmrc; credentials are never provided). " +
+    "To change the code of a frontend or a service: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
+    "A backend service container gets the port it is exposed on in the HTTP_PORT environment variable: its server must read the port from HTTP_PORT and listen on it on 0.0.0.0, never on a hardcoded port. " +
+    "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend service (e.g. orders-be). " +
     "Ids are 24 character hexadecimal strings returned by the list tools. Tools marked destructive change what users are served " +
     "(deploy, rollback) or delete data: confirm with the user before calling them."
 
@@ -106,8 +114,9 @@ export const describeToolError = (error: unknown): string => {
     return "The operation failed. Check the console for details."
 }
 
+/** Every design system of the result, a project's or a frontend's, reaches the client with the credentials of its npmrc masked */
 const toToolResult = (value: unknown) => ({
-    content: [{ type: "text" as const, text: JSON.stringify(value ?? null, null, 2) }]
+    content: [{ type: "text" as const, text: JSON.stringify(value ?? null, redactDesignSystems, 2) }]
 })
 
 /**

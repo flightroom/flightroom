@@ -180,7 +180,7 @@ export const diffVersions = (current?: ParsedVersion | null, latest?: ParsedVers
 }
 
 /**
- * Picks the range that every microfrontend should converge to: the one with the highest
+ * Picks the range that every frontend should converge to: the one with the highest
  * floor version. Ties are broken by the most frequently declared range so that the
  * alignment touches as few repositories as possible.
  */

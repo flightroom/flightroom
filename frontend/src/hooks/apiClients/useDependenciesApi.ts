@@ -31,13 +31,13 @@ export interface Dependency {
     deprecated?: boolean
 }
 
-/** Branch to compare for each microfrontend, keyed by microfrontend id */
+/** Branch to compare for each frontend, keyed by frontend id */
 export interface DependencyScanRequest {
     branches?: Record<string, string>
 }
 
-export interface MicrofrontendScanTarget {
-    microfrontendId: string
+export interface FrontendScanTarget {
+    frontendId: string
     slug: string
     name: string
     provider?: CodeRepositoryProvider
@@ -47,8 +47,8 @@ export interface MicrofrontendScanTarget {
     error?: string
 }
 
-export interface MicrofrontendDependencies {
-    microfrontendId: string
+export interface FrontendDependencies {
+    frontendId: string
     slug: string
     name: string
     provider?: CodeRepositoryProvider
@@ -62,7 +62,7 @@ export interface MicrofrontendDependencies {
 }
 
 export interface DependencyOccurrence {
-    microfrontendId: string
+    frontendId: string
     slug: string
     name: string
     range: string
@@ -82,43 +82,43 @@ export interface ProjectDependenciesReport {
     projectId: string
     scannedAt: string
     registryAvailable: boolean
-    microfrontends: MicrofrontendDependencies[]
+    frontends: FrontendDependencies[]
     peerDependencyIssues: DependencyAlignmentIssue[]
     sharedDependencyIssues: DependencyAlignmentIssue[]
 }
 
-export interface MicrofrontendAlignmentChange {
+export interface FrontendAlignmentChange {
     name: string
     kind: DependencyKind
     currentRange: string
     targetRange: string
 }
 
-export interface MicrofrontendAlignmentPlan {
-    microfrontendId: string
+export interface FrontendAlignmentPlan {
+    frontendId: string
     slug: string
     name: string
     provider: CodeRepositoryProvider
     repositoryName: string
     baseBranch: string
-    changes: MicrofrontendAlignmentChange[]
+    changes: FrontendAlignmentChange[]
 }
 
 export interface AlignmentPlan {
     projectId: string
     targetBranch: string
-    microfrontends: MicrofrontendAlignmentPlan[]
+    frontends: FrontendAlignmentPlan[]
 }
 
 export interface AlignmentApplyRequest extends DependencyScanRequest {
-    microfrontendIds?: string[]
+    frontendIds?: string[]
     packages?: string[]
     branchName?: string
     commitMessage?: string
 }
 
 export interface AlignmentApplyResultItem {
-    microfrontendId: string
+    frontendId: string
     slug: string
     name: string
     provider: CodeRepositoryProvider
@@ -126,7 +126,7 @@ export interface AlignmentApplyResultItem {
     baseBranch: string
     branch: string
     applied: boolean
-    changes: MicrofrontendAlignmentChange[]
+    changes: FrontendAlignmentChange[]
     error?: string
 }
 
@@ -139,8 +139,8 @@ export interface AlignmentApplyResult {
 const useDependenciesApi = () => {
     const apiClient = useApiClient()
 
-    const getScanTargets = async (): Promise<MicrofrontendScanTarget[]> => {
-        const response = await apiClient.doRequest<MicrofrontendScanTarget[]>({
+    const getScanTargets = async (): Promise<FrontendScanTarget[]> => {
+        const response = await apiClient.doRequest<FrontendScanTarget[]>({
             url: "/api/dependencies/targets"
         })
         return response.data

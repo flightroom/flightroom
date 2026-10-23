@@ -31,7 +31,7 @@ export interface BuildRun {
     finishedAt?: string
 }
 
-/** Fields shared by the build status of a microfrontend and of a service. */
+/** Fields shared by the build status of a frontend and of a service. */
 export interface ComponentBuildStatus {
     name: string
     slug: string
@@ -45,8 +45,8 @@ export interface ComponentBuildStatus {
     unavailableReason?: BuildUnavailableReason
 }
 
-export interface MicrofrontendBuildStatus extends ComponentBuildStatus {
-    microfrontendId: string
+export interface FrontendBuildStatus extends ComponentBuildStatus {
+    frontendId: string
 }
 
 export interface ServiceBuildStatus extends ComponentBuildStatus {
@@ -66,7 +66,7 @@ export interface ProjectBuildStatus {
     fetchedAt: string
     environments: BuildStatusEnvironment[]
     /** Frontend builds. */
-    microfrontends: MicrofrontendBuildStatus[]
+    frontends: FrontendBuildStatus[]
     /** Backend builds. */
     services: ServiceBuildStatus[]
 }

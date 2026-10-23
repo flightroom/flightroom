@@ -8,9 +8,9 @@ export const domainDeploymentTools = [
         name: "domain_deployments_get",
         title: "Get deployed versions by domain",
         description:
-            "Which version of each microfrontend (frontend) and service (backend) runs in each environment, by functional domain, environments in their order. " +
-            "Frontend versions are the ones frozen in the active deployment of the environment (null: never deployed there, or not in that deployment; canary only when enabled). " +
-            "Backend versions are the latest ones the customer's deploy pipeline reported to the orchestrator, which does not deploy services itself (null: none reported). " +
+            "Which version of each frontend and service (backend) runs in each environment, by functional domain, environments in their order. " +
+            "Versions are the ones frozen in the active deployment of the environment, which GitOps ships (canary only when enabled, frontends only). " +
+            "A backend or a DOCKER frontend missing from that deployment falls back to the latest version the customer's deploy pipeline reported to the orchestrator (null: in neither). " +
             'With domainId, that domain only; without it, every domain of the project plus a "domain": null entry for the members in no domain.',
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,

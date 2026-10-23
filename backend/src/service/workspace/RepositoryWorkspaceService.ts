@@ -63,7 +63,7 @@ const onProviderHost = (candidate: string | undefined, codeRepository: ICodeRepo
 }
 
 /**
- * The HTTPS clone URL of the repository of a microfrontend or a service, without credentials.
+ * The HTTPS clone URL of the repository of a frontend or a service, without credentials.
  *
  * The URL the provider gave at import time wins, but only on the provider's own host: those fields
  * are editable with the component, and the token goes wherever this URL points. Otherwise the
@@ -121,9 +121,9 @@ const exists = async (target: string) =>
         .catch(() => false)
 
 /**
- * The local clones of the repositories behind the microfrontends and the services, under `REPOSITORIES_FOLDER`.
+ * The local clones of the repositories behind the frontends and the services, under `REPOSITORIES_FOLDER`.
  *
- * Laid out as `<org>/<project>/<microfrontend>` (`<service>.service` for a service) and reused across requests. It is a cache: every
+ * Laid out as `<org>/<project>/<frontend>` (`<service>.service` for a service) and reused across requests. It is a cache: every
  * use starts by resetting the copy to the remote, and deleting the folder only costs a new clone.
  */
 export class RepositoryWorkspaceService extends BaseAuthorizedService {
@@ -131,7 +131,7 @@ export class RepositoryWorkspaceService extends BaseAuthorizedService {
         return fastify.config.REPOSITORIES_FOLDER
     }
 
-    /** Resolves the repository of a microfrontend or a service and the folder its working copy lives in. Clones nothing yet. */
+    /** Resolves the repository of a frontend or a service and the folder its working copy lives in. Clones nothing yet. */
     async open(component: RepositoryComponent): Promise<OpenedWorkspace> {
         await this.ensureAccessToProject(component.projectId)
 

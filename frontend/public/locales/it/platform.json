@@ -18,10 +18,10 @@
     "integration": {
         "sidebar_title": "Integrazione",
         "title": "Guida per l'integrazione",
-        "subtitle": "Segui le istruzioni riportate di seguito per integrare il tuo microfrontend con la nostra piattaforma.",
+        "subtitle": "Segui le istruzioni riportate di seguito per integrare il tuo frontend con la nostra piattaforma.",
         "fe_integration_tab": {
             "title": "Integrazione frontend",
-            "description": "Segui le istruzioni riportate di seguito per integrare il tuo microfrontend con la nostra piattaforma.",
+            "description": "Segui le istruzioni riportate di seguito per integrare il tuo frontend con la nostra piattaforma.",
             "curl": {
                 "title": "Accesso diretto API via CURL",
                 "description": "Puoi anche interagire con la nostra API direttamente utilizzando CURL:",
@@ -32,20 +32,20 @@
             "stack_detected": "rilevato nel repository",
             "stack_manual": "impostato manualmente",
             "stack_unknown_title": "Stack non rilevato",
-            "stack_unknown_description": "Non siamo riusciti a capire quale framework e quale bundler usa questo microfrontend. Selezionali qui sotto per ottenere le istruzioni corrette, oppure collega il repository per farceli leggere.",
+            "stack_unknown_description": "Non siamo riusciti a capire quale framework e quale bundler usa questo frontend. Selezionali qui sotto per ottenere le istruzioni corrette, oppure collega il repository per farceli leggere.",
             "framework_label": "Framework",
             "compiler_label": "Bundler",
             "install_step": "Installa quello che serve all'integrazione:",
             "config_step": "Poi scrivi questa configurazione in {{path}}:",
             "runtime_integration_title": "Integrazione a runtime",
-            "integrate_all_button": "Integra i miei microfrontend",
+            "integrate_all_button": "Integra i miei frontend",
             "stack_auto": "Automatico",
             "federation_tab": "Module Federation",
-            "runtime_integration_description": "I microfrontend web component sono semplici script che registrano un custom element, quindi non c'è nessuna configurazione di module federation da scrivere: l'host chiede l'url risolto all'SDK e monta l'elemento. Vedi MicrofrontendLoader nei template web component.",
+            "runtime_integration_description": "I frontend web component sono semplici script che registrano un custom element, quindi non c'è nessuna configurazione di module federation da scrivere: l'host chiede l'url risolto all'SDK e monta l'elemento. Vedi FrontendLoader nei template web component.",
             "integrate_dialog_title": "Configura module federation",
-            "integrate_dialog_description": "Per ogni microfrontend che consuma altri, scriviamo la configurazione del bundler che dichiara i suoi remote (per un root config single-spa, il src/applications.ts che li registra; per una shell micro-lc, il src/microlc-config.ts che li monta) e aggiungiamo i pacchetti che servono. Controlla cosa cambia, poi scegli cosa committare: la scrittura finisce sul branch predefinito di ogni repository.",
+            "integrate_dialog_description": "Per ogni frontend che consuma altri, scriviamo la configurazione del bundler che dichiara i suoi remote (per un root config single-spa, il src/applications.ts che li registra; per una shell micro-lc, il src/microlc-config.ts che li monta) e aggiungiamo i pacchetti che servono. Controlla cosa cambia, poi scegli cosa committare: la scrittura finisce sul branch predefinito di ogni repository.",
             "integrate_confirm": "Committa nei repository selezionati",
-            "integrate_nothing_to_do": "Niente da integrare: i repository sono già configurati, oppure nessuno dei tuoi microfrontend ne consuma ancora un altro.",
+            "integrate_nothing_to_do": "Niente da integrare: i repository sono già configurati, oppure nessuno dei tuoi frontend ne consuma ancora un altro.",
             "integrate_success": "Module federation configurato in {{count}} repository",
             "integrate_partial": "Configurati {{applied}} repository, {{failed}} falliti",
             "integrate_remotes": "Remote",
@@ -67,7 +67,7 @@
         },
         "env_vars_integration_tab": {
             "title": "Variabili d'ambiente",
-            "description": "Accedi alle variabili d'ambiente in microfrontends utilizzando i seguenti metodi.",
+            "description": "Accedi alle variabili d'ambiente in frontends utilizzando i seguenti metodi.",
             "javascript_title": "Integrazione JavaScript",
             "javascript_description": "Aggiungi questo script al tuo HTML per rendere le variabili d'ambiente disponibili come",
             "javascript_auto_note": "Lo stesso tag funziona in ogni ambiente: la console risolve quale risponde dal dominio su cui la pagina è servita, quindi promuovere una build non richiede mai di modificare questo url.",
@@ -81,8 +81,8 @@
             "integrate_success": "Script aggiunto in {{count}} repository",
             "integrate_partial": "Script aggiunto in {{applied}} repository, {{failed}} falliti"
         },
-        "microfrontend_select_label": "Microfrontend",
-        "microfrontend_select_placeholder": "Seleziona un microfrontend"
+        "frontend_select_label": "Frontend",
+        "frontend_select_placeholder": "Seleziona un frontend"
     },
     "auth": {
         "registration_success": "Registrazione completata con successo, accedi per accedere al tuo account",
@@ -186,15 +186,17 @@
         "tabs": {
             "label": "Sezioni delle impostazioni",
             "general": "Generale",
+            "context": "Contesto AI",
+            "designSystem": "Design system",
             "access": "Accessi",
-            "resources": "Risorse",
+            "resources": "Infrastruttura",
             "delivery": "Rilascio"
         },
         "howItWorks": "Come funziona",
         "account": "Account",
         "stats": {
             "accessTitle": "Persone e accessi",
-            "resourcesTitle": "Risorse del progetto",
+            "resourcesTitle": "Infrastruttura del progetto",
             "viewAll": "Visualizza Tutto",
             "teamMembers": "Membri",
             "environments": "Ambienti",
@@ -218,10 +220,10 @@
         },
         "projectContext": {
             "title": "Contesto AI del progetto",
-            "subtitle": "Note per gli agenti AI (client MCP e assistente della console) valide per tutto il progetto: dominio, convenzioni, regole condivise dai microfrontend.",
+            "subtitle": "Note per gli agenti AI (client MCP e assistente della console) valide per tutto il progetto: dominio, convenzioni, regole condivise dai frontend.",
             "label": "Contesto",
             "placeholder": "## Dominio\nPortale clienti per ...\n\n## Convenzioni\n- TypeScript strict\n- ...",
-            "hint": "Supporta Markdown. Gli agenti lo leggono con il tool context_get insieme al contesto di ogni microfrontend.",
+            "hint": "Supporta Markdown. Gli agenti lo leggono con il tool context_get insieme al contesto di ogni frontend.",
             "tooLong": "Il contesto può contenere al massimo {{max}} caratteri"
         },
         "exposure": {
@@ -244,10 +246,18 @@
             "https_port_hint": "La porta su cui ascolta l'entry point websecure di Traefik dentro il pod. 443 di default; il chart Helm di Traefik lasciato ai suoi default usa 8443.",
             "port_invalid": "Una porta tra 1 e 65535"
         },
+        "containerRegistry": {
+            "title": "Container registry",
+            "subtitle": "Dove sono pubblicate le immagini dei servizi e dei frontend serviti da Docker.",
+            "details": "Un servizio o un frontend servito da Docker senza un repository immagine suo viene deployato come <registry>/<slug>, con la sua versione come tag: GitOps ne scrive i values Helm anche se la sua pipeline non registra le versioni.",
+            "label": "Registry",
+            "hint": "Es. ghcr.io/acme o registry.example.com:5000, senza https://. Se vuoto, viene deployato solo ciò che ha un repository immagine suo.",
+            "invalid": "Un host, con porta e namespace se servono, senza schema, spazi o slash finale, es. ghcr.io/acme"
+        },
         "gitOps": {
             "title": "GitOps per ambienti, config map e secret",
             "subtitle": "Ogni Deploy fa il commit su un repository Git di ciò che rilascia: il namespace dell'ambiente, le sue config map e i suoi secret.",
-            "details": "Sul repository di configurazione, sul branch di default: <ambiente>/namespace.yaml, <ambiente>/configMaps/<nome>.yaml e <ambiente>/secrets/<nome>.yaml. Facoltativamente, sul repository delle applicazioni: un branch per ambiente con un file di values Helm per ogni servizio e frontend che ha un'immagine e una versione, più un chart Helm condiviso in microservice-chart/, scritto solo se manca così puoi personalizzarlo.",
+            "details": "Sul repository di configurazione, sul branch di default: <ambiente>/namespace.yaml, <ambiente>/configMaps/<nome>.yaml e <ambiente>/secrets/<nome>.yaml. Facoltativamente, sul repository delle applicazioni: un branch per ambiente con un file di values Helm per ogni servizio e frontend che ha una versione e un'immagine, la sua o <registry>/<slug> se il progetto ha un container registry, più un chart Helm condiviso in microservice-chart/, scritto solo se manca così puoi personalizzarlo.",
             "enabled": "Fai il commit su un repository a ogni Deploy",
             "connection": "Connessione",
             "connectionPlaceholder": "Scegli una connessione",
@@ -285,7 +295,7 @@
         },
         "pipelines": {
             "title": "Template di pipeline",
-            "subtitle": "La pipeline che riceve un nuovo microfrontend o servizio quando viene creato il suo repository. Di default arriva dal repository ufficiale mfe-orchestrator/template-pipelines.",
+            "subtitle": "La pipeline che riceve un nuovo frontend o servizio quando viene creato il suo repository. Di default arriva dal repository ufficiale mfe-orchestrator/template-pipelines.",
             "details": "Collega al progetto un tuo repository con la stessa struttura per usare invece le tue pipeline. I repository già creati restano come sono.",
             "enabled": "Usa i template di pipeline di un repository del progetto",
             "repository": "Repository dei template di pipeline",
@@ -387,7 +397,9 @@
             "contextUpdated": "Contesto del progetto aggiornato",
             "contextUpdateFailed": "Impossibile aggiornare il contesto del progetto",
             "exposureUpdated": "Esposizione salvata: vale dal prossimo deploy di ogni ambiente",
-            "exposureUpdateFailed": "Non è stato possibile salvare l'esposizione"
+            "exposureUpdateFailed": "Non è stato possibile salvare l'esposizione",
+            "containerRegistryUpdated": "Container registry salvato: vale dal prossimo deploy",
+            "containerRegistryUpdateFailed": "Non è stato possibile salvare il container registry"
         }
     },
     "theme": {
@@ -405,7 +417,7 @@
         "deploying": "Deploy in corso…",
         "active_deployments": "Deployment attivo",
         "history": "Storico",
-        "microfrontends_title": "Microfrontend",
+        "frontends_title": "Frontend",
         "services_title": "Backend",
         "config_maps_title": "Config map",
         "secrets_title": "Secret",
@@ -414,7 +426,7 @@
         "env_variables_title": "Variabili d'ambiente",
         "no_deployments": "Nessuna distribuzione trovata",
         "no_deployments_description": "Le distribuzioni appariranno qui una volta create",
-        "microfrontend_card": {
+        "frontend_card": {
             "stable_version": "Versione stabile",
             "canary_traffic": "Canary {{percentage}}%",
             "canary_target_missing": "Non configurata"
@@ -430,7 +442,7 @@
         },
         "canary_users": {
             "title": "Utenti Canary",
-            "subtitle": "Chi vede la versione canary dei microfrontend di questo deployment configurati con tipo «Utente»",
+            "subtitle": "Chi vede la versione canary dei frontend di questo deployment configurati con tipo «Utente»",
             "no_users": "Nessun utente ha ancora accesso a questa versione canary.",
             "columns": {
                 "user": "Utente",
@@ -458,34 +470,73 @@
             "remove_title_other": "Rimuovi {{count}} utenti canary",
             "remove_description_one": "Vuoi rimuovere «{{userId}}» dagli utenti canary? Tornerà a vedere la versione stabile.",
             "remove_description_other": "Vuoi rimuovere {{count}} utenti dagli utenti canary? Torneranno a vedere la versione stabile."
-        }
+        },
+        "overlay": {
+            "title": "Deploy in corso",
+            "elapsed": "In volo da {{time}}",
+            "hide": "Nascondi",
+            "hide_hint": "Il deploy prosegue anche se nascondi questa schermata (Esc)",
+            "show": "Mostra",
+            "pill": "Deploy in corso · {{time}}",
+            "messages": [
+                "Torre di controllo: richiesta di decollo inviata…",
+                "Controllo carburante: pieno.",
+                "I frontend allacciano le cinture.",
+                "Il pilota automatico è inserito, goditi il viaggio.",
+                "Leggere turbolenze nella pipeline, niente di grave.",
+                "Allineamento delle versioni in pista.",
+                "L'equipaggio distribuisce config map ai passeggeri.",
+                "Rullaggio verso la pista…",
+                "Vento in coda: tutto procede.",
+                "Un deploy lento è pur sempre un deploy.",
+                "Nel frattempo, prova a battere il record qui sotto.",
+                "Si prega di non slacciare le dipendenze fino all'atterraggio."
+            ],
+            "game": {
+                "label": "Mini-gioco: guida il razzo tra le torri",
+                "score": "Punti {{score}}",
+                "best": "Record {{score}}",
+                "start": "Premi spazio o tocca per decollare",
+                "retry": "Premi spazio o tocca per riprovare",
+                "over_zero": "Schianto al decollo! Riprova",
+                "over_one": "Schianto! Hai superato {{count}} torre",
+                "over_other": "Schianto! Hai superato {{count}} torri",
+                "new_best": "Nuovo record: {{score}}!"
+            }
+        },
+        "resources_title": "Risorse"
     },
     "builds": {
         "title": "Build",
-        "subtitle": "Stato delle build frontend e backend, con il link a ogni run sulla sua piattaforma CI, e versione servita da ogni ambiente",
+        "subtitle": "Stato delle build frontend e backend, con il link a ogni run sulla sua piattaforma CI",
         "refresh": "Aggiorna",
+        "search": {
+            "placeholder": "Cerca per nome, slug o repository...",
+            "clear": "Cancella la ricerca",
+            "filtered_count_one": "{{count}} di {{total}} componente",
+            "filtered_count_other": "{{count}} di {{total}} componenti",
+            "no_results_title": "Nessun risultato",
+            "no_results_description": "Nessun frontend o servizio corrisponde a «{{searchTerm}}»."
+        },
         "live": {
             "connected": "Aggiornamento in tempo reale attivo",
             "disconnected": "Aggiornamento in tempo reale non disponibile",
             "last_update": "Ultimo aggiornamento: {{moment}}"
         },
         "empty": {
-            "title": "Nessun microfrontend o servizio",
-            "description": "Crea un microfrontend o un servizio per vedere qui lo stato delle sue build."
+            "title": "Nessun frontend o servizio",
+            "description": "Crea un frontend o un servizio per vedere qui lo stato delle sue build."
         },
         "table": {
             "name": "Nome",
             "kind": "Tipo",
             "last_build": "Ultima build",
             "build_ref": "Tag / branch",
-            "last_built_version": "Ultima versione buildata",
-            "production": "Produzione",
             "no_runs": "Nessuna build",
             "triggered_by": "avviata da {{user}}",
             "open_run": "Apri sul provider",
             "open_run_on": "Apri su {{provider}}",
             "repository": "Repository: {{name}}",
-            "selected_version": "versione selezionata: {{version}}",
             "expand_history": "Mostra lo storico build di {{name}}",
             "collapse_history": "Nascondi lo storico build di {{name}}"
         },
@@ -795,24 +846,27 @@
         "max_length_one": "Massimo {{count}} carattere",
         "max_length_other": "Massimo {{count}} caratteri"
     },
-    "microfrontend": {
+    "frontend": {
         "kind": {
             "label": "Tipo",
-            "microfrontend": "Microfrontend",
-            "microfrontend_description": "Servito da Flightroom",
-            "frontend": "Frontend",
-            "frontend_description": "Servito dal suo container Docker",
-            "badge_microfrontend": "Microfrontend",
-            "badge_frontend": "Docker",
+            "bundle": "Bundle",
+            "bundle_description": "Servito da Flightroom",
+            "docker": "Docker",
+            "docker_description": "Servito dal suo container Docker",
+            "badge_bundle": "Bundle",
+            "badge_docker": "Docker",
             "no_parents_hint": "Un frontend servito da Docker non può avere parent",
             "container_tab": "Container",
-            "version_from_pipeline": "È impostata dalla pipeline ogni volta che registra la versione di un'immagine: qui non si può cambiare.",
+            "version_from_pipeline": "Il tag dell'immagine deployata. Puoi impostarla qui, oppure la imposta la pipeline quando registra un'immagine più recente.",
             "template_pipeline_hint": "La pipeline di questo template carica un bundle su Flightroom, che un frontend servito dal suo container Docker non accetta. Modificala perché costruisca l'immagine Docker e ne registri la versione."
         },
         "errors": {
-            "frontend_cannot_have_parents": "Un frontend servito dal suo container Docker non può avere parent",
-            "frontend_upload_not_allowed": "Un frontend servito dal suo container Docker non accetta upload di bundle: la sua pipeline registra l'immagine di ogni versione",
-            "version_registration_not_allowed": "Solo un frontend servito dal suo container Docker registra versioni di immagine: un microfrontend carica il suo bundle"
+            "docker_cannot_have_parents": "Un frontend servito dal suo container Docker non può avere parent",
+            "docker_upload_not_allowed": "Un frontend servito dal suo container Docker non accetta upload di bundle: la sua pipeline registra l'immagine di ogni versione",
+            "version_registration_not_allowed": "Solo un frontend servito dal suo container Docker registra versioni di immagine: un frontend carica il suo bundle",
+            "build_forbidden": "Chi ha il ruolo di viewer non può creare una versione di un frontend",
+            "build_ref_not_found": "Il branch non esiste nel repository",
+            "build_repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
         },
         "validation": {
             "version_required": "La versione è obbligatoria",
@@ -826,17 +880,17 @@
             "customSource": "Sorgente Personalizzata"
         },
         "backendLinks": {
-            "microfrontendsColumn": "Microfrontend",
+            "frontendsColumn": "Frontend",
             "servicesColumn": "Servizi backend",
-            "hint": "Trascina dal pallino di un microfrontend a un servizio per collegarli. Seleziona un collegamento e premi Canc per rimuoverlo.",
+            "hint": "Trascina dal pallino di un frontend a un servizio per collegarli. Seleziona un collegamento e premi Canc per rimuoverlo.",
             "noServicesTitle": "Nessun servizio backend",
-            "noServicesDescription": "Crea un servizio backend per poterlo collegare ai microfrontend.",
+            "noServicesDescription": "Crea un servizio backend per poterlo collegare ai frontend.",
             "createService": "Crea un servizio"
         },
         "dashboard": {
-            "title": "Microfrontend",
-            "description": "Gestisci i microfrontend del tuo progetto",
-            "searchPlaceholder": "Cerca microfrontend...",
+            "title": "Frontend",
+            "description": "Gestisci i frontend del tuo progetto",
+            "searchPlaceholder": "Cerca frontend...",
             "filterStatus": "Filtra per stato",
             "statusAll": "Tutti",
             "statusActive": "Attivi",
@@ -847,11 +901,11 @@
             "viewBackend": "Vista collegamenti ai backend",
             "clearSearch": "Cancella la ricerca",
             "noResultsTitle": "Nessun risultato",
-            "noResultsDescription": "Nessun microfrontend corrisponde a «{{searchTerm}}». Prova con un altro termine di ricerca.",
-            "totalCount_one": "{{count}} microfrontend",
-            "totalCount_other": "{{count}} microfrontend",
-            "filteredCount_one": "{{count}} di {{total}} microfrontend",
-            "filteredCount_other": "{{count}} di {{total}} microfrontend"
+            "noResultsDescription": "Nessun frontend corrisponde a «{{searchTerm}}». Prova con un altro termine di ricerca.",
+            "totalCount_one": "{{count}} frontend",
+            "totalCount_other": "{{count}} frontend",
+            "filteredCount_one": "{{count}} di {{total}} frontend",
+            "filteredCount_other": "{{count}} di {{total}} frontend"
         },
         "build": {
             "title": "Build {{name}}",
@@ -868,7 +922,7 @@
         "import": {
             "action": "Importa da repository",
             "title": "Importa repository",
-            "description": "Crea un microfrontend per ogni repository della connessione selezionata. I repository già collegati a un microfrontend o a un servizio vengono ignorati.",
+            "description": "Crea un frontend per ogni repository della connessione selezionata. I repository già collegati a un frontend o a un servizio vengono ignorati.",
             "loading": "Caricamento dei repository...",
             "loadError": "Impossibile caricare i repository di questa connessione.",
             "noRepositories": "Questa connessione non espone alcun repository.",
@@ -880,8 +934,8 @@
             "alreadyImported": "Già importato",
             "import_one": "Importa {{count}} repository",
             "import_other": "Importa {{count}} repository",
-            "importedCount_one": "{{count}} microfrontend importato",
-            "importedCount_other": "{{count}} microfrontend importati",
+            "importedCount_one": "{{count}} frontend importato",
+            "importedCount_other": "{{count}} frontend importati",
             "failedCount_one": "{{count}} repository non è stato importato: {{names}}",
             "failedCount_other": "{{count}} repository non sono stati importati: {{names}}",
             "nothingImported": "Nessun repository è stato importato."
@@ -896,17 +950,17 @@
             "workingAgents_one": "Un agente al lavoro",
             "workingAgents_other": "{{count}} agenti al lavoro"
         },
-        "no_microfrontends_found": "Nessun microfrontend trovato",
-        "no_microfrontends_found_description": "Nessun microfrontend è stato ancora registrato. Una volta aggiunti, verranno visualizzati qui. Puoi crearne uno nuovo per iniziare.",
-        "add_your_first_microfrontend": "Aggiungi il tuo primo microfrontend per iniziare!",
-        "add_new": "Nuovo Microfrontend",
-        "add_new_description": "Crea un nuovo microfrontend da aggiungere al tuo progetto",
-        "edit": "Modifica Microfrontend",
-        "edit_description": "Aggiorna i dettagli del tuo microfrontend",
-        "updated_success_message": "Microfrontend aggiornato con successo",
-        "click_to_create": "Clicca per creare un nuovo microfrontend",
+        "no_frontends_found": "Nessun frontend trovato",
+        "no_frontends_found_description": "Nessun frontend è stato ancora registrato. Una volta aggiunti, verranno visualizzati qui. Puoi crearne uno nuovo per iniziare.",
+        "add_your_first_frontend": "Aggiungi il tuo primo frontend per iniziare!",
+        "add_new": "Nuovo Frontend",
+        "add_new_description": "Crea un nuovo frontend da aggiungere al tuo progetto",
+        "edit": "Modifica Frontend",
+        "edit_description": "Aggiorna i dettagli del tuo frontend",
+        "updated_success_message": "Frontend aggiornato con successo",
+        "click_to_create": "Clicca per creare un nuovo frontend",
         "name": "Nome",
-        "name_placeholder": "Inserisci il nome del microfrontend",
+        "name_placeholder": "Inserisci il nome del frontend",
         "slug": "Slug",
         "slug_placeholder": "Inserisci uno slug",
         "source": "Sorgente",
@@ -919,13 +973,13 @@
         "continuous_deployment_description": "Abilita il deploy automatico delle nuove versioni",
         "status": "Stato",
         "dont_worry": "Non preoccuparti, puoi modificare queste impostazioni in seguito.",
-        "create_microfrontend": "Crea Microfrontend",
-        "your_microfrontend_has_been_created": "Il tuo microfrontend è stato creato con successo!",
+        "create_frontend": "Crea Frontend",
+        "your_frontend_has_been_created": "Il tuo frontend è stato creato con successo!",
         "general_information": "Informazioni Generali",
-        "general_information_description": "Informazioni di base sul tuo microfrontend",
+        "general_information_description": "Informazioni di base sul tuo frontend",
         "slug_description": "Una versione del nome adatta agli URL",
         "hosting_information": "Informazioni di Hosting",
-        "hosting_information_description": "Configura dove è ospitato il tuo microfrontend",
+        "hosting_information_description": "Configura dove è ospitato il tuo frontend",
         "hosting_type": "Tipo di Hosting",
         "canaryReleaseActive": "Canary Release Attiva",
         "distribution": "Distribuzione:",
@@ -986,9 +1040,9 @@
         "repository_name_checking": "Verifica disponibilità del nome del repository...",
         "repository_name_taken": "Il nome del repository è già in uso. Scegli un nome diverso.",
         "repository_name_available": "Il nome del repository è disponibile.",
-        "created_success": "Microfrontend creato",
-        "created_success_message": "Il tuo microfrontend è stato creato con successo",
-        "create_error": "Errore durante la creazione del microfrontend",
+        "created_success": "Frontend creato",
+        "created_success_message": "Il tuo frontend è stato creato con successo",
+        "create_error": "Errore durante la creazione del frontend",
         "select_repository": "Seleziona Repository",
         "select_repository_placeholder": "Scegli un repository...",
         "sourceCodeProvider": "Provider Codice Sorgente",
@@ -1002,39 +1056,39 @@
             "vscode": "Clona con VS Code",
             "intellij": "Clona con IntelliJ IDEA"
         },
-        "noMicrofrontendsFound": "Nessun microfrontend trovato",
+        "noFrontendsFound": "Nessun frontend trovato",
         "ofUsers": "degli utenti",
         "dangerZone": {
             "title": "Zona Pericolosa",
             "subtitle": "Queste azioni sono irreversibili. Sii certo di quello che fai.",
             "delete": {
-                "title": "Elimina questo microfrontend",
-                "description": "Una volta eliminato un microfrontend, non è possibile tornare indietro. Sii certo di quello che fai.",
-                "button": "Elimina Microfrontend",
-                "success": "Microfrontend eliminato con successo",
+                "title": "Elimina questo frontend",
+                "description": "Una volta eliminato un frontend, non è possibile tornare indietro. Sii certo di quello che fai.",
+                "button": "Elimina Frontend",
+                "success": "Frontend eliminato con successo",
                 "dialog": {
-                    "title": "Elimina Microfrontend",
+                    "title": "Elimina Frontend",
                     "warning": "Attenzione!",
-                    "description": "Questa azione non può essere annullata. Il microfrontend \"{{microfrontendName}}\" e tutti i suoi dati verranno eliminati definitivamente.",
-                    "confirmation": "Digita \"{{microfrontendName}}\" per confermare.",
-                    "confirmationText": "Digita il nome del microfrontend per confermare l'eliminazione.",
+                    "description": "Questa azione non può essere annullata. Il frontend \"{{frontendName}}\" e tutti i suoi dati verranno eliminati definitivamente.",
+                    "confirmation": "Digita \"{{frontendName}}\" per confermare.",
+                    "confirmationText": "Digita il nome del frontend per confermare l'eliminazione.",
                     "deleting": "Eliminazione in corso...",
-                    "confirmButton": "Elimina Microfrontend"
+                    "confirmButton": "Elimina Frontend"
                 }
             }
         },
         "canary_enrolled_users": "Utenti selezionati",
         "canary_none": "Non c'è canary",
         "context": {
-            "title": "Contesto AI del microfrontend",
-            "subtitle": "Note per gli agenti AI su questo microfrontend; quello che vale per tutti va nel contesto del progetto, nelle Impostazioni.",
+            "title": "Contesto AI del frontend",
+            "subtitle": "Note per gli agenti AI su questo frontend; quello che vale per tutti va nel contesto del progetto, nelle Impostazioni.",
             "label": "Contesto",
             "placeholder": "## Responsabilità\nGestisce ...\n\n## Note\n- ...",
             "hint": "Supporta Markdown, massimo 20.000 caratteri."
         },
         "aiChange": {
             "title": "Modifica con AI",
-            "description": "Descrivi la modifica che vuoi. L'agente legge il repository insieme al contesto AI del progetto e di questo microfrontend, poi propone le modifiche. Non viene pubblicato nulla finché non approvi: all'approvazione le modifiche vengono committate su un nuovo branch e viene aperta una pull request.",
+            "description": "Descrivi la modifica che vuoi. L'agente legge il repository insieme al contesto AI del progetto e di questo frontend, poi propone le modifiche. Non viene pubblicato nulla finché non approvi: all'approvazione le modifiche vengono committate su un nuovo branch e viene aperta una pull request.",
             "prompt_label": "Cosa vuoi cambiare?",
             "prompt_placeholder": "es. Aggiungi una pagina 404 con un link per tornare alla home",
             "prompt_required": "Descrivi la modifica che vuoi",
@@ -1079,7 +1133,8 @@
                 "applying-previous": "Riparto dalla proposta precedente",
                 "applying": "Applicazione delle modifiche",
                 "apply-failed": "Non è stato possibile applicare le modifiche",
-                "pushing": "Pubblicazione della proposta sul suo branch"
+                "pushing": "Pubblicazione della proposta sul suo branch",
+                "stopped": "Interrotto dall'utente"
             },
             "progress_log": "Avanzamento dell'agente",
             "progress_empty": "Ancora nessuna attività.",
@@ -1096,6 +1151,7 @@
             "opens_new_tab": "(si apre in una nuova scheda)",
             "pull_request_error_title": "Non è stato possibile aprire la pull request",
             "discarded_description": "Questa proposta è stata scartata: non è stato pubblicato nulla.",
+            "stopped_description": "L'agente è stato fermato prima di finire: non è stato pubblicato nulla.",
             "no_changes_title": "Niente da modificare",
             "no_changes_description": "L'agente non ha modificato alcun file.",
             "files_title": "Modifiche proposte",
@@ -1139,8 +1195,8 @@
                 "load": "Non è stato possibile caricare la richiesta.",
                 "history": "Non è stato possibile caricare le richieste precedenti.",
                 "ASSISTANT_DISABLED": "La modifica con AI non è attiva in questo progetto: non ha IA disponibili.",
-                "AI_CHANGE_FORBIDDEN": "Non hai i permessi per modificare questo microfrontend con l'AI.",
-                "WORKSPACE_NO_REPOSITORY": "Questo microfrontend non ha un repository di codice collegato.",
+                "AI_CHANGE_FORBIDDEN": "Non hai i permessi per modificare questo frontend con l'AI.",
+                "WORKSPACE_NO_REPOSITORY": "Questo frontend non ha un repository di codice collegato.",
                 "AI_CHANGE_CONFLICT": "Questi file sono cambiati sul branch di partenza dopo la proposta: {{files}}. Richiedi di nuovo la modifica.",
                 "AI_CHANGE_NOT_PROPOSED": "Questa richiesta non è più in attesa di approvazione.",
                 "AI_CHANGE_FORBIDDEN_service": "Non hai i permessi per modificare questo servizio con l'AI.",
@@ -1174,13 +1230,13 @@
             "superseded": "Rifinita dal messaggio successivo: le sue modifiche fanno parte della proposta più recente.",
             "follow_up_label": "Scrivi all'agente: chiedi una modifica o fai una domanda sulla proposta",
             "follow_up_placeholder": "Chiedi una modifica o fai una domanda all'agente… (Invio per inviare, Maiusc+Invio per andare a capo)",
-            "follow_up_running": "Attendi che l'agente finisca per chiedere altro…",
+            "follow_up_running": "Attendi che l'agente finisca, o fermalo, per chiedere altro…",
             "follow_up_failed": "La richiesta non è andata a buon fine: riprova o avvia una nuova modifica.",
             "follow_up_closed": "Questa conversazione è chiusa: avvia una nuova modifica per proseguire.",
             "follow_up_send": "Invia",
             "usage_conversation_one": "Token usati dalla conversazione ({{count}} messaggio)",
             "usage_conversation_other": "Token usati dalla conversazione ({{count}} messaggi)",
-            "description_domain": "L'agente legge insieme tutti i microfrontend e i servizi del dominio, con il contesto AI del progetto, del dominio e di ciascuno di essi, così una modifica può attraversare frontend e backend (un endpoint e le schermate che lo chiamano). Propone le modifiche da revisionare: nulla viene pushato finché non le applichi, con una pull request per repository.",
+            "description_domain": "L'agente legge insieme tutti i frontend e i servizi del dominio, con il contesto AI del progetto, del dominio e di ciascuno di essi, così una modifica può attraversare frontend e backend (un endpoint e le schermate che lo chiamano). Propone le modifiche da revisionare: nulla viene pushato finché non le applichi, con una pull request per repository.",
             "prompt_placeholder_domain": "es. Aggiungi il costo di spedizione all'API degli ordini e mostralo nelle pagine carrello e checkout",
             "repositories_count_one": "{{count}} repository",
             "repositories_count_other": "{{count}} repository",
@@ -1188,7 +1244,7 @@
             "request_meta_repositories_one": "{{date}} · {{count}} repository",
             "request_meta_repositories_other": "{{date}} · {{count}} repository",
             "kind": {
-                "microfrontend": "microfrontend",
+                "frontend": "frontend",
                 "service": "servizio"
             },
             "apply_description": "Tutti i file proposti vanno insieme: dipendono l'uno dall'altro, quindi nessuno può essere escluso. Applica li pubblica direttamente su {{branch}}, senza revisione, e la sua CI parte subito: controlla prima il diff, oppure apri una pull request per farlo rivedere nel repository.",
@@ -1199,8 +1255,8 @@
             "pull_request_opened": "Pull request aperta"
         },
         "workspace": {
-            "back": "Tutti i microfrontend",
-            "nav_label": "Sezioni del microfrontend",
+            "back": "Tutti i frontend",
+            "nav_label": "Sezioni del frontend",
             "nav_ai": "Modifica con AI",
             "nav_settings": "Info e impostazioni",
             "version": "v{{version}}"
@@ -1225,7 +1281,7 @@
             "errors": {
                 "invalid_name": "Il nome del repository non è valido",
                 "name_taken": "Esiste già un repository con questo nome",
-                "not_linked": "Questo microfrontend non ha un repository collegato",
+                "not_linked": "Questo frontend non ha un repository collegato",
                 "rename_failed": "Il provider ha rifiutato la rinomina: {{reason}}",
                 "generic": "Impossibile rinominare il repository",
                 "link_inconsistent": "Il collegamento salvato non corrisponde al repository mostrato: seleziona di nuovo il repository e salva"
@@ -1244,7 +1300,7 @@
         "storages": "Storage",
         "storagesDescription": "Gestisci i tuoi provider di storage e le configurazioni",
         "noStoragesFound": "Nessuno storage trovato",
-        "newStorageDescription": "Configura un nuovo provider di storage per i tuoi microfrontend",
+        "newStorageDescription": "Configura un nuovo provider di storage per i tuoi frontend",
         "editStorageDescription": "Aggiorna la configurazione del tuo storage",
         "types": {
             "aws": "Amazon S3",
@@ -1316,7 +1372,7 @@
             "write_forbidden": "Chi ha accesso in sola lettura non può aggiungere, modificare, provare o eliminare storage.",
             "secret_required": "Riscrivi la credenziale: quella salvata vale solo per il provider e l'account con cui è stata salvata."
         },
-        "connectionTestSuccess": "Un file di prova è stato caricato e riletto: l'hosting dei microfrontend può usare questo storage."
+        "connectionTestSuccess": "Un file di prova è stato caricato e riletto: l'hosting dei frontend può usare questo storage."
     },
     "database": {
         "databases": "Database",
@@ -1335,7 +1391,8 @@
             "MYSQL": "MySQL",
             "MARIADB": "MariaDB",
             "SQLSERVER": "SQL Server",
-            "ORACLE": "Oracle"
+            "ORACLE": "Oracle",
+            "MONGODB": "MongoDB"
         },
         "authTypes": {
             "credentials": "Host e credenziali",
@@ -1579,12 +1636,12 @@
     },
     "market": {
         "title": "Libreria di template",
-        "description": "Scegli dalla nostra collezione di template per microfrontend",
+        "description": "Scegli dalla nostra collezione di template per frontend",
         "templateRepository": "Template: {{name}}",
         "templateRepositoryTitle": "Apri la repository del template {{name}}",
         "noTemplates": {
             "title": "Nessun template disponibile",
-            "description": "Non ci sono ancora template per microfrontend nel market."
+            "description": "Non ci sono ancora template per frontend nel market."
         },
         "error": {
             "failedToFetch": "Errore nel caricamento dei markets"
@@ -1646,18 +1703,18 @@
         },
         "environments": {
             "title": "Configura gli ambienti",
-            "description": "Gli ambienti (es. sviluppo, produzione) ti permettono di gestire versioni diverse dei microfrontend. Scegli un preset o personalizzali, poi salva."
+            "description": "Gli ambienti (es. sviluppo, produzione) ti permettono di gestire versioni diverse dei frontend. Scegli un preset o personalizzali, poi salva."
         },
         "hosting": {
-            "title": "Dove ospitiamo i microfrontend?",
+            "title": "Dove ospitiamo i frontend?",
             "description": "Collega un bucket di storage per il deploy dei bundle. Puoi saltare questo passaggio e configurarlo più tardi.",
             "alert_title": "Questo passaggio non è fondamentale",
-            "alert_description": "Se lo salti e non colleghi nessun cloud, i bundle dei microfrontend verranno comunque ospitati direttamente da Flightroom. Potrai collegare uno storage esterno in qualsiasi momento dalle impostazioni del progetto.",
+            "alert_description": "Se lo salti e non colleghi nessun cloud, i bundle dei frontend verranno comunque ospitati direttamente da Flightroom. Potrai collegare uno storage esterno in qualsiasi momento dalle impostazioni del progetto.",
             "submit": "Salva e continua"
         },
         "code_repositories": {
             "title": "Collega il codice sorgente",
-            "description": "Collega un provider Git (GitHub, GitLab o Azure DevOps) per abilitare build e deploy automatici dei microfrontend.",
+            "description": "Collega un provider Git (GitHub, GitLab o Azure DevOps) per abilitare build e deploy automatici dei frontend.",
             "skippable_note": "Nessuna fretta: puoi collegare o cambiare i repository in qualsiasi momento dalla sezione Repository del progetto.",
             "connect_repository": "Collega un repository"
         },
@@ -1680,15 +1737,15 @@
             "title": "Progetto pronto!",
             "configured_with_name": "è stato configurato con successo.",
             "configured_generic": "Il progetto è stato configurato con successo.",
-            "start_adding": "Puoi iniziare ad aggiungere microfrontend.",
-            "start_deploying": "Inizia a deployare i tuoi microfrontend",
+            "start_adding": "Puoi iniziare ad aggiungere frontend.",
+            "start_deploying": "Inizia a deployare i tuoi frontend",
             "go_to_dashboard": "Vai alla dashboard",
-            "add_microfrontend": "Aggiungi microfrontend"
+            "add_frontend": "Aggiungi frontend"
         },
         "ai_draft": {
             "title": "Descrivi il progetto e lascia fare all'assistente",
             "description": "Scrivi a parole cosa vuoi costruire: l'assistente propone nome, descrizione e ambienti. Potrai rivedere tutto prima di confermare ogni passaggio.",
-            "placeholder": "Es. Un portale clienti fatto di tre microfrontend React, con ambienti di sviluppo, collaudo e produzione, bundle su AWS S3 e codice su GitHub.",
+            "placeholder": "Es. Un portale clienti fatto di tre frontend React, con ambienti di sviluppo, collaudo e produzione, bundle su AWS S3 e codice su GitHub.",
             "submit": "Genera una proposta",
             "loading": "Sto preparando la proposta…",
             "error": "Non sono riuscito a generare una proposta. Puoi compilare i campi a mano.",
@@ -1712,22 +1769,22 @@
     "dependencies": {
         "sidebar_title": "Dipendenze",
         "title": "Dipendenze",
-        "description": "Analizza i repository dei microfrontend, verifica cosa non è aggiornato e allinea le peer dependencies.",
+        "description": "Analizza i repository dei frontend, verifica cosa non è aggiornato e allinea le peer dependencies.",
         "rescan": "Rianalizza",
         "align_peer_dependencies": "Allinea peer dependencies",
-        "registry_unavailable": "Non è stato possibile contattare il registry npm: le ultime versioni non sono disponibili, viene mostrato solo il confronto tra microfrontend.",
-        "summary_microfrontends": "Microfrontend analizzati",
+        "registry_unavailable": "Non è stato possibile contattare il registry npm: le ultime versioni non sono disponibili, viene mostrato solo il confronto tra frontend.",
+        "summary_frontends": "Frontend analizzati",
         "summary_packages": "Pacchetti distinti",
         "summary_outdated": "Pacchetti non aggiornati",
         "summary_peer_misaligned": "Peer dependencies disallineate",
         "peer_section_title": "Peer dependencies da allineare",
         "shared_section_title": "Dipendenze condivise con versioni diverse",
         "shared_section_description": "Segnalate solo per visibilità: l'azione di allineamento non le modifica mai.",
-        "per_microfrontend_title": "Dipendenze per microfrontend",
+        "per_frontend_title": "Dipendenze per frontend",
         "only_outdated": "Mostra solo non aggiornate",
-        "no_peer_issues": "Tutte le peer dependencies sono allineate tra i microfrontend.",
+        "no_peer_issues": "Tutte le peer dependencies sono allineate tra i frontend.",
         "no_shared_issues": "Nessuna dipendenza condivisa dichiarata con versioni diverse.",
-        "no_microfrontends": "Nessun microfrontend di questo progetto è collegato a un repository di codice.",
+        "no_frontends": "Nessun frontend di questo progetto è collegato a un repository di codice.",
         "no_dependencies": "Questo package.json non dichiara dipendenze.",
         "all_up_to_date": "Tutte le dipendenze sono aggiornate.",
         "scan_failed": "Analisi fallita",
@@ -1754,7 +1811,7 @@
         "align_failed": "Fallito",
         "align_nothing_to_do": "Già allineato",
         "branch_selection_title": "Branch da confrontare",
-        "branch_selection_description": "Ogni microfrontend viene analizzato sul suo branch di default. Scegli un altro branch per confrontarne uno diverso, poi rianalizza.",
+        "branch_selection_description": "Ogni frontend viene analizzato sul suo branch di default. Scegli un altro branch per confrontarne uno diverso, poi rianalizza.",
         "branch_default": "default",
         "branch_not_default": "Diverso dal branch di default",
         "rescan_pending": "Applica i branch selezionati",
@@ -1788,6 +1845,7 @@
             "label": "Sezioni delle impostazioni",
             "general": "Generale",
             "members": "Membri",
+            "designSystem": "Design system",
             "ai": "IA"
         },
         "switch": "Cambia organizzazione",
@@ -1978,7 +2036,7 @@
         "stop": "Interrompi",
         "disclaimer": "Le risposte sono generate da un'intelligenza artificiale e possono contenere errori. Maestro può modificare il progetto: le azioni che eliminano o rimuovono qualcosa vengono eseguite solo dopo la tua conferma.",
         "empty_title": "Come posso aiutarti?",
-        "empty_description": "Posso consultare e modificare microfrontend, build, deploy, ambienti e variabili di questo progetto e cercare nella documentazione.",
+        "empty_description": "Posso consultare e modificare frontend, build, deploy, ambienti e variabili di questo progetto e cercare nella documentazione.",
         "thinking": "Sto pensando…",
         "tool": {
             "input": "Input",
@@ -2015,8 +2073,8 @@
                 "organization": "Organizzazione",
                 "environment": "Ambiente",
                 "environments": "Ambienti",
-                "microfrontend": "Microfrontend",
-                "microfrontends": "Microfrontend",
+                "frontend": "Frontend",
+                "frontends": "Frontend",
                 "host": "Host",
                 "remote": "Remote",
                 "user": "Utente",
@@ -2072,10 +2130,10 @@
             "check_variables": "Controlla le variabili"
         },
         "questions": {
-            "explain_build": "Perché è fallita la build {{runId}} (ref {{ref}}) del microfrontend {{name}} (id {{microfrontendId}})? Leggi i log dei job falliti, spiegami la causa e proponi una correzione.",
+            "explain_build": "Perché è fallita la build {{runId}} (ref {{ref}}) del frontend {{name}} (id {{frontendId}})? Leggi i log dei job falliti, spiegami la causa e proponi una correzione.",
             "explain_service_build": "Perché è fallita la build {{runId}} (ref {{ref}}) del servizio {{name}} (id {{serviceId}})? Leggi i log dei job falliti, spiegami la causa e proponi una correzione.",
             "analyze_deployments": "Confronta l'ultimo deploy dell'ambiente {{environment}} (id {{environmentId}}) con quello precedente: quali versioni e variabili sono cambiate, e c'è qualcosa da controllare?",
-            "explain_dependencies": "Analizza le dipendenze condivise e i peer dependency non allineati tra i microfrontend: quali conflitti sono rischiosi e da quale conviene partire?",
+            "explain_dependencies": "Analizza le dipendenze condivise e i peer dependency non allineati tra i frontend: quali conflitti sono rischiosi e da quale conviene partire?",
             "check_variables": "Confronta le variabili d'ambiente tra gli ambienti del progetto: ce ne sono definite in un ambiente e mancanti in un altro, in particolare in produzione?"
         },
         "usage": {
@@ -2109,9 +2167,10 @@
                 "PENDING": "In coda",
                 "RUNNING": "In corso",
                 "DONE": "Completato",
-                "FAILED": "Non riuscito"
+                "FAILED": "Non riuscito",
+                "STOPPED": "Fermato"
             },
-            "scope_global": "Tutti i microfrontend e i servizi",
+            "scope_global": "Tutti i frontend e i servizi",
             "repositories": "Repository",
             "files_one": "{{count}} file modificato",
             "files_other": "{{count}} file modificati",
@@ -2131,58 +2190,64 @@
             "apply_all_confirm": "Applica sui branch di partenza",
             "apply_all_applying": "Applicazione in corso…",
             "apply_all_success": "Proposte applicate sui branch di partenza",
+            "stop": "Ferma l'agente",
+            "stopped_success": "Agente fermato: non è stato pubblicato nulla",
             "follow_up_placeholder": "Chiedi una modifica o fai una domanda all'agente…",
-            "follow_up_running": "Attendi che l'agente finisca per chiedere altro…",
+            "follow_up_running": "Attendi che l'agente finisca, o fermalo, per chiedere altro…",
             "follow_up_failed": "Questo job non è andato a buon fine: avviane uno nuovo per riprovare.",
             "follow_up_send": "Invia",
             "toast_done": "{{label}}: il job è completato",
             "toast_failed": "{{label}}: il job non è andato a buon fine",
             "new": {
                 "title": "Nuovo job AI",
-                "description": "Un solo agente lavora insieme sui microfrontend e sui servizi scelti, così una modifica può attraversarli, per esempio un'API di un servizio backend e i microfrontend che la usano. Propone le modifiche da rivedere: non viene pubblicato nulla finché non le applichi.",
-                "all": "Tutti i microfrontend e i servizi",
-                "all_hint": "Tutti i microfrontend e i servizi con un repository collegato, al massimo {{max}}.",
+                "description": "Un solo agente lavora insieme sui frontend e sui servizi scelti, così una modifica può attraversarli, per esempio un'API di un servizio backend e i frontend che la usano. Propone le modifiche da rivedere: non viene pubblicato nulla finché non le applichi.",
+                "all": "Tutti i frontend e i servizi",
+                "all_hint": "Tutti i frontend e i servizi con un repository collegato, al massimo {{max}}.",
                 "selection_hint": "{{selected}} selezionati, al massimo {{max}}.",
-                "selection_required": "Seleziona almeno un microfrontend o un servizio",
-                "no_repositories": "Nessun microfrontend o servizio di questo progetto ha un repository di codice collegato.",
+                "selection_required": "Seleziona almeno un frontend o un servizio",
+                "no_repositories": "Nessun frontend o servizio di questo progetto ha un repository di codice collegato.",
                 "prompt_label": "Cosa vuoi cambiare?",
-                "prompt_placeholder": "es. Rinomina l'API getUser dello shell e aggiorna i microfrontend che la chiamano",
+                "prompt_placeholder": "es. Rinomina l'API getUser dello shell e aggiorna i frontend che la chiamano",
                 "prompt_required": "Descrivi la modifica che vuoi",
                 "start": "Avvia job",
-                "repositories_label": "Microfrontend e servizi"
+                "repositories_label": "Frontend e servizi"
             },
             "errors": {
                 "load": "Impossibile caricare il job.",
                 "create": "Impossibile avviare il job.",
                 "follow_up": "Impossibile inviare la richiesta.",
+                "stop": "Impossibile fermare l'agente.",
                 "apply": "Impossibile applicare le proposte.",
                 "ASSISTANT_DISABLED": "La modifica con AI non è attiva in questo progetto: non ha IA disponibili.",
-                "AI_CHANGE_FORBIDDEN": "Non hai i permessi per modificare microfrontend e servizi con AI.",
+                "AI_CHANGE_FORBIDDEN": "Non hai i permessi per modificare frontend e servizi con AI.",
                 "AI_CHANGE_TOO_MANY": "Ci sono troppi job in corso in questo progetto: attendi che uno finisca.",
                 "AI_JOB_NOT_DONE": "Il job non è ancora finito.",
-                "AI_JOB_NO_REPOSITORIES": "Nessuno di questi microfrontend o servizi ha un repository di codice collegato.",
-                "AI_JOB_TOO_MANY_REPOSITORIES": "Un job può lavorare al massimo su 10 repository: seleziona i microfrontend e i servizi da includere.",
+                "AI_JOB_NO_REPOSITORIES": "Nessuno di questi frontend o servizi ha un repository di codice collegato.",
+                "AI_JOB_TOO_MANY_REPOSITORIES": "Un job può lavorare al massimo su 10 repository: seleziona i frontend e i servizi da includere.",
+                "AI_JOB_NOT_RUNNING": "L'agente ha già finito.",
                 "AI_JOB_FOLLOW_UP_RUNNING": "Un follow-up di questo job è ancora in corso: attendi che finisca.",
                 "AI_CHANGE_NOT_PROPOSED": "Queste proposte non sono più in attesa di approvazione.",
                 "plan": "L'AI non è riuscita a proporre i componenti.",
-                "AI_DOMAIN_PLAN_HAS_MEMBERS": "Il dominio ha già microfrontend o servizi: ricarica la pagina.",
+                "AI_DOMAIN_PLAN_HAS_MEMBERS": "Il dominio ha già frontend o servizi: ricarica la pagina.",
                 "AI_DOMAIN_PLAN_FAILED": "L'AI non è riuscita a proporre i componenti: riprova o descrivi la richiesta in un altro modo.",
                 "AI_MODEL_NOT_AVAILABLE": "L'IA scelta non è più disponibile per il progetto: scegline un'altra.",
-                "AI_PROVIDER_ERROR": "Il provider IA ha risposto con un errore: riprova tra poco."
+                "AI_PROVIDER_ERROR": "Il provider IA ha risposto con un errore: riprova tra poco.",
+                "AI_JOB_NOT_OWNER": "Solo chi l'ha avviato, o un amministratore dell'organizzazione, può farlo."
             },
             "apply_all_started": "Applicazione delle proposte sui branch di partenza in corso",
             "apply_all_failed_one": "{{count}} proposta su {{total}} non è stata applicata: guarda l'errore sul suo repository",
             "apply_all_failed_other": "{{count}} proposte su {{total}} non sono state applicate: guarda gli errori sui loro repository",
             "follow_up_no_proposal": "Non ci sono proposte da rifinire: avvia un nuovo job per altre modifiche.",
             "service_badge": "Servizio",
-            "scope_domain": "Dominio"
+            "scope_domain": "Dominio",
+            "read_only": "Avviato da {{name}}: sola lettura"
         },
         "page_title": "Agente AI"
     },
     "services": {
         "title": "Servizi",
         "import": {
-            "description": "Crea un servizio per ogni repository della connessione selezionata. I repository già collegati a un microfrontend o a un servizio vengono ignorati.",
+            "description": "Crea un servizio per ogni repository della connessione selezionata. I repository già collegati a un frontend o a un servizio vengono ignorati.",
             "importedCount_one": "{{count}} servizio importato",
             "importedCount_other": "{{count}} servizi importati"
         },
@@ -2206,6 +2271,14 @@
         "slug_invalid": "Da 2 a 50 lettere minuscole, cifre o trattini, senza iniziare con un trattino",
         "description": "Descrizione",
         "description_placeholder": "Cosa fa questo servizio",
+        "tabs": {
+            "general": "Generale",
+            "context": "Contesto AI",
+            "runtime": "Runtime",
+            "variables": "Variabili",
+            "repository": "Repository",
+            "danger_zone": "Zona Pericolosa"
+        },
         "runtime_settings": "Runtime e immagine",
         "runtime_settings_description": "Porta, probe Kubernetes, documentazione API e repository dell'immagine Docker",
         "port": "Porta",
@@ -2218,18 +2291,24 @@
         "openapi_path": "Percorso specifica OpenAPI",
         "openapi_path_hint": "Facoltativo. Es. /openapi.json",
         "exposure_path": "Path di esposizione",
-        "exposure_path_hint": "Facoltativo. Dove risponde sull'host di ogni ambiente, es. /api/orders: il prefisso viene tolto prima di arrivare al container",
+        "exposure_path_hint": "Dove risponde sull'host di ogni ambiente, es. /api/orders: il prefisso viene tolto prima di arrivare al container",
+        "exposure_path_required": "Indica il path su cui esporlo, oppure disattiva l'esposizione",
         "exposure_path_invalid": "Un path che una HTTPRoute accetta: inizia con /, lettere, numeri e -._~!$&'()*+,;=:@ o %XX, senza query, frammento, // né segmenti . o ..",
         "path_invalid": "Deve iniziare con \"/\", avere al massimo 256 caratteri e nessuno spazio",
         "image_repository": "Repository immagine",
-        "image_repository_hint": "Facoltativo. Es. ghcr.io/acme/orders-api",
+        "image_repository_hint": "Facoltativo. Es. ghcr.io/acme/orders-api. Se vuoto, lo imposta la pipeline quando registra una versione.",
+        "image_repository_hint_registry": "Facoltativo. Se vuoto, viene deployata {{image}}, dal container registry del progetto.",
+        "image_repository_missing": "Nessun repository immagine qui e nessun container registry nelle impostazioni del progetto: GitOps non deploya questa versione.",
+        "version": "Versione",
+        "version_hint": "Il tag dell'immagine deployata. Puoi impostarla qui, oppure la imposta la pipeline quando registra un'immagine più recente.",
+        "version_invalid": "Solo lettere, numeri, punti, trattini e underscore, al massimo 128",
         "urls": {
             "title": "Endpoint",
-            "description": "L'URL base su cui il servizio è raggiungibile in ciascun ambiente. I percorsi di documentazione e OpenAPI sono relativi a questo indirizzo. Lascia vuoto dove il servizio non è esposto.",
-            "placeholder": "https://orders-api.dev.example.com",
-            "invalid": "Inserisci un URL assoluto http o https, senza spazi, credenziali, query (?) o frammento (#)",
-            "no_environments": "Il progetto non ha ancora ambienti: creane uno per indicare dove è esposto il servizio",
-            "empty": "Nessun endpoint indicato. Aggiungilo dalle impostazioni del servizio.",
+            "description": "Se è raggiungibile dall'esterno e su quale path: lo stesso sull'host di ogni ambiente. I percorsi di documentazione e OpenAPI sono relativi a questo indirizzo.",
+            "expose": "Esponi",
+            "preview": "URL per ambiente",
+            "no_domain": "Il progetto non è esposto su un dominio: impostalo nelle impostazioni del progetto per avere un URL in ogni ambiente.",
+            "no_environments": "Il progetto non ha ancora ambienti: l'URL di ognuno comparirà qui quando li crei.",
             "not_exposed": "Non esposto",
             "open_docs": "Documentazione API",
             "open_openapi": "Specifica OpenAPI"
@@ -2249,11 +2328,12 @@
         },
         "list": {
             "title": "Servizi",
-            "description": "Gestisci i servizi backend Docker del tuo progetto",
+            "description": "Gestisci i servizi backend e i frontend Docker del tuo progetto",
             "searchPlaceholder": "Cerca servizi...",
             "clearSearch": "Cancella la ricerca",
             "viewGrid": "Vista griglia",
             "viewTable": "Vista tabella",
+            "viewGalaxy": "Vista galassia",
             "totalCount_one": "{{count}} servizio",
             "totalCount_other": "{{count}} servizi",
             "filteredCount_one": "{{count}} di {{total}} servizio",
@@ -2263,7 +2343,10 @@
             "createFromTemplate": "Crea da un template",
             "noResultsTitle": "Nessun risultato",
             "noResultsDescription": "Nessun servizio corrisponde a «{{searchTerm}}».",
-            "open": "Apri"
+            "open": "Apri",
+            "frontendBadge": "Frontend",
+            "backendsSection": "Backend",
+            "dockerFrontendsSection": "Frontend Docker"
         },
         "env": {
             "title": "Variabili d'ambiente",
@@ -2298,7 +2381,20 @@
             "versionPlaceholder": "Inserisci la versione (es. 1.0.0)",
             "building": "Creazione...",
             "start": "Crea versione",
-            "success": "Versione avviata per {{name}}"
+            "success": "Versione avviata per {{name}}",
+            "forbidden": "Chi ha il ruolo di viewer non può creare una versione di un servizio",
+            "ref_not_found": "Il branch non esiste nel repository",
+            "repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
+        },
+        "release": {
+            "action": "Imposta release",
+            "title": "Imposta la release di {{name}}",
+            "description": "Il tag dell'immagine da deployare, già pubblicata nel registry. La pipeline la porta avanti quando registra una versione più recente.",
+            "version": "Versione",
+            "placeholder": "es. 1.0.0",
+            "save": "Imposta",
+            "saving": "Salvataggio...",
+            "success": "Release di {{name}} impostata a {{version}}"
         },
         "versions": {
             "title": "Versioni",
@@ -2333,33 +2429,108 @@
     "domains": {
         "sidebar_title": "Domini",
         "title": "Domini funzionali",
-        "description": "Raggruppa microfrontend e servizi del progetto per area funzionale",
+        "description": "Raggruppa frontend e servizi del progetto per area funzionale",
         "add_new": "Nuovo dominio",
         "empty_title": "Nessun dominio funzionale",
-        "empty_description": "Crea un dominio per raggruppare i microfrontend e i servizi che lavorano sulla stessa area funzionale.",
-        "frontend_count_one": "{{count}} microfrontend",
-        "frontend_count_other": "{{count}} microfrontend",
+        "empty_description": "Crea un dominio per raggruppare i frontend e i servizi che lavorano sulla stessa area funzionale.",
+        "search_placeholder": "Cerca domini...",
+        "clear_search": "Cancella la ricerca",
+        "no_results_title": "Nessun risultato",
+        "no_results_description": "Nessun dominio corrisponde a «{{searchTerm}}».",
+        "frontend_count_one": "{{count}} frontend",
+        "frontend_count_other": "{{count}} frontend",
         "backend_count_one": "{{count}} servizio",
         "backend_count_other": "{{count}} servizi",
         "open": "Apri",
         "delete_title": "Elimina dominio",
-        "delete_description": "Eliminare il dominio «{{name}}»? I suoi microfrontend e servizi restano, senza dominio.",
+        "delete_description": "Eliminare il dominio «{{name}}»? I suoi frontend e servizi restano, senza dominio.",
         "created_success_message": "Dominio creato",
         "updated_success_message": "Dominio aggiornato",
         "no_domain": "Senza dominio",
         "deploy": {
             "title": "Deploy di {{domain}}",
-            "description": "Scegli l'ambiente: vengono deployati solo i microfrontend e i servizi di questo dominio, gli altri domini restano con le versioni che l'ambiente serve ora. Config map e secret vengono comunque deployati come sono adesso.",
+            "description": "Scegli l'ambiente: vengono deployati solo i frontend e i servizi di questo dominio, gli altri domini restano con le versioni che l'ambiente serve ora. Config map e secret vengono comunque deployati come sono adesso.",
             "success": "{{domain}} deployato su {{environment}}"
+        },
+        "build": {
+            "action": "Crea versione",
+            "title": "Crea una versione di {{domain}}",
+            "description": "Ogni frontend e servizio del dominio con un repository di codice riceve la stessa versione, taggata sullo stesso branch: ogni tag avvia la pipeline del suo repository. Un repository condiviso da più di loro viene taggato una volta sola. Ogni repository viene verificato prima: se uno fallisce, non ne viene taggato nessuno.",
+            "result_description": "Versione {{version}} sul branch {{ref}}, repository per repository.",
+            "version": "Versione",
+            "branch": "Branch",
+            "branch_hint": "In ogni repository viene taggato lo stesso branch: main se lasciato vuoto.",
+            "start": "Crea versione",
+            "success_one": "Versione {{version}} di {{domain}} avviata in {{count}} repository",
+            "success_other": "Versione {{version}} di {{domain}} avviata in {{count}} repository",
+            "partial_one": "{{count}} repository non è stato taggato: gli altri sì",
+            "partial_other": "{{count}} repository non sono stati taggati: gli altri sì",
+            "status": {
+                "tagged": "Taggato",
+                "ready": "Non taggato",
+                "failed": "Fallito"
+            },
+            "reasons": {
+                "CONNECTION_NOT_FOUND": "La connessione al repository di codice non appartiene più a questo progetto",
+                "DOMAIN_SCOPE_FORBIDDEN": "Il repository è condiviso con un frontend o un servizio fuori dai tuoi domini",
+                "REPOSITORY_NOT_FOUND": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo",
+                "REF_NOT_FOUND": "Il branch {{ref}} non esiste in questo repository",
+                "TAG_EXISTS": "Il tag {{version}} esiste già in questo repository",
+                "PROVIDER_ERROR": "Il provider ha rifiutato la richiesta: {{message}}"
+            },
+            "errors": {
+                "version_invalid": "La versione può contenere solo lettere, cifre, punti, trattini e underscore (al massimo 128)",
+                "ref_invalid": "Il branch deve essere un nome di branch git valido (niente spazi, niente '..', nessuno di ~^:?*[\\, nessuna barra all'inizio o alla fine), al massimo 255 caratteri",
+                "empty": "Il dominio non ha frontend né servizi da buildare",
+                "no_repositories": "Nessun frontend o servizio del dominio ha un repository di codice collegato",
+                "check_failed": "Nessun repository è stato taggato: la verifica è fallita per almeno uno di essi",
+                "forbidden": "Chi ha il ruolo di viewer non può creare una versione del dominio"
+            }
+        },
+        "release": {
+            "action": "Build e deploy",
+            "title": "Build e deploy di {{domain}}",
+            "description": "Crea la versione come fa Crea versione, attende che la pipeline di ogni repository taggato la registri, la imposta come versione di quei frontend e servizi, poi esegue il deploy del dominio sull'ambiente scelto. La console va avanti anche se chiudi questa finestra.",
+            "progress_description": "Versione {{version}} dal branch {{ref}} su {{environment}}.",
+            "start": "Build e deploy",
+            "new": "Nuovo build e deploy",
+            "success": "{{domain}} {{version}} deployato su {{environment}}",
+            "failed": "Il build e deploy di {{domain}} {{version}} è fallito",
+            "untouched_hint": "I frontend e i servizi senza repository di codice restano fuori: la loro versione non cambia.",
+            "steps": {
+                "building": "Build",
+                "waiting_ci": "CI",
+                "updating_versions": "Versioni",
+                "deploying": "Deploy"
+            },
+            "kinds": {
+                "frontend": "Frontend",
+                "service": "Servizio"
+            },
+            "member_status": {
+                "untouched": "Senza repository",
+                "waiting": "In attesa della CI",
+                "built": "Buildato"
+            },
+            "errors": {
+                "running": "È già in corso un build e deploy di questo dominio",
+                "environment_invalid": "Scegli l'ambiente su cui fare il deploy",
+                "environment_not_found": "L'ambiente non appartiene a questo progetto",
+                "generic": "Il rilascio è fallito: {{message}}",
+                "DOMAIN_BUILD_CHECK_FAILED": "Nessun repository è stato taggato: la verifica è fallita per almeno uno di essi",
+                "DOMAIN_RELEASE_TAG_FAILED": "Alcuni repository non sono stati taggati, quindi il rilascio si è fermato: gli altri restano taggati",
+                "DOMAIN_RELEASE_CI_TIMEOUT": "La pipeline non ha registrato la versione {{version}} entro 60 minuti per: {{names}}",
+                "DOMAIN_RELEASE_CI_FAILED": "La pipeline del tag {{version}} è fallita per: {{names}}",
+                "DOMAIN_RELEASE_INTERRUPTED": "Il rilascio si è fermato a metà di un passo, probabilmente per un riavvio della console: controlla i deployment dell'ambiente prima di avviarlo di nuovo",
+                "DOMAIN_RELEASE_USER_UNAVAILABLE": "L'utente che ha avviato il rilascio non può più operare nella console"
+            }
         },
         "deployments": {
             "open": "Versioni deployate",
-            "title": "Versioni deployate",
-            "description": "Quale versione di ogni microfrontend e servizio del dominio gira in ciascun ambiente. Il frontend è quello del deployment attivo, il backend quello comunicato dalla pipeline di deploy.",
             "matrix_title": "Versioni deployate per dominio",
-            "matrix_description": "Per ogni dominio e ambiente, le versioni frontend del deployment attivo e le versioni backend comunicate dalla pipeline di deploy",
+            "matrix_description": "Per ogni dominio e ambiente, le versioni del deployment attivo o, se non sono nel deployment, quelle comunicate dalla pipeline di deploy",
             "matrix_empty_title": "Niente da mostrare",
-            "matrix_empty_description": "Il progetto non ha ancora domini, microfrontend o servizi",
+            "matrix_empty_description": "Il progetto non ha ancora domini, frontend o servizi",
             "back": "Torna ai domini",
             "domain": "Dominio",
             "frontend": "Frontend",
@@ -2373,8 +2544,14 @@
             "canary_without_version": "canary ({{audience}})",
             "canary_enrolled_users": "utenti abilitati",
             "no_environments": "Il progetto non ha ancora ambienti",
-            "no_members": "Il dominio non ha ancora microfrontend né servizi",
-            "no_members_short": "Nessun membro"
+            "no_members_short": "Nessun membro",
+            "search_placeholder": "Cerca per dominio, frontend o servizio...",
+            "no_results_title": "Nessun risultato",
+            "no_results_description": "Nessun dominio, frontend o servizio corrisponde a “{{searchTerm}}”.",
+            "section_title": "Versioni deployate",
+            "section_description": "Per ogni ambiente, la versione di ciascun frontend e service del dominio nel deployment attivo o, se non è nel deployment, quella riportata dalla pipeline di deploy.",
+            "member": "Frontend o service",
+            "served_by": "tramite {{name}}"
         },
         "viewCards": "Vista schede",
         "viewGalaxy": "Vista galassia",
@@ -2382,10 +2559,10 @@
             "legend_canary": "Canary attivo",
             "legend_bridge": "Collegamento tra domini",
             "recenter": "Mostra tutto",
-            "hint": "Clicca una galassia per avvicinarti e cliccala di nuovo per aprire il dominio. Clicca una stella per aprire il microfrontend o il servizio, una relazione per eliminarla. Usa la rotella per lo zoom.",
-            "summary_one": "Mappa del progetto: ogni dominio è una galassia, i suoi microfrontend e servizi sono le stelle. C'è {{count}} collegamento tra domini diversi.",
-            "summary_other": "Mappa del progetto: ogni dominio è una galassia, i suoi microfrontend e servizi sono le stelle. Ci sono {{count}} collegamenti tra domini diversi.",
-            "kind_microfrontend": "Microfrontend",
+            "hint": "Clicca una galassia per avvicinarti e cliccala di nuovo per aprire il dominio. Clicca un mondo per aprire il frontend o il servizio, una luna per aprire la sua risorsa, una relazione per eliminarla, una nave per aprire il lavoro del suo agente. Usa la rotella per lo zoom.",
+            "summary_one": "Mappa del progetto: ogni dominio è una galassia, i suoi frontend e servizi sono i mondi e le risorse collegate a un servizio gli orbitano attorno come lune. C'è {{count}} collegamento tra domini diversi.",
+            "summary_other": "Mappa del progetto: ogni dominio è una galassia, i suoi frontend e servizi sono i mondi e le risorse collegate a un servizio gli orbitano attorno come lune. Ci sono {{count}} collegamenti tra domini diversi.",
+            "kind_frontend": "Frontend",
             "kind_service": "Servizio",
             "canary": "Canary al {{percentage}}%",
             "legend_relation": "Relazione tra domini",
@@ -2403,12 +2580,36 @@
             "errors": {
                 "link_exists": "Questi domini sono già collegati in questa direzione.",
                 "link_invalid": "Questa relazione non è valida."
-            }
+            },
+            "agents_summary_one": "C'è un agente AI al lavoro, disegnato come una nave in orbita attorno al mondo su cui lavora.",
+            "agents_summary_other": "Ci sono {{count}} agenti AI al lavoro, disegnati come navi in orbita attorno ai mondi su cui lavorano.",
+            "legend_agent": "Agente al lavoro",
+            "legend_station": "Stazione di manutenzione",
+            "stations_list": "Stazioni di manutenzione sulla mappa",
+            "open_station": "Apri {{name}}, che mantiene {{world}}",
+            "station_container": "Container",
+            "station_job": "Job",
+            "station_scheduled": "parte con {{schedule}}",
+            "station_standby": "parte con Play",
+            "station_of": "Mantiene {{name}}",
+            "station_failed": "L'ultima esecuzione è fallita",
+            "agents_list": "Agenti al lavoro",
+            "open_agent": "Apri l'agente su {{names}}",
+            "kind_resource": "Risorsa",
+            "hint_backend": "Clicca una galassia per avvicinarti e cliccala di nuovo per aprire il dominio. Clicca un mondo per aprire il servizio, una luna per aprire la sua risorsa, una nave per aprire il lavoro del suo agente. Usa la rotella per lo zoom.",
+            "summary_backend": "Mappa dei servizi: ogni dominio è una galassia, i suoi servizi sono i mondi e le risorse collegate a un servizio gli orbitano attorno come lune.",
+            "legend_moon": "Risorsa collegata",
+            "moon_of": "Luna di {{name}}",
+            "moon_shared": "Usata anche da {{names}}",
+            "ship_job": "Agente al lavoro: {{prompt}}",
+            "ship_request": "Agente al lavoro su una richiesta di modifica",
+            "ship_more_one": "+{{count}} altro agente al lavoro qui",
+            "ship_more_other": "+{{count}} altri agenti al lavoro qui"
         },
         "form": {
             "create_title": "Nuovo dominio funzionale",
             "edit_title": "Modifica dominio funzionale",
-            "description": "Un dominio raggruppa microfrontend e servizi della stessa area funzionale.",
+            "description": "Un dominio raggruppa frontend e servizi della stessa area funzionale.",
             "name": "Nome",
             "name_placeholder": "Es. Pagamenti",
             "name_required": "Il nome è obbligatorio",
@@ -2434,42 +2635,7 @@
         "detail": {
             "back": "Tutti i domini",
             "frontend_title": "Frontend",
-            "frontend_description": "I microfrontend di questo dominio",
-            "frontend_empty": "Nessun microfrontend in questo dominio.",
-            "add_microfrontend": "Aggiungi microfrontend",
-            "backend_title": "Backend",
-            "backend_description": "I servizi di questo dominio",
-            "backend_empty": "Nessun servizio in questo dominio.",
-            "add_service": "Aggiungi servizio",
-            "viewOverview": "Vista panoramica",
-            "viewFlow": "Vista diagramma",
-            "viewGrid": "Vista griglia",
-            "viewTable": "Vista tabella",
-            "flow_hint": "Trascina dal punto di un microfrontend a un altro microfrontend o a un servizio per collegarli. Seleziona un collegamento e premi Canc per rimuoverlo. Doppio clic su un blocco per aprirlo."
-        },
-        "members": {
-            "create_microfrontend": "Crea nuovo microfrontend",
-            "create_service": "Crea nuovo servizio",
-            "assign_existing": "Associa esistenti",
-            "import_repository": "Importa da repository",
-            "assign_title_microfrontend": "Associa microfrontend esistenti",
-            "assign_title_service": "Associa servizi esistenti",
-            "assign_description_microfrontend": "Scegli i microfrontend del progetto da mettere in questo dominio. Quelli che sono in un altro dominio vengono spostati qui.",
-            "assign_description_service": "Scegli i servizi del progetto da mettere in questo dominio. Quelli che sono in un altro dominio vengono spostati qui.",
-            "search_placeholder": "Cerca per nome o slug...",
-            "clear_search": "Cancella la ricerca",
-            "select_all": "Seleziona tutti",
-            "selected_count": "{{count}} di {{total}} selezionati",
-            "in_domain": "In {{name}}",
-            "empty_microfrontend": "Tutti i microfrontend del progetto sono già in questo dominio.",
-            "empty_service": "Tutti i servizi del progetto sono già in questo dominio.",
-            "no_search_results": "Nessun risultato per questa ricerca.",
-            "confirm_one": "Associa {{count}}",
-            "confirm_other": "Associa {{count}}",
-            "assigned_microfrontend_one": "{{count}} microfrontend aggiunto al dominio",
-            "assigned_microfrontend_other": "{{count}} microfrontend aggiunti al dominio",
-            "assigned_service_one": "{{count}} servizio aggiunto al dominio",
-            "assigned_service_other": "{{count}} servizi aggiunti al dominio"
+            "backend_title": "Backend"
         },
         "errors": {
             "slug_taken": "Esiste già un dominio con questo nome nel progetto",
@@ -2481,8 +2647,8 @@
         "ai": {
             "open": "Modifica con AI",
             "unavailable": "La modifica con AI non è disponibile in questo progetto: l'organizzazione non ha IA che possa usare.",
-            "no_members": "Questo dominio non ha ancora microfrontend né servizi: Genera chiede prima all'AI quali servono alla tua richiesta e li crea con i loro repository quando confermi.",
-            "no_repositories": "Nessun microfrontend o servizio di questo dominio ha un repository di codice collegato: Genera propone di crearne uno per ciascuno, da un template.",
+            "no_members": "Questo dominio non ha ancora frontend né servizi: Genera chiede prima all'AI quali servono alla tua richiesta e li crea con i loro repository quando confermi.",
+            "no_repositories": "Nessun frontend o servizio di questo dominio ha un repository di codice collegato: Genera propone di crearne uno per ciascuno, da un template.",
             "planning": "L'AI sta proponendo i componenti…",
             "unlinked": "Esclusi, senza repository collegato: {{names}}",
             "too_many_title": "Troppi repository",
@@ -2492,8 +2658,8 @@
                 "plan_description": "L'AI li propone per la tua richiesta. Rivedili e modificali: ognuno viene creato in {{name}} con un nuovo repository generato dal suo template, poi l'agente implementa la richiesta su di essi.",
                 "plan_empty": "L'AI non ha proposto nulla da creare: descrivi nella richiesta cosa deve fare il dominio e riprova.",
                 "repositories_title": "Posso creare i repository?",
-                "repositories_description": "Nessun microfrontend o servizio di {{name}} ha un repository di codice su cui l'agente possa lavorare. Ciascuno di quelli selezionati riceve un nuovo repository generato dal suo template, poi l'agente implementa la richiesta su di essi.",
-                "frontends": "Frontend (microfrontend)",
+                "repositories_description": "Nessun frontend o servizio di {{name}} ha un repository di codice su cui l'agente possa lavorare. Ciascuno di quelli selezionati riceve un nuovo repository generato dal suo template, poi l'agente implementa la richiesta su di essi.",
+                "frontends": "Frontend",
                 "backends": "Backend (servizi)",
                 "include": "Crea {{name}}",
                 "field_name": "Nome",
@@ -2520,7 +2686,7 @@
                 "too_many_description": "Ne hai selezionati {{count}}, un agente lavora su al massimo {{max}} repository: selezionane meno, potrai avviare un job sugli altri in seguito.",
                 "errors": {
                     "generic": "Non è stato possibile crearlo: verifica che il nome del repository sia ancora libero presso il provider e riprova.",
-                    "MICROFRONTEND_SLUG_TAKEN": "Esiste già un microfrontend con questo slug nel progetto: scegline un altro.",
+                    "FRONTEND_SLUG_TAKEN": "Esiste già un frontend con questo slug nel progetto: scegline un altro.",
                     "SERVICE_SLUG_TAKEN": "Esiste già un servizio con questo slug nel progetto: scegline un altro.",
                     "SERVICE_SLUG_INVALID": "Lo slug non è valido: da 2 a 50 lettere minuscole, cifre o trattini.",
                     "INVALID_REPOSITORY_NAME": "Il nome del repository non è valido.",
@@ -2534,16 +2700,37 @@
         },
         "workspace": {
             "nav_label": "Sezioni del dominio",
-            "nav_structure": "Struttura"
+            "nav_overview": "Panoramica"
+        },
+        "resources": {
+            "title": "Risorse",
+            "description": "Le risorse che agganciano i service di questo dominio.",
+            "none": "Nessun service di questo dominio aggancia una risorsa.",
+            "used_by": "Usata da {{services}}",
+            "attach": {
+                "action": "Attacca risorsa",
+                "title": "Attacca una risorsa",
+                "description": "I service del dominio selezionati ricevono le sue variabili al prossimo deploy. Solo i service backend agganciano risorse: un frontend porterebbe i secret nel browser.",
+                "resource": "Risorsa",
+                "resource_placeholder": "Scegli una risorsa",
+                "services": "Service del dominio",
+                "already_attached": "Già agganciata",
+                "no_resources": "Il progetto non ha ancora risorse.",
+                "create": "Crea una risorsa",
+                "confirm_one": "Attacca a {{count}} service",
+                "confirm_other": "Attacca a {{count}} service",
+                "success_one": "{{resource}} agganciata a {{count}} service",
+                "success_other": "{{resource}} agganciata a {{count}} service"
+            }
         }
     },
     "navigation": {
         "sections": {
             "devops": "DevOps",
             "domains": "Domini funzionali",
-            "microfrontends": "Microfrontend",
-            "services": "Servizi backend",
-            "cloud": "Cloud"
+            "frontends": "Frontend",
+            "services": "Backend",
+            "maintenance": "Manutenzione"
         },
         "top_menu": "Menu del progetto"
     },
@@ -2567,7 +2754,8 @@
             "entries": {
                 "title": "Chiavi",
                 "description": "Un valore per ambiente; se vuoto, la chiave non è impostata in quell'ambiente."
-            }
+            },
+            "attach": "Aggiungi config map"
         },
         "secret": {
             "label": "Secret",
@@ -2584,7 +2772,8 @@
             "entries": {
                 "title": "Chiavi",
                 "description": "Un valore per ambiente; se vuoto, la chiave non è impostata in quell'ambiente. I valori salvati non vengono mai mostrati: lasciali così per conservarli."
-            }
+            },
+            "attach": "Aggiungi secret"
         },
         "entries": {
             "add": "Aggiungi chiave",
@@ -2614,7 +2803,12 @@
             "description": "Le mappe del progetto i cui valori il servizio riceve come variabili d'ambiente. Una stessa chiave non può arrivare da due mappe.",
             "detail_description": "Cosa riceve il servizio come variabili d'ambiente, mappa per mappa.",
             "none": "Nessuna config map o secret agganciato. Agganciali dalle impostazioni del servizio.",
-            "manage": "Gestisci"
+            "manage": "Gestisci",
+            "search_placeholder": "Cerca per nome o chiave",
+            "no_results": "Nessuna mappa corrisponde a \"{{searchTerm}}\".",
+            "all_attached": "Tutte agganciate",
+            "detach": "Sgancia {{name}}",
+            "clear_search": "Pulisci ricerca"
         },
         "danger_zone": {
             "title": "Zona pericolosa",
@@ -2749,6 +2943,727 @@
             "resource_invalid": "La risorsa non è valida: usa il nome della risorsa Azure AI Foundry, come my-foundry, non un URL.",
             "missing_fields": "Mancano alcune impostazioni obbligatorie: {{fields}}.",
             "default_conflict": "Un'altra IA è appena stata impostata come default: ricarica la pagina e riprova."
+        }
+    },
+    "fleet": {
+        "title": "Flotta",
+        "description": "Missioni AI: lo stesso compito affidato agli agenti su molte repository, a lotti.",
+        "new_mission": "Nuova missione",
+        "list_label": "Missioni",
+        "empty_title": "Nessuna missione",
+        "empty_description": "Una missione affida lo stesso compito agli agenti AI su molte repository insieme, per esempio aggiornare una dipendenza ovunque.",
+        "someone": "un utente",
+        "started_by": "Avviata da {{name}}",
+        "batch_progress": "Lotto {{current}} di {{total}}",
+        "progress_label": "{{done}} repository su {{total}} concluse",
+        "usage_label": "Costo",
+        "usage_hint": "Token usati da tutti gli agenti della missione, sommando tutti i passaggi del modello. I token letti dalla cache costano molto meno.",
+        "mode": {
+            "global": "Globale",
+            "perRepository": "Per repository",
+            "global_description": "Un agente vede le repository insieme, a lotti di 10: una modifica può attraversarle.",
+            "perRepository_description": "Un agente isolato per ogni repository, con la stessa richiesta."
+        },
+        "status": {
+            "RUNNING": "In corso",
+            "DONE": "Completata",
+            "FAILED": "Non riuscita",
+            "STOPPED": "Fermata"
+        },
+        "counts": {
+            "queued_one": "{{count}} in coda",
+            "queued_other": "{{count}} in coda",
+            "running_one": "{{count}} al lavoro",
+            "running_other": "{{count}} al lavoro",
+            "proposed_one": "{{count}} proposta",
+            "proposed_other": "{{count}} proposte",
+            "applied_one": "{{count}} applicata",
+            "applied_other": "{{count}} applicate",
+            "failed_one": "{{count}} fallita",
+            "failed_other": "{{count}} fallite",
+            "noChanges_one": "{{count}} senza modifiche",
+            "noChanges_other": "{{count}} senza modifiche",
+            "applying_one": "{{count}} in applicazione",
+            "applying_other": "{{count}} in applicazione"
+        },
+        "repository_status": {
+            "queued": "In coda",
+            "notStarted": "Non avviata",
+            "running": "Al lavoro",
+            "proposed": "Proposta",
+            "applying": "In applicazione",
+            "applied": "Applicata",
+            "failed": "Fallita",
+            "noChanges": "Senza modifiche"
+        },
+        "stop": "Ferma missione",
+        "stop_title": "Fermare la missione?",
+        "stop_description": "Gli agenti al lavoro vengono fermati e quello che hanno fatto finora viene scartato; i lotti successivi non partono. Le proposte già pronte restano da rivedere.",
+        "stopping": "Arresto in corso…",
+        "stopped_success": "Missione fermata",
+        "detail": {
+            "title": "Missione",
+            "back": "Torna alla flotta",
+            "prompt": "Richiesta",
+            "concurrency_one": "{{count}} agente in parallelo",
+            "concurrency_other": "{{count}} agenti in parallelo",
+            "batch": "Lotto {{number}} di {{total}}",
+            "batch_state": {
+                "current": "In corso",
+                "done": "Concluso",
+                "upcoming": "In attesa",
+                "not_started": "Non avviato"
+            },
+            "open_job": "Apri",
+            "open_job_label": "Apri nell'assistente il job di {{name}}"
+        },
+        "new": {
+            "title": "Nuova missione",
+            "description": "Lo stesso compito su molte repository. Gli agenti propongono le modifiche da rivedere: non viene pubblicato nulla finché non le applichi.",
+            "prompt_label": "Cosa vuoi cambiare?",
+            "prompt_placeholder": "es. Aggiorna axios all'ultima versione 1.x e sistema gli usi deprecati",
+            "prompt_required": "Descrivi la modifica che vuoi",
+            "mode_label": "Modalità",
+            "repositories_label": "Repository",
+            "all": "Tutte le repository ({{count}})",
+            "search_placeholder": "Cerca una repository",
+            "search_clear": "Cancella la ricerca",
+            "no_results": "Nessuna repository corrisponde alla ricerca.",
+            "select_group": "Seleziona tutte le repository di {{name}}",
+            "selected_count_one": "{{count}} repository selezionata, al massimo {{max}}.",
+            "selected_count_other": "{{count}} repository selezionate, al massimo {{max}}.",
+            "selection_required": "Seleziona almeno una repository",
+            "too_many": "Hai scelto {{count}} repository: una missione ne può avere al massimo {{max}}.",
+            "batches_global": "Con più di {{size}} repository l'agente le vede a lotti di {{size}} ({{batches}} lotti, uno dopo l'altro): una modifica non può attraversare repository di lotti diversi.",
+            "batches_per_repository": "Le repository vengono lavorate a lotti di {{size}}, uno dopo l'altro: {{batches}} lotti.",
+            "concurrency_label": "Agenti in parallelo",
+            "concurrency_hint": "Quanti agenti lavorano insieme dentro un lotto, da {{min}} a {{max}}.",
+            "concurrency_invalid": "Indica un numero intero da {{min}} a {{max}}",
+            "start": "Avvia missione",
+            "started": "Missione avviata"
+        },
+        "errors": {
+            "load": "Impossibile caricare le missioni.",
+            "create": "Impossibile avviare la missione.",
+            "stop": "Impossibile fermare la missione.",
+            "apply": "Impossibile applicare le proposte della missione.",
+            "AI_MISSION_TOO_MANY_REPOSITORIES": "Una missione può lavorare al massimo su 200 repository: riduci la selezione.",
+            "AI_MISSION_NOT_RUNNING": "La missione è già finita.",
+            "AI_MISSION_INVALID_SELECTION": "Scegli tutte le repository oppure una selezione, non entrambe.",
+            "AI_CHANGE_TOO_MANY": "Ci sono troppi job o missioni in corso in questo progetto: attendi che uno finisca.",
+            "DOMAIN_SCOPE_FORBIDDEN": "Alcune repository sono fuori dai domini a cui hai accesso.",
+            "AI_JOB_NOT_OWNER": "Solo chi ha avviato questa missione, o un amministratore dell'organizzazione, può farlo.",
+            "AI_MISSION_EMPTY_PROMPT": "Scrivi cosa devono fare gli agenti."
+        },
+        "applying_label_one": "Applicazione di {{count}} proposta…",
+        "applying_label_other": "Applicazione di {{count}} proposte…"
+    },
+    "designSystem": {
+        "settings": {
+            "title": "Design system",
+            "subtitle": "La libreria UI con cui si costruiscono i frontend del progetto, salvo quelli che ne scelgono una propria.",
+            "details": "Utenti e agenti AI (client MCP, assistente, Modifica con AI) costruiscono la UI di ogni frontend con questo pacchetto. Il .npmrc viene salvato così come lo incolli, perché il team possa installare il pacchetto: gli agenti lo leggono con tutte le credenziali mascherate (token, password, username, email, certificati) e restano leggibili solo le righe dei registry. Disattiva il design system del progetto per tornare a quello dell'organizzazione.",
+            "override": "Usa un design system specifico per il progetto",
+            "overrideHint": "Se disattivato, il progetto eredita il design system dell'organizzazione.",
+            "inherited": "Eredita dall'organizzazione: {{packageName}}",
+            "noOrganizationDefault": "L'organizzazione non definisce un design system: un suo amministratore può impostarlo nelle impostazioni dell'organizzazione.",
+            "saved": "Design system salvato",
+            "save_failed": "Non è stato possibile salvare il design system"
+        },
+        "organization": {
+            "title": "Design system",
+            "subtitle": "La libreria UI con cui si costruiscono i frontend di ogni progetto che non ne sceglie una propria.",
+            "details": "Ogni progetto può sostituirlo con il proprio, e ogni frontend con il suo: vale il più specifico. Il .npmrc viene salvato così come lo incolli; gli agenti AI lo leggono con le credenziali mascherate. Lascia vuoto il pacchetto per togliere il design system.",
+            "none": "L'organizzazione non definisce un design system.",
+            "adminOnly": "Solo gli amministratori dell'organizzazione possono modificarlo.",
+            "docs": "Documentazione",
+            "saved": "Design system dell'organizzazione salvato",
+            "save_failed": "Non è stato possibile salvare il design system dell'organizzazione"
+        },
+        "fields": {
+            "packageName": "Pacchetto npm",
+            "packageNameHint": "es. @acme/ui",
+            "packageNameRequired": "Indica il pacchetto npm del design system",
+            "packageNameInvalid": "Non è un nome di pacchetto npm valido",
+            "version": "Versione",
+            "versionHint": "Un range semver, es. ^3.2.0",
+            "docsUrl": "URL della documentazione",
+            "docsUrlInvalid": "Inserisci un URL http(s)",
+            "npmrc": ".npmrc",
+            "npmrcHint": "Il contenuto del .npmrc con cui si installa il pacchetto. Gli agenti AI lo leggono con le credenziali mascherate.",
+            "notes": "Note per gli agenti AI",
+            "notesPlaceholder": "Importa i componenti da @acme/ui, usa i suoi token, niente colori CSS scritti a mano.",
+            "notesHint": "Markdown: come gli agenti devono usare il design system."
+        },
+        "frontend": {
+            "title": "Design system",
+            "subtitle": "La libreria UI con cui è costruito questo frontend.",
+            "override": "Usa un design system proprio",
+            "overrideHint": "Se disattivato, il frontend usa il design system del progetto o, se il progetto non ne ha uno, quello dell'organizzazione.",
+            "inherited": "Eredita dal progetto: {{packageName}}",
+            "inheritedFromOrganization": "Eredita dall'organizzazione: {{packageName}}",
+            "noProjectDefault": "Né il progetto né l'organizzazione hanno un design system: impostalo nelle impostazioni del progetto o dell'organizzazione."
+        }
+    },
+    "technologies": {
+        "names": {
+            "REACT": "React",
+            "VUE": "Vue",
+            "ANGULAR": "Angular",
+            "NODE": "Node.js",
+            "PYTHON": "Python",
+            "SPRING_BOOT": "Spring Boot",
+            "QUARKUS": "Quarkus",
+            "MICRONAUT": "Micronaut",
+            "GO": "Go",
+            "DOTNET": ".NET"
+        },
+        "settings": {
+            "title": "Tecnologie di default",
+            "subtitle": "Lo stack con cui il progetto crea di solito frontend e servizi.",
+            "details": "Quando crei un frontend o un servizio, i template di queste tecnologie vengono proposti per primi e preselezionati; gli agenti AI le usano come stack di riferimento. Non vincolano niente: puoi sempre scegliere un altro template o un'altra tecnologia.",
+            "frontend_label": "Frontend",
+            "frontend_hint": "Il framework proposto per i nuovi frontend.",
+            "backend_label": "Backend",
+            "backend_hint": "Il framework proposto per i nuovi servizi. Micronaut non ha ancora un template: gli agenti lo useranno comunque, mentre lo scaffolding parte dal template più vicino.",
+            "none": "Nessuna",
+            "saved": "Tecnologie di default aggiornate",
+            "save_failed": "Impossibile aggiornare le tecnologie di default"
+        },
+        "recommended": "Consigliato",
+        "recommended_title": "Usa la tecnologia di default del progetto",
+        "templates_hint": "I template con le tecnologie di default del progetto sono in cima e segnati come consigliati: tutti gli altri restano disponibili.",
+        "clear_template": "Nessun template",
+        "header": {
+            "frontend": "Frontend di default: {{name}}",
+            "backend": "Backend di default: {{name}}"
+        }
+    },
+    "resources": {
+        "label": "Risorsa",
+        "list_title": "Risorse",
+        "list_description": "Pacchetti di variabili di un tipo noto (un database, uno storage, un'API esterna...) che i backend service ricevono come variabili d'ambiente. La piattaforma dà il nome alle variabili e tiene cifrate le credenziali. Una risorsa appartiene al progetto: la possono agganciare quanti service servono.",
+        "add_new": "Nuova risorsa",
+        "form_description": "Un valore per tutti gli ambienti, e un altro per gli ambienti che ne hanno bisogno. Le credenziali sono cifrate e, una volta salvate, non vengono più mostrate.",
+        "empty_title": "Ancora nessuna risorsa",
+        "empty_description": "Creane una, poi agganciala ai backend service che ne hanno bisogno.",
+        "created": "Risorsa creata",
+        "updated": "Risorsa aggiornata",
+        "general_information": "Informazioni generali",
+        "name": "Nome",
+        "name_hint": "Lettere minuscole, cifre e trattini: dà il nome alle variabili, es. orders-db diventa DB_ORDERS_DB_HOST.",
+        "name_invalid": "Al massimo 63 lettere minuscole, cifre o trattini, che iniziano e finiscono con una lettera o una cifra",
+        "description": "Descrizione",
+        "description_placeholder": "Che cos'è questa risorsa e chi la usa",
+        "description_invalid": "Al massimo 2000 caratteri",
+        "type": "Tipo",
+        "type_locked": "Una risorsa non cambia tipo: per un tipo diverso creane un'altra.",
+        "variant": "Variante",
+        "variant_hint": "Come la si raggiunge. Cambiandola si perdono i valori dei campi che la nuova variante non ha.",
+        "env_prefix": "Prefisso delle variabili",
+        "env_prefix_hint": "Vuoto: derivato dal tipo e dal nome. Lettere maiuscole, cifre e underscore.",
+        "env_prefix_invalid": "Solo lettere maiuscole, cifre e underscore, senza iniziare con una cifra",
+        "gitops_hint": "I valori arrivano ai container con i deploy GitOps: una modifica vale dal prossimo deploy dell'ambiente.",
+        "list": {
+            "search_placeholder": "Cerca per nome, tipo, variabile o service",
+            "clear_search": "Cancella ricerca",
+            "keys": "Variabili",
+            "no_results_title": "Nessun risultato",
+            "no_results_description": "Nessun elemento corrisponde a \"{{searchTerm}}\"."
+        },
+        "keys": {
+            "title": "Variabili d'ambiente",
+            "description": "Quello che ricevono i service che la agganciano. I nomi seguono il nome, il prefisso e la variante.",
+            "key": "Variabile",
+            "secret": "Segreta",
+            "fixed": "Fissa"
+        },
+        "values": {
+            "title": "Valori",
+            "description": "Un valore per tutti gli ambienti; gli ambienti che ne vogliono un altro lo sovrascrivono.",
+            "none": "Questa variante non ha campi.",
+            "all_environments": "Tutti gli ambienti",
+            "not_set": "Non impostato",
+            "secret_keep": "Impostato: lascia vuoto per mantenerlo",
+            "set": "Impostato",
+            "unset": "Non impostato",
+            "optional": "Facoltativo",
+            "true": "Sì",
+            "false": "No",
+            "clear_value": "Cancella valore",
+            "clear_secret": "Rimuovi il valore salvato",
+            "clear_secret_in": "Rimuovi il valore salvato in {{environment}}",
+            "overrides_one": "Valori per ambiente ({{count}} override)",
+            "overrides_other": "Valori per ambiente ({{count}} override)",
+            "overrides_hint": "Vuoto: l'ambiente prende il valore di tutti gli ambienti.",
+            "required": "Obbligatorio: dagli un valore per tutti gli ambienti, o uno in ciascuno",
+            "port_invalid": "Una porta, da 1 a 65535",
+            "url_invalid": "Un URL assoluto http o https",
+            "email_invalid": "Un indirizzo email",
+            "too_long": "Al massimo 32768 caratteri",
+            "no_value_for_all": "Nessun valore per tutti gli ambienti: gli ambienti aggiunti in seguito non riceveranno questa variabile",
+            "retype_required": "Digitala di nuovo: il punto a cui si collega la risorsa è cambiato",
+            "secret_retype": "Digitala di nuovo"
+        },
+        "options": {
+            "in": {
+                "header": "Header",
+                "query": "Query string"
+            },
+            "security": {
+                "none": "Nessuna",
+                "starttls": "STARTTLS",
+                "tls": "TLS"
+            }
+        },
+        "api_spec": {
+            "title": "Documento dell'API",
+            "description": "Il documento Swagger/OpenAPI dell'API, per quando il suo URL non è raggiungibile. Resta nella piattaforma: non è mai una variabile d'ambiente.",
+            "present": "Documento salvato ({{size}})",
+            "none": "Nessun documento salvato",
+            "upload": "Carica file",
+            "download": "Scarica",
+            "remove": "Rimuovi documento",
+            "removed": "Il documento salvato verrà rimosso al salvataggio.",
+            "undo_remove": "Annulla",
+            "label": "Documento OpenAPI (JSON o YAML)",
+            "placeholder": "Incolla qui il documento, o caricalo da un file .json, .yaml o .yml",
+            "hint": "Al massimo {{max}}.",
+            "hint_replace": "Vuoto mantiene il documento salvato; uno nuovo lo sostituisce. Al massimo {{max}}.",
+            "typed_size": "Dimensione: {{size}}",
+            "too_large": "Il documento supera {{max}}",
+            "read_failed": "Impossibile leggere il file",
+            "download_failed": "Non è stato possibile scaricare il documento"
+        },
+        "used_by": {
+            "title": "Usata da",
+            "description": "I backend service che ricevono queste variabili.",
+            "none": "Nessun service"
+        },
+        "attach": {
+            "title": "Risorse",
+            "description": "Le risorse del progetto di cui il service riceve le variabili. Nessuna delle loro variabili può essere impostata anche da una map agganciata.",
+            "detail_description": "Quello che il service riceve dalle sue risorse, ambiente per ambiente. Le credenziali non vengono mai mostrate.",
+            "none": "Nessuna risorsa agganciata. Agganciale dalle impostazioni del service.",
+            "manage": "Gestisci",
+            "add": "Aggiungi risorsa",
+            "search_placeholder": "Cerca per nome, tipo o variabile",
+            "no_results": "Nessuna risorsa corrisponde a \"{{searchTerm}}\".",
+            "all_attached": "Tutte agganciate",
+            "detach": "Sgancia {{name}}",
+            "clear_search": "Cancella ricerca"
+        },
+        "danger_zone": {
+            "title": "Zona pericolosa",
+            "subtitle": "Azioni irreversibili su questa risorsa",
+            "action_title": "Elimina la risorsa",
+            "action_description": "Rimuove la risorsa e tutti i suoi valori.",
+            "in_use": "Sganciala da ogni service che la usa prima di eliminarla.",
+            "button": "Elimina",
+            "success": "Risorsa eliminata",
+            "dialog": {
+                "title": "Elimina risorsa",
+                "warning": "Questa azione non può essere annullata",
+                "description": "Stai per eliminare {{name}} e tutti i suoi valori.",
+                "confirmation": "Digita {{name}} per confermare"
+            }
+        },
+        "errors": {
+            "name_taken": "Esiste già una risorsa con questo nome nel progetto",
+            "name_invalid": "Al massimo 63 lettere minuscole, cifre o trattini, che iniziano e finiscono con una lettera o una cifra",
+            "description_invalid": "Al massimo 2000 caratteri",
+            "type_invalid": "Questo tipo di risorsa non esiste",
+            "type_immutable": "Una risorsa non cambia tipo: creane un'altra",
+            "variant_invalid": "Questa variante non esiste per il tipo",
+            "field_unknown": "Un campo non fa parte della variante: ricarica la pagina",
+            "value_invalid": "Un valore non è valido per il suo campo",
+            "value_required": "Un campo obbligatorio ha bisogno di un valore in ogni ambiente",
+            "secret_value_required": "Una credenziale salvata non c'è più: digitala di nuovo",
+            "environment_unknown": "Un valore si riferisce a un ambiente che non esiste più: ricarica la pagina",
+            "env_prefix_invalid": "Il prefisso non è valido, o produce una variabile che la piattaforma imposta su ogni container (HTTP_PORT)",
+            "api_spec_invalid": "Il documento non è un documento Swagger/OpenAPI valido in JSON o YAML, o supera 5 MiB",
+            "in_use": "È ancora agganciata a {{services}}: sganciala prima",
+            "resource_unknown": "Una delle risorse selezionate non esiste più: ricarica la pagina",
+            "fields_invalid": "I valori della risorsa non sono nella forma inviata dalla console: ricarica la pagina",
+            "environment_duplicated": "Un campo ha più di un valore per lo stesso ambiente",
+            "resources_invalid": "Le risorse del servizio devono essere una lista di al massimo 50",
+            "secret_reentry_required": "Il punto a cui si collega la risorsa è cambiato: digita di nuovo {{secrets}}, i valori salvati non vengono inviati al nuovo indirizzo"
+        },
+        "types": {
+            "database": {
+                "label": "Database",
+                "description": "Un database esterno: per host e credenziali, per stringa di connessione, o su Azure SQL con Entra ID."
+            },
+            "storage": {
+                "label": "Storage",
+                "description": "Un bucket o un container di object storage su AWS, Azure o Google Cloud."
+            },
+            "redis": {
+                "label": "Redis",
+                "description": "Un server Redis, per cache, code e sessioni."
+            },
+            "serviceAccount": {
+                "label": "Service account",
+                "description": "Credenziali con cui un service chiama un altro sistema a nome proprio."
+            },
+            "auth0": {
+                "label": "Auth0",
+                "description": "Un'applicazione Auth0: dominio, client e audience."
+            },
+            "api": {
+                "label": "API esterna",
+                "description": "Un'API HTTP descritta da Swagger/OpenAPI, con il modo di autenticarsi."
+            },
+            "ai": {
+                "label": "Provider AI",
+                "description": "Un provider LLM che il service chiama: API key e modello."
+            },
+            "smtp": {
+                "label": "Email (SMTP)",
+                "description": "Un server SMTP attraverso cui il service invia email."
+            }
+        },
+        "variants": {
+            "database": {
+                "credentials": "Host e credenziali",
+                "connectionString": "Stringa di connessione",
+                "azureAad": "Azure SQL, app Entra ID",
+                "azureManagedIdentity": "Azure SQL, managed identity"
+            },
+            "storage": {
+                "aws": "AWS S3",
+                "azureConnectionString": "Azure, stringa di connessione",
+                "azureSharedKey": "Azure, chiave condivisa",
+                "azureAad": "Azure, app Entra ID",
+                "google": "Google Cloud Storage"
+            },
+            "redis": {
+                "credentials": "Host e credenziali",
+                "connectionString": "URL di connessione"
+            },
+            "serviceAccount": {
+                "jsonKey": "Chiave JSON",
+                "clientCredentials": "Client credentials"
+            },
+            "auth0": {
+                "default": "Applicazione"
+            },
+            "api": {
+                "none": "Nessuna autenticazione",
+                "basic": "Basic auth",
+                "apiKey": "API key",
+                "bearer": "Bearer token",
+                "oauth2ClientCredentials": "OAuth2 client credentials"
+            },
+            "ai": {
+                "anthropic": "Anthropic",
+                "openai": "OpenAI",
+                "google": "Google Gemini",
+                "azureOpenai": "Azure OpenAI"
+            },
+            "smtp": {
+                "credentials": "Con autenticazione",
+                "noAuth": "Relay senza autenticazione"
+            }
+        },
+        "fields": {
+            "engine": "Motore",
+            "host": "Host",
+            "port": "Porta",
+            "database": "Nome del database",
+            "username": "Utente",
+            "password": "Password",
+            "ssl": "SSL",
+            "connectionString": "Stringa di connessione",
+            "region": "Regione",
+            "bucketName": "Bucket",
+            "accessKeyId": "Access key ID",
+            "secretAccessKey": "Secret access key",
+            "containerName": "Container",
+            "accountName": "Nome dell'account",
+            "accountKey": "Chiave dell'account",
+            "tenantId": "Tenant ID",
+            "clientId": "Client ID",
+            "clientSecret": "Client secret",
+            "jsonKey": "Chiave JSON",
+            "url": "URL di connessione",
+            "tls": "TLS",
+            "tokenUrl": "URL del token",
+            "scope": "Scope",
+            "domain": "Dominio",
+            "audience": "Audience",
+            "baseUrl": "URL di base",
+            "specUrl": "URL del documento OpenAPI",
+            "in": "API key inviata in",
+            "name": "Nome dell'API key",
+            "apiKey": "API key",
+            "token": "Token",
+            "model": "Modello",
+            "organization": "Organizzazione",
+            "endpoint": "Endpoint",
+            "deployment": "Deployment",
+            "apiVersion": "Versione dell'API",
+            "security": "Sicurezza della connessione",
+            "from": "Indirizzo mittente",
+            "fromName": "Nome mittente",
+            "schema": "Schema"
+        },
+        "retype": {
+            "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"
+        }
+    },
+    "ai_usage": {
+        "title": "Token AI",
+        "description": {
+            "domain": "Spesi da Modifica con AI sulle richieste fatte da questo dominio.",
+            "frontend": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
+            "service": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
+            "project": "Spesi sull'intero progetto da Modifica con AI e da Maestro.",
+            "organization": "Spesi da tutti i progetti dell'organizzazione, Modifica con AI e Maestro insieme."
+        },
+        "period": {
+            "label": "Periodo",
+            "30d": "Ultimi 30 giorni",
+            "month": "Questo mese",
+            "90d": "Ultimi 90 giorni",
+            "all": "Sempre"
+        },
+        "input": "Token in input",
+        "input_hint": "Tutti i token in input, compresi quelli letti dalla cache.",
+        "cached": "Dalla cache",
+        "cached_hint": "La parte dell'input letta dalla cache del prompt: costa molto meno.",
+        "output": "Token in output",
+        "columns": {
+            "source": "Funzionalità",
+            "project": "Progetto"
+        },
+        "sources": {
+            "agent": "Modifica con AI",
+            "assistant": "Maestro"
+        },
+        "deleted_project": "Progetto eliminato",
+        "since": "Conteggiati dal {{date}}.",
+        "since_start": "Conteggiati da quando l'uso dell'AI viene registrato.",
+        "empty": "Nessun token AI registrato in questo periodo. L'uso è conteggiato dal rilascio di questa funzionalità in poi.",
+        "errors": {
+            "load": "Non è stato possibile caricare l'uso dell'AI."
+        }
+    },
+    "maintenance": {
+        "sidebar_title": "Agenti di manutenzione",
+        "back": "Torna agli agenti di manutenzione",
+        "nav_label": "Sezioni dell'agente di manutenzione",
+        "nav_overview": "Panoramica",
+        "nav_settings": "Impostazioni",
+        "add_new": "Nuovo agente di manutenzione",
+        "add_new_description": "Un agente che tiene in forma servizi e frontend: si costruisce e si rilascia come un servizio, gira a orari stabiliti o quando premi Play.",
+        "created_success_message": "Agente di manutenzione creato",
+        "updated_success_message": "Agente di manutenzione aggiornato",
+        "general_information": "Informazioni generali",
+        "general_information_description": "Come si chiama l'agente, che cos'è e dove sta.",
+        "template": "Template",
+        "template_hint": "L'agente nasce dagli stessi template dei servizi backend.",
+        "name_placeholder": "Es. Pulizia cache",
+        "slug_placeholder": "es. pulizia-cache",
+        "description_placeholder": "Che cosa fa l'agente quando gira",
+        "context_placeholder": "Note per gli agenti AI che lavorano sul codice di questo agente",
+        "port_invalid": "Inserisci una porta tra 0 e 65535",
+        "run_path": "Percorso di esecuzione",
+        "run_path_hint": "L'endpoint chiamato con una POST a ogni esecuzione dell'agente.",
+        "tabs": {
+            "general": "Generale",
+            "schedule": "Pianificazione e obiettivi",
+            "runtime": "Runtime",
+            "variables": "Variabili",
+            "repository": "Repository",
+            "danger": "Zona pericolosa"
+        },
+        "kind": {
+            "label": "Tipo",
+            "container": "Container",
+            "job": "Job",
+            "container_description": "Sempre acceso, come un servizio: ogni esecuzione chiama il suo percorso di esecuzione.",
+            "job_description": "Un job Docker che parte, fa il suo lavoro ed esce."
+        },
+        "status": {
+            "label": "Stato",
+            "failed": "Ultima esecuzione fallita",
+            "recent": "Appena eseguito",
+            "scheduled": "Pianificato",
+            "standby": "In attesa"
+        },
+        "schedule": {
+            "label": "Pianificazione",
+            "title": "Pianificazione",
+            "description": "Quando l'agente parte da solo. Senza pianificazione parte solo quando qualcuno preme Play.",
+            "manual_only": "Solo manuale",
+            "mode_manual": "Manuale",
+            "mode_manual_hint": "Solo quando avviato con Play",
+            "mode_hourly": "Ogni ora",
+            "mode_daily": "Ogni giorno",
+            "mode_weekly": "Ogni settimana",
+            "mode_custom": "Personalizzata",
+            "mode_custom_hint": "Qualsiasi espressione cron",
+            "cron": "Espressione cron",
+            "cron_hint": "Cinque campi (minuto ora giorno mese giorno-della-settimana) oppure @hourly, @daily, @weekly, @monthly.",
+            "cron_required": "Inserisci un'espressione cron",
+            "cron_invalid": "Usa cinque campi (minuto ora giorno mese giorno-della-settimana) oppure @hourly, @daily, @weekly, @monthly",
+            "custom_preview": "Parte {{description}}.",
+            "custom_preview_raw": "come scritto",
+            "time_zone": "Fuso orario",
+            "time_zone_hint": "Nome IANA, es. Europe/Rome. Vuoto: il fuso orario del cluster.",
+            "time_zone_invalid": "Fuso orario sconosciuto: usa un nome IANA come Europe/Rome",
+            "describe": {
+                "every_minute": "ogni minuto",
+                "every_n_minutes_one": "ogni minuto",
+                "every_n_minutes_other": "ogni {{count}} minuti",
+                "hourly": "ogni ora",
+                "hourly_at": "ogni ora al minuto {{minute}}",
+                "every_n_hours_one": "ogni ora",
+                "every_n_hours_other": "ogni {{count}} ore",
+                "daily": "ogni giorno alle {{time}}",
+                "weekdays": "dal lunedì al venerdì alle {{time}}",
+                "weekly": "ogni {{day}} alle {{time}}",
+                "monthly": "il giorno {{day}} di ogni mese alle {{time}}"
+            },
+            "short": {
+                "manual": "manuale",
+                "every_minute": "ogni min",
+                "every_n_minutes_one": "ogni min",
+                "every_n_minutes_other": "ogni {{count}} min",
+                "hourly": "ogni ora",
+                "hourly_at": "ogni ora :{{minute}}",
+                "every_n_hours_one": "ogni ora",
+                "every_n_hours_other": "ogni {{count}} h",
+                "daily": "ogni gg {{time}}",
+                "weekdays": "lun–ven {{time}}",
+                "weekly": "{{day}} {{time}}",
+                "monthly": "giorno {{day}} {{time}}"
+            }
+        },
+        "runtime": {
+            "container_description": "L'immagine da cui parte l'agente, la porta su cui ascolta, le sue probe e l'endpoint chiamato a ogni esecuzione.",
+            "job_description": "L'immagine da cui parte il job. Un job non ha porta né probe: parte ed esce."
+        },
+        "targets": {
+            "title": "In manutenzione",
+            "description": "I backend e i frontend di cui si occupa questo agente.",
+            "form_description": "I backend e i frontend di cui si occupa questo agente: uno o più per tipo, oppure nessuno.",
+            "services": "Servizi backend",
+            "frontends": "Frontend",
+            "none": "Nessuno",
+            "no_options": "Ancora niente da scegliere in questo progetto.",
+            "add": "Aggiungi",
+            "all_added": "Tutti aggiunti",
+            "remove": "Rimuovi {{name}}",
+            "search_placeholder": "Cerca per nome o slug",
+            "clear_search": "Cancella la ricerca",
+            "no_results": "Nessun risultato per «{{searchTerm}}».",
+            "summary": "Si occupa di {{services}} e {{frontends}}",
+            "services_count_one": "{{count}} backend",
+            "services_count_other": "{{count}} backend",
+            "frontends_count_one": "{{count}} frontend",
+            "frontends_count_other": "{{count}} frontend"
+        },
+        "run": {
+            "action": "Play",
+            "action_named": "Esegui ora {{name}}",
+            "title": "Esegui {{name}}",
+            "description_job": "Il job parte ora nell'ambiente che scegli, come lo farebbe partire la sua pianificazione.",
+            "description_container": "L'agente viene chiamato ora su {{path}}, nell'ambiente che scegli.",
+            "environment": "Ambiente",
+            "environment_required": "Scegli un ambiente",
+            "no_environments": "Il progetto non ha ancora ambienti.",
+            "start": "Esegui ora",
+            "starting": "Avvio...",
+            "started": "{{name}} avviato in {{environment}}",
+            "refused": "{{name}} non è partito in {{environment}}: {{error}}"
+        },
+        "runs": {
+            "title": "Esecuzioni",
+            "description": "Le ultime esecuzioni avviate a mano, dalla più recente.",
+            "date": "Data",
+            "environment": "Ambiente",
+            "trigger": "Avviata da",
+            "trigger_manual": "Play",
+            "status": "Stato",
+            "status_started": "Avviata",
+            "status_failed": "Fallita",
+            "error": "Errore",
+            "empty": "Ancora nessuna esecuzione.",
+            "last_run": "Ultima esecuzione",
+            "never": "Mai"
+        },
+        "configuration": {
+            "title": "Configurazione",
+            "description": "Come gira l'agente e che cosa si aspetta."
+        },
+        "list": {
+            "title": "Agenti di manutenzione",
+            "description": "Gli agenti che tengono in forma i tuoi backend e frontend, a orari stabiliti o su richiesta.",
+            "searchPlaceholder": "Cerca agenti...",
+            "clearSearch": "Cancella la ricerca",
+            "totalCount_one": "{{count}} agente",
+            "totalCount_other": "{{count}} agenti",
+            "filteredCount_one": "{{count}} di {{total}} agente",
+            "filteredCount_other": "{{count}} di {{total}} agenti",
+            "viewRoom": "Vista sala manutenzione",
+            "viewGrid": "Vista griglia",
+            "viewTable": "Vista tabella",
+            "emptyTitle": "Nessun agente di manutenzione",
+            "emptyDescription": "Crea un agente che pulisce, controlla o migra i tuoi servizi e frontend, a orari stabiliti o quando premi Play.",
+            "noResultsTitle": "Nessun risultato",
+            "noResultsDescription": "Nessun agente corrisponde a «{{searchTerm}}».",
+            "open": "Apri"
+        },
+        "bay": {
+            "number": "BAIA {{number}}",
+            "window_caption_one": "{{count}} mondo in manutenzione",
+            "window_caption_other": "{{count}} mondi in manutenzione",
+            "no_worlds": "Ancora nessun mondo in manutenzione",
+            "empty_deck": "Nessun agente attraccato qui.",
+            "targets_one": "{{count}} mondo",
+            "targets_other": "{{count}} mondi",
+            "open_agent": "{{name}}, {{kind}}, {{status}}, {{schedule}}: apri l'agente",
+            "open_service": "Apri il servizio {{name}}",
+            "open_frontend": "Apri il frontend {{name}}",
+            "legend_container": "Drone container",
+            "legend_job": "Navetta job",
+            "legend_scheduled": "Pianificato",
+            "legend_standby": "In attesa, solo manuale",
+            "legend_failed": "Ultima esecuzione fallita",
+            "legend_recent": "Appena eseguito",
+            "legend_beam": "In manutenzione",
+            "legend_canister": "Risorsa collegata",
+            "hint": "Punta una baia per illuminare i mondi di cui si occupa, o un mondo per vedere chi lo cura. Clicca per aprire, Play per eseguire subito.",
+            "summary_one": "Sala manutenzione: {{count}} agente attraccato, che si occupa di {{worlds}} servizi e frontend.",
+            "summary_other": "Sala manutenzione: {{count}} agenti attraccati, che si occupano di {{worlds}} servizi e frontend."
+        },
+        "dangerZone": {
+            "title": "Zona pericolosa",
+            "subtitle": "Azioni irreversibili su questo agente",
+            "action_title": "Elimina l'agente",
+            "action_description": "Rimuove l'agente, le sue versioni e le sue esecuzioni dalla console. Il repository non viene toccato.",
+            "button": "Elimina agente",
+            "success": "Agente di manutenzione eliminato",
+            "dialog": {
+                "title": "Elimina agente di manutenzione",
+                "warning": "Questa azione non si può annullare",
+                "description": "Stai per eliminare l'agente di manutenzione {{name}}.",
+                "confirmation": "Scrivi {{name}} per confermare",
+                "confirm": "Elimina"
+            }
+        },
+        "errors": {
+            "slug_taken": "Un altro agente di manutenzione del progetto usa già questo slug.",
+            "slug_invalid": "Lo slug può contenere solo lettere minuscole, numeri e trattini (da 2 a 50 caratteri).",
+            "schedule_invalid": "La pianificazione non è un'espressione cron valida.",
+            "timezone_invalid": "Il fuso orario non è un nome IANA valido.",
+            "invalid": "L'agente di manutenzione non è valido: controlla i suoi campi.",
+            "target_invalid": "Uno dei servizi o frontend di cui si occupa non esiste più in questo progetto.",
+            "not_deployed": "L'agente non è ancora rilasciato in questo ambiente: dagli una versione e fai prima il deploy.",
+            "run_forbidden": "Chi ha accesso in sola lettura non può eseguire gli agenti di manutenzione.",
+            "argocd_not_configured": "Argo CD non è configurato per questo progetto: configuralo nelle impostazioni per eseguire gli agenti."
         }
     }
 }

@@ -23,7 +23,7 @@ export interface McpSession {
 
 /**
  * What one tool call runs with. For a project tool the principal is narrowed to the single project
- * the call picked (`projectId`), so every id the tool receives (microfrontend, environment,
+ * the call picked (`projectId`), so every id the tool receives (frontend, environment,
  * deployment...) is verified against that project by the services. Organization tools get the
  * whole session and an empty `projectId`.
  */

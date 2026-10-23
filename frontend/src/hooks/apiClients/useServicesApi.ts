@@ -1,5 +1,6 @@
-import useApiClient, { IClientRequestMetadataExtended } from "../useApiClient"
-import type { CreateMemberRepositoryDTO, Microfrontend } from "./useMicrofrontendsApi"
+import { useTranslation } from "react-i18next"
+import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
+import type { CreateMemberRepositoryDTO, Frontend } from "./useFrontendsApi"
 
 export enum ServiceRuntime {
     NODE = "NODE",
@@ -17,14 +18,8 @@ export interface ServiceEnvVariable {
     description?: string
 }
 
-/** Where the service answers in one environment: the base its docs and OpenAPI paths are relative to */
-export interface ServiceUrl {
-    environmentId: string
-    url: string
-}
-
-/** Same shape as the microfrontend repository link: the backend reuses the subdocument. */
-export type ServiceCodeRepository = Microfrontend["codeRepository"]
+/** Same shape as the frontend repository link: the backend reuses the subdocument. */
+export type ServiceCodeRepository = Frontend["codeRepository"]
 
 export interface Service {
     _id?: string
@@ -44,7 +39,7 @@ export interface Service {
         source?: string
         detectedAt?: Date
     }
-    /** Latest registered version */
+    /** Latest registered version, or the one set by hand: the tag of the image deployed */
     version?: string
     codeRepository?: ServiceCodeRepository
     image?: {
@@ -61,18 +56,18 @@ export interface Service {
     exposurePath?: string | null
     /** The OpenAPI spec; blank or null when the service has none */
     openApiPath?: string | null
-    /** One per environment it is exposed in; an environment left out has no known address */
-    urls?: ServiceUrl[]
     env: ServiceEnvVariable[]
     /** Config maps of the project it receives as environment variables */
     configMapIds?: string[]
     /** Secrets of the project it receives as environment variables */
     secretIds?: string[]
+    /** Resources of the project it receives as environment variables; a frontend never has any */
+    resourceIds?: string[]
     createdAt?: Date
     updatedAt?: Date
 }
 
-export type ServiceDTO = Omit<Service, "_id" | "projectId" | "stack" | "version" | "createdAt" | "updatedAt">
+export type ServiceDTO = Omit<Service, "_id" | "projectId" | "stack" | "createdAt" | "updatedAt">
 
 /** Port and probe paths left out come from the template, the platform defaults after it. */
 export type ServiceCreateDTO = Omit<ServiceDTO, "port" | "livenessPath" | "readinessPath"> & Partial<Pick<ServiceDTO, "port" | "livenessPath" | "readinessPath">>
@@ -89,8 +84,16 @@ export interface BuiltService {
     updatedAt?: Date
 }
 
+/** The codes a service build is refused with, by translation key */
+const SERVICE_BUILD_ERROR_KEYS: Record<string, string> = {
+    SERVICE_BUILD_FORBIDDEN: "services.build.forbidden",
+    BUILD_REF_NOT_FOUND: "services.build.ref_not_found",
+    BUILD_REPOSITORY_NOT_FOUND: "services.build.repository_not_found"
+}
+
 const useServicesApi = () => {
     const apiClient = useApiClient()
+    const { t } = useTranslation()
 
     const getAll = async (): Promise<Service[]> => {
         const response = await apiClient.doRequest<Service[]>({ url: "/api/services" })
@@ -112,7 +115,7 @@ const useServicesApi = () => {
         return response.data
     }
 
-    const update = async (id: string, service: ServiceDTO, metadata?: IClientRequestMetadataExtended): Promise<Service> => {
+    const update = async (id: string, service: Partial<ServiceDTO>, metadata?: IClientRequestMetadataExtended): Promise<Service> => {
         const response = await apiClient.doRequest<Service>({ url: `/api/services/${id}`, method: "PUT", data: service, ...metadata })
         return response.data
     }
@@ -123,7 +126,16 @@ const useServicesApi = () => {
     }
 
     const build = async (id: string, version: string, branch?: string) => {
-        const response = await apiClient.doRequest({ url: `/api/services/${id}/build`, method: "POST", data: { version, branch } })
+        const response = await apiClient.doRequest({
+            url: `/api/services/${id}/build`,
+            method: "POST",
+            data: { version, branch },
+            // Said in the user's language, any other error as the backend tells it
+            customErrorMessage: error => {
+                const key = SERVICE_BUILD_ERROR_KEYS[errorCodeOf(error) ?? ""]
+                return key ? t(key) : undefined
+            }
+        })
         return response.data
     }
 

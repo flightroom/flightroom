@@ -92,7 +92,7 @@ export const organizationTools = [
         name: "project_create",
         title: "Create project",
         description:
-            "Creates a project in one of the organizations returned by organizations_list, provided you administer it (owner or admin). You become its owner and the project is shared with this connection right away: pass its id as `projectId` to set up environments and microfrontends.",
+            "Creates a project in one of the organizations returned by organizations_list, provided you administer it (owner or admin). You become its owner and the project is shared with this connection right away: pass its id as `projectId` to set up environments and frontends.",
         scope: MCP_SCOPE_WRITE,
         projectScoped: false,
         annotations: WRITE,

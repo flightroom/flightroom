@@ -44,7 +44,7 @@ export const projectAdminTools = [
         name: "project_delete",
         title: "Delete project",
         description:
-            "Deletes the project open in the console with everything in it: microfrontends, environments, deployments, storages, code repository connections, API keys and members. It cannot be undone.",
+            "Deletes the project open in the console with everything in it: frontends, environments, deployments, storages, code repository connections, API keys and members. It cannot be undone.",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         annotations: DESTRUCTIVE,
@@ -90,7 +90,7 @@ export const projectAdminTools = [
         name: "project_pipelines_set",
         title: "Set pipeline templates repository",
         description:
-            "Picks the repository the pipelines of every microfrontend and service scaffolded from a template in the project are copied from, in place of the official mfe-orchestrator/template-pipelines. It has the same layout: <type>/<compiler>/<provider>/ (provider github, gitlab or azure_dev_ops), or <type>/<compiler>/<template slug>/<provider>/ for one template, e.g. service/docker/github/workflows/release.yml; %microfrontendSlug%, %serviceSlug% and %domain% are replaced. A template it has no folder for keeps the pipeline it ships with. Pass repositoryId null to go back to the official ones. Only an owner of the project (or an administrator of its organization) can do it. The current setting is in project_get (pipelines).",
+            "Picks the repository the pipelines of every frontend and service scaffolded from a template in the project are copied from, in place of the official mfe-orchestrator/template-pipelines. It has the same layout: <type>/<compiler>/<provider>/ (provider github, gitlab or azure_dev_ops), or <type>/<compiler>/<template slug>/<provider>/ for one template, e.g. service/docker/github/workflows/release.yml; %microfrontendSlug%, %serviceSlug% and %domain% are replaced. A template it has no folder for keeps the pipeline it ships with. Pass repositoryId null to go back to the official ones. Only an owner of the project (or an administrator of its organization) can do it. The current setting is in project_get (pipelines).",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         // Every repository scaffolded afterwards runs the pipelines of that repository: confirmed by the user

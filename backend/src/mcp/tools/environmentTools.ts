@@ -119,13 +119,13 @@ export const environmentTools = [
         name: "deploy",
         title: "Deploy",
         description:
-            "Deploys the current configuration (microfrontends, versions, global variables) to the given environments: what they serve changes immediately. With GitOps on for the project, the Namespace, the config maps and the secrets of each environment are committed to its repository first, secrets base64 encoded (not encrypted); when that commit fails nothing is deployed.",
+            "Deploys the current configuration (frontends, versions, global variables) to the given environments: what they serve changes immediately. With GitOps on for the project, the Namespace, the config maps and the secrets of each environment are committed to its repository first, secrets base64 encoded (not encrypted); when that commit fails nothing is deployed.",
         scope: MCP_SCOPE_WRITE,
         // With GitOps on it pushes to the project's repository
         annotations: DESTRUCTIVE_EXTERNAL,
         inputSchema: z.object({
             environmentIds: z.array(environmentId).min(1),
-            domainId: objectId("Id of a functional domain: only its microfrontends and services are deployed, the others keep what the environments serve now").optional()
+            domainId: objectId("Id of a functional domain: only its frontends and services are deployed, the others keep what the environments serve now").optional()
         }),
         run: async (args, { principal }) => (await new DeploymentService(principal).createMultiple(args.environmentIds, args.domainId)).map(toDeploymentView)
     }),

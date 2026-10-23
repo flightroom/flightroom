@@ -1,4 +1,4 @@
 export * from "./CodeIntegration"
-export * from "./IntegrateMicrofrontendsDialog"
-export * from "./MicrofrontendSelector"
+export * from "./FrontendSelector"
+export * from "./IntegrateFrontendsDialog"
 export * from "./StackBadge"

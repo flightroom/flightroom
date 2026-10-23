@@ -2,16 +2,21 @@ import { fastify } from "../.."
 import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import Domain from "../../models/DomainModel"
+import Frontend from "../../models/FrontendModel"
+import MaintenanceAgent from "../../models/MaintenanceAgentModel"
 import { IMarket } from "../../models/MarketModel"
-import Microfrontend from "../../models/MicrofrontendModel"
 import Project from "../../models/ProjectModel"
+import Resource from "../../models/ResourceModel"
 import Service from "../../models/ServiceModel"
+import { describeProjectTechnologies, IProjectTechnologies } from "../../types/ProjectTechnology"
 import { SERVICE_SLUG } from "../../types/ServiceStack"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { aiProviderError } from "../llm"
 import MarketService from "../MarketService"
-import { defaultTemplateOf, isTemplateOfKind, REPOSITORY_NAME_SUFFIXES } from "../RepositoryCreationService"
+import { projectDesignSystemOf } from "../ProjectService"
+import { defaultTemplateOf, isTemplateOfKind, matchesProjectTechnology, REPOSITORY_NAME_SUFFIXES } from "../RepositoryCreationService"
 import { isValidRepositoryName } from "../RepositoryRenameService"
+import { resourceIdsInScope } from "../ResourceService"
 import { RepositoryComponentKind } from "../workspace/repositoryComponent"
 import { AiChangeBaseService, loggable } from "./aiChangeShared"
 
@@ -29,7 +34,7 @@ export interface DomainPlanInput {
     aiModelId?: string
 }
 
-/** A microfrontend or a service the AI proposes to create, with the repository it would be scaffolded in. */
+/** A frontend or a service the AI proposes to create, with the repository it would be scaffolded in. */
 export interface DomainPlanComponent {
     name: string
     slug: string
@@ -41,17 +46,18 @@ export interface DomainPlanComponent {
 }
 
 export interface DomainPlan {
-    microfrontends: DomainPlanComponent[]
+    frontends: DomainPlanComponent[]
     services: DomainPlanComponent[]
 }
 
-const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain on Flightroom, a platform where a project is made of microfrontends (frontends, each in its own repository) and backend services (each in its own repository, deployed as a container). The domain has no component yet. From the user's request, propose the microfrontends and the services to create so that an AI agent can then implement the request in them.
-- Propose the smallest set the request needs: usually one microfrontend and one service, none of a kind the request does not need, at most ${MAX_PLANNED_PER_KIND} of each.
+const PLAN_SYSTEM_PROMPT = `You plan the first components of a functional domain on Flightroom, a platform where a project is made of frontends (each in its own repository) and backend services (each in its own repository, deployed as a container). The domain has no component yet. From the user's request, propose the frontends and the services to create so that an AI agent can then implement the request in them.
+- Propose the smallest set the request needs: usually one frontend and one service, none of a kind the request does not need, at most ${MAX_PLANNED_PER_KIND} of each.
 - name: a short human name, e.g. "Orders".
 - slug: lowercase letters, digits and dashes, 2 to 50 characters, starting with a letter or a digit, not one of the slugs already taken.
-- repositoryName: the slug followed by "${REPOSITORY_NAME_SUFFIXES.microfrontend}" for a microfrontend and by "${REPOSITORY_NAME_SUFFIXES.service}" for a service, e.g. orders${REPOSITORY_NAME_SUFFIXES.microfrontend} and orders${REPOSITORY_NAME_SUFFIXES.service}.
-- template: the slug of one of the listed templates of the same kind, the one whose stack fits the project best; when nothing hints at a stack, the one marked default.
+- repositoryName: the slug followed by "${REPOSITORY_NAME_SUFFIXES.frontend}" for a frontend and by "${REPOSITORY_NAME_SUFFIXES.service}" for a service, e.g. orders${REPOSITORY_NAME_SUFFIXES.frontend} and orders${REPOSITORY_NAME_SUFFIXES.service}.
+- template: the slug of one of the listed templates of the same kind. Unless the request explicitly asks for another stack, prefer one marked "project technology": it is built with the default technology the team chose for that kind (see project_technologies). Otherwise the one whose stack fits the project best; when nothing hints at a stack, the one marked default.
 - reason: one sentence, in the language of the request, on what the component does for it.
+- Shared resources of the project are listed: a service can attach them, so do not plan a component that only provides one of them.
 Follow the project and domain context: it is what the team wrote for AI agents.`
 
 const component = {
@@ -70,10 +76,10 @@ const component = {
 const PLAN_SCHEMA = {
     type: "object",
     properties: {
-        microfrontends: { type: "array", items: component },
+        frontends: { type: "array", items: component },
         services: { type: "array", items: component }
     },
-    required: ["microfrontends", "services"],
+    required: ["frontends", "services"],
     additionalProperties: false
 }
 
@@ -100,19 +106,19 @@ const freeSlug = (slug: string, taken: Set<string>) => {
     return candidate
 }
 
-const describeTemplate = (template: Template, isDefault: boolean) =>
-    `- ${template.slug}${isDefault ? " (default)" : ""}: ${[template.type, template.framework, template.compiler].filter(Boolean).join(", ")}${template.description ? ` — ${template.description}` : ""}`
+const describeTemplate = (template: Template, isDefault: boolean, isProjectTechnology: boolean) =>
+    `- ${template.slug}${isDefault ? " (default)" : ""}${isProjectTechnology ? " (project technology)" : ""}: ${[template.type, template.framework, template.compiler].filter(Boolean).join(", ")}${template.description ? ` — ${template.description}` : ""}`
 
 /**
  * What the model proposed, made safe to show as a starting point: unknown or wrong-kind templates
- * become the default of the kind, slugs and repository names valid and free in the project, at
+ * become the default of the kind, one matching the technologies of the project when there is one, slugs and repository names valid and free in the project, at
  * most {@link MAX_PLANNED_PER_KIND} of each kind. The user still reviews it before anything is created.
  */
-export const sanitizePlan = (answer: unknown, templates: Template[], taken: Record<RepositoryComponentKind, Set<string>>): DomainPlan => {
-    const proposed = (answer ?? {}) as Partial<Record<"microfrontends" | "services", unknown>>
+export const sanitizePlan = (answer: unknown, templates: Template[], taken: Record<RepositoryComponentKind, Set<string>>, technologies?: IProjectTechnologies): DomainPlan => {
+    const proposed = (answer ?? {}) as Partial<Record<"frontends" | "services", unknown>>
     const sanitize = (items: unknown, kind: RepositoryComponentKind): DomainPlanComponent[] => {
         const ofKind = templates.filter(template => isTemplateOfKind(template, kind))
-        const fallbackTemplate = defaultTemplateOf(templates, kind)
+        const fallbackTemplate = defaultTemplateOf(templates, kind, technologies)
         // Without a template of the kind nothing of it can be scaffolded: the plan leaves it out.
         if (!fallbackTemplate || !Array.isArray(items)) return []
         const suffix = REPOSITORY_NAME_SUFFIXES[kind]
@@ -134,11 +140,11 @@ export const sanitizePlan = (answer: unknown, templates: Template[], taken: Reco
             return { name: name || slug, slug, template: template.slug, repositoryName, reason: text(item?.reason, MAX_REASON_LENGTH) }
         })
     }
-    return { microfrontends: sanitize(proposed.microfrontends, "microfrontend"), services: sanitize(proposed.services, "service") }
+    return { frontends: sanitize(proposed.frontends, "frontend"), services: sanitize(proposed.services, "service") }
 }
 
 /**
- * Proposes the microfrontends and services a domain without any should start with, for the change
+ * Proposes the frontends and services a domain without any should start with, for the change
  * the user asked for: one model call answered with JSON, no agent and no repository. The console
  * shows the plan for review and creates what the user keeps, then starts the domain job on it.
  */
@@ -153,22 +159,32 @@ export class DomainPlanService extends AiChangeBaseService {
 
         // Members already there are what the job works on: planning new ones would duplicate them.
         const inDomain = { projectId: projectIdObj, domainId: domain._id }
-        if ((await Microfrontend.exists(inDomain)) || (await Service.exists(inDomain))) {
-            throw createBusinessException({ code: "AI_DOMAIN_PLAN_HAS_MEMBERS", message: `The domain ${domain.name} already has microfrontends or services`, statusCode: 422 })
+        if ((await Frontend.exists(inDomain)) || (await Service.exists(inDomain))) {
+            throw createBusinessException({ code: "AI_DOMAIN_PLAN_HAS_MEMBERS", message: `The domain ${domain.name} already has frontends or services`, statusCode: 422 })
         }
 
-        const [project, templates, microfrontends, services] = await Promise.all([
-            Project.findById(projectIdObj, { name: 1, context: 1 }),
+        // A domain-scoped member is told of the resources they may read only, as the console lists them
+        const scope = await this.getDomainScope(projectIdObj)
+        const visibleResources = scope ? { _id: { $in: [...(await resourceIdsInScope(projectIdObj, scope))].map(id => toObjectId(id)) } } : {}
+        const [project, templates, frontends, services, resources, agents] = await Promise.all([
+            Project.findById(projectIdObj, { name: 1, context: 1, technologies: 1, designSystem: 1, organizationId: 1 }),
             new MarketService().getAll(),
-            Microfrontend.find({ projectId: projectIdObj }, { slug: 1 }),
-            Service.find({ projectId: projectIdObj }, { slug: 1 })
+            Frontend.find({ projectId: projectIdObj }, { slug: 1 }),
+            Service.find({ projectId: projectIdObj }, { slug: 1 }),
+            // What a service of the domain can attach instead of a component of its own: never a value of one
+            Resource.find({ projectId: projectIdObj, ...visibleResources }, { name: 1, type: 1, description: 1 }),
+            // A maintenance agent takes its slug from both
+            MaintenanceAgent.find({ projectId: projectIdObj }, { slug: 1 })
         ])
-        const taken = { microfrontend: new Set(microfrontends.map(item => item.slug)), service: new Set(services.map(item => item.slug)) }
+        const taken = { frontend: new Set([...frontends, ...agents].map(item => item.slug)), service: new Set([...services, ...agents].map(item => item.slug)) }
+        const technologies = project?.technologies
+        // The one its frontends build their UI with: it may decide which frontend template fits
+        const designSystem = project ? (await projectDesignSystemOf(project)).designSystem : undefined
         const templateList = (kind: RepositoryComponentKind) => {
-            const fallback = defaultTemplateOf(templates, kind)
+            const fallback = defaultTemplateOf(templates, kind, technologies)
             return templates
                 .filter(template => isTemplateOfKind(template, kind))
-                .map(template => describeTemplate(template, template.slug === fallback?.slug))
+                .map(template => describeTemplate(template, template.slug === fallback?.slug, matchesProjectTechnology(template, kind, technologies)))
                 .join("\n")
         }
 
@@ -178,11 +194,30 @@ export class DomainPlanService extends AiChangeBaseService {
                 user: [
                     `<request>\n${input.prompt}\n</request>`,
                     project?.context ? `<project_context project="${project.name}">\n${project.context}\n</project_context>` : `<project name="${project?.name ?? ""}" />`,
+                    describeProjectTechnologies(technologies),
+                    // Its name and where it is documented only: the npmrc and the notes are for the agent writing the code
+                    designSystem
+                        ? [
+                              "<project_design_system>",
+                              `package: ${designSystem.packageName}`,
+                              designSystem.version ? `version: ${designSystem.version}` : undefined,
+                              designSystem.docsUrl ? `docs: ${designSystem.docsUrl}` : undefined,
+                              "The frontends of the project build their UI with this design system: prefer a frontend template whose framework can use it.",
+                              "</project_design_system>"
+                          ]
+                              .filter(Boolean)
+                              .join("\n")
+                        : undefined,
                     [`<domain_context domain="${domain.name}">`, domain.description, domain.context, "</domain_context>"].filter(Boolean).join("\n"),
-                    `<microfrontend_templates>\n${templateList("microfrontend")}\n</microfrontend_templates>`,
+                    `<frontend_templates>\n${templateList("frontend")}\n</frontend_templates>`,
                     `<service_templates>\n${templateList("service")}\n</service_templates>`,
-                    `<taken_slugs>\nmicrofrontends: ${[...taken.microfrontend].join(", ") || "none"}\nservices: ${[...taken.service].join(", ") || "none"}\n</taken_slugs>`
-                ].join("\n\n"),
+                    `<taken_slugs>\nfrontends: ${[...taken.frontend].join(", ") || "none"}\nservices: ${[...taken.service].join(", ") || "none"}\n</taken_slugs>`,
+                    resources.length
+                        ? `<project_resources>\n${resources.map(resource => `- ${resource.name} (${resource.type})${resource.description ? `: ${resource.description}` : ""}`).join("\n")}\n</project_resources>`
+                        : undefined
+                ]
+                    .filter(Boolean)
+                    .join("\n\n"),
                 schema: PLAN_SCHEMA,
                 maxTokens: MAX_TOKENS,
                 effort: "low"
@@ -199,7 +234,7 @@ export class DomainPlanService extends AiChangeBaseService {
                 statusCode: 502
             })
         }
-        return sanitizePlan(answer, templates, taken)
+        return sanitizePlan(answer, templates, taken, technologies)
     }
 }
 

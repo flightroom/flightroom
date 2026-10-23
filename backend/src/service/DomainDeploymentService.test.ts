@@ -4,7 +4,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Deployment from "../models/DeploymentModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
-import Microfrontend, { CanaryDeploymentType, CanaryType, MicrofrontendKind } from "../models/MicrofrontendModel"
+import Frontend, { CanaryDeploymentType, CanaryType, FrontendKind } from "../models/FrontendModel"
 import ServiceDeployment from "../models/ServiceDeploymentModel"
 import Service from "../models/ServiceModel"
 import DomainDeploymentService from "./DomainDeploymentService"
@@ -109,10 +109,10 @@ const devLatest = new Types.ObjectId()
 const prodActive = new Types.ObjectId()
 
 const deployments: Doc[] = [
-    { _id: devFirst, environmentId: dev._id, deploymentId: "#1", deployedAt: at(1), active: false, microfrontends: [{ _id: cart._id, version: "1.0.0" }], ...secrets },
+    { _id: devFirst, environmentId: dev._id, deploymentId: "#1", deployedAt: at(1), active: false, frontends: [{ _id: cart._id, version: "1.0.0" }], ...secrets },
     // The active one wins over a more recent inactive one: a rollback reactivates an older deployment
-    { _id: devActive, environmentId: dev._id, deploymentId: "#2", deployedAt: at(2), active: true, microfrontends: [{ _id: cart._id, version: "1.1.0", name: "Cart" }], ...secrets },
-    { _id: devLatest, environmentId: dev._id, deploymentId: "#3", deployedAt: at(3), active: false, microfrontends: [{ _id: cart._id, version: "1.2.0" }], ...secrets },
+    { _id: devActive, environmentId: dev._id, deploymentId: "#2", deployedAt: at(2), active: true, frontends: [{ _id: cart._id, version: "1.1.0", name: "Cart" }], ...secrets },
+    { _id: devLatest, environmentId: dev._id, deploymentId: "#3", deployedAt: at(3), active: false, frontends: [{ _id: cart._id, version: "1.2.0" }], ...secrets },
     {
         _id: prodActive,
         ...secrets,
@@ -120,7 +120,7 @@ const deployments: Doc[] = [
         deploymentId: "#7",
         deployedAt: at(4),
         active: true,
-        microfrontends: [
+        frontends: [
             { _id: cart._id, version: "1.0.0", canary: percentageCanary(10, "2.0.0") },
             { _id: checkoutUi._id, version: "3.0.0", canary: { ...percentageCanary(50, "4.0.0"), enabled: false } }
         ]
@@ -161,7 +161,7 @@ afterEach(() => {
 describe("DomainDeploymentService.getByDomainId", () => {
     beforeEach(() => {
         vi.spyOn(DomainService.prototype, "getById").mockResolvedValue(domain as never)
-        vi.spyOn(Microfrontend, "find").mockReturnValue(sortedFind([cart, checkoutUi]))
+        vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([cart, checkoutUi]))
         vi.spyOn(Service, "find").mockReturnValue(sortedFind([ordersApi]))
     })
 
@@ -177,28 +177,28 @@ describe("DomainDeploymentService.getByDomainId", () => {
         expect(result.environments.map(entry => entry.deployment)).toEqual([{ deploymentId: "#2", deployedAt: at(2) }, { deploymentId: "#7", deployedAt: at(4) }, null])
     })
 
-    it("given a domain, when its deployments are read, then the microfrontend versions come from the snapshot, null when missing from it or never deployed", async () => {
+    it("given a domain, when its deployments are read, then the frontend versions come from the snapshot, null when missing from it or never deployed", async () => {
         const result = await new DomainDeploymentService().getByDomainId(String(domainId))
         const [inDev, inProd, inStaging] = result.environments
 
-        expect(inDev.microfrontends).toEqual([
-            { _id: cart._id, slug: "cart", name: "Cart", kind: MicrofrontendKind.MICROFRONTEND, version: "1.1.0", canary: null },
+        expect(inDev.frontends).toEqual([
+            { _id: cart._id, slug: "cart", name: "Cart", kind: FrontendKind.BUNDLE, version: "1.1.0", canary: null },
             // Created after the DEV deployment: not in its snapshot
-            { _id: checkoutUi._id, slug: "checkout-ui", name: "Checkout UI", kind: MicrofrontendKind.MICROFRONTEND, version: null, canary: null }
+            { _id: checkoutUi._id, slug: "checkout-ui", name: "Checkout UI", kind: FrontendKind.BUNDLE, version: null, canary: null }
         ])
-        expect(inProd.microfrontends).toEqual([
+        expect(inProd.frontends).toEqual([
             {
                 _id: cart._id,
                 slug: "cart",
                 name: "Cart",
-                kind: MicrofrontendKind.MICROFRONTEND,
+                kind: FrontendKind.BUNDLE,
                 version: "1.0.0",
                 canary: { type: CanaryType.ON_SESSION, deploymentType: CanaryDeploymentType.BASED_ON_VERSION, percentage: 10, version: "2.0.0" }
             },
             // A canary that is configured but disabled is not shown
-            { _id: checkoutUi._id, slug: "checkout-ui", name: "Checkout UI", kind: MicrofrontendKind.MICROFRONTEND, version: "3.0.0", canary: null }
+            { _id: checkoutUi._id, slug: "checkout-ui", name: "Checkout UI", kind: FrontendKind.BUNDLE, version: "3.0.0", canary: null }
         ])
-        expect(inStaging.microfrontends.map(microfrontend => microfrontend.version)).toEqual([null, null])
+        expect(inStaging.frontends.map(frontend => frontend.version)).toEqual([null, null])
     })
 
     it("given canaries served to enrolled users or from a URL, when the deployments are read, then their type comes along and a URL canary has no version", async () => {
@@ -209,7 +209,7 @@ describe("DomainDeploymentService.getByDomainId", () => {
                     environmentId: prod._id,
                     deploymentId: "#7",
                     deployedAt: at(4),
-                    microfrontends: [
+                    frontends: [
                         { _id: cart._id, version: "1.0.0", canary: { ...percentageCanary(0, "2.0.0"), type: CanaryType.ON_USER } },
                         {
                             _id: checkoutUi._id,
@@ -223,7 +223,7 @@ describe("DomainDeploymentService.getByDomainId", () => {
 
         const result = await new DomainDeploymentService().getByDomainId(String(domainId))
 
-        expect(result.environments[1].microfrontends.map(microfrontend => microfrontend.canary)).toEqual([
+        expect(result.environments[1].frontends.map(frontend => frontend.canary)).toEqual([
             { type: CanaryType.ON_USER, deploymentType: CanaryDeploymentType.BASED_ON_VERSION, percentage: 0, version: "2.0.0" },
             { type: CanaryType.RANDOM, deploymentType: CanaryDeploymentType.BASED_ON_URL, percentage: 20, version: null }
         ])
@@ -236,6 +236,27 @@ describe("DomainDeploymentService.getByDomainId", () => {
             [{ _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "1.3.0", deployedAt: at(5) }],
             [{ _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: null, deployedAt: null }],
             [{ _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: null, deployedAt: null }]
+        ])
+    })
+
+    it("given a service in the deployment an environment serves, when the deployments are read, then its version there wins over the reported ones", async () => {
+        deploymentFind.mockImplementation(
+            findDeployments([
+                { _id: devActive, environmentId: dev._id, deploymentId: "#2", deployedAt: at(2), frontends: [], services: [{ _id: ordersApi._id, version: "2.0.0", image: { repository: "registry/orders" } }] },
+                // Recorded without a version: the reports still tell
+                { _id: prodActive, environmentId: prod._id, deploymentId: "#7", deployedAt: at(4), frontends: [], services: [{ _id: ordersApi._id }] }
+            ])
+        )
+        serviceDeploymentAggregate.mockImplementation(((pipeline: Stage[]) =>
+            Promise.resolve(runPipeline([...serviceDeployments, { serviceId: ordersApi._id, environmentId: prod._id, version: "1.9.0", deployedAt: at(3), _id: new Types.ObjectId() }], pipeline))) as never)
+
+        const result = await new DomainDeploymentService().getByDomainId(String(domainId))
+
+        expect(result.environments.map(entry => entry.services[0])).toEqual([
+            // Reported later, at(5), yet the deployment wins
+            { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "2.0.0", deployedAt: at(2) },
+            { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: "1.9.0", deployedAt: at(3) },
+            { _id: ordersApi._id, slug: "orders-api", name: "Orders API", version: null, deployedAt: null }
         ])
     })
 
@@ -253,7 +274,7 @@ describe("DomainDeploymentService.getByDomainId", () => {
         const [filter, projection] = deploymentFind.mock.calls[0]
         expect(filter._id.$in.map(String).sort()).toEqual([devActive, prodActive].map(String).sort())
         // The snapshot also carries the variables and the storage credentials: they never leave the database
-        expect(projection).toEqual({ environmentId: 1, deploymentId: 1, deployedAt: 1, "microfrontends._id": 1, "microfrontends.version": 1, "microfrontends.canary": 1 })
+        expect(projection).toEqual({ environmentId: 1, deploymentId: 1, deployedAt: 1, "frontends._id": 1, "frontends.version": 1, "frontends.canary": 1, "services._id": 1, "services.version": 1 })
     })
 
     it("given a domain, when its deployments are read, then one aggregation keeps the latest reported deploy of each service in each environment", async () => {
@@ -265,7 +286,7 @@ describe("DomainDeploymentService.getByDomainId", () => {
             { $sort: { serviceId: 1, environmentId: 1, deployedAt: -1, _id: -1 } },
             { $group: { _id: { serviceId: "$serviceId", environmentId: "$environmentId" }, version: { $first: "$version" }, deployedAt: { $first: "$deployedAt" } } }
         ])
-        expect(Microfrontend.find).toHaveBeenCalledWith({ projectId, domainId }, expect.anything())
+        expect(Frontend.find).toHaveBeenCalledWith({ projectId, domainId }, expect.anything())
     })
 
     it("given two reports of a service at the same moment, when the deployments are read, then the one stored last wins", async () => {
@@ -317,7 +338,7 @@ describe("DomainDeploymentService.getByProjectId", () => {
             .spyOn(DomainDeploymentService.prototype as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject")
             .mockResolvedValue(undefined) as unknown as ReturnType<typeof vi.fn>
         vi.spyOn(Domain, "find").mockReturnValue(sortedFind([otherDomain, domain]))
-        vi.spyOn(Microfrontend, "find").mockReturnValue(sortedFind([cart, legacy, search]))
+        vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([cart, legacy, search]))
         vi.spyOn(Service, "find").mockReturnValue(sortedFind([ordersApi, usersApi]))
     })
 
@@ -327,20 +348,20 @@ describe("DomainDeploymentService.getByProjectId", () => {
         expect(access).toHaveBeenCalledWith(String(projectId))
         expect(result.map(entry => entry.domain)).toEqual([{ _id: otherDomainId, name: "Account", slug: "account" }, { _id: domainId, name: "Checkout", slug: "checkout" }, null])
         // A domain without members is listed all the same
-        expect(result[0].environments.map(entry => [entry.microfrontends.length, entry.services.length])).toEqual([
+        expect(result[0].environments.map(entry => [entry.frontends.length, entry.services.length])).toEqual([
             [0, 0],
             [0, 0],
             [0, 0]
         ])
-        expect(result[1].environments[0].microfrontends.map(microfrontend => [microfrontend.slug, microfrontend.version])).toEqual([["cart", "1.1.0"]])
+        expect(result[1].environments[0].frontends.map(frontend => [frontend.slug, frontend.version])).toEqual([["cart", "1.1.0"]])
         expect(result[1].environments[0].services.map(service => [service.slug, service.version])).toEqual([["orders-api", "1.3.0"]])
         // No domain, or a domain that is gone, both count as no domain
-        expect(result[2].environments[0].microfrontends.map(microfrontend => microfrontend.slug)).toEqual(["legacy", "search"])
+        expect(result[2].environments[0].frontends.map(frontend => frontend.slug)).toEqual(["legacy", "search"])
         expect(result[2].environments[0].services.map(service => service.slug)).toEqual(["users-api"])
     })
 
     it("given every member in a domain, when the project matrix is read, then there is no entry for the members in no domain", async () => {
-        vi.spyOn(Microfrontend, "find").mockReturnValue(sortedFind([cart]))
+        vi.spyOn(Frontend, "find").mockReturnValue(sortedFind([cart]))
         vi.spyOn(Service, "find").mockReturnValue(sortedFind([ordersApi]))
 
         const result = await new DomainDeploymentService().getByProjectId(String(projectId))

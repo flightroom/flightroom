@@ -2,12 +2,12 @@ import { Card, CardContent, Select, SelectContent, SelectItem, SelectTrigger, Se
 import { AlertTriangle } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
-import { MicrofrontendScanTarget } from "@/hooks/apiClients/useDependenciesApi"
+import { FrontendScanTarget } from "@/hooks/apiClients/useDependenciesApi"
 
 export interface BranchSelectionProps {
-    targets: MicrofrontendScanTarget[]
+    targets: FrontendScanTarget[]
     selectedBranches: Record<string, string>
-    onChange: (microfrontendId: string, branch: string) => void
+    onChange: (frontendId: string, branch: string) => void
 }
 
 export const BranchSelection: React.FC<BranchSelectionProps> = ({ targets, selectedBranches, onChange }) => {
@@ -23,11 +23,11 @@ export const BranchSelection: React.FC<BranchSelectionProps> = ({ targets, selec
                 <p className="text-sm text-foreground-secondary">{t("dependencies.branch_selection_description")}</p>
                 <div className="grid gap-3 grid-cols-[repeat(auto-fill,minmax(260px,1fr))]">
                     {targets.map(target => {
-                        const selected = selectedBranches[target.microfrontendId] || target.defaultBranch
+                        const selected = selectedBranches[target.frontendId] || target.defaultBranch
                         const branches = target.branches.length > 0 ? target.branches : selected ? [selected] : []
 
                         return (
-                            <div key={target.microfrontendId} className="flex flex-col gap-1">
+                            <div key={target.frontendId} className="flex flex-col gap-1">
                                 <span className="text-sm font-medium">{target.name}</span>
                                 <span className="text-xs text-foreground-secondary">{target.repositoryName}</span>
                                 {target.error ? (
@@ -37,7 +37,7 @@ export const BranchSelection: React.FC<BranchSelectionProps> = ({ targets, selec
                                     </Badge>
                                 ) : (
                                     <>
-                                        <Select value={selected} onValueChange={branch => onChange(target.microfrontendId, branch)}>
+                                        <Select value={selected} onValueChange={branch => onChange(target.frontendId, branch)}>
                                             <SelectTrigger className="w-full">
                                                 <SelectValue>{selected}</SelectValue>
                                             </SelectTrigger>
