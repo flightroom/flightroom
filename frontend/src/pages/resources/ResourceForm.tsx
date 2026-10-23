@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, ConfirmByTypingDialog, DangerZoneCard, SelectField } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { GitBranch, KeyRound, Trash2 } from "lucide-react"
+import { GitBranch, KeyRound, Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -17,7 +17,7 @@ import SinglePageLayout from "@/components/SinglePageLayout"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useResourcesApi, { Resource, ResourceDTO, ResourceTypeSpec } from "@/hooks/apiClients/useResourcesApi"
 import useServicesApi, { Service } from "@/hooks/apiClients/useServicesApi"
-import useProjectStore from "@/store/useProjectStore"
+import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { useProjectEnvironmentsQuery } from "../services/partials/serviceVariables"
 import ResourceApiSpecFields from "./partials/ResourceApiSpecFields"
@@ -45,6 +45,7 @@ import {
     toFormValues,
     typeDescription,
     typeLabel,
+    useDetachResource,
     useResourceCatalogQuery,
     variantLabel,
     withVariantDefaults
@@ -140,8 +141,10 @@ const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number,
 type FormSchema = ReturnType<typeof createFormSchema>
 
 /** Who receives the variables of this resource: each service attaching it, linked */
-const UsedBySection: React.FC<{ services: Service[] }> = ({ services }) => {
+const UsedBySection: React.FC<{ resource: Resource; services: Service[] }> = ({ resource, services }) => {
     const { t } = useTranslation()
+    const isViewer = useIsProjectViewer()
+    const detach = useDetachResource()
 
     return (
         <Card>
@@ -153,9 +156,25 @@ const UsedBySection: React.FC<{ services: Service[] }> = ({ services }) => {
                 {services.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
                         {services.map(service => (
-                            <Link key={service._id} to={`/service/${service._id}`}>
-                                <Badge variant="outline">{service.name}</Badge>
-                            </Link>
+                            <span key={service._id} className="inline-flex items-center">
+                                <Link to={`/service/${service._id}`}>
+                                    <Badge variant="outline">{service.name}</Badge>
+                                </Link>
+                                {/* A viewer may look, not change what the services receive */}
+                                {!isViewer && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        disabled={detach.isPending}
+                                        aria-label={t("resources.used_by.detach", { name: service.name })}
+                                        title={t("resources.used_by.detach", { name: service.name })}
+                                        onClick={() => detach.mutate({ service, resource })}
+                                    >
+                                        <X />
+                                    </Button>
+                                )}
+                            </span>
                         ))}
                     </div>
                 ) : (
@@ -461,7 +480,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                         <AlertDescription>{t("resources.gitops_hint")}</AlertDescription>
                     </Alert>
 
-                    {resource && <UsedBySection services={attaching} />}
+                    {resource && <UsedBySection resource={resource} services={attaching} />}
 
                     {resource && <ResourceDangerZone resource={resource} inUse={attaching.length > 0} />}
 

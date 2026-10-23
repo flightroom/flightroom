@@ -3253,7 +3253,8 @@
         "used_by": {
             "title": "Usata da",
             "description": "I backend service che ricevono queste variabili.",
-            "none": "Nessun service"
+            "none": "Nessun service",
+            "detach": "Sgancia da {{name}}"
         },
         "attach": {
             "title": "Risorse",
@@ -3266,6 +3267,7 @@
             "no_results": "Nessuna risorsa corrisponde a \"{{searchTerm}}\".",
             "all_attached": "Tutte agganciate",
             "detach": "Sgancia {{name}}",
+            "detached": "{{resource}} sganciata da {{service}}: dal prossimo deploy non ne riceve più le variabili",
             "clear_search": "Cancella ricerca"
         },
         "danger_zone": {
