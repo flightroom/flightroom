@@ -4,13 +4,8 @@ import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 import useProjectStore from "@/store/useProjectStore"
 
-interface ServiceRuntimeFieldsProps {
-    /** A service sets its version next to its image; a frontend served by its own container does it in its release settings */
-    withVersion?: boolean
-}
-
 /** The port, the probes, the docs paths and the image repository of a container: a service's, or a frontend's served by its own. */
-export const ServiceRuntimeFields: React.FC<ServiceRuntimeFieldsProps> = ({ withVersion = false }) => {
+export const ServiceRuntimeFields: React.FC = () => {
     const { t } = useTranslation()
     const { watch } = useFormContext()
     const containerRegistry = useProjectStore(state => state.project?.containerRegistry)
@@ -35,7 +30,6 @@ export const ServiceRuntimeFields: React.FC<ServiceRuntimeFieldsProps> = ({ with
             <CardContent className="grid grid-cols-1 gap-x-4 gap-y-2 pt-3 md:grid-cols-2">
                 <TextField name="port" type="number" label={t("services.port")} required />
                 <TextField name="image.repository" label={t("services.image_repository")} placeholder="ghcr.io/acme/orders-api" description={imageHint} />
-                {withVersion && <TextField name="version" label={t("services.version")} placeholder="1.0.0" description={t("services.version_hint")} />}
                 <TextField name="livenessPath" label={t("services.liveness_path")} placeholder="/health/live" description={t("services.liveness_path_hint")} required />
                 <TextField name="readinessPath" label={t("services.readiness_path")} placeholder="/health/ready" description={t("services.readiness_path_hint")} required />
                 <TextField name="docsPath" label={t("services.docs_path")} placeholder="/docs" description={t("services.docs_path_hint")} />

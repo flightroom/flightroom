@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate, useParams, useSearchParams } from "react-router-dom"
 import * as z from "zod"
 import { Button } from "@/components/atoms"
 import TextareaField from "@/components/input/TextareaField.rhf"
@@ -105,9 +105,9 @@ type FormTab = (typeof FORM_TABS)[number] | "danger"
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["template", "name", "slug", "description", "domainId"],
+    general: ["template", "name", "slug", "version", "description", "domainId"],
     context: ["context"],
-    runtime: ["port", "image", "version", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath"],
+    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath"],
     variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     repository: ["codeRepository"],
     danger: []
@@ -128,6 +128,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
     const [searchParams] = useSearchParams()
+    const location = useLocation()
     const isEdit = Boolean(id)
     const servicesApi = useServicesApi()
     const { errorMessage: domainErrorMessage } = useDomainsApi()
@@ -142,9 +143,16 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
     // Opened from a domain page: the service is created in it, and the page is where we go back
     const initialDomainId = searchParams.get("domainId")
     const hasRepositories = repositories.length > 0
-    // `?tab=` opens a tab straight away.
-    const linkedTab = searchParams.get("tab")
+    // `#runtime` (or the older `?tab=runtime`) opens a tab straight away.
+    const hashTab = location.hash.slice(1)
+    const linkedTab = isFormTab(hashTab) ? hashTab : searchParams.get("tab")
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
+
+    // The open tab is written in the hash, so a reload or a copied link lands on it
+    const selectTab = (tab: FormTab) => {
+        setActiveTab(tab)
+        navigate({ search: location.search, hash: tab }, { replace: true })
+    }
 
     const marketsQuery = useQuery({ queryKey: ["markets"], queryFn: getMarkets, enabled: !isEdit })
     const technologies = useProjectStore(state => state.project?.technologies)
@@ -288,13 +296,13 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
 
     const onInvalid = (errors: FieldErrors<FormInput>) => {
         const firstTabWithErrors = FORM_TABS.find(tab => isTabShown(tab) && TAB_FIELDS[tab].some(field => Boolean(errors[field])))
-        if (firstTabWithErrors) setActiveTab(firstTabWithErrors)
+        if (firstTabWithErrors) selectTab(firstTabWithErrors)
     }
 
     const content = (
         <FormProvider {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-                <Tabs value={shownTab} onValueChange={value => setActiveTab(value as FormTab)} tabsListPosition="fullWidth">
+                <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)} tabsListPosition="fullWidth">
                     <TabsList>
                         <TabsTrigger value="general" className="flex-1">
                             {t("services.tabs.general")}
@@ -370,6 +378,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
                                     />
                                     <TextField name="slug" disabled={isEdit} label={t("services.slug")} placeholder={t("services.slug_placeholder")} required containerClassName="flex-[1_1_240px]" />
                                 </div>
+                                <TextField name="version" label={t("services.version")} placeholder="1.0.0" description={t("services.version_hint")} />
                                 <TextareaField name="description" label={t("services.description")} placeholder={t("services.description_placeholder")} />
                                 <DomainSelectField containerClassName="w-full" />
                             </CardContent>
@@ -398,7 +407,7 @@ const AddServiceForm: React.FC<AddServiceFormProps> = ({ repositories, environme
 
                     <TabsContent value="runtime" forceMount>
                         <div className="flex flex-col gap-6">
-                            <ServiceRuntimeFields withVersion />
+                            <ServiceRuntimeFields />
                             <ServiceEndpointFields environments={environments} />
                         </div>
                     </TabsContent>
