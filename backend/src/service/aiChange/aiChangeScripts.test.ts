@@ -69,11 +69,13 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner", () => {
     const copy = (relative: string) => path.join(root, "repositories", "shop", relative)
 
     it("Given a repository, when a script runs, then it runs on a copy of it with npm and its output comes back", async () => {
-        const output = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "show")
+        const { output, files } = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "show")
         expect(output).toContain("$ npm run show")
         expect(output).toContain("exit code 0 (success)")
         expect(output).toContain("from the repository")
         expect(fs.readFileSync(copy("src/a.txt"), "utf8")).toBe("from the repository")
+        // The copy itself is no change of the script.
+        expect(files).toEqual([])
     })
 
     it("Given a .env in the repository, when it is copied, then the secret stays out of the sandbox", async () => {
@@ -82,7 +84,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner", () => {
     })
 
     it("Given a failing script, then its exit code and the end of its output come back as a result, not an error", async () => {
-        const output = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "fail")
+        const { output } = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "fail")
         expect(output).toContain("exit code 3")
         expect(output).not.toContain("success")
         expect(output).toContain("boom")
@@ -103,10 +105,10 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner", () => {
         runner.touch(repository, "src/old.txt")
         sandbox.commands.length = 0
 
-        expect(await runner.run(repository, "show")).toContain("edited by the agent")
+        expect((await runner.run(repository, "show")).output).toContain("edited by the agent")
         expect(fs.existsSync(copy("src/old.txt"))).toBe(false)
-        // Neither the folders prepared again nor the copy replaced: one command sends the change, one runs the script.
-        expect(sandbox.commands).toHaveLength(2)
+        // Neither the folders prepared again nor the copy replaced: one command sends the change, then the script runs between its marker and the listing of what it changed.
+        expect(sandbox.commands).toHaveLength(4)
         expect(sandbox.commands[0].join(" ")).toContain('rm -f -- "$@"')
     })
 
@@ -148,15 +150,89 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner", () => {
         const runner = new AiChangeScriptRunner([repository], open)
 
         await expect(runner.run(repository, "show")).rejects.toThrow("sandbox not found")
-        expect(await runner.run(repository, "show")).toContain("from the repository")
+        expect((await runner.run(repository, "show")).output).toContain("from the repository")
         expect(open).toHaveBeenCalledTimes(2)
     })
 
     it("Given an output longer than the agent reads, then only its end comes back, said to be cut", async () => {
         const long: CommandSandbox = { root, exec: vi.fn(async () => ({ exitCode: 0, output: `${"x".repeat(AI_SCRIPT_LIMITS.maxOutputChars)}THE END`, cutBytes: 0 })) }
-        const output = await new AiChangeScriptRunner([repository], async () => long).run(repository, "show")
+        const { output } = await new AiChangeScriptRunner([repository], async () => long).run(repository, "show")
         expect(output).toContain("the start of the output is cut")
         expect(output.endsWith("THE END")).toBe(true)
+    })
+})
+
+/** A script of package.json writing files in its copy, as lint --fix, a formatter or an install do. */
+const writes = (files: Record<string, string>) =>
+    `node -e "const fs=require('fs'),path=require('path');for(const [f,c] of Object.entries(${JSON.stringify(files).replace(/"/g, '\\"')})){fs.mkdirSync(path.dirname(f),{recursive:true});fs.writeFileSync(f,c)}"`
+
+describe.skipIf(!hasTools)("AiChangeScriptRunner changes of a script", () => {
+    let dir: string
+    let root: string
+    let sandbox: LocalSandbox
+    let repository: ScriptRepository
+
+    const setUp = (scripts: Record<string, string>, files: Record<string, string> = {}) => {
+        dir = makeRepository({ "package.json": manifest(scripts), ".gitignore": "dist/\n", "src/a.js": "const a = 1", "src/b.js": "const b = 2", ...files })
+        repository = { slug: "shop", workingCopy: workingCopyOf(dir) }
+    }
+
+    beforeEach(() => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), "ai-change-sandbox-"))
+        sandbox = new LocalSandbox(root)
+    })
+
+    afterEach(() => {
+        fs.rmSync(dir, { recursive: true, force: true })
+        fs.rmSync(root, { recursive: true, force: true })
+    })
+
+    it("Given a script that fixes a file and creates one, then both come back with their content, and a file it rewrote unchanged does not", async () => {
+        setUp({ fix: writes({ "src/a.js": "const a = 1;\n", "src/b.js": "const b = 2", "src/generated.js": "export {}" }) })
+        const run = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "fix")
+        expect(Object.fromEntries(run.files.map(file => [file.path, file.content.toString("utf8")]))).toEqual({ "src/a.js": "const a = 1;\n", "src/generated.js": "export {}" })
+        expect(run.left).toEqual([])
+    })
+
+    it("Given an install that rewrites the lockfile, then the lockfile comes back", async () => {
+        setUp({ relock: writes({ "package-lock.json": '{"lockfileVersion":3,"packages":{}}' }) }, { "package-lock.json": '{"lockfileVersion":3}' })
+        const run = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "relock")
+        expect(run.files.map(file => file.path)).toEqual(["package-lock.json"])
+    })
+
+    it("Given a script that writes ignored files, secrets and CI configuration, then none comes back and the CI file is sent again", async () => {
+        setUp({ build: writes({ "dist/main.js": "built", ".env": "TOKEN=x", ".github/workflows/ci.yml": "on: push" }), noop: "node -e 0" })
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox)
+        const run = await runner.run(repository, "build")
+        expect(run.files).toEqual([])
+        expect(run.left.join("\n")).toContain(".github/workflows/ci.yml")
+        // Sent again before the next script: the working copy has none, so it goes from the copy.
+        await runner.run(repository, "noop")
+        expect(fs.existsSync(path.join(root, "repositories/shop/.github/workflows/ci.yml"))).toBe(false)
+        expect(fs.existsSync(path.join(root, "repositories/shop/dist/main.js"))).toBe(true)
+    })
+
+    it("Given a file bigger than a piece, then it is read back in pieces and comes back identical", async () => {
+        const big = randomBytes(30_000).toString("hex")
+        setUp({ big: writes({ "src/big.txt": big }) })
+        const chunk = AI_SCRIPT_LIMITS.downloadChunkBytes
+        AI_SCRIPT_LIMITS.downloadChunkBytes = 4_096
+        try {
+            const run = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "big")
+            expect(run.files[0].content.toString("utf8")).toBe(big)
+        } finally {
+            AI_SCRIPT_LIMITS.downloadChunkBytes = chunk
+        }
+        expect(sandbox.commands.filter(command => command.join(" ").includes("head -c")).length).toBeGreaterThan(1)
+        expect(fs.readdirSync(path.join(root, "downloads"))).toEqual([])
+    })
+
+    it("Given changes the toolbox refuses, then none comes back, the reason is told and nothing is read", async () => {
+        setUp({ fix: writes({ "src/a.js": "fixed", "src/b.js": "fixed" }) })
+        const run = await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "fix", paths => `${paths.length} files are too many`)
+        expect(run.files).toEqual([])
+        expect(run.left).toEqual(["src/a.js, src/b.js: 2 files are too many"])
+        expect(sandbox.commands.some(command => command.join(" ").includes("gzip"))).toBe(false)
     })
 })
 
@@ -164,7 +240,7 @@ describe("commandFor", () => {
     it("Given each package manager, then npm runs as itself and pnpm and yarn through corepack", () => {
         expect(commandFor("npm", "install")).toEqual(["npm", "install"])
         expect(commandFor("npm", "test")).toEqual(["npm", "run", "test"])
-        expect(commandFor("pnpm", "install")).toEqual(["corepack", "pnpm", "install"])
+        expect(commandFor("pnpm", "install")).toEqual(["corepack", "pnpm", "install", "--config.confirmModulesPurge=false"])
         expect(commandFor("yarn", "lint")).toEqual(["corepack", "yarn", "run", "lint"])
     })
 })
@@ -172,7 +248,9 @@ describe("commandFor", () => {
 describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
     const recording = () => ({ root: "/sandbox", exec: vi.fn(async (_command: string[], _options?: SandboxExecOptions) => ({ exitCode: 0, output: "", cutBytes: 0 })) })
 
-    const lastCommand = (sandbox: ReturnType<typeof recording>) => sandbox.exec.mock.calls.at(-1)?.[0]
+    /** The call that ran the script: the others are shell scripts preparing the copy or reading it. */
+    const scriptCall = (sandbox: ReturnType<typeof recording>) => sandbox.exec.mock.calls.find(([command]) => command[0] !== "sh")
+    const lastCommand = (sandbox: ReturnType<typeof recording>) => scriptCall(sandbox)?.[0]
 
     it("Given a pnpm lockfile, when a script runs, then pnpm runs it in the folder of the repository", async () => {
         const dir = makeRepository({ "package.json": manifest({ test: "vitest" }), "pnpm-lock.yaml": "lockfileVersion: '9.0'\n" })
@@ -180,7 +258,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const repository = { slug: "shop", workingCopy: workingCopyOf(dir) }
         await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "test")
         expect(lastCommand(sandbox)).toEqual(["corepack", "pnpm", "run", "test"])
-        expect(sandbox.exec.mock.calls.at(-1)?.[1]).toMatchObject({
+        expect(scriptCall(sandbox)?.[1]).toMatchObject({
             workdir: "/sandbox/repositories/shop",
             timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
             environment: { CI: "true", HOME: "/sandbox/home" }
@@ -194,6 +272,8 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const repository = { slug: "shop", workingCopy: workingCopyOf(dir) }
         await new AiChangeScriptRunner([repository], async () => sandbox).run(repository, "install")
         expect(lastCommand(sandbox)).toEqual(["corepack", "yarn", "install"])
+        // Under CI pnpm and yarn freeze the lockfile: the install would fail once the agent changes a dependency.
+        expect(scriptCall(sandbox)?.[1]?.environment).not.toHaveProperty("CI")
         fs.rmSync(dir, { recursive: true, force: true })
     })
 
@@ -216,7 +296,7 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         for (const dir of dirs) fs.rmSync(dir, { recursive: true, force: true })
     })
 
-    const recording = () => ({ root: "/sandbox", exec: vi.fn(async () => ({ exitCode: 0, output: "", cutBytes: 0 })) })
+    const recording = () => ({ root: "/sandbox", exec: vi.fn(async (_command: string[], _options?: SandboxExecOptions) => ({ exitCode: 0, output: "", cutBytes: 0 })) })
 
     it("Given no sandbox, then run_script is neither offered nor run", async () => {
         const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]) }])
@@ -229,6 +309,19 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]) }], async () => sandbox)
         expect(toolbox.tools().map(tool => tool.name)).toContain("run_script")
         expect(await toolbox.run("run_script", { script: "test" })).toContain("exit code 0")
+    })
+
+    it("Given a script that fixes a file, then the working copy gets the fix and the agent is told", async () => {
+        const dir = makeRepository({ "package.json": manifest({ "lint:fix": writes({ "src/a.js": "fixed" }) }), "src/a.js": "broken" })
+        dirs.push(dir)
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "ai-change-sandbox-"))
+        try {
+            const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => new LocalSandbox(root))
+            expect(await toolbox.run("run_script", { script: "lint:fix" })).toContain("now part of your change: src/a.js")
+            expect(fs.readFileSync(path.join(dir, "src/a.js"), "utf8")).toBe("fixed")
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true })
+        }
     })
 
     it("Given several repositories, then run_script names the one to run in, and refuses a slug of no repository", async () => {
@@ -244,7 +337,7 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         expect(tool?.inputSchema).toMatchObject({ required: ["repository", "script"], properties: { repository: { enum: ["shop", "cart"] } } })
 
         await toolbox.run("run_script", { repository: "cart", script: "test" })
-        expect(sandbox.exec.mock.calls.at(-1)).toEqual([["npm", "run", "test"], expect.objectContaining({ workdir: "/sandbox/repositories/cart" })])
+        expect(sandbox.exec.mock.calls.find(([command]) => command[0] === "npm")).toEqual([["npm", "run", "test"], expect.objectContaining({ workdir: "/sandbox/repositories/cart" })])
         await expect(toolbox.run("run_script", { repository: "billing", script: "test" })).rejects.toThrow('"billing" is not a repository of this job: shop, cart')
     })
 })

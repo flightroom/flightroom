@@ -41,6 +41,7 @@ import { ConfigMap, Secret } from "../../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import { LlmClient } from "../llm"
+import { AnthropicLlmClient } from "../llm/anthropicProvider"
 import { RepositoryFileService } from "../RepositoryFileService"
 import AiChangeJobService from "./AiChangeJobService"
 import AiMissionService from "./AiMissionService"
@@ -167,6 +168,7 @@ describe("AiChangeJobService", () => {
             // The agent itself is covered below: here only what create decides.
             vi.spyOn(AiChangeJobService.prototype as unknown as WithProcess, "process").mockResolvedValue(undefined)
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue([] as never)
+            vi.spyOn(AnthropicLlmClient.prototype, "json").mockResolvedValue({ name: "Price API rename" })
         })
 
         it("Given a viewer, when a job is started, then it is refused before anything is created", async () => {
@@ -245,12 +247,22 @@ describe("AiChangeJobService", () => {
                 expect.objectContaining({ frontendId: cart._id, jobId: expect.anything(), jobRepositoryCount: 2, baseBranch: "main", status: AiChangeStatus.PENDING }),
                 expect.objectContaining({ frontendId: catalog._id, jobRepositoryCount: 2 })
             ])
-            // Each repository gets the feature branch of the conversation, named after it and the request.
+            // Each repository gets the feature branch of the conversation, named after the model's summary of the request.
             expect(requests.map(request => request.branch)).toEqual([
-                expect.stringMatching(/^ai-feature\/cart\/rename-price-api-\d{8}-\d{6}$/),
-                expect.stringMatching(/^ai-feature\/catalog\/rename-price-api-\d{8}-\d{6}$/)
+                expect.stringMatching(/^ai-feature\/price-api-rename-\d{8}-\d{6}$/),
+                expect.stringMatching(/^ai-feature\/price-api-rename-\d{8}-\d{6}$/)
             ])
+            expect(AnthropicLlmClient.prototype.json).toHaveBeenCalledTimes(1)
             expect(String(requests[0].jobId)).toBe(job._id)
+        })
+
+        it("Given a model that cannot name the branch, when the job is started, then the branch is named after the words of the request", async () => {
+            vi.mocked(AnthropicLlmClient.prototype.json).mockRejectedValue(new Error("overloaded"))
+
+            await service().create(projectId, { prompt: "Please rename the price API", scope: "selection", frontendIds: [String(cart._id)] })
+
+            const [[request]] = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls as [Record<string, unknown>][]
+            expect(request.branch).toMatch(/^ai-feature\/rename-price-api-\d{8}-\d{6}$/)
         })
 
         it("Given a chosen effort, when the job is started, then the job and each of its requests keep it", async () => {

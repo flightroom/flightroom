@@ -21,7 +21,7 @@ import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
-import { isProtectedPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
+import { isUnproposablePath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { ResolvedAiModel } from "../AiModelService"
 import { ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
 import { redactSecrets } from "../assistant/assistantTools"
@@ -53,6 +53,7 @@ import {
     authorOf,
     beforeAiCapCheck,
     branchName,
+    branchTopic,
     commitMessage,
     conversationPrompts,
     ensureNotBeingRefined,
@@ -695,6 +696,8 @@ export class AiChangeJobService extends AiChangeBaseService {
         const userId = this.getUser()!._id
         // Every job of a mission too: the member's limit can run out while the mission goes on.
         await ensureWithinTokenLimit(input.projectId, userId)
+        // A follow-up keeps the branch of what it refines: the model only names a new one.
+        const topic = input.repositories.some(repository => !repository.branch) ? await branchTopic(client, input.prompt) : undefined
         // Named before it is created: the first job of a chain is its own root.
         const jobId = input.jobId ?? (new Types.ObjectId() as unknown as IAiChangeJob["_id"])
         const queued = () => [{ at: new Date(), kind: "info" as const, message: "queued" }]
@@ -731,7 +734,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                     conversationId: input.parentJob?.rootJobId ?? jobId,
                     prompt: input.prompt,
                     baseBranch: repository.baseBranch,
-                    branch: repository.branch ?? branchName(repository.component.slug, input.prompt),
+                    branch: repository.branch ?? branchName(input.prompt, topic),
                     pullRequestUrl: repository.pullRequestUrl,
                     status: AiChangeStatus.PENDING,
                     events: queued()
@@ -969,7 +972,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 const files: IAiChangeFile[] = []
                 for (const change of await workingCopy.changes()) {
                     // The toolbox refuses these already; checked again on what actually changed on disk.
-                    if (isProtectedPath(change.path)) throw new Error(`The agent changed a protected file: ${repository.component.slug}/${change.path}`)
+                    if (isUnproposablePath(change.path)) throw new Error(`The agent changed a protected file: ${repository.component.slug}/${change.path}`)
                     files.push({
                         path: change.path,
                         action: change.action,
@@ -1060,7 +1063,7 @@ export class AiChangeJobService extends AiChangeBaseService {
      */
     private async pushProposal(repository: RunningRepository, files: IAiChangeFile[], summary: string | undefined): Promise<{ branch?: string; commit?: string; pushError?: string }> {
         if (files.length === 0) return {}
-        const branch = repository.request.branch ?? branchName(repository.component.slug, repository.request.prompt)
+        const branch = repository.request.branch ?? branchName(repository.request.prompt)
         // The agent only answered: the branch already holds this very proposal, pushing it again would only run the CI again.
         if (repository.previousCommit && sameFiles(repository.previousFiles ?? [], files)) return { branch, commit: repository.previousCommit }
         try {
@@ -1106,7 +1109,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             const dir = repository.workspace.workingCopy.dir
             for (const file of parent.files) {
                 const { absolute, relative } = await resolveInsideWorkingCopy(dir, file.path)
-                if (isProtectedPath(relative)) throw new Error(`The previous proposal changes a protected file: ${repository.component.slug}/${relative}`)
+                if (isUnproposablePath(relative)) throw new Error(`The previous proposal changes a protected file: ${repository.component.slug}/${relative}`)
                 if (file.action === "delete") {
                     await fs.rm(absolute, { force: true })
                     continue
