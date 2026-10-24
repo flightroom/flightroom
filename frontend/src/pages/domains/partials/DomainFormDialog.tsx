@@ -19,7 +19,35 @@ const createFormSchema = (nameMessage: string, contextMessage: string) =>
         context: z.string().max(CONTEXT_MAX_LENGTH, contextMessage).optional()
     })
 
-type FormValues = z.infer<ReturnType<typeof createFormSchema>>
+export type DomainFormValues = z.infer<ReturnType<typeof createFormSchema>>
+type FormValues = DomainFormValues
+
+/** The rules of the name and of the AI context, with their messages: shared by this dialog and the settings of the domain */
+export const useDomainFormSchema = () => {
+    const { t } = useTranslation()
+    return useMemo(() => createFormSchema(t("domains.form.name_required"), t("settings.projectContext.tooLong", { max: CONTEXT_MAX_LENGTH })), [t])
+}
+
+/** Name, description and AI context of a domain, inside the form that holds them */
+export const DomainFormFields: React.FC<{ disabled?: boolean }> = ({ disabled }) => {
+    const { t } = useTranslation()
+    return (
+        <>
+            <TextField name="name" label={t("domains.form.name")} placeholder={t("domains.form.name_placeholder")} required disabled={disabled} dataTestId="domain-name" />
+            <TextareaField name="description" label={t("domains.form.description_label")} placeholder={t("domains.form.description_placeholder")} disabled={disabled} />
+            <TextareaField
+                name="context"
+                label={t("domains.form.context_label")}
+                placeholder={t("domains.form.context_placeholder")}
+                description={t("domains.form.context_hint")}
+                rows={8}
+                className="font-mono text-sm"
+                disabled={disabled}
+                dataTestId="domain-context"
+            />
+        </>
+    )
+}
 
 interface DomainFormDialogProps {
     open: boolean
@@ -33,7 +61,7 @@ export const DomainFormDialog: React.FC<DomainFormDialogProps> = ({ open, onOpen
     const domainsApi = useDomainsApi()
     const queryClient = useQueryClient()
     const notifications = useToastNotificationStore()
-    const formSchema = useMemo(() => createFormSchema(t("domains.form.name_required"), t("settings.projectContext.tooLong", { max: CONTEXT_MAX_LENGTH })), [t])
+    const formSchema = useDomainFormSchema()
     const form = useForm<FormValues>({ resolver: zodResolver(formSchema) })
 
     useEffect(() => {
@@ -65,17 +93,7 @@ export const DomainFormDialog: React.FC<DomainFormDialogProps> = ({ open, onOpen
                             <DialogDescription>{t("domains.form.description")}</DialogDescription>
                         </DialogHeader>
                         <div className="space-y-2 py-4">
-                            <TextField name="name" label={t("domains.form.name")} placeholder={t("domains.form.name_placeholder")} required dataTestId="domain-name" />
-                            <TextareaField name="description" label={t("domains.form.description_label")} placeholder={t("domains.form.description_placeholder")} />
-                            <TextareaField
-                                name="context"
-                                label={t("domains.form.context_label")}
-                                placeholder={t("domains.form.context_placeholder")}
-                                description={t("domains.form.context_hint")}
-                                rows={8}
-                                className="font-mono text-sm"
-                                dataTestId="domain-context"
-                            />
+                            <DomainFormFields />
                         </div>
                         <DialogFooter>
                             <Button variant="secondary" type="button" onClick={() => onOpenChange(false)} disabled={form.formState.isSubmitting}>

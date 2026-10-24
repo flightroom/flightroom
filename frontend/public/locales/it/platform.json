@@ -2719,7 +2719,32 @@
         },
         "workspace": {
             "nav_label": "Sezioni del dominio",
-            "nav_overview": "Panoramica"
+            "nav_overview": "Panoramica",
+            "nav_settings": "Dettagli e impostazioni"
+        },
+        "settings": {
+            "details_title": "Dettagli",
+            "versions_title": "Versioni",
+            "versions_description": "La versione di ogni frontend e backend del dominio: è quella che il deploy del dominio pubblica. Per un frontend BUNDLE è il nome di un bundle caricato, per un frontend DOCKER e per un backend il tag dell'immagine.",
+            "version_all": "Stessa versione per tutti",
+            "version_all_hint": "Riempie la versione di tutti i frontend e backend qui sotto; poi salva.",
+            "version_all_apply": "Applica a tutti",
+            "kind_bundle": "Frontend BUNDLE",
+            "kind_docker": "Frontend DOCKER",
+            "current_version": "attuale {{version}}",
+            "no_version": "nessuna versione",
+            "versions_changed_one": "{{count}} versione modificata",
+            "versions_changed_other": "{{count}} versioni modificate",
+            "versions_save": "Salva versioni",
+            "versions_saved_one": "Versione aggiornata per {{count}} componente",
+            "versions_saved_other": "Versioni aggiornate per {{count}} componenti"
+        },
+        "deploy": {
+            "action": "Deploy",
+            "title": "Deploy di {{domain}}",
+            "description": "Pubblica nell'ambiente scelto i frontend e i backend del dominio, ognuno alla versione impostata, senza fare la build. Gli altri componenti del progetto restano come sono.",
+            "confirm": "Fai il deploy",
+            "success": "{{domain}} pubblicato in {{environment}}"
         },
         "resources": {
             "title": "Risorse",
