@@ -35,7 +35,7 @@ code repository connected (GitHub, GitLab or Azure DevOps).
 4. The agent explores and edits the files. It receives the [project and frontend context](MCP.md#project-context)
    and the detected stack.
 5. The changed files are committed on the conversation's feature branch,
-   `ai/<frontend>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
+   `ai-feature/<frontend>/<words of the request>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
    the base the agent started from, and force-pushed. A follow-up that only answers a question, without
    changing a file, pushes nothing. A push that fails does not lose the proposal: the console shows the
    error, and applying it or opening its pull request pushes it again.
