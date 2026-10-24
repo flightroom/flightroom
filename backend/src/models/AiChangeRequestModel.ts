@@ -42,6 +42,7 @@ export interface IAiChangeUsage {
     /** The part of `inputTokens` read from the prompt cache. */
     cachedInputTokens: number
     outputTokens: number
+    costUsd?: number
 }
 
 export interface IAiChangeRequest extends Document<ObjectId> {
@@ -145,7 +146,8 @@ const aiChangeRequestSchema = new Schema<IAiChangeRequest>(
         usage: {
             inputTokens: { type: Number, default: 0 },
             cachedInputTokens: { type: Number, default: 0 },
-            outputTokens: { type: Number, default: 0 }
+            outputTokens: { type: Number, default: 0 },
+            costUsd: { type: Number, min: 0 }
         },
         expiresAt: { type: Date }
     },

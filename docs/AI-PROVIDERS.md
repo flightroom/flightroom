@@ -29,6 +29,12 @@ Changing the provider of an AI means typing its keys again: the stored ones are 
 provider. Deleting an AI takes it out of every project restricted to it. Deleting the organization
 deletes its AIs.
 
+The form may also define rates in **USD per million tokens** for input, cached input and output. Set all
+three rates to show an interaction's estimated cost beside its token usage; leave all three empty to
+hide costs. The calculated amount is saved with each interaction, so editing rates later does not
+recalculate past interactions. The read-only system AI has no configurable rates and its cost is not
+shown.
+
 The Azure OpenAI endpoint of an organization's AI must be an Azure host, exactly
 `https://<resource>.openai.azure.com/` (or `.cognitiveservices.azure.com`, `.services.ai.azure.com`):
 no IP address, no credentials, no port other than 443, no path or query; redirects are not followed.
@@ -165,9 +171,10 @@ the input is validated, a **VIEWER** cannot change anything, and errors read the
   place of the waiting call's result: Gemini and Claude with thinking reject a tool call replayed
   without them.
 - Every answer shows under it the tokens it used, every model round summed: the input (with the
-  part read from the prompt cache, far cheaper) and the output. Each answer is also logged with
-  `audit: "assistant_usage"`, the user, the project and the same counts. Input tokens count the
-  whole prompt on every provider: for Claude the cache reads and writes are added back.
+  part read from the prompt cache, far cheaper) and the output. When rates are configured, the
+  estimated USD cost is shown too, including on an error after tokens were spent. Each answer is
+  also logged with `audit: "assistant_usage"`, the user, the project and the same counts. Input
+  tokens count the whole prompt on every provider: for Claude the cache reads and writes are added back.
 - Every write the assistant runs, confirmed or refused, is logged with `audit: "assistant_tool_call"`,
   the tool, the project (or the `organizationId` for organization tools), the user, the outcome, the
   `actionId` of a confirmed action on each of its lines, and the arguments reduced to ids and short

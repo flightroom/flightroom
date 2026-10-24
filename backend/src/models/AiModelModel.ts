@@ -3,6 +3,22 @@ import { AI_MODEL_SECRET_KEYS, AiModelConfig } from "../service/llm"
 import { LLM_EFFORTS, LlmEffort, LlmProvider } from "../service/llm/types"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 
+/** USD per million tokens; all three rates are needed before an interaction cost can be shown. */
+export interface AiTokenCosts {
+    input: number
+    cachedInput: number
+    output: number
+}
+
+const aiTokenCostsSchema = new Schema<AiTokenCosts>(
+    {
+        input: { type: Number, required: true, min: 0 },
+        cachedInput: { type: Number, required: true, min: 0 },
+        output: { type: Number, required: true, min: 0 }
+    },
+    { _id: false }
+)
+
 /**
  * An AI an organization defines: a provider, the model it serves and the credentials to reach it.
  * Every project of the organization may use it, unless the project is restricted to some AIs
@@ -18,6 +34,7 @@ export interface IAiModel extends Document<ObjectId> {
      */
     modelId?: string
     config: AiModelConfig
+    tokenCosts?: AiTokenCosts
     maxEffort?: LlmEffort
     /** The AI preselected in the console: at most one per organization. */
     isDefault: boolean
@@ -34,6 +51,7 @@ const aiModelSchema = new Schema<IAiModel>(
         provider: { type: String, enum: Object.values(LlmProvider), required: true },
         modelId: { type: String, trim: true },
         config: { type: Schema.Types.Mixed, required: true },
+        tokenCosts: { type: aiTokenCostsSchema },
         maxEffort: { type: String, enum: [...LLM_EFFORTS] },
         isDefault: { type: Boolean, default: false }
     },

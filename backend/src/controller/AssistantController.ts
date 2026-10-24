@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest } from "fastify"
 import { createBusinessException } from "../errors/BusinessException"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import AssistantUsage from "../models/AssistantUsageModel"
-import { ensureWithinTokenLimit, recordAiUsage } from "../service/AiUsageService"
+import { calculateAiUsageCostUsd, ensureWithinTokenLimit, recordAiUsage } from "../service/AiUsageService"
 import AssistantService, { AssistantSpentOn } from "../service/assistant/AssistantService"
 import { deleteConversation, getConversation, listConversations, saveConversation } from "../service/assistant/conversations"
 import { addUsage, isRateLimitError, LLM_EFFORTS, LlmEffort, LlmProvider, LlmUsage, NO_USAGE } from "../service/llm"
@@ -133,7 +133,7 @@ const conversationBodySchema = {
                     usage: {
                         type: "object",
                         required: ["inputTokens", "cachedInputTokens", "outputTokens"],
-                        properties: { inputTokens: { type: "number" }, cachedInputTokens: { type: "number" }, outputTokens: { type: "number" } }
+                        properties: { inputTokens: { type: "number" }, cachedInputTokens: { type: "number" }, outputTokens: { type: "number" }, costUsd: { type: "number", minimum: 0 } }
                     }
                 }
             }
@@ -195,9 +195,9 @@ export default async function assistantController(fastify: FastifyInstance) {
         // the stream silent for longer than a proxy's idle timeout; comment frames keep it open.
         const heartbeat = setInterval(() => reply.raw.write(HEARTBEAT), HEARTBEAT_INTERVAL_MS)
 
-        let answered: { stopReason: string; usage: LlmUsage; effort: LlmEffort; aiModelId: string; provider: LlmProvider } | undefined
+        let answered: { stopReason: string; usage: LlmUsage; costUsd?: number; effort: LlmEffort; aiModelId: string; provider: LlmProvider } | undefined
         // What the rounds spent so far: an answer stopped or failing midway returns no outcome, its tokens still count.
-        let spent: { usage: LlmUsage; spentOn?: AssistantSpentOn } = { usage: NO_USAGE }
+        let spent: { usage: LlmUsage; spentOn?: AssistantSpentOn; costUsd?: number } = { usage: NO_USAGE }
         try {
             const { stopReason, wrote, usage, effort, aiModelId, provider } = await service.chat(
                 projectId,
@@ -215,12 +215,29 @@ export default async function assistantController(fastify: FastifyInstance) {
                 abortController.signal,
                 action && confirmation ? { action, approved: confirmation.approved } : undefined
             )
-            sendEvent(reply, "done", { stopReason, wrote, usage })
-            answered = { stopReason, usage, effort, aiModelId, provider }
+            let costUsd: number | undefined
+            try {
+                costUsd = await calculateAiUsageCostUsd(aiModelId, usage)
+            } catch (error) {
+                fastify.log.error({ err: error, projectId, aiModelId }, "Assistant interaction cost could not be calculated")
+            }
+            sendEvent(reply, "done", { stopReason, wrote, ...(usage ? { usage: { ...usage, ...(costUsd === undefined ? {} : { costUsd }) } } : {}) })
+            answered = { stopReason, usage, costUsd, effort, aiModelId, provider }
         } catch (error) {
             if (!abortController.signal.aborted) {
                 fastify.log.error({ err: error, projectId }, "Assistant chat failed")
-                sendEvent(reply, "error", { code: isRateLimitError(error) ? "RATE_LIMITED" : "ASSISTANT_ERROR" })
+                const hasUsage = spent.usage.inputTokens + spent.usage.cachedInputTokens + spent.usage.outputTokens > 0
+                if (hasUsage && spent.spentOn) {
+                    try {
+                        spent.costUsd = await calculateAiUsageCostUsd(spent.spentOn.aiModelId, spent.usage)
+                    } catch (costError) {
+                        fastify.log.error({ err: costError, projectId, aiModelId: spent.spentOn.aiModelId }, "Failed assistant interaction cost could not be calculated")
+                    }
+                }
+                sendEvent(reply, "error", {
+                    code: isRateLimitError(error) ? "RATE_LIMITED" : "ASSISTANT_ERROR",
+                    ...(hasUsage ? { usage: { ...spent.usage, ...(spent.costUsd === undefined ? {} : { costUsd: spent.costUsd }) } } : {})
+                })
             }
         } finally {
             clearInterval(heartbeat)
@@ -228,13 +245,16 @@ export default async function assistantController(fastify: FastifyInstance) {
         reply.raw.end()
 
         if (answered) {
-            const { stopReason, usage, effort, aiModelId, provider } = answered
+            const { stopReason, usage, costUsd, effort, aiModelId, provider } = answered
             // One line and one document per answer: what the assistant costs, per user and project, on which AI and at which effort.
-            fastify.log.info({ audit: "assistant_usage", userId: request.databaseUser?._id?.toString(), projectId, stopReason, effort, aiModelId, provider, ...usage }, "Assistant answer usage")
+            fastify.log.info(
+                { audit: "assistant_usage", userId: request.databaseUser?._id?.toString(), projectId, stopReason, effort, aiModelId, provider, costUsd, ...usage },
+                "Assistant answer usage"
+            )
             // Once the stream is closed and not awaited: the browser does not wait on the write, and a failed one cannot become an error frame.
             void (async () => {
                 try {
-                    await AssistantUsage.create({ userId: request.databaseUser?._id, projectId: toObjectId(projectId), provider, aiModelId, stopReason, effort, ...usage })
+                    await AssistantUsage.create({ userId: request.databaseUser?._id, projectId: toObjectId(projectId), provider, aiModelId, stopReason, effort, costUsd, ...usage })
                 } catch (error) {
                     fastify.log.error({ err: error, projectId }, "Assistant usage not saved")
                 }
@@ -242,10 +262,11 @@ export default async function assistantController(fastify: FastifyInstance) {
         }
         // The ledger counts every answer, stopped and failed ones included, apart from the document above: one failing
         // must not lose the other. No component is credited, the assistant works on the whole project.
-        const ledger = answered ?? (spent.spentOn && { ...spent.spentOn, usage: spent.usage })
+        const ledger = answered ?? (spent.spentOn && { ...spent.spentOn, usage: spent.usage, costUsd: spent.costUsd })
         if (ledger) {
             const { usage, effort, aiModelId, provider } = ledger
-            void recordAiUsage({ userId: request.databaseUser?._id, projectId, source: "assistant", aiModelId, provider, effort, ...usage }).catch(error =>
+            const costUsd = "costUsd" in ledger ? ledger.costUsd : undefined
+            void recordAiUsage({ userId: request.databaseUser?._id, projectId, source: "assistant", aiModelId, provider, effort, costUsd, ...usage }).catch(error =>
                 fastify.log.error({ err: error, projectId }, "Assistant usage not recorded")
             )
         }

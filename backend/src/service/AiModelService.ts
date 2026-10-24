@@ -2,7 +2,7 @@ import { ObjectId, Schema } from "mongoose"
 import AssistantDisabledError from "../errors/AssistantDisabledError"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
-import AiModel, { AI_MODEL_NAME_MAX_LENGTH, IAiModel } from "../models/AiModelModel"
+import AiModel, { AI_MODEL_NAME_MAX_LENGTH, AiTokenCosts, IAiModel } from "../models/AiModelModel"
 import Project from "../models/ProjectModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -43,6 +43,7 @@ export interface AiModelSummary {
 /** An AI as the administrators of the organization see it, to edit it: the secrets are the placeholder. */
 export interface AiModelDetail extends AiModelSummary {
     config: Record<string, unknown>
+    tokenCosts?: AiTokenCosts
     maxEffort?: LlmEffort
     createdAt?: Date
     updatedAt?: Date
@@ -60,6 +61,7 @@ export interface AiModelInput {
     provider?: LlmProvider
     model?: string | null
     config?: AiModelConfig
+    tokenCosts?: AiTokenCosts | null
     maxEffort?: LlmEffort | null
     isDefault?: boolean
 }
@@ -101,6 +103,19 @@ const secretRequired = (keys: string[]) =>
         keys.map(key => `config.${key}`),
         "secret_required"
     )
+
+const normalizeTokenCosts = (costs?: AiTokenCosts | null): AiTokenCosts | undefined => {
+    if (costs == null) return undefined
+    const fields = Object.entries(costs)
+    if (
+        fields.length !== 3 ||
+        !["input", "cachedInput", "output"].every(key => key in costs) ||
+        fields.some(([, value]) => typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1_000_000)
+    ) {
+        throw invalid("token costs must be non-negative numbers for input, cached input and output", ["tokenCosts"])
+    }
+    return costs
+}
 
 const notAvailable = (aiModelId: string) => createBusinessException({ code: "AI_MODEL_NOT_AVAILABLE", message: `The AI ${aiModelId} is not available here`, statusCode: 422 })
 
@@ -168,6 +183,7 @@ const maskedConfig = (config: AiModelConfig): Record<string, unknown> => {
 export const toDetail = (candidate: AiModelCandidate): AiModelDetail => ({
     ...toSummary(candidate),
     config: maskedConfig(candidate.settings.config),
+    tokenCosts: candidate.document?.tokenCosts,
     maxEffort: candidate.settings.maxEffort,
     createdAt: candidate.document?.createdAt,
     updatedAt: candidate.document?.updatedAt
@@ -304,13 +320,23 @@ export class AiModelService extends BaseAuthorizedService {
         const provider = input.provider
         ensureProvider(provider)
         const config = withUnchangedSecrets(provider, normalizeConfig(provider, input.config))
+        const tokenCosts = normalizeTokenCosts(input.tokenCosts)
         const model = input.model?.trim() || undefined
         validateAiModel(provider, model, config, azureOpenAiHostSuffixes(this.config))
         await this.ensureNameFree(organizationId, name)
 
         const document = await this.saved(
             organizationId,
-            new AiModel({ organizationId: toObjectId(organizationId), name, provider, modelId: model, config, maxEffort: input.maxEffort ?? undefined, isDefault: Boolean(input.isDefault) })
+            new AiModel({
+                organizationId: toObjectId(organizationId),
+                name,
+                provider,
+                modelId: model,
+                config,
+                tokenCosts,
+                maxEffort: input.maxEffort ?? undefined,
+                isDefault: Boolean(input.isDefault)
+            })
         )
         return toDetail({ settings: settingsOf(document), isDefault: document.isDefault, system: false, document })
     }
@@ -347,6 +373,7 @@ export class AiModelService extends BaseAuthorizedService {
         // Mixed: mongoose does not see a change inside it unless told
         document.config = config
         document.markModified("config")
+        if (input.tokenCosts !== undefined) document.tokenCosts = normalizeTokenCosts(input.tokenCosts)
         if (input.maxEffort !== undefined) document.maxEffort = input.maxEffort ?? undefined
         if (input.isDefault !== undefined) document.isDefault = input.isDefault
         const updated = await this.saved(organizationId, document)

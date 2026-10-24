@@ -2159,6 +2159,7 @@
             "input": "{{formatted}} token in ingresso",
             "input_cached": "{{formatted}} token in ingresso ({{cached}} dalla cache)",
             "output": "{{formatted}} in uscita",
+            "cost": "Costo: {{formatted}}",
             "hint": "Token usati per questa risposta, sommando tutti i passaggi del modello. I token letti dalla cache costano molto meno."
         },
         "effort": {
@@ -2930,6 +2931,14 @@
             "max_effort": "Ragionamento massimo",
             "max_effort_hint": "Il livello di ragionamento più alto che gli utenti possono scegliere con questa IA.",
             "max_effort_none": "Nessun limite",
+            "token_costs_title": "Costo dei token (facoltativo)",
+            "token_costs_hint": "Inserisci tutte e tre le tariffe in USD per milione di token per mostrare il costo stimato di ogni interazione. Lascia tutti i campi vuoti per non mostrarlo.",
+            "token_costs_invalid": "Inserisci tutte e tre le tariffe da 0 a 1.000.000, oppure lascia vuoti tutti i campi.",
+            "token_costs": {
+                "input": "Token in ingresso",
+                "cached_input": "Token in ingresso dalla cache",
+                "output": "Token in uscita"
+            },
             "default": "IA di default",
             "default_hint": "Preselezionata in ogni progetto che la può usare. Una sola IA dell'organizzazione è quella di default.",
             "fields": {

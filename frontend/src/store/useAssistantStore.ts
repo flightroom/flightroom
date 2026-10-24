@@ -74,6 +74,8 @@ export interface AssistantUsage {
     /** The part of the prompt read from the provider's cache, billed at a fraction of the price. */
     cachedInputTokens: number
     outputTokens: number
+    /** The configured USD cost of this interaction, absent when no rates were set. */
+    costUsd?: number
 }
 
 interface AssistantState {

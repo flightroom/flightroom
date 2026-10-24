@@ -23,7 +23,7 @@ import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import { isUnproposablePath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { ResolvedAiModel } from "../AiModelService"
-import { ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
+import { calculateAiUsageCostUsd, ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
 import { redactSecrets } from "../assistant/assistantTools"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
@@ -155,7 +155,7 @@ export interface AiJobView {
     error?: string
     /** Set when a user stopped the agent before it finished. */
     stoppedAt?: Date
-    usage: LlmUsage
+    usage: LlmUsage & { costUsd?: number }
     repositories: AiJobRepositoryView[]
     /** Whether the caller may apply, stop or follow it up: who started it, or an organization administrator. Others only read it. */
     canAct: boolean
@@ -447,7 +447,12 @@ const toJobView = (
     summary: job.summary,
     error: job.error,
     stoppedAt: job.stoppedAt,
-    usage: { inputTokens: job.usage?.inputTokens ?? 0, cachedInputTokens: job.usage?.cachedInputTokens ?? 0, outputTokens: job.usage?.outputTokens ?? 0 },
+    usage: {
+        inputTokens: job.usage?.inputTokens ?? 0,
+        cachedInputTokens: job.usage?.cachedInputTokens ?? 0,
+        outputTokens: job.usage?.outputTokens ?? 0,
+        ...(job.usage?.costUsd === undefined ? {} : { costUsd: job.usage.costUsd })
+    },
     repositories: componentsOfJob(job).flatMap(ref => {
         // A request nobody acted upon expires: the job then only lists the others.
         const request = requests.find(candidate => String(candidate.jobId) === String(job._id) && componentIdOf(candidate) === ref.id)
@@ -766,7 +771,15 @@ export class AiChangeJobService extends AiChangeBaseService {
      * the job: a job nobody applies is removed after a week, what it spent still counts.
      */
     private async addUsage(job: IAiChangeJob, project: IProject, client: LlmClient, usage: LlmUsage) {
-        const increment = { $inc: { "usage.inputTokens": usage.inputTokens, "usage.cachedInputTokens": usage.cachedInputTokens, "usage.outputTokens": usage.outputTokens } }
+        let costUsd: number | undefined
+        try {
+            costUsd = await calculateAiUsageCostUsd(job.aiModelId, usage)
+        } catch (error) {
+            fastify.log.error({ error: loggable(error), aiJobId: String(job._id), aiModelId: job.aiModelId }, "AI job interaction cost could not be calculated")
+        }
+        const usageIncrement: Record<string, number> = { "usage.inputTokens": usage.inputTokens, "usage.cachedInputTokens": usage.cachedInputTokens, "usage.outputTokens": usage.outputTokens }
+        if (costUsd !== undefined) usageIncrement["usage.costUsd"] = costUsd
+        const increment = { $inc: usageIncrement }
         await AiChangeJob.updateOne({ _id: job._id }, increment)
         await AiChangeRequest.updateMany({ jobId: job._id }, increment)
         try {
@@ -782,6 +795,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 aiModelId: job.aiModelId,
                 provider: client.provider,
                 effort: job.effort,
+                costUsd,
                 ...usage
             })
         } catch (error) {

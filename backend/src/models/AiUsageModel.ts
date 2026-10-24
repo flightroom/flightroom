@@ -33,6 +33,7 @@ export interface IAiUsage {
     inputTokens: number
     cachedInputTokens: number
     outputTokens: number
+    costUsd?: number
     createdAt: Date
 }
 
@@ -52,7 +53,8 @@ const aiUsageSchema = new Schema<IAiUsage>(
         effort: { type: String, enum: [...LLM_EFFORTS] },
         inputTokens: { type: Number, default: 0 },
         cachedInputTokens: { type: Number, default: 0 },
-        outputTokens: { type: Number, default: 0 }
+        outputTokens: { type: Number, default: 0 },
+        costUsd: { type: Number, min: 0 }
     },
     { timestamps: { createdAt: true, updatedAt: false } }
 )

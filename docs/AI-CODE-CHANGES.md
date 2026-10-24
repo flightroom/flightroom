@@ -259,4 +259,5 @@ Any member of the project can see the requests. Viewers can neither ask for a ch
 discard one; organization administrators can. A request, a job and its follow-ups belong to the user who
 started them: only they, or an organization administrator, can apply, discard, stop or follow them up, or
 open their pull request. Other members see them read only (`AI_JOB_NOT_OWNER`). Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
-per user, like the assistant. The token usage of each request is stored and shown in the console.
+per user, like the assistant. The token usage of each request is stored and shown in the console;
+when its AI has configured token rates, the estimated USD cost is shown alongside it.
