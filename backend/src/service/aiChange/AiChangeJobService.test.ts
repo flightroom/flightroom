@@ -247,8 +247,8 @@ describe("AiChangeJobService", () => {
             ])
             // Each repository gets the feature branch of the conversation, named after it and the request.
             expect(requests.map(request => request.branch)).toEqual([
-                expect.stringMatching(/^ai\/cart\/rename-price-api-\d{8}-\d{6}$/),
-                expect.stringMatching(/^ai\/catalog\/rename-price-api-\d{8}-\d{6}$/)
+                expect.stringMatching(/^ai-feature\/cart\/rename-price-api-\d{8}-\d{6}$/),
+                expect.stringMatching(/^ai-feature\/catalog\/rename-price-api-\d{8}-\d{6}$/)
             ])
             expect(String(requests[0].jobId)).toBe(job._id)
         })

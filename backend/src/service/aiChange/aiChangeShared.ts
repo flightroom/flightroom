@@ -80,14 +80,14 @@ const FILLER_WORDS = new Set(
 /**
  * The feature branch of a conversation on one repository, named after what was asked so it reads in
  * the provider's branch list: "Aggiungi il bottone di logout nella navbar" on `cart` becomes
- * `ai/cart/aggiungi-bottone-logout-navbar-20261024-101500`.
+ * `ai-feature/cart/aggiungi-bottone-logout-navbar-20261024-101500`.
  */
 export const branchName = (slug: string, prompt = "") => {
     const words = slugify(prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
         .split("-")
         .filter(word => word && !FILLER_WORDS.has(word))
         .slice(0, BRANCH_NAME_WORDS)
-    return `ai/${slug}/${[...words, timestamp()].join("-")}`
+    return `ai-feature/${slug}/${[...words, timestamp()].join("-")}`
 }
 
 /** Who a commit is by: the user who asked for the change, or applied it. */
