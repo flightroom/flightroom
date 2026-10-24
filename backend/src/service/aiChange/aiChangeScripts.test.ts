@@ -304,6 +304,27 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         await expect(toolbox.run("run_script", { script: "test" })).rejects.toThrow('Unknown tool "run_script"')
     })
 
+    it("Given an npmrc, when a script runs, then it is written out of the copy on stdin and read as the user configuration", async () => {
+        const sandbox = recording()
+        const npmrc = "@tnb:registry=https://pkgs.dev.azure.com/tnb/_packaging/ui/npm/registry/\n//pkgs.dev.azure.com/:_authToken=s3cr3t"
+        const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]), npmrc }], async () => sandbox)
+
+        await toolbox.run("run_script", { script: "install" })
+
+        const calls = sandbox.exec.mock.calls
+        const written = calls.find(([, options]) => options?.stdin?.toString("utf8") === `${npmrc}\n`)
+        expect(written?.[0]).toContain("/sandbox/npmrc/shop")
+        // Never on a command line, which a gateway may log.
+        for (const [command] of calls) expect(command.join(" ")).not.toContain("s3cr3t")
+        expect(calls.find(([command]) => command[0] === "npm")?.[1]?.environment).toMatchObject({ npm_config_userconfig: "/sandbox/npmrc/shop" })
+    })
+
+    it("Given no npmrc, then the scripts get no user configuration of their own", async () => {
+        const sandbox = recording()
+        await new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]) }], async () => sandbox).run("run_script", { script: "install" })
+        expect(sandbox.exec.mock.calls.find(([command]) => command[0] === "npm")?.[1]?.environment).not.toHaveProperty("npm_config_userconfig")
+    })
+
     it("Given a sandbox, then run_script is offered and runs in it", async () => {
         const sandbox = recording()
         const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]) }], async () => sandbox)
@@ -322,6 +343,66 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         } finally {
             fs.rmSync(root, { recursive: true, force: true })
         }
+    })
+
+    it("Given a change and a build script, when the agent finishes, then finish is refused until a build ran after the last edit", async () => {
+        const dir = makeRepository({ "package.json": manifest({ build: "echo built" }), "src/a.js": "old" })
+        dirs.push(dir)
+        const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => recording())
+
+        await toolbox.run("write_file", { path: "src/a.js", content: "new" })
+        await expect(toolbox.run("finish", { summary: "Changed a" })).rejects.toThrow('Run run_script "build"')
+        await toolbox.run("run_script", { script: "build" })
+        await toolbox.run("write_file", { path: "src/a.js", content: "newer" })
+        await expect(toolbox.run("finish", { summary: "Changed a" })).rejects.toThrow("Not finished")
+        await toolbox.run("run_script", { script: "build" })
+
+        expect(await toolbox.run("finish", { summary: "Changed a" })).toBe("Done.")
+        expect(toolbox.summary).toBe("Changed a")
+    })
+
+    it("Given a build that fails, then finish is not held: a build broken before the change is not the agent's to fix", async () => {
+        const dir = makeRepository({ "package.json": manifest({ build: "exit 2" }), "src/a.js": "old" })
+        dirs.push(dir)
+        const sandbox = { root: "/sandbox", exec: vi.fn(async (command: string[]) => ({ exitCode: command[0] === "npm" ? 2 : 0, output: "", cutBytes: 0 })) }
+        const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => sandbox)
+
+        await toolbox.run("write_file", { path: "src/a.js", content: "new" })
+        expect(await toolbox.run("run_script", { script: "build" })).toContain("exit code 2")
+        expect(await toolbox.run("finish", { summary: "Changed a" })).toBe("Done.")
+    })
+
+    it("Given no build script, no change of this run, or no sandbox, then finish needs no build", async () => {
+        const withBuild = makeRepository({ "package.json": manifest({ build: "echo built" }), "src/a.js": "old" })
+        dirs.push(withBuild)
+        const noBuild = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]) }], async () => recording())
+        await noBuild.run("write_file", { path: "src/a.js", content: "new" })
+        expect(await noBuild.run("finish", { summary: "Changed a" })).toBe("Done.")
+
+        const followUp = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(withBuild), previousChanges: [{ path: "src/a.js", bytes: 3 }] }], async () => recording())
+        expect(await followUp.run("finish", { summary: "Changed a" })).toBe("Done.")
+
+        const noSandbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(withBuild) }])
+        await noSandbox.run("write_file", { path: "src/a.js", content: "new" })
+        expect(await noSandbox.run("finish", { summary: "Changed a" })).toBe("Done.")
+    })
+
+    it("Given several repositories, when one changed is not built, then finish names it", async () => {
+        const shop = makeRepository({ "package.json": manifest({ build: "echo shop" }) })
+        const cart = makeRepository({ "package.json": manifest({ build: "echo cart" }) })
+        dirs.push(shop, cart)
+        const toolbox = new AiChangeToolbox(
+            [
+                { slug: "shop", workingCopy: workingCopyOf(shop) },
+                { slug: "cart", workingCopy: workingCopyOf(cart) }
+            ],
+            async () => recording()
+        )
+        await toolbox.run("write_file", { path: "shop/a.js", content: "a" })
+        await toolbox.run("write_file", { path: "cart/b.js", content: "b" })
+        await toolbox.run("run_script", { repository: "shop", script: "build" })
+
+        await expect(toolbox.run("finish", { summary: "Both" })).rejects.toThrow("since the last build of cart,")
     })
 
     it("Given several repositories, then run_script names the one to run in, and refuses a slug of no repository", async () => {

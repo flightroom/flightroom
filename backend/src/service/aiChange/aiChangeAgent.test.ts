@@ -483,6 +483,40 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
 
     afterEach(() => fs.rmSync(dir, { recursive: true, force: true }))
 
+    it("Given a sandbox and an agent that changes a file then answers without building, when it runs, then it is asked to build and goes on", async () => {
+        fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "catalog", scripts: { build: "vite build" } }))
+        commitAll(dir)
+        const sandbox = { root: "/sandbox", exec: vi.fn(async () => ({ exitCode: 0, output: "", cutBytes: 0 })) }
+        const { client, sent } = scriptedClient([
+            { stopReason: "tool_use", text: "", toolCalls: [toolUse("1", "write_file", { path: "src/App.tsx", content: "export const App = () => <main />\n" })] },
+            { stopReason: "end_turn", text: "Done, the app renders a main.", toolCalls: [] },
+            { stopReason: "tool_use", text: "", toolCalls: [toolUse("2", "run_script", { script: "build" })] },
+            { stopReason: "tool_use", text: "", toolCalls: [toolUse("3", "finish", { summary: "The app renders a main" })] }
+        ])
+        const { events, hooks: agentHooks } = hooks()
+
+        const result = await runAiChangeAgent(client, { ...input(), sandbox: async () => sandbox }, agentHooks)
+
+        expect(result).toMatchObject({ summary: "The app renders a main", stopReason: "finished" })
+        expect(events).toEqual(["write_file src/App.tsx", "Done, the app renders a main.", "build-required", "run_script build", "finish"])
+        const reminder = sent[2].messages.at(-1)
+        expect(reminder?.role === "user" ? reminder.text : "").toContain('Run run_script "build"')
+    })
+
+    it("Given an agent that changes a file then answers once asked to build, when it still does not build, then it is asked only once", async () => {
+        fs.writeFileSync(path.join(dir, "package.json"), JSON.stringify({ name: "catalog", scripts: { build: "vite build" } }))
+        commitAll(dir)
+        const { client } = scriptedClient([
+            { stopReason: "tool_use", text: "", toolCalls: [toolUse("1", "write_file", { path: "src/App.tsx", content: "x\n" })] },
+            { stopReason: "end_turn", text: "Done.", toolCalls: [] },
+            { stopReason: "end_turn", text: "I cannot build it.", toolCalls: [] }
+        ])
+
+        const result = await runAiChangeAgent(client, { ...input(), sandbox: async () => ({ root: "/sandbox", exec: async () => ({ exitCode: 0, output: "", cutBytes: 0 }) }) }, hooks().hooks)
+
+        expect(result).toMatchObject({ summary: "I cannot build it.", stopReason: "end_turn" })
+    })
+
     it("Given an agent that writes a file then finishes, when it runs, then the working copy holds the change and the summary comes back", async () => {
         const { client, sent } = scriptedClient([
             { stopReason: "tool_use", text: "", toolCalls: [toolUse("1", "write_file", { path: "src/pages/NotFound.tsx", content: "export const NotFound = () => null\n" })] },

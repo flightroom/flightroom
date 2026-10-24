@@ -4,11 +4,11 @@ import { describeDesignSystem, IDesignSystem } from "../../types/DesignSystem"
 import { describeProjectTechnologies, IProjectTechnologies } from "../../types/ProjectTechnology"
 import { isLockfilePath, isProtectedPath, isSecretPath, resolveInsideWorkingCopy, WorkspacePathError } from "../../utils/workspacePaths"
 import { LlmClient, LlmEffort, LlmMessage, LlmTool, LlmUsage } from "../llm"
-import { runAgentLoop, runToolsInOrder } from "../llm/agentLoop"
+import { AgentLoopOptions, runAgentLoop, runToolsInOrder } from "../llm/agentLoop"
 import { compactTranscript } from "../llm/transcript"
 import { CommandSandbox } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
-import { AiChangeScriptRunner, runScriptTool, ScriptRun } from "./aiChangeScripts"
+import { AiChangeScriptRunner, BUILD_SCRIPT, runScriptTool, ScriptRun } from "./aiChangeScripts"
 import { AiChangeApiSpecSource, ApiSpecReader } from "./apiSpecReader"
 
 export const AI_CHANGE_LIMITS = {
@@ -218,7 +218,7 @@ const BACKEND_ENDPOINT_INSTRUCTIONS =
 /** What the agent can run: the scripts of package.json in a sandbox, or nothing. */
 const RUN_INSTRUCTIONS = {
     sandbox:
-        "You cannot run arbitrary commands, but run_script runs the install and the scripts of package.json in an isolated sandbox: after changing code, run the checks the repository has (lint, typecheck, test, build) and fix what your change broke. A failure that was there before your change is not yours to fix: mention it in the summary. What a script changes in the repository comes back into your change: to add or update a dependency, change package.json and run the install, which updates the lockfile.",
+        "You cannot run arbitrary commands, but run_script runs the install and the scripts of package.json in an isolated sandbox: after changing code, run the checks the repository has (lint, typecheck, test, build) and fix what your change broke. Your change is pushed once you are done: after your last edit, run its build script in every repository you changed that has one, or finish is refused. A failure that was there before your change is not yours to fix: mention it in the summary. What a script changes in the repository comes back into your change: to add or update a dependency, change package.json and run the install, which updates the lockfile.",
     none: "You cannot run commands, install packages, build or test."
 }
 
@@ -376,10 +376,10 @@ const describeFrontend = (repository: AiChangeAgentRepository, tag: "frontend" |
         .join("\n")
 
 /** What the team wrote for agents about the component, and the design system of a frontend. */
-const frontendContext = (repository: AiChangeAgentRepository) => {
+const frontendContext = (repository: AiChangeAgentRepository, installs: boolean) => {
     const tag = repository.backend ? "backend_context" : "frontend_context"
     const context = componentOf(repository).context
-    return [context ? `<${tag}>\n${context}\n</${tag}>` : undefined, describeDesignSystem(repository.frontend?.designSystem)].filter(Boolean).join("\n") || undefined
+    return [context ? `<${tag}>\n${context}\n</${tag}>` : undefined, describeDesignSystem(repository.frontend?.designSystem, { installs })].filter(Boolean).join("\n") || undefined
 }
 
 /** The chain of a follow-up: what was asked before and what the agent answered, oldest first. */
@@ -515,17 +515,26 @@ const describeBackendEndpoints = (repositories: AiChangeAgentRepository[]) => {
 
 const describeInput = (input: AiChangeAgentInput, maps: (AiChangeRepositoryMap | undefined)[]) => {
     const mapOf = (index: number) => (maps[index] ? describeMap(maps[index]) : undefined)
+    const installs = input.sandbox !== undefined
     const projectNotes = input.project.context ? `<project_context project="${input.project.name}">\n${input.project.context}\n</project_context>` : undefined
     const projectContext = [projectNotes, describeProjectTechnologies(input.project.technologies)].filter(Boolean).join("\n\n") || undefined
     const domainContext = input.domain ? describeDomain(input.domain) : (input.memberDomains ?? []).map(domainNotes).join("\n") || undefined
     // One repository reads as it always did: the frontend (or the backend), then its context.
     const repositories =
         input.repositories.length === 1
-            ? [describeFrontend(input.repositories[0], input.repositories[0].backend ? "backend" : "frontend"), projectContext, domainContext, frontendContext(input.repositories[0]), mapOf(0)]
+            ? [
+                  describeFrontend(input.repositories[0], input.repositories[0].backend ? "backend" : "frontend"),
+                  projectContext,
+                  domainContext,
+                  frontendContext(input.repositories[0], installs),
+                  mapOf(0)
+              ]
             : [
                   [
                       "<repositories>",
-                      ...input.repositories.map((repository, index) => describeFrontend(repository, "repository", [frontendContext(repository), mapOf(index)].filter(Boolean).join("\n") || undefined)),
+                      ...input.repositories.map((repository, index) =>
+                          describeFrontend(repository, "repository", [frontendContext(repository, installs), mapOf(index)].filter(Boolean).join("\n") || undefined)
+                      ),
                       "</repositories>"
                   ].join("\n"),
                   describeBackendEndpoints(input.repositories),
@@ -725,6 +734,8 @@ export interface AiChangeToolboxRepository {
     slug: string
     workingCopy: GitWorkingCopy
     previousChanges?: AiChangeToolboxChange[]
+    /** The .npmrc its install runs with in the sandbox, credentials included: never written into the working copy. */
+    npmrc?: string
 }
 
 /**
@@ -741,6 +752,8 @@ export class AiChangeToolbox {
     private readonly maxWrittenBytes: number
     /** Only with a sandbox: run_script is not offered otherwise. */
     private readonly scripts?: AiChangeScriptRunner
+    /** Repositories the agent changed since their last build: finish waits for one. */
+    private readonly unbuilt = new Set<AiChangeToolboxRepository>()
     summary?: string
 
     constructor(
@@ -756,6 +769,8 @@ export class AiChangeToolbox {
             // A lockfile comes from the install, not from the agent: alone it may weigh more than the agent may write.
             for (const change of repository.previousChanges ?? []) this.markChanged(repository, change.path, isLockfilePath(change.path) ? 0 : change.bytes)
         }
+        // What the previous message proposed was checked then: only what this run writes waits for a build.
+        this.unbuilt.clear()
     }
 
     private get multipleRepositories() {
@@ -782,15 +797,26 @@ export class AiChangeToolbox {
                 return this.writeFile(readString(input, "path")!, readString(input, "content")!)
             case "delete_file":
                 return this.deleteFile(readString(input, "path")!)
-            case "finish":
+            case "finish": {
+                const unbuilt = await this.unbuiltRepositories()
+                if (unbuilt.length) throw new Error(buildFirst(unbuilt, this.multipleRepositories))
                 this.summary = readString(input, "summary")
                 return "Done."
+            }
             case "run_script":
                 if (!this.scripts) throw new Error(`Unknown tool "${name}"`)
                 return this.runScript(this.scripts, this.repositoryNamed(readString(input, "repository", this.multipleRepositories)), readString(input, "script")!)
             default:
                 throw new Error(`Unknown tool "${name}"`)
         }
+    }
+
+    /** The slugs of the repositories changed since their last build that have a build script: none without a sandbox. */
+    async unbuiltRepositories(): Promise<string[]> {
+        const scripts = this.scripts
+        if (!scripts) return []
+        const unbuilt = await Promise.all([...this.unbuilt].map(async repository => ((await scripts.hasScript(repository, BUILD_SCRIPT)) ? repository.slug : undefined)))
+        return unbuilt.filter(slug => slug !== undefined)
     }
 
     /** The repository a path of the agent points into, and the path inside it. */
@@ -1005,10 +1031,13 @@ export class AiChangeToolbox {
         this.changed.set(repository, changed)
         this.writtenBytes += bytes
         this.scripts?.touch(repository, relative)
+        this.unbuilt.add(repository)
     }
 
     /** Runs a script and takes into the working copy what it changed in the sandbox: see {@link takeScriptChanges}. */
     private async runScript(scripts: AiChangeScriptRunner, repository: AiChangeToolboxRepository, script: string): Promise<string> {
+        // Tried is enough: a build broken before the change, or a sandbox that fails, must not hold finish forever.
+        if (script === BUILD_SCRIPT) this.unbuilt.delete(repository)
         const run = await scripts.run(repository, script, paths => this.tooManyFiles(repository, paths))
         return [run.output, await this.takeScriptChanges(repository, run)].filter(Boolean).join("\n\n")
     }
@@ -1109,6 +1138,11 @@ export class AiChangeToolbox {
     }
 }
 
+/** Why the work is not over yet: the change of these repositories was never built. */
+const buildFirst = (slugs: string[], multipleRepositories: boolean) =>
+    `Not finished: you changed files since the last build${multipleRepositories ? ` of ${slugs.join(", ")}` : ""}, and your change is pushed once you are done. ` +
+    `Run run_script "${BUILD_SCRIPT}"${multipleRepositories ? " in each" : ""}, fix what your change broke, then finish.`
+
 /** What each tool call shows in the progress of the request: the path, never the content. */
 export const describeToolCall = (name: string, input: unknown): string => {
     if (name === "read_api_spec") {
@@ -1131,7 +1165,12 @@ export const describeToolCall = (name: string, input: unknown): string => {
  */
 export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentInput, hooks: AiChangeAgentHooks, signal?: AbortSignal): Promise<AiChangeAgentResult> => {
     const toolbox = new AiChangeToolbox(
-        input.repositories.map(repository => ({ slug: componentOf(repository).slug, workingCopy: repository.workingCopy, previousChanges: repository.previousChanges })),
+        input.repositories.map(repository => ({
+            slug: componentOf(repository).slug,
+            workingCopy: repository.workingCopy,
+            previousChanges: repository.previousChanges,
+            npmrc: repository.frontend?.designSystem?.npmrc
+        })),
         input.sandbox,
         signal
     )
@@ -1143,7 +1182,9 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
     const effort = input.effort ?? AI_CHANGE_DEFAULT_EFFORT
     // One per run: each document is read once however many times the agent asks for it
     const apiSpecs = new ApiSpecReader(input.apiSpecs ?? [])
-    const loop = await runAgentLoop({
+    const maxRounds = agentLimitsFor(input.repositories.length).maxRounds
+    let rounds = 0
+    const options: AgentLoopOptions = {
         client,
         system: systemPrompt(input.repositories, {
             apiResources: apiSpecs.resources.length > 0,
@@ -1152,13 +1193,14 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
         }),
         tools: toolbox.tools(apiSpecs.resources),
         messages,
-        maxRounds: agentLimitsFor(input.repositories.length).maxRounds,
+        maxRounds,
         maxTokens: AI_CHANGE_LIMITS.maxTokensPerTurn[effort],
         effort,
         signal,
         rateLimitWaitsMs: AI_CHANGE_LIMITS.rateLimitWaitsMs,
         onRateLimited: () => hooks.onEvent("info", "rate-limited"),
         onTurn: async result => {
+            rounds++
             await hooks.onUsage(result.usage)
             if (result.stopReason === "refusal") return
             // The reasoning first: the model thought it through before saying and doing what the turn holds.
@@ -1173,7 +1215,15 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
             }),
             stop: toolbox.summary !== undefined
         })
-    })
+    }
+    let loop = await runAgentLoop(options)
+    // An answer in plain text ends the run too, and what the agent changed is pushed all the same: built first, once asked.
+    const unbuilt = loop.stopReason === "end_turn" && rounds < maxRounds ? await toolbox.unbuiltRepositories() : []
+    if (unbuilt.length) {
+        await hooks.onEvent("info", "build-required")
+        messages.push({ role: "user", text: `[Flightroom, not the user] ${buildFirst(unbuilt, input.repositories.length > 1)}` })
+        loop = await runAgentLoop({ ...options, maxRounds: maxRounds - rounds })
+    }
 
     const stopReason = loop.stopReason === "stopped" ? "finished" : loop.stopReason
     const summary = stopReason === "refusal" ? "" : (toolbox.summary ?? (stopReason === "end_turn" ? loop.text : ""))

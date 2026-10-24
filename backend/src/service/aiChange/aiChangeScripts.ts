@@ -28,6 +28,9 @@ export const AI_SCRIPT_LIMITS = {
 /** The script that is no script of package.json: the dependencies, installed with the repository's package manager. */
 export const INSTALL_SCRIPT = "install"
 
+/** The script a change must have gone through before it is pushed, in every repository that has one. */
+export const BUILD_SCRIPT = "build"
+
 type PackageManager = "pnpm" | "yarn" | "npm"
 
 /** Read from the files git tracks, in this order, when package.json names no packageManager. */
@@ -97,6 +100,8 @@ const ensureSucceeded = (what: string, result: SandboxCommandResult) => {
 export interface ScriptRepository {
     slug: string
     workingCopy: GitWorkingCopy
+    /** The user configuration of its package manager in the sandbox (a private registry and its token): never part of the copy. */
+    npmrc?: string
 }
 
 /** A file a script changed in the copy of the repository, read back from the sandbox. */
@@ -174,6 +179,12 @@ export class AiChangeScriptRunner {
         this.unsent.set(repository, paths)
     }
 
+    /** Whether package.json has this script: false without one, or with one that is not JSON. */
+    async hasScript(repository: ScriptRepository, script: string): Promise<boolean> {
+        const manifest = await this.manifestOf(repository).catch(() => undefined)
+        return typeof manifest?.scripts?.[script] === "string"
+    }
+
     /** `refusal` says why the paths a script changed cannot join the change, if they cannot: then none comes back. */
     async run(repository: ScriptRepository, script: string, refusal: (paths: string[]) => string | undefined = () => undefined): Promise<ScriptRun> {
         const manifest = await this.manifestOf(repository)
@@ -190,7 +201,7 @@ export class AiChangeScriptRunner {
             ensureSucceeded("Marking the start of the script", marked)
             const result = await sandbox.exec(command, {
                 workdir: this.folderOf(sandbox, repository),
-                environment: this.environmentOf(sandbox, script),
+                environment: this.environmentOf(sandbox, repository, script),
                 timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
                 signal: this.signal
             })
@@ -214,13 +225,26 @@ export class AiChangeScriptRunner {
         return `${sandbox.root}/repositories/${repository.slug}`
     }
 
+    /** Out of the copy: no script lists it as a change, and two repositories may install from different registries. */
+    private npmrcOf(sandbox: CommandSandbox, repository: ScriptRepository) {
+        return `${sandbox.root}/npmrc/${repository.slug}`
+    }
+
     /**
      * Caches and the home of every tool under the root: the only folder the sandbox is sure to let them write.
      * CI keeps test runners out of watch mode, but not for the install: under CI pnpm and yarn freeze the
-     * lockfile, and an install after the agent changed a dependency would fail.
+     * lockfile, and an install after the agent changed a dependency would fail. The npmrc of the repository is the
+     * user configuration npm, pnpm and yarn 1 read.
      */
-    private environmentOf(sandbox: CommandSandbox, script: string): Record<string, string> {
-        return { ...(script === INSTALL_SCRIPT ? {} : { CI: "true" }), HOME: `${sandbox.root}/home`, COREPACK_ENABLE_DOWNLOAD_PROMPT: "0", NO_COLOR: "1", FORCE_COLOR: "0" }
+    private environmentOf(sandbox: CommandSandbox, repository: ScriptRepository, script: string): Record<string, string> {
+        return {
+            ...(script === INSTALL_SCRIPT ? {} : { CI: "true" }),
+            ...(repository.npmrc ? { npm_config_userconfig: this.npmrcOf(sandbox, repository) } : {}),
+            HOME: `${sandbox.root}/home`,
+            COREPACK_ENABLE_DOWNLOAD_PROMPT: "0",
+            NO_COLOR: "1",
+            FORCE_COLOR: "0"
+        }
     }
 
     /**
@@ -346,12 +370,23 @@ export class AiChangeScriptRunner {
             // Whole: the sandbox may hold the copy of an earlier message, with files this one no longer has.
             const { entries } = await this.entriesOf(repository, [...new Set([...(await repository.workingCopy.listFiles()), ...unsent])])
             await this.extract(sandbox, repository, tarGz(entries), CLEAR_EXCEPT_DEPENDENCIES, [])
+            if (repository.npmrc) await this.writeNpmrc(sandbox, repository, repository.npmrc)
             this.copied.add(repository)
         } else if (unsent.size) {
             const { entries, removed } = await this.entriesOf(repository, [...unsent])
             await this.extract(sandbox, repository, entries.length ? tarGz(entries) : undefined, 'rm -f -- "$@"', removed)
         }
         this.unsent.delete(repository)
+    }
+
+    /** On stdin, never in the command line a gateway may log; readable by the sandbox user only. */
+    private async writeNpmrc(sandbox: CommandSandbox, repository: ScriptRepository, npmrc: string) {
+        const written = await sandbox.exec(["sh", "-c", 'mkdir -p "$(dirname "$0")" && umask 077 && cat > "$0"', this.npmrcOf(sandbox, repository)], {
+            stdin: Buffer.from(`${npmrc.trimEnd()}\n`, "utf8"),
+            timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
+            signal: this.signal
+        })
+        ensureSucceeded(`Writing the .npmrc of ${repository.slug} into the sandbox`, written)
     }
 
     /** The files to copy, and the paths that no longer exist. Secrets stay out: no .env reaches the sandbox. */

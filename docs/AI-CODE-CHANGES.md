@@ -180,6 +180,11 @@ gateway. It then gets `run_script`, which runs `install` or one script of the re
 (`lint`, `test`, `build`...) with the repository's package manager (the `packageManager` field, else the
 lockfile: pnpm and yarn through corepack, npm otherwise), and reads back the exit code and the end of the
 output. Nothing else can be run: no arbitrary command, no repository without a `package.json`.
+A change is pushed once the agent is done, so it must have been built first: in every repository it changed
+that has a `build` script, `finish` is refused until `build` has run after its last edit. Run is enough, not
+passed: a build already broken on the base branch must not hold the agent forever, and it says so in the
+summary. An agent that ends with an answer instead of `finish` is asked once to build, then its answer stands.
+A follow-up that changes nothing needs no build.
 Scripts run with `CI=true`, so test runners stay out of watch mode; the install does not, because
 under CI pnpm and yarn freeze the lockfile and the install fails as soon as the agent changes a dependency
 (pnpm gets `--config.confirmModulesPurge=false` instead, having no terminal to ask in).
@@ -208,8 +213,13 @@ are the repository's code, and the console holds the repository tokens, the data
   comes back does not count towards the 500 KB the agent may write; in a follow-up the parent's files
   do, whole, as for anything the agent wrote, except lockfiles.
 - **What goes out.** By default the sandbox may reach `registry.npmjs.org` on 443, only through
-  `/usr/local/bin/node`, and nothing else. Private registries are not supported yet: their credentials
-  would have to reach the sandbox.
+  `/usr/local/bin/node`, and nothing else. A private registry (Azure Artifacts, GitHub Packages...) is
+  reached through the `.npmrc` of the frontend's [design system](MCP.md#project-context), credentials
+  included: it is written into the sandbox, outside the copy of the repository, and the install and the
+  scripts read it as their user configuration (`npm_config_userconfig`: npm, pnpm and yarn 1; yarn 2+ does
+  not read an `.npmrc`). It never reaches the working copy nor the proposal, and the model only sees it
+  masked. The registry's host must be among `OPENSHELL_REGISTRY_HOSTS`. The code of the repository runs
+  next to it, so the token is as exposed as on a developer's laptop: give it read access to the feed only.
 - **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
   6,000 characters of the output; 300 MB copied per repository.
 
