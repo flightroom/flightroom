@@ -1,5 +1,5 @@
 import { format } from "date-fns"
-import { Brain } from "lucide-react"
+import { Brain, ExternalLink, Monitor, Server } from "lucide-react"
 import { useEffect, useRef } from "react"
 import { useTranslation } from "react-i18next"
 import type { IBadgeProps } from "@/components/atoms"
@@ -20,6 +20,86 @@ const STATUS_VARIANT: Record<AiChangeStatus, IBadgeProps["variant"]> = {
 export const StatusBadge: React.FC<{ status: AiChangeStatus }> = ({ status }) => {
     const { t } = useTranslation()
     return <Badge variant={STATUS_VARIANT[status]}>{t(`frontend.aiChange.status.${status}`)}</Badge>
+}
+
+const previewOf = (message: string): { kind: "frontend" | "backend"; slug: string; url: string } | undefined => {
+    const match = /^preview-ready\|(frontend|backend)\|([a-z0-9-]+)\|(.+)$/.exec(message)
+    if (!match) return undefined
+    try {
+        const url = new URL(decodeURIComponent(match[3]))
+        return url.protocol === "http:" || url.protocol === "https:" ? { kind: match[1] === "frontend" ? "frontend" : "backend", slug: match[2], url: url.toString() } : undefined
+    } catch {
+        return undefined
+    }
+}
+
+/** The live frontend and API endpoints made available by the OpenShell gateway. */
+export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) => {
+    const { t } = useTranslation()
+    const previews = new Map<string, { kind: "frontend" | "backend"; slug: string; url: string }>()
+    for (const event of events) {
+        const preview = previewOf(event.message)
+        if (preview) previews.set(`${preview.kind}:${preview.slug}`, preview)
+    }
+    const frontend = [...previews.values()].filter(preview => preview.kind === "frontend")
+    const backend = [...previews.values()].filter(preview => preview.kind === "backend")
+    const unavailable = events.some(event => event.message === "preview-failed|frontend" || event.message === "preview-failed|backend")
+    if (frontend.length === 0 && backend.length === 0 && !unavailable) return null
+
+    return (
+        <section aria-label={t("frontend.aiChange.preview.title")} className="flex flex-col gap-3">
+            <div className="flex flex-wrap items-center justify-between gap-2">
+                <h3 className="flex items-center gap-2 text-sm font-semibold">
+                    <Monitor className="size-4" aria-hidden="true" />
+                    {t("frontend.aiChange.preview.title")}
+                </h3>
+                <div className="flex flex-wrap gap-3 text-sm">
+                    {frontend.map(preview => (
+                        <a
+                            key={preview.slug}
+                            href={preview.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary-strong underline-offset-4 hover:underline"
+                        >
+                            {t("frontend.aiChange.preview.open_for", { name: preview.slug })}
+                            <ExternalLink className="size-3.5" aria-hidden="true" />
+                        </a>
+                    ))}
+                    {backend.map(preview => (
+                        <a
+                            key={preview.slug}
+                            href={preview.url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="inline-flex items-center gap-1 text-primary-strong underline-offset-4 hover:underline"
+                        >
+                            <Server className="size-3.5" aria-hidden="true" />
+                            {t("frontend.aiChange.preview.api_for", { name: preview.slug })}
+                            <ExternalLink className="size-3.5" aria-hidden="true" />
+                        </a>
+                    ))}
+                </div>
+            </div>
+            <p className="text-xs text-muted-foreground">{t("frontend.aiChange.preview.access_warning")}</p>
+            {unavailable && (
+                <p role="status" className="text-sm text-warning">
+                    {t("frontend.aiChange.preview.unavailable")}
+                </p>
+            )}
+            {frontend.map(preview => (
+                <iframe
+                    key={preview.slug}
+                    src={preview.url}
+                    title={t("frontend.aiChange.preview.for", { name: preview.slug })}
+                    sandbox="allow-scripts allow-same-origin allow-forms"
+                    referrerPolicy="no-referrer"
+                    loading="lazy"
+                    className="h-[min(70vh,44rem)] min-h-96 w-full rounded-md border border-divider bg-background"
+                />
+            ))}
+        </section>
+    )
 }
 
 /** What the agent did, step by step: `live` announces new steps to screen readers. */

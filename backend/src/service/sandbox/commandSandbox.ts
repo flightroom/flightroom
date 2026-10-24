@@ -24,4 +24,6 @@ export interface CommandSandbox {
     readonly root: string
     /** Runs a program, never through a shell unless the command is one. */
     exec(command: string[], options?: SandboxExecOptions): Promise<SandboxCommandResult>
+    /** Exposes a loopback HTTP service through the gateway, when the sandbox supports it. */
+    exposeService?(targetPort: number, name: string): Promise<string>
 }

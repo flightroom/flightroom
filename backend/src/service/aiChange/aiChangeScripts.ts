@@ -100,6 +100,7 @@ const ensureSucceeded = (what: string, result: SandboxCommandResult) => {
 export interface ScriptRepository {
     slug: string
     workingCopy: GitWorkingCopy
+    kind?: "frontend" | "backend"
     /** The user configuration of its package manager in the sandbox (a private registry and its token): never part of the copy. */
     npmrc?: string
 }
@@ -159,13 +160,16 @@ export class AiChangeScriptRunner {
     private sandbox?: Promise<CommandSandbox>
     private prepared = false
     private readonly copied = new Set<ScriptRepository>()
+    private readonly previewStarted = new Set<ScriptRepository>()
     /** What the agent wrote or deleted since the repository was last sent. */
     private readonly unsent = new Map<ScriptRepository, Set<string>>()
 
     constructor(
         private readonly repositories: ScriptRepository[],
         private readonly open: () => Promise<CommandSandbox>,
-        private readonly signal?: AbortSignal
+        private readonly signal?: AbortSignal,
+        private readonly previewsEnabled = false,
+        private readonly onPreview?: (kind: "info", message: string) => Promise<void> | void
     ) {
         for (const repository of repositories) {
             if (!SLUG.test(repository.slug)) throw new Error(`"${repository.slug}" cannot name a folder of the sandbox`)
@@ -206,7 +210,9 @@ export class AiChangeScriptRunner {
                 signal: this.signal
             })
             // Read back whatever the exit code: lint --fix fails on what it could not fix, and still fixed the rest.
-            return { output: describeResult(command, result), ...(await this.changesOf(sandbox, repository, marker, refusal)) }
+            const changes = await this.changesOf(sandbox, repository, marker, refusal)
+            if (result.exitCode === 0) await this.startPreview(repository)
+            return { output: describeResult(command, result), ...changes }
         } catch (error) {
             // The sandbox may be gone, deleted as idle or its node lost: the next script starts again from a new one.
             this.sandbox = undefined
@@ -219,6 +225,64 @@ export class AiChangeScriptRunner {
     private sandboxForRun(): Promise<CommandSandbox> {
         this.sandbox ??= this.open()
         return this.sandbox
+    }
+
+    /** Keep a running preview's files in step with edits without restarting its dev server. */
+    async sync(repository: ScriptRepository) {
+        if (!this.previewsEnabled || !this.sandbox || !this.copied.has(repository)) return
+        await this.send(await this.sandbox, repository)
+    }
+
+    /** Start and expose this repository's development server after its dependencies are installed. */
+    async startPreview(repository: ScriptRepository) {
+        if (!this.previewsEnabled || !repository.kind || this.previewStarted.has(repository)) return
+        this.previewStarted.add(repository)
+
+        let url: string
+        try {
+            const sandbox = await this.sandboxForRun()
+            await this.send(sandbox, repository)
+            const manifest = await this.manifestOf(repository)
+            const script = repository.kind === "frontend" ? "dev" : typeof manifest.scripts?.dev === "string" ? "dev" : "start"
+            if (typeof manifest.scripts?.[script] !== "string") return
+
+            const port = repository.kind === "frontend" ? 5173 : 3000
+            const command = commandFor(await this.managerOf(repository, manifest), script)
+            if (repository.kind === "frontend") command.push("--", "--host", "0.0.0.0", "--port", String(port))
+
+            const log = `${sandbox.root}/logs/${repository.slug}-preview.log`
+            const started = await sandbox.exec(["sh", "-c", 'set -e; mkdir -p "$(dirname "$0")"; nohup "$@" </dev/null >"$0" 2>&1 & echo $!', log, ...command], {
+                workdir: this.folderOf(sandbox, repository),
+                environment: {
+                    ...this.environmentOf(sandbox, repository, INSTALL_SCRIPT),
+                    ...(repository.kind === "backend" ? { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) } : {})
+                },
+                timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
+                signal: this.signal
+            })
+            if (started.exitCode !== 0) throw new Error("The development server could not start")
+
+            const ready = await sandbox.exec(
+                [
+                    "node",
+                    "-e",
+                    "const port=Number(process.argv[1]);const until=Date.now()+30000;const check=()=>fetch(`http://127.0.0.1:${port}`).then(()=>process.exit(0),()=>Date.now()<until?setTimeout(check,250):process.exit(1));check()",
+                    String(port)
+                ],
+                { workdir: this.folderOf(sandbox, repository), timeoutSecs: 35, signal: this.signal }
+            )
+            if (ready.exitCode !== 0) throw new Error("The development server did not become ready")
+            if (!sandbox.exposeService) throw new Error("The sandbox does not support exposed services")
+
+            const kind = repository.kind
+            const name = `preview-${kind === "frontend" ? "fe" : "be"}-${createHash("sha256").update(repository.slug).digest("hex").slice(0, 8)}`
+            url = await sandbox.exposeService(port, name)
+        } catch (error) {
+            if (this.signal?.aborted) throw error
+            await this.onPreview?.("info", `preview-failed|${repository.kind}`)
+            return
+        }
+        await this.onPreview?.("info", `preview-ready|${repository.kind}|${repository.slug}|${encodeURIComponent(url)}`)
     }
 
     private folderOf(sandbox: CommandSandbox, repository: ScriptRepository) {

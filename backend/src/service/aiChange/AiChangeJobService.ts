@@ -966,7 +966,8 @@ export class AiChangeJobService extends AiChangeBaseService {
                     previousRequests: history ? undefined : await this.previousRequests(job),
                     history,
                     ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {}),
-                    sandbox: sandboxForJob(fastify.config, job)
+                    sandbox: sandboxForJob(fastify.config, job),
+                    previewsEnabled: fastify.config.OPENSHELL_PREVIEWS_ENABLED
                 },
                 {
                     onEvent: (kind, message) => this.log(jobId, kind, message),
