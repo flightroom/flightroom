@@ -8,10 +8,10 @@ import Project from "../../models/ProjectModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import { slugify } from "../../utils/slugUtils"
-import { isProtectedPath } from "../../utils/workspacePaths"
+import { isUnproposablePath } from "../../utils/workspacePaths"
 import AiModelService from "../AiModelService"
 import BaseAuthorizedService from "../BaseAuthorizedService"
-import { LlmConfiguration } from "../llm"
+import { LlmClient, LlmConfiguration } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
 import { isPushRefused } from "../workspace/GitWorkingCopy"
 import RepositoryWorkspaceService, { OpenedWorkspace } from "../workspace/RepositoryWorkspaceService"
@@ -77,18 +77,50 @@ const FILLER_WORDS = new Set(
     ).split(" ")
 )
 
-/**
- * The feature branch of a conversation on one repository, named after what was asked so it reads in
- * the provider's branch list: "Aggiungi il bottone di logout nella navbar" on `cart` becomes
- * `ai-feature/cart/aggiungi-bottone-logout-navbar-20261024-101500`.
- */
-export const branchName = (slug: string, prompt = "") => {
-    const words = slugify(prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+/** How long the model gets to name a branch before the words of the request are used instead. */
+const BRANCH_TOPIC_TIMEOUT_MS = 15_000
+
+const BRANCH_TOPIC_SYSTEM_PROMPT =
+    "You name the git branch of a code change. Answer with 2 to 5 lowercase English words, separated by hyphens, " +
+    "that sum up what the change does, like `logout-button-navbar` or `upgrade-all-dependencies`. No prefix, no date, no punctuation."
+
+const BRANCH_TOPIC_SCHEMA = { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false }
+
+const toBranchWords = (text: string) =>
+    slugify(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
         .split("-")
         .filter(word => word && !FILLER_WORDS.has(word))
         .slice(0, BRANCH_NAME_WORDS)
-    return `ai-feature/${slug}/${[...words, timestamp()].join("-")}`
+
+/**
+ * A few words summing up a request, written by the model, for its branch name. Undefined when the model
+ * fails or takes too long: the branch is then named after the words of the request.
+ */
+export const branchTopic = async (client: LlmClient, prompt: string): Promise<string | undefined> => {
+    try {
+        const answer = (await client.json({
+            system: BRANCH_TOPIC_SYSTEM_PROMPT,
+            user: prompt,
+            schema: BRANCH_TOPIC_SCHEMA,
+            maxTokens: 200,
+            effort: "low",
+            signal: AbortSignal.timeout(BRANCH_TOPIC_TIMEOUT_MS)
+        })) as { name?: unknown } | null
+        const words = typeof answer?.name === "string" ? toBranchWords(answer.name) : []
+        return words.length ? words.join("-") : undefined
+    } catch (error) {
+        fastify.log.warn({ error: loggable(error) }, "Could not name the AI branch")
+        return undefined
+    }
 }
+
+/**
+ * The feature branch of a conversation, named after what was asked so it reads in the provider's branch
+ * list: the model's summary when there is one (`ai-feature/logout-button-navbar-20261024-101500`), else
+ * the words of the request ("Aggiungi il bottone di logout nella navbar" becomes
+ * `ai-feature/aggiungi-bottone-logout-navbar-20261024-101500`).
+ */
+export const branchName = (prompt = "", topic?: string) => `ai-feature/${[...(topic ? [topic] : toBranchWords(prompt)), timestamp()].join("-")}`
 
 /** Who a commit is by: the user who asked for the change, or applied it. */
 export const authorOf = (user: { name?: string; surname?: string; email: string }) => ({ name: [user.name, user.surname].filter(Boolean).join(" ") || user.email, email: user.email })
@@ -233,7 +265,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
         if (files.length === 0) {
             throw createBusinessException({ code: "AI_CHANGE_NOTHING_TO_APPLY", message: "No file left to commit", statusCode: 400 })
         }
-        const invalid = files.find(file => isProtectedPath(file.path) || (file.action !== "delete" && file.proposedContent === undefined))
+        const invalid = files.find(file => isUnproposablePath(file.path) || (file.action !== "delete" && file.proposedContent === undefined))
         if (invalid) {
             throw createBusinessException({ code: "AI_CHANGE_INVALID_FILE", message: `"${invalid.path}" cannot be committed`, statusCode: 422 })
         }
@@ -291,7 +323,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                             commit = request.commit
                         } else {
                             commit = await workspace.workingCopy.commitAndPush({
-                                branch: request.branch ?? branchName(component.slug, prompts[0]),
+                                branch: request.branch ?? branchName(prompts[0]),
                                 pushTo: request.baseBranch,
                                 message: commitMessage(firstLine(prompts[0], 72), request.summary),
                                 author: authorOf(user),
@@ -353,7 +385,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                 workspace.workingCopy.dir,
                 async () => {
                     await this.latestBase(workspaceService, workspace, request, files)
-                    const name = request.branch ?? branchName(component.slug, prompts[0])
+                    const name = request.branch ?? branchName(prompts[0])
                     const commit = await workspace.workingCopy.commitAndPush({ branch: name, message: commitMessage(title, request.summary), author: authorOf(user), files: toCommitFiles(files) })
                     return { branch: name, commit }
                 },

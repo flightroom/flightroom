@@ -1,6 +1,7 @@
-import { randomUUID } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
-import { isSecretPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
+import { gunzipSync } from "node:zlib"
+import { isLockfilePath, isProtectedPath, isSecretPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { LlmTool } from "../llm"
 import { CommandSandbox, SandboxCommandResult } from "../sandbox/commandSandbox"
 import { TarEntry, tarGz } from "../sandbox/tarArchive"
@@ -15,7 +16,13 @@ export const AI_SCRIPT_LIMITS = {
     uploadChunkBytes: 2 * 1024 * 1024,
     /** Bytes of the files of one repository copied into the sandbox. */
     maxUploadBytes: 300 * 1024 * 1024,
-    uploadTimeoutSecs: 300
+    uploadTimeoutSecs: 300,
+    /** Bytes of a gzipped file read back in one command: in base64 it stays under the output a command returns (64 KB). */
+    downloadChunkBytes: 45_000,
+    /** Bytes of the files one script changed that are read back: a lockfile fits, a build that is not ignored does not. */
+    maxDownloadBytes: 10 * 1024 * 1024,
+    /** Files one script changed that are looked at: past them, it rewrote the repository and nothing is read back. */
+    maxListedChanges: 200
 }
 
 /** The script that is no script of package.json: the dependencies, installed with the repository's package manager. */
@@ -33,9 +40,15 @@ const LOCKFILES: [string, PackageManager][] = [
 
 const PACKAGE_MANAGERS = new Set<string>(["pnpm", "yarn", "npm"])
 
+/**
+ * Without CI (see environmentOf) pnpm will not purge a node_modules it must rebuild unless told so: there is
+ * no terminal to ask in.
+ */
+const INSTALL_ARGS: Record<PackageManager, string[]> = { pnpm: ["install", "--config.confirmModulesPurge=false"], yarn: ["install"], npm: ["install"] }
+
 /** pnpm and yarn through corepack: the version package.json pins is the one that runs, none has to be in the image. */
 export const commandFor = (manager: PackageManager, script: string): string[] => {
-    const args = script === INSTALL_SCRIPT ? ["install"] : ["run", script]
+    const args = script === INSTALL_SCRIPT ? INSTALL_ARGS[manager] : ["run", script]
     return manager === "npm" ? ["npm", ...args] : ["corepack", manager, ...args]
 }
 
@@ -49,10 +62,18 @@ const PREPARE_REPOSITORIES = [
     'for slug in "$@"; do mkdir -p "$slug"; done'
 ].join("\n")
 
+/** The files of the copy written since the marker, with their hash: node_modules is the install's, not the repository's. */
+const LIST_CHANGES = 'find . -name node_modules -prune -o -type f -newer "$0" -exec sha256sum {} +'
+
+/** A line of sha256sum. A name holding a newline or a backslash is printed escaped, starting with one: it does not match, and is skipped. */
+const CHANGE_LINE = /^([0-9a-f]{64}) [ *]\.\/(.+)$/
+
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the escape sequences of terminal colours are what is removed
 const TERMINAL_ESCAPES = /\x1b\[[0-9;?]*[A-Za-z]/g
+
+const looksBinary = (content: Buffer) => content.subarray(0, 8_000).includes(0)
 
 const describeResult = (command: string[], result: SandboxCommandResult) => {
     const output = result.output.replace(TERMINAL_ESCAPES, "").trimEnd()
@@ -78,6 +99,23 @@ export interface ScriptRepository {
     workingCopy: GitWorkingCopy
 }
 
+/** A file a script changed in the copy of the repository, read back from the sandbox. */
+export interface ScriptChangedFile {
+    path: string
+    content: Buffer
+}
+
+export interface ScriptRun {
+    /** What the agent reads: the command, its exit code and the end of its output. */
+    output: string
+    /** The files the script created or changed that may be proposed, with their new content. */
+    files: ScriptChangedFile[]
+    /** What the script changed that does not come back, said to the agent. */
+    left: string[]
+}
+
+const sha256 = (content: Buffer) => createHash("sha256").update(content).digest("hex")
+
 interface PackageManifest {
     packageManager?: unknown
     scripts?: Record<string, unknown>
@@ -88,7 +126,8 @@ export const runScriptTool = (slugs?: string[]): LlmTool => ({
     name: "run_script",
     description:
         "Runs, in an isolated sandbox holding a copy of the repository as it is now (your edits included), the install of its dependencies or one script of its package.json, with the package manager of the repository, and returns the exit code and the end of the output. " +
-        `Run "${INSTALL_SCRIPT}" first, and again after changing package.json. Then run the scripts that check your change: lint, typecheck, test, build, whichever the repository has. ` +
+        `Run "${INSTALL_SCRIPT}" first, and again after changing package.json: the lockfile it updates becomes part of your change. Then run the scripts that check your change: lint, typecheck, test, build, whichever the repository has. ` +
+        "Every file a script creates or changes in the repository (a lockfile, lint --fix, a formatter, generated code) becomes part of your change, as if you had written it; what .gitignore excludes (node_modules, builds) stays in the sandbox. Run a script that rewrites files only when the request needs it. " +
         `Never a script that starts a server or watches files (dev, start, serve, watch): it is stopped after ${AI_SCRIPT_LIMITS.timeoutSecs / 60} minutes. Each call takes time: run what the change needs.`,
     inputSchema: {
         type: "object",
@@ -106,8 +145,10 @@ export const runScriptTool = (slugs?: string[]): LlmTool => ({
  * script: a run that only reads and edits never creates one. Each repository is copied into it whole
  * at its first script of the run, and from then on only what the agent wrote or deleted is sent.
  *
- * Nothing comes back from the sandbox but the output: the working copies stay the only truth, and
- * what a script changes there (a lockfile the install rewrote, a build) is never proposed.
+ * What a script changes in the copy comes back with its output (a lockfile the install rewrote, the
+ * files lint --fix corrected), for the toolbox to write into the working copy, which stays the only
+ * truth: what .gitignore excludes, credentials, CI configuration and binaries never come back. Deleted
+ * files are not seen: a script that removes a file of the repository leaves it in the proposal.
  */
 export class AiChangeScriptRunner {
     private sandbox?: Promise<CommandSandbox>
@@ -133,7 +174,8 @@ export class AiChangeScriptRunner {
         this.unsent.set(repository, paths)
     }
 
-    async run(repository: ScriptRepository, script: string): Promise<string> {
+    /** `refusal` says why the paths a script changed cannot join the change, if they cannot: then none comes back. */
+    async run(repository: ScriptRepository, script: string, refusal: (paths: string[]) => string | undefined = () => undefined): Promise<ScriptRun> {
         const manifest = await this.manifestOf(repository)
         if (script !== INSTALL_SCRIPT && typeof manifest.scripts?.[script] !== "string") {
             const scripts = Object.keys(manifest.scripts ?? {})
@@ -143,13 +185,17 @@ export class AiChangeScriptRunner {
         try {
             const sandbox = await this.sandboxForRun()
             await this.send(sandbox, repository)
+            const marker = `${sandbox.root}/markers/${repository.slug}`
+            const marked = await sandbox.exec(["sh", "-c", 'mkdir -p "$(dirname "$0")" && touch "$0"', marker], { timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal })
+            ensureSucceeded("Marking the start of the script", marked)
             const result = await sandbox.exec(command, {
                 workdir: this.folderOf(sandbox, repository),
-                environment: this.environmentOf(sandbox),
+                environment: this.environmentOf(sandbox, script),
                 timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
                 signal: this.signal
             })
-            return describeResult(command, result)
+            // Read back whatever the exit code: lint --fix fails on what it could not fix, and still fixed the rest.
+            return { output: describeResult(command, result), ...(await this.changesOf(sandbox, repository, marker, refusal)) }
         } catch (error) {
             // The sandbox may be gone, deleted as idle or its node lost: the next script starts again from a new one.
             this.sandbox = undefined
@@ -168,9 +214,103 @@ export class AiChangeScriptRunner {
         return `${sandbox.root}/repositories/${repository.slug}`
     }
 
-    /** Caches and the home of every tool under the root: the only folder the sandbox is sure to let them write. */
-    private environmentOf(sandbox: CommandSandbox): Record<string, string> {
-        return { CI: "true", HOME: `${sandbox.root}/home`, COREPACK_ENABLE_DOWNLOAD_PROMPT: "0", NO_COLOR: "1", FORCE_COLOR: "0" }
+    /**
+     * Caches and the home of every tool under the root: the only folder the sandbox is sure to let them write.
+     * CI keeps test runners out of watch mode, but not for the install: under CI pnpm and yarn freeze the
+     * lockfile, and an install after the agent changed a dependency would fail.
+     */
+    private environmentOf(sandbox: CommandSandbox, script: string): Record<string, string> {
+        return { ...(script === INSTALL_SCRIPT ? {} : { CI: "true" }), HOME: `${sandbox.root}/home`, COREPACK_ENABLE_DOWNLOAD_PROMPT: "0", NO_COLOR: "1", FORCE_COLOR: "0" }
+    }
+
+    /**
+     * The files the script wrote whose content differs from the working copy, read back. A file that may not
+     * be proposed is sent again before the next script, so the copy goes back to what the working copy holds.
+     */
+    private async changesOf(sandbox: CommandSandbox, repository: ScriptRepository, marker: string, refusal: (paths: string[]) => string | undefined): Promise<Omit<ScriptRun, "output">> {
+        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal }
+        const listing = await sandbox.exec(["sh", "-c", LIST_CHANGES, marker], options)
+        ensureSucceeded("Listing what the script changed", listing)
+        const lines = listing.output.split("\n").filter(Boolean)
+        if (listing.cutBytes > 0 || lines.length > AI_SCRIPT_LIMITS.maxListedChanges) {
+            return { files: [], left: [`the script changed more than ${AI_SCRIPT_LIMITS.maxListedChanges} files: none is part of your change`] }
+        }
+        const changed: { path: string; hash: string }[] = []
+        const refused: string[] = []
+        for (const line of lines) {
+            const match = CHANGE_LINE.exec(line)
+            if (!match) continue
+            const [, hash, requested] = match
+            const resolved = await resolveInsideWorkingCopy(repository.workingCopy.dir, requested).catch(() => undefined)
+            if (!resolved || isSecretPath(resolved.relative) || (await repository.workingCopy.isIgnored(resolved.relative))) continue
+            const local = await fs.lstat(resolved.absolute).catch(() => undefined)
+            if (local?.isFile() && sha256(await fs.readFile(resolved.absolute)) === hash) continue
+            if (local && !local.isFile()) refused.push(resolved.relative)
+            else if (isProtectedPath(resolved.relative) && !isLockfilePath(resolved.relative)) refused.push(resolved.relative)
+            else changed.push({ path: resolved.relative, hash })
+        }
+        const left = refused.length ? [`${refused.join(", ")}: CI configuration, registry configuration or not a regular file, not part of your change`] : []
+        const paths = changed.map(file => file.path)
+        const tooMany = paths.length ? refusal(paths) : undefined
+        if (tooMany) return this.leave(repository, [...refused, ...paths], [...left, `${paths.join(", ")}: ${tooMany}`])
+
+        const files: ScriptChangedFile[] = []
+        let bytes = 0
+        for (const { path } of changed) {
+            const content = await this.download(sandbox, repository, path, AI_SCRIPT_LIMITS.maxDownloadBytes - bytes)
+            if (content === undefined) {
+                return this.leave(
+                    repository,
+                    [...refused, ...paths],
+                    [...left, `${paths.join(", ")}: more than the ${AI_SCRIPT_LIMITS.maxDownloadBytes / 1024 / 1024} MB read back from one script, not part of your change`]
+                )
+            }
+            if (looksBinary(content)) {
+                refused.push(path)
+                left.push(`${path}: a binary file, not part of your change`)
+                continue
+            }
+            bytes += content.length
+            files.push({ path, content })
+        }
+        for (const path of refused) this.touch(repository, path)
+        return { files, left }
+    }
+
+    private leave(repository: ScriptRepository, paths: string[], left: string[]): Omit<ScriptRun, "output"> {
+        for (const path of paths) this.touch(repository, path)
+        return { files: [], left }
+    }
+
+    /**
+     * One file of the copy, gzipped in the sandbox and read in pieces: what a command returns is cut past
+     * 64 KB, and a lockfile is bigger. Undefined when it holds more than `maxBytes`.
+     */
+    private async download(sandbox: CommandSandbox, repository: ScriptRepository, relative: string, maxBytes: number): Promise<Buffer | undefined> {
+        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal }
+        const archive = `${sandbox.root}/downloads/${repository.slug}-${randomUUID()}.gz`
+        const what = `Reading ${relative} back from the sandbox`
+        try {
+            const packed = await sandbox.exec(["sh", "-c", 'mkdir -p "$(dirname "$1")" && gzip -c < "$0" > "$1" && wc -c < "$1"', relative, archive], options)
+            ensureSucceeded(what, packed)
+            const size = Number(packed.output.trim())
+            if (!Number.isInteger(size)) throw new Error(`${what} failed: no size in ${packed.output.slice(-200)}`)
+            const pieces: Buffer[] = []
+            for (let offset = 0; offset < size; offset += AI_SCRIPT_LIMITS.downloadChunkBytes) {
+                const piece = await sandbox.exec(["sh", "-c", 'tail -c +"$1" "$0" | head -c "$2" | base64', archive, String(offset + 1), String(AI_SCRIPT_LIMITS.downloadChunkBytes)], options)
+                ensureSucceeded(what, piece)
+                if (piece.cutBytes > 0) throw new Error(`${what} failed: a piece came back cut`)
+                pieces.push(Buffer.from(piece.output, "base64"))
+            }
+            try {
+                return gunzipSync(Buffer.concat(pieces), { maxOutputLength: Math.max(1, maxBytes) })
+            } catch (error) {
+                if ((error as NodeJS.ErrnoException).code === "ERR_BUFFER_TOO_LARGE") return undefined
+                throw error
+            }
+        } finally {
+            await sandbox.exec(["rm", "-f", archive], options).catch(() => undefined)
+        }
     }
 
     private async manifestOf(repository: ScriptRepository): Promise<PackageManifest> {
@@ -248,7 +388,7 @@ export class AiChangeScriptRunner {
             return
         }
         if (archive.length <= AI_SCRIPT_LIMITS.uploadChunkBytes) {
-            ensureSucceeded(what, await sandbox.exec(["sh", "-c", `set -e\n${before}\ntar -xzf -`, "sh", ...args], { ...options, stdin: archive }))
+            ensureSucceeded(what, await sandbox.exec(["sh", "-c", `set -e\n${before}\ntar -xzmf -`, "sh", ...args], { ...options, stdin: archive }))
             return
         }
         const file = `${sandbox.root}/uploads/${repository.slug}-${randomUUID()}.tgz`
@@ -258,7 +398,7 @@ export class AiChangeScriptRunner {
         }
         ensureSucceeded(
             what,
-            await sandbox.exec(["sh", "-c", `${before} && tar -xzf "$ARCHIVE"; status=$?; rm -f "$ARCHIVE"; exit $status`, "sh", ...args], { ...options, environment: { ARCHIVE: file } })
+            await sandbox.exec(["sh", "-c", `${before} && tar -xzmf "$ARCHIVE"; status=$?; rm -f "$ARCHIVE"; exit $status`, "sh", ...args], { ...options, environment: { ARCHIVE: file } })
         )
     }
 }

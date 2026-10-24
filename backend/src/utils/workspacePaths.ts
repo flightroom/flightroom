@@ -50,6 +50,8 @@ export class WorkspacePathError extends Error {}
 /** Paths an agent may never read: credentials that can sit in a repository by mistake. */
 const SECRET_FILE = /(^|\/)(\.env(\..*)?|\.npmrc|\.netrc|id_rsa[^/]*|id_ed25519[^/]*|[^/]+\.(pem|key|p12|pfx|keystore|jks))$/i
 
+const LOCKFILE = /(^|\/)(pnpm-lock\.yaml|package-lock\.json|yarn\.lock|npm-shrinkwrap\.json|bun\.lockb?)$/
+
 /**
  * Paths an agent may never write. Pushing a branch runs CI with the repository secrets before anyone
  * merges, so whatever CI executes directly is off limits, and so are lockfiles and the registry
@@ -68,13 +70,20 @@ const PROTECTED_FILE = new RegExp(
         "^bitbucket-pipelines\\.yml$",
         "(^|/)Jenkinsfile[^/]*$",
         "^\\.husky/",
-        "(^|/)(pnpm-lock\\.yaml|package-lock\\.json|yarn\\.lock|npm-shrinkwrap\\.json|bun\\.lockb?)$",
+        LOCKFILE.source,
         "(^|/)(\\.npmrc|\\.yarnrc(\\.yml)?|\\.pnpmfile\\.cjs)$"
     ].join("|")
 )
 
 export const isSecretPath = (relativePath: string) => SECRET_FILE.test(relativePath)
 export const isProtectedPath = (relativePath: string) => PROTECTED_FILE.test(relativePath)
+export const isLockfilePath = (relativePath: string) => LOCKFILE.test(relativePath)
+
+/**
+ * Paths a proposal may never hold. A lockfile may: the agent cannot write one, but the install it runs in
+ * a sandbox rewrites it, and that comes back (see AiChangeScriptRunner), for the review of the diff.
+ */
+export const isUnproposablePath = (relativePath: string) => isProtectedPath(relativePath) && !isLockfilePath(relativePath)
 
 /**
  * The repository-relative form of a path an agent passed, refused when it leaves the working copy.

@@ -35,7 +35,7 @@ code repository connected (GitHub, GitLab or Azure DevOps).
 4. The agent explores and edits the files. It receives the [project and frontend context](MCP.md#project-context)
    and the detected stack.
 5. The changed files are committed on the conversation's feature branch,
-   `ai-feature/<frontend>/<words of the request>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
+   `ai-feature/<a few words summing up the request, written by the model>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
    the base the agent started from, and force-pushed. A follow-up that only answers a question, without
    changing a file, pushes nothing. A push that fails does not lose the proposal: the console shows the
    error, and applying it or opening its pull request pushes it again.
@@ -157,7 +157,8 @@ handed to each network call.
   repository are refused.
 - It cannot read files that usually hold credentials (`.env*`, `.npmrc`, `*.pem`, `*.key`, ...).
 - It cannot change CI configuration (`.github/workflows`, `.gitlab-ci.yml`, `azure-pipelines*.yml`) or
-  lockfiles: a pushed branch runs CI with the repository secrets. Since every proposal is pushed on its
+  write lockfiles: a pushed branch runs CI with the repository secrets. A lockfile changes only through
+  the install run in a sandbox (below), and its diff is reviewed like the rest. Since every proposal is pushed on its
   feature branch as soon as the agent is done, a pipeline that runs on every branch runs on the
   agent's code before anyone has reviewed it: limit such pipelines, or their secrets, to protected branches.
 - Without a sandbox it cannot run anything: no install, build or test. The repository's CI checks the
@@ -179,6 +180,9 @@ gateway. It then gets `run_script`, which runs `install` or one script of the re
 (`lint`, `test`, `build`...) with the repository's package manager (the `packageManager` field, else the
 lockfile: pnpm and yarn through corepack, npm otherwise), and reads back the exit code and the end of the
 output. Nothing else can be run: no arbitrary command, no repository without a `package.json`.
+Scripts run with `CI=true`, so test runners stay out of watch mode; the install does not, because
+under CI pnpm and yarn freeze the lockfile and the install fails as soon as the agent changes a dependency
+(pnpm gets `--config.confirmModulesPurge=false` instead, having no terminal to ask in).
 
 The code runs in a sandbox, never in the console's pod: install scripts, build configurations and tests
 are the repository's code, and the console holds the repository tokens, the database and the model keys.
@@ -191,8 +195,18 @@ are the repository's code, and the console holds the repository tokens, the data
   restart.
 - **What goes in.** Each repository is copied whole at its first script of a request (everything but
   `node_modules` is replaced), then only the files the agent wrote or deleted. Files that may hold
-  credentials (`.env*`, `.npmrc`, keys) are never copied, and nothing comes back: a lockfile the install
-  rewrites or a build output is never proposed.
+  credentials (`.env*`, `.npmrc`, keys) are never copied.
+- **What comes back.** Whatever a script creates or changes in the copy (the lockfile the install
+  rewrites, the files `lint --fix` or a formatter corrects, generated code) is written into the working
+  copy and becomes part of the proposal, whatever the exit code. Before each script the sandbox stamps a
+  marker; after it, the files newer than the marker outside `node_modules` are hashed there, and those
+  that differ from the working copy are read back gzipped, in pieces. Left out: what `.gitignore`
+  excludes (builds, caches) and credentials, which stay in the sandbox; CI and registry configuration
+  and binaries, which are sent again before the next script so the copy matches the working copy. A
+  script that changes more than 200 files, more than 10 MB, or more files than the proposal may hold
+  (20 per repository) brings nothing back, and the agent is told why. Deleted files are not seen. What
+  comes back does not count towards the 500 KB the agent may write; in a follow-up the parent's files
+  do, whole, as for anything the agent wrote, except lockfiles.
 - **What goes out.** By default the sandbox may reach `registry.npmjs.org` on 443, only through
   `/usr/local/bin/node`, and nothing else. Private registries are not supported yet: their credentials
   would have to reach the sandbox.
