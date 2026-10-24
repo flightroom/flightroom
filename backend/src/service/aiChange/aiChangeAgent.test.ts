@@ -88,7 +88,7 @@ describe.skipIf(!hasGit)("AiChangeToolbox", () => {
     })
 
     it("Given a snippet found once, when the file is edited, then only that snippet changes", async () => {
-        await expect(toolbox.run("edit_file", { path: "src/Checkout.tsx", old_text: "() => null", new_text: "() => <form />" })).resolves.toBe("Edited src/Checkout.tsx.")
+        await expect(toolbox.run("edit_file", { path: "src/Checkout.tsx", old_text: "() => null", new_text: "() => <form />" })).resolves.toBe("Edited src/Checkout.tsx at line 1.")
 
         expect(await toolbox.run("read_file", { path: "src/Checkout.tsx" })).toBe("export const Checkout = () => <form />\n")
     })
@@ -105,6 +105,16 @@ describe.skipIf(!hasGit)("AiChangeToolbox", () => {
         await expect(toolbox.run("edit_file", { path: "src/App.tsx", old_text: "b()", new_text: "c()" })).rejects.toThrow(/not found/)
         await expect(toolbox.run("edit_file", { path: "src/App.tsx", old_text: "a()", new_text: "c()" })).rejects.toThrow(/more than once/)
         expect(fs.readFileSync(path.join(dir, "src/App.tsx"), "utf8")).toBe("a()\na()\n")
+    })
+
+    it("Given a snippet copied with the wrong indentation, when the file is edited, then the refusal says at which line to read again", async () => {
+        fs.writeFileSync(path.join(dir, "src/App.tsx"), "const a = 1\n\nexport const App = () => {\n    return null\n}\n")
+
+        await expect(toolbox.run("edit_file", { path: "src/App.tsx", old_text: "export const App = () => {\n  return null", new_text: "x" })).rejects.toThrow(
+            /first line is at line 3: read the lines from there/
+        )
+        await expect(toolbox.run("edit_file", { path: "src/App.tsx", old_text: "nowhere()", new_text: "x" })).rejects.toThrow(/find it with search/)
+        await expect(toolbox.run("edit_file", { path: "src/App.tsx", old_text: "    return null", new_text: "    return <main />" })).resolves.toBe("Edited src/App.tsx at line 4.")
     })
 
     it("Given a file that does not exist, when it is edited, then it is refused", async () => {
