@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { OpenShellSandboxes, sandboxNameFor } from "./OpenShellSandboxes"
+import { MAX_SANDBOX_NAME_LENGTH, OpenShellSandboxes, sandboxNameFor } from "./OpenShellSandboxes"
 
 const { sandbox, connect } = vi.hoisted(() => {
     const sandbox = {
@@ -20,7 +20,7 @@ vi.mock("@nvidia/openshell-sdk", () => ({ OpenShellClient: { connect }, clientCr
 const sdkError = (code: string) => Object.assign(new Error(code), { code })
 
 const CONVERSATION = "65f1a2b3c4d5e6f708192a3b"
-const NAME = `flightroom-ai-${CONVERSATION}`
+const NAME = sandboxNameFor(CONVERSATION)
 
 describe("OpenShellSandboxes", () => {
     beforeEach(() => {
@@ -125,7 +125,15 @@ describe("OpenShellSandboxes", () => {
         expect(deleted).toBe(2)
     })
 
-    it("Given a conversation id, then its sandbox is named after it in lowercase", () => {
-        expect(sandboxNameFor("65F1A2B3C4D5E6F708192A3B")).toBe("flightroom-ai-65f1a2b3c4d5e6f708192a3b")
+    it("Given a conversation id, then its sandbox name fits the gateway, is a valid Kubernetes name and is the same whatever the case", () => {
+        const name = sandboxNameFor("65F1A2B3C4D5E6F708192A3B")
+
+        expect(name).toMatch(/^fr-[0-9a-f]{16}$/)
+        expect(name.length).toBeLessThanOrEqual(MAX_SANDBOX_NAME_LENGTH)
+        expect(name).toBe(sandboxNameFor("65f1a2b3c4d5e6f708192a3b"))
+    })
+
+    it("Given two conversations, then their sandboxes have different names", () => {
+        expect(sandboxNameFor("65f1a2b3c4d5e6f708192a3b")).not.toBe(sandboxNameFor("65f1a2b3c4d5e6f708192a3c"))
     })
 })
