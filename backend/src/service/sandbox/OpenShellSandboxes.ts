@@ -9,14 +9,24 @@ type OpenShellClient = Awaited<ReturnType<OpenShellSdk["OpenShellClient"]["conne
 /**
  * The values the schema of the configuration defaults to. The image is the official Node.js one:
  * npm and corepack (for pnpm and yarn) are in it, and its node is the binary that reaches the registries.
- * The registries: npm, Maven Central, Azure Artifacts feeds and the GitHub Container Registry (ghcr.io
+ * The registries: npm, Maven Central, Azure Artifacts feeds (they redirect the download of a package to
+ * a storage account of theirs, <account>.blob.core.windows.net) and the GitHub Container Registry (ghcr.io
  * redirects its blobs to pkg-containers.githubusercontent.com). The binaries: node, the java of the
  * eclipse-temurin images Maven runs on, and the python of the python:3.13 images.
  */
 export const OPENSHELL_DEFAULTS = {
     image: "node:24-bookworm-slim",
     root: "/sandbox",
-    registryHosts: ["registry.npmjs.org", "repo.maven.apache.org", "repo1.maven.org", "pkgs.dev.azure.com", "*.pkgs.visualstudio.com", "ghcr.io", "pkg-containers.githubusercontent.com"].join(","),
+    registryHosts: [
+        "registry.npmjs.org",
+        "repo.maven.apache.org",
+        "repo1.maven.org",
+        "pkgs.dev.azure.com",
+        "*.pkgs.visualstudio.com",
+        "*.blob.core.windows.net",
+        "ghcr.io",
+        "pkg-containers.githubusercontent.com"
+    ].join(","),
     networkBinary: "/usr/local/bin/node,/opt/java/openjdk/bin/java,/usr/local/bin/python3.13",
     idleMinutes: 5
 }
