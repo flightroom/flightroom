@@ -295,8 +295,8 @@
     "semantic_hash": ""
   },
   "backend/src/plugins/config.ts": {
-    "mtime": 1792829187.1398604,
-    "ast_hash": "e72636a994142c41031328003856c3b4",
+    "mtime": 1792833917.9897888,
+    "ast_hash": "095e82df938f3545f3832058cf4b1477",
     "semantic_hash": ""
   },
   "backend/src/plugins/cors.ts": {
@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1792780243.8556507,
-    "ast_hash": "d05a46b41ee931c6159f2ada7cbc4b06",
+    "mtime": 1792835197.5976527,
+    "ast_hash": "c2d2a1cf8a3d0bff79c3bf6265a4210c",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1792780243.8606505,
-    "ast_hash": "3c9bbb337e2460e0b44bed6aa1fd623e",
+    "mtime": 1792835197.598537,
+    "ast_hash": "1c2ddebcbc80c8d5452d242a316a9739",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1470,8 +1470,8 @@
     "semantic_hash": ""
   },
   ".github/workflows/deploy.yml": {
-    "mtime": 1792745998.4882226,
-    "ast_hash": "5f16da7161b229c50b3a84e8fabf1c46",
+    "mtime": 1792834112.8814306,
+    "ast_hash": "5723345fda0fd9acd9e6da8ba56e40e8",
     "semantic_hash": ""
   },
   ".github/workflows/docker-build.yml": {
@@ -2645,8 +2645,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeService.test.ts": {
-    "mtime": 1792830608.340394,
-    "ast_hash": "4d7de69ed3c60042f597464a5c9fa3c8",
+    "mtime": 1792833477.205059,
+    "ast_hash": "0c6171ce31a506057a4822c948199a09",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeService.ts": {
@@ -2710,8 +2710,8 @@
     "semantic_hash": ""
   },
   "docs/AI-CODE-CHANGES.md": {
-    "mtime": 1792832232.7364085,
-    "ast_hash": "d73a52ddb1931e1be6da06741b7afc33",
+    "mtime": 1792833512.7627153,
+    "ast_hash": "46e0116b16dd4bc7c15ca9f29a721f1f",
     "semantic_hash": ""
   },
   "backend/src/service/llm/anthropicProvider.ts": {
@@ -2855,18 +2855,18 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.test.ts": {
-    "mtime": 1792830608.340795,
-    "ast_hash": "010d87965db4e2e8d6e4a625a2e154ce",
+    "mtime": 1792833529.9078474,
+    "ast_hash": "6023759fdb67a856be5744fb925a50d4",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.ts": {
-    "mtime": 1792832109.834595,
-    "ast_hash": "7e08b7ed1415a5d4d60a2b5a10f339e7",
+    "mtime": 1792833451.7161665,
+    "ast_hash": "2a9af15d35c4ebaa83c127a97e90615a",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeShared.ts": {
-    "mtime": 1792832109.8350782,
-    "ast_hash": "bc4d40b7f3d3817bdd1ce589bb54c4aa",
+    "mtime": 1792833437.9693086,
+    "ast_hash": "a277504ff870b50aaa310e9906761698",
     "semantic_hash": ""
   },
   "backend/src/service/assistant/conversations.test.ts": {
@@ -4125,8 +4125,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainBuildAndDeployDialog.tsx": {
-    "mtime": 1792770630.5741293,
-    "ast_hash": "7a255518f58758e1793aebadb2b1494d",
+    "mtime": 1792835197.5968442,
+    "ast_hash": "a85e259a174905e8c9842027e7961e3e",
     "semantic_hash": ""
   },
   "frontend/src/pages/fleet/FleetMissionPage.tsx": {
@@ -4845,8 +4845,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeScripts.test.ts": {
-    "mtime": 1792832207.2336388,
-    "ast_hash": "b258cb6bd9110cbbf74532101ce00ec9",
+    "mtime": 1792834323.967515,
+    "ast_hash": "05bafd65b800f9e45b88a81f18cf8545",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeScripts.ts": {
@@ -4855,13 +4855,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.test.ts": {
-    "mtime": 1792830682.835984,
-    "ast_hash": "9fe80af3dcb107e3fe7970f5c4ed073c",
+    "mtime": 1792833934.414179,
+    "ast_hash": "3f6cfd6cbb59b086f6f447913558390a",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.ts": {
-    "mtime": 1792830682.8357182,
-    "ast_hash": "e8cac60d3a2de3a5c40902babb4bf944",
+    "mtime": 1792834113.4062061,
+    "ast_hash": "4c8491cca81d13c916f1f36046f784d9",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/commandSandbox.ts": {
