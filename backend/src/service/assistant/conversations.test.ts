@@ -56,9 +56,9 @@ describe("conversations", () => {
     })
 
     it("Given a priced answer, when it is stored, then its cost remains with the conversation", () => {
-        const stored = toStoredMessage({ ...answerWithTools, usage: { inputTokens: 10, cachedInputTokens: 2, outputTokens: 5, costUsd: 0.00025 } })
+        const stored = toStoredMessage({ ...answerWithTools, usage: { inputTokens: 10, cachedInputTokens: 2, outputTokens: 5, cost: 0.00025, currency: "EUR" } })
 
-        expect(stored.usage?.costUsd).toBe(0.00025)
+        expect(stored.usage).toMatchObject({ cost: 0.00025, currency: "EUR" })
     })
 
     it("Given an answer longer than what is kept, when it is stored, then it is clipped instead of rejected", () => {

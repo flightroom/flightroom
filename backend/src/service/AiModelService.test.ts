@@ -240,8 +240,8 @@ describe("AiModelService", () => {
             expect(modelUpdates).toEqual([{ filter: { organizationId: ORGANIZATION_ID, _id: { $ne: saved[0]._id }, isDefault: true }, update: { isDefault: false } }])
         })
 
-        it("Given token rates, when an AI is added, then they are saved and returned to administrators", async () => {
-            const tokenCosts = { input: 3, cachedInput: 0.3, output: 15 }
+        it("Given token rates in euros, when an AI is added, then they are saved and returned to administrators", async () => {
+            const tokenCosts = { input: 3, cachedInput: 0.3, output: 15, currency: "EUR" as const }
 
             const created = await service().create(ORGANIZATION_ID, { name: "Opus", provider: "anthropic" as never, config: { apiKey: "k" }, tokenCosts })
 
@@ -249,10 +249,22 @@ describe("AiModelService", () => {
             expect(created.tokenCosts).toMatchObject(tokenCosts)
         })
 
+        it("Given legacy rates without a currency, when an AI is added, then USD remains the default", async () => {
+            const created = await service().create(ORGANIZATION_ID, {
+                name: "Opus",
+                provider: "anthropic" as never,
+                config: { apiKey: "k" },
+                tokenCosts: { input: 3, cachedInput: 0.3, output: 15 }
+            })
+
+            expect(created.tokenCosts?.currency).toBe("USD")
+        })
+
         it.each([
             ["a missing rate", { input: 3, cachedInput: 0.3 }],
             ["a negative rate", { input: -1, cachedInput: 0.3, output: 15 }],
-            ["a rate above the limit", { input: 1_000_001, cachedInput: 0.3, output: 15 }]
+            ["a rate above the limit", { input: 1_000_001, cachedInput: 0.3, output: 15 }],
+            ["an unsupported currency", { input: 3, cachedInput: 0.3, output: 15, currency: "GBP" }]
         ])("Given %s, when an AI is added, then token pricing is refused", async (_case, tokenCosts) => {
             expect(await codeOf(service().create(ORGANIZATION_ID, { name: "Opus", provider: "anthropic" as never, config: { apiKey: "k" }, tokenCosts: tokenCosts as never }))).toBe("AI_MODEL_INVALID")
         })

@@ -2932,8 +2932,13 @@
             "max_effort_hint": "Il livello di ragionamento più alto che gli utenti possono scegliere con questa IA.",
             "max_effort_none": "Nessun limite",
             "token_costs_title": "Costo dei token (facoltativo)",
-            "token_costs_hint": "Inserisci tutte e tre le tariffe in USD per milione di token per mostrare il costo stimato di ogni interazione. Lascia tutti i campi vuoti per non mostrarlo.",
+            "token_costs_hint": "Inserisci tutte e tre le tariffe per milione di token nella valuta scelta per mostrare il costo stimato di ogni interazione. Lascia tutti i campi vuoti per non mostrarlo.",
             "token_costs_invalid": "Inserisci tutte e tre le tariffe da 0 a 1.000.000, oppure lascia vuoti tutti i campi.",
+            "currency": {
+                "label": "Valuta",
+                "USD": "USD ($)",
+                "EUR": "EUR (€)"
+            },
             "token_costs": {
                 "input": "Token in ingresso",
                 "cached_input": "Token in ingresso dalla cache",

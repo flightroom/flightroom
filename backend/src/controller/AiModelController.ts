@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
-import { AI_MODEL_NAME_MAX_LENGTH } from "../models/AiModelModel"
+import { AI_CURRENCIES, AI_MODEL_NAME_MAX_LENGTH } from "../models/AiModelModel"
 import AiModelService, { AiModelInput } from "../service/AiModelService"
 import { LLM_EFFORTS, LlmProvider } from "../service/llm"
 import AuthenticationMethod from "../types/AuthenticationMethod"
@@ -17,7 +17,8 @@ const tokenCosts = {
     properties: {
         input: { type: "number", minimum: 0, maximum: 1_000_000 },
         cachedInput: { type: "number", minimum: 0, maximum: 1_000_000 },
-        output: { type: "number", minimum: 0, maximum: 1_000_000 }
+        output: { type: "number", minimum: 0, maximum: 1_000_000 },
+        currency: { type: "string", enum: [...AI_CURRENCIES] }
     }
 }
 

@@ -2,7 +2,7 @@ import { ObjectId, Schema } from "mongoose"
 import AssistantDisabledError from "../errors/AssistantDisabledError"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
-import AiModel, { AI_MODEL_NAME_MAX_LENGTH, AiTokenCosts, IAiModel } from "../models/AiModelModel"
+import AiModel, { AI_CURRENCIES, AI_MODEL_NAME_MAX_LENGTH, AiTokenCosts, IAiModel } from "../models/AiModelModel"
 import Project from "../models/ProjectModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -106,15 +106,15 @@ const secretRequired = (keys: string[]) =>
 
 const normalizeTokenCosts = (costs?: AiTokenCosts | null): AiTokenCosts | undefined => {
     if (costs == null) return undefined
-    const fields = Object.entries(costs)
     if (
-        fields.length !== 3 ||
         !["input", "cachedInput", "output"].every(key => key in costs) ||
-        fields.some(([, value]) => typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1_000_000)
+        Object.keys(costs).some(key => !["input", "cachedInput", "output", "currency"].includes(key)) ||
+        [costs.input, costs.cachedInput, costs.output].some(value => typeof value !== "number" || !Number.isFinite(value) || value < 0 || value > 1_000_000) ||
+        (costs.currency !== undefined && !AI_CURRENCIES.includes(costs.currency))
     ) {
         throw invalid("token costs must be non-negative numbers for input, cached input and output", ["tokenCosts"])
     }
-    return costs
+    return { ...costs, currency: costs.currency ?? "USD" }
 }
 
 const notAvailable = (aiModelId: string) => createBusinessException({ code: "AI_MODEL_NOT_AVAILABLE", message: `The AI ${aiModelId} is not available here`, statusCode: 422 })

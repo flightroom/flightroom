@@ -9,11 +9,14 @@ export const LLM_PROVIDERS = ["anthropic", "azure-foundry", "gemini", "azure-ope
 
 export type LlmProvider = (typeof LLM_PROVIDERS)[number]
 
-/** USD per million tokens. */
+export type AiCurrency = "USD" | "EUR"
+
+/** Per million tokens, in the selected currency. */
 export interface AiTokenCosts {
     input: number
     cachedInput: number
     output: number
+    currency?: AiCurrency
 }
 
 /** The id of the AI the backend builds from its environment variables: every organization sees it, nobody edits it. */

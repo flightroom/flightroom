@@ -10,7 +10,7 @@ import Project from "../models/ProjectModel"
 import User, { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
-import AiUsageService, { calculateAiUsageCostUsd, componentPipeline, ensureWithinTokenLimit, memberSeriesPipeline, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
+import AiUsageService, { calculateAiUsageCost, componentPipeline, ensureWithinTokenLimit, memberSeriesPipeline, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
 type WithGates = {
@@ -108,18 +108,30 @@ describe("AiUsageService", () => {
             vi.spyOn(AiUsage, "create").mockResolvedValue({} as never)
         })
 
-        describe("calculateAiUsageCostUsd", () => {
+        describe("calculateAiUsageCost", () => {
             it("Given configured rates, when cached and regular tokens are counted, then it applies the matching rate per million tokens", async () => {
                 vi.spyOn(AiModel, "findById").mockReturnValue(thenable({ tokenCosts: { input: 3, cachedInput: 0.3, output: 15 } }) as never)
 
-                await expect(calculateAiUsageCostUsd(new Types.ObjectId().toString(), { inputTokens: 100, cachedInputTokens: 20, outputTokens: 10 })).resolves.toBeCloseTo(0.000396)
+                await expect(calculateAiUsageCost(new Types.ObjectId().toString(), { inputTokens: 100, cachedInputTokens: 20, outputTokens: 10 })).resolves.toEqual({
+                    amount: 0.000396,
+                    currency: "USD"
+                })
+            })
+
+            it("Given euro rates, when the interaction cost is calculated, then it keeps the selected currency", async () => {
+                vi.spyOn(AiModel, "findById").mockReturnValue(thenable({ tokenCosts: { input: 3, cachedInput: 0.3, output: 15, currency: "EUR" } }) as never)
+
+                await expect(calculateAiUsageCost(new Types.ObjectId().toString(), { inputTokens: 100, cachedInputTokens: 20, outputTokens: 10 })).resolves.toEqual({
+                    amount: 0.000396,
+                    currency: "EUR"
+                })
             })
 
             it("Given an unpriced or system AI, when the interaction is checked, then no cost is reported", async () => {
                 vi.spyOn(AiModel, "findById").mockReturnValue(thenable({ tokenCosts: undefined }) as never)
 
-                await expect(calculateAiUsageCostUsd(new Types.ObjectId().toString(), { inputTokens: 100, cachedInputTokens: 0, outputTokens: 10 })).resolves.toBeUndefined()
-                await expect(calculateAiUsageCostUsd("system", { inputTokens: 100, cachedInputTokens: 0, outputTokens: 10 })).resolves.toBeUndefined()
+                await expect(calculateAiUsageCost(new Types.ObjectId().toString(), { inputTokens: 100, cachedInputTokens: 0, outputTokens: 10 })).resolves.toBeUndefined()
+                await expect(calculateAiUsageCost("system", { inputTokens: 100, cachedInputTokens: 0, outputTokens: 10 })).resolves.toBeUndefined()
                 expect(AiModel.findById).toHaveBeenCalledTimes(1)
             })
         })

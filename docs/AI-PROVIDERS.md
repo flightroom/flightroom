@@ -29,10 +29,11 @@ Changing the provider of an AI means typing its keys again: the stored ones are 
 provider. Deleting an AI takes it out of every project restricted to it. Deleting the organization
 deletes its AIs.
 
-The form may also define rates in **USD per million tokens** for input, cached input and output. Set all
-three rates to show an interaction's estimated cost beside its token usage; leave all three empty to
-hide costs. The calculated amount is saved with each interaction, so editing rates later does not
-recalculate past interactions. The read-only system AI has no configurable rates and its cost is not
+The form may also define rates in **USD or EUR per million tokens** for input, cached input and output.
+Set all three rates to show an interaction's estimated cost beside its token usage in the selected
+currency; leave all three empty to hide costs. The calculated amount and currency are saved with each
+interaction, so editing rates later does not recalculate past interactions. Existing rates without a
+currency are treated as USD. The read-only system AI has no configurable rates and its cost is not
 shown.
 
 The Azure OpenAI endpoint of an organization's AI must be an Azure host, exactly

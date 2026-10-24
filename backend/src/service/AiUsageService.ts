@@ -1,7 +1,7 @@
 import { AnyKeys, ObjectId, PipelineStage, Schema, Types } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
-import AiModel from "../models/AiModelModel"
+import AiModel, { AiCurrency } from "../models/AiModelModel"
 import AiUsage, { AI_USAGE_SOURCES, AiUsageSource, IAiUsage } from "../models/AiUsageModel"
 import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
@@ -99,11 +99,19 @@ export interface AiUsageEntry extends LlmUsage {
     aiModelId?: string
     provider?: LlmProvider
     effort?: LlmEffort
+    cost?: number
+    currency?: AiCurrency
+    /** Kept for entries written before selecting a currency was supported. */
     costUsd?: number
 }
 
-/** Cost in USD from the configured rates; absent rates (including the system AI) stay unpriced. */
-export const calculateAiUsageCostUsd = async (aiModelId: string | undefined, usage: LlmUsage): Promise<number | undefined> => {
+export interface AiUsageCost {
+    amount: number
+    currency: AiCurrency
+}
+
+/** Cost in the configured currency; absent rates (including the system AI) stay unpriced. */
+export const calculateAiUsageCost = async (aiModelId: string | undefined, usage: LlmUsage): Promise<AiUsageCost | undefined> => {
     if (!aiModelId || !/^[a-f\d]{24}$/i.test(aiModelId)) return undefined
     const model = await AiModel.findById(aiModelId, { tokenCosts: 1 }).lean()
     const costs = model?.tokenCosts
@@ -111,7 +119,10 @@ export const calculateAiUsageCostUsd = async (aiModelId: string | undefined, usa
         return undefined
     }
     const regularInputTokens = Math.max(0, usage.inputTokens - usage.cachedInputTokens)
-    return Number(((regularInputTokens * costs.input + usage.cachedInputTokens * costs.cachedInput + usage.outputTokens * costs.output) / 1_000_000).toFixed(12))
+    return {
+        amount: Number(((regularInputTokens * costs.input + usage.cachedInputTokens * costs.cachedInput + usage.outputTokens * costs.output) / 1_000_000).toFixed(12)),
+        currency: costs.currency ?? "USD"
+    }
 }
 
 /**
