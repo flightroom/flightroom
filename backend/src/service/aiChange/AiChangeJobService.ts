@@ -753,10 +753,10 @@ export class AiChangeJobService extends AiChangeBaseService {
 
     /**
      * One progress line, on the job and on each of its requests: the page of every repository stays live.
-     * What the model said or thought can repeat a secret it read: masked, as in the assistant's saved answers.
+     * What the model said or thought, and what a script printed, can repeat a secret: masked, as in the assistant's saved answers.
      */
     private async log(jobId: string, kind: IAiChangeEvent["kind"], message: string) {
-        const shown = kind === "text" || kind === "thinking" ? redactSecrets(message) : message
+        const shown = kind === "text" || kind === "thinking" || kind === "output" ? redactSecrets(message) : message
         await AiChangeJob.updateOne({ _id: toObjectId(jobId) }, event(kind, shown))
         await AiChangeRequest.updateMany({ jobId: toObjectId(jobId) }, event(kind, shown))
     }

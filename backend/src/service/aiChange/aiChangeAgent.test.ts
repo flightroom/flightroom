@@ -498,7 +498,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         const result = await runAiChangeAgent(client, { ...input(), sandbox: async () => sandbox }, agentHooks)
 
         expect(result).toMatchObject({ summary: "The app renders a main", stopReason: "finished" })
-        expect(events).toEqual(["write_file src/App.tsx", "Done, the app renders a main.", "build-required", "run_script build", "finish"])
+        expect(events).toEqual(["write_file src/App.tsx", "Done, the app renders a main.", "build-required", "run_script build", expect.stringContaining("exit code 0 (success)"), "finish"])
         const reminder = sent[2].messages.at(-1)
         expect(reminder?.role === "user" ? reminder.text : "").toContain('Run run_script "build"')
     })

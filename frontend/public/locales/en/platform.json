@@ -1039,6 +1039,7 @@
             },
             "progress_log": "Agent progress",
             "progress_empty": "No activity yet.",
+            "script_output": "Command output",
             "show_progress_log": "Show the agent's progress log",
             "show_prompt": "Show the full request",
             "request_meta": "{{date}} · base branch {{branch}}",

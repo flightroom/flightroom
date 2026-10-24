@@ -52,6 +52,13 @@ export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean }> =
                             </time>
                             {event.kind === "info" && <span className="font-medium">{t(`frontend.aiChange.events.${event.message}`, { defaultValue: event.message })}</span>}
                             {event.kind === "tool" && <span className="break-all font-mono text-muted-foreground">{event.message}</span>}
+                            {/* Folded: a build log would push the steps out of view, it is opened when needed. */}
+                            {event.kind === "output" && (
+                                <details className="min-w-0 flex-1">
+                                    <summary className="cursor-pointer text-muted-foreground">{t("frontend.aiChange.script_output")}</summary>
+                                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 font-mono">{event.message}</pre>
+                                </details>
+                            )}
                             {event.kind === "text" && <span className="whitespace-pre-wrap break-words">{event.message}</span>}
                             {/* Muted and apart from what the agent said: how it reasoned, not what it did. */}
                             {event.kind === "thinking" && (

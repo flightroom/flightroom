@@ -873,11 +873,12 @@ describe("AiChangeJobService", () => {
             expect(log.info).toHaveBeenCalledWith(expect.objectContaining({ audit: "ai_job_usage", effort: "max" }), "AI job usage")
         })
 
-        it("Given what the agent says and thinks repeating a secret, when it is logged, then the secret is masked and the steps are kept as they are", async () => {
+        it("Given what the agent says and thinks, and what a script prints, repeating a secret, when it is logged, then the secret is masked and the steps are kept as they are", async () => {
             runAgent.mockImplementationOnce(async (_client: unknown, _input: unknown, hooks: { onEvent: (kind: string, message: string) => Promise<void> }) => {
                 await hooks.onEvent("thinking", "The pipeline sets NPM_TOKEN=abcdef1234567890.")
                 await hooks.onEvent("text", "Set API_KEY = sk-live-123456789 in the pipeline.")
                 await hooks.onEvent("tool", "read_file catalog/.npmrc")
+                await hooks.onEvent("output", "$ pnpm install\nexit code 1\nERR_PNPM auth failed: NPM_TOKEN=zyxw9876543210")
                 return { summary: "Shows the price with its currency", stopReason: "finished" }
             })
 
@@ -886,6 +887,8 @@ describe("AiChangeJobService", () => {
             const logged = pushed(updates).join("\n")
             expect(logged).not.toContain("abcdef1234567890")
             expect(logged).not.toContain("sk-live-123456789")
+            expect(logged).not.toContain("zyxw9876543210")
+            expect(logged).toContain("ERR_PNPM auth failed")
             expect(logged).toContain("The pipeline sets NPM_TOKEN=")
             expect(pushed(updates)).toContain("read_file catalog/.npmrc")
         })
