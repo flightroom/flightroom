@@ -17,7 +17,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { renderNamespace } from "./GitOpsService"
-import { applicationName, applicationSetName, appProjectName, environmentApplicationName, environmentsApplicationSetName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
+import { applicationName, applicationSetName, appProjectName, ENVIRONMENT_LABEL, environmentApplicationName, environmentsApplicationSetName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
 
 withNoMaintenanceAgents()
 
@@ -623,6 +623,54 @@ describe("ArgoCdService.alignApplications", () => {
         vi.mocked(Project.findById).mockImplementation(() => Promise.reject(new Error("database down")) as never)
 
         await expect(align()).resolves.toBeUndefined()
+    })
+})
+
+describe("ArgoCdService.refreshApplications", () => {
+    const refresh = (environments: string[] = ["production"]) => new ArgoCdService().refreshApplications(toObjectId(String(projectId)), environments)
+    const refreshed = () => vi.mocked(ArgoCdClient.prototype.refreshApplication).mock.calls
+
+    beforeEach(() => {
+        vi.spyOn(ArgoCdClient.prototype, "refreshApplication").mockResolvedValue(undefined)
+    })
+
+    it("given Argo CD initialized, when a deploy refreshes it, then the Applications of the project in the deployed environments are refreshed", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        const orders = applicationName(String(projectId), "shop", "orders", "production")
+        applications = [resource(environmentName("production")), resource(orders), resource("elsewhere", { project: "another-project" })]
+
+        await refresh(["development", "production"])
+
+        expect(ArgoCdClient.prototype.listApplications).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (development,production)`, PROJECT_NAME)
+        expect(refreshed()).toEqual([
+            [environmentName("production"), PROJECT_NAME],
+            [orders, PROJECT_NAME]
+        ])
+    })
+
+    it("given Argo CD never initialized, when a deploy refreshes it, then nothing is sent to Argo CD", async () => {
+        previous = { url: ARGO_URL, token: "argo-token" }
+
+        await refresh()
+
+        expect(ArgoCdClient.prototype.listApplications).not.toHaveBeenCalled()
+    })
+
+    it("given an Application Argo CD fails to refresh, when a deploy refreshes it, then the others are refreshed and the deploy is not failed", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        applications = [resource(environmentName("production")), resource(environmentName("development"))]
+        vi.mocked(ArgoCdClient.prototype.refreshApplication).mockRejectedValueOnce(new Error("unreachable"))
+
+        await expect(refresh(["development", "production"])).resolves.toBeUndefined()
+
+        expect(refreshed()).toHaveLength(2)
+    })
+
+    it("given Argo CD unreachable, when a deploy refreshes it, then the deploy is not failed", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        vi.mocked(ArgoCdClient.prototype.listApplications).mockRejectedValue(new Error("unreachable"))
+
+        await expect(refresh()).resolves.toBeUndefined()
     })
 })
 

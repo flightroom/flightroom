@@ -144,6 +144,11 @@ class ArgoCdClient {
         return list?.items ?? []
     }
 
+    /** Has Argo CD read the repository of the Application now, not at its next poll: with automated sync it syncs what it finds. One gone is not an error */
+    async refreshApplication(name: string, project: string): Promise<void> {
+        await this.find(`refresh the Application ${name}`, () => this.api.get<ArgoCdResource>(`/applications/${encodeURIComponent(name)}`, { params: { project, refresh: "normal" } }))
+    }
+
     /** Without cascade: what the application deployed stays in the cluster */
     async deleteApplication(name: string): Promise<void> {
         await this.call(`delete the Application ${name}`, () => this.api.delete(`/applications/${encodeURIComponent(name)}`, { params: { cascade: false } }))

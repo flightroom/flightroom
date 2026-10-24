@@ -77,7 +77,11 @@ data:
 Initializing again re-aligns Argo CD with the project: **after adding or deleting an environment, or
 changing the GitOps repositories, initialize again.** Between two initializations every deploy upserts
 the ApplicationSet of each backend and frontend, so a backend deployed for the first time gets its
-Applications without one. A deploy that cannot align Argo CD still goes through, and why shows in the
+Applications without one. Then it refreshes the Applications of the environments it deployed, so they
+sync what it committed right away instead of at the next poll of Argo CD, three minutes by default; an
+Application the ApplicationSet has yet to generate comes with the next poll of the ApplicationSet. A
+refresh that fails is only logged: the Applications sync at the next poll anyway.
+A deploy that cannot align Argo CD still goes through, and why shows in the
 settings, apart from the errors of the initialization; the next deploy that aligns it clears it. A deploy
 does not align while an initialization runs, nor when Argo CD was handed another applications repository
 or ApplicationSets per environment by an earlier version: it asks for an initialization instead. A new
