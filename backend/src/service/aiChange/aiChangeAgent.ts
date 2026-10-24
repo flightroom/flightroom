@@ -230,7 +230,7 @@ const systemPrompt = (repositories: AiChangeAgentRepository[], { apiResources = 
 How you work:
 - Start from <repository_map>${multiple ? " of each repository" : ""}: its folders, the notes earlier agents left in ${REPOSITORY_MAP_PATH} and the team's instructions for agents. Then read only what the request needs: search to find where something is (with context for the lines around it), read_file with offset and limit for part of a big file, a whole file only when you need all of it. Follow the conventions you find (language, framework, formatting, folder layout, naming).
 - When you change files, create ${REPOSITORY_MAP_PATH}${multiple ? " in each repository you change" : ""} in the same change if it is missing, and update it when what you did or learned makes it wrong or incomplete, so the next agent finds its way without exploring again: what each main folder and module is for, the entry points, where routes, API clients, configuration and tests live, the conventions to follow. Facts about the code only, not about this request: correct what is wrong, drop what no longer holds, stay under 150 lines.
-- Change an existing file with edit_file, one exact snippet at a time: it costs a fraction of rewriting the file. Use write_file (always the WHOLE new content) only for new files or a file rewritten almost entirely, and delete_file to remove one. Keep the change as small as the request allows; do not reformat or rewrite code you do not need to touch.
+- Change an existing file with edit_file, one exact snippet per call: it costs a fraction of rewriting the file. Every turn sends the whole conversation again, so make all the edits you already know of in the same turn, several edit_file calls at once. When an edit fails, read again only the lines around it (read_file with offset and limit), not the whole file. Use write_file (always the WHOLE new content) only for new files or a file rewritten almost entirely, and delete_file to remove one. Keep the change as small as the request allows; do not reformat or rewrite code you do not need to touch.
 - Nothing you write is committed by you: the user reviews your change as a diff, and only if they approve it is it committed on a new branch with a pull request${multiple ? " in each repository" : ""}. ${scripts ? RUN_INSTRUCTIONS.sandbox : RUN_INSTRUCTIONS.none}
 - When you are done call finish with a summary for the pull request: what changed and why, in a few lines, then anything the reviewer should check. ${multiple ? "Say what changed in each repository. " : ""}Write it in the language of the user's request.
 - This is a conversation: the user reads what you say and can answer. When the user only asks a question (about the code, or about your change), answer it in plain text without changing any file and without calling finish. When the request cannot be done safely, or is unclear, change nothing and say why, or ask what you need to know, in plain text.${repositories.some(repository => repository.backend) ? AGENT_INSTRUCTIONS : ""}${apiResources ? API_RESOURCE_INSTRUCTIONS : ""}${backendEndpoints ? BACKEND_ENDPOINT_INSTRUCTIONS : ""}
@@ -694,6 +694,16 @@ const linesOf = (text: string) => {
     return lines
 }
 
+/** The lines of `content` equal to the first line of `snippet`, indentation aside, numbered from 1. */
+const linesHolding = (content: string, snippet: string): number[] => {
+    const first = snippet
+        .split("\n")
+        .map(line => line.trim())
+        .find(Boolean)
+    if (!first) return []
+    return linesOf(content).flatMap((line, index) => (line.trim() === first ? [index + 1] : []))
+}
+
 /** The matches of one file for search, the `context` lines around each, at most `budget` matches. */
 const matchingLines = (shown: string, lines: string[], needle: string, context: number, budget: number) => {
     const output: string[] = []
@@ -1114,14 +1124,19 @@ export class AiChangeToolbox {
         const content = buffer.toString("utf8")
         const at = content.indexOf(oldText)
         if (at === -1) {
-            throw new Error(`old_text was not found in "${shown}": read the file again and copy the text exactly`)
+            // Where to look again, so a long file is not read again whole for one snippet copied wrong.
+            const near = linesHolding(content, oldText)
+            const where = near.length > 0 && near.length <= 5 ? `, but its first line is at line ${near.join(", ")}` : ""
+            const how = where ? "read the lines from there" : "find it with search, read the lines around it"
+            throw new Error(`old_text was not found in "${shown}"${where}: ${how} with read_file offset and limit, and copy them exactly`)
         }
         if (content.indexOf(oldText, at + oldText.length) !== -1) {
             throw new Error(`old_text appears more than once in "${shown}": include more surrounding lines to make it unique`)
         }
         await fs.writeFile(absolute, content.slice(0, at) + newText + content.slice(at + oldText.length), "utf8")
         this.markChanged(repository, relative, bytes)
-        return `Edited ${shown}.`
+        // The line tells the agent where to read again, should it need to, without the whole file.
+        return `Edited ${shown} at line ${content.slice(0, at).split("\n").length}.`
     }
 
     private async deleteFile(requested: string): Promise<string> {
