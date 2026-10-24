@@ -1319,9 +1319,9 @@ describe("AiChangeJobService", () => {
 
             await run()
 
-            const costIncrements = updates.filter(({ update }) => update.$inc).map(({ update }) => (update.$inc as Record<string, number>)["usage.costUsd"])
+            const costIncrements = updates.filter(({ update }) => update.$inc).map(({ update }) => (update.$inc as Record<string, number>)["usage.cost"])
             expect(costIncrements).toEqual([0.0000942, 0.0000942, 0.0001434, 0.0001434])
-            expect(vi.mocked(AiUsage.create).mock.calls.map(([entry]) => entry.costUsd)).toEqual([0.0000942, 0.0001434])
+            expect(vi.mocked(AiUsage.create).mock.calls.map(([entry]) => entry.cost)).toEqual([0.0000942, 0.0001434])
         })
 
         it("Given an agent spending tokens over two rounds, when it runs, then each round is added to the ledger with the organization, the project, the job and its repositories", async () => {

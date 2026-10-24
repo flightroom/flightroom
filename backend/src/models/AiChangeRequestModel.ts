@@ -1,5 +1,6 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { LLM_EFFORTS, LlmEffort } from "../service/llm/types"
+import { AiCurrency } from "./AiModelModel"
 
 export enum AiChangeStatus {
     /** Created, waiting for the working copy (another request may be holding it). */
@@ -42,6 +43,8 @@ export interface IAiChangeUsage {
     /** The part of `inputTokens` read from the prompt cache. */
     cachedInputTokens: number
     outputTokens: number
+    cost?: number
+    currency?: AiCurrency
     costUsd?: number
 }
 
@@ -147,6 +150,8 @@ const aiChangeRequestSchema = new Schema<IAiChangeRequest>(
             inputTokens: { type: Number, default: 0 },
             cachedInputTokens: { type: Number, default: 0 },
             outputTokens: { type: Number, default: 0 },
+            cost: { type: Number, min: 0 },
+            currency: { type: String, enum: ["USD", "EUR"] },
             costUsd: { type: Number, min: 0 }
         },
         expiresAt: { type: Date }

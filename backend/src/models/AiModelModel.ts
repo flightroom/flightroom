@@ -3,18 +3,24 @@ import { AI_MODEL_SECRET_KEYS, AiModelConfig } from "../service/llm"
 import { LLM_EFFORTS, LlmEffort, LlmProvider } from "../service/llm/types"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 
-/** USD per million tokens; all three rates are needed before an interaction cost can be shown. */
+export const AI_CURRENCIES = ["USD", "EUR"] as const
+export type AiCurrency = (typeof AI_CURRENCIES)[number]
+
+/** Per million tokens; all three rates are needed before an interaction cost can be shown. */
 export interface AiTokenCosts {
     input: number
     cachedInput: number
     output: number
+    /** Missing on models saved before currency selection was added; those rates are USD. */
+    currency?: AiCurrency
 }
 
 const aiTokenCostsSchema = new Schema<AiTokenCosts>(
     {
         input: { type: Number, required: true, min: 0 },
         cachedInput: { type: Number, required: true, min: 0 },
-        output: { type: Number, required: true, min: 0 }
+        output: { type: Number, required: true, min: 0 },
+        currency: { type: String, enum: [...AI_CURRENCIES], default: "USD" }
     },
     { _id: false }
 )

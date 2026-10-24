@@ -2913,8 +2913,13 @@
             "max_effort_hint": "The highest reasoning effort users can pick with this AI.",
             "max_effort_none": "No limit",
             "token_costs_title": "Token costs (optional)",
-            "token_costs_hint": "Set all three rates in USD per million tokens to show the estimated cost of each interaction. Leave all empty to hide costs.",
+            "token_costs_hint": "Set all three rates per million tokens in the selected currency to show the estimated cost of each interaction. Leave all empty to hide costs.",
             "token_costs_invalid": "Enter all three rates from 0 to 1,000,000, or leave all three empty.",
+            "currency": {
+                "label": "Currency",
+                "USD": "USD ($)",
+                "EUR": "EUR (€)"
+            },
             "token_costs": {
                 "input": "Input tokens",
                 "cached_input": "Cached input tokens",

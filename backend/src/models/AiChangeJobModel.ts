@@ -92,6 +92,8 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
             inputTokens: { type: Number, default: 0 },
             cachedInputTokens: { type: Number, default: 0 },
             outputTokens: { type: Number, default: 0 },
+            cost: { type: Number, min: 0 },
+            currency: { type: String, enum: ["USD", "EUR"] },
             costUsd: { type: Number, min: 0 }
         },
         expiresAt: { type: Date }

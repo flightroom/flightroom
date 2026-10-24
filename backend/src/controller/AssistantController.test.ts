@@ -28,7 +28,7 @@ vi.mock("../service/assistant/AssistantService", () => ({
 vi.mock("../models/AssistantUsageModel", () => ({ default: { create: (...args: unknown[]) => saveUsage(...args) } }))
 
 vi.mock("../service/AiUsageService", () => ({
-    calculateAiUsageCostUsd: (...args: unknown[]) => calculateCost(...args),
+    calculateAiUsageCost: (...args: unknown[]) => calculateCost(...args),
     recordAiUsage: (...args: unknown[]) => recordUsage(...args),
     ensureWithinTokenLimit: (...args: unknown[]) => checkTokenLimit(...args)
 }))
@@ -220,14 +220,14 @@ describe("AssistantController", () => {
     })
 
     it("Given configured token rates, when an answer ends, then its cost is sent to the interaction and recorded", async () => {
-        calculateCost.mockResolvedValue(0.00025)
+        calculateCost.mockResolvedValue({ amount: 0.00025, currency: "EUR" })
         chat.mockResolvedValue({ stopReason: "end_turn", wrote: false, usage: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 5 }, aiModelId: "custom-ai" })
 
         const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "64b7f0c2a1b2c3d4e5f60718" }, payload: question })
 
-        expect(response.body).toContain('"usage":{"inputTokens":10,"cachedInputTokens":0,"outputTokens":5,"costUsd":0.00025}')
-        expect(saveUsage).toHaveBeenCalledWith(expect.objectContaining({ aiModelId: "custom-ai", costUsd: 0.00025 }))
-        expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ aiModelId: "custom-ai", costUsd: 0.00025 }))
+        expect(response.body).toContain('"usage":{"inputTokens":10,"cachedInputTokens":0,"outputTokens":5,"cost":0.00025,"currency":"EUR"}')
+        expect(saveUsage).toHaveBeenCalledWith(expect.objectContaining({ aiModelId: "custom-ai", cost: 0.00025, currency: "EUR" }))
+        expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ aiModelId: "custom-ai", cost: 0.00025, currency: "EUR" }))
     })
 
     it("Given an answer failing after two model rounds, when it ends with an error, then the ledger still counts both rounds and the usage document stays for finished answers", async () => {
@@ -249,7 +249,7 @@ describe("AssistantController", () => {
 
     it("Given a priced answer failing after tokens were spent, when it ends with an error, then the interaction and ledger still show its cost", async () => {
         const spentOn = { effort: "high", aiModelId: "custom-ai", provider: "anthropic" }
-        calculateCost.mockResolvedValue(0.00025)
+        calculateCost.mockResolvedValue({ amount: 0.00025, currency: "EUR" })
         chat.mockImplementation(async (_projectId, _request, handlers) => {
             handlers.onUsage({ inputTokens: 10, cachedInputTokens: 2, outputTokens: 5 }, spentOn)
             throw new Error("provider down")
@@ -257,8 +257,8 @@ describe("AssistantController", () => {
 
         const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "64b7f0c2a1b2c3d4e5f60718" }, payload: question })
 
-        expect(response.body).toContain('"usage":{"inputTokens":10,"cachedInputTokens":2,"outputTokens":5,"costUsd":0.00025}')
-        expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ ...spentOn, costUsd: 0.00025 }))
+        expect(response.body).toContain('"usage":{"inputTokens":10,"cachedInputTokens":2,"outputTokens":5,"cost":0.00025,"currency":"EUR"}')
+        expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ ...spentOn, cost: 0.00025, currency: "EUR" }))
         expect(saveUsage).not.toHaveBeenCalled()
     })
 

@@ -32,7 +32,7 @@ const toUsage = (value: unknown): AssistantUsage | undefined => {
         inputTokens: usage.inputTokens,
         cachedInputTokens: usage.cachedInputTokens ?? 0,
         outputTokens: usage.outputTokens,
-        ...(typeof usage.costUsd === "number" ? { costUsd: usage.costUsd } : {})
+        ...(typeof usage.cost === "number" ? { cost: usage.cost, currency: usage.currency ?? "USD" } : typeof usage.costUsd === "number" ? { cost: usage.costUsd, currency: "USD" as const } : {})
     }
 }
 

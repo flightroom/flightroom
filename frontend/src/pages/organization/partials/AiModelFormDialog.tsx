@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import useAiModelsApi, {
+    AiCurrency,
     AiModelDetail,
     AiModelDTO,
     AVAILABLE_AI_MODELS_QUERY_KEY,
@@ -56,6 +57,7 @@ type AiModelFormValues = Record<ConfigField, string> & {
     inputCostPerMillionTokens: string
     cachedInputCostPerMillionTokens: string
     outputCostPerMillionTokens: string
+    costCurrency: AiCurrency
 }
 
 const TOKEN_COST_FIELDS = ["inputCostPerMillionTokens", "cachedInputCostPerMillionTokens", "outputCostPerMillionTokens"] as const
@@ -78,7 +80,8 @@ const toFormValues = (aiModel?: AiModelDetail): AiModelFormValues => ({
     isDefault: aiModel?.isDefault ?? false,
     inputCostPerMillionTokens: aiModel?.tokenCosts ? String(aiModel.tokenCosts.input) : "",
     cachedInputCostPerMillionTokens: aiModel?.tokenCosts ? String(aiModel.tokenCosts.cachedInput) : "",
-    outputCostPerMillionTokens: aiModel?.tokenCosts ? String(aiModel.tokenCosts.output) : ""
+    outputCostPerMillionTokens: aiModel?.tokenCosts ? String(aiModel.tokenCosts.output) : "",
+    costCurrency: aiModel?.tokenCosts?.currency ?? "USD"
 })
 
 const tokenCostsValid = (values: AiModelFormValues) => {
@@ -105,7 +108,8 @@ const toDTO = (values: AiModelFormValues, editing: boolean): AiModelDTO => {
             : {
                   input: Number(values.inputCostPerMillionTokens),
                   cachedInput: Number(values.cachedInputCostPerMillionTokens),
-                  output: Number(values.outputCostPerMillionTokens)
+                  output: Number(values.outputCostPerMillionTokens),
+                  currency: values.costCurrency
               },
         // An update without the field would keep the limit: null is what takes it away.
         maxEffort: values.maxEffort === NO_MAX_EFFORT ? (editing ? null : undefined) : values.maxEffort,
@@ -195,6 +199,7 @@ export const AiModelFormDialog: React.FC<AiModelFormDialogProps> = ({ open, onOp
     const required = { required: t("validation.required") }
     const tokenCostsRules = { validate: () => tokenCostsValid(form.getValues()) || t("ai_models.form.token_costs_invalid") }
     const providerOptions = LLM_PROVIDERS.map(value => ({ value, label: t(`ai_models.providers.${value}`) }))
+    const currencyOptions = (["USD", "EUR"] as const).map(value => ({ value, label: t(`ai_models.form.currency.${value}`) }))
     const effortOptions = [{ value: NO_MAX_EFFORT, label: t("ai_models.form.max_effort_none") }, ...LLM_EFFORTS.map(value => ({ value, label: t(`assistant.effort.levels.${value}`) }))]
     const isDeployment = provider === "azure-openai"
 
@@ -251,6 +256,9 @@ export const AiModelFormDialog: React.FC<AiModelFormDialogProps> = ({ open, onOp
                             <div className="grid gap-3 rounded-md border border-divider p-3">
                                 <p className="text-sm font-medium">{t("ai_models.form.token_costs_title")}</p>
                                 <p className="text-xs text-foreground-secondary">{t("ai_models.form.token_costs_hint")}</p>
+                                <div data-testid="ai-model-cost-currency">
+                                    <SelectField<AiModelFormValues> name="costCurrency" label={t("ai_models.form.currency.label")} options={currencyOptions} />
+                                </div>
                                 {TOKEN_COST_FIELDS.map((field, index) => (
                                     <TextField<AiModelFormValues>
                                         key={field}
