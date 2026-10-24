@@ -6,7 +6,9 @@ import { isProtectedPath, isSecretPath, resolveInsideWorkingCopy, WorkspacePathE
 import { LlmClient, LlmEffort, LlmMessage, LlmTool, LlmUsage } from "../llm"
 import { runAgentLoop, runToolsInOrder } from "../llm/agentLoop"
 import { compactTranscript } from "../llm/transcript"
+import { CommandSandbox } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
+import { AiChangeScriptRunner, runScriptTool } from "./aiChangeScripts"
 import { AiChangeApiSpecSource, ApiSpecReader } from "./apiSpecReader"
 
 export const AI_CHANGE_LIMITS = {
@@ -162,6 +164,8 @@ export interface AiChangeAgentInput {
     history?: LlmMessage[]
     /** Where read_api_spec finds the document of each api resource of the backends: the tool is offered only with one */
     apiSpecs?: AiChangeApiSpecSource[]
+    /** The sandbox run_script runs in, asked for at the first script: the tool is offered only with one */
+    sandbox?: () => Promise<CommandSandbox>
 }
 
 export interface AiChangeAgentHooks {
@@ -211,7 +215,14 @@ const API_RESOURCE_INSTRUCTIONS =
 const BACKEND_ENDPOINT_INSTRUCTIONS =
     "\n- A frontend calls a backend of the job at the address listed in <backend_endpoints> for the environment it runs in: take the base URL from the frontend's configuration, never hardcode a host."
 
-const systemPrompt = (repositories: AiChangeAgentRepository[], { apiResources = false, backendEndpoints = false } = {}) => {
+/** What the agent can run: the scripts of package.json in a sandbox, or nothing. */
+const RUN_INSTRUCTIONS = {
+    sandbox:
+        "You cannot run arbitrary commands, but run_script runs the install and the scripts of package.json in an isolated sandbox: after changing code, run the checks the repository has (lint, typecheck, test, build) and fix what your change broke. A failure that was there before your change is not yours to fix: mention it in the summary.",
+    none: "You cannot run commands, install packages, build or test."
+}
+
+const systemPrompt = (repositories: AiChangeAgentRepository[], { apiResources = false, backendEndpoints = false, scripts = false } = {}) => {
     const multiple = repositories.length > 1
     const kinds = describeKinds(repositories)
     return `You are a coding agent built into Flightroom, a platform to build, deploy and serve frontends and backends. ${multiple ? multipleRepositories(kinds) : singleRepository(kinds)}
@@ -220,7 +231,7 @@ How you work:
 - Start from <repository_map>${multiple ? " of each repository" : ""}: its folders, the notes earlier agents left in ${REPOSITORY_MAP_PATH} and the team's instructions for agents. Then read only what the request needs: search to find where something is (with context for the lines around it), read_file with offset and limit for part of a big file, a whole file only when you need all of it. Follow the conventions you find (language, framework, formatting, folder layout, naming).
 - When you change files, create ${REPOSITORY_MAP_PATH}${multiple ? " in each repository you change" : ""} in the same change if it is missing, and update it when what you did or learned makes it wrong or incomplete, so the next agent finds its way without exploring again: what each main folder and module is for, the entry points, where routes, API clients, configuration and tests live, the conventions to follow. Facts about the code only, not about this request: correct what is wrong, drop what no longer holds, stay under 150 lines.
 - Change an existing file with edit_file, one exact snippet at a time: it costs a fraction of rewriting the file. Use write_file (always the WHOLE new content) only for new files or a file rewritten almost entirely, and delete_file to remove one. Keep the change as small as the request allows; do not reformat or rewrite code you do not need to touch.
-- Nothing you write is committed by you: the user reviews your change as a diff, and only if they approve it is it committed on a new branch with a pull request${multiple ? " in each repository" : ""}. You cannot run commands, install packages, build or test.
+- Nothing you write is committed by you: the user reviews your change as a diff, and only if they approve it is it committed on a new branch with a pull request${multiple ? " in each repository" : ""}. ${scripts ? RUN_INSTRUCTIONS.sandbox : RUN_INSTRUCTIONS.none}
 - When you are done call finish with a summary for the pull request: what changed and why, in a few lines, then anything the reviewer should check. ${multiple ? "Say what changed in each repository. " : ""}Write it in the language of the user's request.
 - This is a conversation: the user reads what you say and can answer. When the user only asks a question (about the code, or about your change), answer it in plain text without changing any file and without calling finish. When the request cannot be done safely, or is unclear, change nothing and say why, or ask what you need to know, in plain text.${repositories.some(repository => repository.backend) ? AGENT_INSTRUCTIONS : ""}${apiResources ? API_RESOURCE_INSTRUCTIONS : ""}${backendEndpoints ? BACKEND_ENDPOINT_INSTRUCTIONS : ""}
 
@@ -728,11 +739,18 @@ export class AiChangeToolbox {
     private readonly changed = new Map<AiChangeToolboxRepository, Set<string>>()
     private writtenBytes = 0
     private readonly maxWrittenBytes: number
+    /** Only with a sandbox: run_script is not offered otherwise. */
+    private readonly scripts?: AiChangeScriptRunner
     summary?: string
 
-    constructor(private readonly repositories: AiChangeToolboxRepository[]) {
+    constructor(
+        private readonly repositories: AiChangeToolboxRepository[],
+        sandbox?: () => Promise<CommandSandbox>,
+        signal?: AbortSignal
+    ) {
         if (repositories.length === 0) throw new Error("A toolbox needs at least one repository")
         this.maxWrittenBytes = agentLimitsFor(repositories.length).maxWrittenBytes
+        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal) : undefined
         // A follow-up refines what its parent wrote: the limits hold for the whole proposal, not for each step.
         for (const repository of repositories) {
             for (const change of repository.previousChanges ?? []) this.markChanged(repository, change.path, change.bytes)
@@ -741,6 +759,12 @@ export class AiChangeToolbox {
 
     private get multipleRepositories() {
         return this.repositories.length > 1
+    }
+
+    /** The tools of a run on these repositories: run_script among them only with a sandbox. */
+    tools(apiResources: string[] = []): LlmTool[] {
+        const runScript = this.scripts ? [runScriptTool(this.multipleRepositories ? this.repositories.map(repository => repository.slug) : undefined)] : []
+        return [...toolsFor(this.multipleRepositories, apiResources), ...runScript]
     }
 
     async run(name: string, input: unknown): Promise<string> {
@@ -760,6 +784,9 @@ export class AiChangeToolbox {
             case "finish":
                 this.summary = readString(input, "summary")
                 return "Done."
+            case "run_script":
+                if (!this.scripts) throw new Error(`Unknown tool "${name}"`)
+                return this.scripts.run(this.repositoryNamed(readString(input, "repository", this.multipleRepositories)), readString(input, "script")!)
             default:
                 throw new Error(`Unknown tool "${name}"`)
         }
@@ -774,6 +801,14 @@ export class AiChangeToolbox {
             throw new WorkspacePathError(`"${requested}" does not start with the slug of a repository: ${this.repositories.map(candidate => candidate.slug).join(", ")}`)
         }
         return { repository, inside: rest.join("/") }
+    }
+
+    /** The repository of a slug, the only one when the job has one. */
+    private repositoryNamed(slug?: string): AiChangeToolboxRepository {
+        if (!this.multipleRepositories) return this.repositories[0]
+        const repository = this.repositories.find(candidate => candidate.slug === slug)
+        if (!repository) throw new Error(`"${slug}" is not a repository of this job: ${this.repositories.map(candidate => candidate.slug).join(", ")}`)
+        return repository
     }
 
     /** The path as the agent knows it: prefixed with the slug when there is more than one repository. */
@@ -968,6 +1003,7 @@ export class AiChangeToolbox {
         changed.add(relative)
         this.changed.set(repository, changed)
         this.writtenBytes += bytes
+        this.scripts?.touch(repository, relative)
     }
 
     private async writeFile(requested: string, content: string): Promise<string> {
@@ -1042,6 +1078,7 @@ export const describeToolCall = (name: string, input: unknown): string => {
     if (name === "read_api_spec") {
         return [name, readString(input, "resource", false), readString(input, "method", false)?.toUpperCase(), readString(input, "path", false)].filter(Boolean).join(" ")
     }
+    if (name === "run_script") return [name, readString(input, "repository", false), readString(input, "script", false)].filter(Boolean).join(" ")
     const path = readString(input, "path", false) ?? readString(input, "prefix", false)
     const text = readString(input, "text", false)
     if (name === "search" && text) return `search "${text.slice(0, 80)}"`
@@ -1058,7 +1095,9 @@ export const describeToolCall = (name: string, input: unknown): string => {
  */
 export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentInput, hooks: AiChangeAgentHooks, signal?: AbortSignal): Promise<AiChangeAgentResult> => {
     const toolbox = new AiChangeToolbox(
-        input.repositories.map(repository => ({ slug: componentOf(repository).slug, workingCopy: repository.workingCopy, previousChanges: repository.previousChanges }))
+        input.repositories.map(repository => ({ slug: componentOf(repository).slug, workingCopy: repository.workingCopy, previousChanges: repository.previousChanges })),
+        input.sandbox,
+        signal
     )
     // A conversation that goes on already holds the maps of its first message.
     const messages: LlmMessage[] = input.history?.length
@@ -1070,8 +1109,12 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
     const apiSpecs = new ApiSpecReader(input.apiSpecs ?? [])
     const loop = await runAgentLoop({
         client,
-        system: systemPrompt(input.repositories, { apiResources: apiSpecs.resources.length > 0, backendEndpoints: describeBackendEndpoints(input.repositories) !== undefined }),
-        tools: toolsFor(input.repositories.length > 1, apiSpecs.resources),
+        system: systemPrompt(input.repositories, {
+            apiResources: apiSpecs.resources.length > 0,
+            backendEndpoints: describeBackendEndpoints(input.repositories) !== undefined,
+            scripts: input.sandbox !== undefined
+        }),
+        tools: toolbox.tools(apiSpecs.resources),
         messages,
         maxRounds: agentLimitsFor(input.repositories.length).maxRounds,
         maxTokens: AI_CHANGE_LIMITS.maxTokensPerTurn[effort],

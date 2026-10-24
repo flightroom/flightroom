@@ -46,7 +46,15 @@ COPY backend/package.json backend/
 COPY frontend/package.json frontend/
 COPY e2e/package.json e2e/
 
-RUN pnpm install --filter @flightroom/backend --prod --frozen-lockfile --ignore-scripts
+# The OpenShell SDK (@nvidia) is published on GitHub Packages, which asks for a
+# token even to read a public package: pass one with read:packages as the
+# build secret npm_token (docker build --secret id=npm_token,env=GITHUB_TOKEN).
+# It is read from the secret mount and written to a user config removed in the
+# same step, so it never ends up in a layer.
+RUN --mount=type=secret,id=npm_token,env=NODE_AUTH_TOKEN \
+    echo '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > /root/.npmrc && \
+    pnpm install --filter @flightroom/backend --prod --frozen-lockfile --ignore-scripts; \
+    status=$?; rm -f /root/.npmrc; exit $status
 
 # ---------------------------------------------------------------------------
 # Stage 2 - runtime with every service inside
