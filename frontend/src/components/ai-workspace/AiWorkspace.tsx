@@ -1138,6 +1138,8 @@ interface QueueEntry {
     ids: string[]
     /** The first request: what the conversation is about. */
     prompt: string
+    /** What the model summed the first request up in; the first line of the request when it could not. */
+    title: string
     /** When it last moved. */
     at: string
     status: AiChangeStatus
@@ -1158,6 +1160,7 @@ const requestEntries = (requests: AiChangeRequest[]): QueueEntry[] => {
             id: current._id,
             ids: chain.map(request => request._id),
             prompt: chain[chain.length - 1].prompt,
+            title: chain[chain.length - 1].title ?? firstLine(chain[chain.length - 1].prompt),
             at: chain[0].createdAt,
             status: current.status,
             turns: chain.length,
@@ -1183,6 +1186,7 @@ const jobEntries = (jobs: AiJob[]): QueueEntry[] => {
             id: rootJobId,
             ids: [rootJobId],
             prompt: first.prompt,
+            title: first.title ?? firstLine(first.prompt),
             at: latest.updatedAt,
             status: reviewable ? "PROPOSED" : status,
             repositories: latest.repositories.length
@@ -1202,14 +1206,16 @@ const QueueItem: React.FC<{ entry: QueueEntry; selected: boolean; onSelect: () =
                 type="button"
                 aria-current={selected ? "true" : undefined}
                 // The label replaces the content of the button: it has to carry the status the badges show.
-                aria-label={`${t("frontend.aiChange.open_request", { prompt: firstLine(entry.prompt) })} · ${t(`frontend.aiChange.status.${entry.status}`)}`}
+                aria-label={`${t("frontend.aiChange.open_request", { prompt: entry.title })} · ${t(`frontend.aiChange.status.${entry.status}`)}`}
                 onClick={onSelect}
                 className={cn(
                     "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     selected ? "border-primary bg-primary/5" : "border-divider hover:border-primary/50 hover:bg-muted/40"
                 )}
             >
-                <span className="line-clamp-2 break-words text-sm font-medium">{firstLine(entry.prompt)}</span>
+                <span className="line-clamp-2 break-words text-sm font-medium" title={entry.prompt}>
+                    {entry.title}
+                </span>
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                     <time dateTime={entry.at}>{format(new Date(entry.at), "PPp", { locale: themeStore.getLocale() })}</time>
                     {entry.turns !== undefined && entry.turns > 1 && <span>· {t("frontend.aiChange.turns_count", { count: entry.turns })}</span>}

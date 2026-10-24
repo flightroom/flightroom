@@ -63,6 +63,8 @@ export interface IAiChangeRequest extends Document<ObjectId> {
      */
     conversationId: Schema.Types.ObjectId
     prompt: string
+    /** A few words the model wrote about the prompt, for the console's lists; unset when it could not, or on a follow-up. */
+    title?: string
     baseBranch: string
     baseCommit?: string
     status: AiChangeStatus
@@ -124,6 +126,7 @@ const aiChangeRequestSchema = new Schema<IAiChangeRequest>(
         parentId: { type: Schema.Types.ObjectId, ref: "AiChangeRequest", index: true },
         conversationId: { type: Schema.Types.ObjectId, required: true, index: true },
         prompt: { type: String, required: true, maxlength: 8_000 },
+        title: { type: String },
         baseBranch: { type: String, required: true },
         baseCommit: { type: String },
         status: { type: String, enum: Object.values(AiChangeStatus), default: AiChangeStatus.PENDING, required: true },

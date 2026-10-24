@@ -80,11 +80,21 @@ const FILLER_WORDS = new Set(
 /** How long the model gets to name a branch before the words of the request are used instead. */
 const BRANCH_TOPIC_TIMEOUT_MS = 15_000
 
-const BRANCH_TOPIC_SYSTEM_PROMPT =
-    "You name the git branch of a code change. Answer with 2 to 5 lowercase English words, separated by hyphens, " +
-    "that sum up what the change does, like `logout-button-navbar` or `upgrade-all-dependencies`. No prefix, no date, no punctuation."
+/** How long the title of a conversation in the console's lists can be. */
+const TITLE_MAX_LENGTH = 80
 
-const BRANCH_TOPIC_SCHEMA = { type: "object", properties: { name: { type: "string" } }, required: ["name"], additionalProperties: false }
+const BRANCH_TOPIC_SYSTEM_PROMPT =
+    "You name a code change asked in the user's request. In `name`, the git branch: 2 to 5 lowercase English words, separated by hyphens, " +
+    "that sum up what the change does, like `logout-button-navbar` or `upgrade-all-dependencies`. No prefix, no date, no punctuation. " +
+    "In `title`, a short title for the list of requests: 3 to 8 words in the language of the request, sentence case, no final punctuation, " +
+    "like `Logout button in the navbar` or `Aggiornamento di tutte le librerie`."
+
+const BRANCH_TOPIC_SCHEMA = {
+    type: "object",
+    properties: { name: { type: "string" }, title: { type: "string" } },
+    required: ["name", "title"],
+    additionalProperties: false
+}
 
 const toBranchWords = (text: string) =>
     slugify(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
@@ -93,10 +103,11 @@ const toBranchWords = (text: string) =>
         .slice(0, BRANCH_NAME_WORDS)
 
 /**
- * A few words summing up a request, written by the model, for its branch name. Undefined when the model
- * fails or takes too long: the branch is then named after the words of the request.
+ * A few words summing up a request, written by the model: `branch` for its branch name, `title` for the
+ * console's lists. Each is undefined when the model fails or takes too long: the branch is then named after
+ * the words of the request, and the lists show the request itself.
  */
-export const branchTopic = async (client: LlmClient, prompt: string): Promise<string | undefined> => {
+export const branchTopic = async (client: LlmClient, prompt: string): Promise<{ branch?: string; title?: string }> => {
     try {
         const answer = (await client.json({
             system: BRANCH_TOPIC_SYSTEM_PROMPT,
@@ -105,12 +116,13 @@ export const branchTopic = async (client: LlmClient, prompt: string): Promise<st
             maxTokens: 200,
             effort: "low",
             signal: AbortSignal.timeout(BRANCH_TOPIC_TIMEOUT_MS)
-        })) as { name?: unknown } | null
+        })) as { name?: unknown; title?: unknown } | null
         const words = typeof answer?.name === "string" ? toBranchWords(answer.name) : []
-        return words.length ? words.join("-") : undefined
+        const title = typeof answer?.title === "string" ? firstLine(answer.title, TITLE_MAX_LENGTH) : ""
+        return { branch: words.length ? words.join("-") : undefined, title: title || undefined }
     } catch (error) {
         fastify.log.warn({ error: loggable(error) }, "Could not name the AI branch")
-        return undefined
+        return {}
     }
 }
 

@@ -168,7 +168,7 @@ describe("AiChangeJobService", () => {
             // The agent itself is covered below: here only what create decides.
             vi.spyOn(AiChangeJobService.prototype as unknown as WithProcess, "process").mockResolvedValue(undefined)
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue([] as never)
-            vi.spyOn(AnthropicLlmClient.prototype, "json").mockResolvedValue({ name: "Price API rename" })
+            vi.spyOn(AnthropicLlmClient.prototype, "json").mockResolvedValue({ name: "Price API rename", title: "Rename of the price API" })
         })
 
         it("Given a viewer, when a job is started, then it is refused before anything is created", async () => {
@@ -253,6 +253,9 @@ describe("AiChangeJobService", () => {
                 expect.stringMatching(/^ai-feature\/price-api-rename-\d{8}-\d{6}$/)
             ])
             expect(AnthropicLlmClient.prototype.json).toHaveBeenCalledTimes(1)
+            // The same answer titles the conversation in the console's lists.
+            expect(job.title).toBe("Rename of the price API")
+            expect(requests.map(request => request.title)).toEqual(["Rename of the price API", "Rename of the price API"])
             expect(String(requests[0].jobId)).toBe(job._id)
         })
 
@@ -263,6 +266,7 @@ describe("AiChangeJobService", () => {
 
             const [[request]] = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls as [Record<string, unknown>][]
             expect(request.branch).toMatch(/^ai-feature\/rename-price-api-\d{8}-\d{6}$/)
+            expect(request.title).toBeUndefined()
         })
 
         it("Given a chosen effort, when the job is started, then the job and each of its requests keep it", async () => {
