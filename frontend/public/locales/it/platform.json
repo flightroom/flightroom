@@ -1141,6 +1141,7 @@
                 "applying-previous": "Riparto dalla proposta precedente",
                 "applying": "Applicazione delle modifiche",
                 "apply-failed": "Non è stato possibile applicare le modifiche",
+                "build-required": "L'agente ha modificato dei file senza fare la build: gli è stato chiesto di farla prima",
                 "pushing": "Pubblicazione della proposta sul suo branch",
                 "stopped": "Interrotto dall'utente"
             },

@@ -129,4 +129,16 @@ describe("describeDesignSystem", () => {
     it("Given no design system, then the prompt gets no block", () => {
         expect(describeDesignSystem(undefined)).toBeUndefined()
     })
+
+    it("Given an npmrc, then its credentials are masked, and the agent is told it installs with it only with a sandbox", () => {
+        const designSystem = { packageName: "@tnb/design-system", npmrc: "@tnb:registry=https://pkgs.dev.azure.com/tnb/_packaging/ui/npm/registry/\n//pkgs.dev.azure.com/:_authToken=s3cr3t" }
+
+        const withoutSandbox = describeDesignSystem(designSystem)
+        const withSandbox = describeDesignSystem(designSystem, { installs: true })
+
+        for (const block of [withoutSandbox, withSandbox]) expect(block).not.toContain("s3cr3t")
+        expect(withoutSandbox).toContain("You cannot install packages")
+        expect(withSandbox).toContain("already set up in the sandbox: never write an .npmrc into the repository")
+        expect(withSandbox).not.toContain("You cannot install packages")
+    })
 })

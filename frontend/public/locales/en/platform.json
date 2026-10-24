@@ -1033,6 +1033,7 @@
                 "applying-previous": "Starting from the previous proposal",
                 "applying": "Applying the changes",
                 "apply-failed": "The changes could not be applied",
+                "build-required": "The agent changed files without building them: asked to build first",
                 "pushing": "Pushing the proposal on its branch",
                 "stopped": "Stopped by the user"
             },

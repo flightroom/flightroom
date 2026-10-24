@@ -94,10 +94,11 @@ export const designSystemOf = (input: unknown): IDesignSystem => {
 }
 
 /**
- * The design system of a frontend as a block of an agent prompt, none when it has none. The agent
- * cannot install packages, so it says when the package is missing instead of reaching for another library.
+ * The design system of a frontend as a block of an agent prompt, none when it has none. Without a sandbox the
+ * agent cannot install packages, so it says when the package is missing instead of reaching for another library.
+ * With one, the install runs with the npmrc whole, already in the sandbox.
  */
-export const describeDesignSystem = (designSystem?: IDesignSystem): string | undefined => {
+export const describeDesignSystem = (designSystem?: IDesignSystem, { installs = false } = {}): string | undefined => {
     const redacted = redactDesignSystem(designSystem)
     if (!redacted) return undefined
     return [
@@ -107,7 +108,11 @@ export const describeDesignSystem = (designSystem?: IDesignSystem): string | und
         redacted.docsUrl ? `docs: ${redacted.docsUrl}` : undefined,
         redacted.notes ? `notes:\n${redacted.notes}` : undefined,
         redacted.npmrc ? `npmrc (credentials masked):\n${redacted.npmrc}` : undefined,
-        "Build the UI of this frontend with the components and tokens of this design system: do not add another UI library. You cannot install packages: if the package is missing from package.json, say so in the summary.",
+        `Build the UI of this frontend with the components and tokens of this design system: do not add another UI library. ${
+            installs
+                ? `run_script install installs it${redacted.npmrc ? " with this npmrc, credentials included, already set up in the sandbox: never write an .npmrc into the repository" : ""}. If the package is missing from package.json, add it and run the install.`
+                : "You cannot install packages: if the package is missing from package.json, say so in the summary."
+        }`,
         "</design_system>"
     ]
         .filter(Boolean)
