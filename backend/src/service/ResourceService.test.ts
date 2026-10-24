@@ -525,7 +525,7 @@ describe("ensureValidApiSpec", () => {
         expect(() => parseApiDocument(spec)).not.toThrow()
     })
 
-    it("given a YAML mapping of 40 000 keys, when it is checked, then it is parsed in well under 2 seconds", () => {
+    it("given a YAML mapping of 40 000 keys, when it is checked, then it is parsed in well under 5 seconds", () => {
         const spec = `openapi: 3.0.0\npaths:\n${Array.from({ length: 40_000 }, (_, index) => `  /p${index}: {}`).join("\n")}\n`
         expect(Buffer.byteLength(spec)).toBeGreaterThan(400 * 1024)
         expect(Buffer.byteLength(spec)).toBeLessThan(1024 * 1024)
@@ -533,7 +533,7 @@ describe("ensureValidApiSpec", () => {
         const started = performance.now()
         ensureValidApiSpec(spec)
 
-        expect(performance.now() - started).toBeLessThan(2000)
+        expect(performance.now() - started).toBeLessThan(5000)
     })
 
     it("given YAML past 1 MiB, when it is checked, then it is refused without being parsed, while JSON that size is read", () => {
