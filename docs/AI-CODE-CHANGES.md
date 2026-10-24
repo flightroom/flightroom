@@ -63,7 +63,8 @@ per repository, each on its own feature branch, applied or opened as a pull requ
 repository starts from the branch picked for it, its default branch otherwise; one choice sets them all at
 once, either back to their own default branches or to a branch every one of them has. Each message of the conversation shows
 one tab per repository, with its own files and diff, opened on the first proposal to review. Members without
-a repository are left out and listed under the request.
+a repository are left out and listed under the request. These conversations stay in the domain's queue and do
+not appear in the individual frontend or backend queues.
 
 When the domain has nothing for the agent to work on yet, **Generate** first offers to create it:
 
