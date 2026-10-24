@@ -34,12 +34,13 @@ const aiModelId = z
 const RECENT_EVENTS = 10
 
 /**
- * The latest progress lines, without the agent's reasoning: a summary every turn, up to a thousand
- * characters each, would push the steps out of the view and weigh on every later round.
+ * The latest progress lines, without the agent's reasoning nor the output of its scripts: a summary every
+ * turn, up to a thousand characters each, or pages of a build log would push the steps out of the view and
+ * weigh on every later round.
  */
 const recentEvents = (events: Pick<IAiChangeEvent, "at" | "kind" | "message">[]) =>
     events
-        .filter(event => event.kind !== "thinking")
+        .filter(event => event.kind !== "thinking" && event.kind !== "output")
         .slice(-RECENT_EVENTS)
         .map(event => ({ at: event.at, kind: event.kind, message: event.message }))
 

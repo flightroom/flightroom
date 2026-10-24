@@ -29,8 +29,11 @@ export interface IAiChangeFile {
 
 export interface IAiChangeEvent {
     at: Date
-    /** `tool` for a step of the agent, `info` for the job itself, `text` for what the model said, `thinking` for the summary of its reasoning. */
-    kind: "info" | "tool" | "text" | "thinking"
+    /**
+     * `tool` for a step of the agent, `output` for what a script it ran printed, `info` for the job itself,
+     * `text` for what the model said, `thinking` for the summary of its reasoning.
+     */
+    kind: "info" | "tool" | "output" | "text" | "thinking"
     message: string
 }
 
@@ -106,7 +109,7 @@ const fileSchema = new Schema<IAiChangeFile>(
 export const aiChangeEventSchema = new Schema<IAiChangeEvent>(
     {
         at: { type: Date, required: true },
-        kind: { type: String, enum: ["info", "tool", "text", "thinking"], required: true },
+        kind: { type: String, enum: ["info", "tool", "output", "text", "thinking"], required: true },
         message: { type: String, required: true }
     },
     { _id: false }

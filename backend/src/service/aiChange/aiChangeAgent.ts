@@ -169,7 +169,7 @@ export interface AiChangeAgentInput {
 }
 
 export interface AiChangeAgentHooks {
-    onEvent: (kind: "info" | "tool" | "text" | "thinking", message: string) => Promise<void> | void
+    onEvent: (kind: "info" | "tool" | "output" | "text" | "thinking", message: string) => Promise<void> | void
     onUsage: (usage: LlmUsage) => Promise<void> | void
 }
 
@@ -1211,7 +1211,11 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
         runTools: async calls => ({
             results: await runToolsInOrder(calls, async call => {
                 await hooks.onEvent("tool", describeToolCall(call.name, call.input))
-                return call.name === "read_api_spec" && apiSpecs.resources.length ? apiSpecs.read(call.input) : toolbox.run(call.name, call.input)
+                if (call.name === "read_api_spec" && apiSpecs.resources.length) return apiSpecs.read(call.input)
+                const result = await toolbox.run(call.name, call.input)
+                // What a script printed is shown as the agent read it: the command, its exit code and the end of its output.
+                if (call.name === "run_script") await hooks.onEvent("output", result)
+                return result
             }),
             stop: toolbox.summary !== undefined
         })

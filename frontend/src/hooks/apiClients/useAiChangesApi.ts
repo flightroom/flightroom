@@ -17,8 +17,8 @@ export interface AiChangeFile {
 
 export interface AiChangeEvent {
     at: string
-    /** `info` carries a machine code, `tool` a tool call, `text` what the model said, `thinking` the summary of its reasoning. */
-    kind: "info" | "tool" | "text" | "thinking"
+    /** `info` carries a machine code, `tool` a tool call, `output` what a script printed, `text` what the model said, `thinking` the summary of its reasoning. */
+    kind: "info" | "tool" | "output" | "text" | "thinking"
     message: string
 }
 
