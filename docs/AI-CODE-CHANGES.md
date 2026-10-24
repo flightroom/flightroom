@@ -224,14 +224,19 @@ are the repository's code, and the console holds the repository tokens, the data
   next to it, so the token is as exposed as on a developer's laptop: give it read access to the feed only.
 - **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
   6,000 characters of the output; 300 MB copied per repository.
-- **Live previews.** Set `OPENSHELL_PREVIEWS_ENABLED=true` to start a Node.js repository's `dev` script after its
-  dependencies are installed, keep its files synced as the agent edits, and expose frontend (5173) and
-  backend (3000) HTTP services through OpenShell. The links and embedded frontend preview appear in
+- **Live previews.** Set `OPENSHELL_PREVIEWS_ENABLED=true` to start frontend development scripts (`dev`,
+  `start` or `serve`) for React, Vue and Angular, and backend servers for Node.js, FastAPI/Flask/Django,
+  Spring Boot/Quarkus/Micronaut, Go and .NET. Frontends use port 5173; backends use their configured port.
+  Python requirements are installed from `requirements.txt` or `pyproject.toml`; Java build tools, Go and
+  .NET restore dependencies when their development command starts. The default `node:24-bookworm-slim`
+  image only contains Node.js: use `OPENSHELL_SANDBOX_TEMPLATE` or `OPENSHELL_SANDBOX_IMAGE` with the
+  runtimes and build tools needed by your projects. Unknown or unsupported frameworks are not guessed.
+  Changed files are synced into the sandbox, and preview links and the embedded frontend appear in
   **Edit with AI**. The preview process runs only until the sandbox is swept after the conversation is
   idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
   the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
-  otherwise. Frontends that call a backend should use their normal local development proxy to
-  `localhost:3000`.
+  otherwise. Frontends that call a backend should use their normal local development proxy to the
+  backend's configured port.
 
 On Kubernetes, OpenShell needs the [Agent Sandbox](https://agent-sandbox.sigs.k8s.io) controller and a CNI
 that enforces `NetworkPolicy`: without one, the network policy is not applied. Prefer a workload template
@@ -254,8 +259,8 @@ on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime clas
 | `OPENSHELL_SANDBOX_TEMPLATE`     |                         | A workload template of the gateway: it wins over the image.                      |
 | `OPENSHELL_SANDBOX_IMAGE`        | `node:24-bookworm-slim` | The image, without a template. It needs `sh`, `tar`, `find`, node, npm and corepack. |
 | `OPENSHELL_SANDBOX_ROOT`         | `/sandbox`              | Where the copies and the caches live inside the sandbox.                         |
-| `OPENSHELL_REGISTRY_HOSTS`       | `registry.npmjs.org`    | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
-| `OPENSHELL_NETWORK_BINARY`       | `/usr/local/bin/node`   | The executable allowed to reach them: its real path, not a symlink.              |
+| `OPENSHELL_REGISTRY_HOSTS`       | npm, Maven, PyPI, Go, NuGet | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
+| `OPENSHELL_NETWORK_BINARY`       | Node, Java, Python, Go, .NET | Comma separated executables allowed to reach them: their real paths, not symlinks. |
 | `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is deleted once its conversation has been idle this long.              |
 | `OPENSHELL_PREVIEWS_ENABLED`     | `false`                 | Starts and exposes development servers; only enable on a trusted, isolated gateway. |
 

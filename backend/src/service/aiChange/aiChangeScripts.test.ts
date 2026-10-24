@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CommandSandbox, SandboxExecOptions } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
 import { AiChangeToolbox } from "./aiChangeAgent"
-import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, commandFor, ScriptRepository } from "./aiChangeScripts"
+import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, commandFor, previewPlanFor, ScriptRepository } from "./aiChangeScripts"
 
 const hasTools = ["git", "tar", "npm"].every(tool => spawnSync(tool, ["--version"]).status === 0)
 
@@ -299,6 +299,75 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         fs.rmSync(dir, { recursive: true, force: true })
     })
 
+    it("Given a Vite, Angular or Vue package, then it uses the available development script and binds the preview port", () => {
+        const vite = previewPlanFor({ slug: "shop", kind: "frontend", workingCopy: workingCopyOf(os.tmpdir()) }, new Set(), { scripts: { dev: "vite", serve: "vite preview" } }, "npm")
+        const angular = previewPlanFor({ slug: "shop", kind: "frontend", workingCopy: workingCopyOf(os.tmpdir()) }, new Set(), { scripts: { start: "ng serve" } }, "npm")
+        const vueCli = previewPlanFor({ slug: "shop", kind: "frontend", workingCopy: workingCopyOf(os.tmpdir()) }, new Set(), { scripts: { serve: "vue-cli-service serve" } }, "npm")
+        expect(vite?.command).toEqual(["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"])
+        expect(angular?.command).toEqual(["npm", "run", "start", "--", "--host", "0.0.0.0", "--port", "5173"])
+        expect(vueCli?.command).toEqual(["npm", "run", "serve", "--", "--host", "0.0.0.0", "--port", "5173"])
+    })
+
+    it("Given registered Java, Python, Go and .NET stacks, then it chooses their local development servers and ports", () => {
+        const cases: {
+            repository: ScriptRepository
+            files: string[]
+            command: string[]
+        }[] = [
+            {
+                repository: { slug: "orders", kind: "backend", runtime: "JAVA", framework: "Spring Boot", port: 8081, workingCopy: workingCopyOf(os.tmpdir()) },
+                files: ["pom.xml", "mvnw"],
+                command: ["sh", "./mvnw", "spring-boot:run"]
+            },
+            {
+                repository: { slug: "catalog", kind: "backend", runtime: "PYTHON", framework: "FastAPI", port: 8000, workingCopy: workingCopyOf(os.tmpdir()) },
+                files: ["requirements.txt", "app/main.py"],
+                command: ["python3", "-m", "uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+            },
+            {
+                repository: { slug: "ledger", kind: "backend", runtime: "GO", port: 8082, workingCopy: workingCopyOf(os.tmpdir()) },
+                files: ["go.mod"],
+                command: ["go", "run", "."]
+            },
+            {
+                repository: { slug: "accounts", kind: "backend", runtime: "DOTNET", port: 8083, workingCopy: workingCopyOf(os.tmpdir()) },
+                files: ["Accounts.csproj"],
+                command: ["dotnet", "run", "--project", "./Accounts.csproj", "--", "--urls", "http://0.0.0.0:8083"]
+            }
+        ]
+
+        for (const { repository, files, command } of cases) {
+            expect(previewPlanFor(repository, new Set(files), undefined)?.command).toEqual(command)
+        }
+    })
+
+    it("Given a Python backend with requirements, when its preview starts, then it installs dependencies, launches it and exposes its configured port", async () => {
+        const dir = makeRepository({ "README.md": "backend\n" })
+        fs.writeFileSync(path.join(dir, "requirements.txt"), "fastapi\nuvicorn\n")
+        fs.mkdirSync(path.join(dir, "app"))
+        fs.writeFileSync(path.join(dir, "app/main.py"), "from fastapi import FastAPI\napp = FastAPI()\n")
+        const repository: ScriptRepository = {
+            slug: "catalog",
+            kind: "backend",
+            runtime: "PYTHON",
+            framework: "FastAPI",
+            port: 8000,
+            workingCopy: workingCopyOf(dir)
+        }
+        const sandbox = recording()
+        const onPreview = vi.fn()
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox, undefined, true, onPreview)
+        runner.touch(repository, "requirements.txt")
+        runner.touch(repository, "app/main.py")
+        await runner.startPreview(repository)
+
+        expect(sandbox.exec).toHaveBeenCalledWith(["python3", "-m", "pip", "install", "-r", "requirements.txt"], expect.objectContaining({ workdir: "/sandbox/repositories/catalog" }))
+        expect(sandbox.exec.mock.calls.some(([command]) => command.includes("uvicorn"))).toBe(true)
+        expect(sandbox.exposeService).toHaveBeenCalledWith(8000, expect.stringMatching(/^preview-be-/))
+        expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|backend|catalog|https%3A%2F%2Fpreview.example.test")
+        fs.rmSync(dir, { recursive: true, force: true })
+    })
+
     it("Given a repository without package.json, then the script is refused", async () => {
         const dir = makeRepository({ "pom.xml": "<project/>" })
         const repository = { slug: "orders", workingCopy: workingCopyOf(dir) }
@@ -365,6 +434,31 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         } finally {
             fs.rmSync(root, { recursive: true, force: true })
         }
+    })
+
+    it("Given a non-Node backend, when the agent finishes, then its live preview starts with the registered stack and port", async () => {
+        const dir = makeRepository({
+            "requirements.txt": "fastapi\nuvicorn\n",
+            "app/main.py": "from fastapi import FastAPI\napp = FastAPI()\n"
+        })
+        dirs.push(dir)
+        const sandbox = {
+            ...recording(),
+            exposeService: vi.fn(async () => "https://preview.example.test")
+        }
+        const onPreview = vi.fn()
+        const toolbox = new AiChangeToolbox(
+            [{ slug: "catalog", kind: "backend", runtime: "PYTHON", framework: "FastAPI", port: 8000, workingCopy: workingCopyOf(dir) }],
+            async () => sandbox,
+            undefined,
+            true,
+            onPreview
+        )
+
+        await expect(toolbox.run("finish", { summary: "API changed" })).resolves.toBe("Done.")
+        expect(sandbox.exec.mock.calls.some(([command]) => command.includes("uvicorn"))).toBe(true)
+        expect(sandbox.exposeService).toHaveBeenCalledWith(8000, expect.stringMatching(/^preview-be-/))
+        expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|backend|catalog|https%3A%2F%2Fpreview.example.test")
     })
 
     it("Given a change and a build script, when the agent finishes, then finish is refused until a build ran after the last edit", async () => {
