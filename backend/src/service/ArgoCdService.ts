@@ -16,7 +16,17 @@ import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
 import { GitOpsApplication, isDeployable } from "./gitops/applicationManifests"
-import { APPLICATION_LABEL, applicationName, appProjectName, buildApplicationSets, buildArgoCdState, COMPONENT_LABEL, clashingName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
+import {
+    APPLICATION_LABEL,
+    applicationName,
+    appProjectName,
+    buildApplicationSets,
+    buildArgoCdState,
+    COMPONENT_LABEL,
+    clashingName,
+    ENVIRONMENT_LABEL,
+    PROJECT_ID_LABEL
+} from "./gitops/argoCdManifests"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
 
@@ -491,6 +501,32 @@ export class ArgoCdService extends BaseAuthorizedService {
             await Project.updateOne(idle, { $set: { "argoCd.alignError": errorOf(error) } }).catch(saveError =>
                 fastify.log.error({ error: toErrorMessage(saveError) }, "Argo CD alignment failure not stored")
             )
+        }
+    }
+
+    /**
+     * Has Argo CD read the repositories again for the Applications of `environmentSlugs`, those of the environments
+     * and those of the backends and frontends, once a deploy has committed to them: they sync now, not at the next
+     * poll of Argo CD, three minutes by default. An Application the ApplicationSet has yet to generate is not there
+     * to refresh, it comes with the next poll of the ApplicationSet. Best effort: the deploy already went through,
+     * and Argo CD gets there anyway.
+     */
+    async refreshApplications(projectId: Schema.Types.ObjectId, environmentSlugs: string[]): Promise<void> {
+        if (environmentSlugs.length === 0) return
+        try {
+            const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
+            const argoCd = project?.argoCd
+            if (!project?.gitOps?.enabled || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) return
+
+            const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
+            const projectName = appProjectName(String(projectId), project.slug)
+            const selector = `${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (${environmentSlugs.join(",")})`
+            const applications = (await client.listApplications(selector, projectName)).filter(application => projectOf(application) === projectName)
+            const refreshes = await Promise.allSettled(applications.map(application => client.refreshApplication(application.metadata.name, projectName)))
+            const failed = refreshes.flatMap((refresh, index) => (refresh.status === "rejected" ? [{ application: applications[index].metadata.name, error: toErrorMessage(refresh.reason) }] : []))
+            if (failed.length > 0) fastify.log.warn({ projectId: String(projectId), failed }, "Argo CD Applications not refreshed after a deploy: they sync at the next poll")
+        } catch (error) {
+            fastify.log.warn({ error: toErrorMessage(error), projectId: String(projectId) }, "Argo CD Applications not refreshed after a deploy: they sync at the next poll")
         }
     }
 
