@@ -142,6 +142,7 @@ export interface AiJobView {
     parentJobId?: string
     rootJobId: string
     prompt: string
+    title?: string
     scope: AiJobScope
     domainId?: string
     status: AiJobStatus
@@ -436,6 +437,7 @@ const toJobView = (
     parentJobId: job.parentJobId ? String(job.parentJobId) : undefined,
     rootJobId: String(job.rootJobId),
     prompt: job.prompt,
+    title: job.title,
     scope: job.scope,
     domainId: job.domainId ? String(job.domainId) : undefined,
     status: job.status,
@@ -696,8 +698,8 @@ export class AiChangeJobService extends AiChangeBaseService {
         const userId = this.getUser()!._id
         // Every job of a mission too: the member's limit can run out while the mission goes on.
         await ensureWithinTokenLimit(input.projectId, userId)
-        // A follow-up keeps the branch of what it refines: the model only names a new one.
-        const topic = input.repositories.some(repository => !repository.branch) ? await branchTopic(client, input.prompt) : undefined
+        // A follow-up keeps the branch and the title of what it refines: the model only names a new one.
+        const topic = input.repositories.some(repository => !repository.branch) ? await branchTopic(client, input.prompt) : {}
         // Named before it is created: the first job of a chain is its own root.
         const jobId = input.jobId ?? (new Types.ObjectId() as unknown as IAiChangeJob["_id"])
         const queued = () => [{ at: new Date(), kind: "info" as const, message: "queued" }]
@@ -711,6 +713,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             rootJobId: input.parentJob?.rootJobId ?? jobId,
             missionId: input.missionId,
             prompt: input.prompt,
+            title: topic.title,
             scope: input.scope,
             domainId: input.domainId,
             effort,
@@ -733,8 +736,9 @@ export class AiChangeJobService extends AiChangeBaseService {
                     parentId: repository.parentId,
                     conversationId: input.parentJob?.rootJobId ?? jobId,
                     prompt: input.prompt,
+                    title: topic.title,
                     baseBranch: repository.baseBranch,
-                    branch: repository.branch ?? branchName(input.prompt, topic),
+                    branch: repository.branch ?? branchName(input.prompt, topic.branch),
                     pullRequestUrl: repository.pullRequestUrl,
                     status: AiChangeStatus.PENDING,
                     events: queued()

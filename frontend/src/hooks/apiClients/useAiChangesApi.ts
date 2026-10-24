@@ -38,6 +38,8 @@ export interface AiChangeRequest {
     backendId?: string
     userId: string
     prompt: string
+    /** A few words the AI wrote about the prompt; missing when it could not, on a follow-up and on older requests. */
+    title?: string
     baseBranch: string
     baseCommit?: string
     status: AiChangeStatus
