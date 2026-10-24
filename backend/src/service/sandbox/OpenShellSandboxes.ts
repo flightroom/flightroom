@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { CommandSandbox, SandboxCommandResult, SandboxExecOptions } from "./commandSandbox"
 
@@ -65,8 +66,14 @@ const DEAD_PHASES = new Set(["error", "deleting", "stopping", "stopped", "comple
 
 const hasCode = (error: unknown, code: string) => (error as { code?: unknown } | null)?.code === code
 
-/** One per conversation, so that its next message finds it: an ObjectId is lowercase hex, a valid Kubernetes name. */
-export const sandboxNameFor = (conversationId: string) => `flightroom-ai-${conversationId.toLowerCase()}`
+/** The longest sandbox name the gateway accepts: CreateSandbox refuses anything longer with INVALID_ARGUMENT. */
+export const MAX_SANDBOX_NAME_LENGTH = 19
+
+/**
+ * One per conversation, so that its next message finds it. The gateway takes at most 19 characters, too few
+ * for the 24 of an ObjectId: the name keeps 16 hex characters of its hash, a valid Kubernetes name.
+ */
+export const sandboxNameFor = (conversationId: string) => `fr-${createHash("sha256").update(conversationId.toLowerCase()).digest("hex").slice(0, 16)}`
 
 class OpenShellCommandSandbox implements CommandSandbox {
     constructor(
