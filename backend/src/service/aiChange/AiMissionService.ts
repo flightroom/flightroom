@@ -6,6 +6,7 @@ import AiChangeJob, { AiJobScope, AiJobStatus, IAiChangeJob } from "../../models
 import AiChangeRequest, { AiChangeStatus, IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import AiMission, { AiMissionMode, AiMissionStatus, IAiMission, IAiMissionRepository } from "../../models/AiMissionModel"
 import User, { IUser } from "../../models/UserModel"
+import { isValidRefName } from "../../utils/gitRefUtils"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { ensureWithinTokenLimit } from "../AiUsageService"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
@@ -38,6 +39,7 @@ export interface AiMissionCreateInput {
     /** In `perRepository` mode, the jobs active at once: 3 when left out. */
     concurrency?: number
     effort?: LlmEffort
+    baseBranch?: string
     aiModelId?: string
 }
 
@@ -69,6 +71,7 @@ export interface AiMissionView {
     prompt: string
     mode: AiMissionMode
     concurrency: number
+    baseBranch?: string
     status: AiMissionStatus
     currentBatch: number
     batchCount: number
@@ -206,6 +209,10 @@ export class AiMissionService extends AiChangeBaseService {
     async create(projectId: string, input: AiMissionCreateInput): Promise<AiMissionView> {
         const prompt = input.prompt?.trim() ?? ""
         if (!prompt) throw emptyPrompt()
+        const baseBranch = input.baseBranch?.trim()
+        if (baseBranch && !isValidRefName(baseBranch)) {
+            throw createBusinessException({ code: "AI_MISSION_INVALID_BRANCH", message: "The target branch is not a valid git branch name", statusCode: 400 })
+        }
         await this.ensureCanChangeProject(toObjectId(projectId))
         const aiModel = await this.aiModels().resolveForProject(projectId, input.aiModelId)
         const refs: RepositoryComponentRef[] = [
@@ -239,6 +246,7 @@ export class AiMissionService extends AiChangeBaseService {
             all: input.all === true,
             concurrency: input.concurrency ?? DEFAULT_CONCURRENCY,
             effort: input.effort,
+            baseBranch: baseBranch || undefined,
             aiModelId: aiModel.settings.id,
             repositories: components.map((component, index) => ({ kind: component.kind, id: component._id, batch: Math.floor(index / MISSION_BATCH_SIZE) })),
             batchCount: Math.ceil(components.length / MISSION_BATCH_SIZE),
@@ -495,6 +503,7 @@ export class AiMissionService extends AiChangeBaseService {
                 prompt: mission.prompt,
                 mode: mission.mode,
                 concurrency: mission.concurrency,
+                baseBranch: mission.baseBranch,
                 status: mission.status,
                 currentBatch: mission.currentBatch,
                 batchCount: mission.batchCount,

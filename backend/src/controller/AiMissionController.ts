@@ -20,6 +20,7 @@ const createBodySchema = {
         backendIds: ids,
         concurrency: { type: "integer", minimum: 1, maximum: 10 },
         effort: { type: "string", enum: LLM_EFFORTS },
+        baseBranch: { type: "string", maxLength: 255 },
         // An id of the organization's AIs, or `system`
         aiModelId: { type: "string", minLength: 1, maxLength: 64 }
     }
@@ -81,7 +82,7 @@ export default async function aiMissionController(fastify: FastifyInstance) {
         reply.send(await service(request).stop(request.params.id))
     )
 
-    // Answers once every proposal is claimed: the pull requests are opened in the background.
+    // Retries direct pushes that a mission could not complete automatically.
     fastify.post<{ Params: { id: string } }>("/ai-missions/:id/apply", { schema: { params: idParamsSchema }, config: { ...config, rateLimit } }, async (request, reply) =>
         reply.status(202).send(await service(request).apply(request.params.id))
     )

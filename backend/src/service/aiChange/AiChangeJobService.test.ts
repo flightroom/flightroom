@@ -278,6 +278,17 @@ describe("AiChangeJobService", () => {
             expect(requests.map(request => request.effort)).toEqual(["max", "max"])
         })
 
+        it("Given a fleet mission with a target branch, when its job starts, then it uses the branch without creating a feature branch", async () => {
+            const missionId = new Types.ObjectId()
+            const mission = { _id: missionId, projectId: new Types.ObjectId(projectId), userId: user._id, prompt: "Upgrade React", aiModelId: "system", baseBranch: "release/1.4" }
+
+            await service().startForMission(mission as never, [{ kind: "frontend", id: String(cart._id) }], new Types.ObjectId() as never, "selection")
+
+            const [[request]] = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls as [Record<string, unknown>][]
+            expect(request).toMatchObject({ baseBranch: "release/1.4" })
+            expect(request).not.toHaveProperty("branch")
+        })
+
         it("Given no effort chosen, when a job is started, then it reasons at high", async () => {
             const job = await service().create(projectId, { prompt: "Rename the price API", scope: "global" })
 
@@ -839,6 +850,17 @@ describe("AiChangeJobService", () => {
             const proposal = updates.find(({ update }) => update.status === AiChangeStatus.PROPOSED)
             expect(proposal?.update).toMatchObject({ branch: "ai/catalog-20261020-090000", commit: "branch-commit" })
             expect(pushed(updates)).toContain("pushing")
+        })
+
+        it("Given a fleet job, when it ends, then it skips the proposal branch and starts applying directly", async () => {
+            const job = (await AiChangeJob.findById(jobId)) as Record<string, unknown>
+            job.missionId = new Types.ObjectId()
+            const apply = vi.spyOn(AiChangeJobService.prototype, "apply").mockResolvedValue({} as never)
+
+            await run()
+
+            expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
+            expect(apply).toHaveBeenCalledWith(String(jobId))
         })
 
         it("Given a push the remote refuses, when the job ends, then the proposal is saved anyway with the error", async () => {

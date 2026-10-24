@@ -2615,8 +2615,8 @@
             "moon_shared": "Usata anche da {{names}}",
             "ship_job": "Agente al lavoro: {{prompt}}",
             "ship_request": "Agente al lavoro su una richiesta di modifica",
-            "ship_more_one": "+{{count}} altro agente al lavoro qui",
-            "ship_more_other": "+{{count}} altri agenti al lavoro qui"
+            "ship_more_one": "+{{count}} altro agente in volo nella galassia",
+            "ship_more_other": "+{{count}} altri agenti in volo nella galassia"
         },
         "links": {
             "frontendsColumn": "Frontend",
@@ -3006,7 +3006,7 @@
     },
     "fleet": {
         "title": "Flotta",
-        "description": "Missioni AI: lo stesso compito affidato agli agenti su molte repository, a lotti.",
+        "description": "Missioni AI autonome: gli agenti lavorano e pubblicano direttamente sul branch scelto, repository dopo repository.",
         "new_mission": "Nuova missione",
         "list_label": "Missioni",
         "empty_title": "Nessuna missione",
@@ -3057,13 +3057,14 @@
         },
         "stop": "Ferma missione",
         "stop_title": "Fermare la missione?",
-        "stop_description": "Gli agenti al lavoro vengono fermati e quello che hanno fatto finora viene scartato; i lotti successivi non partono. Le proposte già pronte restano da rivedere.",
+        "stop_description": "Gli agenti al lavoro vengono fermati e le modifiche non ancora pubblicate vengono scartate; i lotti successivi non partono. Le modifiche già inviate al branch restano.",
         "stopping": "Arresto in corso…",
         "stopped_success": "Missione fermata",
         "detail": {
             "title": "Missione",
             "back": "Torna alla flotta",
             "prompt": "Richiesta",
+            "target_branch": "Push diretto su {{branch}}",
             "concurrency_one": "{{count}} agente in parallelo",
             "concurrency_other": "{{count}} agenti in parallelo",
             "batch": "Lotto {{number}} di {{total}}",
@@ -3078,9 +3079,12 @@
         },
         "new": {
             "title": "Nuova missione",
-            "description": "Lo stesso compito su molte repository. Gli agenti propongono le modifiche da rivedere: non viene pubblicato nulla finché non le applichi.",
+            "description": "Lo stesso compito su molte repository. Gli agenti lavorano autonomamente e fanno push diretto sul branch scelto, senza creare branch o pull request.",
             "prompt_label": "Cosa vuoi cambiare?",
             "prompt_placeholder": "es. Aggiorna axios all'ultima versione 1.x e sistema gli usi deprecati",
+            "branch_label": "Branch di destinazione (opzionale)",
+            "branch_placeholder": "Branch predefinito di ogni repository",
+            "branch_hint": "Indica un branch esistente, per esempio main. Se vuoto, ogni agente usa il branch predefinito della propria repository.",
             "prompt_required": "Descrivi la modifica che vuoi",
             "mode_label": "Modalità",
             "repositories_label": "Repository",
@@ -3109,6 +3113,7 @@
             "AI_MISSION_TOO_MANY_REPOSITORIES": "Una missione può lavorare al massimo su 200 repository: riduci la selezione.",
             "AI_MISSION_NOT_RUNNING": "La missione è già finita.",
             "AI_MISSION_INVALID_SELECTION": "Scegli tutte le repository oppure una selezione, non entrambe.",
+            "AI_MISSION_INVALID_BRANCH": "Indica un nome di branch Git valido.",
             "AI_CHANGE_TOO_MANY": "Ci sono troppi job o missioni in corso in questo progetto: attendi che uno finisca.",
             "DOMAIN_SCOPE_FORBIDDEN": "Alcune repository sono fuori dai domini a cui hai accesso.",
             "AI_JOB_NOT_OWNER": "Solo chi ha avviato questa missione, o un amministratore dell'organizzazione, può farlo.",

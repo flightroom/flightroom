@@ -609,7 +609,9 @@ export class AiChangeJobService extends AiChangeBaseService {
         const aiModel = await this.aiModels().resolveForProject(projectId, mission.aiModelId)
         const components = await this.selectedRepositories(projectId, refs)
         for (const component of components) await this.ensureRepositoryInDomainScope(component, component.codeRepository)
-        const repositories = await this.withBaseBranches(components)
+        const baseBranch = mission.baseBranch?.trim()
+        const baseBranches = baseBranch ? Object.fromEntries(components.map(component => [String(component._id), baseBranch])) : undefined
+        const repositories = await this.withBaseBranches(components, baseBranches)
         await this.start({ projectId: mission.projectId, prompt: mission.prompt, scope, repositories, effort: mission.effort, missionId: mission._id, jobId }, aiModel)
     }
 
@@ -708,7 +710,7 @@ export class AiChangeJobService extends AiChangeBaseService {
         // Every job of a mission too: the member's limit can run out while the mission goes on.
         await ensureWithinTokenLimit(input.projectId, userId)
         // A follow-up keeps the branch and the title of what it refines: the model only names a new one.
-        const topic = input.repositories.some(repository => !repository.branch) ? await branchTopic(client, input.prompt) : {}
+        const topic = !input.missionId && input.repositories.some(repository => !repository.branch) ? await branchTopic(client, input.prompt) : {}
         // Named before it is created: the first job of a chain is its own root.
         const jobId = input.jobId ?? (new Types.ObjectId() as unknown as IAiChangeJob["_id"])
         const queued = () => [{ at: new Date(), kind: "info" as const, message: "queued" }]
@@ -747,7 +749,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                     prompt: input.prompt,
                     title: topic.title,
                     baseBranch: repository.baseBranch,
-                    branch: repository.branch ?? branchName(input.prompt, topic.branch),
+                    ...(!input.missionId ? { branch: repository.branch ?? branchName(input.prompt, topic.branch) } : {}),
                     pullRequestUrl: repository.pullRequestUrl,
                     status: AiChangeStatus.PENDING,
                     events: queued()
@@ -1030,7 +1032,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             const alive = (await AiChangeJob.findById(job._id, { status: 1 }))?.status === AiJobStatus.RUNNING
             if (anyChange && alive) await this.log(jobId, "info", "pushing")
             const pushed = new Map<RunningRepository, Awaited<ReturnType<AiChangeJobService["pushProposal"]>>>()
-            if (alive) for (const { repository, files } of proposals) pushed.set(repository, await this.pushProposal(repository, files, summaryOf(repository, files)))
+            if (alive && !job.missionId) for (const { repository, files } of proposals) pushed.set(repository, await this.pushProposal(repository, files, summaryOf(repository, files)))
             // Requests first: the console stops polling once the job is done. Guarded: a job get()
             // already declared dead must not come back to life.
             let saved = 0
@@ -1074,6 +1076,9 @@ export class AiChangeJobService extends AiChangeBaseService {
                     ...event("info", anyChange ? "proposed" : "no-changes")
                 }
             )
+            if (job.missionId && anyChange) {
+                await this.apply(jobId).catch(error => fastify.log.error({ error: loggable(error), aiJobId: jobId }, "AI mission could not push its changes"))
+            }
         } finally {
             runningAgents.delete(jobId)
             for (const repository of repositories) await repository.workspace.workingCopy.discardChanges().catch(() => undefined)

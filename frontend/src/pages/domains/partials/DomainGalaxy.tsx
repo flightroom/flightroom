@@ -115,9 +115,10 @@ interface Moon {
     frame: number
 }
 
-/** An agent at work, orbiting one of the worlds it works on: one ship on each of them. */
+/** An agent at work, shown as one ship flying around the galaxy. */
 interface Ship {
     job: AiWorkingJob
+    worlds: StarNode[]
     world: StarNode
     phase: number
     orbit: number
@@ -303,11 +304,11 @@ const MOON_HIT = 8
 /** Ships keep this size on screen, but never get bigger than their world as the map zooms out. */
 const SHIP_SCREEN_SIZE = 16
 const SHIP_MAX_SIZE = 1.2
-/** Radians per second around a world: three times the moons, an agent is busy */
+/** Radians per second around the galaxy: three times the moons, an agent is busy */
 const SHIP_ORBIT_SPEED = 0.9
-/** The ships drawn around one world; the others are only counted in the tooltip */
+/** The ships shown per world-equivalent across the galaxy; the others are counted on the first ship's tooltip */
 const SHIP_CAP = 3
-/** The length of the trail of a ship along its orbit, in radians */
+/** The length of the trail of a ship along its galactic orbit, in radians */
 const SHIP_TRAIL = 0.5
 /** Frames a second while the moons and the ships turn over a settled map: smooth enough for them, half the redraws of the whole map. */
 const MOTION_FPS = 30
@@ -448,9 +449,6 @@ const placeMoons = (world: StarNode, attached: Omit<Moon, "world" | "radius" | "
     return moons
 }
 
-/** Where a ship orbits: outside the moons of its world, or just outside the world when it has none. */
-const shipOrbit = (world: StarNode) => world.reach + world.radius * 0.55 + 1.5
-
 /** Where a station orbits: past the moons, inside the lane of the ships. */
 const stationOrbit = (world: StarNode) => world.reach + world.radius * 0.3 + 1
 
@@ -466,7 +464,7 @@ const bodyColors = (sky: Sky) => ({
     moonRing: `hsl(${sky.ink} / 0.9)`,
     label: `hsl(${sky.ink} / 0.85)`,
     orbit: `hsl(${sky.ink} / ${sky.orbitAlpha})`,
-    shipBody: `hsl(${sky.ink})`,
+    shipBody: `hsl(${sky.canary})`,
     trail: [`hsl(${sky.canary} / 0.12)`, `hsl(${sky.canary} / 0.4)`],
     rocket: { windowColor: sky.space, flameColor: `hsl(${sky.canary})`, flame: 7 },
     parkedRocket: { windowColor: sky.space, flameColor: `hsl(${sky.canary})`, flame: 3 },
@@ -527,23 +525,21 @@ const paintMoon = (ctx: CanvasRenderingContext2D, moon: Moon, now: number, scale
 }
 
 /** One ship at `now` (seconds), `size` long: nose along its orbit, a short trail behind it, parked with reduced motion. */
-const paintShip = (ctx: CanvasRenderingContext2D, ship: Ship, now: number, size: number, scale: number, colors: BodyColors, reducedMotion: boolean) => {
-    const wx = ship.world.x ?? 0
-    const wy = ship.world.y ?? 0
+const paintShip = (ctx: CanvasRenderingContext2D, ship: Ship, center: Point, now: number, size: number, scale: number, colors: BodyColors, reducedMotion: boolean) => {
     const angle = ship.phase + now * SHIP_ORBIT_SPEED
-    ship.x = wx + Math.cos(angle) * ship.orbit
-    ship.y = wy + Math.sin(angle) * ship.orbit
+    ship.x = center.x + Math.cos(angle) * ship.orbit
+    ship.y = center.y + Math.sin(angle) * ship.orbit
     if (!reducedMotion) {
         // Fading out behind it: a faint stretch, then a brighter one up to the exhaust.
         ctx.lineCap = "round"
         ctx.lineWidth = Math.max(size * 0.14, 1 / scale)
         ctx.strokeStyle = colors.trail[0]
         ctx.beginPath()
-        ctx.arc(wx, wy, ship.orbit, angle - SHIP_TRAIL, angle - SHIP_TRAIL * 0.45)
+        ctx.arc(center.x, center.y, ship.orbit, angle - SHIP_TRAIL, angle - SHIP_TRAIL * 0.45)
         ctx.stroke()
         ctx.strokeStyle = colors.trail[1]
         ctx.beginPath()
-        ctx.arc(wx, wy, ship.orbit, angle - SHIP_TRAIL * 0.45, angle - size / ship.orbit / 2)
+        ctx.arc(center.x, center.y, ship.orbit, angle - SHIP_TRAIL * 0.45, angle - size / ship.orbit / 2)
         ctx.stroke()
     }
     // Clockwise on screen: the nose points along the tangent.
@@ -671,7 +667,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
     const worldUnderPointerRef = useRef<StarNode | null>(null)
     const relationSegmentsRef = useRef<RelationSegment[]>([])
     // The frame being painted: its clock, its zoom, what of the map it shows and whether anything turning is in it.
-    const frameRef = useRef({ id: 0, now: 0, scale: 1, left: 0, top: 0, right: 0, bottom: 0, motion: false })
+    const frameRef = useRef({ id: 0, now: 0, scale: 1, left: 0, top: 0, right: 0, bottom: 0, motion: false, shipsPainted: -1 })
     const workingJobs = useWorkingAgentJobs()
     const openAgentJob = useOpenAgentJob()
     const aiJobsApi = useAiJobsApi()
@@ -832,40 +828,33 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
     }, [graphData])
 
     // The agents on the map: a job on worlds that are not shown (another domain filtered out) has no ship.
-    const { ships, shipsByWorld, agents } = useMemo(() => {
+    const { ships, agents } = useMemo(() => {
         const nodes = new Map(graphData.nodes.map(node => [node.id, node]))
-        const jobsByWorld = new Map<string, AiWorkingJob[]>()
         const agents: { jobId: string; names: string; fallbackPath?: string }[] = []
+        const activeShips: Ship[] = []
         // A job the user cannot open says so, rather than landing on a page that knows nothing of it.
         const fallbackPath = (job: AiWorkingJob, world: StarNode) => (job.kind === "request" ? `/${world.kind}/${world.id}?change=${job.jobId}` : undefined)
         for (const job of workingJobs) {
             const worlds = job.componentIds.flatMap(id => nodes.get(id) ?? [])
             if (!worlds.length) continue
             agents.push({ jobId: job.jobId, names: worlds.map(world => world.name).join(", "), fallbackPath: fallbackPath(job, worlds[0]) })
-            for (const world of worlds) jobsByWorld.set(world.id, [...(jobsByWorld.get(world.id) ?? []), job])
+            activeShips.push({
+                job,
+                worlds,
+                world: worlds[0],
+                phase: phaseOf(job.jobId),
+                orbit: 0,
+                extra: 0,
+                fallbackPath: fallbackPath(job, worlds[0]),
+                x: 0,
+                y: 0,
+                frame: -1
+            })
         }
-        const shipsByWorld = new Map<string, Ship[]>()
-        for (const [worldId, jobs] of jobsByWorld) {
-            const world = nodes.get(worldId)!
-            // Sorted, so the ships keep their places in the orbit across polls.
-            const flying = [...jobs].sort((a, b) => a.jobId.localeCompare(b.jobId)).slice(0, SHIP_CAP)
-            const start = phaseOf(`${worldId}-ships`)
-            shipsByWorld.set(
-                worldId,
-                flying.map((job, index) => ({
-                    job,
-                    world,
-                    phase: start + (index * 2 * Math.PI) / flying.length,
-                    orbit: shipOrbit(world),
-                    extra: jobs.length - flying.length,
-                    fallbackPath: fallbackPath(job, world),
-                    x: 0,
-                    y: 0,
-                    frame: -1
-                }))
-            )
-        }
-        return { ships: [...shipsByWorld.values()].flat(), shipsByWorld, agents }
+        activeShips.sort((a, b) => a.job.jobId.localeCompare(b.job.jobId))
+        const ships = activeShips.slice(0, graphData.nodes.length * SHIP_CAP)
+        if (ships[0]) ships[0].extra = activeShips.length - ships.length
+        return { ships, agents }
     }, [workingJobs, graphData])
 
     // The maintenance agents that look after one world only, among those on the map: a station each, spread around it.
@@ -961,11 +950,11 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
     }, [galaxies, isGraphMounted])
 
     const hoveredResourceId = hovered?.kind === "moon" ? hovered.moon.resourceId : null
-    // What lights up with the hover: a world and its neighbours, every world a resource orbits, the world of a ship.
+    // What lights up with the hover: a world and its neighbours, every world a resource or ship's job touches.
     const neighbourIds = useMemo(() => {
         if (!hovered) return null
         if (hovered.kind === "moon") return new Set(hovered.moon.users)
-        if (hovered.kind === "ship") return new Set([hovered.ship.world.id])
+        if (hovered.kind === "ship") return new Set(hovered.ship.worlds.map(world => world.id))
         if (hovered.kind === "station") return new Set([hovered.station.world.id])
         const ids = new Set([hovered.node.id])
         for (const link of graphData.links) {
@@ -1161,7 +1150,6 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             // The moons on their faint orbits, then the ships outside them.
             const frame = frameRef.current
             const worldMoons = moonsByWorld.get(node.id)
-            const worldShips = shipsByWorld.get(node.id)
             const worldStations = stationsByWorld.get(node.id)
             if (worldMoons) {
                 ctx.strokeStyle = colors.orbit
@@ -1196,16 +1184,23 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
                     station.frame = frame.id
                 }
             }
-            if (worldShips) {
-                const shipSize = Math.min(SHIP_SCREEN_SIZE / scale, r * SHIP_MAX_SIZE)
-                for (const ship of worldShips) {
-                    paintShip(ctx, ship, frame.now, shipSize, scale, colors, reducedMotion)
+            if (ships.length > 0 && frame.shipsPainted !== frame.id) {
+                frame.shipsPainted = frame.id
+                const center = graphData.nodes.reduce((sum, world) => ({ x: sum.x + (world.x ?? 0) / graphData.nodes.length, y: sum.y + (world.y ?? 0) / graphData.nodes.length }), { x: 0, y: 0 })
+                const orbit = Math.max(...graphData.nodes.map(world => Math.hypot((world.x ?? 0) - center.x, (world.y ?? 0) - center.y) + world.reach)) + Math.max(36, 24 / scale)
+                const shipSize = SHIP_SCREEN_SIZE / scale
+                for (const ship of ships) {
+                    ship.orbit = orbit
+                    paintShip(ctx, ship, center, frame.now, shipSize, scale, colors, reducedMotion)
                     ship.frame = frame.id
                 }
+                const closestX = Math.max(frame.left, Math.min(center.x, frame.right))
+                const closestY = Math.max(frame.top, Math.min(center.y, frame.bottom))
+                if (!reducedMotion && Math.hypot(closestX - center.x, closestY - center.y) <= orbit + shipSize) frame.motion = true
             }
             // Something turning in view keeps the map redrawing.
-            if (!reducedMotion && !frame.motion && (worldMoons || worldShips || worldStations)) {
-                const extent = worldShips ? worldShips[0].orbit + SHIP_SCREEN_SIZE / scale : worldStations ? worldStations[0].orbit + STATION_SCREEN_SIZE / scale : node.reach
+            if (!reducedMotion && !frame.motion && (worldMoons || worldStations)) {
+                const extent = worldStations ? worldStations[0].orbit + STATION_SCREEN_SIZE / scale : node.reach
                 frame.motion = x + extent > frame.left && x - extent < frame.right && y + extent > frame.top && y - extent < frame.bottom
             }
 
@@ -1218,7 +1213,7 @@ export const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends =
             }
             ctx.globalAlpha = 1
         },
-        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, shipsByWorld, stationsByWorld, hoveredResourceId]
+        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, ships, stationsByWorld, graphData.nodes, hoveredResourceId]
     )
 
     const paintPointerArea = useCallback((node: StarNode, color: string, ctx: CanvasRenderingContext2D) => {

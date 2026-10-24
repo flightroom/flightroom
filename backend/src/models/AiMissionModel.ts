@@ -30,8 +30,8 @@ export interface IAiMissionRepository {
 }
 
 /**
- * One prompt over many repositories of a project. A mission runs no agent itself: it starts jobs
- * ({@link IAiChangeJob}) batch after batch, and each job's requests are reviewed and applied as usual.
+ * One prompt over many repositories of a project. A mission starts jobs ({@link IAiChangeJob}) batch
+ * after batch; their changes are pushed directly to the selected branch, or each repository's default.
  */
 export interface IAiMission extends Document<ObjectId> {
     projectId: Schema.Types.ObjectId
@@ -43,6 +43,8 @@ export interface IAiMission extends Document<ObjectId> {
     /** In `perRepository` mode, the jobs of the current batch active at once. */
     concurrency: number
     effort?: LlmEffort
+    /** A branch to push directly to in every repository; each default branch when unset. */
+    baseBranch?: string
     /** The AI every job runs on: an id of the organization's AIs, or `system`. */
     aiModelId: string
     /** In the order they are shown. */
@@ -79,6 +81,7 @@ const aiMissionSchema = new Schema<IAiMission>(
         all: { type: Boolean, default: false },
         concurrency: { type: Number, min: 1, max: 10, default: 3 },
         effort: { type: String, enum: [...LLM_EFFORTS] },
+        baseBranch: { type: String },
         aiModelId: { type: String, required: true },
         repositories: { type: [repositorySchema], default: [] },
         currentBatch: { type: Number, default: 0 },
