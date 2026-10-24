@@ -2,6 +2,7 @@ packages:
   - "frontend"
   - "backend"
   - "e2e"
+  - "azure-devops-extension"
 
 # Transitive dependencies pinned to patched versions.
 # Both come from packages that have not yet released an updated dependency range.
