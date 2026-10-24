@@ -1214,10 +1214,18 @@ export class AiChangeJobService extends AiChangeBaseService {
         await this.ensureAccessToProject(toObjectId(projectId))
         await this.ensureInDomainScope(projectId, domainId)
         // By their roots: a chain with many follow-ups must not push the other conversations out.
-        const roots = await AiChangeJob.find({ projectId: toObjectId(projectId), domainId: toObjectId(domainId), $expr: { $eq: ["$_id", "$rootJobId"] } }, JOB_LISTED)
+        const roots = await AiChangeJob.find(
+            {
+                projectId: toObjectId(projectId),
+                domainId: toObjectId(domainId),
+                missionId: { $exists: false },
+                $expr: { $eq: ["$_id", "$rootJobId"] }
+            },
+            JOB_LISTED
+        )
             .sort({ createdAt: -1 })
             .limit(LISTED_JOBS)
-        const latest = await Promise.all(roots.map(root => AiChangeJob.findOne({ rootJobId: root._id }, JOB_LISTED).sort({ createdAt: -1 })))
+        const latest = await Promise.all(roots.map(root => AiChangeJob.findOne({ rootJobId: root._id, missionId: { $exists: false } }, JOB_LISTED).sort({ createdAt: -1 })))
         const jobs: ListedJob[] = [...roots, ...latest.flatMap(job => (job ? [job] : []))]
             .filter((job, index, all) => all.findIndex(other => String(other._id) === String(job._id)) === index)
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -1268,7 +1276,10 @@ export class AiChangeJobService extends AiChangeBaseService {
         await this.ensureAccessToProject(toObjectId(projectId))
         const fresh = { $gt: new Date(Date.now() - STALE_AFTER_MS) }
         const [jobs, requests] = await Promise.all([
-            AiChangeJob.find({ projectId: toObjectId(projectId), status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh }, { frontendIds: 1, backendIds: 1, missionId: 1, scope: 1, domainId: 1 }),
+            AiChangeJob.find(
+                { projectId: toObjectId(projectId), missionId: { $exists: false }, status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh },
+                { frontendIds: 1, backendIds: 1, missionId: 1, scope: 1, domainId: 1 }
+            ),
             AiChangeRequest.find(
                 { projectId: toObjectId(projectId), jobId: { $exists: false }, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] }, updatedAt: fresh },
                 { frontendId: 1, backendId: 1 }

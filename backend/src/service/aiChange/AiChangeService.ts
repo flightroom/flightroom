@@ -87,13 +87,13 @@ export class AiChangeService extends AiChangeBaseService {
      */
     async list(ref: RepositoryComponentRef): Promise<Omit<IAiChangeRequest, "events">[]> {
         const component = await this.getComponent(ref)
-        const domainJobs = await AiChangeJob.distinct("_id", {
-            scope: "domain",
+        const hiddenJobs = await AiChangeJob.distinct("_id", {
+            $or: [{ scope: "domain" }, { missionId: { $exists: true } }],
             [ref.kind === "frontend" ? "frontendIds" : "backendIds"]: component._id
         })
         const owner = {
             ...ownerFields(component),
-            ...(domainJobs.length ? { jobId: { $nin: domainJobs } } : {})
+            ...(hiddenJobs.length ? { jobId: { $nin: hiddenJobs } } : {})
         }
         const conversations = await AiChangeRequest.aggregate<{ _id: IAiChangeRequest["conversationId"] }>([
             { $match: owner },

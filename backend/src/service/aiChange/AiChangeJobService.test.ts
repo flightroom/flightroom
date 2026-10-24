@@ -1672,19 +1672,23 @@ describe("AiChangeJobService", () => {
                 { _id: new Types.ObjectId(), missionId, frontendIds: [catalog._id] }
             ]
             const requestId = new Types.ObjectId()
-            vi.spyOn(AiChangeJob, "find").mockResolvedValue(jobs as never)
+            vi.spyOn(AiChangeJob, "find").mockImplementation(((filter: { missionId?: { $exists: boolean } }) =>
+                Promise.resolve(jobs.filter(job => filter.missionId?.$exists !== false || !job.missionId))) as never)
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ _id: requestId, frontendId: cart._id }] as never)
 
             const working = await service().working(projectId)
 
             expect(working).toEqual([
                 { jobId: String(jobs[0]._id), kind: "job", componentIds: [String(catalog._id), String(cart._id), String(catalogApi._id)] },
-                { jobId: String(jobs[1]._id), kind: "job", missionId: String(missionId), componentIds: [String(catalog._id)] },
                 { jobId: String(requestId), kind: "request", componentIds: [String(cart._id)] }
             ])
             // Only what is running and still alive: a job's own requests are listed through the job.
             const [jobFilter] = (AiChangeJob.find as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
-            expect(jobFilter).toMatchObject({ status: { $in: [AiJobStatus.PENDING, AiJobStatus.RUNNING] }, updatedAt: { $gt: expect.any(Date) } })
+            expect(jobFilter).toMatchObject({
+                missionId: { $exists: false },
+                status: { $in: [AiJobStatus.PENDING, AiJobStatus.RUNNING] },
+                updatedAt: { $gt: expect.any(Date) }
+            })
             const [requestFilter] = (AiChangeRequest.find as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
             expect(requestFilter).toMatchObject({ jobId: { $exists: false }, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] } })
         })
@@ -1754,7 +1758,8 @@ describe("AiChangeJobService", () => {
 
             const conversations = await service().domainConversations(projectId, String(domainId))
 
-            expect(find).toHaveBeenCalledWith(expect.objectContaining({ domainId: String(domainId), $expr: { $eq: ["$_id", "$rootJobId"] } }), expect.anything())
+            expect(find).toHaveBeenCalledWith(expect.objectContaining({ domainId: String(domainId), missionId: { $exists: false }, $expr: { $eq: ["$_id", "$rootJobId"] } }), expect.anything())
+            expect(AiChangeJob.findOne).toHaveBeenCalledWith(expect.objectContaining({ missionId: { $exists: false } }), expect.anything())
             expect(conversations.map(view => view.prompt)).toEqual(["And in the email", "Accept coupons", "Show the shipping cost"])
         })
     })
