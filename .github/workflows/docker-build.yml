@@ -146,6 +146,9 @@ jobs:
         with:
           context: .
           file: ${{ matrix.dockerfile }}
+          # The backend installs @nvidia/openshell-sdk from GitHub Packages.
+          secrets: |
+            npm_token=${{ secrets.GITHUB_TOKEN }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.variant }}

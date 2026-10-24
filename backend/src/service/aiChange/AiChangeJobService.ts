@@ -46,6 +46,7 @@ import {
     RepositoryComponentRef
 } from "../workspace/repositoryComponent"
 import { AI_CHANGE_DEFAULT_EFFORT, AI_CHANGE_LIMITS, AiChangeAgentBackend, AiChangeAgentDomain, AiChangeAgentRepository, AiChangeAgentResource, runAiChangeAgent } from "./aiChangeAgent"
+import { sandboxForJob } from "./aiChangeSandboxes"
 import {
     AiChangeBaseService,
     aiJobEnded,
@@ -935,7 +936,8 @@ export class AiChangeJobService extends AiChangeBaseService {
                     ),
                     previousRequests: history ? undefined : await this.previousRequests(job),
                     history,
-                    ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {})
+                    ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {}),
+                    sandbox: sandboxForJob(fastify.config, job)
                 },
                 {
                     onEvent: (kind, message) => this.log(jobId, kind, message),

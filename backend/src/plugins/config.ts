@@ -3,6 +3,7 @@ import dotenv from "dotenv"
 import { FastifyInstance, FastifyPluginOptions } from "fastify"
 import fastifyPlugin from "fastify-plugin"
 import { LlmConfiguration, resolveLlmProvider } from "../service/llm"
+import { OPENSHELL_DEFAULTS } from "../service/sandbox/OpenShellSandboxes"
 import { assertMcpConfigurationIsUsable } from "../utils/oauthConfig"
 import { assertSecretEncryptionKeyIsUsable, isSecretEncryptionEnabled } from "../utils/secretCrypto"
 import { TELEMETRY_DEFAULT_ENDPOINT, TELEMETRY_DEFAULT_INTERVAL_HOURS } from "../utils/telemetry"
@@ -350,6 +351,75 @@ export default fastifyPlugin(
                 REPOSITORIES_EVICT_AFTER_DAYS: {
                     type: "number",
                     default: 14
+                },
+                // The OpenShell gateway the coding agent runs install, lint, test and build through, in one
+                // sandbox per conversation. Unset, the agent is offered no tool that runs code. See docs/AI-CODE-CHANGES.md.
+                OPENSHELL_GATEWAY_URL: {
+                    type: "string"
+                },
+                // An OIDC token already issued, which expires, or the client credentials below (renewed before they expire).
+                OPENSHELL_TOKEN: {
+                    type: "string"
+                },
+                OPENSHELL_OIDC_ISSUER: {
+                    type: "string"
+                },
+                OPENSHELL_OIDC_CLIENT_ID: {
+                    type: "string"
+                },
+                OPENSHELL_OIDC_CLIENT_SECRET: {
+                    type: "string"
+                },
+                OPENSHELL_OIDC_AUDIENCE: {
+                    type: "string"
+                },
+                OPENSHELL_OIDC_SCOPES: {
+                    type: "string"
+                },
+                // The CA of the gateway as PEM text: it wins over OPENSHELL_CA_CERT_FILE.
+                OPENSHELL_CA_CERT: {
+                    type: "string"
+                },
+                // PEM files: the CA of the gateway, and the client certificate a local gateway asks for.
+                OPENSHELL_CA_CERT_FILE: {
+                    type: "string"
+                },
+                OPENSHELL_CLIENT_CERT_FILE: {
+                    type: "string"
+                },
+                OPENSHELL_CLIENT_KEY_FILE: {
+                    type: "string"
+                },
+                OPENSHELL_WORKSPACE: {
+                    type: "string"
+                },
+                // A workload template defined on the gateway (image, resources, runtime class): it wins over the image.
+                OPENSHELL_SANDBOX_TEMPLATE: {
+                    type: "string"
+                },
+                OPENSHELL_SANDBOX_IMAGE: {
+                    type: "string",
+                    default: OPENSHELL_DEFAULTS.image
+                },
+                // Where the copies of the repositories and the caches of the tools live inside the sandbox.
+                OPENSHELL_SANDBOX_ROOT: {
+                    type: "string",
+                    default: OPENSHELL_DEFAULTS.root
+                },
+                // Comma separated hosts the sandbox may reach on 443, only through OPENSHELL_NETWORK_BINARY.
+                // Empty: the network is left to the policy of the gateway.
+                OPENSHELL_REGISTRY_HOSTS: {
+                    type: "string",
+                    default: OPENSHELL_DEFAULTS.registryHosts
+                },
+                OPENSHELL_NETWORK_BINARY: {
+                    type: "string",
+                    default: OPENSHELL_DEFAULTS.networkBinary
+                },
+                // A sandbox is deleted once its conversation has had no job for this long.
+                OPENSHELL_SANDBOX_IDLE_MINUTES: {
+                    type: "number",
+                    default: OPENSHELL_DEFAULTS.idleMinutes
                 }
             }
         }
