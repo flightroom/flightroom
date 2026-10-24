@@ -16,7 +16,7 @@ import { BuildStatus } from "../types/BuildStatusDTO"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import BuildStatusService from "./BuildStatusService"
 import DeploymentService from "./DeploymentService"
-import { advanceDomainReleases, CI_TIMEOUT_MS, DomainReleaseService, STALE_STEP_MS } from "./DomainReleaseService"
+import { advanceDomainReleases, CI_TIMEOUT_MS, DomainReleaseService, REGISTRATION_GRACE_MS, STALE_STEP_MS } from "./DomainReleaseService"
 import DomainService from "./DomainService"
 
 const projectId = new Types.ObjectId()
@@ -276,6 +276,48 @@ describe("advanceDomainReleases", () => {
                 }
             ],
             backends: [],
+            environments: []
+        } as never)
+
+        await advanceDomainReleases()
+
+        expect(writesOf(updateOne).every(write => write.$set.status !== DomainReleaseStatus.FAILED)).toBe(true)
+    })
+
+    /** The run went green but never called the console: waiting longer would only reach the timeout */
+    it("given every run of the tag ended with one successful but the version unregistered past the grace, when the tick runs, then the release fails without waiting for the timeout", async () => {
+        withReleases(release())
+        registered([cart], [ordersApi])
+        const ended = new Date(Date.now() - REGISTRATION_GRACE_MS - 1000).toISOString()
+        vi.spyOn(BuildStatusService.prototype, "getByProjectId").mockResolvedValue({
+            frontends: [
+                {
+                    frontendId: String(search._id),
+                    builds: [
+                        { id: "3", status: BuildStatus.SUCCESS, ref: "1.4.0", finishedAt: ended },
+                        { id: "2", status: BuildStatus.FAILED, ref: "1.4.0", finishedAt: ended }
+                    ]
+                }
+            ],
+            backends: [],
+            environments: []
+        } as never)
+
+        await advanceDomainReleases()
+
+        const failed = writesOf(updateOne).at(-1)!
+        expect(failed.$set).toMatchObject({ status: DomainReleaseStatus.FAILED, failedStep: DomainReleaseStatus.WAITING_CI, errorCode: "DOMAIN_RELEASE_CI_NOT_REGISTERED" })
+        expect(failed.$set.errorMessage).toContain("Search")
+        expect(deploy).not.toHaveBeenCalled()
+    })
+
+    /** A workflow the run starts when it ends may register the version a little later */
+    it("given a successful run of the tag that ended within the grace, or with no end told, when the tick runs, then the release keeps waiting", async () => {
+        withReleases(release())
+        registered([cart], [])
+        vi.spyOn(BuildStatusService.prototype, "getByProjectId").mockResolvedValue({
+            frontends: [{ frontendId: String(search._id), builds: [{ id: "3", status: BuildStatus.SUCCESS, ref: "1.4.0", finishedAt: new Date().toISOString() }] }],
+            backends: [{ backendId: String(ordersApi._id), builds: [{ id: "4", status: BuildStatus.SUCCESS, ref: "1.4.0" }] }],
             environments: []
         } as never)
 
