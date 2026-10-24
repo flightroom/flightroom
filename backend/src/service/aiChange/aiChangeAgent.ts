@@ -745,6 +745,9 @@ export interface AiChangeToolboxChange {
 export interface AiChangeToolboxRepository {
     slug: string
     kind?: "frontend" | "backend"
+    framework?: string
+    runtime?: string
+    port?: number
     workingCopy: GitWorkingCopy
     previousChanges?: AiChangeToolboxChange[]
     /** The .npmrc its install runs with in the sandbox, credentials included: never written into the working copy. */
@@ -815,6 +818,14 @@ export class AiChangeToolbox {
             case "finish": {
                 const unbuilt = await this.unbuiltRepositories()
                 if (unbuilt.length) throw new Error(buildFirst(unbuilt, this.multipleRepositories))
+                const scripts = this.scripts
+                if (scripts) {
+                    for (const repository of this.repositories) {
+                        if (repository.kind === "backend" && ["PYTHON", "JAVA", "GO", "DOTNET"].includes(repository.runtime ?? "")) {
+                            await scripts.startPreview(repository)
+                        }
+                    }
+                }
                 this.summary = readString(input, "summary")
                 return "Done."
             }
@@ -1192,6 +1203,9 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
         input.repositories.map(repository => ({
             slug: componentOf(repository).slug,
             kind: repository.frontend ? "frontend" : "backend",
+            framework: repository.backend?.framework,
+            runtime: repository.backend?.runtime,
+            port: repository.backend?.port,
             workingCopy: repository.workingCopy,
             previousChanges: repository.previousChanges,
             npmrc: repository.frontend?.designSystem?.npmrc

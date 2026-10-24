@@ -7,12 +7,8 @@ type OpenShellSdk = typeof import("@nvidia/openshell-sdk")
 type OpenShellClient = Awaited<ReturnType<OpenShellSdk["OpenShellClient"]["connect"]>>
 
 /**
- * The values the schema of the configuration defaults to. The image is the official Node.js one:
- * npm and corepack (for pnpm and yarn) are in it, and its node is the binary that reaches the registries.
- * The registries: npm, Maven Central, Azure Artifacts feeds (they redirect the download of a package to
- * a storage account of theirs, <account>.blob.core.windows.net) and the GitHub Container Registry (ghcr.io
- * redirects its blobs to pkg-containers.githubusercontent.com). The binaries: node, the java of the
- * eclipse-temurin images Maven runs on, and the python of the python:3.13 images.
+ * The default image has Node.js only. Other runtimes are allowed for a configured polyglot image/template;
+ * network access stays read-only and restricted to package registries and the listed runtime executables.
  */
 export const OPENSHELL_DEFAULTS = {
     image: "node:24-bookworm-slim",
@@ -21,13 +17,20 @@ export const OPENSHELL_DEFAULTS = {
         "registry.npmjs.org",
         "repo.maven.apache.org",
         "repo1.maven.org",
+        "pypi.org",
+        "files.pythonhosted.org",
+        "proxy.golang.org",
+        "sum.golang.org",
+        "storage.googleapis.com",
+        "api.nuget.org",
+        "globalcdn.nuget.org",
         "pkgs.dev.azure.com",
         "*.pkgs.visualstudio.com",
         "*.blob.core.windows.net",
         "ghcr.io",
         "pkg-containers.githubusercontent.com"
     ].join(","),
-    networkBinary: "/usr/local/bin/node,/opt/java/openjdk/bin/java,/usr/local/bin/python3.13",
+    networkBinary: "/usr/local/bin/node,/opt/java/openjdk/bin/java,/usr/local/bin/python3.13,/usr/local/go/bin/go,/usr/share/dotnet/dotnet",
     idleMinutes: 5
 }
 

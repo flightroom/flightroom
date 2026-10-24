@@ -48,13 +48,26 @@ describe("OpenShellSandboxes", () => {
                             "registry.npmjs.org",
                             "repo.maven.apache.org",
                             "repo1.maven.org",
+                            "pypi.org",
+                            "files.pythonhosted.org",
+                            "proxy.golang.org",
+                            "sum.golang.org",
+                            "storage.googleapis.com",
+                            "api.nuget.org",
+                            "globalcdn.nuget.org",
                             "pkgs.dev.azure.com",
                             "*.pkgs.visualstudio.com",
                             "*.blob.core.windows.net",
                             "ghcr.io",
                             "pkg-containers.githubusercontent.com"
                         ].map(host => ({ host, port: 443, protocol: "rest", enforcement: 1, access: 1, allowEncodedSlash: true })),
-                        binaries: [{ path: "/usr/local/bin/node" }, { path: "/opt/java/openjdk/bin/java" }, { path: "/usr/local/bin/python3.13" }]
+                        binaries: [
+                            { path: "/usr/local/bin/node" },
+                            { path: "/opt/java/openjdk/bin/java" },
+                            { path: "/usr/local/bin/python3.13" },
+                            { path: "/usr/local/go/bin/go" },
+                            { path: "/usr/share/dotnet/dotnet" }
+                        ]
                     }
                 }
             }

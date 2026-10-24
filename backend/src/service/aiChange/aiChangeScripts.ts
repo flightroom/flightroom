@@ -101,8 +101,115 @@ export interface ScriptRepository {
     slug: string
     workingCopy: GitWorkingCopy
     kind?: "frontend" | "backend"
+    framework?: string
+    runtime?: string
+    port?: number
     /** The user configuration of its package manager in the sandbox (a private registry and its token): never part of the copy. */
     npmrc?: string
+}
+
+interface PreviewPlan {
+    command: string[]
+    port: number
+    environment?: Record<string, string>
+    install?: string[]
+}
+
+const previewPortOf = (repository: ScriptRepository) => {
+    if (repository.kind === "frontend") return 5173
+    const port = repository.port
+    return Number.isInteger(port) && port !== undefined && port > 0 && port <= 65_535 ? port : 3000
+}
+
+const packagePreview = (repository: ScriptRepository, manifest: PackageManifest, manager: PackageManager): PreviewPlan | undefined => {
+    const scripts = manifest.scripts ?? {}
+    const script = ["dev", "start", "serve"].find(name => typeof scripts[name] === "string")
+    if (!script) return undefined
+    const port = previewPortOf(repository)
+    const command = commandFor(manager, script)
+    if (repository.kind === "frontend") command.push("--", "--host", "0.0.0.0", "--port", String(port))
+    return { command, port, ...(repository.kind === "backend" ? { environment: { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) } } : {}) }
+}
+
+/** Builds a preview command from the registered runtime and files at the repository root. */
+export const previewPlanFor = (repository: ScriptRepository, files: Set<string>, manifest: PackageManifest | undefined, manager?: PackageManager): PreviewPlan | undefined => {
+    if (!repository.kind) return undefined
+    const port = previewPortOf(repository)
+    if (repository.kind === "frontend" || !repository.runtime || repository.runtime === "NODE") {
+        return manifest && manager ? packagePreview(repository, manifest, manager) : undefined
+    }
+
+    const environment = { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) }
+    switch (repository.runtime) {
+        case "PYTHON": {
+            const install = files.has("requirements.txt")
+                ? ["python3", "-m", "pip", "install", "-r", "requirements.txt"]
+                : files.has("pyproject.toml")
+                  ? ["python3", "-m", "pip", "install", "-e", "."]
+                  : undefined
+            if (files.has("manage.py")) {
+                return { command: ["python3", "manage.py", "runserver", `0.0.0.0:${port}`], port, ...(install ? { install } : {}) }
+            }
+            const framework = repository.framework?.toLowerCase() ?? ""
+            if (framework.includes("flask")) {
+                const app = files.has("app.py") ? "app" : files.has("app/main.py") ? "app.main" : "main"
+                return {
+                    command: ["python3", "-m", "flask", "--app", app, "run", "--host", "0.0.0.0", "--port", String(port)],
+                    port,
+                    ...(install ? { install } : {})
+                }
+            }
+            if (framework.includes("fastapi")) {
+                const module = files.has("app/main.py") ? "app.main" : files.has("src/main.py") ? "main" : files.has("app.py") ? "app" : "main"
+                const pythonPath = files.has("src/main.py") ? "src" : undefined
+                return {
+                    command: ["python3", "-m", "uvicorn", `${module}:app`, "--host", "0.0.0.0", "--port", String(port), "--reload"],
+                    port,
+                    environment: { ...environment, ...(pythonPath ? { PYTHONPATH: pythonPath } : {}) },
+                    ...(install ? { install } : {})
+                }
+            }
+            return undefined
+        }
+        case "JAVA": {
+            const framework = repository.framework?.toLowerCase() ?? ""
+            const wrapper = files.has("mvnw") ? ["sh", "./mvnw"] : files.has("gradlew") ? ["sh", "./gradlew"] : undefined
+            if (files.has("pom.xml")) {
+                const goal = framework.includes("quarkus") ? "quarkus:dev" : framework.includes("micronaut") ? "mn:run" : framework.includes("spring") ? "spring-boot:run" : undefined
+                if (!goal) return undefined
+                return {
+                    command: [...(wrapper ?? ["mvn"]), goal],
+                    port,
+                    environment: {
+                        ...environment,
+                        ...(framework.includes("quarkus")
+                            ? { QUARKUS_HTTP_HOST: "0.0.0.0", QUARKUS_HTTP_PORT: String(port) }
+                            : framework.includes("micronaut")
+                              ? { MICRONAUT_SERVER_HOST: "0.0.0.0", MICRONAUT_SERVER_PORT: String(port) }
+                              : { SERVER_ADDRESS: "0.0.0.0", SERVER_PORT: String(port) })
+                    }
+                }
+            }
+            if (files.has("build.gradle") || files.has("build.gradle.kts")) {
+                const goal = framework.includes("quarkus") ? "quarkusDev" : framework.includes("micronaut") ? "run" : framework.includes("spring") ? "bootRun" : undefined
+                if (!goal) return undefined
+                return {
+                    command: [...(wrapper ?? ["gradle"]), goal],
+                    port,
+                    environment: { ...environment, SERVER_ADDRESS: "0.0.0.0", SERVER_PORT: String(port) }
+                }
+            }
+            return undefined
+        }
+        case "GO":
+            return files.has("go.mod") ? { command: ["go", "run", "."], port, environment } : undefined
+        case "DOTNET": {
+            const project = [...files].find(file => file.endsWith(".csproj"))
+            return project ? { command: ["dotnet", "run", "--project", `./${project}`, "--", "--urls", `http://0.0.0.0:${port}`], port, environment } : undefined
+        }
+        default:
+            return undefined
+    }
 }
 
 /** A file a script changed in the copy of the repository, read back from the sandbox. */
@@ -242,20 +349,31 @@ export class AiChangeScriptRunner {
         try {
             const sandbox = await this.sandboxForRun()
             await this.send(sandbox, repository)
-            const manifest = await this.manifestOf(repository)
-            const script = repository.kind === "frontend" ? "dev" : typeof manifest.scripts?.dev === "string" ? "dev" : "start"
-            if (typeof manifest.scripts?.[script] !== "string") return
-
-            const port = repository.kind === "frontend" ? 5173 : 3000
-            const command = commandFor(await this.managerOf(repository, manifest), script)
-            if (repository.kind === "frontend") command.push("--", "--host", "0.0.0.0", "--port", String(port))
+            const files = new Set(await repository.workingCopy.listFiles())
+            for (const change of await repository.workingCopy.changes()) {
+                if (change.action === "delete") files.delete(change.path)
+                else files.add(change.path)
+            }
+            const manifest = files.has("package.json") ? await this.manifestOf(repository) : undefined
+            const manager = manifest ? await this.managerOf(repository, manifest) : undefined
+            const plan = previewPlanFor(repository, files, manifest, manager)
+            if (!plan) throw new Error(`No development server is configured for ${repository.runtime ?? repository.kind}`)
+            if (plan.install) {
+                const installed = await sandbox.exec(plan.install, {
+                    workdir: this.folderOf(sandbox, repository),
+                    environment: this.environmentOf(sandbox, repository, INSTALL_SCRIPT),
+                    timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
+                    signal: this.signal
+                })
+                ensureSucceeded("Installing preview dependencies", installed)
+            }
 
             const log = `${sandbox.root}/logs/${repository.slug}-preview.log`
-            const started = await sandbox.exec(["sh", "-c", 'set -e; mkdir -p "$(dirname "$0")"; nohup "$@" </dev/null >"$0" 2>&1 & echo $!', log, ...command], {
+            const started = await sandbox.exec(["sh", "-c", 'set -e; mkdir -p "$(dirname "$0")"; nohup "$@" </dev/null >"$0" 2>&1 & echo $!', log, ...plan.command], {
                 workdir: this.folderOf(sandbox, repository),
                 environment: {
                     ...this.environmentOf(sandbox, repository, INSTALL_SCRIPT),
-                    ...(repository.kind === "backend" ? { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) } : {})
+                    ...plan.environment
                 },
                 timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
                 signal: this.signal
@@ -267,7 +385,7 @@ export class AiChangeScriptRunner {
                     "node",
                     "-e",
                     "const port=Number(process.argv[1]);const until=Date.now()+30000;const check=()=>fetch(`http://127.0.0.1:${port}`).then(()=>process.exit(0),()=>Date.now()<until?setTimeout(check,250):process.exit(1));check()",
-                    String(port)
+                    String(plan.port)
                 ],
                 { workdir: this.folderOf(sandbox, repository), timeoutSecs: 35, signal: this.signal }
             )
@@ -276,7 +394,7 @@ export class AiChangeScriptRunner {
 
             const kind = repository.kind
             const name = `preview-${kind === "frontend" ? "fe" : "be"}-${createHash("sha256").update(repository.slug).digest("hex").slice(0, 8)}`
-            url = await sandbox.exposeService(port, name)
+            url = await sandbox.exposeService(plan.port, name)
         } catch (error) {
             if (this.signal?.aborted) throw error
             await this.onPreview?.("info", `preview-failed|${repository.kind}`)
