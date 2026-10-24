@@ -162,15 +162,19 @@ describe("AiChangeService", () => {
 
     it("Given a backend, when its changes are listed, then its latest conversations come back whole", async () => {
         vi.spyOn(Backend, "findById").mockResolvedValue({ _id: backendId, projectId, slug: "orders-api", name: "Orders API", env: [] } as never)
+        const domainJobId = new Types.ObjectId()
+        vi.spyOn(AiChangeJob, "distinct").mockResolvedValue([domainJobId] as never)
         const conversationIds = [new Types.ObjectId(), new Types.ObjectId()]
         const aggregate = vi.spyOn(AiChangeRequest, "aggregate").mockResolvedValue(conversationIds.map(_id => ({ _id })) as never)
         const find = vi.spyOn(AiChangeRequest, "find").mockReturnValue({ sort: async () => [] } as never)
 
         await service().list({ kind: "backend", id: backendId.toString() })
 
-        expect(aggregate.mock.calls[0][0]).toEqual(expect.arrayContaining([{ $match: { backendId } }, { $limit: 20 }]))
+        const owner = { backendId, jobId: { $nin: [domainJobId] } }
+        expect(AiChangeJob.distinct).toHaveBeenCalledWith("_id", { scope: "domain", backendIds: backendId })
+        expect(aggregate.mock.calls[0][0]).toEqual(expect.arrayContaining([{ $match: owner }, { $limit: 20 }]))
         // Every request of those conversations, not only the newest ones: the queue shows each conversation once.
-        expect(find).toHaveBeenCalledWith({ backendId, conversationId: { $in: conversationIds } }, expect.anything())
+        expect(find).toHaveBeenCalledWith({ ...owner, conversationId: { $in: conversationIds } }, expect.anything())
     })
 
     it("Given a proposal on a backend never pushed on its branch, when it is applied, then it is committed under an ai-feature/ branch named after the request", async () => {
