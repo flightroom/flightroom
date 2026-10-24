@@ -51,11 +51,12 @@ export const jobErrorMessage = (t: TFunction, error: Error, fallback: string) =>
 }
 
 export const sumUsage = (jobs: AiJob[]): AiUsage =>
-    jobs.reduce(
+    jobs.reduce<AiUsage>(
         (total, job) => ({
             inputTokens: total.inputTokens + job.usage.inputTokens,
             cachedInputTokens: total.cachedInputTokens + job.usage.cachedInputTokens,
-            outputTokens: total.outputTokens + job.usage.outputTokens
+            outputTokens: total.outputTokens + job.usage.outputTokens,
+            ...(jobs.length > 0 && jobs.every(item => typeof item.usage.costUsd === "number") ? { costUsd: (total.costUsd ?? 0) + (job.usage.costUsd ?? 0) } : {})
         }),
         { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 }
     )

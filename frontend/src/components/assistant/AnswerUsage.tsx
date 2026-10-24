@@ -17,6 +17,7 @@ interface AnswerUsageProps {
 const AnswerUsage: React.FC<AnswerUsageProps> = ({ usage, label, hint, effort }) => {
     const { t, i18n } = useTranslation()
     const format = (value: number) => value.toLocaleString(i18n.language)
+    const formatCost = (value: number) => new Intl.NumberFormat(i18n.language, { style: "currency", currency: "USD", maximumFractionDigits: 6 }).format(value)
     const input =
         usage.cachedInputTokens > 0
             ? t("assistant.usage.input_cached", { count: usage.inputTokens, formatted: format(usage.inputTokens), cached: format(usage.cachedInputTokens) })
@@ -27,6 +28,7 @@ const AnswerUsage: React.FC<AnswerUsageProps> = ({ usage, label, hint, effort })
             <Coins className="size-3" aria-hidden />
             {label && <span className="font-medium">{label}:</span>}
             {input} · {t("assistant.usage.output", { formatted: format(usage.outputTokens) })}
+            {usage.costUsd !== undefined && ` · ${t("assistant.usage.cost", { formatted: formatCost(usage.costUsd) })}`}
             {effort && ` · ${t("assistant.effort.used", { level: t(`assistant.effort.levels.${effort}`) })}`}
         </p>
     )

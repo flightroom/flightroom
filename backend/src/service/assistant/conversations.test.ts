@@ -55,6 +55,12 @@ describe("conversations", () => {
         expect(stored.tools?.[0].status).toBe("interrupted")
     })
 
+    it("Given a priced answer, when it is stored, then its cost remains with the conversation", () => {
+        const stored = toStoredMessage({ ...answerWithTools, usage: { inputTokens: 10, cachedInputTokens: 2, outputTokens: 5, costUsd: 0.00025 } })
+
+        expect(stored.usage?.costUsd).toBe(0.00025)
+    })
+
     it("Given an answer longer than what is kept, when it is stored, then it is clipped instead of rejected", () => {
         const long = { ...answerWithTools, content: "x".repeat(100_000), confirmation: { ...answerWithTools.confirmation!, details: [{ label: "variables", value: "y".repeat(5_000) }] } }
 

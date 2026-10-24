@@ -1,6 +1,7 @@
 import { PipelineStage, Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import UserCannotAccessThisOrganizationError from "../errors/UserCannotAccessThisOrganizationError"
+import AiModel from "../models/AiModelModel"
 import AiUsage from "../models/AiUsageModel"
 import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
@@ -9,7 +10,7 @@ import Project from "../models/ProjectModel"
 import User, { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
-import AiUsageService, { componentPipeline, ensureWithinTokenLimit, memberSeriesPipeline, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
+import AiUsageService, { calculateAiUsageCostUsd, componentPipeline, ensureWithinTokenLimit, memberSeriesPipeline, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
 type WithGates = {
@@ -105,6 +106,22 @@ describe("AiUsageService", () => {
     describe("recordAiUsage", () => {
         beforeEach(() => {
             vi.spyOn(AiUsage, "create").mockResolvedValue({} as never)
+        })
+
+        describe("calculateAiUsageCostUsd", () => {
+            it("Given configured rates, when cached and regular tokens are counted, then it applies the matching rate per million tokens", async () => {
+                vi.spyOn(AiModel, "findById").mockReturnValue(thenable({ tokenCosts: { input: 3, cachedInput: 0.3, output: 15 } }) as never)
+
+                await expect(calculateAiUsageCostUsd(new Types.ObjectId().toString(), { inputTokens: 100, cachedInputTokens: 20, outputTokens: 10 })).resolves.toBeCloseTo(0.000396)
+            })
+
+            it("Given an unpriced or system AI, when the interaction is checked, then no cost is reported", async () => {
+                vi.spyOn(AiModel, "findById").mockReturnValue(thenable({ tokenCosts: undefined }) as never)
+
+                await expect(calculateAiUsageCostUsd(new Types.ObjectId().toString(), { inputTokens: 100, cachedInputTokens: 0, outputTokens: 10 })).resolves.toBeUndefined()
+                await expect(calculateAiUsageCostUsd("system", { inputTokens: 100, cachedInputTokens: 0, outputTokens: 10 })).resolves.toBeUndefined()
+                expect(AiModel.findById).toHaveBeenCalledTimes(1)
+            })
         })
 
         it("Given a usage without its organization, when it is recorded, then the organization is read from the project", async () => {

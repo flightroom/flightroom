@@ -28,7 +28,12 @@ const ERROR_KEY_BY_STATUS: Record<number, string> = { 404: "disabled", 409: "con
 const toUsage = (value: unknown): AssistantUsage | undefined => {
     const usage = value as Partial<AssistantUsage> | undefined
     if (typeof usage?.inputTokens !== "number" || typeof usage.outputTokens !== "number") return undefined
-    return { inputTokens: usage.inputTokens, cachedInputTokens: usage.cachedInputTokens ?? 0, outputTokens: usage.outputTokens }
+    return {
+        inputTokens: usage.inputTokens,
+        cachedInputTokens: usage.cachedInputTokens ?? 0,
+        outputTokens: usage.outputTokens,
+        ...(typeof usage.costUsd === "number" ? { costUsd: usage.costUsd } : {})
+    }
 }
 
 /** Tools that start an agent job: their result carries the `jobId`, and the job gets a tab of its own. */
@@ -234,6 +239,8 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
                         else updateMessage(answerId, message => ({ ...message, status: "done", errorKey: "incomplete" }))
                     } else if (event === "error") {
                         finished = true
+                        const usage = toUsage(payload.usage)
+                        if (usage) updateMessage(answerId, message => ({ ...message, usage }))
                         fail(payload.code === "RATE_LIMITED" ? "rate_limited" : "generic")
                     }
                 })

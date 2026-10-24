@@ -83,6 +83,7 @@ export interface AssistantConversationMessageDTO {
         inputTokens: number
         cachedInputTokens: number
         outputTokens: number
+        costUsd?: number
     }
 }
 

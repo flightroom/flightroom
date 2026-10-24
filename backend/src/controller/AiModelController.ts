@@ -10,6 +10,16 @@ const OBJECT_ID = "^[a-fA-F0-9]{24}$"
 /** An id of the organization's AIs, or `system`. */
 const aiModelId = { type: "string", minLength: 1, maxLength: 64 }
 const CONFIG_STRING = { type: "string", maxLength: 2_000 }
+const tokenCosts = {
+    type: ["object", "null"],
+    additionalProperties: false,
+    required: ["input", "cachedInput", "output"],
+    properties: {
+        input: { type: "number", minimum: 0, maximum: 1_000_000 },
+        cachedInput: { type: "number", minimum: 0, maximum: 1_000_000 },
+        output: { type: "number", minimum: 0, maximum: 1_000_000 }
+    }
+}
 
 /** Every key any provider reads: the service keeps those of the chosen provider and drops the rest. */
 const config = {
@@ -32,6 +42,7 @@ const aiModelProperties = {
     provider: { type: "string", enum: Object.values(LlmProvider) },
     model: { type: ["string", "null"], maxLength: 200 },
     config,
+    tokenCosts,
     maxEffort: { type: ["string", "null"], enum: [...LLM_EFFORTS, null] },
     isDefault: { type: "boolean" }
 }

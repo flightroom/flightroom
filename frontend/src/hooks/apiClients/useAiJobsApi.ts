@@ -14,6 +14,8 @@ export interface AiUsage {
     inputTokens: number
     cachedInputTokens: number
     outputTokens: number
+    /** The configured USD cost of this interaction, absent when no rates were set. */
+    costUsd?: number
 }
 
 /** What the job did on one repository: the `AiChangeRequest` reviewed on the frontend (or backend) page, without file contents. */

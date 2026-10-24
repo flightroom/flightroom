@@ -1298,6 +1298,32 @@ describe("AiChangeJobService", () => {
             expect(audits).toEqual([[{ audit: "ai_job_usage", userId: String(user._id), projectId, jobId: String(jobId), inputTokens: 30, cachedInputTokens: 12, outputTokens: 12 }, "AI job usage"]])
         })
 
+        it("Given configured rates, when an agent spends tokens, then its job and ledger keep the calculated cost", async () => {
+            const aiModelId = new Types.ObjectId().toString()
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({
+                _id: jobId,
+                parentJobId,
+                rootJobId: parentJobId,
+                projectId,
+                userId: user._id,
+                prompt: "Also show the currency",
+                frontendIds,
+                status: AiJobStatus.RUNNING,
+                aiModelId,
+                effort: "high",
+                usage: {}
+            } as never)
+            vi.spyOn(AiModel, "findById").mockReturnValue({ lean: () => Promise.resolve({ tokenCosts: { input: 3, cachedInput: 0.3, output: 15 } }) } as never)
+            const organizationId = new Types.ObjectId()
+            vi.mocked(Project.findById).mockResolvedValue({ _id: projectId, organizationId, name: "Shop", context: "Shop context" } as never)
+
+            await run()
+
+            const costIncrements = updates.filter(({ update }) => update.$inc).map(({ update }) => (update.$inc as Record<string, number>)["usage.costUsd"])
+            expect(costIncrements).toEqual([0.0000942, 0.0000942, 0.0001434, 0.0001434])
+            expect(vi.mocked(AiUsage.create).mock.calls.map(([entry]) => entry.costUsd)).toEqual([0.0000942, 0.0001434])
+        })
+
         it("Given an agent spending tokens over two rounds, when it runs, then each round is added to the ledger with the organization, the project, the job and its repositories", async () => {
             const organizationId = new Types.ObjectId()
             vi.mocked(Project.findById).mockResolvedValue({ _id: projectId, organizationId, name: "Shop", context: "Shop context" } as never)
