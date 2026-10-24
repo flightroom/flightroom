@@ -2596,8 +2596,8 @@
             "moon_shared": "Also used by {{names}}",
             "ship_job": "Agent at work: {{prompt}}",
             "ship_request": "Agent at work on a change request",
-            "ship_more_one": "+{{count}} more agent at work here",
-            "ship_more_other": "+{{count}} more agents at work here"
+            "ship_more_one": "+{{count}} more agent flying in the galaxy",
+            "ship_more_other": "+{{count}} more agents flying in the galaxy"
         },
         "links": {
             "frontendsColumn": "Frontends",
@@ -2987,7 +2987,7 @@
     },
     "fleet": {
         "title": "Fleet",
-        "description": "AI missions: the same task handed to agents across many repositories, in batches.",
+        "description": "Autonomous AI missions: agents work and push directly to the chosen branch, repository by repository.",
         "new_mission": "New mission",
         "list_label": "Missions",
         "empty_title": "No missions",
@@ -3038,13 +3038,14 @@
         },
         "stop": "Stop mission",
         "stop_title": "Stop the mission?",
-        "stop_description": "The agents at work are stopped and what they did so far is dropped; the next batches do not start. The proposals already made stay to be reviewed.",
+        "stop_description": "Agents at work are stopped and unpublished changes are dropped; the next batches do not start. Changes already pushed to the branch remain.",
         "stopping": "Stopping…",
         "stopped_success": "Mission stopped",
         "detail": {
             "title": "Mission",
             "back": "Back to the fleet",
             "prompt": "Request",
+            "target_branch": "Pushing directly to {{branch}}",
             "concurrency_one": "{{count}} agent at a time",
             "concurrency_other": "{{count}} agents at a time",
             "batch": "Batch {{number}} of {{total}}",
@@ -3059,9 +3060,12 @@
         },
         "new": {
             "title": "New mission",
-            "description": "The same task across many repositories. The agents propose changes to review: nothing is published until you apply them.",
+            "description": "The same task across many repositories. Agents work autonomously and push directly to the chosen branch, without creating branches or pull requests.",
             "prompt_label": "What do you want to change?",
             "prompt_placeholder": "e.g. Update axios to the latest 1.x and fix the deprecated uses",
+            "branch_label": "Target branch (optional)",
+            "branch_placeholder": "Default branch of each repository",
+            "branch_hint": "Enter an existing branch, such as main. If left blank, each agent uses its repository's default branch.",
             "prompt_required": "Describe the change you want",
             "mode_label": "Mode",
             "repositories_label": "Repositories",
@@ -3090,6 +3094,7 @@
             "AI_MISSION_TOO_MANY_REPOSITORIES": "A mission can work on at most 200 repositories: narrow the selection.",
             "AI_MISSION_NOT_RUNNING": "The mission is already over.",
             "AI_MISSION_INVALID_SELECTION": "Pick all the repositories or a selection, not both.",
+            "AI_MISSION_INVALID_BRANCH": "Enter a valid Git branch name.",
             "AI_CHANGE_TOO_MANY": "Too many jobs or missions are running in this project: wait for one to finish.",
             "DOMAIN_SCOPE_FORBIDDEN": "Some repositories are outside the domains you have access to.",
             "AI_JOB_NOT_OWNER": "Only the user who started this mission, or an organization administrator, can do this.",

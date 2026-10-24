@@ -239,6 +239,18 @@ describe("AiMissionService", () => {
             await expect(start("global", {})).rejects.toMatchObject({ code: "AI_MISSION_INVALID_SELECTION" })
         })
 
+        it("Given an invalid target branch, when a mission is started, then it is refused before anything is stored", async () => {
+            await expect(start("global", { all: true, baseBranch: "release..1" })).rejects.toMatchObject({ code: "AI_MISSION_INVALID_BRANCH", statusCode: 400 })
+            expect(AiMission.create).not.toHaveBeenCalled()
+        })
+
+        it("Given a target branch, when a mission is started, then it is saved for every job", async () => {
+            const view = await start("global", { all: true, baseBranch: "release/1.4" })
+
+            expect(stored).toMatchObject({ baseBranch: "release/1.4" })
+            expect(view.baseBranch).toBe("release/1.4")
+        })
+
         it("Given a selection, when the mission is started, then it works on the selected repositories only", async () => {
             const view = await start("perRepository", { frontendIds: [String(components[2]._id), String(components[0]._id)] })
 

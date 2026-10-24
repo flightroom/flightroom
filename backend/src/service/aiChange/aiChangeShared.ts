@@ -312,14 +312,15 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
      *
      * When the base has not moved since the proposal, the base fast-forwards to the very commit of the
      * feature branch, so a pull request opened from it reads merged. Otherwise the files are committed
-     * again on top of the latest base. The push is never forced: a protected base turns it down, and
-     * the user opens a pull request instead.
+     * again on top of the latest base. The push is never forced: a protected base turns it down.
      */
     protected async applyClaimed(request: IAiChangeRequest, files: IAiChangeFile[]): Promise<IAiChangeRequest> {
         const component = await findComponent(componentOf(request))
         const user = this.getUser()!
         try {
             if (!component) throw new EntityNotFoundError(componentIdOf(request))
+            const missionJob = request.jobId ? await AiChangeJob.findById(request.jobId, { missionId: 1 }) : null
+            const directToBase = Boolean(missionJob?.missionId)
             const workspaceService = new RepositoryWorkspaceService(this.user)
             const workspace = await workspaceService.open(component)
             const prompts = await conversationPrompts(request)
@@ -335,8 +336,8 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                             commit = request.commit
                         } else {
                             commit = await workspace.workingCopy.commitAndPush({
-                                branch: request.branch ?? branchName(prompts[0]),
-                                pushTo: request.baseBranch,
+                                branch: directToBase ? request.baseBranch : (request.branch ?? branchName(prompts[0])),
+                                ...(directToBase ? {} : { pushTo: request.baseBranch }),
                                 message: commitMessage(firstLine(prompts[0], 72), request.summary),
                                 author: authorOf(user),
                                 files: toCommitFiles(files)
@@ -346,12 +347,14 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                         if (!isPushRefused(error)) throw error
                         throw createBusinessException({
                             code: "AI_CHANGE_PUSH_REFUSED",
-                            message: `${request.baseBranch} refused the push (${toErrorMessage(error)}): if it is protected, open a pull request instead`,
+                            message: directToBase
+                                ? `${request.baseBranch} refused the direct push (${toErrorMessage(error)}): choose a branch that allows direct pushes`
+                                : `${request.baseBranch} refused the push (${toErrorMessage(error)}): if it is protected, open a pull request instead`,
                             statusCode: 409
                         })
                     }
                     // Its work is on the base now. One with a pull request is left to it: deleting it would close the pull request on some providers.
-                    if (request.branch && request.commit && !request.pullRequestUrl) {
+                    if (!directToBase && request.branch && request.commit && !request.pullRequestUrl) {
                         await workspace.workingCopy
                             .deleteRemoteBranch(request.branch)
                             .catch(error => fastify.log.warn({ error: loggable(error), aiChangeId: String(request._id) }, "Could not delete the branch of an applied change"))

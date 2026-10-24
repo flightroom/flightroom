@@ -191,6 +191,19 @@ describe("AiChangeService", () => {
         expect(workingCopy.commitAndPush.mock.calls[0][0].branch).toMatch(/^ai-feature\/add-404-page-link-home-\d{8}-\d{6}$/)
     })
 
+    it("Given a fleet proposal, when it is applied, then it is pushed directly to its base without creating a remote branch", async () => {
+        const request = proposal({ jobId: new Types.ObjectId() })
+        vi.spyOn(AiChangeJob, "findById")
+            .mockResolvedValueOnce({ missionId: new Types.ObjectId() } as never)
+            .mockResolvedValueOnce(null as never)
+
+        await (service() as unknown as { applyClaimed: (request: unknown, files: unknown) => Promise<unknown> }).applyClaimed(request, request.files)
+
+        expect(workingCopy.commitAndPush).toHaveBeenCalledWith(expect.objectContaining({ branch: "main" }))
+        expect(workingCopy.commitAndPush.mock.calls[0][0].pushTo).toBeUndefined()
+        expect(workingCopy.deleteRemoteBranch).not.toHaveBeenCalled()
+    })
+
     it("Given a viewer who administers the organization, when a proposal is discarded, then it is allowed", async () => {
         role = RoleInProject.VIEWER
         isAdmin = true

@@ -173,6 +173,7 @@ const MissionDetail: React.FC<{ mission: AiMissionView }> = ({ mission }) => {
             <Card className="flex flex-col gap-3 p-4">
                 <h2 className="text-sm font-semibold text-foreground">{t("fleet.detail.prompt")}</h2>
                 <p className="whitespace-pre-wrap break-words text-sm text-foreground">{mission.prompt}</p>
+                {mission.baseBranch && <p className="text-xs text-foreground-secondary">{t("fleet.detail.target_branch", { branch: mission.baseBranch })}</p>}
                 <MissionProgress mission={mission} />
                 <MissionCounts counts={mission.counts} />
                 <AnswerUsage usage={mission.usage} label={t("fleet.usage_label")} hint={t("fleet.usage_hint")} />
