@@ -731,7 +731,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                     conversationId: input.parentJob?.rootJobId ?? jobId,
                     prompt: input.prompt,
                     baseBranch: repository.baseBranch,
-                    branch: repository.branch ?? branchName(repository.component.slug),
+                    branch: repository.branch ?? branchName(repository.component.slug, input.prompt),
                     pullRequestUrl: repository.pullRequestUrl,
                     status: AiChangeStatus.PENDING,
                     events: queued()
@@ -1060,7 +1060,7 @@ export class AiChangeJobService extends AiChangeBaseService {
      */
     private async pushProposal(repository: RunningRepository, files: IAiChangeFile[], summary: string | undefined): Promise<{ branch?: string; commit?: string; pushError?: string }> {
         if (files.length === 0) return {}
-        const branch = repository.request.branch ?? branchName(repository.component.slug)
+        const branch = repository.request.branch ?? branchName(repository.component.slug, repository.request.prompt)
         // The agent only answered: the branch already holds this very proposal, pushing it again would only run the CI again.
         if (repository.previousCommit && sameFiles(repository.previousFiles ?? [], files)) return { branch, commit: repository.previousCommit }
         try {

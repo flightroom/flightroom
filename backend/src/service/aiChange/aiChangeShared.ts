@@ -7,6 +7,7 @@ import { IFrontend } from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import { withRepositoryLock } from "../../utils/repositoryLock"
+import { slugify } from "../../utils/slugUtils"
 import { isProtectedPath } from "../../utils/workspacePaths"
 import AiModelService from "../AiModelService"
 import BaseAuthorizedService from "../BaseAuthorizedService"
@@ -65,8 +66,29 @@ export const timestamp = (date = new Date()) => date.toISOString().replace(/[-:]
 /** How far back the messages of a conversation are looked up for its pull request. */
 const MAX_CONVERSATION_LENGTH = 50
 
-/** The feature branch of a conversation on one repository. */
-export const branchName = (slug: string) => `ai/${slug}-${timestamp()}`
+/** How many words of the request a branch name keeps. */
+const BRANCH_NAME_WORDS = 6
+/** Words that say nothing about a request, left out of its branch name. */
+const FILLER_WORDS = new Set(
+    (
+        "a an the of to in on at by for from with and or is are be it this that these those please can could you i we me my our want would like should " +
+        "il lo la l i gli le un uno una d di a da in con su per tra fra e ed o del dello della dei degli delle al allo alla ai agli alle dal dallo dalla dai dagli dalle " +
+        "nel nello nella nei negli nelle sul sullo sulla sui sugli sulle che non mi ci si ti vorrei puoi potresti fai favore"
+    ).split(" ")
+)
+
+/**
+ * The feature branch of a conversation on one repository, named after what was asked so it reads in
+ * the provider's branch list: "Aggiungi il bottone di logout nella navbar" on `cart` becomes
+ * `ai/cart/aggiungi-bottone-logout-navbar-20261024-101500`.
+ */
+export const branchName = (slug: string, prompt = "") => {
+    const words = slugify(prompt.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+        .split("-")
+        .filter(word => word && !FILLER_WORDS.has(word))
+        .slice(0, BRANCH_NAME_WORDS)
+    return `ai/${slug}/${[...words, timestamp()].join("-")}`
+}
 
 /** Who a commit is by: the user who asked for the change, or applied it. */
 export const authorOf = (user: { name?: string; surname?: string; email: string }) => ({ name: [user.name, user.surname].filter(Boolean).join(" ") || user.email, email: user.email })
@@ -269,7 +291,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                             commit = request.commit
                         } else {
                             commit = await workspace.workingCopy.commitAndPush({
-                                branch: request.branch ?? branchName(component.slug),
+                                branch: request.branch ?? branchName(component.slug, prompts[0]),
                                 pushTo: request.baseBranch,
                                 message: commitMessage(firstLine(prompts[0], 72), request.summary),
                                 author: authorOf(user),
@@ -331,7 +353,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                 workspace.workingCopy.dir,
                 async () => {
                     await this.latestBase(workspaceService, workspace, request, files)
-                    const name = request.branch ?? branchName(component.slug)
+                    const name = request.branch ?? branchName(component.slug, prompts[0])
                     const commit = await workspace.workingCopy.commitAndPush({ branch: name, message: commitMessage(title, request.summary), author: authorOf(user), files: toCommitFiles(files) })
                     return { branch: name, commit }
                 },

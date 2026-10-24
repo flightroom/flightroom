@@ -245,8 +245,11 @@ describe("AiChangeJobService", () => {
                 expect.objectContaining({ frontendId: cart._id, jobId: expect.anything(), jobRepositoryCount: 2, baseBranch: "main", status: AiChangeStatus.PENDING }),
                 expect.objectContaining({ frontendId: catalog._id, jobRepositoryCount: 2 })
             ])
-            // Each repository gets the feature branch of the conversation, named after it.
-            expect(requests.map(request => request.branch)).toEqual([expect.stringMatching(/^ai\/cart-\d{8}-\d{6}$/), expect.stringMatching(/^ai\/catalog-\d{8}-\d{6}$/)])
+            // Each repository gets the feature branch of the conversation, named after it and the request.
+            expect(requests.map(request => request.branch)).toEqual([
+                expect.stringMatching(/^ai\/cart\/rename-price-api-\d{8}-\d{6}$/),
+                expect.stringMatching(/^ai\/catalog\/rename-price-api-\d{8}-\d{6}$/)
+            ])
             expect(String(requests[0].jobId)).toBe(job._id)
         })
 
