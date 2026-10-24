@@ -420,6 +420,11 @@ export default fastifyPlugin(
                 OPENSHELL_SANDBOX_IDLE_MINUTES: {
                     type: "number",
                     default: OPENSHELL_DEFAULTS.idleMinutes
+                },
+                // Preview services are gateway-routed URLs and do not inherit project authorization.
+                OPENSHELL_PREVIEWS_ENABLED: {
+                    type: "boolean",
+                    default: false
                 }
             }
         }

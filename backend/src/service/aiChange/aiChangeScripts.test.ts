@@ -246,7 +246,11 @@ describe("commandFor", () => {
 })
 
 describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
-    const recording = () => ({ root: "/sandbox", exec: vi.fn(async (_command: string[], _options?: SandboxExecOptions) => ({ exitCode: 0, output: "", cutBytes: 0 })) })
+    const recording = () => ({
+        root: "/sandbox",
+        exec: vi.fn(async (_command: string[], _options?: SandboxExecOptions) => ({ exitCode: 0, output: "", cutBytes: 0 })),
+        exposeService: vi.fn(async (_port: number, _name: string) => "https://preview.example.test")
+    })
 
     /** The call that ran the script: the others are shell scripts preparing the copy or reading it. */
     const scriptCall = (sandbox: ReturnType<typeof recording>) => sandbox.exec.mock.calls.find(([command]) => command[0] !== "sh")
@@ -274,6 +278,24 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         expect(lastCommand(sandbox)).toEqual(["corepack", "yarn", "install"])
         // Under CI pnpm and yarn freeze the lockfile: the install would fail once the agent changes a dependency.
         expect(scriptCall(sandbox)?.[1]?.environment).not.toHaveProperty("CI")
+        fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    it("Given an enabled frontend preview, when dependencies are installed, then its dev server is started and exposed", async () => {
+        const dir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
+        const sandbox = recording()
+        const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
+        const onPreview = vi.fn()
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox, undefined, true, onPreview)
+
+        await runner.run(repository, "install")
+
+        expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))).toEqual([
+            ["sh", "-c", expect.any(String), "/sandbox/logs/shop-preview.log", "npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
+            expect.objectContaining({ workdir: "/sandbox/repositories/shop" })
+        ])
+        expect(sandbox.exposeService).toHaveBeenCalledWith(5173, expect.stringMatching(/^preview-fe-/))
+        expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|frontend|shop|https%3A%2F%2Fpreview.example.test")
         fs.rmSync(dir, { recursive: true, force: true })
     })
 

@@ -166,6 +166,8 @@ export interface AiChangeAgentInput {
     apiSpecs?: AiChangeApiSpecSource[]
     /** The sandbox run_script runs in, asked for at the first script: the tool is offered only with one */
     sandbox?: () => Promise<CommandSandbox>
+    /** Starts gateway-routed development previews when explicitly enabled by the installation. */
+    previewsEnabled?: boolean
 }
 
 export interface AiChangeAgentHooks {
@@ -742,6 +744,7 @@ export interface AiChangeToolboxChange {
 /** A working copy of the toolbox, under the slug its paths start with when the job has more than one. */
 export interface AiChangeToolboxRepository {
     slug: string
+    kind?: "frontend" | "backend"
     workingCopy: GitWorkingCopy
     previousChanges?: AiChangeToolboxChange[]
     /** The .npmrc its install runs with in the sandbox, credentials included: never written into the working copy. */
@@ -769,11 +772,13 @@ export class AiChangeToolbox {
     constructor(
         private readonly repositories: AiChangeToolboxRepository[],
         sandbox?: () => Promise<CommandSandbox>,
-        signal?: AbortSignal
+        signal?: AbortSignal,
+        previewsEnabled = false,
+        onPreview?: (kind: "info", message: string) => Promise<void> | void
     ) {
         if (repositories.length === 0) throw new Error("A toolbox needs at least one repository")
         this.maxWrittenBytes = agentLimitsFor(repositories.length).maxWrittenBytes
-        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal) : undefined
+        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal, previewsEnabled, onPreview) : undefined
         // A follow-up refines what its parent wrote: the limits hold for the whole proposal, not for each step.
         for (const repository of repositories) {
             // A lockfile comes from the install, not from the agent: alone it may weigh more than the agent may write.
@@ -1049,7 +1054,8 @@ export class AiChangeToolbox {
         // Tried is enough: a build broken before the change, or a sandbox that fails, must not hold finish forever.
         if (script === BUILD_SCRIPT) this.unbuilt.delete(repository)
         const run = await scripts.run(repository, script, paths => this.tooManyFiles(repository, paths))
-        return [run.output, await this.takeScriptChanges(repository, run)].filter(Boolean).join("\n\n")
+        const changes = await this.takeScriptChanges(repository, run)
+        return [run.output, changes].filter(Boolean).join("\n\n")
     }
 
     /** Why these paths cannot all join the change of a repository, if they cannot. */
@@ -1093,6 +1099,7 @@ export class AiChangeToolbox {
         await fs.mkdir(path.dirname(absolute), { recursive: true })
         await fs.writeFile(absolute, content, "utf8")
         this.markChanged(repository, relative, bytes)
+        await this.scripts?.sync(repository)
         return `${existing ? "Updated" : "Created"} ${this.shown(repository, relative)}.`
     }
 
@@ -1135,6 +1142,7 @@ export class AiChangeToolbox {
         }
         await fs.writeFile(absolute, content.slice(0, at) + newText + content.slice(at + oldText.length), "utf8")
         this.markChanged(repository, relative, bytes)
+        await this.scripts?.sync(repository)
         // The line tells the agent where to read again, should it need to, without the whole file.
         return `Edited ${shown} at line ${content.slice(0, at).split("\n").length}.`
     }
@@ -1149,6 +1157,7 @@ export class AiChangeToolbox {
         }
         await fs.rm(absolute)
         this.markChanged(repository, relative, 0)
+        await this.scripts?.sync(repository)
         return `Deleted ${this.shown(repository, relative)}.`
     }
 }
@@ -1182,12 +1191,15 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
     const toolbox = new AiChangeToolbox(
         input.repositories.map(repository => ({
             slug: componentOf(repository).slug,
+            kind: repository.frontend ? "frontend" : "backend",
             workingCopy: repository.workingCopy,
             previousChanges: repository.previousChanges,
             npmrc: repository.frontend?.designSystem?.npmrc
         })),
         input.sandbox,
-        signal
+        signal,
+        input.previewsEnabled,
+        hooks.onEvent
     )
     // A conversation that goes on already holds the maps of its first message.
     const messages: LlmMessage[] = input.history?.length

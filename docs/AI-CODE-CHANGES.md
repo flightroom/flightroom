@@ -224,6 +224,14 @@ are the repository's code, and the console holds the repository tokens, the data
   next to it, so the token is as exposed as on a developer's laptop: give it read access to the feed only.
 - **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
   6,000 characters of the output; 300 MB copied per repository.
+- **Live previews.** Set `OPENSHELL_PREVIEWS_ENABLED=true` to start a Node.js repository's `dev` script after its
+  dependencies are installed, keep its files synced as the agent edits, and expose frontend (5173) and
+  backend (3000) HTTP services through OpenShell. The links and embedded frontend preview appear in
+  **Edit with AI**. The preview process runs only until the sandbox is swept after the conversation is
+  idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
+  the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
+  otherwise. Frontends that call a backend should use their normal local development proxy to
+  `localhost:3000`.
 
 On Kubernetes, OpenShell needs the [Agent Sandbox](https://agent-sandbox.sigs.k8s.io) controller and a CNI
 that enforces `NetworkPolicy`: without one, the network policy is not applied. Prefer a workload template
@@ -249,6 +257,7 @@ on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime clas
 | `OPENSHELL_REGISTRY_HOSTS`       | `registry.npmjs.org`    | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
 | `OPENSHELL_NETWORK_BINARY`       | `/usr/local/bin/node`   | The executable allowed to reach them: its real path, not a symlink.              |
 | `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is deleted once its conversation has been idle this long.              |
+| `OPENSHELL_PREVIEWS_ENABLED`     | `false`                 | Starts and exposes development servers; only enable on a trusted, isolated gateway. |
 
 The SDK is published on GitHub Packages, which asks for a token even to read a public package. To build
 the images yourself, pass one with `read:packages` as the build secret `npm_token`:

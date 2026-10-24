@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto"
+import { createHash, randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
 import { CommandSandbox, SandboxCommandResult, SandboxExecOptions } from "./commandSandbox"
 
@@ -65,6 +65,7 @@ export interface OpenShellConfiguration {
     /** Comma separated executables allowed to open those connections: OpenShell matches the real path, not a symlink. */
     OPENSHELL_NETWORK_BINARY?: string
     OPENSHELL_SANDBOX_IDLE_MINUTES?: number
+    OPENSHELL_PREVIEWS_ENABLED?: boolean
 }
 
 /** Every sandbox of the coding agent carries both: the sweep finds them by the role, and asks about the conversation. */
@@ -141,6 +142,19 @@ class OpenShellCommandSandbox implements CommandSandbox {
             output = output.subarray(output.length - MAX_OUTPUT_BYTES)
         }
         return { exitCode: exitCode ?? -1, output: output.toString("utf8"), cutBytes }
+    }
+
+    async exposeService(targetPort: number, name: string): Promise<string> {
+        const response = await this.client.raw.exposeService({
+            sandbox: this.name,
+            workspaceScope: { selection: { case: "workspace", value: this.workspace || "default" } },
+            name,
+            targetPort,
+            domain: true,
+            requestId: randomUUID()
+        })
+        if (!response.url) throw new Error(`OpenShell did not return a URL for the ${name} preview`)
+        return response.url
     }
 }
 

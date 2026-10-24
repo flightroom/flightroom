@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { MAX_SANDBOX_NAME_LENGTH, OpenShellSandboxes, sandboxNameFor } from "./OpenShellSandboxes"
 
-const { sandbox, connect } = vi.hoisted(() => {
+const { sandbox, raw, connect } = vi.hoisted(() => {
     const sandbox = {
         get: vi.fn(),
         create: vi.fn(),
@@ -12,7 +12,8 @@ const { sandbox, connect } = vi.hoisted(() => {
         execStream: vi.fn(),
         list: vi.fn()
     }
-    return { sandbox, connect: vi.fn(async (_options: unknown) => ({ sandbox })) }
+    const raw = { exposeService: vi.fn() }
+    return { sandbox, raw, connect: vi.fn(async (_options: unknown) => ({ sandbox, raw })) }
 })
 
 vi.mock("@nvidia/openshell-sdk", () => ({ OpenShellClient: { connect }, clientCredentials: vi.fn(() => ({ getToken: async () => "renewed" })) }))
@@ -87,6 +88,22 @@ describe("OpenShellSandboxes", () => {
         await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)
         expect(sandbox.create).not.toHaveBeenCalled()
         expect(sandbox.delete).not.toHaveBeenCalled()
+    })
+
+    it("Given a running preview service, when it is exposed, then OpenShell returns its browser URL", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "ready" })
+        raw.exposeService.mockResolvedValue({ url: "https://preview.example.test" })
+        const acquired = await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)
+
+        await expect(acquired.exposeService?.(5173, "preview-fe")).resolves.toBe("https://preview.example.test")
+        expect(raw.exposeService).toHaveBeenCalledWith({
+            sandbox: NAME,
+            workspaceScope: { selection: { case: "workspace", value: "default" } },
+            name: "preview-fe",
+            targetPort: 5173,
+            domain: true,
+            requestId: expect.any(String)
+        })
     })
 
     it("Given a sandbox in error, when one is acquired, then it is deleted and replaced", async () => {

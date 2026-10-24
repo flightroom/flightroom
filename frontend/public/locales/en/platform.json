@@ -1039,6 +1039,14 @@
             },
             "progress_log": "Agent progress",
             "progress_empty": "No activity yet.",
+            "preview": {
+                "title": "Live preview",
+                "open_for": "Open {{name}}",
+                "api_for": "Backend {{name}}",
+                "for": "Live preview for {{name}}",
+                "access_warning": "Preview URLs are reachable by anyone who can access the OpenShell gateway. Use only with a trusted, isolated gateway.",
+                "unavailable": "A development server could not be started for one of the repositories."
+            },
             "script_output": "Command output",
             "show_progress_log": "Show the agent's progress log",
             "show_prompt": "Show the full request",

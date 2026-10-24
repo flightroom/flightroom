@@ -59,7 +59,7 @@ import useThemeStore from "@/store/useThemeStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { cn } from "@/utils/styleUtils"
 import { AiChangeDiff } from "./AiChangeDiff"
-import { ProgressLog, StatusBadge } from "./AiChangeProgress"
+import { LivePreviews, ProgressLog, StatusBadge } from "./AiChangeProgress"
 import { AiWorkspaceRepository, BaseBranches, pickedBaseBranches, RepositoryBranches } from "./RepositoryBranches"
 
 const PROMPT_MAX_LENGTH = 8000
@@ -399,6 +399,8 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
                     </output>
                 )}
 
+                <LivePreviews events={request.events ?? []} />
+
                 {request.error && request.status === "PROPOSED" && <WarningAlert title={t("frontend.aiChange.proposal_warning")}>{request.error}</WarningAlert>}
 
                 {request.status === "FAILED" && (
@@ -622,6 +624,8 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
     return (
         <div className="flex flex-col gap-3">
             <p className="max-w-[85%] self-end whitespace-pre-wrap break-words rounded-lg bg-primary/10 px-3 py-2 text-sm">{job.prompt}</p>
+
+            <LivePreviews events={job.events ?? []} />
 
             {/* A job that failed before any repository could tell its own outcome. */}
             {job.status === "FAILED" && !job.stoppedAt && !repositories.some(repository => repository.status === "FAILED") && (
