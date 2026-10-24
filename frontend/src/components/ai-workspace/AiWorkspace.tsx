@@ -1243,7 +1243,8 @@ const QueueSection: React.FC<QueueSectionProps> = ({ group, entries, selectedId,
     const headingId = useId()
     const Icon = GROUP_ICON[group]
     const containsSelected = entries.some(entry => entry.ids.includes(selectedId))
-    const [open, setOpen] = useState(containsSelected)
+    // Applied and failed requests are done with: keep them out of the way unless one of them is open.
+    const [open, setOpen] = useState(containsSelected || (group !== "applied" && group !== "failed"))
 
     // A conversation of the group opened from elsewhere (a deep link): unfold it. Never fold it back on the user.
     useEffect(() => {
@@ -1252,6 +1253,7 @@ const QueueSection: React.FC<QueueSectionProps> = ({ group, entries, selectedId,
     const heading = (
         <span className="flex items-center justify-between gap-2">
             <span id={headingId} className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground-secondary">
+                <ChevronRight className={cn("size-3.5 transition-transform motion-reduce:transition-none", open && "rotate-90")} aria-hidden="true" />
                 <Icon className={cn("size-3.5", group === "active" && entries.length > 0 && "animate-spin motion-reduce:animate-none")} aria-hidden="true" />
                 {t(`frontend.aiChange.groups.${group}`)}
             </span>
@@ -1275,21 +1277,11 @@ const QueueSection: React.FC<QueueSectionProps> = ({ group, entries, selectedId,
             </ul>
         )
 
-    // Applied and failed requests are done with: keep them out of the way unless one of them is open.
-    if (group === "applied" || group === "failed") {
-        return (
-            <details open={open} onToggle={event => setOpen(event.currentTarget.open)}>
-                <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">{heading}</summary>
-                <div className="mt-2">{list}</div>
-            </details>
-        )
-    }
-
     return (
-        <section aria-labelledby={headingId} className="flex flex-col gap-2">
-            {heading}
-            {list}
-        </section>
+        <details open={open} onToggle={event => setOpen(event.currentTarget.open)}>
+            <summary className="cursor-pointer list-none rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">{heading}</summary>
+            <div className="mt-2">{list}</div>
+        </details>
     )
 }
 
