@@ -218,7 +218,8 @@ are the repository's code, and the console holds the repository tokens, the data
   included: it is written into the sandbox, outside the copy of the repository, and the install and the
   scripts read it as their user configuration (`npm_config_userconfig`: npm, pnpm and yarn 1; yarn 2+ does
   not read an `.npmrc`). It never reaches the working copy nor the proposal, and the model only sees it
-  masked. The registry's host must be among `OPENSHELL_REGISTRY_HOSTS`. The code of the repository runs
+  masked. The registry's host must be among `OPENSHELL_REGISTRY_HOSTS`, and so must the host it redirects
+  the download to: Azure Artifacts serves its packages from `<account>.blob.core.windows.net`. The code of the repository runs
   next to it, so the token is as exposed as on a developer's laptop: give it read access to the feed only.
 - **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
   6,000 characters of the output; 300 MB copied per repository.

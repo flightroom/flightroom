@@ -49,6 +49,7 @@ describe("OpenShellSandboxes", () => {
                             "repo1.maven.org",
                             "pkgs.dev.azure.com",
                             "*.pkgs.visualstudio.com",
+                            "*.blob.core.windows.net",
                             "ghcr.io",
                             "pkg-containers.githubusercontent.com"
                         ].map(host => ({ host, port: 443, protocol: "rest", enforcement: 1, access: 1, allowEncodedSlash: true })),
