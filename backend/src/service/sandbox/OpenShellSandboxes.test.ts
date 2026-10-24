@@ -28,7 +28,7 @@ describe("OpenShellSandboxes", () => {
         sandbox.waitReady.mockResolvedValue({ name: NAME, phase: "ready" })
     })
 
-    it("Given no sandbox for the conversation, when one is acquired, then it is created with its labels and a policy letting only node reach the registry", async () => {
+    it("Given no sandbox for the conversation, when one is acquired, then it is created with its labels and a read-only policy letting only the package managers reach the registries", async () => {
         sandbox.get.mockRejectedValue(sdkError("not_found"))
         await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway", OPENSHELL_TOKEN: "token" }).acquire(CONVERSATION)
 
@@ -43,13 +43,35 @@ describe("OpenShellSandboxes", () => {
                 networkPolicies: {
                     "package-registries": {
                         name: "package-registries",
-                        endpoints: [{ host: "registry.npmjs.org", port: 443 }],
-                        binaries: [{ path: "/usr/local/bin/node" }]
+                        endpoints: [
+                            "registry.npmjs.org",
+                            "repo.maven.apache.org",
+                            "repo1.maven.org",
+                            "pkgs.dev.azure.com",
+                            "*.pkgs.visualstudio.com",
+                            "ghcr.io",
+                            "pkg-containers.githubusercontent.com"
+                        ].map(host => ({ host, port: 443, protocol: "rest", enforcement: 1, access: 1, allowEncodedSlash: true })),
+                        binaries: [{ path: "/usr/local/bin/node" }, { path: "/opt/java/openjdk/bin/java" }, { path: "/usr/local/bin/python3.13" }]
                     }
                 }
             }
         })
         expect(sandbox.waitReady).toHaveBeenCalledWith(NAME, 300, { workspace: undefined })
+    })
+
+    it("Given registry hosts and network binaries as comma separated lists, when a sandbox is created, then the policy allows each of them", async () => {
+        sandbox.get.mockRejectedValue(sdkError("not_found"))
+        await new OpenShellSandboxes({
+            OPENSHELL_GATEWAY_URL: "https://gateway",
+            OPENSHELL_TOKEN: "token",
+            OPENSHELL_REGISTRY_HOSTS: " registry.npmjs.org , npm.pkg.github.com ,",
+            OPENSHELL_NETWORK_BINARY: "/usr/local/bin/node, /usr/bin/git"
+        }).acquire(CONVERSATION)
+
+        const policy = sandbox.create.mock.calls[0][0].policy.networkPolicies["package-registries"]
+        expect(policy.endpoints.map((endpoint: { host: string }) => endpoint.host)).toEqual(["registry.npmjs.org", "npm.pkg.github.com"])
+        expect(policy.binaries).toEqual([{ path: "/usr/local/bin/node" }, { path: "/usr/bin/git" }])
     })
 
     it("Given the CA of the gateway as PEM text, when the client connects, then it trusts that CA", async () => {

@@ -406,8 +406,8 @@ export default fastifyPlugin(
                     type: "string",
                     default: OPENSHELL_DEFAULTS.root
                 },
-                // Comma separated hosts the sandbox may reach on 443, only through OPENSHELL_NETWORK_BINARY.
-                // Empty: the network is left to the policy of the gateway.
+                // Comma separated hosts the sandbox may reach on 443, read-only, only through the
+                // comma separated OPENSHELL_NETWORK_BINARY. Empty: the network is left to the policy of the gateway.
                 OPENSHELL_REGISTRY_HOSTS: {
                     type: "string",
                     default: OPENSHELL_DEFAULTS.registryHosts
