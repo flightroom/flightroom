@@ -2484,6 +2484,7 @@
             "success": "{{domain}} {{version}} deployed to {{environment}}",
             "failed": "The build and deploy of {{domain}} {{version}} failed",
             "untouched_hint": "Frontends and backends without a code repository are left out: their version does not change.",
+            "close_hint": "You can close this window: the console goes on with the release by itself, and opening it again shows where it stands.",
             "steps": {
                 "building": "Build",
                 "waiting_ci": "CI",
@@ -2508,6 +2509,7 @@
                 "DOMAIN_RELEASE_TAG_FAILED": "Some repositories could not be tagged, so the release stopped: the others stay tagged",
                 "DOMAIN_RELEASE_CI_TIMEOUT": "The pipeline did not register version {{version}} within 60 minutes for: {{names}}",
                 "DOMAIN_RELEASE_CI_FAILED": "The pipeline of tag {{version}} failed for: {{names}}",
+                "DOMAIN_RELEASE_CI_NOT_REGISTERED": "The pipeline of tag {{version}} ended without registering the version in the console for: {{names}}. Check the step of the pipeline that registers it and its API key",
                 "DOMAIN_RELEASE_INTERRUPTED": "The release stopped in the middle of a step, most likely on a restart of the console: check the deployments of the environment before starting it again",
                 "DOMAIN_RELEASE_USER_UNAVAILABLE": "The user who started the release can no longer act in the console"
             }
