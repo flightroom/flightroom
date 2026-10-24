@@ -2700,7 +2700,32 @@
         },
         "workspace": {
             "nav_label": "Domain sections",
-            "nav_overview": "Overview"
+            "nav_overview": "Overview",
+            "nav_settings": "Details & settings"
+        },
+        "settings": {
+            "details_title": "Details",
+            "versions_title": "Versions",
+            "versions_description": "The version of every frontend and backend of the domain: the one the deploy of the domain ships. For a BUNDLE frontend it names an uploaded bundle, for a DOCKER frontend and a backend it is the image tag.",
+            "version_all": "Same version for all",
+            "version_all_hint": "Fills in the version of every frontend and backend below; then save.",
+            "version_all_apply": "Apply to all",
+            "kind_bundle": "BUNDLE frontend",
+            "kind_docker": "DOCKER frontend",
+            "current_version": "current {{version}}",
+            "no_version": "no version",
+            "versions_changed_one": "{{count}} version changed",
+            "versions_changed_other": "{{count}} versions changed",
+            "versions_save": "Save versions",
+            "versions_saved_one": "Version updated for {{count}} component",
+            "versions_saved_other": "Versions updated for {{count}} components"
+        },
+        "deploy": {
+            "action": "Deploy",
+            "title": "Deploy {{domain}}",
+            "description": "Ships the frontends and backends of the domain to the chosen environment, each at the version it is set to, without building. The rest of the project stays as it is.",
+            "confirm": "Deploy",
+            "success": "{{domain}} deployed to {{environment}}"
         },
         "resources": {
             "title": "Resources",
