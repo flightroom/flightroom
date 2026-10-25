@@ -1,24 +1,36 @@
 import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
+import useToastNotificationStore from "@/store/useToastNotificationStore"
 
-const LivePreviewButton: React.FC<{ url?: string; isPending?: boolean }> = ({ url, isPending = false }) => {
+const LivePreviewButton: React.FC<{ start: () => Promise<string>; isPending?: boolean }> = ({ start, isPending = false }) => {
     const { t } = useTranslation()
-    const disabled = isPending || !url
+    const notifications = useToastNotificationStore()
 
     return (
         <Button
             type="button"
             variant="secondary"
-            disabled={disabled}
-            title={disabled && !isPending ? t("frontend.live_preview.shell_unavailable") : undefined}
-            aria-label={disabled && !isPending ? `${t("frontend.live_preview.button")}: ${t("frontend.live_preview.shell_unavailable")}` : undefined}
-            onClick={() => {
-                if (url) window.open(url, "_blank", "noopener,noreferrer")
+            disabled={isPending}
+            aria-busy={isPending}
+            onClick={async () => {
+                const previewWindow = window.open("about:blank", "_blank")
+                if (!previewWindow) {
+                    notifications.showErrorNotification({ message: t("frontend.live_preview.popup_blocked") })
+                    return
+                }
+                previewWindow.opener = null
+                previewWindow.document.title = t("frontend.live_preview.starting")
+                try {
+                    previewWindow.location.href = await start()
+                } catch {
+                    previewWindow.close()
+                    notifications.showErrorNotification({ message: t("frontend.live_preview.start_error") })
+                }
             }}
         >
             <ExternalLink aria-hidden="true" />
-            {t("frontend.live_preview.button")}
+            {t(isPending ? "frontend.live_preview.starting" : "frontend.live_preview.button")}
         </Button>
     )
 }

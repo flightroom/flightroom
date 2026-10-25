@@ -758,7 +758,9 @@
     "frontend": {
         "live_preview": {
             "button": "View live preview",
-            "shell_unavailable": "No live preview shell is available yet. Start an AI edit with a development server to create one."
+            "starting": "Starting live preview…",
+            "start_error": "The live preview could not be started. Please try again.",
+            "popup_blocked": "Allow pop-ups to open the live preview."
         },
         "kind": {
             "label": "Kind",

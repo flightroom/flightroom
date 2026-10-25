@@ -27,6 +27,11 @@ code repository connected (GitHub, GitLab or Azure DevOps).
 
 ## How it works
 
+**View live preview** in a frontend or domain workspace starts the default branch in an isolated
+OpenShell sandbox, without creating an AI job. On a domain it starts the connected frontend and
+backend repositories together; the preview URL is the sandbox's frontend, not a deployed environment.
+The sandbox is removed after the configured OpenShell idle period.
+
 1. The request is stored and a background job starts; the console follows it by polling.
 2. The job takes a lock on the frontend's working copy (Redis, or in-process without Redis), so
    two requests on the same repository queue instead of sharing a checkout.

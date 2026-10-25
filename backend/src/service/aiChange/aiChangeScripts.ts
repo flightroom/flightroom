@@ -341,8 +341,8 @@ export class AiChangeScriptRunner {
     }
 
     /** Start and expose this repository's development server after its dependencies are installed. */
-    async startPreview(repository: ScriptRepository) {
-        if (!this.previewsEnabled || !repository.kind || this.previewStarted.has(repository)) return
+    async startPreview(repository: ScriptRepository, throwOnFailure = false): Promise<string | undefined> {
+        if (!this.previewsEnabled || !repository.kind || this.previewStarted.has(repository)) return undefined
         this.previewStarted.add(repository)
 
         let url: string
@@ -398,9 +398,11 @@ export class AiChangeScriptRunner {
         } catch (error) {
             if (this.signal?.aborted) throw error
             await this.onPreview?.("info", `preview-failed|${repository.kind}`)
-            return
+            if (throwOnFailure) throw error
+            return undefined
         }
         await this.onPreview?.("info", `preview-ready|${repository.kind}|${repository.slug}|${encodeURIComponent(url)}`)
+        return url
     }
 
     private folderOf(sandbox: CommandSandbox, repository: ScriptRepository) {
