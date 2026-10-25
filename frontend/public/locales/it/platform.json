@@ -866,7 +866,7 @@
     "frontend": {
         "live_preview": {
             "button": "Vedi live preview",
-            "unavailable": "Questo componente non ha ancora un URL frontend deployato ed esposto."
+            "shell_unavailable": "Non c'è ancora una shell di anteprima live. Avvia una modifica con AI che usi un server di sviluppo per crearne una."
         },
         "kind": {
             "label": "Tipo",

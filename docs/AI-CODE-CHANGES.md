@@ -239,8 +239,10 @@ are the repository's code, and the console holds the repository tokens, the data
   only until the sandbox is swept after the conversation is
   idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
   the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
-  otherwise. Frontends that call a backend should use their normal local development proxy to the
-  backend's configured port.
+  otherwise. The **View live preview** button in frontend and domain workspaces opens the frontend
+  URL recorded by the latest relevant AI conversation's OpenShell shell, not a deployed environment
+  URL; it is available after that job has started the development server. Frontends that call a
+  backend should use their normal local development proxy to the backend's configured port.
 
 On Kubernetes, OpenShell needs the [Agent Sandbox](https://agent-sandbox.sigs.k8s.io) controller and a CNI
 that enforces `NetworkPolicy`: without one, the network policy is not applied. Prefer a workload template
