@@ -1,9 +1,15 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import AiChangeJob, { AiJobStatus } from "../../models/AiChangeJobModel"
+import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
 import { conversationIsIdle } from "./aiChangeSandboxes"
 
 vi.mock("../../models/AiChangeJobModel", async importOriginal => {
     const original = await importOriginal<typeof import("../../models/AiChangeJobModel")>()
+    return { ...original, default: { exists: vi.fn() } }
+})
+
+vi.mock("../../models/StandalonePreviewSessionModel", async importOriginal => {
+    const original = await importOriginal<typeof import("../../models/StandalonePreviewSessionModel")>()
     return { ...original, default: { exists: vi.fn() } }
 })
 
@@ -25,7 +31,19 @@ describe("conversationIsIdle", () => {
 
     it("Given a conversation none of whose jobs is active, then it is idle", async () => {
         vi.mocked(AiChangeJob.exists).mockResolvedValue(null)
+        vi.mocked(StandalonePreviewSession.exists).mockResolvedValue(null)
         expect(await conversationIsIdle(5 * 60_000)(CONVERSATION)).toBe(true)
+    })
+
+    it("Given a live standalone preview session, then its sandbox is kept until the session expires", async () => {
+        vi.mocked(AiChangeJob.exists).mockResolvedValue(null)
+        vi.mocked(StandalonePreviewSession.exists).mockResolvedValue({ _id: CONVERSATION } as never)
+
+        expect(await conversationIsIdle(5 * 60_000)(CONVERSATION)).toBe(false)
+        expect(StandalonePreviewSession.exists).toHaveBeenCalledWith({
+            _id: expect.objectContaining({ toString: expect.any(Function) }),
+            expiresAt: { $gt: expect.any(Date) }
+        })
     })
 
     it("Given a label that is no conversation id, then its sandbox is idle without asking the database", async () => {

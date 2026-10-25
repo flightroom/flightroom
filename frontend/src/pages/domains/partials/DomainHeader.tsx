@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import LivePreviewButton from "@/components/LivePreviewButton"
 import type { Domain } from "@/hooks/apiClients/useDomainsApi"
-import useAiShellPreviewUrl from "@/hooks/useAiShellPreviewUrl"
+import useLivePreview from "@/hooks/useLivePreview"
 import DomainBuildAndDeployButton from "./DomainBuildAndDeployDialog"
 
 interface DomainHeaderProps {
@@ -18,7 +18,7 @@ interface DomainHeaderProps {
  */
 export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active }) => {
     const { t } = useTranslation()
-    const livePreview = useAiShellPreviewUrl({ kind: "domain", id: domain._id })
+    const livePreview = useLivePreview({ kind: "domain", id: domain._id })
 
     return (
         <WorkspaceHeader
@@ -40,7 +40,7 @@ export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active }) =>
             ]}
             actions={
                 <>
-                    <LivePreviewButton url={livePreview.url} isPending={livePreview.isPending} />
+                    <LivePreviewButton start={livePreview.start} isPending={livePreview.isPending} />
                     <DomainBuildAndDeployButton domain={domain} />
                 </>
             }

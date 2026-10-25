@@ -281,14 +281,14 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         fs.rmSync(dir, { recursive: true, force: true })
     })
 
-    it("Given an enabled frontend preview, when dependencies are installed, then its dev server is started and exposed", async () => {
+    it("Given an enabled frontend preview, when started, then its dev server is started and exposed", async () => {
         const dir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
         const sandbox = recording()
         const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
         const onPreview = vi.fn()
         const runner = new AiChangeScriptRunner([repository], async () => sandbox, undefined, true, onPreview)
 
-        await runner.run(repository, "install")
+        await expect(runner.startPreview(repository)).resolves.toBe("https://preview.example.test")
 
         expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))).toEqual([
             ["sh", "-c", expect.any(String), "/sandbox/logs/shop-preview.log", "npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
@@ -365,6 +365,15 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         expect(sandbox.exec.mock.calls.some(([command]) => command.includes("uvicorn"))).toBe(true)
         expect(sandbox.exposeService).toHaveBeenCalledWith(8000, expect.stringMatching(/^preview-be-/))
         expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|backend|catalog|https%3A%2F%2Fpreview.example.test")
+        fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    it("Given a standalone preview, when no development server is configured, then the startup error can be propagated", async () => {
+        const dir = makeRepository({ "package.json": manifest({}) })
+        const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
+        const runner = new AiChangeScriptRunner([repository], async () => recording(), undefined, true)
+
+        await expect(runner.startPreview(repository, true)).rejects.toThrow("No development server is configured")
         fs.rmSync(dir, { recursive: true, force: true })
     })
 

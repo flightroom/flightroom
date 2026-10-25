@@ -8,7 +8,7 @@ import RepositoryLink from "@/components/RepositoryLink"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import TechnologyBadge from "@/components/technology/TechnologyBadge"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
-import useAiShellPreviewUrl from "@/hooks/useAiShellPreviewUrl"
+import useLivePreview from "@/hooks/useLivePreview"
 import { frontendTechnologyOf } from "@/utils/technologies"
 
 /** Edit with AI needs both an AI provider on the installation and a repository the agent can work on. */
@@ -28,7 +28,7 @@ const PAGE_TITLE_KEY: Record<FrontendHeaderProps["active"], string> = { ai: "fro
 export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active, aiAvailable, actions }) => {
     const { t } = useTranslation()
     const technology = frontendTechnologyOf(frontend)
-    const livePreview = useAiShellPreviewUrl({ kind: "frontend", frontend })
+    const livePreview = useLivePreview({ kind: "frontend", id: frontend._id })
 
     return (
         <WorkspaceHeader
@@ -53,7 +53,7 @@ export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active
             ]}
             actions={
                 <>
-                    <LivePreviewButton url={livePreview.url} isPending={livePreview.isPending} />
+                    <LivePreviewButton start={livePreview.start} isPending={livePreview.isPending} />
                     {actions}
                 </>
             }
