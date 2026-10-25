@@ -1050,6 +1050,7 @@
                 "api_for": "Backend {{name}}",
                 "for": "Live preview for {{name}}",
                 "access_warning": "Preview URLs are reachable by anyone who can access the OpenShell gateway. Use only with a trusted, isolated gateway.",
+                "starting": "Previews will appear here when the development servers are ready.",
                 "unavailable": "A development server could not be started for one of the repositories."
             },
             "script_output": "Command output",
