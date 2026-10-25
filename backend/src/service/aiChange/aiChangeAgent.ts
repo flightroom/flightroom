@@ -821,9 +821,7 @@ export class AiChangeToolbox {
                 const scripts = this.scripts
                 if (scripts) {
                     for (const repository of this.repositories) {
-                        if (repository.kind === "backend" && ["PYTHON", "JAVA", "GO", "DOTNET"].includes(repository.runtime ?? "")) {
-                            await scripts.startPreview(repository)
-                        }
+                        if (repository.kind === "backend") await scripts.startPreview(repository)
                     }
                 }
                 this.summary = readString(input, "summary")

@@ -461,6 +461,32 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|backend|catalog|https%3A%2F%2Fpreview.example.test")
     })
 
+    it("Given a domain with a Node backend, when the agent finishes, then its backend preview starts", async () => {
+        const frontendDir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
+        const backendDir = makeRepository({ "package.json": manifest({ start: "node server.js" }), "server.js": "require('http').createServer().listen(3000)" })
+        dirs.push(frontendDir, backendDir)
+        const sandbox = {
+            ...recording(),
+            exposeService: vi.fn(async () => "https://preview.example.test")
+        }
+        const onPreview = vi.fn()
+        const toolbox = new AiChangeToolbox(
+            [
+                { slug: "shop", kind: "frontend", workingCopy: workingCopyOf(frontendDir) },
+                { slug: "api", kind: "backend", runtime: "NODE", port: 3000, workingCopy: workingCopyOf(backendDir) }
+            ],
+            async () => sandbox,
+            undefined,
+            true,
+            onPreview
+        )
+
+        await expect(toolbox.run("finish", { summary: "Domain changed" })).resolves.toBe("Done.")
+        expect(sandbox.exec.mock.calls.some(([command]) => command.includes("npm") && command.includes("start"))).toBe(true)
+        expect(sandbox.exposeService).toHaveBeenCalledWith(3000, expect.stringMatching(/^preview-be-/))
+        expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|backend|api|https%3A%2F%2Fpreview.example.test")
+    })
+
     it("Given a change and a build script, when the agent finishes, then finish is refused until a build ran after the last edit", async () => {
         const dir = makeRepository({ "package.json": manifest({ build: "echo built" }), "src/a.js": "old" })
         dirs.push(dir)
