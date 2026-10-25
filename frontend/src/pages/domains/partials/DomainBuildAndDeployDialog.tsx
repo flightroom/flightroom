@@ -262,11 +262,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                 </Button>
                 <DropdownMenu>
                     <DropdownMenuTrigger asChild>
-                        <Button
-                            aria-label={t("domains.release.more_actions")}
-                            className="h-10 w-10 min-w-10 shrink-0 rounded-l-none border-l border-primary-foreground/20 px-0"
-                            dataTestId="domain-build-and-deploy-menu"
-                        >
+                        <Button aria-label={t("domains.release.more_actions")} className="h-10 w-10 min-w-10 shrink-0 rounded-l-none px-0" dataTestId="domain-build-and-deploy-menu">
                             <ChevronDown />
                         </Button>
                     </DropdownMenuTrigger>
