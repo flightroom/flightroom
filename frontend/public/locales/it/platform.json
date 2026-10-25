@@ -1158,6 +1158,7 @@
                 "api_for": "Backend {{name}}",
                 "for": "Anteprima live di {{name}}",
                 "access_warning": "Gli URL di anteprima sono raggiungibili da chiunque possa accedere al gateway OpenShell. Usali solo con un gateway fidato e isolato.",
+                "starting": "Le anteprime compariranno qui quando i server di sviluppo saranno pronti.",
                 "unavailable": "Non è stato possibile avviare il server di sviluppo per uno dei repository."
             },
             "script_output": "Output del comando",

@@ -38,7 +38,7 @@ const previewOf = (message: string): { kind: "frontend" | "backend"; slug: strin
 export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) => {
     const { t } = useTranslation()
     const [selectedFrontend, setSelectedFrontend] = useState<string>()
-    const [previewOpen, setPreviewOpen] = useState(true)
+    const [previewOpen, setPreviewOpen] = useState(false)
     const previews = new Map<string, { kind: "frontend" | "backend"; slug: string; url: string }>()
     for (const event of events) {
         const preview = previewOf(event.message)
@@ -48,7 +48,6 @@ export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) 
     const backend = [...previews.values()].filter(preview => preview.kind === "backend")
     const activeFrontend = frontend.find(preview => preview.slug === selectedFrontend) ?? frontend[0]
     const unavailable = events.some(event => event.message === "preview-failed|frontend" || event.message === "preview-failed|backend")
-    if (frontend.length === 0 && backend.length === 0 && !unavailable) return null
 
     return (
         <section aria-label={t("frontend.aiChange.preview.title")} className="overflow-hidden rounded-lg border border-divider bg-card">
@@ -99,6 +98,11 @@ export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) 
                     {unavailable && (
                         <p role="status" className="text-sm text-warning">
                             {t("frontend.aiChange.preview.unavailable")}
+                        </p>
+                    )}
+                    {frontend.length === 0 && backend.length === 0 && !unavailable && (
+                        <p role="status" className="text-sm text-muted-foreground">
+                            {t("frontend.aiChange.preview.starting")}
                         </p>
                     )}
                     {frontend.length > 1 && (
