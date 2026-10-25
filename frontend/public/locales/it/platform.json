@@ -1149,6 +1149,9 @@
             "progress_empty": "Ancora nessuna attività.",
             "preview": {
                 "title": "Anteprima live",
+                "frontend_count": "{{count}} frontend",
+                "frontend_count_plural": "{{count}} frontend",
+                "frontends_label": "Anteprime frontend",
                 "open_for": "Apri {{name}}",
                 "api_for": "Backend {{name}}",
                 "for": "Anteprima live di {{name}}",
