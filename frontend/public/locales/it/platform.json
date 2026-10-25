@@ -1149,6 +1149,8 @@
             "progress_empty": "Ancora nessuna attività.",
             "preview": {
                 "title": "Anteprima live",
+                "show": "Vedi anteprima",
+                "hide": "Nascondi anteprima",
                 "frontend_count": "{{count}} frontend",
                 "frontend_count_plural": "{{count}} frontend",
                 "frontends_label": "Anteprime frontend",

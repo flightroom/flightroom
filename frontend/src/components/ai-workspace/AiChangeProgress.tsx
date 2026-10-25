@@ -4,7 +4,7 @@ import { Brain, ChevronDown, ExternalLink, Monitor, Server } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { IBadgeProps } from "@/components/atoms"
-import { Badge } from "@/components/atoms"
+import { Badge, Button } from "@/components/atoms"
 import type { AiChangeEvent, AiChangeStatus } from "@/hooks/apiClients/useAiChangesApi"
 
 const STATUS_VARIANT: Record<AiChangeStatus, IBadgeProps["variant"]> = {
@@ -38,6 +38,7 @@ const previewOf = (message: string): { kind: "frontend" | "backend"; slug: strin
 export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) => {
     const { t } = useTranslation()
     const [selectedFrontend, setSelectedFrontend] = useState<string>()
+    const [previewOpen, setPreviewOpen] = useState(true)
     const previews = new Map<string, { kind: "frontend" | "backend"; slug: string; url: string }>()
     for (const event of events) {
         const preview = previewOf(event.message)
@@ -50,76 +51,81 @@ export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) 
     if (frontend.length === 0 && backend.length === 0 && !unavailable) return null
 
     return (
-        <details open className="group overflow-hidden rounded-lg border border-divider bg-card">
-            <summary className="flex cursor-pointer list-none flex-wrap items-center justify-between gap-3 px-4 py-3 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">
+        <section aria-label={t("frontend.aiChange.preview.title")} className="overflow-hidden rounded-lg border border-divider bg-card">
+            <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3">
                 <span className="flex items-center gap-2 text-sm font-semibold">
                     <Monitor className="size-4" aria-hidden="true" />
                     {t("frontend.aiChange.preview.title")}
                     {frontend.length > 0 && <span className="text-xs font-normal text-muted-foreground">{t("frontend.aiChange.preview.frontend_count", { count: frontend.length })}</span>}
                 </span>
-                <ChevronDown className="size-4 text-muted-foreground transition-transform group-open:rotate-180" aria-hidden="true" />
-            </summary>
-            <div className="flex flex-col gap-3 border-t border-divider p-3 sm:p-4">
-                {backend.length > 0 && (
-                    <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        {backend.map(preview => (
+                <Button type="button" variant="secondary" size="sm" aria-expanded={previewOpen} aria-controls="ai-live-preview-content" onClick={() => setPreviewOpen(open => !open)}>
+                    {previewOpen ? t("frontend.aiChange.preview.hide") : t("frontend.aiChange.preview.show")}
+                    <ChevronDown className={`size-4 transition-transform ${previewOpen ? "rotate-180" : ""}`} aria-hidden="true" />
+                </Button>
+            </div>
+            {previewOpen && (
+                <div id="ai-live-preview-content" className="flex flex-col gap-3 border-t border-divider p-3 sm:p-4">
+                    {backend.length > 0 && (
+                        <div className="flex flex-wrap gap-x-4 gap-y-2">
+                            {backend.map(preview => (
+                                <a
+                                    key={preview.slug}
+                                    href={preview.url}
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="inline-flex items-center gap-1 text-xs font-medium text-primary-strong underline-offset-4 hover:underline"
+                                >
+                                    <Server className="size-3.5" aria-hidden="true" />
+                                    {t("frontend.aiChange.preview.api_for", { name: preview.slug })}
+                                    <ExternalLink className="size-3" aria-hidden="true" />
+                                </a>
+                            ))}
+                        </div>
+                    )}
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                        <p className="text-xs text-muted-foreground">{t("frontend.aiChange.preview.access_warning")}</p>
+                        {activeFrontend && (
                             <a
-                                key={preview.slug}
-                                href={preview.url}
+                                href={activeFrontend.url}
                                 target="_blank"
                                 rel="noopener noreferrer"
-                                className="inline-flex items-center gap-1 text-xs font-medium text-primary-strong underline-offset-4 hover:underline"
+                                className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary-strong underline-offset-4 hover:underline"
                             >
-                                <Server className="size-3.5" aria-hidden="true" />
-                                {t("frontend.aiChange.preview.api_for", { name: preview.slug })}
-                                <ExternalLink className="size-3" aria-hidden="true" />
+                                {t("frontend.aiChange.preview.open_for", { name: activeFrontend.slug })}
+                                <ExternalLink className="size-3.5" aria-hidden="true" />
                             </a>
-                        ))}
+                        )}
                     </div>
-                )}
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                    <p className="text-xs text-muted-foreground">{t("frontend.aiChange.preview.access_warning")}</p>
+                    {unavailable && (
+                        <p role="status" className="text-sm text-warning">
+                            {t("frontend.aiChange.preview.unavailable")}
+                        </p>
+                    )}
+                    {frontend.length > 1 && (
+                        <Tabs value={activeFrontend?.slug} onValueChange={setSelectedFrontend} layoutSize="sm">
+                            <TabsList aria-label={t("frontend.aiChange.preview.frontends_label")} className="max-w-full">
+                                {frontend.map(preview => (
+                                    <TabsTrigger key={preview.slug} value={preview.slug} className="max-w-48">
+                                        <span className="truncate">{preview.slug}</span>
+                                    </TabsTrigger>
+                                ))}
+                            </TabsList>
+                        </Tabs>
+                    )}
                     {activeFrontend && (
-                        <a
-                            href={activeFrontend.url}
-                            target="_blank"
-                            rel="noopener noreferrer"
-                            className="inline-flex shrink-0 items-center gap-1 text-xs font-medium text-primary-strong underline-offset-4 hover:underline"
-                        >
-                            {t("frontend.aiChange.preview.open_for", { name: activeFrontend.slug })}
-                            <ExternalLink className="size-3.5" aria-hidden="true" />
-                        </a>
+                        <iframe
+                            key={activeFrontend.slug}
+                            src={activeFrontend.url}
+                            title={t("frontend.aiChange.preview.for", { name: activeFrontend.slug })}
+                            sandbox="allow-scripts allow-same-origin allow-forms"
+                            referrerPolicy="no-referrer"
+                            loading="lazy"
+                            className="h-[min(65vh,44rem)] min-h-72 w-full rounded-md border border-divider bg-background"
+                        />
                     )}
                 </div>
-                {unavailable && (
-                    <p role="status" className="text-sm text-warning">
-                        {t("frontend.aiChange.preview.unavailable")}
-                    </p>
-                )}
-                {frontend.length > 1 && (
-                    <Tabs value={activeFrontend?.slug} onValueChange={setSelectedFrontend} layoutSize="sm">
-                        <TabsList aria-label={t("frontend.aiChange.preview.frontends_label")} className="max-w-full">
-                            {frontend.map(preview => (
-                                <TabsTrigger key={preview.slug} value={preview.slug} className="max-w-48">
-                                    <span className="truncate">{preview.slug}</span>
-                                </TabsTrigger>
-                            ))}
-                        </TabsList>
-                    </Tabs>
-                )}
-                {activeFrontend && (
-                    <iframe
-                        key={activeFrontend.slug}
-                        src={activeFrontend.url}
-                        title={t("frontend.aiChange.preview.for", { name: activeFrontend.slug })}
-                        sandbox="allow-scripts allow-same-origin allow-forms"
-                        referrerPolicy="no-referrer"
-                        loading="lazy"
-                        className="h-[min(65vh,44rem)] min-h-72 w-full rounded-md border border-divider bg-background"
-                    />
-                )}
-            </div>
-        </details>
+            )}
+        </section>
     )
 }
 

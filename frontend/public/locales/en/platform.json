@@ -1041,6 +1041,8 @@
             "progress_empty": "No activity yet.",
             "preview": {
                 "title": "Live preview",
+                "show": "Show preview",
+                "hide": "Hide preview",
                 "frontend_count": "{{count}} frontend",
                 "frontend_count_plural": "{{count}} frontends",
                 "frontends_label": "Frontend previews",
