@@ -864,6 +864,10 @@
         "max_length_other": "Massimo {{count}} caratteri"
     },
     "frontend": {
+        "live_preview": {
+            "button": "Vedi live preview",
+            "unavailable": "Questo componente non ha ancora un URL frontend deployato ed esposto."
+        },
         "kind": {
             "label": "Tipo",
             "bundle": "Bundle",
