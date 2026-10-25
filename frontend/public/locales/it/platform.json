@@ -2792,6 +2792,8 @@
             "backends": "Backend",
             "maintenance": "Manutenzione"
         },
+        "expand_sidebar": "Espandi la barra laterale",
+        "collapse_sidebar": "Comprimi la barra laterale",
         "top_menu": "Menu del progetto"
     },
     "variableMaps": {

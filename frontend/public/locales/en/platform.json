@@ -2773,6 +2773,8 @@
             "backends": "Backend",
             "maintenance": "Maintenance"
         },
+        "expand_sidebar": "Expand sidebar",
+        "collapse_sidebar": "Collapse sidebar",
         "top_menu": "Project menu"
     },
     "variableMaps": {
