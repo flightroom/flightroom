@@ -233,8 +233,9 @@ are the repository's code, and the console holds the repository tokens, the data
   runtimes and build tools needed by your projects. Unknown or unsupported frameworks are not guessed.
   Changed files are synced into the sandbox, and preview links and the embedded frontend appear in
   **Edit with AI**. For domain edits, each conversation turn shows the previews of its repositories;
-  select a frontend to switch the embedded view, and use the backend links to open APIs. Previews are
-  enabled by default; set `OPENSHELL_PREVIEWS_ENABLED=false` to disable them. The preview process runs
+  backend previews are started when the agent finishes so frontends can call their APIs; select a
+  frontend to switch the embedded view, and use the backend links to open APIs. Previews are enabled
+  by default; set `OPENSHELL_PREVIEWS_ENABLED=false` to disable them. The preview process runs
   only until the sandbox is swept after the conversation is
   idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
   the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
