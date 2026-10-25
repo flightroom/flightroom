@@ -11,8 +11,8 @@ const LivePreviewButton: React.FC<{ url?: string; isPending?: boolean }> = ({ ur
             type="button"
             variant="secondary"
             disabled={disabled}
-            title={disabled && !isPending ? t("frontend.live_preview.unavailable") : undefined}
-            aria-label={disabled && !isPending ? `${t("frontend.live_preview.button")}: ${t("frontend.live_preview.unavailable")}` : undefined}
+            title={disabled && !isPending ? t("frontend.live_preview.shell_unavailable") : undefined}
+            aria-label={disabled && !isPending ? `${t("frontend.live_preview.button")}: ${t("frontend.live_preview.shell_unavailable")}` : undefined}
             onClick={() => {
                 if (url) window.open(url, "_blank", "noopener,noreferrer")
             }}

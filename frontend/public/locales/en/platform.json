@@ -758,7 +758,7 @@
     "frontend": {
         "live_preview": {
             "button": "View live preview",
-            "unavailable": "No deployed frontend URL is exposed for this component yet."
+            "shell_unavailable": "No live preview shell is available yet. Start an AI edit with a development server to create one."
         },
         "kind": {
             "label": "Kind",
