@@ -2515,6 +2515,7 @@
         },
         "release": {
             "action": "Build e deploy",
+            "more_actions": "Opzioni build e deploy",
             "no_domain": "Aggiungilo a un dominio per fare build e deploy",
             "title": "Build e deploy di {{domain}}",
             "description": "Crea la versione come fa Crea versione, attende che la pipeline di ogni repository taggato la registri, la imposta come versione di quei frontend e backend, poi esegue il deploy del dominio sull'ambiente scelto. La console va avanti anche se chiudi questa finestra.",

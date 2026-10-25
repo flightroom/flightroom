@@ -2496,6 +2496,7 @@
         },
         "release": {
             "action": "Build and deploy",
+            "more_actions": "Build and deploy options",
             "no_domain": "Add it to a domain to build and deploy it",
             "title": "Build and deploy {{domain}}",
             "description": "Creates the version as Create version does, waits for the pipeline of every tagged repository to register it, sets it as the version of those frontends and backends, then deploys the domain to the environment picked. The console goes on with it even if you close this window.",

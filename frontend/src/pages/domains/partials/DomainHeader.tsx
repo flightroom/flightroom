@@ -5,8 +5,6 @@ import LivePreviewButton from "@/components/LivePreviewButton"
 import type { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useAiShellPreviewUrl from "@/hooks/useAiShellPreviewUrl"
 import DomainBuildAndDeployButton from "./DomainBuildAndDeployDialog"
-import DomainBuildButton from "./DomainBuildDialog"
-import DomainDeployButton from "./DomainDeployDialog"
 
 interface DomainHeaderProps {
     domain: Domain
@@ -44,8 +42,6 @@ export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active }) =>
                 <>
                     <LivePreviewButton url={livePreview.url} isPending={livePreview.isPending} />
                     <DomainBuildAndDeployButton domain={domain} />
-                    <DomainDeployButton domain={domain} />
-                    <DomainBuildButton domain={domain} />
                 </>
             }
         />

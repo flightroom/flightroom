@@ -48,11 +48,20 @@ export const DomainBuildOutcomes: React.FC<{ result: DomainBuildResult }> = ({ r
  * with the same version on the same branch, and each tag starts the pipeline of its repository. The backend
  * checks every repository first and tags none when one fails: the outcome of each is listed after the submit.
  */
-export const DomainBuildButton: React.FC<{ domain: Domain }> = ({ domain }) => {
+interface DomainBuildButtonProps {
+    domain: Domain
+    open?: boolean
+    onOpenChange?: (open: boolean) => void
+    showTrigger?: boolean
+}
+
+export const DomainBuildButton: React.FC<DomainBuildButtonProps> = ({ domain, open, onOpenChange, showTrigger = true }) => {
     const { t } = useTranslation()
     const domainsApi = useDomainsApi()
     const notifications = useToastNotificationStore()
-    const [open, setOpen] = useState(false)
+    const [internalOpen, setInternalOpen] = useState(false)
+    const dialogOpen = open ?? internalOpen
+    const setDialogOpen = onOpenChange ?? setInternalOpen
     const [result, setResult] = useState<DomainBuildResult | undefined>()
     const isViewer = useIsProjectViewer()
 
@@ -81,7 +90,7 @@ export const DomainBuildButton: React.FC<{ domain: Domain }> = ({ domain }) => {
 
     const changeOpen = (value: boolean) => {
         if (submitting) return
-        setOpen(value)
+        setDialogOpen(value)
         if (!value) {
             setResult(undefined)
             form.reset()
@@ -93,11 +102,13 @@ export const DomainBuildButton: React.FC<{ domain: Domain }> = ({ domain }) => {
 
     return (
         <>
-            <Button variant="secondary" onClick={() => setOpen(true)} dataTestId="domain-build">
-                <Hammer />
-                {t("domains.build.action")}
-            </Button>
-            <Dialog open={open} onOpenChange={changeOpen}>
+            {showTrigger && (
+                <Button variant="secondary" onClick={() => setDialogOpen(true)} dataTestId="domain-build">
+                    <Hammer />
+                    {t("domains.build.action")}
+                </Button>
+            )}
+            <Dialog open={dialogOpen} onOpenChange={changeOpen}>
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{t("domains.build.title", { domain: domain.name })}</DialogTitle>

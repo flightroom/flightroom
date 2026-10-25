@@ -1,7 +1,20 @@
-import { Alert, AlertDescription, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@flightroom/design-system"
+import {
+    Alert,
+    AlertDescription,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Check, Circle, Loader2, Workflow, X } from "lucide-react"
+import { AlertTriangle, Check, ChevronDown, Circle, Hammer, Loader2, Rocket, Workflow, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -17,7 +30,8 @@ import ProviderRunLink from "@/pages/builds/partials/ProviderRunLink"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { cn } from "@/utils/styleUtils"
-import { DomainBuildOutcomes, VERSION } from "./DomainBuildDialog"
+import DomainBuildButton, { DomainBuildOutcomes, VERSION } from "./DomainBuildDialog"
+import DomainDeployButton from "./DomainDeployDialog"
 
 /** How often a running release is read again */
 const POLL_EVERY_MS = 5_000
@@ -59,6 +73,8 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const isViewer = useIsProjectViewer()
     const { getBuildStatus } = useBuildsApi()
     const [open, setOpen] = useState(false)
+    const [buildOpen, setBuildOpen] = useState(false)
+    const [deployOpen, setDeployOpen] = useState(false)
     const [environment, setEnvironment] = useState<EnvironmentDTO | undefined>()
     /** The refusal of the build's check, repository by repository */
     const [refusal, setRefusal] = useState<DomainBuildResult | undefined>()
@@ -239,10 +255,31 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
 
     return (
         <>
-            <Button onClick={() => setOpen(true)} disabled={environments.length === 0} dataTestId="domain-build-and-deploy">
-                {running ? <Loader2 className="animate-spin" /> : <Workflow />}
-                {t("domains.release.action")}
-            </Button>
+            <div className="inline-flex">
+                <Button onClick={() => setOpen(true)} disabled={environments.length === 0} className="rounded-r-none" dataTestId="domain-build-and-deploy">
+                    {running ? <Loader2 className="animate-spin" /> : <Workflow />}
+                    {t("domains.release.action")}
+                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button aria-label={t("domains.release.more_actions")} className="rounded-l-none border-l border-primary-foreground/20 px-2" dataTestId="domain-build-and-deploy-menu">
+                            <ChevronDown />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => setDeployOpen(true)} disabled={environments.length === 0} dataTestId="domain-deploy-menu-item">
+                            <Rocket className="mr-2 h-4 w-4" />
+                            {t("domains.deploy.action")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setBuildOpen(true)} dataTestId="domain-build-menu-item">
+                            <Hammer className="mr-2 h-4 w-4" />
+                            {t("domains.build.action")}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <DomainDeployButton domain={domain} open={deployOpen} onOpenChange={setDeployOpen} showTrigger={false} />
+            <DomainBuildButton domain={domain} open={buildOpen} onOpenChange={setBuildOpen} showTrigger={false} />
             <Dialog open={open} onOpenChange={changeOpen}>
                 <DialogContent>
                     <DialogHeader>
