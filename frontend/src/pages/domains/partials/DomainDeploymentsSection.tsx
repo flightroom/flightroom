@@ -5,10 +5,11 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
 import { DeployedFrontend, DomainDeployments, EnvironmentDeployment } from "@/hooks/apiClients/useDomainDeploymentsApi"
-import { CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { CanaryType, type Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { exposedOrigin, useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useThemeStore from "@/store/useThemeStore"
+import { servingContainers } from "@/utils/livePreview"
 
 interface DeployedVersionProps {
     version: string | null
@@ -54,30 +55,6 @@ export const EnvironmentHeading: React.FC<{ entry: EnvironmentDeployment }> = ({
             </span>
         </div>
     )
-}
-
-/**
- * The DOCKER frontends that serve a frontend: itself when it is one, else the first DOCKER up each line of its
- * parents, since a bundle is loaded by the host that mounts it. A loop in the relations is walked once.
- */
-export const servingContainers = (frontend: Frontend, frontends: Frontend[]): Frontend[] => {
-    const byId = new Map(frontends.map(candidate => [candidate._id, candidate]))
-    const found: Frontend[] = []
-    const seen = new Set<string>()
-    const visit = (current: Frontend) => {
-        if (!current._id || seen.has(current._id)) return
-        seen.add(current._id)
-        if (current.kind === FrontendKind.DOCKER) {
-            found.push(current)
-            return
-        }
-        for (const parentId of current.parentIds ?? []) {
-            const parent = byId.get(parentId)
-            if (parent) visit(parent)
-        }
-    }
-    visit(frontend)
-    return found
 }
 
 /** Where a frontend is reached in an environment: the URL of each DOCKER serving it, with the parent named when it is not the frontend itself */

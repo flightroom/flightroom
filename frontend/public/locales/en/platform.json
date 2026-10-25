@@ -756,6 +756,10 @@
         "go_to_login": "Go to login"
     },
     "frontend": {
+        "live_preview": {
+            "button": "View live preview",
+            "unavailable": "No deployed frontend URL is exposed for this component yet."
+        },
         "kind": {
             "label": "Kind",
             "bundle": "Bundle",
