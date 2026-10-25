@@ -224,7 +224,7 @@ are the repository's code, and the console holds the repository tokens, the data
   next to it, so the token is as exposed as on a developer's laptop: give it read access to the feed only.
 - **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
   6,000 characters of the output; 300 MB copied per repository.
-- **Live previews.** Set `OPENSHELL_PREVIEWS_ENABLED=true` to start frontend development scripts (`dev`,
+- **Live previews.** When OpenShell is configured, frontend development scripts (`dev`,
   `start` or `serve`) for React, Vue and Angular, and backend servers for Node.js, FastAPI/Flask/Django,
   Spring Boot/Quarkus/Micronaut, Go and .NET. Frontends use port 5173; backends use their configured port.
   Python requirements are installed from `requirements.txt` or `pyproject.toml`; Java build tools, Go and
@@ -232,7 +232,10 @@ are the repository's code, and the console holds the repository tokens, the data
   image only contains Node.js: use `OPENSHELL_SANDBOX_TEMPLATE` or `OPENSHELL_SANDBOX_IMAGE` with the
   runtimes and build tools needed by your projects. Unknown or unsupported frameworks are not guessed.
   Changed files are synced into the sandbox, and preview links and the embedded frontend appear in
-  **Edit with AI**. The preview process runs only until the sandbox is swept after the conversation is
+  **Edit with AI**. For domain edits, each conversation turn shows the previews of its repositories;
+  select a frontend to switch the embedded view, and use the backend links to open APIs. Previews are
+  enabled by default; set `OPENSHELL_PREVIEWS_ENABLED=false` to disable them. The preview process runs
+  only until the sandbox is swept after the conversation is
   idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
   the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
   otherwise. Frontends that call a backend should use their normal local development proxy to the
@@ -262,7 +265,7 @@ on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime clas
 | `OPENSHELL_REGISTRY_HOSTS`       | npm, Maven, PyPI, Go, NuGet | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
 | `OPENSHELL_NETWORK_BINARY`       | Node, Java, Python, Go, .NET | Comma separated executables allowed to reach them: their real paths, not symlinks. |
 | `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is deleted once its conversation has been idle this long.              |
-| `OPENSHELL_PREVIEWS_ENABLED`     | `false`                 | Starts and exposes development servers; only enable on a trusted, isolated gateway. |
+| `OPENSHELL_PREVIEWS_ENABLED`     | `true`                  | Starts and exposes development servers; set `false` to disable. Preview URLs are public to anyone who can reach the gateway. |
 
 The SDK is published on GitHub Packages, which asks for a token even to read a public package. To build
 the images yourself, pass one with `read:packages` as the build secret `npm_token`:
