@@ -258,14 +258,15 @@ const pathSlugs = (components: RepositoryComponent[]) => {
 const AGENT_VISIBLE_FIELDS: Record<string, string[]> = {
     api: ["baseUrl", "specUrl", "tokenUrl", "in", "name"],
     ai: ["model"],
-    smtp: ["host", "port", "security", "from"]
+    smtp: ["host", "port", "security", "from"],
+    cosmosdb: ["endpoint", "database", "containerName"]
 }
 
 /** What is read of a resource for the agent: never its credentials, an override of an environment nor its pasted document */
-const AGENT_RESOURCE_PROJECTION = "name type variant envPrefix customFields description values.field values.value apiSpecBytes"
+const AGENT_RESOURCE_PROJECTION = "name type variant envPrefix customFields description context values.field values.value apiSpecBytes"
 
 /** What the agent is told of a resource: its variables by name, and the value every environment shares of the visible fields */
-const toAgentResource = (resource: Pick<IResource, "name" | "type" | "variant" | "envPrefix" | "customFields" | "description" | "values" | "apiSpecBytes">): AiChangeAgentResource => {
+const toAgentResource = (resource: Pick<IResource, "name" | "type" | "variant" | "envPrefix" | "customFields" | "description" | "context" | "values" | "apiSpecBytes">): AiChangeAgentResource => {
     const variant = resourceVariant(resource.type, resource.variant, resource.customFields)
     // Checked against the catalog too: a field that is a credential is never shown, whichever list it was found in
     const visible = new Set((AGENT_VISIBLE_FIELDS[resource.type] ?? []).filter(field => variant?.fields.some(spec => spec.name === field && !spec.secret)))
@@ -275,6 +276,7 @@ const toAgentResource = (resource: Pick<IResource, "name" | "type" | "variant" |
         type: resource.type,
         variant: resource.variant,
         ...(resource.description ? { description: resource.description } : {}),
+        ...(resource.context ? { context: resource.context } : {}),
         keys: resourceEnvKeys(resource).map(({ key, field, secret, required, value }) => ({ key, ...(field !== undefined && { field }), secret, required, ...(value !== undefined && { value }) })),
         ...(Object.keys(values).length ? { values } : {}),
         ...(resource.type === "api" && resource.apiSpecBytes ? { apiSpec: true } : {})

@@ -1172,7 +1172,7 @@ describe("AiChangeJobService", () => {
                 // Read with projections that leave the credentials, the overrides and the document out
                 expect(firstQuery(Resource.find)).toEqual([
                     { _id: { $in: [String(databaseId), String(apiId)] }, projectId },
-                    "name type variant envPrefix customFields description values.field values.value apiSpecBytes"
+                    "name type variant envPrefix customFields description context values.field values.value apiSpecBytes"
                 ])
                 expect(firstQuery(ConfigMap.find)).toEqual([{ _id: { $in: [String(configMapId)] }, projectId }, "name entries.key"])
                 expect(firstQuery(Secret.find)).toEqual([{ _id: { $in: [String(secretId)] }, projectId }, "name entries.key"])

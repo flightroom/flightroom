@@ -170,9 +170,10 @@ at most.
 
 ## Resources
 
-A **resource** is a package of environment variables of a catalog type (`database`, `mongodb`, `bigquery`, `storage`,
-`redis`, `serviceAccount`, `auth0`, `api`, `ai`, `smtp`, `generic`) that backends attach by id
-(`resourceIds`); a frontend never does. A `generic` resource (variant `custom`) is for anything the catalog
+A **resource** is a package of environment variables of a catalog type (`database`, `mongodb`, `cosmosdb`, `bigquery`,
+`storage`, `redis`, `serviceAccount`, `auth0`, `api`, `ai`, `smtp`, `generic`) that backends attach by id
+(`resourceIds`); a frontend never does. Its `context`, markdown of at most 20,000 characters, is what the team writes
+for AI agents about it: Edit with AI tells it to the agents working on the backends that attach it. A `generic` resource (variant `custom`) is for anything the catalog
 lacks: it defines its own variables in `customFields` (`[{ name, secret }]`, at most 100, each set as
 `<prefix>_<name>`, all optional), whose values go in `fields` by name like any other. Each one becomes a Kubernetes Secret named `<name>.resource` at the next GitOps deploy.
 

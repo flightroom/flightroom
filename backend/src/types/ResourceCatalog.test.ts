@@ -60,6 +60,22 @@ describe("resourceEnvKeys", () => {
         ])
     })
 
+    it("given a Cosmos DB reached by its managed identity, when its variables are derived, then endpoint and database are required, the client id and the container optional, and the variant is the AUTH one", () => {
+        expect(resourceEnvKeys({ name: "orders", type: "cosmosdb", variant: "azureManagedIdentity" })).toEqual([
+            { key: "COSMOS_ORDERS_ENDPOINT", field: "endpoint", secret: false, required: true },
+            { key: "COSMOS_ORDERS_DATABASE", field: "database", secret: false, required: true },
+            { key: "COSMOS_ORDERS_CONTAINER", field: "containerName", secret: false, required: false },
+            { key: "COSMOS_ORDERS_CLIENT_ID", field: "clientId", secret: false, required: false },
+            { key: "COSMOS_ORDERS_AUTH", secret: false, required: true, value: "azureManagedIdentity" }
+        ])
+    })
+
+    it("given a Cosmos DB by account key, when its variables are derived, then the key is the one credential", () => {
+        expect(resourceEnvKeys({ name: "orders", type: "cosmosdb", variant: "accountKey" }).filter(({ secret }) => secret)).toEqual([
+            { key: "COSMOS_ORDERS_KEY", field: "accountKey", secret: true, required: true }
+        ])
+    })
+
     it("given a storage on AWS, when its variables are derived, then the provider is among them with its fixed value", () => {
         expect(resourceEnvKeys({ name: "media", type: "storage", variant: "aws" })).toContainEqual({ key: "STORAGE_MEDIA_PROVIDER", secret: false, required: true, value: "AWS" })
     })

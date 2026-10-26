@@ -368,7 +368,8 @@ describe("ResourceService.create", () => {
         ["a variant that is not text", { variant: 3 }, "RESOURCE_VARIANT_INVALID"],
         ["an invalid name", { name: "orders_db" }, "RESOURCE_NAME_INVALID"],
         ["an invalid prefix", { envPrefix: "1DB" }, "RESOURCE_ENV_PREFIX_INVALID"],
-        ["a description too long", { description: "x".repeat(2001) }, "RESOURCE_DESCRIPTION_INVALID"]
+        ["a description too long", { description: "x".repeat(2001) }, "RESOURCE_DESCRIPTION_INVALID"],
+        ["an AI context too long", { context: "x".repeat(20_001) }, "RESOURCE_CONTEXT_INVALID"]
     ])("given %s, when it is created, then it is refused and nothing is written", async (_case, dto, code) => {
         await expect(createResource(dto)).rejects.toMatchObject({ code })
         expect(create).not.toHaveBeenCalled()

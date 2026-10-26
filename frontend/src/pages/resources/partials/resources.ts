@@ -71,6 +71,7 @@ export interface ResourceFieldFormValue {
 export interface ResourceFormValues {
     name: string
     description: string
+    context: string
     type: string
     variant: string
     envPrefix: string
@@ -133,6 +134,7 @@ export const toFormFields = (spec: ResourceTypeSpec | undefined, environments: E
 export const toFormValues = (spec: ResourceTypeSpec | undefined, environments: EnvironmentDTO[], resource?: Resource): ResourceFormValues => ({
     name: resource?.name ?? "",
     description: resource?.description ?? "",
+    context: resource?.context ?? "",
     type: resource?.type ?? spec?.type ?? "",
     variant: resource?.variant ?? spec?.variants[0]?.id ?? "",
     envPrefix: resource?.envPrefix ?? "",

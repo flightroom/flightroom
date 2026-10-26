@@ -5,7 +5,7 @@ import { DatabaseType } from "../models/DatabaseModel"
  * attaches the resource: the platform knows its fields, so it names the variables and keeps the
  * credentials among them encrypted, where a config map or a secret leaves both to whoever fills it.
  */
-export type ResourceType = "database" | "mongodb" | "bigquery" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "generic"
+export type ResourceType = "database" | "mongodb" | "cosmosdb" | "bigquery" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "generic"
 
 /** How the console asks for a field; the backend checks number, boolean, select, url and email against it too */
 export type ResourceFieldInput = "text" | "number" | "boolean" | "select" | "multiline" | "url" | "email"
@@ -86,6 +86,18 @@ const azureSqlVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVaria
     fixed: { ENGINE: DatabaseType.SQLSERVER, AUTH: id }
 })
 
+/** A Cosmos DB account reached at its endpoint: the variant is the way to authenticate, which the client reads rather than guesses */
+const cosmosVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
+    id,
+    fields: [
+        field("endpoint", "ENDPOINT", { input: "url", connection: true }),
+        field("database", "DATABASE", { connection: true }),
+        field("containerName", "CONTAINER", { required: false }),
+        ...fields
+    ],
+    fixed: { AUTH: id }
+})
+
 /** An SMTP server, by the fields both variants share: where it is, how the connection is secured, who mail comes from */
 const smtpServer = [
     field("host", "HOST", { connection: true }),
@@ -153,6 +165,25 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
                     field("tls", "TLS", { input: "boolean", required: false, default: "false" })
                 ]
             }
+        ]
+    },
+    /**
+     * An Azure Cosmos DB account through its NoSQL API: by account key, connection string, an Entra ID app or the
+     * identity of the pod. The API for MongoDB is reached as a mongodb resource, with the connection string it gives
+     */
+    cosmosdb: {
+        type: "cosmosdb",
+        envPrefix: "COSMOS",
+        variants: [
+            cosmosVariant("accountKey", [secret("accountKey", "KEY")]),
+            {
+                id: "connectionString",
+                fields: [secret("connectionString", "CONNECTION_STRING"), field("database", "DATABASE"), field("containerName", "CONTAINER", { required: false })],
+                fixed: { AUTH: "connectionString" }
+            },
+            cosmosVariant("azureAad", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET")]),
+            // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
+            cosmosVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
         ]
     },
     /**

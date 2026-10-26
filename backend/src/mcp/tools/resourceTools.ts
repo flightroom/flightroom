@@ -141,6 +141,13 @@ export const resourceTools = [
             type: z.enum(Object.keys(RESOURCE_CATALOG) as [ResourceType, ...ResourceType[]]).describe("Fixed once created"),
             variant: z.string().min(1).max(100).describe("A variant of the type, from resource_types_list"),
             description: z.string().max(2000).optional(),
+            context: z
+                .string()
+                .max(20_000)
+                .optional()
+                .describe(
+                    "Markdown for AI agents about the resource: what it holds, its conventions, how to use it. Edit with AI tells it to the agents working on the backends that attach it; blank removes it"
+                ),
             envPrefix: z.string().max(191).nullable().optional().describe("Prefix of its variables in place of the one derived from type and name, e.g. DB_ORDERS"),
             customFields,
             fields: fields.optional(),
@@ -155,7 +162,7 @@ export const resourceTools = [
         name: "resource_update",
         title: "Update resource",
         description:
-            "Changes the name, variant, description, prefix, variables of a generic (customFields) or some fields of a resource: a field left out keeps its value, credentials included, which are set from the console only. A change of variant drops the fields the new one does not have. A change of variant or of where the resource connects (its host, URL...) is refused while it has stored credentials: those must be typed again, in the console.",
+            "Changes the name, variant, description, AI context, prefix, variables of a generic (customFields) or some fields of a resource: a field left out keeps its value, credentials included, which are set from the console only. A change of variant drops the fields the new one does not have. A change of variant or of where the resource connects (its host, URL...) is refused while it has stored credentials: those must be typed again, in the console.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
@@ -163,6 +170,13 @@ export const resourceTools = [
             name: name.optional(),
             variant: z.string().min(1).max(100).optional(),
             description: z.string().max(2000).optional(),
+            context: z
+                .string()
+                .max(20_000)
+                .optional()
+                .describe(
+                    "Markdown for AI agents about the resource: what it holds, its conventions, how to use it. Edit with AI tells it to the agents working on the backends that attach it; blank removes it"
+                ),
             envPrefix: z.string().max(191).nullable().optional(),
             customFields,
             fields: fields.optional(),

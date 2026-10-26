@@ -4,6 +4,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import { CONTEXT_MAX_LENGTH } from "../models/ProjectModel"
 import Resource, { IResource, IResourceValue } from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import {
@@ -50,7 +51,7 @@ export interface NormalizedResourceValue {
 }
 
 /** What a caller may write on a resource, checked; an apiSpec of null removes the stored one */
-type ResourceFields = Partial<Pick<IResource, "name" | "type" | "variant" | "description" | "envPrefix" | "customFields" | "apiSpecBytes">> & {
+type ResourceFields = Partial<Pick<IResource, "name" | "type" | "variant" | "description" | "context" | "envPrefix" | "customFields" | "apiSpecBytes">> & {
     values?: NormalizedResourceValue[]
     secrets?: NormalizedResourceValue[]
     apiSpec?: string | null
@@ -371,7 +372,7 @@ export class ResourceService extends BaseAuthorizedService {
      * `$push` included, never reaches Mongo, where it would skip the checks below and the encryption.
      */
     private async normalize(dto: Partial<ResourceDTO>, projectId: Schema.Types.ObjectId, existing?: IResource): Promise<ResourceFields> {
-        const { name: typedName, type, variant: typedVariant, description, envPrefix: typedPrefix, fields: typedFields, customFields: typedCustomFields } = (dto ?? {}) as Partial<ResourceDTO>
+        const { name: typedName, type, variant: typedVariant, description, context, envPrefix: typedPrefix, fields: typedFields, customFields: typedCustomFields } = (dto ?? {}) as Partial<ResourceDTO>
         const fields: ResourceFields = {}
 
         if (typedName !== undefined) {
@@ -389,6 +390,12 @@ export class ResourceService extends BaseAuthorizedService {
                 throw createBusinessException({ code: "RESOURCE_DESCRIPTION_INVALID", message: `The description must be text of at most ${MAX_DESCRIPTION_LENGTH} characters` })
             }
             fields.description = description
+        }
+        if (context !== undefined) {
+            if (typeof context !== "string" || context.length > CONTEXT_MAX_LENGTH) {
+                throw createBusinessException({ code: "RESOURCE_CONTEXT_INVALID", message: `The AI context must be text of at most ${CONTEXT_MAX_LENGTH} characters` })
+            }
+            fields.context = context
         }
         if (typedPrefix !== undefined) {
             const prefix = typeof typedPrefix === "string" ? typedPrefix.trim().toUpperCase() : typedPrefix
