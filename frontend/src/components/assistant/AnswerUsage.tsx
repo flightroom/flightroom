@@ -2,6 +2,7 @@ import { Coins } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import type { AssistantUsage } from "@/store/useAssistantStore"
 import type { LlmEffort } from "@/types/ConfigResponseDTO"
+import CostChip from "./CostChip"
 
 interface AnswerUsageProps {
     usage: AssistantUsage
@@ -19,7 +20,6 @@ const AnswerUsage: React.FC<AnswerUsageProps> = ({ usage, label, hint, effort })
     const format = (value: number) => value.toLocaleString(i18n.language)
     const cost = usage.cost ?? usage.costUsd
     const currency = usage.cost !== undefined ? (usage.currency ?? "USD") : "USD"
-    const formatCost = (value: number) => new Intl.NumberFormat(i18n.language, { style: "currency", currency, maximumFractionDigits: 6 }).format(value)
     const input =
         usage.cachedInputTokens > 0
             ? t("assistant.usage.input_cached", { count: usage.inputTokens, formatted: format(usage.inputTokens), cached: format(usage.cachedInputTokens) })
@@ -30,8 +30,8 @@ const AnswerUsage: React.FC<AnswerUsageProps> = ({ usage, label, hint, effort })
             <Coins className="size-3" aria-hidden />
             {label && <span className="font-medium">{label}:</span>}
             {input} · {t("assistant.usage.output", { formatted: format(usage.outputTokens) })}
-            {cost !== undefined && ` · ${t("assistant.usage.cost", { formatted: formatCost(cost) })}`}
             {effort && ` · ${t("assistant.effort.used", { level: t(`assistant.effort.levels.${effort}`) })}`}
+            {cost !== undefined && <CostChip amount={cost} currency={currency} maximumFractionDigits={6} dataTestId="assistant-usage-cost" />}
         </p>
     )
 }

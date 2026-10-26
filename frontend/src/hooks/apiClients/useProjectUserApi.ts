@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import { AuthenticationType } from "@/api/apiClient"
 import useApiClient, { errorCodeOf } from "@/hooks/useApiClient"
+import type { AiCurrency } from "./useAiModelsApi"
 
 export interface ProjectUser {
     _id: string
@@ -19,6 +20,8 @@ export interface ProjectUser {
     aiTokenLimit?: number
     /** What the member spent this month: only for whoever manages the members, and for the member themselves */
     aiTokensSpent?: number
+    /** What those tokens cost this month, one amount per currency: only the AIs given their prices count */
+    aiCostsSpent?: { amount: number; currency: AiCurrency }[]
     createdAt: string
     updatedAt: string
 }

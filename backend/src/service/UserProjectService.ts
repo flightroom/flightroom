@@ -12,7 +12,7 @@ import UserOrganization, { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrgani
 import UserProject, { IUserProject, RoleInProject } from "../models/UserProjectModel"
 import UserService, { recordLogin } from "../service/UserService"
 import { toObjectId } from "../utils/mongooseUtils"
-import { tokensSpentThisMonth } from "./AiUsageService"
+import { AiUsageCost, costsSpentThisMonth, tokensSpentThisMonth } from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import EmailSenderService from "./EmailSenderService"
 import UserOrganizationService from "./UserOrganizationService"
@@ -59,6 +59,8 @@ interface IUserInProject extends Partial<IUser> {
      */
     aiTokenLimit?: number
     aiTokensSpent?: number
+    /** What those tokens cost this month, one amount per currency: only the AIs given their prices count */
+    aiCostsSpent?: AiUsageCost[]
 }
 
 interface IInvitationInfo {
@@ -593,17 +595,19 @@ class UserProjectService extends BaseAuthorizedService {
         // Populated: null when the account was deleted since
         const memberIdOf = (up: PopulatedUserProject) => (up.userId as unknown as IUser | null)?._id
         const seesTokensOf = (up: PopulatedUserProject) => managesMembers || (currentUserId !== undefined && String(memberIdOf(up)) === String(currentUserId))
-        const spent = await tokensSpentThisMonth(
-            projectId,
-            userProjects.filter(seesTokensOf).flatMap(up => memberIdOf(up) ?? [])
-        )
+        const tokenMembers = userProjects.filter(seesTokensOf).flatMap(up => memberIdOf(up) ?? [])
+        const [spent, costs] = await Promise.all([tokensSpentThisMonth(projectId, tokenMembers), costsSpentThisMonth(projectId, tokenMembers)])
 
         // Format the response. The raw invitation token is never exposed to clients.
         return userProjects.map<IUserInProject>(up => {
             const populatedUser = up.userId as unknown as IUser
             const scope = up.role === RoleInProject.OWNER || administrators.has(String(populatedUser?._id)) ? WHOLE_PROJECT : up
             return {
-                ...(seesTokensOf(up) && { aiTokenLimit: up.aiTokenLimit ?? undefined, aiTokensSpent: spent.get(String(populatedUser?._id)) ?? 0 }),
+                ...(seesTokensOf(up) && {
+                    aiTokenLimit: up.aiTokenLimit ?? undefined,
+                    aiTokensSpent: spent.get(String(populatedUser?._id)) ?? 0,
+                    aiCostsSpent: costs.get(String(populatedUser?._id))
+                }),
                 ...populatedUser,
                 role: up.role,
                 domainIds: domainIdsOf(scope),

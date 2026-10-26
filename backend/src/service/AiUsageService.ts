@@ -231,6 +231,27 @@ export const tokensSpentThisMonth = async (projectId: Id, userIds: Id[]): Promis
 }
 
 /**
+ * What members spent in the project this calendar month in money, by currency: only the priced usage counts, an entry
+ * of before the currency was chosen in USD. Exported for the tests.
+ */
+export const membersMonthCostPipeline = (projectId: Id, userIds: Id[]): PipelineStage[] => [
+    matchOf({ projectId: objectId(projectId), userId: { $in: userIds.map(objectId) }, $or: [{ cost: { $type: "number" } }, { costUsd: { $type: "number" } }] }, "month"),
+    { $group: { _id: { userId: "$userId", currency: { $ifNull: ["$currency", "USD"] } }, amount: { $sum: { $ifNull: ["$cost", "$costUsd"] } } } }
+]
+
+/** The money each of `userIds` spent in the project this calendar month, one amount per currency, by user id: none priced, none listed. */
+export const costsSpentThisMonth = async (projectId: Id, userIds: Id[]): Promise<Map<string, AiUsageCost[]>> => {
+    if (userIds.length === 0) return new Map()
+    const groups = await AiUsage.aggregate<{ _id: { userId: unknown; currency: AiCurrency }; amount: number }>(membersMonthCostPipeline(projectId, userIds))
+    const costs = new Map<string, AiUsageCost[]>()
+    for (const { _id, amount } of groups) {
+        const userId = String(_id.userId)
+        costs.set(userId, [...(costs.get(userId) ?? []), { amount: Number(amount.toFixed(12)), currency: _id.currency }])
+    }
+    return costs
+}
+
+/**
  * Refuses an answer or a job to a member who spent their monthly limit in the project. Who has no limit, or no
  * membership (an organization administrator outside the project), is not counted. Checked before the work starts:
  * an answer or a job already running ends, and may go past the limit.

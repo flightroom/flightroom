@@ -10,7 +10,17 @@ import Project from "../models/ProjectModel"
 import User, { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
-import AiUsageService, { calculateAiUsageCost, componentPipeline, ensureWithinTokenLimit, memberSeriesPipeline, membersMonthPipeline, periodStart, recordAiUsage } from "./AiUsageService"
+import AiUsageService, {
+    calculateAiUsageCost,
+    componentPipeline,
+    costsSpentThisMonth,
+    ensureWithinTokenLimit,
+    memberSeriesPipeline,
+    membersMonthCostPipeline,
+    membersMonthPipeline,
+    periodStart,
+    recordAiUsage
+} from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
 type WithGates = {
@@ -497,6 +507,29 @@ describe("AiUsageService", () => {
             ]
 
             expect(groupOver(membersMonthPipeline(projectId, [ada]), documents)).toEqual({ tokens: 1_650 })
+        })
+
+        it("Given a member's month, when its cost is summed, then only the priced usage counts, by currency, an entry from before the currency in USD", () => {
+            const [match, group] = membersMonthCostPipeline(projectId, [ada]) as [PipelineStage.Match, PipelineStage.Group]
+
+            expect(match.$match).toMatchObject({ projectId, $or: [{ cost: { $type: "number" } }, { costUsd: { $type: "number" } }], createdAt: { $gte: new Date("2026-10-01T00:00:00.000Z") } })
+            expect(group.$group._id).toEqual({ userId: "$userId", currency: { $ifNull: ["$currency", "USD"] } })
+            expect(groupOver([{ $match: {} }, group], [{ cost: 0.75 }, { costUsd: 0.25 }])).toEqual({ amount: 1 })
+        })
+
+        it("Given costs in two currencies, when they are read, then each member gets one amount per currency", async () => {
+            vi.mocked(AiUsage.aggregate).mockResolvedValue([
+                { _id: { userId: ada, currency: "EUR" }, amount: 0.1 + 0.2 },
+                { _id: { userId: ada, currency: "USD" }, amount: 2 }
+            ] as never)
+
+            const costs = await costsSpentThisMonth(projectId, [ada])
+
+            expect(costs.get(String(ada))).toEqual([
+                { amount: 0.3, currency: "EUR" },
+                { amount: 2, currency: "USD" }
+            ])
+            expect(await costsSpentThisMonth(projectId, [])).toEqual(new Map())
         })
 
         const withLimit = (aiTokenLimit?: number) => vi.spyOn(UserProject, "findOne").mockReturnValue(thenable(aiTokenLimit === undefined ? {} : { aiTokenLimit }) as never)

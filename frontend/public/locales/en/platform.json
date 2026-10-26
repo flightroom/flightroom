@@ -728,6 +728,7 @@
             "spent_of_limit": "{{spent}} / {{limit}}",
             "spent_unlimited": "{{spent}} · no limit",
             "hint": "AI tokens (input and output) spent in the project this month with the assistant and Edit with AI. The count starts again on the first of the month.",
+            "cost_hint": "What this month's tokens cost, at the prices set on the AI models. AIs without prices are not counted.",
             "limit_label": "Monthly AI token limit",
             "limit_placeholder": "No limit",
             "limit_description": "Tokens (input and output) the member can spend in the project each month with the assistant and Edit with AI. Leave empty for no limit; 0 turns AI off for the member.",
