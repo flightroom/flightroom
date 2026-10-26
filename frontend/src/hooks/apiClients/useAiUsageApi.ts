@@ -1,4 +1,5 @@
 import useApiClient from "../useApiClient"
+import type { AiCurrency } from "./useAiModelsApi"
 
 /** The periods the tokens are summed over: the last 30 days (the default), the current month, the last 90 days, everything recorded. */
 export const AI_USAGE_PERIODS = ["30d", "month", "90d", "all"] as const
@@ -8,11 +9,18 @@ export type AiUsagePeriod = (typeof AI_USAGE_PERIODS)[number]
 /** What spent the tokens: an Edit with AI job or an answer of the assistant. */
 export type AiUsageSource = "agent" | "assistant"
 
+export interface AiUsageCost {
+    amount: number
+    currency: AiCurrency
+}
+
 export interface AiUsageTotals {
     /** Every input token, the ones read from the cache included. */
     inputTokens: number
     cachedInputTokens: number
     outputTokens: number
+    /** What they cost, one amount per currency: only the AIs given their prices count, none priced is empty. */
+    costs?: AiUsageCost[]
 }
 
 export interface AiUsageSummary {

@@ -3615,6 +3615,8 @@
         "cached": "Dalla cache",
         "cached_hint": "La parte dell'input letta dalla cache del prompt: costa molto meno.",
         "output": "Token in output",
+        "cost": "Costo",
+        "cost_hint": "Quanto sono costati i token, con i prezzi impostati sui modelli AI. Le AI senza prezzi, compresa quella di sistema, non sono contate.",
         "columns": {
             "source": "Funzionalità",
             "project": "Progetto"
