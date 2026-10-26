@@ -4,7 +4,7 @@ import useGitOpsErrorMessage, { GitOpsErrorDetails } from "./useGitOpsErrorMessa
 export type ArgoCdRepositoryKind = "configuration" | "applications"
 
 /** Come Argo CD legge un repository: deploy token creato dalla console (GitLab) o token incollato dall'owner */
-export type ArgoCdCredentialSource = "deployToken" | "manual"
+export type ArgoCdCredentialSource = "deployToken" | "manual" | "shared"
 
 export type ArgoCdRepositoryProvider = "GITHUB" | "GITLAB" | "AZURE_DEV_OPS"
 

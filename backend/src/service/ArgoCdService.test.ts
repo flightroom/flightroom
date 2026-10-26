@@ -93,6 +93,9 @@ beforeEach(() => {
     vi.spyOn(GitOpsService.prototype, "ensureOwner").mockResolvedValue(undefined)
     vi.spyOn(Project, "findById").mockImplementation(() => ({ _id: projectId, slug: "shop", organizationId: new Types.ObjectId(), gitOps, argoCd: previous }) as never)
     vi.spyOn(Project, "findOneAndUpdate").mockResolvedValue({ _id: projectId } as never)
+    // No other project registered the repositories, nor reads through the registrations of this one
+    vi.spyOn(Project, "find").mockResolvedValue([] as never)
+    vi.spyOn(Project, "exists").mockResolvedValue(null as never)
     vi.spyOn(Project, "updateOne").mockImplementation(((filter: Record<string, unknown>, update: { $set?: { argoCd: IProjectArgoCd } }) => {
         if (update.$set) {
             saved.push(update.$set.argoCd)
@@ -234,6 +237,34 @@ describe("ArgoCdService.initialize", () => {
 
         expect(calls).toContain(`argo:upsertRepository:${CONFIG_REPO}:gitlab+deploy-token-8:gldt-new:${PROJECT_NAME}`)
         expect(calls).toContain(`argo:upsertRepository:${APPS_REPO}:x-access-token:ghp-read-only:global`)
+    })
+
+    it("given the applications repository registered globally by another project of the organization, when it is initialized, then it reads through that registration: no conflict, nothing overwritten", async () => {
+        vi.mocked(Project.find).mockResolvedValue([{ slug: "portal", argoCd: { repositories: { applications: manualCredential({ repoUrl: APPS_REPO }) } } }] as never)
+        vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === APPS_REPO ? ({ repo } as never) : null))
+
+        await initialize()
+
+        expect(calls.some(call => call.startsWith(`argo:upsertRepository:${APPS_REPO}`))).toBe(false)
+        expect(calls).toContain(`argo:upsertRepository:${CONFIG_REPO}:gitlab+deploy-token-8:gldt-new:${PROJECT_NAME}`)
+        expect(saved.at(-1)?.repositories?.applications).toMatchObject({ source: "shared", repoUrl: APPS_REPO, argoCdUrl: ARGO_URL, password: "" })
+        expect(saved.at(-1)?.lastError).toBeUndefined()
+    })
+
+    it("given another project that only reads through a registration too, when it is initialized, then that one is no holder and the conflict stands", async () => {
+        vi.mocked(Project.find).mockResolvedValue([{ slug: "portal", argoCd: { repositories: { applications: manualCredential({ repoUrl: APPS_REPO, source: "shared" }) } } }] as never)
+        vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === APPS_REPO ? ({ repo } as never) : null))
+
+        await expect(initialize()).rejects.toMatchObject({ code: "ARGOCD_REPOSITORY_CONFLICT" })
+    })
+
+    it("given a registration another project reads through, when the project that made it links another repository, then the registration is left in place", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", repositories: { applications: manualCredential({ repoUrl: "https://github.com/acme/old-apps.git" }) } }
+        vi.mocked(Project.exists).mockResolvedValue({ _id: new Types.ObjectId() } as never)
+
+        await initialize()
+
+        expect(calls.some(call => call.startsWith("argo:deleteRepository:https://github.com/acme/old-apps.git"))).toBe(false)
     })
 
     it("given a GitHub repository and no token pasted nor stored, when it is initialized, then it is refused and the failure is stored", async () => {
