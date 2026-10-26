@@ -253,6 +253,9 @@ export const runScriptTool = (slugs?: string[]): LlmTool => ({
     }
 })
 
+/** The gateway no longer has the sandbox: deleted under the run, or its node lost. */
+const isGone = (error: unknown) => (error as { code?: unknown } | null)?.code === "not_found"
+
 /**
  * Runs the scripts of the repositories of one run in a sandbox. The sandbox is asked for at the first
  * script: a run that only reads and edits never creates one. Each repository is copied into it whole
@@ -296,7 +299,10 @@ export class AiChangeScriptRunner {
         return typeof manifest?.scripts?.[script] === "string"
     }
 
-    /** `refusal` says why the paths a script changed cannot join the change, if they cannot: then none comes back. */
+    /**
+     * `refusal` says why the paths a script changed cannot join the change, if they cannot: then none comes back.
+     * A sandbox the gateway no longer has, deleted under the script, is replaced once before the agent hears of it.
+     */
     async run(repository: ScriptRepository, script: string, refusal: (paths: string[]) => string | undefined = () => undefined): Promise<ScriptRun> {
         const manifest = await this.manifestOf(repository)
         if (script !== INSTALL_SCRIPT && typeof manifest.scripts?.[script] !== "string") {
@@ -304,6 +310,13 @@ export class AiChangeScriptRunner {
             throw new Error(`package.json has no script "${script}"${scripts.length ? `: it has ${scripts.join(", ")}` : ""}`)
         }
         const command = commandFor(await this.managerOf(repository, manifest), script)
+        return this.runInSandbox(repository, command, script, refusal).catch(error => {
+            if (this.signal?.aborted || !isGone(error)) throw error
+            return this.runInSandbox(repository, command, script, refusal)
+        })
+    }
+
+    private async runInSandbox(repository: ScriptRepository, command: string[], script: string, refusal: (paths: string[]) => string | undefined): Promise<ScriptRun> {
         try {
             const sandbox = await this.sandboxForRun()
             await this.send(sandbox, repository)
@@ -321,12 +334,17 @@ export class AiChangeScriptRunner {
             if (result.exitCode === 0) await this.startPreview(repository)
             return { output: describeResult(command, result), ...changes }
         } catch (error) {
-            // The sandbox may be gone, deleted as idle or its node lost: the next script starts again from a new one.
-            this.sandbox = undefined
-            this.prepared = false
-            this.copied.clear()
+            this.forgetSandbox()
             throw error
         }
+    }
+
+    /** The sandbox may be gone, deleted as idle or its node lost: the next script starts again from a new one, its preview too. */
+    private forgetSandbox() {
+        this.sandbox = undefined
+        this.prepared = false
+        this.copied.clear()
+        this.previewStarted.clear()
     }
 
     private sandboxForRun(): Promise<CommandSandbox> {
@@ -337,7 +355,13 @@ export class AiChangeScriptRunner {
     /** Keep a running preview's files in step with edits without restarting its dev server. */
     async sync(repository: ScriptRepository) {
         if (!this.previewsEnabled || !this.sandbox || !this.copied.has(repository)) return
-        await this.send(await this.sandbox, repository)
+        try {
+            await this.send(await this.sandbox, repository)
+        } catch (error) {
+            // A sandbox the gateway no longer has fails no edit: the next script copies the repository into a new one.
+            if (!isGone(error)) throw error
+            this.forgetSandbox()
+        }
     }
 
     /** Start and expose this repository's development server after its dependencies are installed. */

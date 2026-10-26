@@ -204,6 +204,14 @@ are the repository's code, and the console holds the repository tokens, the data
   `OPENSHELL_SANDBOX_IDLE_MINUTES` (5), the sandbox is deleted. Every replica sweeps once a minute and
   tells what is idle from the database, so a sandbox outlives neither the replica that created it nor a
   restart.
+- **Owned by the installation.** Each sandbox carries the label `flightroom.dev/owner`, the installation
+  id kept in the database (or `OPENSHELL_SANDBOX_OWNER`), and its name hashes it together with the
+  conversation. Installations sharing a gateway and a workspace see each other's sandboxes, and the sweep
+  deletes only its own: a conversation it has no record of is another installation's, not an idle one.
+  Two installations restored from one database share its id: give each its own `OPENSHELL_SANDBOX_OWNER`.
+  Changing the owner leaves the sandboxes of the old one to nobody: delete them by their label. Every
+  installation on the gateway has to run 8.4.0 or later, since an older one still deletes the others'.
+  A script whose sandbox the gateway no longer has runs again once in a new one.
 - **What goes in.** Each repository is copied whole at its first script of a request (everything but
   `node_modules` is replaced), then only the files the agent wrote or deleted. Files that may hold
   credentials (`.env*`, `.npmrc`, keys) are never copied.
@@ -273,6 +281,7 @@ on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime clas
 | `OPENSHELL_REGISTRY_HOSTS`       | npm, Maven, PyPI, Go, NuGet | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
 | `OPENSHELL_NETWORK_BINARY`       | Node, Java, Python, Go, .NET | Comma separated executables allowed to reach them: their real paths, not symlinks. |
 | `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is deleted once its conversation has been idle this long.              |
+| `OPENSHELL_SANDBOX_OWNER`        | installation id         | The owner label of this installation's sandboxes. Set it apart on installations that share a gateway and were restored from one database. |
 | `OPENSHELL_PREVIEWS_ENABLED`     | `true`                  | Starts and exposes development servers; set `false` to disable. Preview URLs are public to anyone who can reach the gateway. |
 
 The SDK is published on GitHub Packages, which asks for a token even to read a public package. To build
