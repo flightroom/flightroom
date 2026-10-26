@@ -4,6 +4,7 @@ import {
     applicationName,
     applicationSetName,
     appProjectName,
+    branchOf,
     buildApplicationSet,
     buildAppProject,
     buildArgoCdState,
@@ -134,7 +135,10 @@ describe("buildEnvironmentsApplicationSet", () => {
 })
 
 describe("buildApplicationSet", () => {
-    const applicationSet = buildApplicationSet(target, "orders", [development, production])
+    const applicationSet = buildApplicationSet(target, "orders", [
+        { ...development, branch: "development" },
+        { ...production, branch: "production" }
+    ])
     const [list, git] = (applicationSet.spec.generators[0] as { matrix: { generators: [{ list: { elements: unknown[] } }, { git: unknown }] } }).matrix.generators
 
     it("given a backend, when its ApplicationSet is built, then it is named after it and labelled with its slug", () => {
@@ -146,13 +150,13 @@ describe("buildApplicationSet", () => {
 
     it("given two environments, when the ApplicationSet is built, then it lists them under a key of their own, with the name of the Application of each", () => {
         expect(list.list.elements).toEqual([
-            { environment: { name: applicationName(projectId, "shop", "orders", "development"), slug: "development", namespace: "development" } },
-            { environment: { name: applicationName(projectId, "shop", "orders", "production"), slug: "production", namespace: "prod" } }
+            { environment: { name: applicationName(projectId, "shop", "orders", "development"), slug: "development", namespace: "development", branch: "development" } },
+            { environment: { name: applicationName(projectId, "shop", "orders", "production"), slug: "production", namespace: "prod", branch: "production" } }
         ])
     })
 
     it("given a listed environment, when the ApplicationSet is built, then the git generator looks for the values file of the backend on its branch only", () => {
-        expect(git).toEqual({ git: { repoURL: target.applicationsRepoUrl, revision: "{{ .environment.slug }}", files: [{ path: "orders.yaml" }] } })
+        expect(git).toEqual({ git: { repoURL: target.applicationsRepoUrl, revision: "{{ .environment.branch }}", files: [{ path: "orders.yaml" }] } })
     })
 
     it("given a backend, when its ApplicationSet is built, then it never deletes the applications it generated", () => {
@@ -174,7 +178,7 @@ describe("buildApplicationSet", () => {
             project: PROJECT_NAME,
             source: {
                 repoURL: target.applicationsRepoUrl,
-                targetRevision: "{{ .environment.slug }}",
+                targetRevision: "{{ .environment.branch }}",
                 path: "microservice-chart",
                 helm: { releaseName: "orders", valueFiles: ["../orders.yaml"] }
             },
@@ -212,6 +216,18 @@ describe("buildArgoCdState", () => {
         const [, orders] = buildArgoCdState({ ...target, applicationBranches: ["main", "development"] }).applicationSets
 
         expect(environmentsOf(orders)).toEqual(["development"])
+    })
+
+    it("given a branch that differs from the slug only in case, as Azure DevOps keeps the first spelling, when the state is built, then the environment deploys from the branch as the repository names it", () => {
+        const [, orders] = buildArgoCdState({ ...target, environments: [{ slug: "UAT", namespace: "uat" }], applications: ["orders"], applicationBranches: ["DEV", "uat"] }).applicationSets
+        const [list] = (orders.spec.generators[0] as unknown as { matrix: { generators: [{ list: { elements: Array<{ environment: { slug: string; branch: string } }> } }] } }).matrix.generators
+
+        expect(list.list.elements.map(element => element.environment)).toMatchObject([{ slug: "UAT", branch: "uat" }])
+    })
+
+    it("given a branch named as the slug and one differing in case, when the branch of an environment is looked for, then the exact one wins", () => {
+        expect(branchOf({ applicationBranches: ["uat", "UAT"] }, { slug: "UAT" })).toBe("UAT")
+        expect(branchOf({ applicationBranches: ["main"] }, { slug: "UAT" })).toBeUndefined()
     })
 
     it("given no applications repository, when the state is built, then the ApplicationSet of the environments is the only one", () => {

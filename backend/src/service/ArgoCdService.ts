@@ -21,6 +21,7 @@ import {
     ArgoCdEnvironment,
     applicationName,
     appProjectName,
+    branchOf,
     buildApplicationSets,
     buildArgoCdState,
     COMPONENT_LABEL,
@@ -186,6 +187,15 @@ const reinitializeRequired = () =>
         code: "ARGOCD_REINITIALIZE_REQUIRED",
         message: "Argo CD was initialized with other repositories, or by an earlier version of the console: initialize it again to deploy the applications through it",
         statusCode: 409
+    })
+
+/** Environments a deploy committed to whose branch the applications repository does not list: Argo CD would read nothing there */
+const environmentsWithoutBranch = (environments: ArgoCdEnvironment[], repository: string, branches: string[]) =>
+    createBusinessException({
+        code: "ARGOCD_ENVIRONMENTS_WITHOUT_BRANCH",
+        message: `${repository} lists no branch for ${environments.map(environment => environment.slug).join(", ")}, so Argo CD gets no Application there; the branches read are ${branches.join(", ") || "none"}`,
+        statusCode: 409,
+        details: { slug: environments.map(environment => environment.slug).join(", "), repository, name: branches.join(", ") }
     })
 
 /** Environments added, or given another namespace, since the initialization: the AppProject does not let Argo CD write there yet */
@@ -467,8 +477,9 @@ export class ArgoCdService extends BaseAuthorizedService {
      * Applications without initializing again. Only while the applications repository is the one Argo CD was
      * handed; the environments and the AppProject wait for the next initialization. Never fails the deploy,
      * which already went through: what goes wrong is stored on the project, for the settings to show.
+     * `deployedSlugs` are the environments the deploy just committed: each must find its branch now.
      */
-    async alignApplications(projectId: Schema.Types.ObjectId): Promise<void> {
+    async alignApplications(projectId: Schema.Types.ObjectId, deployedSlugs: string[] = []): Promise<void> {
         // Stored only while no initialization runs: the one that runs re-aligns everything, and saves over it
         const idle = { _id: projectId, "argoCd.initializingAt": { $exists: false } }
         try {
@@ -519,6 +530,9 @@ export class ArgoCdService extends BaseAuthorizedService {
             for (const applicationSet of applicationSets) await client.upsertApplicationSet(applicationSet)
             // The others are aligned already: the settings tell those left out wait for an initialization
             if (outside.length > 0) throw namespacesNotInProject(outside)
+            // Just committed to, yet not among the branches read: Argo CD gets no Application for it, and nothing else would say so
+            const unbranched = target.environments.filter(environment => deployedSlugs.includes(environment.slug) && !branchOf(target, environment))
+            if (unbranched.length > 0) throw environmentsWithoutBranch(unbranched, link.name, target.applicationBranches)
             if (argoCd.alignError) await Project.updateOne(idle, { $unset: { "argoCd.alignError": 1 } })
         } catch (error) {
             fastify.log.error({ error: toErrorMessage(error), projectId: String(projectId) }, "Argo CD ApplicationSets of the applications not aligned after a deploy")

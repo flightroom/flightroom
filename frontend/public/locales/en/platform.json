@@ -353,6 +353,7 @@
                 "name_clash": "Two objects of this project would both be named {{name}} in Argo CD: rename the backend, frontend or environment whose slugs join into it, then try again",
                 "reinitialize_required": "Argo CD was initialized with other repositories, or by an earlier version of the console: initialize it again",
                 "namespaces_not_in_project": "The namespace of the environments {{slug}} is not in the AppProject yet: initialize Argo CD again to deploy them through it",
+                "environments_without_branch": "{{repository}} has no branch for the environments {{slug}}: Argo CD creates no applications there. The branches read are: {{name}}",
                 "branches_failed": "The branches of {{repository}} could not be read ({{reason}}): check that the connection reaches the repository",
                 "deploy_token_failed": "GitLab did not create the deploy token of {{repository}} ({{reason}}): the token of the connection needs the Maintainer role on the project and the api scope",
                 "url_insecure": "The Argo CD URL must be https: the token and the repository credentials would travel in the clear. For a local cluster only, the installation can allow http with ARGOCD_ALLOW_INSECURE_HTTP=true",
