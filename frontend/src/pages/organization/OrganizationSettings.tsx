@@ -9,7 +9,14 @@ import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useOrganizationApi, { canAdministerOrganization } from "@/hooks/apiClients/useOrganizationApi"
 import useOrganizationStore from "@/store/useOrganizationStore"
-import { ORGANIZATION_USERS_QUERY_KEY, OrganizationAiModelsSection, OrganizationDesignSystemSection, OrganizationDetailsSection, OrganizationMembersSection } from "./partials"
+import {
+    ORGANIZATION_USERS_QUERY_KEY,
+    OrganizationAiModelsSection,
+    OrganizationDesignSystemSection,
+    OrganizationDetailsSection,
+    OrganizationMembersSection,
+    OrganizationSandboxStatus
+} from "./partials"
 
 const TABS = ["general", "members", "designSystem", "ai"] as const
 type Tab = (typeof TABS)[number]
@@ -77,6 +84,7 @@ const OrganizationSettings: React.FC = () => {
                         </TabsContent>
 
                         <TabsContent value="ai" className="mt-6 flex flex-col gap-6">
+                            <OrganizationSandboxStatus organizationId={organization._id} />
                             <OrganizationAiModelsSection organizationId={organization._id} canAdminister={canAdminister} />
                             {/* Per project, as the access of the projects to the AIs: for those who decide it. */}
                             {canAdminister && <AiUsageSummary target={{ kind: "organization", id: organization._id }} />}

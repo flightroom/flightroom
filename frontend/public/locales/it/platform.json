@@ -3594,6 +3594,27 @@
             "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"
         }
     },
+    "ai_sandbox": {
+        "title": "Sandbox del codice (OpenShell)",
+        "description": "Il gateway in cui Modifica con AI installa le dipendenze, compila ed esegue i test. È uno per tutta la console.",
+        "status": {
+            "online": "Online",
+            "degraded": "Degradato",
+            "offline": "Offline",
+            "notConfigured": "Non configurato"
+        },
+        "hint": {
+            "online": "Il gateway risponde.",
+            "degraded": "Il gateway risponde ma si dichiara degradato: le sandbox possono essere lente o non partire.",
+            "offline": "Il gateway non risponde, o si dichiara non funzionante: il motivo è nei log del backend.",
+            "notConfigured": "OPENSHELL_GATEWAY_URL non è impostata: Modifica con AI non esegue codice."
+        },
+        "version": "Versione {{version}}",
+        "checked_at": "Verificato alle {{time}}.",
+        "errors": {
+            "load": "Impossibile leggere lo stato della sandbox."
+        }
+    },
     "ai_usage": {
         "title": "Token AI",
         "description": {
