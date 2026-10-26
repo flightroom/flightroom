@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [8.4.0] - 2026-10-26
+
 ### Added
 
 - **OpenShell Status In The Organization**: the AI tab of the organization says whether the OpenShell gateway, where Edit with AI installs, builds and tests, is online, degraded, offline or not configured, with the version it reports. Every member sees it. The backend asks the gateway at most every 30 seconds per replica, gives up after 5 seconds, and logs why it is down rather than sending it to the browser
