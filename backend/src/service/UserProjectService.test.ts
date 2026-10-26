@@ -1,4 +1,4 @@
-import { ObjectId, Types } from "mongoose"
+import { ObjectId, PipelineStage, Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 // Mocked for the same reason as in the other service tests: the real module boots the application.
@@ -335,7 +335,26 @@ describe("UserProjectService", () => {
                         populate: () => ({ lean: () => Promise.resolve(projectMemberships.map(membership => ({ ...membership, userId: { _id: membership.userId } }))) })
                     })) as never)
                     vi.spyOn(UserOrganization, "find").mockImplementation((() => thenable([])) as never)
-                    vi.spyOn(AiUsage, "aggregate").mockImplementation((() => Promise.resolve([{ _id: member._id, tokens: 12_345 }])) as never)
+                    // The tokens group by member, the costs by member and currency
+                    vi.spyOn(AiUsage, "aggregate").mockImplementation(((pipeline: PipelineStage[]) =>
+                        Promise.resolve(
+                            JSON.stringify(pipeline).includes('"currency"')
+                                ? [
+                                      { _id: { userId: member._id, currency: "EUR" }, amount: 1.25 },
+                                      { _id: { userId: member._id, currency: "USD" }, amount: 0.5 }
+                                  ]
+                                : [{ _id: member._id, tokens: 12_345 }]
+                        )) as never)
+                })
+
+                it("Given priced usage, when an owner lists the members, then the money spent this month comes per currency, and none for who spent nothing", async () => {
+                    const users = (await new UserProjectService(owner).getProjectUsers(PROJECT_ID))!
+
+                    expect(users.find(user => sameId(user._id, member._id))?.aiCostsSpent).toEqual([
+                        { amount: 1.25, currency: "EUR" },
+                        { amount: 0.5, currency: "USD" }
+                    ])
+                    expect(users.find(user => sameId(user._id, viewer._id))?.aiCostsSpent).toBeUndefined()
                 })
 
                 const tokensIn = (users: { _id?: unknown; aiTokenLimit?: number; aiTokensSpent?: number }[]) =>

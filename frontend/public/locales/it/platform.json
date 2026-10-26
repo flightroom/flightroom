@@ -632,6 +632,7 @@
             "spent_of_limit": "{{spent}} / {{limit}}",
             "spent_unlimited": "{{spent}} · nessun limite",
             "hint": "Token AI (input e output) spesi nel progetto questo mese con l'assistente e Modifica con AI. Il conteggio riparte il primo del mese.",
+            "cost_hint": "Quanto sono costati i token di questo mese, con i prezzi impostati sui modelli AI. Le AI senza prezzi non sono contate.",
             "limit_label": "Limite mensile di token AI",
             "limit_placeholder": "Nessun limite",
             "limit_description": "Token (input e output) che il membro può spendere nel progetto ogni mese con l'assistente e Modifica con AI. Lascia vuoto per nessun limite; 0 disattiva l'AI per il membro.",
