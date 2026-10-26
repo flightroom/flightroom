@@ -1,5 +1,6 @@
 import { createHash, randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
+import TelemetryService from "../TelemetryService"
 import { CommandSandbox, SandboxCommandResult, SandboxExecOptions } from "./commandSandbox"
 
 /** ESM only: loaded with import(), so the console starts, and runs, without a gateway configured. */
@@ -69,12 +70,22 @@ export interface OpenShellConfiguration {
     OPENSHELL_NETWORK_BINARY?: string
     OPENSHELL_SANDBOX_IDLE_MINUTES?: number
     OPENSHELL_PREVIEWS_ENABLED?: boolean
+    /** Who owns the sandboxes of this installation on the gateway: its installation id unless set. */
+    OPENSHELL_SANDBOX_OWNER?: string
 }
 
-/** Every sandbox of the coding agent carries both: the sweep finds them by the role, and asks about the conversation. */
+/**
+ * Every sandbox of the coding agent carries all three: the sweep finds them by the role, keeps to those
+ * of its own installation, and asks about the conversation. Installations sharing a gateway see each
+ * other's sandboxes, and a conversation of another one is unknown here, as if it were idle.
+ */
 const ROLE_LABEL = "flightroom.dev/role"
 const ROLE = "ai-change"
+const OWNER_LABEL = "flightroom.dev/owner"
 const CONVERSATION_LABEL = "flightroom.dev/conversation"
+
+/** Busy keeps a sandbox; unknown, a conversation this installation has no record of, deletes only an owned one. */
+export type ConversationState = "busy" | "idle" | "unknown"
 
 /** The end of the output of a command kept in memory: the agent reads less, this is only a bound. */
 const MAX_OUTPUT_BYTES = 64_000
@@ -97,10 +108,11 @@ const list = (value: string) =>
 export const MAX_SANDBOX_NAME_LENGTH = 19
 
 /**
- * One per conversation, so that its next message finds it. The gateway takes at most 19 characters, too few
- * for the 24 of an ObjectId: the name keeps 16 hex characters of its hash, a valid Kubernetes name.
+ * One per conversation of an installation, so that its next message finds it and another installation on
+ * the same gateway never does. The gateway takes at most 19 characters, too few for the 24 of an ObjectId:
+ * the name keeps 16 hex characters of a hash, a valid Kubernetes name.
  */
-export const sandboxNameFor = (conversationId: string) => `fr-${createHash("sha256").update(conversationId.toLowerCase()).digest("hex").slice(0, 16)}`
+export const sandboxNameFor = (owner: string, conversationId: string) => `fr-${createHash("sha256").update(`${owner}:${conversationId.toLowerCase()}`).digest("hex").slice(0, 16)}`
 
 class OpenShellCommandSandbox implements CommandSandbox {
     constructor(
@@ -167,8 +179,12 @@ class OpenShellCommandSandbox implements CommandSandbox {
  */
 export class OpenShellSandboxes {
     private client?: Promise<OpenShellClient>
+    private ownerId?: Promise<string>
 
-    constructor(private readonly config: OpenShellConfiguration) {}
+    constructor(
+        private readonly config: OpenShellConfiguration,
+        private readonly installationId: () => Promise<string> = () => new TelemetryService().getInstallationId()
+    ) {}
 
     get idleMs() {
         return (this.config.OPENSHELL_SANDBOX_IDLE_MINUTES ?? OPENSHELL_DEFAULTS.idleMinutes) * 60_000
@@ -176,6 +192,15 @@ export class OpenShellSandboxes {
 
     private get workspace() {
         return this.config.OPENSHELL_WORKSPACE || undefined
+    }
+
+    private owner(): Promise<string> {
+        // Asked once: the replicas of an installation read the same id from its database.
+        this.ownerId ??= (this.config.OPENSHELL_SANDBOX_OWNER ? Promise.resolve(this.config.OPENSHELL_SANDBOX_OWNER) : this.installationId()).catch(error => {
+            this.ownerId = undefined
+            throw error
+        })
+        return this.ownerId
     }
 
     private connect(): Promise<OpenShellClient> {
@@ -235,8 +260,8 @@ export class OpenShellSandboxes {
         }
     }
 
-    private async create(client: OpenShellClient, name: string, conversationId: string) {
-        const labels = { [ROLE_LABEL]: ROLE, [CONVERSATION_LABEL]: conversationId }
+    private async create(client: OpenShellClient, name: string, owner: string, conversationId: string) {
+        const labels = { [ROLE_LABEL]: ROLE, [OWNER_LABEL]: owner, [CONVERSATION_LABEL]: conversationId }
         const policy = this.policy()
         if (this.config.OPENSHELL_SANDBOX_TEMPLATE) {
             await client.sandbox.createFromTemplate({ name, workspace: this.workspace, workloadTemplate: this.config.OPENSHELL_SANDBOX_TEMPLATE, labels, policy })
@@ -250,8 +275,8 @@ export class OpenShellSandboxes {
      * one. Two replicas asking at once end up on the same one: its name is the conversation's.
      */
     async acquire(conversationId: string): Promise<CommandSandbox> {
-        const client = await this.connect()
-        const name = sandboxNameFor(conversationId)
+        const [client, owner] = await Promise.all([this.connect(), this.owner()])
+        const name = sandboxNameFor(owner, conversationId)
         const workspace = this.workspace
         const existing = await client.sandbox.get(name, { workspace }).catch(error => {
             if (hasCode(error, "not_found")) return undefined
@@ -263,7 +288,7 @@ export class OpenShellSandboxes {
             await client.sandbox.waitDeleted(name, DELETE_TIMEOUT_SECS, { workspace, expectedSandboxId: existing.id })
         }
         if (!existing || dead) {
-            await this.create(client, name, conversationId).catch(error => {
+            await this.create(client, name, owner, conversationId).catch(error => {
                 if (!hasCode(error, "already_exists")) throw error
             })
         }
@@ -277,18 +302,26 @@ export class OpenShellSandboxes {
         return client.health()
     }
 
-    /** Deletes the sandboxes of the conversations `isIdle` says nobody uses any more; how many it deleted. */
-    async sweep(isIdle: (conversationId: string) => Promise<boolean>): Promise<number> {
-        const client = await this.connect()
+    /**
+     * Deletes the sandboxes of this installation whose conversation nobody uses any more; how many it
+     * deleted. Another installation's are never touched. One with no owner, made before the label
+     * existed, goes only once its conversation is known here and idle.
+     */
+    async sweep(stateOf: (conversationId: string) => Promise<ConversationState>): Promise<number> {
+        const [client, owner] = await Promise.all([this.connect(), this.owner()])
         const workspace = this.workspace
-        const found: { name: string; conversationId?: string }[] = []
+        const found: { name: string; owner?: string; conversationId?: string }[] = []
         // Listed first, deleted after: deleting while paging could skip some.
         for await (const page of client.sandbox.list({ workspace, labelSelector: `${ROLE_LABEL}=${ROLE}` })) {
-            for (const sandbox of page.items) found.push({ name: sandbox.name, conversationId: sandbox.labels[CONVERSATION_LABEL] })
+            for (const sandbox of page.items) found.push({ name: sandbox.name, owner: sandbox.labels[OWNER_LABEL], conversationId: sandbox.labels[CONVERSATION_LABEL] })
         }
         let deleted = 0
         for (const sandbox of found) {
-            if (sandbox.conversationId && !(await isIdle(sandbox.conversationId))) continue
+            if (sandbox.owner === owner) {
+                if (sandbox.conversationId && (await stateOf(sandbox.conversationId)) === "busy") continue
+            } else if (sandbox.owner !== undefined || !sandbox.conversationId || (await stateOf(sandbox.conversationId)) !== "idle") {
+                continue
+            }
             await client.sandbox.delete(sandbox.name, { workspace, allowMissing: true })
             deleted++
         }

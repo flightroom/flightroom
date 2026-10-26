@@ -3,7 +3,7 @@ import AiChangeJob, { AiJobStatus, IAiChangeJob } from "../../models/AiChangeJob
 import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { CommandSandbox } from "../sandbox/commandSandbox"
-import { OpenShellConfiguration, openShellSandboxes } from "../sandbox/OpenShellSandboxes"
+import { ConversationState, OpenShellConfiguration, openShellSandboxes } from "../sandbox/OpenShellSandboxes"
 
 /**
  * The sandbox of a job: the one of its conversation, the chain of jobs from the same first one, so
@@ -15,14 +15,15 @@ export const sandboxForJob = (config: OpenShellConfiguration, job: Pick<IAiChang
 }
 
 /**
- * Whether nobody uses the sandbox any more: none of its jobs waits or runs, and the last job or
- * standalone preview session has expired. A job that died with its process is declared failed by
- * the missions sweep, and its sandbox goes after it.
+ * Whether somebody still uses the sandbox: busy while one of its jobs waits or runs, or the last job
+ * or standalone preview session has not expired. Idle once they have, unknown when this database has
+ * neither: a conversation of another installation, or a preview session already expired and removed.
+ * A job that died with its process is declared failed by the missions sweep, and its sandbox goes after it.
  */
-export const conversationIsIdle =
+export const conversationState =
     (idleMs: number, now = () => Date.now()) =>
-    async (conversationId: string): Promise<boolean> => {
-        if (!isValidObjectId(conversationId)) return true
+    async (conversationId: string): Promise<ConversationState> => {
+        if (!isValidObjectId(conversationId)) return "unknown"
         const id = toObjectId(conversationId)
         const checkedAt = new Date(now())
         const [activeJob, activePreview] = await Promise.all([
@@ -32,11 +33,13 @@ export const conversationIsIdle =
             }),
             StandalonePreviewSession.exists({ _id: id, expiresAt: { $gt: checkedAt } })
         ])
-        return !activeJob && !activePreview
+        if (activeJob || activePreview) return "busy"
+        const [job, preview] = await Promise.all([AiChangeJob.exists({ rootJobId: id }), StandalonePreviewSession.exists({ _id: id })])
+        return job || preview ? "idle" : "unknown"
     }
 
-/** Deletes the sandboxes of the idle conversations: how many, 0 without a gateway. */
+/** Deletes the sandboxes of the idle conversations of this installation: how many, 0 without a gateway. */
 export const sweepIdleSandboxes = async (config: OpenShellConfiguration): Promise<number> => {
     const sandboxes = openShellSandboxes(config)
-    return sandboxes ? sandboxes.sweep(conversationIsIdle(sandboxes.idleMs)) : 0
+    return sandboxes ? sandboxes.sweep(conversationState(sandboxes.idleMs)) : 0
 }

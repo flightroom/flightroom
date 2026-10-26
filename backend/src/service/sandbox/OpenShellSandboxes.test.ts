@@ -1,7 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { MAX_SANDBOX_NAME_LENGTH, OpenShellSandboxes, sandboxNameFor } from "./OpenShellSandboxes"
+import { ConversationState, MAX_SANDBOX_NAME_LENGTH, OpenShellSandboxes, sandboxNameFor } from "./OpenShellSandboxes"
 
-const { sandbox, raw, connect } = vi.hoisted(() => {
+const { sandbox, raw, connect, OWNER } = vi.hoisted(() => {
     const sandbox = {
         get: vi.fn(),
         create: vi.fn(),
@@ -13,15 +13,20 @@ const { sandbox, raw, connect } = vi.hoisted(() => {
         list: vi.fn()
     }
     const raw = { exposeService: vi.fn() }
-    return { sandbox, raw, connect: vi.fn(async (_options: unknown) => ({ sandbox, raw })) }
+    return { sandbox, raw, connect: vi.fn(async (_options: unknown) => ({ sandbox, raw })), OWNER: "0b6c1f2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b" }
 })
 
 vi.mock("@nvidia/openshell-sdk", () => ({ OpenShellClient: { connect }, clientCredentials: vi.fn(() => ({ getToken: async () => "renewed" })) }))
+vi.mock("../TelemetryService", () => ({
+    default: class {
+        getInstallationId = async () => OWNER
+    }
+}))
 
 const sdkError = (code: string) => Object.assign(new Error(code), { code })
 
 const CONVERSATION = "65f1a2b3c4d5e6f708192a3b"
-const NAME = sandboxNameFor(CONVERSATION)
+const NAME = sandboxNameFor(OWNER, CONVERSATION)
 
 describe("OpenShellSandboxes", () => {
     beforeEach(() => {
@@ -38,7 +43,7 @@ describe("OpenShellSandboxes", () => {
             name: NAME,
             workspace: undefined,
             image: "node:24-bookworm-slim",
-            labels: { "flightroom.dev/role": "ai-change", "flightroom.dev/conversation": CONVERSATION },
+            labels: { "flightroom.dev/role": "ai-change", "flightroom.dev/owner": OWNER, "flightroom.dev/conversation": CONVERSATION },
             policy: {
                 version: 1,
                 networkPolicies: {
@@ -159,34 +164,89 @@ describe("OpenShellSandboxes", () => {
         expect(sandbox.execStream).toHaveBeenCalledWith(NAME, ["npm", "test"], expect.objectContaining({ workdir: "/sandbox/repositories/shop", noLoginShell: true }))
     })
 
-    it("Given sandboxes of busy and idle conversations, when they are swept, then only the idle ones and those of no conversation are deleted", async () => {
+    const listed = (...items: { name: string; labels: Record<string, string> }[]) =>
         sandbox.list.mockReturnValue(
             (async function* () {
-                yield {
-                    items: [
-                        { name: "flightroom-ai-busy", labels: { "flightroom.dev/conversation": "busy" } },
-                        { name: "flightroom-ai-idle", labels: { "flightroom.dev/conversation": "idle" } },
-                        { name: "flightroom-ai-orphan", labels: {} }
-                    ]
-                }
+                yield { items }
             })()
         )
-        const deleted = await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).sweep(async conversation => conversation === "idle")
+
+    it("Given sandboxes of this installation, when they are swept, then those of busy conversations stay and the others go", async () => {
+        const owned = { "flightroom.dev/owner": OWNER }
+        listed(
+            { name: "fr-busy", labels: { ...owned, "flightroom.dev/conversation": "busy" } },
+            { name: "fr-idle", labels: { ...owned, "flightroom.dev/conversation": "idle" } },
+            { name: "fr-unknown", labels: { ...owned, "flightroom.dev/conversation": "unknown" } },
+            { name: "fr-orphan", labels: owned }
+        )
+        const deleted = await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).sweep(async conversation => conversation as ConversationState)
 
         expect(sandbox.list).toHaveBeenCalledWith({ workspace: undefined, labelSelector: "flightroom.dev/role=ai-change" })
-        expect(sandbox.delete.mock.calls.map(([name]) => name)).toEqual(["flightroom-ai-idle", "flightroom-ai-orphan"])
-        expect(deleted).toBe(2)
+        expect(sandbox.delete.mock.calls.map(([name]) => name)).toEqual(["fr-idle", "fr-unknown", "fr-orphan"])
+        expect(deleted).toBe(3)
+    })
+
+    it("Given sandboxes of another installation on the same gateway, when they are swept, then none is deleted, whatever their conversation", async () => {
+        const other = { "flightroom.dev/owner": "another-installation" }
+        listed(
+            { name: "fr-theirs-idle", labels: { ...other, "flightroom.dev/conversation": "idle" } },
+            { name: "fr-theirs-unknown", labels: { ...other, "flightroom.dev/conversation": "unknown" } },
+            { name: "fr-theirs-orphan", labels: other }
+        )
+        const stateOf = vi.fn(async (conversation: string) => conversation as ConversationState)
+
+        expect(await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).sweep(stateOf)).toBe(0)
+        expect(sandbox.delete).not.toHaveBeenCalled()
+        expect(stateOf).not.toHaveBeenCalled()
+    })
+
+    it("Given sandboxes made before the owner label, when they are swept, then only those of a conversation known here and idle are deleted", async () => {
+        listed(
+            { name: "fr-legacy-idle", labels: { "flightroom.dev/conversation": "idle" } },
+            { name: "fr-legacy-unknown", labels: { "flightroom.dev/conversation": "unknown" } },
+            { name: "fr-legacy-busy", labels: { "flightroom.dev/conversation": "busy" } },
+            { name: "fr-legacy-orphan", labels: {} }
+        )
+        const deleted = await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).sweep(async conversation => conversation as ConversationState)
+
+        expect(sandbox.delete.mock.calls.map(([name]) => name)).toEqual(["fr-legacy-idle"])
+        expect(deleted).toBe(1)
+    })
+
+    it("Given an owner set in the configuration, when a sandbox is created, then it carries that owner and a name of its own", async () => {
+        sandbox.get.mockRejectedValue(sdkError("not_found"))
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway", OPENSHELL_SANDBOX_OWNER: "flightroom-dev" }).acquire(CONVERSATION)
+
+        expect(sandbox.create).toHaveBeenCalledWith(
+            expect.objectContaining({ name: sandboxNameFor("flightroom-dev", CONVERSATION), labels: expect.objectContaining({ "flightroom.dev/owner": "flightroom-dev" }) })
+        )
+    })
+
+    it("Given the installation id cannot be read, when a sandbox is acquired, then it fails and the next one asks again, once for good", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "ready" })
+        const installationId = vi.fn<() => Promise<string>>().mockRejectedValueOnce(new Error("database down")).mockResolvedValue(OWNER)
+        const sandboxes = new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }, installationId)
+
+        await expect(sandboxes.acquire(CONVERSATION)).rejects.toThrow("database down")
+        await sandboxes.acquire(CONVERSATION)
+        await sandboxes.acquire(CONVERSATION)
+        expect(installationId).toHaveBeenCalledTimes(2)
+        expect(sandbox.get).toHaveBeenLastCalledWith(NAME, { workspace: undefined })
     })
 
     it("Given a conversation id, then its sandbox name fits the gateway, is a valid Kubernetes name and is the same whatever the case", () => {
-        const name = sandboxNameFor("65F1A2B3C4D5E6F708192A3B")
+        const name = sandboxNameFor(OWNER, "65F1A2B3C4D5E6F708192A3B")
 
         expect(name).toMatch(/^fr-[0-9a-f]{16}$/)
         expect(name.length).toBeLessThanOrEqual(MAX_SANDBOX_NAME_LENGTH)
-        expect(name).toBe(sandboxNameFor("65f1a2b3c4d5e6f708192a3b"))
+        expect(name).toBe(sandboxNameFor(OWNER, "65f1a2b3c4d5e6f708192a3b"))
     })
 
     it("Given two conversations, then their sandboxes have different names", () => {
-        expect(sandboxNameFor("65f1a2b3c4d5e6f708192a3b")).not.toBe(sandboxNameFor("65f1a2b3c4d5e6f708192a3c"))
+        expect(sandboxNameFor(OWNER, "65f1a2b3c4d5e6f708192a3b")).not.toBe(sandboxNameFor(OWNER, "65f1a2b3c4d5e6f708192a3c"))
+    })
+
+    it("Given the same conversation id in two installations, then their sandboxes have different names", () => {
+        expect(sandboxNameFor(OWNER, CONVERSATION)).not.toBe(sandboxNameFor("another-installation", CONVERSATION))
     })
 })

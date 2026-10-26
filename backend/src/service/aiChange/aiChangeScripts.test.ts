@@ -154,6 +154,22 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner", () => {
         expect(open).toHaveBeenCalledTimes(2)
     })
 
+    it("Given a sandbox the gateway no longer has, when a script runs, then it runs again once in a new sandbox and the agent sees its result", async () => {
+        const deleted: CommandSandbox = { root, exec: vi.fn().mockRejectedValue(Object.assign(new Error("[not_found] sandbox not found"), { code: "not_found" })) }
+        const open = vi.fn<() => Promise<CommandSandbox>>().mockResolvedValueOnce(deleted).mockResolvedValueOnce(sandbox)
+
+        expect((await new AiChangeScriptRunner([repository], open).run(repository, "show")).output).toContain("from the repository")
+        expect(open).toHaveBeenCalledTimes(2)
+    })
+
+    it("Given a sandbox the gateway loses twice in a row, when a script runs, then the agent hears of it", async () => {
+        const deleted: CommandSandbox = { root, exec: vi.fn().mockRejectedValue(Object.assign(new Error("[not_found] sandbox not found"), { code: "not_found" })) }
+        const open = vi.fn(async () => deleted)
+
+        await expect(new AiChangeScriptRunner([repository], open).run(repository, "show")).rejects.toThrow("sandbox not found")
+        expect(open).toHaveBeenCalledTimes(2)
+    })
+
     it("Given an output longer than the agent reads, then only its end comes back, said to be cut", async () => {
         const long: CommandSandbox = { root, exec: vi.fn(async () => ({ exitCode: 0, output: `${"x".repeat(AI_SCRIPT_LIMITS.maxOutputChars)}THE END`, cutBytes: 0 })) }
         const { output } = await new AiChangeScriptRunner([repository], async () => long).run(repository, "show")

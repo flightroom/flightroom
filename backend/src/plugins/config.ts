@@ -434,6 +434,12 @@ export default fastifyPlugin(
                 OPENSHELL_PREVIEWS_ENABLED: {
                     type: "boolean",
                     default: true
+                },
+                // The owner label of this installation's sandboxes, a Kubernetes label value. Unset: the installation id
+                // from the database. Set it when two installations sharing a gateway were restored from one database.
+                OPENSHELL_SANDBOX_OWNER: {
+                    type: "string",
+                    pattern: "^([A-Za-z0-9]([A-Za-z0-9._-]{0,61}[A-Za-z0-9])?)?$"
                 }
             }
         }
