@@ -294,6 +294,27 @@ export class DomainService extends BaseAuthorizedService {
     }
 
     /**
+     * Takes the members out of the domain: they stay in the project, in no domain. Only those the domain groups: one
+     * moved to another domain meanwhile stays where it is. Answers how many it took out of each.
+     */
+    async removeMembers(id: string | ObjectId, dto: DomainMembersDTO): Promise<{ frontends: number; backends: number }> {
+        const domain = await this.getById(id)
+        if (!domain) {
+            throw new EntityNotFoundError(String(id))
+        }
+        // Out of the domain is out of the scope of the members confined to it
+        await this.ensureWholeProject(domain.projectId)
+        const frontendIds = ensureIdList("frontendIds", dto?.frontendIds)
+        const backendIds = ensureIdList("backendIds", dto?.backendIds)
+        return runInTransaction(async session => {
+            const leaving = { $unset: { domainId: 1 } }
+            const frontends = await Frontend.updateMany({ _id: { $in: frontendIds }, projectId: domain.projectId, domainId: domain._id }, leaving, { session })
+            const backends = await Backend.updateMany({ _id: { $in: backendIds }, projectId: domain.projectId, domainId: domain._id }, leaving, { session })
+            return { frontends: frontends.modifiedCount, backends: backends.modifiedCount }
+        })
+    }
+
+    /**
      * Releases the whole domain: tags the repository of each of its frontends and backends with the same
      * `version`, on the same `ref` (main by default), as their own builds do one at a time. Every repository is
      * checked first (its connection, the domain scope, the ref, a tag of that name): when one fails, none is

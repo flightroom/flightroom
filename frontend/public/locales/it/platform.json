@@ -2773,6 +2773,30 @@
             "confirm": "Fai il deploy",
             "success": "{{domain}} pubblicato in {{environment}}"
         },
+        "members": {
+            "title": "Frontend e backend",
+            "description": "I componenti che questo dominio raggruppa. Togliendone uno resta nel progetto, senza dominio.",
+            "frontends": "Frontend",
+            "backends": "Backend",
+            "none_frontends": "Nessun frontend in questo dominio.",
+            "none_backends": "Nessun backend in questo dominio.",
+            "add": {
+                "action": "Aggiungi",
+                "title": "Aggiungi a {{domain}}",
+                "description": "Frontend e backend del progetto da mettere in questo dominio. Uno che è già in un altro dominio viene spostato qui.",
+                "none": "Tutti i frontend e i backend del progetto sono già in questo dominio.",
+                "in_domain": "In {{domain}}",
+                "no_domain": "Senza dominio",
+                "confirm_one": "Aggiungi {{count}} componente",
+                "confirm_other": "Aggiungi {{count}} componenti",
+                "success_one": "{{count}} componente aggiunto a {{domain}}",
+                "success_other": "{{count}} componenti aggiunti a {{domain}}"
+            },
+            "remove": {
+                "action": "Togli {{name}} dal dominio",
+                "success": "{{name}} tolto da {{domain}}"
+            }
+        },
         "resources": {
             "title": "Risorse",
             "description": "Le risorse che aggancia ciascun backend di questo dominio.",

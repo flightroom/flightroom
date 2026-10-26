@@ -216,6 +216,25 @@ describe("DomainService.addMembers", () => {
         }
     )
 
+    it("given frontends and backends, when they are removed, then only those the domain groups leave it, for no domain", async () => {
+        const leaveFrontends = vi.spyOn(Frontend, "updateMany").mockResolvedValue({ modifiedCount: 1 } as never)
+        const leaveBackends = vi.spyOn(Backend, "updateMany").mockResolvedValue({ modifiedCount: 0 } as never)
+
+        const removed = await new DomainService().removeMembers(String(domainId), { frontendIds: [frontendId], backendIds: [backendId] })
+
+        const leaving = { $unset: { domainId: 1 } }
+        expect(leaveFrontends).toHaveBeenCalledWith({ _id: { $in: [frontendId] }, projectId, domainId }, leaving, expect.anything())
+        expect(leaveBackends).toHaveBeenCalledWith({ _id: { $in: [backendId] }, projectId, domainId }, leaving, expect.anything())
+        expect(removed).toEqual({ frontends: 1, backends: 0 })
+    })
+
+    it("given a body that is no list of ids, when members are removed, then it is refused with a 400 and nothing leaves", async () => {
+        const leave = vi.spyOn(Backend, "updateMany")
+
+        await expect(new DomainService().removeMembers(String(domainId), { backendIds: ["not-an-id"] })).rejects.toMatchObject({ code: "DOMAIN_INVALID", statusCode: 400 })
+        expect(leave).not.toHaveBeenCalled()
+    })
+
     it("given an unknown domain, when members are added, then it is not found and nothing is moved", async () => {
         vi.spyOn(Domain, "findById").mockResolvedValue(null)
         const move = vi.spyOn(Backend, "updateMany")

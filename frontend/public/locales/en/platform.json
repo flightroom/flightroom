@@ -2754,6 +2754,30 @@
             "confirm": "Deploy",
             "success": "{{domain}} deployed to {{environment}}"
         },
+        "members": {
+            "title": "Frontends and backends",
+            "description": "The components this domain groups. One taken out stays in the project, in no domain.",
+            "frontends": "Frontends",
+            "backends": "Backends",
+            "none_frontends": "No frontend in this domain.",
+            "none_backends": "No backend in this domain.",
+            "add": {
+                "action": "Add",
+                "title": "Add to {{domain}}",
+                "description": "Frontends and backends of the project to put in this domain. One already in another domain moves here.",
+                "none": "Every frontend and backend of the project is in this domain already.",
+                "in_domain": "In {{domain}}",
+                "no_domain": "No domain",
+                "confirm_one": "Add {{count}} component",
+                "confirm_other": "Add {{count}} components",
+                "success_one": "{{count}} component added to {{domain}}",
+                "success_other": "{{count}} components added to {{domain}}"
+            },
+            "remove": {
+                "action": "Take {{name}} out of the domain",
+                "success": "{{name}} taken out of {{domain}}"
+            }
+        },
         "resources": {
             "title": "Resources",
             "description": "The resources each backend of this domain attaches.",
