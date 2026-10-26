@@ -11,7 +11,7 @@ export const DeploymentExposedLink: React.FC<{ url: string }> = ({ url }) => {
             target="_blank"
             rel="noopener noreferrer"
             title={url}
-            className="inline-flex max-w-full items-center gap-1 text-xs font-mono text-primary-strong underline-offset-4 hover:underline"
+            className="relative z-10 inline-flex max-w-full items-center gap-1 text-xs font-mono text-primary-strong underline-offset-4 hover:underline"
         >
             <span className="truncate">{url}</span>
             <ExternalLink className="size-3.5 shrink-0" aria-hidden="true" />

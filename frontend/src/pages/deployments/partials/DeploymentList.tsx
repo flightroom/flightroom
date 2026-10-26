@@ -3,19 +3,27 @@ import { useMutation, useQuery } from "@tanstack/react-query"
 import { BadgeCheck, History, PackageOpen, RefreshCw, UsersRound } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
 import { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
-import { useResourcesQuery } from "@/pages/resources/partials/resources"
+import { resourcePath, useResourcesQuery } from "@/pages/resources/partials/resources"
+import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
 import DeploymentBackendCard from "./DeploymentBackendCard"
 import DeploymentFrontendCard from "./DeploymentFrontendCard"
 
-/** The config maps or the secrets of a deployment, each with the keys it set in the environment */
-const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secret?: boolean; icon?: (map: DeployedVariableMap) => React.ReactNode }> = ({ title, maps, secret, icon }) => {
+/** The config maps or the secrets of a deployment, each with the keys it set in the environment and a link to its page */
+const DeployedMaps: React.FC<{
+    title: string
+    maps: DeployedVariableMap[]
+    path: (id: string) => string
+    secret?: boolean
+    icon?: (map: DeployedVariableMap) => React.ReactNode
+}> = ({ title, maps, path, secret, icon }) => {
     const { t } = useTranslation()
 
     return (
@@ -25,7 +33,9 @@ const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; secre
                 <div key={map._id} className="mt-2">
                     <p className="flex items-center gap-2 text-sm font-medium">
                         {icon?.(map)}
-                        {map.name}
+                        <Link to={path(map._id)} className="underline-offset-4 hover:underline">
+                            {map.name}
+                        </Link>
                     </p>
                     {map.entries.length > 0 ? (
                         <DescriptionList orientation="inline">
@@ -104,10 +114,10 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
                     </DescriptionList>
                 </div>
             )}
-            {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} />}
-            {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} secret />}
+            {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} path={VARIABLE_MAP_KINDS.configMap.detailPath} />}
+            {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} path={VARIABLE_MAP_KINDS.secret.detailPath} secret />}
             {/* Recorded keys only, as for a secret: the values stay with the resource */}
-            {resources.length > 0 && <DeployedMaps title={t("deployments.resources_title")} maps={resources} secret icon={resourceIcon} />}
+            {resources.length > 0 && <DeployedMaps title={t("deployments.resources_title")} maps={resources} path={resourcePath} secret icon={resourceIcon} />}
         </>
     )
 }

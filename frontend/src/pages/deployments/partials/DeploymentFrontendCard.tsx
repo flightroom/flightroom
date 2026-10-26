@@ -1,5 +1,6 @@
 import { Card, CardContent, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryDeploymentType, CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
@@ -24,13 +25,16 @@ export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ 
     const technology = frontendTechnologyOf(frontend)
 
     return (
-        <Card>
+        // The name is the link; it stretches over the whole card, so the card opens the frontend on a click anywhere.
+        <Card className="relative transition-colors duration-200 focus-within:border-primary hover:border-primary">
             <CardHeader className="flex-row items-end justify-between flex-wrap-reverse border-0 pb-0">
                 <div className="min-w-0">
                     <div className="flex min-w-0 items-center gap-2">
                         {technology && <TechnologyLogo technology={technology} />}
                         <CardTitle className="mb-0 text-base truncate" title={frontend.name}>
-                            {frontend.name}
+                            <Link to={`/frontend/${frontend._id}/overview`} className="underline-offset-4 hover:underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
+                                {frontend.name}
+                            </Link>
                         </CardTitle>
                     </div>
                     <div className="text-sm text-foreground-secondary truncate" title={frontend.slug}>
