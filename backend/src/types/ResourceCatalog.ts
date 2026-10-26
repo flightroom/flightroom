@@ -271,11 +271,21 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             { id: "connectionString", fields: [secret("url", "URL")] }
         ]
     },
+    /**
+     * The provider is the variant, which the client reads rather than guesses. The ids of the Google key and of the
+     * generic client credentials predate the providers: resources already saved keep them
+     */
     serviceAccount: {
         type: "serviceAccount",
         envPrefix: "SA",
         variants: [
-            { id: "jsonKey", fields: [secret("jsonKey", "JSON", { input: "multiline" })] },
+            { id: "jsonKey", fields: [secret("jsonKey", "JSON", { input: "multiline" })], fixed: { PROVIDER: "google" } },
+            {
+                id: "microsoft",
+                // The token comes from the tenant on Entra ID: login.microsoftonline.com/<tenantId>/oauth2/v2.0/token
+                fields: [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET"), field("scope", "SCOPE", { required: false })],
+                fixed: { PROVIDER: "microsoft" }
+            },
             {
                 id: "clientCredentials",
                 fields: [

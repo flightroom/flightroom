@@ -196,6 +196,29 @@ describe("the mongodb type", () => {
     })
 })
 
+describe("the serviceAccount type", () => {
+    it("given a Google key, when its variables are derived, then the provider is told to the client", () => {
+        expect(resourceEnvKeys({ name: "crm", type: "serviceAccount", variant: "jsonKey" })).toEqual([
+            { key: "SA_CRM_JSON", field: "jsonKey", secret: true, required: true },
+            { key: "SA_CRM_PROVIDER", secret: false, required: true, value: "google" }
+        ])
+    })
+
+    it("given a Microsoft Entra ID app, when its variables are derived, then the tenant replaces the token URL and the secret is the only credential", () => {
+        expect(resourceEnvKeys({ name: "crm", type: "serviceAccount", variant: "microsoft" })).toEqual([
+            { key: "SA_CRM_TENANT_ID", field: "tenantId", secret: false, required: true },
+            { key: "SA_CRM_CLIENT_ID", field: "clientId", secret: false, required: true },
+            { key: "SA_CRM_CLIENT_SECRET", field: "clientSecret", secret: true, required: true },
+            { key: "SA_CRM_SCOPE", field: "scope", secret: false, required: false },
+            { key: "SA_CRM_PROVIDER", secret: false, required: true, value: "microsoft" }
+        ])
+    })
+
+    it("given the catalog, when the variants are listed, then the ids saved before the providers are still there", () => {
+        expect(RESOURCE_CATALOG.serviceAccount.variants.map(variant => variant.id)).toEqual(["jsonKey", "microsoft", "clientCredentials"])
+    })
+})
+
 describe("the bigquery type", () => {
     it("given a service account key, when its variables are derived, then the key is the only secret and the variant is told to the client", () => {
         expect(resourceEnvKeys({ name: "analytics", type: "bigquery", variant: "serviceAccountKey" })).toEqual([

@@ -3459,7 +3459,7 @@
             },
             "serviceAccount": {
                 "label": "Service account",
-                "description": "Credenziali con cui un backend chiama un altro sistema a nome proprio."
+                "description": "Credenziali con cui un backend chiama un altro sistema a nome proprio: una chiave Google, un'app Microsoft Entra ID o un qualsiasi client OAuth2."
             },
             "auth0": {
                 "label": "Auth0",
@@ -3515,8 +3515,9 @@
                 "connectionString": "URL di connessione"
             },
             "serviceAccount": {
-                "jsonKey": "Chiave JSON",
-                "clientCredentials": "Client credentials"
+                "jsonKey": "Google, chiave JSON",
+                "microsoft": "Microsoft, app Entra ID",
+                "clientCredentials": "Altro, client credentials OAuth2"
             },
             "auth0": {
                 "default": "Applicazione"
