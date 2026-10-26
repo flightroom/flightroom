@@ -6,10 +6,10 @@ description: Flightroom - JSON based configuration, versioning and multi-environ
 type: application
 
 # Chart version: bumped on every change to the chart itself.
-version: 0.3.6
+version: 0.3.7
 # Version of the Flightroom image shipped by default (see values.yaml image.tag).
 # The release workflow fails on a tag that does not match it: bump it before tagging.
-appVersion: "8.1.1"
+appVersion: "8.1.2"
 
 home: https://github.com/flightroom/flightroom
 sources:
