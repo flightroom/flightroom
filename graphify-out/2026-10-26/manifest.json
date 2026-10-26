@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793032129.7975037,
-    "ast_hash": "01b0bee318321c26c9f10c04ae91e125",
+    "mtime": 1793032431.9965992,
+    "ast_hash": "466d95693ef6d8e31f3e9802ede75f56",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793032129.7960641,
-    "ast_hash": "1e406ba907ad22b34099e9c442cc124d",
+    "mtime": 1793032431.9954417,
+    "ast_hash": "a0ac857affce2fc2be2efde7309ccb05",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -2965,8 +2965,8 @@
     "semantic_hash": ""
   },
   "backend/src/controller/DomainController.ts": {
-    "mtime": 1793005820.5202212,
-    "ast_hash": "69564f7b6441e6aa5da43a2d6f75dd3e",
+    "mtime": 1793032371.3873825,
+    "ast_hash": "a1c051916551afa338ecfb2772c8d282",
     "semantic_hash": ""
   },
   "backend/src/models/DomainModel.test.ts": {
@@ -2980,13 +2980,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/DomainService.test.ts": {
-    "mtime": 1793005820.5450108,
-    "ast_hash": "156cb7bbaf723b9624e456ca1769b3af",
+    "mtime": 1793032371.387743,
+    "ast_hash": "06f690059c3a28603d9ba8735f5a018f",
     "semantic_hash": ""
   },
   "backend/src/service/DomainService.ts": {
-    "mtime": 1793005820.545106,
-    "ast_hash": "fcd83281690044366acd295d916098bf",
+    "mtime": 1793032371.38688,
+    "ast_hash": "f473714498c9580cb75d5c97cb32d089",
     "semantic_hash": ""
   },
   "backend/src/types/DomainDTO.ts": {
@@ -2995,8 +2995,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainsApi.ts": {
-    "mtime": 1793005820.6155226,
-    "ast_hash": "286fb3512864fa0c2ccf2b935e053b2f",
+    "mtime": 1793032431.9929435,
+    "ast_hash": "7a96c84b328a88f8e59af57363d12265",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/Domains.tsx": {
@@ -4475,8 +4475,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/DomainOverview.tsx": {
-    "mtime": 1793005820.628868,
-    "ast_hash": "ac9228355e47f200484734e51a1aac62",
+    "mtime": 1793032431.9934187,
+    "ast_hash": "466214d4f71aae56f025177f813aefc0",
     "semantic_hash": ""
   },
   "backend/src/models/DesignSystemSchema.ts": {
@@ -5007,6 +5007,11 @@
   "frontend/src/hooks/useBranding.ts": {
     "mtime": 1793027791.6416254,
     "ast_hash": "7624039833955bf0cb67fb28a027bc5a",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/DomainMembersSection.tsx": {
+    "mtime": 1793032433.0278828,
+    "ast_hash": "5da6ffb06d1c7576de50581acaefd468",
     "semantic_hash": ""
   }
 }
