@@ -109,6 +109,13 @@ describe("renderApplicationValues", () => {
         expect(values.route).toEqual({ gateway: "mfe-shop-1a2b3c", listener: "https", path: "/api/orders", hsts: true })
     })
 
+    it("given an environment with an IP allow list, when its values are rendered, then the route goes through its Middleware", () => {
+        const gateway = { name: "mfe-shop-1a2b3c", listener: "https", hsts: true, ipAllowList: "mfe-shop-1a2b3c-ip-allowlist" }
+        const values = parse(renderApplicationValues({ ...application, exposurePath: "/api/orders" }, environment, mapNames, gateway))
+
+        expect(values.route.ipAllowList).toBe("mfe-shop-1a2b3c-ip-allowlist")
+    })
+
     it.each([
         ["no exposure path", {}, { name: "mfe-shop-1a2b3c", listener: "https", hsts: true }],
         ["no Gateway in the environment", { exposurePath: "/api/orders" }, undefined]
@@ -177,5 +184,15 @@ describe("CHART_FILES", () => {
         expect(CHART_FILES.every(file => file.path.startsWith(`${APPLICATIONS_CHART_FOLDER}/`))).toBe(true)
         expect(CHART_FILES.map(file => file.path)).toContain(`${APPLICATIONS_CHART_FOLDER}/Chart.yaml`)
         expect(CHART_FILES.map(file => file.path)).toContain(`${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`)
+    })
+
+    it("given the HTTPRoute template, when it is listed, then it applies the Middleware of the environment and replaces the version written before it", () => {
+        const route = CHART_FILES.find(file => file.path === `${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`)!
+
+        expect(route.content).toContain("type: ExtensionRef")
+        expect(route.content).toContain("name: {{ . }}")
+        expect(route.replaces).toHaveLength(1)
+        expect(route.replaces![0]).not.toContain("ipAllowList")
+        expect(route.replaces![0]).toContain("kind: HTTPRoute")
     })
 })

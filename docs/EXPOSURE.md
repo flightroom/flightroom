@@ -10,6 +10,14 @@ Traefik and the applications.
 - **Environment**: the `subdomain`, e.g. `dev`. The host is `dev.example.com`. Left empty, a production
   environment takes the domain itself and any other its slug in lowercase, so `UAT` lands on
   `uat.example.com`. Two environments of the project cannot share a host: the deploy is refused.
+- **Environment**, optionally: the `ipAllowList`, the IP addresses and CIDR ranges its applications answer to,
+  e.g. `203.0.113.0/24` or `2001:db8::/32`, at most 100. Any other address gets `403`. Left empty, every address
+  gets through. It applies on the next deploy of the environment.
+  The first time the list is set, deploy the whole environment once. A deploy of one domain writes only the
+  routes of that domain, so the other applications answer every address until they are deployed again. From
+  then on every route points at the Middleware, and a change of the list reaches all of them on the next
+  deploy. An emptied list keeps the Middleware, open to `0.0.0.0/0` and `::/0`, so the routes that still
+  point at it keep working.
 - **Backend or frontend**: the `exposurePath`, e.g. `/api/orders`, the same in every environment, set in its
   **Endpoint** card with the **Expose** switch. The prefix is stripped before the request reaches the container,
   so it answers at its root. Not exposed, the application gets no route. Its URL in an environment is the path on
@@ -20,9 +28,15 @@ Traefik and the applications.
 
 | Repository | File | Content |
 |---|---|---|
-| Configuration | `<environment>/gateway.yaml` | The `Gateway` of the environment, on its host: an `http` listener and, with an issuer, an `https` one, the `Certificate` it serves and an `HTTPRoute` redirecting `http` to `https` |
-| Applications, branch of the environment | `<application>.yaml` | `route:` with the Gateway, the listener and the path |
+| Configuration | `<environment>/gateway.yaml` | The `Gateway` of the environment, on its host: an `http` listener and, with an issuer, an `https` one, the `Certificate` it serves and an `HTTPRoute` redirecting `http` to `https`. With an IP allowlist, the Traefik `Middleware` `<gateway>-ip-allowlist` |
+| Applications, branch of the environment | `<application>.yaml` | `route:` with the Gateway, the listener, the path and, with an IP allowlist, the Middleware |
 | Applications, branch of the environment | `microservice-chart/templates/httproute.yaml` | The `HTTPRoute` of an application, written once like the rest of the chart |
+
+The chart is written once and then belongs to the team. The one exception is `httproute.yaml`: if it is still
+exactly as an earlier version of Flightroom wrote it, a deploy replaces it with the current one. A template the
+team has changed is left alone. In that case the route has to go through the Middleware by hand, or the
+allowlist is never applied: add an `ExtensionRef` filter to `traefik.io` `Middleware`
+`{{ .Values.route.ipAllowList }}`.
 
 Removing the domain takes the Gateway of each environment away on its next deploy. A redeploy of an earlier deployment
 commits nothing, the Gateway included: it serves that snapshot again, GitOps is not involved.
@@ -61,6 +75,12 @@ commits nothing, the Gateway included: it serves that snapshot again, GitOps is 
 4. A Traefik v3 whose Gateway provider supports the `URLRewrite` and `ResponseHeaderModifier` filters of
    HTTPRoute: check the provider page of the Traefik docs for the version installed.
 
+5. With an IP allowlist, the Kubernetes CRD provider of Traefik (`providers.kubernetesCRD.enabled`, on in its
+   Helm chart by default): it is the one that reads the `Middleware` the routes point at with `ExtensionRef`.
+   Traefik checks the address the connection comes from. A load balancer in front of it has to keep that
+   address, for instance a Service with `externalTrafficPolicy: Local`. Otherwise Traefik sees the address of
+   the balancer and refuses everyone, or lets everyone in when that address is in the list.
+
 The Gateway manifests carry `SkipDryRunOnMissingResource=true`: on a cluster still without the CRDs, the
 config maps and secrets of the environment, which share the Argo CD Application, keep syncing.
 
@@ -82,5 +102,5 @@ catches the rest. Check it in the first environment before going on:
 3. Once no Ingress of class `kong` is left in the namespace, delete the Kong route and uninstall Kong.
 
 Two things Kong did that the routes do not: the 10 MB request body limit (`nginx_http_client_max_body_size`),
-to be set again with the Traefik `buffering` middleware, and the rate limit and IP allowlist middlewares,
-which attach to a route with an `ExtensionRef` filter.
+to be set again with the Traefik `buffering` middleware, and the rate limit middleware, which attaches to a
+route with an `ExtensionRef` filter. The IP allowlist is the `ipAllowList` of the environment.

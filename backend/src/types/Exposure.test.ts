@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { CERTIFICATE_ISSUER, DOMAIN_NAME, exposedHost, isExposurePath, SUBDOMAIN, sameExposurePath } from "./Exposure"
+import { CERTIFICATE_ISSUER, DOMAIN_NAME, exposedHost, isExposurePath, isIpRange, SUBDOMAIN, sameExposurePath } from "./Exposure"
 
 describe("exposedHost", () => {
     it.each([
@@ -60,4 +60,17 @@ describe("CERTIFICATE_ISSUER", () => {
     ])("given %s, when it is checked, then it is %s", (issuer, expected) => {
         expect(CERTIFICATE_ISSUER.test(issuer)).toBe(expected)
     })
+})
+
+describe("isIpRange", () => {
+    it.each(["203.0.113.7", "203.0.113.0/24", "0.0.0.0/0", "10.0.0.0/8", "2001:db8::1", "2001:db8::/32", "::/0"])("given %s, when it is checked, then it is an address or a range", value => {
+        expect(isIpRange(value)).toBe(true)
+    })
+
+    it.each(["", "example.com", "203.0.113", "203.0.113.256", "203.0.113.0/33", "2001:db8::/129", "203.0.113.0/", "203.0.113.0/24/8", "203.0.113.0/-1", " 203.0.113.7", "fe80::1%eth0"])(
+        "given %j, when it is checked, then it is refused",
+        value => {
+            expect(isIpRange(value)).toBe(false)
+        }
+    )
 })

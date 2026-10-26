@@ -15,6 +15,8 @@ const GITOPS_ERROR_KEYS: Record<string, string> = {
     GITOPS_ENVIRONMENT_SLUG_INVALID: "settings.gitOps.errors.environment_slug_invalid",
     GITOPS_ENVIRONMENT_SUBDOMAIN_INVALID: "settings.gitOps.errors.environment_subdomain_invalid",
     GITOPS_ENVIRONMENT_HOST_TAKEN: "settings.gitOps.errors.environment_host_taken",
+    ENVIRONMENT_IP_ALLOWLIST_INVALID: "settings.gitOps.errors.environment_ip_allowlist_invalid",
+    ENVIRONMENT_IP_ALLOWLIST_TOO_LONG: "settings.gitOps.errors.environment_ip_allowlist_too_long",
     GITOPS_EXPOSURE_PATH_TAKEN: "settings.gitOps.errors.exposure_path_taken",
     INVALID_REPOSITORY_NAME: "settings.gitOps.errors.invalid_repository_name",
     REPOSITORY_NAME_TAKEN: "settings.gitOps.errors.repository_name_taken",
@@ -50,6 +52,7 @@ export interface GitOpsErrorDetails {
     slug?: string
     url?: string
     name?: string
+    value?: string
 }
 
 /** Traduce un errore dato per codice e dettagli, come quello che il backend salva sull'ultima inizializzazione di Argo CD */
@@ -59,7 +62,7 @@ export const useGitOpsErrorTranslation = () => {
     return (code?: string, details: GitOpsErrorDetails = {}): string | undefined => {
         const key = GITOPS_ERROR_KEYS[code ?? ""]
         if (!key) return undefined
-        return t(key, { repository: details.repository, reason: details.reason, slug: details.slug, url: details.url, name: details.name })
+        return t(key, { repository: details.repository, reason: details.reason, slug: details.slug, url: details.url, name: details.name, value: details.value })
     }
 }
 

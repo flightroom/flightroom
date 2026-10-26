@@ -28,7 +28,7 @@ import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import { applicationValuesPath, CHART_FILES, GitOpsApplication, isDeployable, renderApplicationValues } from "./gitops/applicationManifests"
-import { applicationListener, EnvironmentGateway, gatewayName, HTTPS_LISTENER, renderGateway } from "./gitops/gatewayManifests"
+import { applicationListener, EnvironmentGateway, gatewayName, HTTPS_LISTENER, ipAllowListMiddleware, renderGateway } from "./gitops/gatewayManifests"
 import { maintenanceApplications } from "./gitops/maintenanceApplications"
 import { RepositoryFileService, repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { isValidRepositoryName } from "./RepositoryRenameService"
@@ -134,7 +134,7 @@ type ExposedProject = { _id: unknown; slug: string; exposure?: { domain: string;
  */
 export const environmentGateway = (
     project: ExposedProject,
-    environment: Pick<IEnvironment, "_id" | "slug" | "namespace" | "subdomain" | "isProduction">,
+    environment: Pick<IEnvironment, "_id" | "slug" | "namespace" | "subdomain" | "isProduction" | "ipAllowList">,
     environments: Pick<IEnvironment, "_id" | "slug" | "subdomain" | "isProduction">[]
 ): EnvironmentGateway | undefined => {
     if (!project.exposure?.domain) return undefined
@@ -161,7 +161,8 @@ export const environmentGateway = (
         host,
         certificateIssuer: project.exposure.certificateIssuer || undefined,
         httpPort: project.exposure.httpPort ?? undefined,
-        httpsPort: project.exposure.httpsPort ?? undefined
+        httpsPort: project.exposure.httpsPort ?? undefined,
+        ipAllowList: environment.ipAllowList ? [...environment.ipAllowList] : undefined
     }
 }
 
@@ -250,7 +251,13 @@ interface GitOpsFile {
     content?: string
     /** Written only when the branch does not have it yet: the team may change it afterwards */
     ifMissing?: boolean
+    /** With ifMissing, what Flightroom wrote there before: a file still exactly like one of them is written anyway */
+    replaces?: string[]
 }
+
+/** A chart file the branch already has, and not as Flightroom wrote it before: the team changed it, it stays */
+export const leavesAsItIs = (file: Pick<GitOpsFile, "ifMissing" | "replaces">, current: string | undefined): boolean =>
+    Boolean(file.ifMissing) && current !== undefined && !file.replaces?.includes(current)
 
 /**
  * Pushes the files that differ from `branch` (the default one when left out) in one commit; a branch the remote
@@ -428,7 +435,7 @@ export class GitOpsService extends BaseAuthorizedService {
         // With GitOps on, a deploy pushes to the provider with the token of the connection
         await this.ensureNotViewer(projectId, { code: "GITOPS_VIEWER_FORBIDDEN", message: "A viewer of the project cannot change what is committed to its GitOps repositories" })
 
-        const environments = await Environment.find({ projectId }, { slug: 1, namespace: 1, subdomain: 1, isProduction: 1 })
+        const environments = await Environment.find({ projectId }, { slug: 1, namespace: 1, subdomain: 1, isProduction: 1, ipAllowList: 1 })
         const deployed = environments.filter(environment => environmentIds.has(String(environment._id)))
         // Refused before anything is pushed: a subdomain the cluster would not take, or a host two environments share
         const gateways = new Map(deployed.map(environment => [String(environment._id), environmentGateway(project, environment, environments)] as const))
@@ -536,7 +543,7 @@ export class GitOpsService extends BaseAuthorizedService {
             for (const environment of deployed) {
                 const gateway = gateways.get(String(environment._id))
                 const listener = gateway && applicationListener(gateway)
-                const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER } : undefined
+                const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER, ipAllowList: ipAllowListMiddleware(gateway) } : undefined
                 const files: GitOpsFile[] = [
                     ...CHART_FILES.map(file => ({ ...file, action: "update" as const, ifMissing: true })),
                     ...applications
@@ -632,7 +639,7 @@ export class GitOpsService extends BaseAuthorizedService {
                             const orphans = options?.prune ? await this.orphans(workingCopy, files, options.prune).catch(error => Promise.reject(failed(error))) : []
                             for (const file of [...files, ...orphans]) {
                                 const current = await workingCopy.readHeadFile(file.path)
-                                if (file.ifMissing && current !== undefined) continue
+                                if (leavesAsItIs(file, current)) continue
                                 if (file.action === "delete" ? current === undefined : current === file.content) continue
                                 changed.push(file)
                                 undo.push(current === undefined ? { path: file.path, action: "delete" } : { path: file.path, action: "update", content: current })

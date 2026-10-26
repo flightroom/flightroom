@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
 import { parseAllDocuments } from "yaml"
-import { applicationListener, GATEWAY_HTTP_PORT, GATEWAY_HTTPS_PORT, renderGateway } from "./gatewayManifests"
+import { applicationListener, GATEWAY_HTTP_PORT, GATEWAY_HTTPS_PORT, ipAllowListMiddleware, renderGateway } from "./gatewayManifests"
 
 const documentsOf = (content: string) => parseAllDocuments(content).map(document => document.toJSON())
 
@@ -36,6 +36,29 @@ describe("renderGateway", () => {
         })
     })
 
+    it("given an IP allow list, when the Gateway is rendered, then a Traefik Middleware lets only its ranges through", () => {
+        const documents = documentsOf(renderGateway({ ...gateway, ipAllowList: ["203.0.113.0/24", "2001:db8::/32"] }))
+        const middleware = documents.find(document => document.kind === "Middleware")
+
+        expect(middleware).toMatchObject({
+            apiVersion: "traefik.io/v1alpha1",
+            metadata: { name: "mfe-shop-1a2b3c-ip-allowlist", namespace: "production" },
+            spec: { ipAllowList: { sourceRange: ["203.0.113.0/24", "2001:db8::/32"] } }
+        })
+    })
+
+    it("given an environment that never had an IP allow list, when the Gateway is rendered, then there is no Middleware", () => {
+        expect(documentsOf(renderGateway(gateway)).map(document => document.kind)).not.toContain("Middleware")
+        expect(ipAllowListMiddleware(gateway)).toBeUndefined()
+    })
+
+    it("given an emptied IP allow list, when the Gateway is rendered, then the Middleware stays and lets every address through", () => {
+        const middleware = documentsOf(renderGateway({ ...gateway, ipAllowList: [] })).find(document => document.kind === "Middleware")
+
+        expect(middleware.spec.ipAllowList.sourceRange).toEqual(["0.0.0.0/0", "::/0"])
+        expect(ipAllowListMiddleware({ ...gateway, ipAllowList: [] })).toBe(middleware.metadata.name)
+    })
+
     it("given two listeners, when the Gateway is rendered, then the YAML has no anchors nor aliases", () => {
         const rendered = renderGateway({ ...gateway, certificateIssuer: "letsencrypt" })
 
@@ -43,7 +66,7 @@ describe("renderGateway", () => {
     })
 
     it("given any Gateway, when it is rendered, then every manifest is in the namespace and labelled as managed", () => {
-        for (const document of documentsOf(renderGateway({ ...gateway, certificateIssuer: "letsencrypt" }))) {
+        for (const document of documentsOf(renderGateway({ ...gateway, certificateIssuer: "letsencrypt", ipAllowList: ["203.0.113.0/24"] }))) {
             expect(document.metadata).toMatchObject({ namespace: "production", labels: { "app.kubernetes.io/managed-by": "flightroom" } })
         }
     })

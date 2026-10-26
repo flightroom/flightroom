@@ -16,7 +16,7 @@ import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Environment from "../models/EnvironmentModel"
 import GlobalVariable from "../models/GlobalVariableModel"
-import EnvironmentService from "./EnvironmentService"
+import EnvironmentService, { normalizeIpAllowList } from "./EnvironmentService"
 
 const newId = () => new Types.ObjectId() as unknown as ObjectId
 
@@ -112,5 +112,73 @@ describe("EnvironmentService cascade on delete", () => {
     it("given no ids at all, when a bulk delete is asked for, then it is refused before touching anything", async () => {
         await expect(backend().deleteMultiple([])).rejects.toThrow("Ids array is required")
         expect(calls).toEqual([])
+    })
+})
+
+describe("normalizeIpAllowList", () => {
+    it("given ranges with blanks, spaces and repeats, when they are normalized, then each one is kept once, trimmed", () => {
+        expect(normalizeIpAllowList([" 203.0.113.7 ", "", "203.0.113.7", "2001:db8::/32"])).toEqual(["203.0.113.7", "2001:db8::/32"])
+    })
+
+    it.each([
+        ["null", null],
+        ["undefined", undefined]
+    ])("given %s, when it is normalized, then every address is allowed", (_case, value) => {
+        expect(normalizeIpAllowList(value)).toEqual([])
+    })
+
+    it.each([
+        ["a host name", ["example.com"]],
+        ["a prefix too long", ["203.0.113.0/33"]],
+        ["no list at all", "203.0.113.7"]
+    ])("given %s, when it is normalized, then it is refused", (_case, value) => {
+        expect(() => normalizeIpAllowList(value)).toThrow(expect.objectContaining({ code: "ENVIRONMENT_IP_ALLOWLIST_INVALID" }))
+    })
+
+    it("given more ranges than an environment takes, when they are normalized, then they are refused", () => {
+        const ranges = Array.from({ length: 101 }, (_, index) => `10.0.${index}.0/24`)
+
+        expect(() => normalizeIpAllowList(ranges)).toThrow(expect.objectContaining({ code: "ENVIRONMENT_IP_ALLOWLIST_TOO_LONG" }))
+    })
+})
+
+describe("EnvironmentService.update, IP allow list", () => {
+    const environmentId = newId()
+
+    const service = () => {
+        const instance = new EnvironmentService({ _id: newId() } as never)
+        const gate = instance as unknown as { ensureAccessToEnvironment: () => Promise<boolean>; ensureWholeProjectOfEnvironment: () => Promise<void> }
+        vi.spyOn(gate, "ensureAccessToEnvironment").mockResolvedValue(true)
+        vi.spyOn(gate, "ensureWholeProjectOfEnvironment").mockResolvedValue()
+        return instance
+    }
+    const stored = (ipAllowList?: string[]) => vi.spyOn(Environment, "findById").mockResolvedValue({ _id: environmentId, ipAllowList } as never)
+    const saved = () => vi.spyOn(Environment, "findOneAndUpdate").mockResolvedValue({ _id: environmentId } as never)
+
+    it("given an environment that had an allow list, when it is emptied, then the empty list is saved and keeps its Middleware open", async () => {
+        stored(["203.0.113.0/24"])
+        const update = saved()
+
+        await service().update(environmentId, { ipAllowList: [] } as never)
+
+        expect(update.mock.calls[0][1]).toEqual({ ipAllowList: [] })
+    })
+
+    it("given an environment that never had an allow list, when an empty one is sent, then it is left out", async () => {
+        stored(undefined)
+        const update = saved()
+
+        await service().update(environmentId, { name: "Production", ipAllowList: [] } as never)
+
+        expect(update.mock.calls[0][1]).toEqual({ name: "Production" })
+    })
+
+    it("given ranges, when they are saved, then they are normalized", async () => {
+        stored(undefined)
+        const update = saved()
+
+        await service().update(environmentId, { ipAllowList: [" 203.0.113.7 ", "203.0.113.7"] } as never)
+
+        expect(update.mock.calls[0][1]).toEqual({ ipAllowList: ["203.0.113.7"] })
     })
 })
