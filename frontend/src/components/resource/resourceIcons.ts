@@ -39,6 +39,7 @@ const TYPE_BRANDS = new Map<string, SimpleIcon>([
 /** L'icona generica di ogni tipo senza marchio; un tipo aggiunto dopo prende Box */
 const TYPE_ICONS = new Map<string, LucideIcon>([
     ["database", Database],
+    ["cosmosdb", Database],
     ["storage", HardDrive],
     ["serviceAccount", KeyRound],
     ["ai", Sparkles],
@@ -50,6 +51,7 @@ const TYPE_ICONS = new Map<string, LucideIcon>([
 const TYPE_ICON_MARKUP = new Map<string, string>(
     Object.entries({
         database: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
+        cosmosdb: '<ellipse cx="12" cy="5" rx="9" ry="3"/><path d="M3 5V19A9 3 0 0 0 21 19V5"/><path d="M3 12A9 3 0 0 0 21 12"/>',
         storage:
             '<path d="M10 16h.01"/><path d="M2.212 11.577a2 2 0 0 0-.212.896V18a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-5.527a2 2 0 0 0-.212-.896L18.55 5.11A2 2 0 0 0 16.76 4H7.24a2 2 0 0 0-1.79 1.11z"/><path d="M21.946 12.013H2.054"/><path d="M6 16h.01"/>',
         serviceAccount:

@@ -67,6 +67,8 @@ export interface Resource {
     type: string
     variant: string
     description?: string
+    /** Markdown per gli agenti AI su questa risorsa */
+    context?: string
     envPrefix?: string | null
     /** A `generic` only: the variables it defines */
     customFields?: ResourceCustomField[]
@@ -83,6 +85,7 @@ export interface ResourceDTO {
     type: string
     variant: string
     description?: string
+    context?: string
     /** Blank or null derives it from the type and the name */
     envPrefix?: string | null
     /** A `generic` only, sent as a whole: a field renamed, removed or turned secret or plain loses its values */
@@ -97,6 +100,7 @@ const ERROR_KEYS: Record<string, string> = {
     RESOURCE_NAME_TAKEN: "resources.errors.name_taken",
     RESOURCE_NAME_INVALID: "resources.errors.name_invalid",
     RESOURCE_DESCRIPTION_INVALID: "resources.errors.description_invalid",
+    RESOURCE_CONTEXT_INVALID: "resources.errors.context_invalid",
     RESOURCE_TYPE_INVALID: "resources.errors.type_invalid",
     RESOURCE_TYPE_IMMUTABLE: "resources.errors.type_immutable",
     RESOURCE_VARIANT_INVALID: "resources.errors.variant_invalid",

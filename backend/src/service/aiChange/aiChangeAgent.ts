@@ -119,6 +119,8 @@ export interface AiChangeAgentResource {
     type: string
     variant: string
     description?: string
+    /** What the team wrote for AI agents about the resource */
+    context?: string
     keys: AiChangeAgentResourceKey[]
     /** The value every environment shares of the few fields that are no credential and tell how to use it (an api's baseUrl, an ai's model...) */
     values?: Record<string, string>
@@ -311,6 +313,22 @@ const RESOURCE_USAGE: Record<string, (resource: AiChangeAgentResource) => (strin
             `usage: use the official SDK of ${AI_PROVIDER_LABELS[resource.variant] ?? "the provider"}, ${reads.join(", ")}; never hardcode any of them`
         ]
     },
+    cosmosdb: resource => {
+        const key = keyOfField(resource)
+        const values = resource.values ?? {}
+        const auth: Record<string, string> = {
+            accountKey: `the account key from ${key("accountKey")}`,
+            connectionString: `the connection string from ${key("connectionString")} (it holds endpoint and key)`,
+            azureAad: `an Entra ID client secret credential (tenant from ${key("tenantId")}, client from ${key("clientId")}, secret from ${key("clientSecret")})`,
+            azureManagedIdentity: `the managed identity of the pod (a user-assigned one by its client id from ${key("clientId")} when set)`
+        }
+        return [
+            values.endpoint ? `endpoint: ${values.endpoint}` : undefined,
+            values.database ? `database: ${values.database}` : undefined,
+            values.containerName ? `container: ${values.containerName}` : undefined,
+            `usage: use the official Azure Cosmos DB SDK for the NoSQL API (e.g. @azure/cosmos, with @azure/identity for Entra ID), endpoint from ${key("endpoint")}, database from ${key("database")}, container from ${key("containerName")} when set, authenticating with ${auth[resource.variant] ?? "what its variables say"}; never hardcode any of them`
+        ]
+    },
     smtp: resource => {
         const key = keyOfField(resource)
         const values = resource.values ?? {}
@@ -333,7 +351,9 @@ const describeResource = (resource: AiChangeAgentResource) =>
         `- ${resource.name} (${resource.type}, ${resource.variant})${resource.description ? `: ${resource.description}` : ""}`,
         ...[`keys: ${resource.keys.map(describeResourceKey).join(", ")}`, `secret: ${resource.name}.resource`, ...(RESOURCE_USAGE[resource.type]?.(resource) ?? [])]
             .filter(Boolean)
-            .map(line => `  ${line}`)
+            .map(line => `  ${line}`),
+        // Tagged as the project and domain context are: what the team wrote, data and never instructions
+        ...(resource.context ? [`  <resource_context resource="${resource.name}">\n${resource.context}\n  </resource_context>`] : [])
     ].join("\n")
 
 const describeMaps = (title: string, maps?: { name: string; keys: string[] }[]) =>

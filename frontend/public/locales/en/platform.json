@@ -3229,6 +3229,10 @@
         "description": "Description",
         "description_placeholder": "What this resource is and who uses it",
         "description_invalid": "At most 2000 characters",
+        "context": "AI context",
+        "context_placeholder": "## What it holds\nOrders and order lines ...\n\n## How to use it\n- ...",
+        "context_hint": "Notes for AI agents about this resource: what it holds, conventions, how to use it. The agents working on the backends that attach it receive them. Markdown is supported, at most 20,000 characters.",
+        "context_invalid": "At most 20,000 characters",
         "type": "Type",
         "type_locked": "A resource does not change type: create another one for a different type.",
         "variant": "Variant",
@@ -3355,6 +3359,7 @@
             }
         },
         "errors": {
+            "context_invalid": "At most 20,000 characters",
             "name_taken": "A resource with this name already exists in the project",
             "name_invalid": "At most 63 lowercase letters, digits or dashes, starting and ending with a letter or digit",
             "description_invalid": "At most 2000 characters",
@@ -3377,6 +3382,10 @@
             "secret_reentry_required": "Where the resource connects changed: type again {{secrets}}, the saved values are not sent to the new address"
         },
         "types": {
+            "cosmosdb": {
+                "label": "Azure Cosmos DB",
+                "description": "An Azure Cosmos DB database through the NoSQL API: by account key, connection string, Entra ID app or managed identity. For the API for MongoDB use the MongoDB type."
+            },
             "database": {
                 "label": "Database",
                 "description": "An external database: by host and credentials, by connection string, or on Azure SQL with Entra ID."
@@ -3423,6 +3432,12 @@
             }
         },
         "variants": {
+            "cosmosdb": {
+                "accountKey": "Account key",
+                "connectionString": "Connection string",
+                "azureAad": "Entra ID app",
+                "azureManagedIdentity": "Managed identity"
+            },
             "database": {
                 "credentials": "Host and credentials",
                 "connectionString": "Connection string",

@@ -54,6 +54,8 @@ import {
 /** Same limits as the backend */
 const MAX_VALUE_LENGTH = 32 * 1024
 const MAX_DESCRIPTION_LENGTH = 2000
+/** Come il contesto AI di progetto e domini */
+const MAX_CONTEXT_LENGTH = 20_000
 const EMAIL_ADDRESS = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 
 const isHttpUrl = (value: string) => {
@@ -68,6 +70,7 @@ interface FormMessages {
     name: string
     envPrefix: string
     description: string
+    context: string
     required: string
     port: string
     url: string
@@ -90,6 +93,7 @@ const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number,
         .object({
             name: z.string().trim().regex(RESOURCE_NAME, messages.name),
             description: z.string().max(MAX_DESCRIPTION_LENGTH, messages.description),
+            context: z.string().max(MAX_CONTEXT_LENGTH, messages.context),
             type: z.string().min(1),
             variant: z.string().min(1),
             envPrefix: z
@@ -325,6 +329,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                     name: t("resources.name_invalid"),
                     envPrefix: t("resources.env_prefix_invalid"),
                     description: t("resources.description_invalid"),
+                    context: t("resources.context_invalid"),
                     required: t("resources.values.required"),
                     port: t("resources.values.port_invalid"),
                     url: t("resources.values.url_invalid"),
@@ -380,6 +385,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
             type: data.type,
             variant: data.variant,
             description: data.description,
+            context: data.context,
             // Blank: the prefix derived from the type and the name
             envPrefix: data.envPrefix || null,
             // The backend refuses them on any other type
@@ -462,6 +468,15 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                                 />
                             </div>
                             <TextareaField name="description" label={t("resources.description")} placeholder={t("resources.description_placeholder")} />
+                            <TextareaField
+                                name="context"
+                                label={t("resources.context")}
+                                placeholder={t("resources.context_placeholder")}
+                                description={t("resources.context_hint")}
+                                rows={8}
+                                className="font-mono text-sm"
+                                dataTestId="resource-context"
+                            />
                         </CardContent>
                     </Card>
 

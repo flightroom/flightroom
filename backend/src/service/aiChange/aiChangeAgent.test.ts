@@ -1066,6 +1066,35 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(sent[0].system).not.toContain("read_api_spec")
     })
 
+    it("Given a Cosmos DB with an AI context, when it runs, then the agent is told how to reach it and what the team wrote about it, tagged as their context", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+        const cosmos = agentResource(
+            "orders-store",
+            "cosmosdb",
+            "azureManagedIdentity",
+            { endpoint: "https://orders.documents.azure.com:443/", database: "shop", containerName: "orders" },
+            { context: "Partition key: /customerId.\nNever read across partitions." }
+        )
+
+        await runAiChangeAgent(client, { ...input(), repositories: [{ baseBranch: "main", workingCopy, backend: { ...configuredBackend(), resources: [cosmos] } }] }, hooks().hooks)
+
+        expect(firstPromptOf(sent)).toContain(
+            [
+                "- orders-store (cosmosdb, azureManagedIdentity)",
+                "  keys: COSMOS_ORDERS_STORE_ENDPOINT, COSMOS_ORDERS_STORE_DATABASE, COSMOS_ORDERS_STORE_CONTAINER, COSMOS_ORDERS_STORE_CLIENT_ID, COSMOS_ORDERS_STORE_AUTH=azureManagedIdentity",
+                "  secret: orders-store.resource",
+                "  endpoint: https://orders.documents.azure.com:443/",
+                "  database: shop",
+                "  container: orders",
+                "  usage: use the official Azure Cosmos DB SDK for the NoSQL API (e.g. @azure/cosmos, with @azure/identity for Entra ID), endpoint from COSMOS_ORDERS_STORE_ENDPOINT, database from COSMOS_ORDERS_STORE_DATABASE, container from COSMOS_ORDERS_STORE_CONTAINER when set, authenticating with the managed identity of the pod (a user-assigned one by its client id from COSMOS_ORDERS_STORE_CLIENT_ID when set); never hardcode any of them",
+                '  <resource_context resource="orders-store">',
+                "Partition key: /customerId.",
+                "Never read across partitions.",
+                "  </resource_context>"
+            ].join("\n")
+        )
+    })
+
     it.each([
         ["basic", {}, "auth: basic — HTTP basic auth, user from API_PAYMENTS_USERNAME and password from API_PAYMENTS_PASSWORD"],
         ["bearer", {}, "auth: bearer — send the header Authorization: Bearer <value of API_PAYMENTS_TOKEN>"],

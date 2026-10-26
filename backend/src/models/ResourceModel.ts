@@ -3,6 +3,7 @@ import { RESOURCE_CATALOG, RESOURCE_CUSTOM_FIELD_NAME, RESOURCE_ENV_PREFIX, Reso
 import { VARIABLE_MAP_NAME } from "../types/VariableMapDTO"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
+import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
 /** The value a field takes in one environment instead of the one it has everywhere else */
 export interface IResourceOverride {
@@ -28,6 +29,8 @@ export interface IResource extends Document<ObjectId> {
     type: ResourceType
     variant: string
     description?: string
+    /** Markdown for AI agents about this resource: what it holds, conventions, how to use it. Told to the agents working on the backends that attach it */
+    context?: string
     /** Typed in place of the prefix derived from the type and the name; null keeps the derived one */
     envPrefix?: string | null
     /** A `generic` resource only: the variables it defines, whose values are kept as those of a catalog field */
@@ -126,6 +129,11 @@ const resourceSchema = new Schema<IResource>(
         description: {
             type: String,
             trim: true
+        },
+        context: {
+            type: String,
+            trim: true,
+            maxlength: CONTEXT_MAX_LENGTH
         },
         envPrefix: {
             type: String,

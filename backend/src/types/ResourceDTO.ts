@@ -17,6 +17,8 @@ interface ResourceDTO {
     type: ResourceType
     variant: string
     description?: string
+    /** Markdown for AI agents about the resource; blank removes it */
+    context?: string
     /** Blank or null derives it from the type and the name */
     envPrefix?: string | null
     /**

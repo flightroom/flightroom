@@ -3248,6 +3248,10 @@
         "description": "Descrizione",
         "description_placeholder": "Che cos'è questa risorsa e chi la usa",
         "description_invalid": "Al massimo 2000 caratteri",
+        "context": "Contesto AI",
+        "context_placeholder": "## Cosa contiene\nOrdini e righe d'ordine ...\n\n## Come usarla\n- ...",
+        "context_hint": "Note per gli agenti AI su questa risorsa: cosa contiene, convenzioni, come usarla. Le ricevono gli agenti che lavorano sui backend che la agganciano. Markdown supportato, al massimo 20.000 caratteri.",
+        "context_invalid": "Al massimo 20.000 caratteri",
         "type": "Tipo",
         "type_locked": "Una risorsa non cambia tipo: per un tipo diverso creane un'altra.",
         "variant": "Variante",
@@ -3374,6 +3378,7 @@
             }
         },
         "errors": {
+            "context_invalid": "Al massimo 20.000 caratteri",
             "name_taken": "Esiste già una risorsa con questo nome nel progetto",
             "name_invalid": "Al massimo 63 lettere minuscole, cifre o trattini, che iniziano e finiscono con una lettera o una cifra",
             "description_invalid": "Al massimo 2000 caratteri",
@@ -3396,6 +3401,10 @@
             "secret_reentry_required": "Il punto a cui si collega la risorsa è cambiato: digita di nuovo {{secrets}}, i valori salvati non vengono inviati al nuovo indirizzo"
         },
         "types": {
+            "cosmosdb": {
+                "label": "Azure Cosmos DB",
+                "description": "Un database Azure Cosmos DB con l'API NoSQL: per chiave dell'account, stringa di connessione, app Entra ID o managed identity. Per l'API per MongoDB usa il tipo MongoDB."
+            },
             "database": {
                 "label": "Database",
                 "description": "Un database esterno: per host e credenziali, per stringa di connessione, o su Azure SQL con Entra ID."
@@ -3442,6 +3451,12 @@
             }
         },
         "variants": {
+            "cosmosdb": {
+                "accountKey": "Chiave dell'account",
+                "connectionString": "Stringa di connessione",
+                "azureAad": "App Entra ID",
+                "azureManagedIdentity": "Managed identity"
+            },
             "database": {
                 "credentials": "Host e credenziali",
                 "connectionString": "Stringa di connessione",
