@@ -1,0 +1,96 @@
+{
+    "id": "21dd8a5b-0dd1-43af-8f72-c8ec10a7e126",
+    "name": "flightroom-register-docker-image",
+    "friendlyName": "Register Docker Image in Flightroom",
+    "description": "Register a pushed Docker image as a Flightroom version",
+    "helpMarkDown": "",
+    "category": "Utility",
+    "author": "Flightroom",
+    "version": {
+        "Major": 1,
+        "Minor": 0,
+        "Patch": 0
+    },
+    "instanceNameFormat": "Register Docker image $(image) as $(version)",
+    "runsOn": ["Agent"],
+    "visibility": ["Build", "Release"],
+    "inputs": [
+        {
+            "name": "apiKey",
+            "type": "string",
+            "label": "API Key",
+            "defaultValue": "",
+            "required": true,
+            "helpMarkDown": "Flightroom MANAGER deploy API key",
+            "properties": {
+                "IsSecret": "true"
+            }
+        },
+        {
+            "name": "domain",
+            "type": "string",
+            "label": "Flightroom URL",
+            "defaultValue": "https://console.flightroom.dev",
+            "required": true,
+            "helpMarkDown": "Flightroom base URL, without /api"
+        },
+        {
+            "name": "resourceType",
+            "type": "pickList",
+            "label": "Resource Type",
+            "defaultValue": "backend",
+            "required": true,
+            "options": {
+                "backend": "Backend or maintenance agent",
+                "frontend": "Docker frontend"
+            },
+            "helpMarkDown": "Choose the Flightroom resource that owns this image"
+        },
+        {
+            "name": "slug",
+            "type": "string",
+            "label": "Resource Slug",
+            "defaultValue": "",
+            "required": true,
+            "helpMarkDown": "The backend, maintenance agent, or Docker frontend slug"
+        },
+        {
+            "name": "version",
+            "type": "string",
+            "label": "Version",
+            "defaultValue": "",
+            "required": true,
+            "helpMarkDown": "The image tag/version that was pushed"
+        },
+        {
+            "name": "image",
+            "type": "string",
+            "label": "Image Reference",
+            "defaultValue": "",
+            "required": true,
+            "helpMarkDown": "Full pushed image reference, e.g. ghcr.io/acme/orders:1.2.0"
+        },
+        {
+            "name": "digest",
+            "type": "string",
+            "label": "Image Digest",
+            "defaultValue": "",
+            "required": false,
+            "helpMarkDown": "Optional registry digest, e.g. sha256:..."
+        },
+        {
+            "name": "commitSha",
+            "type": "string",
+            "label": "Commit SHA",
+            "defaultValue": "",
+            "required": false,
+            "helpMarkDown": "Optional source commit SHA"
+        }
+    ],
+    "execution": {
+        "Node20_1": {
+            "target": "index.js",
+            "argumentFormat": ""
+        }
+    }
+}

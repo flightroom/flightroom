@@ -35,6 +35,8 @@ export interface IAiChangeJob extends Document<ObjectId> {
     /** The mission that started the job: it starts the next ones as this one ends. */
     missionId?: Schema.Types.ObjectId
     prompt: string
+    /** A few words the model wrote about the prompt, for the console's lists; unset when it could not, or on a follow-up. */
+    title?: string
     scope: AiJobScope
     /** The functional domain the job was asked from: its follow-ups keep it, and the agent is told about it. */
     domainId?: Schema.Types.ObjectId
@@ -72,6 +74,7 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         rootJobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob", required: true, index: true },
         missionId: { type: Schema.Types.ObjectId, ref: "AiMission", index: true },
         prompt: { type: String, required: true, maxlength: 8_000 },
+        title: { type: String },
         scope: { type: String, enum: ["global", "domain", "selection"], required: true },
         domainId: { type: Schema.Types.ObjectId, ref: "Domain" },
         frontendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Frontend" }], default: [] },
@@ -88,7 +91,10 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         usage: {
             inputTokens: { type: Number, default: 0 },
             cachedInputTokens: { type: Number, default: 0 },
-            outputTokens: { type: Number, default: 0 }
+            outputTokens: { type: Number, default: 0 },
+            cost: { type: Number, min: 0 },
+            currency: { type: String, enum: ["USD", "EUR"] },
+            costUsd: { type: Number, min: 0 }
         },
         expiresAt: { type: Date }
     },

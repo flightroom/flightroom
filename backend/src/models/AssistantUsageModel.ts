@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose"
 import { LLM_EFFORTS, LlmEffort } from "../service/llm/types"
+import { AiCurrency } from "./AiModelModel"
 
 /** The tokens of one assistant answer, every model round included: what the assistant costs, per user and project. */
 export interface IAssistantUsage {
@@ -14,6 +15,9 @@ export interface IAssistantUsage {
     inputTokens: number
     cachedInputTokens: number
     outputTokens: number
+    cost?: number
+    currency?: AiCurrency
+    costUsd?: number
     createdAt: Date
 }
 
@@ -27,7 +31,10 @@ const assistantUsageSchema = new Schema<IAssistantUsage>(
         effort: { type: String, enum: [...LLM_EFFORTS] },
         inputTokens: { type: Number, default: 0 },
         cachedInputTokens: { type: Number, default: 0 },
-        outputTokens: { type: Number, default: 0 }
+        outputTokens: { type: Number, default: 0 },
+        cost: { type: Number, min: 0 },
+        currency: { type: String, enum: ["USD", "EUR"] },
+        costUsd: { type: Number, min: 0 }
     },
     { timestamps: { createdAt: true, updatedAt: false } }
 )

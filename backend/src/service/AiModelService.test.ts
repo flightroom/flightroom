@@ -240,6 +240,35 @@ describe("AiModelService", () => {
             expect(modelUpdates).toEqual([{ filter: { organizationId: ORGANIZATION_ID, _id: { $ne: saved[0]._id }, isDefault: true }, update: { isDefault: false } }])
         })
 
+        it("Given token rates in euros, when an AI is added, then they are saved and returned to administrators", async () => {
+            const tokenCosts = { input: 3, cachedInput: 0.3, output: 15, currency: "EUR" as const }
+
+            const created = await service().create(ORGANIZATION_ID, { name: "Opus", provider: "anthropic" as never, config: { apiKey: "k" }, tokenCosts })
+
+            expect(saved[0].tokenCosts).toMatchObject(tokenCosts)
+            expect(created.tokenCosts).toMatchObject(tokenCosts)
+        })
+
+        it("Given legacy rates without a currency, when an AI is added, then USD remains the default", async () => {
+            const created = await service().create(ORGANIZATION_ID, {
+                name: "Opus",
+                provider: "anthropic" as never,
+                config: { apiKey: "k" },
+                tokenCosts: { input: 3, cachedInput: 0.3, output: 15 }
+            })
+
+            expect(created.tokenCosts?.currency).toBe("USD")
+        })
+
+        it.each([
+            ["a missing rate", { input: 3, cachedInput: 0.3 }],
+            ["a negative rate", { input: -1, cachedInput: 0.3, output: 15 }],
+            ["a rate above the limit", { input: 1_000_001, cachedInput: 0.3, output: 15 }],
+            ["an unsupported currency", { input: 3, cachedInput: 0.3, output: 15, currency: "GBP" }]
+        ])("Given %s, when an AI is added, then token pricing is refused", async (_case, tokenCosts) => {
+            expect(await codeOf(service().create(ORGANIZATION_ID, { name: "Opus", provider: "anthropic" as never, config: { apiKey: "k" }, tokenCosts: tokenCosts as never }))).toBe("AI_MODEL_INVALID")
+        })
+
         it("Given two AIs made the default at the same time, when the unique index refuses the second, then it is a conflict, not a name taken", async () => {
             vi.spyOn(AiModel.prototype, "save").mockRejectedValueOnce(Object.assign(new Error("E11000"), { code: 11000, keyPattern: { organizationId: 1, isDefault: 1 } }))
             expect(await codeOf(service().create(ORGANIZATION_ID, { name: "Opus", provider: "anthropic" as never, config: { apiKey: "k" }, isDefault: true }))).toBe("AI_MODEL_DEFAULT_CONFLICT")
@@ -303,6 +332,16 @@ describe("AiModelService", () => {
     })
 
     describe("update", () => {
+        it("Given a request to clear token rates, when the AI is saved, then its interaction costs become optional again", async () => {
+            const opus = stored({ name: "Opus", tokenCosts: { input: 3, cachedInput: 0.3, output: 15 } })
+            models = [opus]
+
+            const updated = await service().update(ORGANIZATION_ID, String(opus._id), { tokenCosts: null })
+
+            expect(saved[0].tokenCosts).toBeUndefined()
+            expect(updated.tokenCosts).toBeUndefined()
+        })
+
         it("Given the placeholder sent back, when the AI is saved, then the stored credential is kept", async () => {
             const azure = stored({ name: "GPT", provider: "azure-openai" as never, modelId: "gpt", config: { endpoint: "https://a.openai.azure.com/", apiKey: "the-real-key" } })
             models = [azure]

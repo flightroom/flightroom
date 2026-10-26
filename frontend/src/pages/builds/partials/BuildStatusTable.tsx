@@ -40,11 +40,11 @@ const BuildStatusTable: React.FC<BuildStatusTableProps> = ({ data }) => {
         setExpandedKeys(current => (current.includes(key) ? current.filter(expandedKey => expandedKey !== key) : [...current, key]))
     }
 
-    // Frontends first, then backends: each list already comes sorted by name.
+    // Frontends and backends in one alphabetical list: the kind is shown by its badge.
     const rows: BuildStatusRow[] = [
         ...(data.frontends || []).map(({ frontendId, ...row }) => ({ ...row, kind: BuildComponentKind.FRONTEND, id: frontendId })),
         ...(data.backends || []).map(({ backendId, ...row }) => ({ ...row, kind: BuildComponentKind.BACKEND, id: backendId }))
-    ]
+    ].sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: "base" }))
     // Header cells: expander, name, type, last build, tag of that build.
     const columnCount = 5
 

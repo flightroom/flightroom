@@ -1,6 +1,7 @@
 import { fastify } from "../.."
 import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
+import AiChangeJob from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus, IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import { LlmEffort } from "../llm"
 import RepositoryWorkspaceService from "../workspace/RepositoryWorkspaceService"
@@ -86,7 +87,14 @@ export class AiChangeService extends AiChangeBaseService {
      */
     async list(ref: RepositoryComponentRef): Promise<Omit<IAiChangeRequest, "events">[]> {
         const component = await this.getComponent(ref)
-        const owner = ownerFields(component)
+        const hiddenJobs = await AiChangeJob.distinct("_id", {
+            $or: [{ scope: "domain" }, { missionId: { $exists: true } }],
+            [ref.kind === "frontend" ? "frontendIds" : "backendIds"]: component._id
+        })
+        const owner = {
+            ...ownerFields(component),
+            ...(hiddenJobs.length ? { jobId: { $nin: hiddenJobs } } : {})
+        }
         const conversations = await AiChangeRequest.aggregate<{ _id: IAiChangeRequest["conversationId"] }>([
             { $match: owner },
             { $group: { _id: "$conversationId", latestAt: { $max: "$createdAt" } } },

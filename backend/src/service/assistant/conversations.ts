@@ -61,7 +61,16 @@ export const toStoredMessage = (message: AssistantConversationMessageDTO): Assis
             expiresAt: message.confirmation.expiresAt,
             status: message.confirmation.status
         },
-        usage: message.usage && { inputTokens: message.usage.inputTokens, cachedInputTokens: message.usage.cachedInputTokens, outputTokens: message.usage.outputTokens }
+        usage: message.usage && {
+            inputTokens: message.usage.inputTokens,
+            cachedInputTokens: message.usage.cachedInputTokens,
+            outputTokens: message.usage.outputTokens,
+            ...(typeof message.usage.cost === "number" && Number.isFinite(message.usage.cost) && message.usage.cost >= 0
+                ? { cost: message.usage.cost, currency: message.usage.currency ?? "USD" }
+                : typeof message.usage.costUsd === "number" && Number.isFinite(message.usage.costUsd) && message.usage.costUsd >= 0
+                  ? { cost: message.usage.costUsd, currency: "USD" as const }
+                  : {})
+        }
     })
 
 const titleOf = (messages: AssistantConversationMessageDTO[]) => {

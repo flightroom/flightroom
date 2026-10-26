@@ -41,6 +41,7 @@ import { ConfigMap, Secret } from "../../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../../testing/noMaintenanceAgents"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import { LlmClient } from "../llm"
+import { AnthropicLlmClient } from "../llm/anthropicProvider"
 import { RepositoryFileService } from "../RepositoryFileService"
 import AiChangeJobService from "./AiChangeJobService"
 import AiMissionService from "./AiMissionService"
@@ -167,6 +168,7 @@ describe("AiChangeJobService", () => {
             // The agent itself is covered below: here only what create decides.
             vi.spyOn(AiChangeJobService.prototype as unknown as WithProcess, "process").mockResolvedValue(undefined)
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue([] as never)
+            vi.spyOn(AnthropicLlmClient.prototype, "json").mockResolvedValue({ name: "Price API rename", title: "Rename of the price API" })
         })
 
         it("Given a viewer, when a job is started, then it is refused before anything is created", async () => {
@@ -245,9 +247,26 @@ describe("AiChangeJobService", () => {
                 expect.objectContaining({ frontendId: cart._id, jobId: expect.anything(), jobRepositoryCount: 2, baseBranch: "main", status: AiChangeStatus.PENDING }),
                 expect.objectContaining({ frontendId: catalog._id, jobRepositoryCount: 2 })
             ])
-            // Each repository gets the feature branch of the conversation, named after it.
-            expect(requests.map(request => request.branch)).toEqual([expect.stringMatching(/^ai\/cart-\d{8}-\d{6}$/), expect.stringMatching(/^ai\/catalog-\d{8}-\d{6}$/)])
+            // Each repository gets the feature branch of the conversation, named after the model's summary of the request.
+            expect(requests.map(request => request.branch)).toEqual([
+                expect.stringMatching(/^ai-feature\/price-api-rename-\d{8}-\d{6}$/),
+                expect.stringMatching(/^ai-feature\/price-api-rename-\d{8}-\d{6}$/)
+            ])
+            expect(AnthropicLlmClient.prototype.json).toHaveBeenCalledTimes(1)
+            // The same answer titles the conversation in the console's lists.
+            expect(job.title).toBe("Rename of the price API")
+            expect(requests.map(request => request.title)).toEqual(["Rename of the price API", "Rename of the price API"])
             expect(String(requests[0].jobId)).toBe(job._id)
+        })
+
+        it("Given a model that cannot name the branch, when the job is started, then the branch is named after the words of the request", async () => {
+            vi.mocked(AnthropicLlmClient.prototype.json).mockRejectedValue(new Error("overloaded"))
+
+            await service().create(projectId, { prompt: "Please rename the price API", scope: "selection", frontendIds: [String(cart._id)] })
+
+            const [[request]] = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls as [Record<string, unknown>][]
+            expect(request.branch).toMatch(/^ai-feature\/rename-price-api-\d{8}-\d{6}$/)
+            expect(request.title).toBeUndefined()
         })
 
         it("Given a chosen effort, when the job is started, then the job and each of its requests keep it", async () => {
@@ -257,6 +276,17 @@ describe("AiChangeJobService", () => {
             expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ effort: "max" }))
             const requests = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls.map(([document]) => document as Record<string, unknown>)
             expect(requests.map(request => request.effort)).toEqual(["max", "max"])
+        })
+
+        it("Given a fleet mission with a target branch, when its job starts, then it uses the branch without creating a feature branch", async () => {
+            const missionId = new Types.ObjectId()
+            const mission = { _id: missionId, projectId: new Types.ObjectId(projectId), userId: user._id, prompt: "Upgrade React", aiModelId: "system", baseBranch: "release/1.4" }
+
+            await service().startForMission(mission as never, [{ kind: "frontend", id: String(cart._id) }], new Types.ObjectId() as never, "selection")
+
+            const [[request]] = (AiChangeRequest.create as unknown as ReturnType<typeof vi.fn>).mock.calls as [Record<string, unknown>][]
+            expect(request).toMatchObject({ baseBranch: "release/1.4" })
+            expect(request).not.toHaveProperty("branch")
         })
 
         it("Given no effort chosen, when a job is started, then it reasons at high", async () => {
@@ -822,6 +852,17 @@ describe("AiChangeJobService", () => {
             expect(pushed(updates)).toContain("pushing")
         })
 
+        it("Given a fleet job, when it ends, then it skips the proposal branch and starts applying directly", async () => {
+            const job = (await AiChangeJob.findById(jobId)) as Record<string, unknown>
+            job.missionId = new Types.ObjectId()
+            const apply = vi.spyOn(AiChangeJobService.prototype, "apply").mockResolvedValue({} as never)
+
+            await run()
+
+            expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
+            expect(apply).toHaveBeenCalledWith(String(jobId))
+        })
+
         it("Given a push the remote refuses, when the job ends, then the proposal is saved anyway with the error", async () => {
             workingCopy.commitAndPush = vi.fn(async () => {
                 throw new Error("403 Forbidden")
@@ -854,11 +895,12 @@ describe("AiChangeJobService", () => {
             expect(log.info).toHaveBeenCalledWith(expect.objectContaining({ audit: "ai_job_usage", effort: "max" }), "AI job usage")
         })
 
-        it("Given what the agent says and thinks repeating a secret, when it is logged, then the secret is masked and the steps are kept as they are", async () => {
+        it("Given what the agent says and thinks, and what a script prints, repeating a secret, when it is logged, then the secret is masked and the steps are kept as they are", async () => {
             runAgent.mockImplementationOnce(async (_client: unknown, _input: unknown, hooks: { onEvent: (kind: string, message: string) => Promise<void> }) => {
                 await hooks.onEvent("thinking", "The pipeline sets NPM_TOKEN=abcdef1234567890.")
                 await hooks.onEvent("text", "Set API_KEY = sk-live-123456789 in the pipeline.")
                 await hooks.onEvent("tool", "read_file catalog/.npmrc")
+                await hooks.onEvent("output", "$ pnpm install\nexit code 1\nERR_PNPM auth failed: NPM_TOKEN=zyxw9876543210")
                 return { summary: "Shows the price with its currency", stopReason: "finished" }
             })
 
@@ -867,6 +909,8 @@ describe("AiChangeJobService", () => {
             const logged = pushed(updates).join("\n")
             expect(logged).not.toContain("abcdef1234567890")
             expect(logged).not.toContain("sk-live-123456789")
+            expect(logged).not.toContain("zyxw9876543210")
+            expect(logged).toContain("ERR_PNPM auth failed")
             expect(logged).toContain("The pipeline sets NPM_TOKEN=")
             expect(pushed(updates)).toContain("read_file catalog/.npmrc")
         })
@@ -1276,6 +1320,32 @@ describe("AiChangeJobService", () => {
             expect(audits).toEqual([[{ audit: "ai_job_usage", userId: String(user._id), projectId, jobId: String(jobId), inputTokens: 30, cachedInputTokens: 12, outputTokens: 12 }, "AI job usage"]])
         })
 
+        it("Given configured rates, when an agent spends tokens, then its job and ledger keep the calculated cost", async () => {
+            const aiModelId = new Types.ObjectId().toString()
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({
+                _id: jobId,
+                parentJobId,
+                rootJobId: parentJobId,
+                projectId,
+                userId: user._id,
+                prompt: "Also show the currency",
+                frontendIds,
+                status: AiJobStatus.RUNNING,
+                aiModelId,
+                effort: "high",
+                usage: {}
+            } as never)
+            vi.spyOn(AiModel, "findById").mockReturnValue({ lean: () => Promise.resolve({ tokenCosts: { input: 3, cachedInput: 0.3, output: 15 } }) } as never)
+            const organizationId = new Types.ObjectId()
+            vi.mocked(Project.findById).mockResolvedValue({ _id: projectId, organizationId, name: "Shop", context: "Shop context" } as never)
+
+            await run()
+
+            const costIncrements = updates.filter(({ update }) => update.$inc).map(({ update }) => (update.$inc as Record<string, number>)["usage.cost"])
+            expect(costIncrements).toEqual([0.0000942, 0.0000942, 0.0001434, 0.0001434])
+            expect(vi.mocked(AiUsage.create).mock.calls.map(([entry]) => entry.cost)).toEqual([0.0000942, 0.0001434])
+        })
+
         it("Given an agent spending tokens over two rounds, when it runs, then each round is added to the ledger with the organization, the project, the job and its repositories", async () => {
             const organizationId = new Types.ObjectId()
             vi.mocked(Project.findById).mockResolvedValue({ _id: projectId, organizationId, name: "Shop", context: "Shop context" } as never)
@@ -1624,19 +1694,23 @@ describe("AiChangeJobService", () => {
                 { _id: new Types.ObjectId(), missionId, frontendIds: [catalog._id] }
             ]
             const requestId = new Types.ObjectId()
-            vi.spyOn(AiChangeJob, "find").mockResolvedValue(jobs as never)
+            vi.spyOn(AiChangeJob, "find").mockImplementation(((filter: { missionId?: { $exists: boolean } }) =>
+                Promise.resolve(jobs.filter(job => filter.missionId?.$exists !== false || !job.missionId))) as never)
             vi.spyOn(AiChangeRequest, "find").mockResolvedValue([{ _id: requestId, frontendId: cart._id }] as never)
 
             const working = await service().working(projectId)
 
             expect(working).toEqual([
                 { jobId: String(jobs[0]._id), kind: "job", componentIds: [String(catalog._id), String(cart._id), String(catalogApi._id)] },
-                { jobId: String(jobs[1]._id), kind: "job", missionId: String(missionId), componentIds: [String(catalog._id)] },
                 { jobId: String(requestId), kind: "request", componentIds: [String(cart._id)] }
             ])
             // Only what is running and still alive: a job's own requests are listed through the job.
             const [jobFilter] = (AiChangeJob.find as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
-            expect(jobFilter).toMatchObject({ status: { $in: [AiJobStatus.PENDING, AiJobStatus.RUNNING] }, updatedAt: { $gt: expect.any(Date) } })
+            expect(jobFilter).toMatchObject({
+                missionId: { $exists: false },
+                status: { $in: [AiJobStatus.PENDING, AiJobStatus.RUNNING] },
+                updatedAt: { $gt: expect.any(Date) }
+            })
             const [requestFilter] = (AiChangeRequest.find as unknown as ReturnType<typeof vi.fn>).mock.calls[0]
             expect(requestFilter).toMatchObject({ jobId: { $exists: false }, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] } })
         })
@@ -1706,7 +1780,8 @@ describe("AiChangeJobService", () => {
 
             const conversations = await service().domainConversations(projectId, String(domainId))
 
-            expect(find).toHaveBeenCalledWith(expect.objectContaining({ domainId: String(domainId), $expr: { $eq: ["$_id", "$rootJobId"] } }), expect.anything())
+            expect(find).toHaveBeenCalledWith(expect.objectContaining({ domainId: String(domainId), missionId: { $exists: false }, $expr: { $eq: ["$_id", "$rootJobId"] } }), expect.anything())
+            expect(AiChangeJob.findOne).toHaveBeenCalledWith(expect.objectContaining({ missionId: { $exists: false } }), expect.anything())
             expect(conversations.map(view => view.prompt)).toEqual(["And in the email", "Accept coupons", "Show the shipping cost"])
         })
     })

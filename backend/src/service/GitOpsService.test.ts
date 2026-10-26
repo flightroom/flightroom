@@ -738,6 +738,24 @@ describe("GitOpsService.deploy", () => {
             expect(align).not.toHaveBeenCalled()
         })
 
+        it("given a deploy that went through, when Argo CD is aligned, then the Applications of the deployed environments are refreshed afterwards", async () => {
+            const align = vi.spyOn(ArgoCdService.prototype, "alignApplications").mockResolvedValue(undefined)
+            const refresh = vi.spyOn(ArgoCdService.prototype, "refreshApplications").mockResolvedValue(undefined)
+
+            await deployOf(development, production)()
+
+            expect(refresh.mock.calls[0][1]).toEqual(["development", "production"])
+            expect(align.mock.invocationCallOrder[0]).toBeLessThan(refresh.mock.invocationCallOrder[0])
+        })
+
+        it("given a deploy that fails, when the applications were committed, then no Application is refreshed", async () => {
+            const refresh = vi.spyOn(ArgoCdService.prototype, "refreshApplications").mockResolvedValue(undefined)
+
+            await expect(deployOf(production)(() => Promise.reject(new Error("rollout failed")))).rejects.toThrow("rollout failed")
+
+            expect(refresh).not.toHaveBeenCalled()
+        })
+
         it("given a deploy that fails, when both repositories were pushed, then the applications branches are reverted before the configuration", async () => {
             const configurationUndo = [{ path: "production/namespace.yaml", action: "delete" }]
             const applicationsUndo = [{ path: "orders-api.yaml", action: "delete" }]

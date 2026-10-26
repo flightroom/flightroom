@@ -21,9 +21,9 @@ import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
-import { isProtectedPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
+import { isUnproposablePath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { ResolvedAiModel } from "../AiModelService"
-import { ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
+import { calculateAiUsageCost, ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
 import { redactSecrets } from "../assistant/assistantTools"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
@@ -46,12 +46,14 @@ import {
     RepositoryComponentRef
 } from "../workspace/repositoryComponent"
 import { AI_CHANGE_DEFAULT_EFFORT, AI_CHANGE_LIMITS, AiChangeAgentBackend, AiChangeAgentDomain, AiChangeAgentRepository, AiChangeAgentResource, runAiChangeAgent } from "./aiChangeAgent"
+import { sandboxForJob } from "./aiChangeSandboxes"
 import {
     AiChangeBaseService,
     aiJobEnded,
     authorOf,
     beforeAiCapCheck,
     branchName,
+    branchTopic,
     commitMessage,
     conversationPrompts,
     ensureNotBeingRefined,
@@ -140,6 +142,7 @@ export interface AiJobView {
     parentJobId?: string
     rootJobId: string
     prompt: string
+    title?: string
     scope: AiJobScope
     domainId?: string
     status: AiJobStatus
@@ -152,7 +155,7 @@ export interface AiJobView {
     error?: string
     /** Set when a user stopped the agent before it finished. */
     stoppedAt?: Date
-    usage: LlmUsage
+    usage: LlmUsage & { cost?: number; currency?: "USD" | "EUR"; costUsd?: number }
     repositories: AiJobRepositoryView[]
     /** Whether the caller may apply, stop or follow it up: who started it, or an organization administrator. Others only read it. */
     canAct: boolean
@@ -434,6 +437,7 @@ const toJobView = (
     parentJobId: job.parentJobId ? String(job.parentJobId) : undefined,
     rootJobId: String(job.rootJobId),
     prompt: job.prompt,
+    title: job.title,
     scope: job.scope,
     domainId: job.domainId ? String(job.domainId) : undefined,
     status: job.status,
@@ -443,7 +447,16 @@ const toJobView = (
     summary: job.summary,
     error: job.error,
     stoppedAt: job.stoppedAt,
-    usage: { inputTokens: job.usage?.inputTokens ?? 0, cachedInputTokens: job.usage?.cachedInputTokens ?? 0, outputTokens: job.usage?.outputTokens ?? 0 },
+    usage: {
+        inputTokens: job.usage?.inputTokens ?? 0,
+        cachedInputTokens: job.usage?.cachedInputTokens ?? 0,
+        outputTokens: job.usage?.outputTokens ?? 0,
+        ...(job.usage?.cost !== undefined
+            ? { cost: job.usage.cost, currency: job.usage.currency ?? "USD" }
+            : job.usage?.costUsd === undefined
+              ? {}
+              : { cost: job.usage.costUsd, currency: "USD" as const })
+    },
     repositories: componentsOfJob(job).flatMap(ref => {
         // A request nobody acted upon expires: the job then only lists the others.
         const request = requests.find(candidate => String(candidate.jobId) === String(job._id) && componentIdOf(candidate) === ref.id)
@@ -596,7 +609,9 @@ export class AiChangeJobService extends AiChangeBaseService {
         const aiModel = await this.aiModels().resolveForProject(projectId, mission.aiModelId)
         const components = await this.selectedRepositories(projectId, refs)
         for (const component of components) await this.ensureRepositoryInDomainScope(component, component.codeRepository)
-        const repositories = await this.withBaseBranches(components)
+        const baseBranch = mission.baseBranch?.trim()
+        const baseBranches = baseBranch ? Object.fromEntries(components.map(component => [String(component._id), baseBranch])) : undefined
+        const repositories = await this.withBaseBranches(components, baseBranches)
         await this.start({ projectId: mission.projectId, prompt: mission.prompt, scope, repositories, effort: mission.effort, missionId: mission._id, jobId }, aiModel)
     }
 
@@ -694,6 +709,8 @@ export class AiChangeJobService extends AiChangeBaseService {
         const userId = this.getUser()!._id
         // Every job of a mission too: the member's limit can run out while the mission goes on.
         await ensureWithinTokenLimit(input.projectId, userId)
+        // A follow-up keeps the branch and the title of what it refines: the model only names a new one.
+        const topic = !input.missionId && input.repositories.some(repository => !repository.branch) ? await branchTopic(client, input.prompt) : {}
         // Named before it is created: the first job of a chain is its own root.
         const jobId = input.jobId ?? (new Types.ObjectId() as unknown as IAiChangeJob["_id"])
         const queued = () => [{ at: new Date(), kind: "info" as const, message: "queued" }]
@@ -707,6 +724,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             rootJobId: input.parentJob?.rootJobId ?? jobId,
             missionId: input.missionId,
             prompt: input.prompt,
+            title: topic.title,
             scope: input.scope,
             domainId: input.domainId,
             effort,
@@ -729,8 +747,9 @@ export class AiChangeJobService extends AiChangeBaseService {
                     parentId: repository.parentId,
                     conversationId: input.parentJob?.rootJobId ?? jobId,
                     prompt: input.prompt,
+                    title: topic.title,
                     baseBranch: repository.baseBranch,
-                    branch: repository.branch ?? branchName(repository.component.slug),
+                    ...(!input.missionId ? { branch: repository.branch ?? branchName(input.prompt, topic.branch) } : {}),
                     pullRequestUrl: repository.pullRequestUrl,
                     status: AiChangeStatus.PENDING,
                     events: queued()
@@ -745,10 +764,10 @@ export class AiChangeJobService extends AiChangeBaseService {
 
     /**
      * One progress line, on the job and on each of its requests: the page of every repository stays live.
-     * What the model said or thought can repeat a secret it read: masked, as in the assistant's saved answers.
+     * What the model said or thought, and what a script printed, can repeat a secret: masked, as in the assistant's saved answers.
      */
     private async log(jobId: string, kind: IAiChangeEvent["kind"], message: string) {
-        const shown = kind === "text" || kind === "thinking" ? redactSecrets(message) : message
+        const shown = kind === "text" || kind === "thinking" || kind === "output" ? redactSecrets(message) : message
         await AiChangeJob.updateOne({ _id: toObjectId(jobId) }, event(kind, shown))
         await AiChangeRequest.updateMany({ jobId: toObjectId(jobId) }, event(kind, shown))
     }
@@ -758,9 +777,18 @@ export class AiChangeJobService extends AiChangeBaseService {
      * the job: a job nobody applies is removed after a week, what it spent still counts.
      */
     private async addUsage(job: IAiChangeJob, project: IProject, client: LlmClient, usage: LlmUsage) {
-        const increment = { $inc: { "usage.inputTokens": usage.inputTokens, "usage.cachedInputTokens": usage.cachedInputTokens, "usage.outputTokens": usage.outputTokens } }
-        await AiChangeJob.updateOne({ _id: job._id }, increment)
-        await AiChangeRequest.updateMany({ jobId: job._id }, increment)
+        let cost: Awaited<ReturnType<typeof calculateAiUsageCost>>
+        try {
+            cost = await calculateAiUsageCost(job.aiModelId, usage)
+        } catch (error) {
+            fastify.log.error({ error: loggable(error), aiJobId: String(job._id), aiModelId: job.aiModelId }, "AI job interaction cost could not be calculated")
+        }
+        const usageIncrement: Record<string, number> = { "usage.inputTokens": usage.inputTokens, "usage.cachedInputTokens": usage.cachedInputTokens, "usage.outputTokens": usage.outputTokens }
+        if (cost) usageIncrement["usage.cost"] = cost.amount
+        const increment = { $inc: usageIncrement }
+        const currency = cost ? { $set: { "usage.currency": cost.currency } } : {}
+        await AiChangeJob.updateOne({ _id: job._id }, { ...increment, ...currency })
+        await AiChangeRequest.updateMany({ jobId: job._id }, { ...increment, ...currency })
         try {
             await recordAiUsage({
                 organizationId: project.organizationId,
@@ -774,6 +802,8 @@ export class AiChangeJobService extends AiChangeBaseService {
                 aiModelId: job.aiModelId,
                 provider: client.provider,
                 effort: job.effort,
+                cost: cost?.amount,
+                currency: cost?.currency,
                 ...usage
             })
         } catch (error) {
@@ -935,7 +965,9 @@ export class AiChangeJobService extends AiChangeBaseService {
                     ),
                     previousRequests: history ? undefined : await this.previousRequests(job),
                     history,
-                    ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {})
+                    ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {}),
+                    sandbox: sandboxForJob(fastify.config, job),
+                    previewsEnabled: fastify.config.OPENSHELL_PREVIEWS_ENABLED
                 },
                 {
                     onEvent: (kind, message) => this.log(jobId, kind, message),
@@ -967,7 +999,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 const files: IAiChangeFile[] = []
                 for (const change of await workingCopy.changes()) {
                     // The toolbox refuses these already; checked again on what actually changed on disk.
-                    if (isProtectedPath(change.path)) throw new Error(`The agent changed a protected file: ${repository.component.slug}/${change.path}`)
+                    if (isUnproposablePath(change.path)) throw new Error(`The agent changed a protected file: ${repository.component.slug}/${change.path}`)
                     files.push({
                         path: change.path,
                         action: change.action,
@@ -1001,7 +1033,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             const alive = (await AiChangeJob.findById(job._id, { status: 1 }))?.status === AiJobStatus.RUNNING
             if (anyChange && alive) await this.log(jobId, "info", "pushing")
             const pushed = new Map<RunningRepository, Awaited<ReturnType<AiChangeJobService["pushProposal"]>>>()
-            if (alive) for (const { repository, files } of proposals) pushed.set(repository, await this.pushProposal(repository, files, summaryOf(repository, files)))
+            if (alive && !job.missionId) for (const { repository, files } of proposals) pushed.set(repository, await this.pushProposal(repository, files, summaryOf(repository, files)))
             // Requests first: the console stops polling once the job is done. Guarded: a job get()
             // already declared dead must not come back to life.
             let saved = 0
@@ -1045,6 +1077,9 @@ export class AiChangeJobService extends AiChangeBaseService {
                     ...event("info", anyChange ? "proposed" : "no-changes")
                 }
             )
+            if (job.missionId && anyChange) {
+                await this.apply(jobId).catch(error => fastify.log.error({ error: loggable(error), aiJobId: jobId }, "AI mission could not push its changes"))
+            }
         } finally {
             runningAgents.delete(jobId)
             for (const repository of repositories) await repository.workspace.workingCopy.discardChanges().catch(() => undefined)
@@ -1058,7 +1093,7 @@ export class AiChangeJobService extends AiChangeBaseService {
      */
     private async pushProposal(repository: RunningRepository, files: IAiChangeFile[], summary: string | undefined): Promise<{ branch?: string; commit?: string; pushError?: string }> {
         if (files.length === 0) return {}
-        const branch = repository.request.branch ?? branchName(repository.component.slug)
+        const branch = repository.request.branch ?? branchName(repository.request.prompt)
         // The agent only answered: the branch already holds this very proposal, pushing it again would only run the CI again.
         if (repository.previousCommit && sameFiles(repository.previousFiles ?? [], files)) return { branch, commit: repository.previousCommit }
         try {
@@ -1104,7 +1139,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             const dir = repository.workspace.workingCopy.dir
             for (const file of parent.files) {
                 const { absolute, relative } = await resolveInsideWorkingCopy(dir, file.path)
-                if (isProtectedPath(relative)) throw new Error(`The previous proposal changes a protected file: ${repository.component.slug}/${relative}`)
+                if (isUnproposablePath(relative)) throw new Error(`The previous proposal changes a protected file: ${repository.component.slug}/${relative}`)
                 if (file.action === "delete") {
                     await fs.rm(absolute, { force: true })
                     continue
@@ -1191,10 +1226,18 @@ export class AiChangeJobService extends AiChangeBaseService {
         await this.ensureAccessToProject(toObjectId(projectId))
         await this.ensureInDomainScope(projectId, domainId)
         // By their roots: a chain with many follow-ups must not push the other conversations out.
-        const roots = await AiChangeJob.find({ projectId: toObjectId(projectId), domainId: toObjectId(domainId), $expr: { $eq: ["$_id", "$rootJobId"] } }, JOB_LISTED)
+        const roots = await AiChangeJob.find(
+            {
+                projectId: toObjectId(projectId),
+                domainId: toObjectId(domainId),
+                missionId: { $exists: false },
+                $expr: { $eq: ["$_id", "$rootJobId"] }
+            },
+            JOB_LISTED
+        )
             .sort({ createdAt: -1 })
             .limit(LISTED_JOBS)
-        const latest = await Promise.all(roots.map(root => AiChangeJob.findOne({ rootJobId: root._id }, JOB_LISTED).sort({ createdAt: -1 })))
+        const latest = await Promise.all(roots.map(root => AiChangeJob.findOne({ rootJobId: root._id, missionId: { $exists: false } }, JOB_LISTED).sort({ createdAt: -1 })))
         const jobs: ListedJob[] = [...roots, ...latest.flatMap(job => (job ? [job] : []))]
             .filter((job, index, all) => all.findIndex(other => String(other._id) === String(job._id)) === index)
             .sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())
@@ -1245,7 +1288,10 @@ export class AiChangeJobService extends AiChangeBaseService {
         await this.ensureAccessToProject(toObjectId(projectId))
         const fresh = { $gt: new Date(Date.now() - STALE_AFTER_MS) }
         const [jobs, requests] = await Promise.all([
-            AiChangeJob.find({ projectId: toObjectId(projectId), status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh }, { frontendIds: 1, backendIds: 1, missionId: 1, scope: 1, domainId: 1 }),
+            AiChangeJob.find(
+                { projectId: toObjectId(projectId), missionId: { $exists: false }, status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh },
+                { frontendIds: 1, backendIds: 1, missionId: 1, scope: 1, domainId: 1 }
+            ),
             AiChangeRequest.find(
                 { projectId: toObjectId(projectId), jobId: { $exists: false }, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] }, updatedAt: fresh },
                 { frontendId: 1, backendId: 1 }

@@ -16,7 +16,10 @@ const { serviceClass } = vi.hoisted(() => ({
 }))
 
 vi.mock("../../service/MarketService", () => ({ default: serviceClass({ getAll: (...args: unknown[]) => getAll(...args) }) }))
-vi.mock("../../service/ProjectService", () => ({ default: serviceClass({ findById: (...args: unknown[]) => findProject(...args) }) }))
+const getDesignSystemNpmrc = vi.fn()
+vi.mock("../../service/ProjectService", () => ({
+    default: serviceClass({ findById: (...args: unknown[]) => findProject(...args), getDesignSystemNpmrc: (...args: unknown[]) => getDesignSystemNpmrc(...args) })
+}))
 
 import { projectTools } from "./projectTools"
 
@@ -74,5 +77,14 @@ describe("project tools", () => {
         expect(tool("project_update").inputSchema.safeParse({ designSystem: { packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/" } }).success).toBe(true)
         expect(tool("project_update").inputSchema.safeParse({ designSystem: { notes: "Use its tokens." } }).success).toBe(false)
         expect(tool("project_update").inputSchema.safeParse({ designSystem: null }).success).toBe(true)
+    })
+
+    it("given a frontend, when design_system_npmrc_get is called, then the service reads the npmrc of that frontend's design system", async () => {
+        const whole = { packageName: "@acme/ui", source: "project", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" }
+        getDesignSystemNpmrc.mockResolvedValue(whole)
+        const frontendId = "bbbbbbbbbbbbbbbbbbbbbbbb"
+
+        expect(await run("design_system_npmrc_get", { frontendId })).toEqual(whole)
+        expect(getDesignSystemNpmrc).toHaveBeenCalledWith(PROJECT, frontendId)
     })
 })

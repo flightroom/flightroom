@@ -27,6 +27,11 @@ code repository connected (GitHub, GitLab or Azure DevOps).
 
 ## How it works
 
+**View live preview** in a frontend or domain workspace starts the default branch in an isolated
+OpenShell sandbox, without creating an AI job. On a domain it starts the connected frontend and
+backend repositories together; the preview URL is the sandbox's frontend, not a deployed environment.
+The sandbox is removed after the configured OpenShell idle period.
+
 1. The request is stored and a background job starts; the console follows it by polling.
 2. The job takes a lock on the frontend's working copy (Redis, or in-process without Redis), so
    two requests on the same repository queue instead of sharing a checkout.
@@ -35,7 +40,7 @@ code repository connected (GitHub, GitLab or Azure DevOps).
 4. The agent explores and edits the files. It receives the [project and frontend context](MCP.md#project-context)
    and the detected stack.
 5. The changed files are committed on the conversation's feature branch,
-   `ai/<frontend>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
+   `ai-feature/<a few words summing up the request, written by the model>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
    the base the agent started from, and force-pushed. A follow-up that only answers a question, without
    changing a file, pushes nothing. A push that fails does not lose the proposal: the console shows the
    error, and applying it or opening its pull request pushes it again.
@@ -63,7 +68,8 @@ per repository, each on its own feature branch, applied or opened as a pull requ
 repository starts from the branch picked for it, its default branch otherwise; one choice sets them all at
 once, either back to their own default branches or to a branch every one of them has. Each message of the conversation shows
 one tab per repository, with its own files and diff, opened on the first proposal to review. Members without
-a repository are left out and listed under the request.
+a repository are left out and listed under the request. These conversations stay in the domain's queue and do
+not appear in the individual frontend or backend queues.
 
 When the domain has nothing for the agent to work on yet, **Generate** first offers to create it:
 
@@ -157,10 +163,13 @@ handed to each network call.
   repository are refused.
 - It cannot read files that usually hold credentials (`.env*`, `.npmrc`, `*.pem`, `*.key`, ...).
 - It cannot change CI configuration (`.github/workflows`, `.gitlab-ci.yml`, `azure-pipelines*.yml`) or
-  lockfiles: a pushed branch runs CI with the repository secrets. Since every proposal is pushed on its
+  write lockfiles: a pushed branch runs CI with the repository secrets. A lockfile changes only through
+  the install run in a sandbox (below), and its diff is reviewed like the rest. Since every proposal is pushed on its
   feature branch as soon as the agent is done, a pipeline that runs on every branch runs on the
   agent's code before anyone has reviewed it: limit such pipelines, or their secrets, to protected branches.
-- It cannot run anything: no install, build or test. The repository's CI checks the pull request.
+- Without a sandbox it cannot run anything: no install, build or test. The repository's CI checks the
+  pull request. With an [OpenShell gateway](#running-install-lint-test-and-build) it runs the install and
+  the scripts of `package.json` in an isolated sandbox, never on the console.
 - It is told the config maps, secrets and resources attached to each backend by the names of their
   variables, never a credential (see [SECRETS](SECRETS.md#in-the-api)). When a backend attaches an `api`
   resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
@@ -170,10 +179,111 @@ handed to each network call.
 - It never pushes. The console pushes its proposal on a feature branch only, never on the base branch:
   only the user's **Apply** writes there.
 
+## Running install, lint, test and build
+
+The agent can check its own change when the console is given an [OpenShell](https://github.com/NVIDIA/OpenShell)
+gateway. It then gets `run_script`, which runs `install` or one script of the repository's `package.json`
+(`lint`, `test`, `build`...) with the repository's package manager (the `packageManager` field, else the
+lockfile: pnpm and yarn through corepack, npm otherwise), and reads back the exit code and the end of the
+output. Nothing else can be run: no arbitrary command, no repository without a `package.json`.
+A change is pushed once the agent is done, so it must have been built first: in every repository it changed
+that has a `build` script, `finish` is refused until `build` has run after its last edit. Run is enough, not
+passed: a build already broken on the base branch must not hold the agent forever, and it says so in the
+summary. An agent that ends with an answer instead of `finish` is asked once to build, then its answer stands.
+A follow-up that changes nothing needs no build.
+Scripts run with `CI=true`, so test runners stay out of watch mode; the install does not, because
+under CI pnpm and yarn freeze the lockfile and the install fails as soon as the agent changes a dependency
+(pnpm gets `--config.confirmModulesPurge=false` instead, having no terminal to ask in).
+
+The code runs in a sandbox, never in the console's pod: install scripts, build configurations and tests
+are the repository's code, and the console holds the repository tokens, the database and the model keys.
+
+- **One sandbox per conversation.** It is created at the first script of a request and named after the
+  first job of the chain, so the follow-ups reuse it and find `node_modules` already installed.
+- **Deleted when idle.** Once no job of the conversation has waited, run or ended for
+  `OPENSHELL_SANDBOX_IDLE_MINUTES` (5), the sandbox is deleted. Every replica sweeps once a minute and
+  tells what is idle from the database, so a sandbox outlives neither the replica that created it nor a
+  restart.
+- **What goes in.** Each repository is copied whole at its first script of a request (everything but
+  `node_modules` is replaced), then only the files the agent wrote or deleted. Files that may hold
+  credentials (`.env*`, `.npmrc`, keys) are never copied.
+- **What comes back.** Whatever a script creates or changes in the copy (the lockfile the install
+  rewrites, the files `lint --fix` or a formatter corrects, generated code) is written into the working
+  copy and becomes part of the proposal, whatever the exit code. Before each script the sandbox stamps a
+  marker; after it, the files newer than the marker outside `node_modules` are hashed there, and those
+  that differ from the working copy are read back gzipped, in pieces. Left out: what `.gitignore`
+  excludes (builds, caches) and credentials, which stay in the sandbox; CI and registry configuration
+  and binaries, which are sent again before the next script so the copy matches the working copy. A
+  script that changes more than 200 files, more than 10 MB, or more files than the proposal may hold
+  (20 per repository) brings nothing back, and the agent is told why. Deleted files are not seen. What
+  comes back does not count towards the 500 KB the agent may write; in a follow-up the parent's files
+  do, whole, as for anything the agent wrote, except lockfiles.
+- **What goes out.** By default the sandbox may reach `registry.npmjs.org` on 443, only through
+  `/usr/local/bin/node`, and nothing else. A private registry (Azure Artifacts, GitHub Packages...) is
+  reached through the `.npmrc` of the frontend's [design system](MCP.md#project-context), credentials
+  included: it is written into the sandbox, outside the copy of the repository, and the install and the
+  scripts read it as their user configuration (`npm_config_userconfig`: npm, pnpm and yarn 1; yarn 2+ does
+  not read an `.npmrc`). It never reaches the working copy nor the proposal, and the model only sees it
+  masked. The registry's host must be among `OPENSHELL_REGISTRY_HOSTS`, and so must the host it redirects
+  the download to: Azure Artifacts serves its packages from `<account>.blob.core.windows.net`. The code of the repository runs
+  next to it, so the token is as exposed as on a developer's laptop: give it read access to the feed only.
+- **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
+  6,000 characters of the output; 300 MB copied per repository.
+- **Live previews.** When OpenShell is configured, frontend development scripts (`dev`,
+  `start` or `serve`) for React, Vue and Angular, and backend servers for Node.js, FastAPI/Flask/Django,
+  Spring Boot/Quarkus/Micronaut, Go and .NET. Frontends use port 5173; backends use their configured port.
+  Python requirements are installed from `requirements.txt` or `pyproject.toml`; Java build tools, Go and
+  .NET restore dependencies when their development command starts. The default `node:24-bookworm-slim`
+  image only contains Node.js: use `OPENSHELL_SANDBOX_TEMPLATE` or `OPENSHELL_SANDBOX_IMAGE` with the
+  runtimes and build tools needed by your projects. Unknown or unsupported frameworks are not guessed.
+  Changed files are synced into the sandbox, and preview links and the embedded frontend appear in
+  **Edit with AI**. For domain edits, each conversation turn shows the previews of its repositories;
+  backend previews are started when the agent finishes so frontends can call their APIs; select a
+  frontend to switch the embedded view, and use the backend links to open APIs. Previews are enabled
+  by default; set `OPENSHELL_PREVIEWS_ENABLED=false` to disable them. The preview process runs
+  only until the sandbox is swept after the conversation is
+  idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
+  the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
+  otherwise. The **View live preview** button in frontend and domain workspaces opens the frontend
+  URL recorded by the latest relevant AI conversation's OpenShell shell, not a deployed environment
+  URL; it is available after that job has started the development server. Frontends that call a
+  backend should use their normal local development proxy to the backend's configured port.
+
+On Kubernetes, OpenShell needs the [Agent Sandbox](https://agent-sandbox.sigs.k8s.io) controller and a CNI
+that enforces `NetworkPolicy`: without one, the network policy is not applied. Prefer a workload template
+on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime class and resource limits.
+
+| Variable                         | Default                 | What it does                                                                     |
+| -------------------------------- | ----------------------- | -------------------------------------------------------------------------------- |
+| `OPENSHELL_GATEWAY_URL`          |                         | The gateway. Unset, the agent is offered no tool that runs code.                 |
+| `OPENSHELL_TOKEN`                |                         | An OIDC token already issued, sent as is: it expires, so prefer the client credentials below for a console that runs for days. |
+| `OPENSHELL_OIDC_ISSUER`          |                         | With the client id and secret: a token from the client credentials grant, renewed before it expires. |
+| `OPENSHELL_OIDC_CLIENT_ID`       |                         |                                                                                  |
+| `OPENSHELL_OIDC_CLIENT_SECRET`   |                         |                                                                                  |
+| `OPENSHELL_OIDC_AUDIENCE`        |                         |                                                                                  |
+| `OPENSHELL_OIDC_SCOPES`          |                         | Space or comma separated.                                                        |
+| `OPENSHELL_CA_CERT`              |                         | The gateway's CA as PEM text, for a container where mounting a file is a chore. It wins over the file. |
+| `OPENSHELL_CA_CERT_FILE`         |                         | PEM file of the gateway's CA.                                                    |
+| `OPENSHELL_CLIENT_CERT_FILE`     |                         | PEM client certificate and key, for a gateway that asks for mTLS (the local one does). |
+| `OPENSHELL_CLIENT_KEY_FILE`      |                         |                                                                                  |
+| `OPENSHELL_WORKSPACE`            | `default`               | The OpenShell workspace the sandboxes are created in.                            |
+| `OPENSHELL_SANDBOX_TEMPLATE`     |                         | A workload template of the gateway: it wins over the image.                      |
+| `OPENSHELL_SANDBOX_IMAGE`        | `node:24-bookworm-slim` | The image, without a template. It needs `sh`, `tar`, `find`, node, npm and corepack. |
+| `OPENSHELL_SANDBOX_ROOT`         | `/sandbox`              | Where the copies and the caches live inside the sandbox.                         |
+| `OPENSHELL_REGISTRY_HOSTS`       | npm, Maven, PyPI, Go, NuGet | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
+| `OPENSHELL_NETWORK_BINARY`       | Node, Java, Python, Go, .NET | Comma separated executables allowed to reach them: their real paths, not symlinks. |
+| `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is deleted once its conversation has been idle this long.              |
+| `OPENSHELL_PREVIEWS_ENABLED`     | `true`                  | Starts and exposes development servers; set `false` to disable. Preview URLs are public to anyone who can reach the gateway. |
+
+The SDK is published on GitHub Packages, which asks for a token even to read a public package. To build
+the images yourself, pass one with `read:packages` as the build secret `npm_token`:
+`docker build --secret id=npm_token,env=GITHUB_TOKEN .`
+
 ## Who can use it
 
 Any member of the project can see the requests. Viewers can neither ask for a change nor apply or
 discard one; organization administrators can. A request, a job and its follow-ups belong to the user who
 started them: only they, or an organization administrator, can apply, discard, stop or follow them up, or
 open their pull request. Other members see them read only (`AI_JOB_NOT_OWNER`). Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
-per user, like the assistant. The token usage of each request is stored and shown in the console.
+per user, like the assistant. The token usage of each request is stored and shown in the console;
+when its AI has configured token rates, the estimated USD cost is shown alongside it.

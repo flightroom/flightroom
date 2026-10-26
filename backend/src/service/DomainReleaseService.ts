@@ -26,6 +26,14 @@ export const CI_TIMEOUT_MS = 60 * 60 * 1000
  */
 export const STALE_STEP_MS = 15 * 60 * 1000
 
+/**
+ * How long after the last run of the tag ended its version may still be registered: a registration made by a
+ * workflow the tag's run starts when it ends comes after it. Past this, the CI is over and will not register it.
+ */
+export const REGISTRATION_GRACE_MS = 2 * 60 * 1000
+
+const ENDED = [BuildStatus.SUCCESS, BuildStatus.FAILED, BuildStatus.CANCELED]
+
 const ACTIVE_STATUSES = [DomainReleaseStatus.BUILDING, DomainReleaseStatus.WAITING_CI, DomainReleaseStatus.UPDATING_VERSIONS, DomainReleaseStatus.DEPLOYING]
 
 const FORBIDDEN = { code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain" }
@@ -163,9 +171,15 @@ export class DomainReleaseService extends BaseAuthorizedService {
                         message: `The CI did not register version ${release.version} of ${namesOf(waiting)} within ${CI_TIMEOUT_MS / 60_000} minutes`
                     })
                 }
-                const failed = await this.failedInCi(release, waiting)
+                const { failed, unregistered } = await this.endedInCi(release, waiting)
                 if (failed.length > 0) {
                     throw createBusinessException({ code: "DOMAIN_RELEASE_CI_FAILED", message: `The CI of tag ${release.version} failed for ${namesOf(failed)}` })
+                }
+                if (unregistered.length > 0) {
+                    throw createBusinessException({
+                        code: "DOMAIN_RELEASE_CI_NOT_REGISTERED",
+                        message: `The CI of tag ${release.version} ended without registering the version for ${namesOf(unregistered)}`
+                    })
                 }
                 return
             }
@@ -211,25 +225,38 @@ export class DomainReleaseService extends BaseAuthorizedService {
     }
 
     /**
-     * The members whose runs of the tag all ended failed or canceled, as the build status of the project shows
-     * them: a tag can start more than one workflow, and only when none of them can still register the version
-     * is the wait over. Nothing when the providers cannot be read: the timeout still ends the wait.
+     * The members whose runs of the tag are all over, as the build status of the project shows them: `failed`
+     * when they all failed or were canceled, `unregistered` when one succeeded but the version is still missing
+     * {@link REGISTRATION_GRACE_MS} after the last one ended. A tag can start more than one workflow, and only
+     * when none of them can still register the version is the wait over. Nothing when the providers cannot be
+     * read: the timeout still ends the wait.
      */
-    private async failedInCi(release: IDomainRelease, waiting: IDomainReleaseMember[]): Promise<IDomainReleaseMember[]> {
+    private async endedInCi(release: IDomainRelease, waiting: IDomainReleaseMember[]): Promise<{ failed: IDomainReleaseMember[]; unregistered: IDomainReleaseMember[] }> {
+        const failed: IDomainReleaseMember[] = []
+        const unregistered: IDomainReleaseMember[] = []
         try {
             const snapshot = await new BuildStatusService(this.user).getByProjectId(release.projectId)
-            return waiting.filter(member => {
+            for (const member of waiting) {
                 const row =
                     member.kind === "frontend"
                         ? snapshot.frontends.find(candidate => candidate.frontendId === String(member._id))
                         : snapshot.backends.find(candidate => candidate.backendId === String(member._id))
                 const runs = row?.builds.filter(run => run.ref === release.version) ?? []
-                return runs.length > 0 && runs.every(run => run.status === BuildStatus.FAILED || run.status === BuildStatus.CANCELED)
-            })
+                if (runs.length === 0 || !runs.every(run => ENDED.includes(run.status))) continue
+                if (runs.every(run => run.status !== BuildStatus.SUCCESS)) {
+                    failed.push(member)
+                    continue
+                }
+                // Without the end of every run there is no telling the grace is over: the timeout decides
+                const endedAt = runs.map(run => (run.finishedAt ? new Date(run.finishedAt).getTime() : Number.NaN))
+                if (endedAt.every(Number.isFinite) && Date.now() - Math.max(...endedAt) > REGISTRATION_GRACE_MS) {
+                    unregistered.push(member)
+                }
+            }
         } catch (error) {
             fastify.log.warn({ err: error, releaseId: String(release._id) }, "Unable to read the build status of a domain release")
-            return []
         }
+        return { failed, unregistered }
     }
 
     /**

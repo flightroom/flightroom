@@ -54,6 +54,8 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
             ref={ref}
             {...props}
             title={t("app.name")}
+            expandButtonLabel={t("navigation.expand_sidebar")}
+            collapseButtonLabel={t("navigation.collapse_sidebar")}
             logo={<img src="/img/logo.png" alt={t("app.name")} className="h-8 w-8" />}
             mainNavItems={mainNavItems}
             secondaryNavItems={EXTERNAL_NAV_ITEMS}

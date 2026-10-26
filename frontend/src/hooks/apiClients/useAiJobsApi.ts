@@ -14,6 +14,11 @@ export interface AiUsage {
     inputTokens: number
     cachedInputTokens: number
     outputTokens: number
+    /** The configured cost of this interaction, absent when no rates were set. */
+    cost?: number
+    currency?: "USD" | "EUR"
+    /** Cost saved by older backend versions. */
+    costUsd?: number
 }
 
 /** What the job did on one repository: the `AiChangeRequest` reviewed on the frontend (or backend) page, without file contents. */
@@ -48,6 +53,8 @@ export interface AiJob {
     /** The first job of the chain (its own id on the first one): the key of the panel tabs. */
     rootJobId: string
     prompt: string
+    /** A few words the AI wrote about the prompt; missing when it could not, on a follow-up and on older requests. */
+    title?: string
     scope: "global" | "domain" | "selection"
     /** The functional domain the job was asked from; its follow-ups keep it. */
     domainId?: string

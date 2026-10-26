@@ -41,6 +41,7 @@
         "@google/genai": "^2.30.0",
         "@modelcontextprotocol/node": "2.1.1",
         "@modelcontextprotocol/server": "2.3.1",
+        "@nvidia/openshell-sdk": "0.1.5",
         "@redis/client": "^6.3.0",
         "@sentry/node": "^11.8.0",
         "adm-zip": "^0.6.1",

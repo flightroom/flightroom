@@ -85,6 +85,11 @@ describe("assistantToolDefinitions", () => {
         expect(new Set(names).size).toBe(names.length)
     })
 
+    it("Given the tool handing out the whole npmrc, when the assistant's tools are listed, then it is not there: the console's model never reads the credentials", () => {
+        expect(assistantToolDefinitions.map(definition => definition.name)).not.toContain("design_system_npmrc_get")
+        expect(ASSISTANT_TOOLS.some(tool => tool.mcpOnly)).toBe(false)
+    })
+
     it("Given a tool input with a field description, when converted, then the model sees the description", () => {
         const logs = assistantToolDefinitions.find(definition => definition.name === "get_failed_build_logs")!
 

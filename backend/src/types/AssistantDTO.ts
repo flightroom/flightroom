@@ -1,3 +1,4 @@
+import type { AiCurrency } from "../models/AiModelModel"
 import type { LlmEffort } from "../service/llm/types"
 
 export interface AssistantChatMessageDTO {
@@ -83,6 +84,9 @@ export interface AssistantConversationMessageDTO {
         inputTokens: number
         cachedInputTokens: number
         outputTokens: number
+        cost?: number
+        currency?: AiCurrency
+        costUsd?: number
     }
 }
 

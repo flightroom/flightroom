@@ -60,6 +60,7 @@ const NewMissionForm: React.FC<NewMissionFormProps> = ({ projectId, onDone }) =>
     const aiMissionsApi = useAiMissionsApi()
     const domainsApi = useDomainsApi()
     const [prompt, setPrompt] = useState("")
+    const [baseBranch, setBaseBranch] = useState("")
     const [mode, setMode] = useState<AiMissionMode>("global")
     const [all, setAll] = useState(false)
     const [selected, setSelected] = useState<Set<string>>(new Set())
@@ -130,6 +131,7 @@ const NewMissionForm: React.FC<NewMissionFormProps> = ({ projectId, onDone }) =>
                     mode,
                     ...(pickAll ? { all: true } : { frontendIds: selectedOf("frontend"), backendIds: selectedOf("backend") }),
                     ...(mode === "perRepository" ? { concurrency: concurrencyValue } : {}),
+                    ...(baseBranch.trim() ? { baseBranch: baseBranch.trim() } : {}),
                     effort,
                     aiModelId: aiModel?.id
                 },
@@ -208,6 +210,20 @@ const NewMissionForm: React.FC<NewMissionFormProps> = ({ projectId, onDone }) =>
                 <p id={`${promptId}-hint`} className="text-xs text-destructive">
                     {promptError}
                 </p>
+            </div>
+
+            <div className="flex flex-col gap-1.5">
+                <Label htmlFor={`${idPrefix}-branch`}>{t("fleet.new.branch_label")}</Label>
+                <Input
+                    id={`${idPrefix}-branch`}
+                    value={baseBranch}
+                    maxLength={255}
+                    placeholder={t("fleet.new.branch_placeholder")}
+                    disabled={busy}
+                    onChange={event => setBaseBranch(event.target.value)}
+                    dataTestId="fleet-new-mission-branch"
+                />
+                <p className="text-xs text-foreground-secondary">{t("fleet.new.branch_hint")}</p>
             </div>
 
             <fieldset className="flex flex-col gap-2">

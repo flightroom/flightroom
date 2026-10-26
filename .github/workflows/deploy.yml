@@ -36,16 +36,20 @@ jobs:
         NOSQL_DATABASE_URL_PROD: ${{ secrets.NOSQL_DATABASE_URL_PROD }}
         NOSQL_DATABASE_URL_DEV: ${{ secrets.NOSQL_DATABASE_URL_DEV }}
         AZURE_FOUNDRY_API_KEY: ${{ secrets.AZURE_FOUNDRY_API_KEY }}
+        # Without it the infrastructure drops every OPENSHELL_* variable, and the coding agent
+        # loses the sandbox it runs install, lint, test and build in.
+        OPENSHELL_OIDC_CLIENT_SECRET: ${{ secrets.OPENSHELL_OIDC_CLIENT_SECRET }}
       with:
         host: ${{ secrets.SSH_HOST }}
         username: ${{ vars.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
         port: ${{ vars.SSH_PORT }}
-        envs: NOSQL_DATABASE_URL_PROD,NOSQL_DATABASE_URL_DEV,AZURE_FOUNDRY_API_KEY
+        envs: NOSQL_DATABASE_URL_PROD,NOSQL_DATABASE_URL_DEV,AZURE_FOUNDRY_API_KEY,OPENSHELL_OIDC_CLIENT_SECRET
         script: |
           export TF_VAR_nosql_database_url_prod="$NOSQL_DATABASE_URL_PROD"
           export TF_VAR_nosql_database_url_dev="$NOSQL_DATABASE_URL_DEV"
           export TF_VAR_azure_foundry_api_key="$AZURE_FOUNDRY_API_KEY"
+          export TF_VAR_openshell_oidc_client_secret="$OPENSHELL_OIDC_CLIENT_SECRET"
           cd ${{ vars.TERRAFORM_PATH }}
           tofu init
           tofu apply -auto-approve

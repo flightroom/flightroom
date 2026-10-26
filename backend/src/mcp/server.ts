@@ -8,10 +8,11 @@ import UserCannotAccessThisEnvironmentError from "../errors/UserCannotAccessThis
 import UserCannotAccessThisOrganizationError from "../errors/UserCannotAccessThisOrganizationError"
 import UserCannotAccessThisProjectError from "../errors/UserCannotAccessThisProjectError"
 import { RoleInProject } from "../models/UserProjectModel"
-import { redactDesignSystems } from "../types/DesignSystem"
+import { designSystemsForMcp } from "../types/DesignSystem"
 import { MCP_SCOPE_WRITE } from "../utils/oauthConfig"
 import { McpSession, McpSharedProject, McpToolContext, McpToolDefinition, objectId } from "./toolDefinition"
 import { aiChangeTools } from "./tools/aiChangeTools"
+import { aiUsageTools } from "./tools/aiUsageTools"
 import { backendTools } from "./tools/backendTools"
 import { configurationTools } from "./tools/configurationTools"
 import { domainDeploymentTools } from "./tools/domainDeploymentTools"
@@ -49,7 +50,8 @@ import { variableMapTools } from "./tools/variableMapTools"
  * Tools marked `consoleOnly` are never registered on the MCP server: only the console assistant,
  * acting for the signed-in user inside the console, offers them. They cover most of the list above
  * (project deletion, members and invitations, organizations, API keys, MCP clients, bulk actions,
- * the canvas layout and AI code changes). What stays in the console pages for the
+ * the canvas layout and AI code changes). The AI tokens a person spent are read through MCP too
+ * (`user_ai_usage`): their own, or anyone's for an owner of the project. What stays in the console pages for the
  * assistant too: storages, databases, repository connections, secret values, the user profile and bundle upload (their input
  * is a secret or a file).
  */
@@ -72,14 +74,15 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     ...projectAdminTools,
     ...organizationAdminTools,
     ...projectContentTools,
-    ...aiChangeTools
+    ...aiChangeTools,
+    ...aiUsageTools
 ]
 
 const SERVER_INSTRUCTIONS =
     "Tools of the Flightroom console, bound to the projects shared when this connection was authorized. " +
     "Call projects_list first: when more than one project is shared, every project tool needs its projectId. " +
     "Before working on a project call context_get: it returns the notes its team wrote for agents. Working on one frontend, backend or domain, pass its id to context_get, or read aiContext from frontend_get, backend_get or domain_get: follow those notes. Its project.technologies are the default frontend and backend technologies for anything new, unless the user asks otherwise. " +
-    "When a frontend has a designSystem in aiContext, build its UI with that package (configure the registry from the scope lines of its npmrc; credentials are never provided). " +
+    "When a frontend has a designSystem in aiContext, build its UI with that package. Its npmrc comes whole, credentials included, and design_system_npmrc_get returns it too: write it as .npmrc to install the package, without asking the user for a token, and keep it out of git. " +
     "To change the code of a frontend or a backend: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
     "A backend container gets the port it is exposed on in the HTTP_PORT environment variable: its server must read the port from HTTP_PORT and listen on it on 0.0.0.0, never on a hardcoded port. " +
     "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend (e.g. orders-be). " +
@@ -114,9 +117,9 @@ export const describeToolError = (error: unknown): string => {
     return "The operation failed. Check the console for details."
 }
 
-/** Every design system of the result, a project's or a frontend's, reaches the client with the credentials of its npmrc masked */
+/** Every design system of the result, a project's or a frontend's, reaches the client with its npmrc whole and how to use it */
 const toToolResult = (value: unknown) => ({
-    content: [{ type: "text" as const, text: JSON.stringify(value ?? null, redactDesignSystems, 2) }]
+    content: [{ type: "text" as const, text: JSON.stringify(value ?? null, designSystemsForMcp, 2) }]
 })
 
 /**
