@@ -173,6 +173,15 @@ export default fastifyPlugin(
                 CODE_REPOSITORY_GITHUB_CLIENT_SECRET: {
                     type: "string"
                 },
+                // The name and the logo the console shows in place of Flightroom's: an
+                // installation run for a company carries its brand. Unset or empty, the defaults.
+                INSTALLATION_NAME: {
+                    type: "string"
+                },
+                // An absolute URL, or a path served by the console itself
+                INSTALLATION_LOGO_URL: {
+                    type: "string"
+                },
                 // The marketing opt-in is off unless the operator turns it on. An
                 // installation that has no mailing list must not ask for a consent it
                 // would never use, and the platform never sends commercial email

@@ -52,6 +52,11 @@ env:
   # exhausted and the API starts answering 429. default: 100
   # Leave commented out to keep the default: an empty value fails validation.
   # RATE_LIMIT_MAX: 300
+  # Name and logo the console shows in place of Flightroom's: in the sidebar,
+  # on the login page and in the browser tab. The logo is an absolute URL, or a
+  # path the console serves. default: empty, Flightroom's own
+  INSTALLATION_NAME: ""
+  INSTALLATION_LOGO_URL: ""
   # Collect a marketing consent on the registration form. The platform never
   # sends commercial email itself: it only records that the consent was given.
   # default: false

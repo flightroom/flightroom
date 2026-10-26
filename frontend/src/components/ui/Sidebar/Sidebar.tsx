@@ -3,6 +3,7 @@ import { BookOpen, GitBranch } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation } from "react-router-dom"
+import useBranding from "@/hooks/useBranding"
 import LanguageSelector from "./partials/LanguageSelector"
 import ThemeToggle from "./partials/ThemeToggle"
 import { UserButton } from "./partials/UserButton"
@@ -43,6 +44,7 @@ const SectionTitle: React.FC<{ title: string; isCollapsed?: boolean }> = ({ titl
 
 const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSections, ...props }, ref) => {
     const { t } = useTranslation()
+    const branding = useBranding()
     const location = useLocation()
 
     const mainNavItems = mainNavSections.flatMap(section => section.items).map(item => ({ ...item, active: item.path ? isActivePath(location.pathname, item.path) : false }))
@@ -53,10 +55,10 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
         <DesignSystemSidebar
             ref={ref}
             {...props}
-            title={t("app.name")}
+            title={branding.name}
             expandButtonLabel={t("navigation.expand_sidebar")}
             collapseButtonLabel={t("navigation.collapse_sidebar")}
-            logo={<img src="/img/logo.png" alt={t("app.name")} className="h-8 w-8" />}
+            logo={<img src={branding.logoUrl} alt={branding.name} className="h-8 w-8 object-contain" />}
             mainNavItems={mainNavItems}
             secondaryNavItems={EXTERNAL_NAV_ITEMS}
             secondaryContent={({ isCollapsed, isMobile }) => (

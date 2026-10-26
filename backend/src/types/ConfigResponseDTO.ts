@@ -4,6 +4,11 @@ export default interface ConfigResponseDTO {
     canRegister: boolean
     allowEmbeddedLogin: boolean
     marketingOptInEnabled: boolean
+    /** The name and the logo of the installation, when set: the console shows Flightroom's otherwise */
+    branding: {
+        name?: string
+        logoUrl?: string
+    }
     /** The remote MCP server: whether it is on, and the URL to give to MCP clients. */
     mcp: {
         enabled: boolean

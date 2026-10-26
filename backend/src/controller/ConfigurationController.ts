@@ -12,6 +12,11 @@ export default async function configurationController(fastify: FastifyInstance) 
             canRegister: Boolean(config.REGISTRATION_ALLOWED) && Boolean(config.ALLOW_EMBEDDED_LOGIN),
             allowEmbeddedLogin: Boolean(config.ALLOW_EMBEDDED_LOGIN),
             marketingOptInEnabled: Boolean(config.MARKETING_OPT_IN_ENABLED),
+            // An empty value, as the chart ships them, is no value
+            branding: {
+                name: config.INSTALLATION_NAME?.trim() || undefined,
+                logoUrl: config.INSTALLATION_LOGO_URL?.trim() || undefined
+            },
             mcp: {
                 enabled: oauthConfig.enabled,
                 url: oauthConfig.enabled ? oauthConfig.resource : ""
