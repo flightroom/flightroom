@@ -512,6 +512,12 @@ describe("ArgoCdService.alignApplications", () => {
     const updates = () => vi.mocked(Project.updateOne).mock.calls.map(([filter, update]) => ({ filter, update: update as { $set?: Record<string, unknown>; $unset?: Record<string, unknown> } }))
     const storedError = () => updates().find(({ update }) => update.$set?.["argoCd.alignError"])
 
+    beforeEach(() => {
+        // As the initialization left it: the namespaces of both environments, the custom one of production included
+        const destinations = ["development", "prod"].map(namespace => ({ server: "https://kubernetes.default.svc", namespace }))
+        vi.mocked(ArgoCdClient.prototype.getProject).mockResolvedValue(resource(PROJECT_NAME, { destinations }))
+    })
+
     it("given Argo CD initialized, when a deploy aligns it, then the ApplicationSet of every deployable backend and frontend is upserted and nothing else", async () => {
         previous = initialized()
 
@@ -544,6 +550,7 @@ describe("ArgoCdService.alignApplications", () => {
 
         expect(JSON.stringify(orders)).toContain(applicationName(String(projectId), "shop", "orders", "development"))
         expect(JSON.stringify(orders)).not.toContain(applicationName(String(projectId), "shop", "orders", "production"))
+        expect(storedError()?.update.$set?.["argoCd.alignError"]).toMatchObject({ code: "ARGOCD_NAMESPACES_NOT_IN_PROJECT", details: { slug: "production" } })
     })
 
     it("given an alignment that failed before, when a deploy aligns it, then the stored failure goes", async () => {

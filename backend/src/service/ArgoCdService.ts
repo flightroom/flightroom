@@ -18,6 +18,7 @@ import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsSe
 import { GitOpsApplication, isDeployable } from "./gitops/applicationManifests"
 import {
     APPLICATION_LABEL,
+    ArgoCdEnvironment,
     applicationName,
     appProjectName,
     buildApplicationSets,
@@ -175,6 +176,15 @@ const reinitializeRequired = () =>
         code: "ARGOCD_REINITIALIZE_REQUIRED",
         message: "Argo CD was initialized with other repositories, or by an earlier version of the console: initialize it again to deploy the applications through it",
         statusCode: 409
+    })
+
+/** Environments added, or given another namespace, since the initialization: the AppProject does not let Argo CD write there yet */
+const namespacesNotInProject = (environments: ArgoCdEnvironment[]) =>
+    createBusinessException({
+        code: "ARGOCD_NAMESPACES_NOT_IN_PROJECT",
+        message: `The namespaces of ${environments.map(environment => `${environment.slug} (${environment.namespace})`).join(", ")} are not in the AppProject yet: initialize Argo CD again to deploy those environments through it`,
+        statusCode: 409,
+        details: { slug: environments.map(environment => environment.slug).join(", ") }
     })
 
 const nameConflict = (kind: string, name: string) =>
@@ -483,7 +493,9 @@ export class ArgoCdService extends BaseAuthorizedService {
             const clash = clashingName(buildArgoCdState(target))
             // An environment added since the initialization has no namespace in the AppProject yet: its Applications would only fail
             const destinations = ((await client.getProject(projectName))?.spec?.destinations ?? []) as Array<{ namespace?: string }>
-            target.environments = target.environments.filter(environment => destinations.some(destination => destination.namespace === environment.namespace))
+            const inProject = (environment: ArgoCdEnvironment) => destinations.some(destination => destination.namespace === environment.namespace)
+            const outside = target.environments.filter(environment => !inProject(environment))
+            target.environments = target.environments.filter(inProject)
             if (clash) throw nameClash(clash)
 
             const applicationSets = buildApplicationSets(target)
@@ -495,6 +507,8 @@ export class ArgoCdService extends BaseAuthorizedService {
                     throw nameConflict("ApplicationSet", metadata.name)
             }
             for (const applicationSet of applicationSets) await client.upsertApplicationSet(applicationSet)
+            // The others are aligned already: the settings tell those left out wait for an initialization
+            if (outside.length > 0) throw namespacesNotInProject(outside)
             if (argoCd.alignError) await Project.updateOne(idle, { $unset: { "argoCd.alignError": 1 } })
         } catch (error) {
             fastify.log.error({ error: toErrorMessage(error), projectId: String(projectId) }, "Argo CD ApplicationSets of the applications not aligned after a deploy")
