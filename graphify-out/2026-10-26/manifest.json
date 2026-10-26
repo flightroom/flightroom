@@ -265,8 +265,8 @@
     "semantic_hash": ""
   },
   "backend/src/models/ProjectModel.ts": {
-    "mtime": 1793005820.5370958,
-    "ast_hash": "b1b53b00b4617bfff620a030e05e4e8b",
+    "mtime": 1793031209.37897,
+    "ast_hash": "411ebb65e88fa7a2ecec1cf8b00b1776",
     "semantic_hash": ""
   },
   "backend/src/models/StorageModel.ts": {
@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793029590.3065484,
-    "ast_hash": "8cdb0c9068d286a0e91f0148f653e50c",
+    "mtime": 1793031426.6686316,
+    "ast_hash": "85d6ceaf16c69a16b90459864ee7e9e9",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793029590.30482,
-    "ast_hash": "da4d957dded3af3b9d3bf52782ae59c8",
+    "mtime": 1793031426.6671815,
+    "ast_hash": "bd5d44b69a7352aec6f5c52070257596",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1495,8 +1495,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793029746.891445,
-    "ast_hash": "aafcdf773e8860703906e2d9988a8fce",
+    "mtime": 1793031483.6894515,
+    "ast_hash": "cd3f026440fca777a5461e849450eb78",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3620,13 +3620,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/ArgoCdService.test.ts": {
-    "mtime": 1793029639.7670548,
-    "ast_hash": "0c2a9cc1f97cf4b48c5288d154a2b445",
+    "mtime": 1793031405.9055011,
+    "ast_hash": "2c4d73de92e725f3ab383397d0069c4a",
     "semantic_hash": ""
   },
   "backend/src/service/ArgoCdService.ts": {
-    "mtime": 1793029595.9278672,
-    "ast_hash": "81e898d7beb246a0e99c8ea1a1876465",
+    "mtime": 1793031426.6662097,
+    "ast_hash": "6d2e6a5369224a38d3de6b994b58c334",
     "semantic_hash": ""
   },
   "backend/src/service/gitops/argoCdManifests.test.ts": {
@@ -3640,8 +3640,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useArgoCdApi.ts": {
-    "mtime": 1793005820.6134486,
-    "ast_hash": "0ebb53d7b8c67b6c23a2cfce27e999df",
+    "mtime": 1793031209.3794568,
+    "ast_hash": "57795c03da6f81234f5966eefa575009",
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/ArgoCdSection.tsx": {
@@ -4505,8 +4505,8 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793029746.8918343,
-    "ast_hash": "51a7e6cd6136fa1a1f6e8f0f7aebb3b5",
+    "mtime": 1793031483.6899872,
+    "ast_hash": "ec92af025240a600b749d6ddedfc15c7",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
