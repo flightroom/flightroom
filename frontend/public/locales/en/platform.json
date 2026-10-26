@@ -3575,6 +3575,27 @@
             "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"
         }
     },
+    "ai_sandbox": {
+        "title": "Code sandbox (OpenShell)",
+        "description": "The gateway where Edit with AI installs dependencies, builds and runs the tests. There is one for the whole console.",
+        "status": {
+            "online": "Online",
+            "degraded": "Degraded",
+            "offline": "Offline",
+            "notConfigured": "Not configured"
+        },
+        "hint": {
+            "online": "The gateway answers.",
+            "degraded": "The gateway answers but reports itself degraded: sandboxes may be slow or fail to start.",
+            "offline": "The gateway does not answer, or reports itself unhealthy: the reason is in the backend logs.",
+            "notConfigured": "OPENSHELL_GATEWAY_URL is not set: Edit with AI runs no code."
+        },
+        "version": "Version {{version}}",
+        "checked_at": "Checked at {{time}}.",
+        "errors": {
+            "load": "Could not read the status of the sandbox."
+        }
+    },
     "ai_usage": {
         "title": "AI tokens",
         "description": {

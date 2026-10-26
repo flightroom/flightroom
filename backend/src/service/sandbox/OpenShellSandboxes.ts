@@ -271,6 +271,12 @@ export class OpenShellSandboxes {
         return new OpenShellCommandSandbox(client, name, workspace, this.config.OPENSHELL_SANDBOX_ROOT || OPENSHELL_DEFAULTS.root)
     }
 
+    /** What the gateway says of itself: connecting makes no call, this is the one that reaches it. */
+    async health() {
+        const client = await this.connect()
+        return client.health()
+    }
+
     /** Deletes the sandboxes of the conversations `isIdle` says nobody uses any more; how many it deleted. */
     async sweep(isIdle: (conversationId: string) => Promise<boolean>): Promise<number> {
         const client = await this.connect()
