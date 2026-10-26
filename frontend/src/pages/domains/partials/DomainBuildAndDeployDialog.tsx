@@ -1,7 +1,20 @@
-import { Alert, AlertDescription, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@flightroom/design-system"
+import {
+    Alert,
+    AlertDescription,
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    DropdownMenu,
+    DropdownMenuContent,
+    DropdownMenuItem,
+    DropdownMenuTrigger
+} from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Check, Circle, Loader2, Workflow, X } from "lucide-react"
+import { AlertTriangle, Check, ChevronDown, Circle, Hammer, Loader2, Rocket, Workflow, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -9,15 +22,24 @@ import { z } from "zod"
 import { Badge, Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
+import useBuildsApi, { BUILD_STATUS_QUERY_KEY, type ComponentBuildStatus } from "@/hooks/apiClients/useBuildsApi"
 import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildResult, type DomainRelease, type DomainReleaseMember, isReleaseRunning } from "@/hooks/apiClients/useDomainsApi"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
+import ProviderRunLink from "@/pages/builds/partials/ProviderRunLink"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { cn } from "@/utils/styleUtils"
-import { DomainBuildOutcomes, VERSION } from "./DomainBuildDialog"
+import DomainBuildButton, { DomainBuildOutcomes, VERSION } from "./DomainBuildDialog"
+import DomainDeployButton from "./DomainDeployDialog"
 
 /** How often a running release is read again */
 const POLL_EVERY_MS = 5_000
+
+/** How often the runs of the CI are read again: the backend keeps the build status this long anyway */
+const RUNS_EVERY_MS = 15_000
+
+const NO_ENVIRONMENTS: EnvironmentDTO[] = []
 
 const STEPS = ["building", "waiting_ci", "updating_versions", "deploying"] as const
 
@@ -26,6 +48,7 @@ const TRANSLATED_ERRORS = [
     "DOMAIN_RELEASE_TAG_FAILED",
     "DOMAIN_RELEASE_CI_TIMEOUT",
     "DOMAIN_RELEASE_CI_FAILED",
+    "DOMAIN_RELEASE_CI_NOT_REGISTERED",
     "DOMAIN_RELEASE_INTERRUPTED",
     "DOMAIN_RELEASE_USER_UNAVAILABLE",
     "DOMAIN_BUILD_CHECK_FAILED"
@@ -48,16 +71,20 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const queryClient = useQueryClient()
     const notifications = useToastNotificationStore()
     const isViewer = useIsProjectViewer()
+    const { getBuildStatus } = useBuildsApi()
     const [open, setOpen] = useState(false)
+    const [buildOpen, setBuildOpen] = useState(false)
+    const [deployOpen, setDeployOpen] = useState(false)
     const [environment, setEnvironment] = useState<EnvironmentDTO | undefined>()
     /** The refusal of the build's check, repository by repository */
     const [refusal, setRefusal] = useState<DomainBuildResult | undefined>()
     /** The release started or followed here: still shown once over, until the dialog is closed */
     const [followedId, setFollowedId] = useState<string | undefined>()
 
-    const environments = projectStore.environments ?? []
+    // Read here, not from the store: the store has them only once a page under the environments gate was opened
+    const environments = useProjectEnvironmentsQuery().data ?? NO_ENVIRONMENTS
     // A pick of an environment deleted since, or of another project, does not stick
-    const selected = environments.find(candidate => candidate._id === environment?._id) ?? projectStore.environment
+    const selected = environments.find(candidate => candidate._id === environment?._id) ?? environments.find(candidate => candidate._id === projectStore.environment?._id) ?? environments[0]
     const queryKey = ["domain-release", domain._id]
 
     // Read even with the dialog closed: the end of a release is told wherever the domain is open
@@ -120,11 +147,24 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
         }
     }
 
+    const running = isReleaseRunning(release)
+    const shown = release && (running || release._id === followedId) ? release : undefined
+
+    // The runs the tag started, to open them on the provider: read only while a release is on screen
+    const projectId = projectStore.project?._id
+    const { data: buildStatus } = useQuery({
+        queryKey: [BUILD_STATUS_QUERY_KEY, projectId],
+        queryFn: getBuildStatus,
+        enabled: open && Boolean(shown) && Boolean(projectId),
+        refetchInterval: running ? RUNS_EVERY_MS : false
+    })
+
     // A viewer may look, not release. Always there for the others: without environments, or before they load, it is disabled
     if (isViewer) return null
 
-    const running = isReleaseRunning(release)
-    const shown = release && (running || release._id === followedId) ? release : undefined
+    /** The member's row of the build status, with the provider its runs are on */
+    const buildsOf = (member: DomainReleaseMember): ComponentBuildStatus | undefined =>
+        member.kind === "frontend" ? buildStatus?.frontends.find(row => row.frontendId === member._id) : buildStatus?.backends.find(row => row.backendId === member._id)
 
     /** The failure in the console's words, naming the members still waiting when it was the CI */
     const errorOf = (failed: DomainRelease) => {
@@ -183,28 +223,63 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                     <DomainBuildOutcomes result={current} />
                 ) : (
                     <ul className="my-4 flex flex-col gap-2" data-testid="domain-release-members">
-                        {current.members.map(member => (
-                            <li key={member._id} className="flex items-center justify-between gap-2 rounded-md border border-divider p-3">
-                                <div className="flex min-w-0 flex-col">
-                                    <span className="truncate text-sm">{member.name}</span>
-                                    <span className="text-xs text-foreground-secondary">{t(`domains.release.kinds.${member.kind}`)}</span>
-                                </div>
-                                <Badge variant={MEMBER_VARIANTS[memberState(member)]}>{t(`domains.release.member_status.${memberState(member)}`)}</Badge>
-                            </li>
-                        ))}
+                        {current.members.map(member => {
+                            const row = buildsOf(member)
+                            const runs = member.tagged ? (row?.builds.filter(run => run.ref === current.version && run.url) ?? []) : []
+                            return (
+                                <li key={member._id} className="flex items-center justify-between gap-2 rounded-md border border-divider p-3">
+                                    <div className="flex min-w-0 flex-col">
+                                        <span className="truncate text-sm">{member.name}</span>
+                                        <span className="text-xs text-foreground-secondary">{t(`domains.release.kinds.${member.kind}`)}</span>
+                                        {runs.map(run => (
+                                            <span key={run.id} className="mt-1" data-testid={`domain-release-run-${member._id}`}>
+                                                <ProviderRunLink url={run.url!} provider={row?.provider} />
+                                            </span>
+                                        ))}
+                                    </div>
+                                    <Badge variant={MEMBER_VARIANTS[memberState(member)]}>{t(`domains.release.member_status.${memberState(member)}`)}</Badge>
+                                </li>
+                            )
+                        })}
                     </ul>
                 )}
                 {current.members.some(member => !member.tagged) && <p className="mb-4 text-xs text-foreground-secondary">{t("domains.release.untouched_hint")}</p>}
+                {isReleaseRunning(current) && (
+                    <p className="mb-4 text-xs text-foreground-secondary" data-testid="domain-release-close-hint">
+                        {t("domains.release.close_hint")}
+                    </p>
+                )}
             </>
         )
     }
 
     return (
         <>
-            <Button onClick={() => setOpen(true)} disabled={environments.length === 0} dataTestId="domain-build-and-deploy">
-                {running ? <Loader2 className="animate-spin" /> : <Workflow />}
-                {t("domains.release.action")}
-            </Button>
+            <div className="inline-flex">
+                <Button onClick={() => setOpen(true)} disabled={environments.length === 0} className="rounded-r-none" dataTestId="domain-build-and-deploy">
+                    {running ? <Loader2 className="animate-spin" /> : <Workflow />}
+                    {t("domains.release.action")}
+                </Button>
+                <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                        <Button aria-label={t("domains.release.more_actions")} className="h-10 w-10 min-w-10 shrink-0 rounded-l-none px-0" dataTestId="domain-build-and-deploy-menu">
+                            <ChevronDown />
+                        </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                        <DropdownMenuItem onSelect={() => setDeployOpen(true)} disabled={environments.length === 0} dataTestId="domain-deploy-menu-item">
+                            <Rocket className="mr-2 h-4 w-4" />
+                            {t("domains.deploy.action")}
+                        </DropdownMenuItem>
+                        <DropdownMenuItem onSelect={() => setBuildOpen(true)} dataTestId="domain-build-menu-item">
+                            <Hammer className="mr-2 h-4 w-4" />
+                            {t("domains.build.action")}
+                        </DropdownMenuItem>
+                    </DropdownMenuContent>
+                </DropdownMenu>
+            </div>
+            <DomainDeployButton domain={domain} open={deployOpen} onOpenChange={setDeployOpen} showTrigger={false} />
+            <DomainBuildButton domain={domain} open={buildOpen} onOpenChange={setBuildOpen} showTrigger={false} />
             <Dialog open={open} onOpenChange={changeOpen}>
                 <DialogContent>
                     <DialogHeader>

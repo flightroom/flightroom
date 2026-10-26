@@ -13,6 +13,7 @@ const draftProject = vi.fn()
 const saveUsage = vi.fn()
 const recordUsage = vi.fn()
 const checkTokenLimit = vi.fn()
+const calculateCost = vi.fn()
 const conversations = vi.hoisted(() => ({ listConversations: vi.fn(), getConversation: vi.fn(), saveConversation: vi.fn(), deleteConversation: vi.fn() }))
 
 vi.mock("../service/assistant/AssistantService", () => ({
@@ -27,6 +28,7 @@ vi.mock("../service/assistant/AssistantService", () => ({
 vi.mock("../models/AssistantUsageModel", () => ({ default: { create: (...args: unknown[]) => saveUsage(...args) } }))
 
 vi.mock("../service/AiUsageService", () => ({
+    calculateAiUsageCost: (...args: unknown[]) => calculateCost(...args),
     recordAiUsage: (...args: unknown[]) => recordUsage(...args),
     ensureWithinTokenLimit: (...args: unknown[]) => checkTokenLimit(...args)
 }))
@@ -46,6 +48,7 @@ describe("AssistantController", () => {
         saveUsage.mockReset().mockResolvedValue({})
         recordUsage.mockReset().mockResolvedValue(undefined)
         checkTokenLimit.mockReset().mockResolvedValue(undefined)
+        calculateCost.mockReset().mockResolvedValue(undefined)
         Object.values(conversations).forEach(mock => mock.mockReset().mockResolvedValue(undefined))
 
         app = Fastify()
@@ -216,6 +219,17 @@ describe("AssistantController", () => {
         expect(recordUsage.mock.calls[0][0]).not.toHaveProperty("backendIds")
     })
 
+    it("Given configured token rates, when an answer ends, then its cost is sent to the interaction and recorded", async () => {
+        calculateCost.mockResolvedValue({ amount: 0.00025, currency: "EUR" })
+        chat.mockResolvedValue({ stopReason: "end_turn", wrote: false, usage: { inputTokens: 10, cachedInputTokens: 0, outputTokens: 5 }, aiModelId: "custom-ai" })
+
+        const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "64b7f0c2a1b2c3d4e5f60718" }, payload: question })
+
+        expect(response.body).toContain('"usage":{"inputTokens":10,"cachedInputTokens":0,"outputTokens":5,"cost":0.00025,"currency":"EUR"}')
+        expect(saveUsage).toHaveBeenCalledWith(expect.objectContaining({ aiModelId: "custom-ai", cost: 0.00025, currency: "EUR" }))
+        expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ aiModelId: "custom-ai", cost: 0.00025, currency: "EUR" }))
+    })
+
     it("Given an answer failing after two model rounds, when it ends with an error, then the ledger still counts both rounds and the usage document stays for finished answers", async () => {
         const spentOn = { effort: "high", aiModelId: "system", provider: "anthropic" }
         chat.mockImplementation(async (_projectId, _request, handlers) => {
@@ -230,6 +244,21 @@ describe("AssistantController", () => {
         expect(recordUsage).toHaveBeenCalledWith(
             expect.objectContaining({ projectId: "64b7f0c2a1b2c3d4e5f60718", source: "assistant", ...spentOn, inputTokens: 300, cachedInputTokens: 60, outputTokens: 30 })
         )
+        expect(saveUsage).not.toHaveBeenCalled()
+    })
+
+    it("Given a priced answer failing after tokens were spent, when it ends with an error, then the interaction and ledger still show its cost", async () => {
+        const spentOn = { effort: "high", aiModelId: "custom-ai", provider: "anthropic" }
+        calculateCost.mockResolvedValue({ amount: 0.00025, currency: "EUR" })
+        chat.mockImplementation(async (_projectId, _request, handlers) => {
+            handlers.onUsage({ inputTokens: 10, cachedInputTokens: 2, outputTokens: 5 }, spentOn)
+            throw new Error("provider down")
+        })
+
+        const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "64b7f0c2a1b2c3d4e5f60718" }, payload: question })
+
+        expect(response.body).toContain('"usage":{"inputTokens":10,"cachedInputTokens":2,"outputTokens":5,"cost":0.00025,"currency":"EUR"}')
+        expect(recordUsage).toHaveBeenCalledWith(expect.objectContaining({ ...spentOn, cost: 0.00025, currency: "EUR" }))
         expect(saveUsage).not.toHaveBeenCalled()
     })
 

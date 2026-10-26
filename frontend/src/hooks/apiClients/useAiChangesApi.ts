@@ -17,8 +17,8 @@ export interface AiChangeFile {
 
 export interface AiChangeEvent {
     at: string
-    /** `info` carries a machine code, `tool` a tool call, `text` what the model said, `thinking` the summary of its reasoning. */
-    kind: "info" | "tool" | "text" | "thinking"
+    /** `info` carries a machine code, `tool` a tool call, `output` what a script printed, `text` what the model said, `thinking` the summary of its reasoning. */
+    kind: "info" | "tool" | "output" | "text" | "thinking"
     message: string
 }
 
@@ -38,6 +38,8 @@ export interface AiChangeRequest {
     backendId?: string
     userId: string
     prompt: string
+    /** A few words the AI wrote about the prompt; missing when it could not, on a follow-up and on older requests. */
+    title?: string
     baseBranch: string
     baseCommit?: string
     status: AiChangeStatus

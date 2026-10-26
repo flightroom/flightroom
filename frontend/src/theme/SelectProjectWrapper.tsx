@@ -1,8 +1,9 @@
 import { Spinner } from "@flightroom/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { PartyPopper } from "lucide-react"
-import { useState } from "react"
+import { ArrowLeft, PartyPopper, Settings } from "lucide-react"
+import { lazy, Suspense, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useLocation, useNavigate } from "react-router-dom"
 import AuthenticationLayout from "@/authentication/components/AuthenticationLayout"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
@@ -14,6 +15,8 @@ import NewProjectWizard from "@/pages/new-project-wizard/NewProjectWizard"
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import { clearProjectIdInLocalStorage, getProjectIdFromLocalStorage, setProjectIdInLocalStorage } from "@/utils/localStorageUtils"
+
+const OrganizationSettings = lazy(() => import("@/pages/organization/OrganizationSettings"))
 
 interface SelectProjectFormProps {
     /** Left out for a member who may not create projects in this organization. */
@@ -48,6 +51,7 @@ const SelectProjectForm: React.FC<SelectProjectFormProps> = ({ onCreateNewProjec
 /** What an empty organization opens on: it says the organization is there and points at the one next step. */
 const FirstProjectWelcome: React.FC<{ onCreateProject: () => void }> = ({ onCreateProject }) => {
     const { t } = useTranslation()
+    const navigate = useNavigate()
     const { organization } = useOrganizationStore()
 
     return (
@@ -59,10 +63,41 @@ const FirstProjectWelcome: React.FC<{ onCreateProject: () => void }> = ({ onCrea
                     {t("project.first_project.cta")}
                 </Button>
             </div>
+            {/* The organization was just created: switching away or creating another one is not what this
+                screen is for, but its settings (members, AIs, design system) are worth a look before the first project. */}
             <div className="mt-4 flex justify-center border-t border-divider pt-4">
-                <SwitchOrganizationButton />
+                <Button variant="secondary" size="sm" onClick={() => navigate("/organization")} dataTestId="organization-settings-action">
+                    <Settings />
+                    <span>{t("organization.settings")}</span>
+                </Button>
             </div>
         </AuthenticationLayout>
+    )
+}
+
+/** The organization settings, reachable before any project exists: the routed page is shadowed until one is active. */
+const StandaloneOrganizationSettings: React.FC = () => {
+    const { t } = useTranslation()
+    const navigate = useNavigate()
+
+    return (
+        <div className="mx-auto flex max-w-5xl flex-col gap-4 p-4 md:p-8">
+            <div>
+                <Button variant="secondary" size="sm" onClick={() => navigate("/")} dataTestId="organization-settings-back">
+                    <ArrowLeft />
+                    <span>{t("common.back")}</span>
+                </Button>
+            </div>
+            <Suspense
+                fallback={
+                    <div className="flex min-h-[200px] items-center justify-center">
+                        <Spinner />
+                    </div>
+                }
+            >
+                <OrganizationSettings />
+            </Suspense>
+        </div>
     )
 }
 
@@ -70,6 +105,7 @@ const SelectProjectWrapperInner: React.FC<React.PropsWithChildren> = ({ children
     const projectStore = useProjectStore()
     const { organization } = useOrganizationStore()
     const queryClient = useQueryClient()
+    const location = useLocation()
     const [firstRunComplete, setFirstRunComplete] = useState(false)
     const [isCreatingProject, setIsCreatingProject] = useState(false)
     // Same query key as the list below, so this reads the cached answer instead of fetching again.
@@ -111,6 +147,10 @@ const SelectProjectWrapperInner: React.FC<React.PropsWithChildren> = ({ children
                 }}
             />
         )
+    }
+
+    if (!projectStore.project && location.pathname === "/organization") {
+        return <StandaloneOrganizationSettings />
     }
 
     if (isFirstRun) {

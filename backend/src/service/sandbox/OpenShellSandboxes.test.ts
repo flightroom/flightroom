@@ -1,0 +1,192 @@
+import { beforeEach, describe, expect, it, vi } from "vitest"
+import { MAX_SANDBOX_NAME_LENGTH, OpenShellSandboxes, sandboxNameFor } from "./OpenShellSandboxes"
+
+const { sandbox, raw, connect } = vi.hoisted(() => {
+    const sandbox = {
+        get: vi.fn(),
+        create: vi.fn(),
+        createFromTemplate: vi.fn(),
+        delete: vi.fn(),
+        waitDeleted: vi.fn(),
+        waitReady: vi.fn(),
+        execStream: vi.fn(),
+        list: vi.fn()
+    }
+    const raw = { exposeService: vi.fn() }
+    return { sandbox, raw, connect: vi.fn(async (_options: unknown) => ({ sandbox, raw })) }
+})
+
+vi.mock("@nvidia/openshell-sdk", () => ({ OpenShellClient: { connect }, clientCredentials: vi.fn(() => ({ getToken: async () => "renewed" })) }))
+
+const sdkError = (code: string) => Object.assign(new Error(code), { code })
+
+const CONVERSATION = "65f1a2b3c4d5e6f708192a3b"
+const NAME = sandboxNameFor(CONVERSATION)
+
+describe("OpenShellSandboxes", () => {
+    beforeEach(() => {
+        vi.clearAllMocks()
+        sandbox.waitReady.mockResolvedValue({ name: NAME, phase: "ready" })
+    })
+
+    it("Given no sandbox for the conversation, when one is acquired, then it is created with its labels and a read-only policy letting only the package managers reach the registries", async () => {
+        sandbox.get.mockRejectedValue(sdkError("not_found"))
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway", OPENSHELL_TOKEN: "token" }).acquire(CONVERSATION)
+
+        expect(connect).toHaveBeenCalledWith(expect.objectContaining({ gateway: "https://gateway", oidcToken: "token" }))
+        expect(sandbox.create).toHaveBeenCalledWith({
+            name: NAME,
+            workspace: undefined,
+            image: "node:24-bookworm-slim",
+            labels: { "flightroom.dev/role": "ai-change", "flightroom.dev/conversation": CONVERSATION },
+            policy: {
+                version: 1,
+                networkPolicies: {
+                    "package-registries": {
+                        name: "package-registries",
+                        endpoints: [
+                            "registry.npmjs.org",
+                            "repo.maven.apache.org",
+                            "repo1.maven.org",
+                            "pypi.org",
+                            "files.pythonhosted.org",
+                            "proxy.golang.org",
+                            "sum.golang.org",
+                            "storage.googleapis.com",
+                            "api.nuget.org",
+                            "globalcdn.nuget.org",
+                            "pkgs.dev.azure.com",
+                            "*.pkgs.visualstudio.com",
+                            "*.blob.core.windows.net",
+                            "ghcr.io",
+                            "pkg-containers.githubusercontent.com"
+                        ].map(host => ({ host, port: 443, protocol: "rest", enforcement: 1, access: 1, allowEncodedSlash: true })),
+                        binaries: [
+                            { path: "/usr/local/bin/node" },
+                            { path: "/opt/java/openjdk/bin/java" },
+                            { path: "/usr/local/bin/python3.13" },
+                            { path: "/usr/local/go/bin/go" },
+                            { path: "/usr/share/dotnet/dotnet" }
+                        ]
+                    }
+                }
+            }
+        })
+        expect(sandbox.waitReady).toHaveBeenCalledWith(NAME, 300, { workspace: undefined })
+    })
+
+    it("Given registry hosts and network binaries as comma separated lists, when a sandbox is created, then the policy allows each of them", async () => {
+        sandbox.get.mockRejectedValue(sdkError("not_found"))
+        await new OpenShellSandboxes({
+            OPENSHELL_GATEWAY_URL: "https://gateway",
+            OPENSHELL_TOKEN: "token",
+            OPENSHELL_REGISTRY_HOSTS: " registry.npmjs.org , npm.pkg.github.com ,",
+            OPENSHELL_NETWORK_BINARY: "/usr/local/bin/node, /usr/bin/git"
+        }).acquire(CONVERSATION)
+
+        const policy = sandbox.create.mock.calls[0][0].policy.networkPolicies["package-registries"]
+        expect(policy.endpoints.map((endpoint: { host: string }) => endpoint.host)).toEqual(["registry.npmjs.org", "npm.pkg.github.com"])
+        expect(policy.binaries).toEqual([{ path: "/usr/local/bin/node" }, { path: "/usr/bin/git" }])
+    })
+
+    it("Given the CA of the gateway as PEM text, when the client connects, then it trusts that CA", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "ready" })
+        const pem = "-----BEGIN CERTIFICATE-----\nMIIB\n-----END CERTIFICATE-----\n"
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://sandbox.example.com", OPENSHELL_CA_CERT: pem, OPENSHELL_CA_CERT_FILE: "/does/not/exist" }).acquire(CONVERSATION)
+        expect(connect).toHaveBeenCalledWith(expect.objectContaining({ caCert: Buffer.from(pem) }))
+    })
+
+    it("Given a ready sandbox of the conversation, when one is acquired, then it is reused and none is created", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "ready" })
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)
+        expect(sandbox.create).not.toHaveBeenCalled()
+        expect(sandbox.delete).not.toHaveBeenCalled()
+    })
+
+    it("Given a running preview service, when it is exposed, then OpenShell returns its browser URL", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "ready" })
+        raw.exposeService.mockResolvedValue({ url: "https://preview.example.test" })
+        const acquired = await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)
+
+        await expect(acquired.exposeService?.(5173, "preview-fe")).resolves.toBe("https://preview.example.test")
+        expect(raw.exposeService).toHaveBeenCalledWith({
+            sandbox: NAME,
+            workspaceScope: { selection: { case: "workspace", value: "default" } },
+            name: "preview-fe",
+            targetPort: 5173,
+            domain: true,
+            requestId: expect.any(String)
+        })
+    })
+
+    it("Given a sandbox in error, when one is acquired, then it is deleted and replaced", async () => {
+        sandbox.get.mockResolvedValue({ id: "dead-1", name: NAME, phase: "error" })
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)
+        expect(sandbox.delete).toHaveBeenCalledWith(NAME, { workspace: undefined, allowMissing: true })
+        expect(sandbox.waitDeleted).toHaveBeenCalledWith(NAME, 120, { workspace: undefined, expectedSandboxId: "dead-1" })
+        expect(sandbox.create).toHaveBeenCalled()
+    })
+
+    it("Given another replica creating it at the same time, when one is acquired, then the existing one is waited for", async () => {
+        sandbox.get.mockRejectedValue(sdkError("not_found"))
+        sandbox.create.mockRejectedValue(sdkError("already_exists"))
+        await expect(new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)).resolves.toBeDefined()
+        expect(sandbox.waitReady).toHaveBeenCalled()
+    })
+
+    it("Given a template and no registry hosts, when a sandbox is created, then it comes from the template under the gateway's own network policy", async () => {
+        sandbox.get.mockRejectedValue(sdkError("not_found"))
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway", OPENSHELL_SANDBOX_TEMPLATE: "node-gvisor", OPENSHELL_REGISTRY_HOSTS: "", OPENSHELL_WORKSPACE: "flightroom" }).acquire(
+            CONVERSATION
+        )
+        expect(sandbox.createFromTemplate).toHaveBeenCalledWith(expect.objectContaining({ name: NAME, workspace: "flightroom", workloadTemplate: "node-gvisor", policy: undefined }))
+        expect(sandbox.create).not.toHaveBeenCalled()
+    })
+
+    it("Given a command printing more than is kept, when it runs, then its exit code and the end of its output come back with how much was cut", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "ready" })
+        sandbox.execStream.mockImplementation(async function* () {
+            for (let index = 0; index < 100; index++) yield { stream: index % 2 ? "stderr" : "stdout", data: Buffer.from(`${String(index).padStart(999, ".")}\n`) }
+            yield { type: "exit", exitCode: 2 }
+        })
+        const acquired = await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)
+        const result = await acquired.exec(["npm", "test"], { workdir: "/sandbox/repositories/shop" })
+
+        expect(result.exitCode).toBe(2)
+        expect(result.output.length).toBe(64_000)
+        expect(result.cutBytes).toBe(100 * 1_000 - 64_000)
+        expect(result.output.endsWith("99\n")).toBe(true)
+        expect(sandbox.execStream).toHaveBeenCalledWith(NAME, ["npm", "test"], expect.objectContaining({ workdir: "/sandbox/repositories/shop", noLoginShell: true }))
+    })
+
+    it("Given sandboxes of busy and idle conversations, when they are swept, then only the idle ones and those of no conversation are deleted", async () => {
+        sandbox.list.mockReturnValue(
+            (async function* () {
+                yield {
+                    items: [
+                        { name: "flightroom-ai-busy", labels: { "flightroom.dev/conversation": "busy" } },
+                        { name: "flightroom-ai-idle", labels: { "flightroom.dev/conversation": "idle" } },
+                        { name: "flightroom-ai-orphan", labels: {} }
+                    ]
+                }
+            })()
+        )
+        const deleted = await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).sweep(async conversation => conversation === "idle")
+
+        expect(sandbox.list).toHaveBeenCalledWith({ workspace: undefined, labelSelector: "flightroom.dev/role=ai-change" })
+        expect(sandbox.delete.mock.calls.map(([name]) => name)).toEqual(["flightroom-ai-idle", "flightroom-ai-orphan"])
+        expect(deleted).toBe(2)
+    })
+
+    it("Given a conversation id, then its sandbox name fits the gateway, is a valid Kubernetes name and is the same whatever the case", () => {
+        const name = sandboxNameFor("65F1A2B3C4D5E6F708192A3B")
+
+        expect(name).toMatch(/^fr-[0-9a-f]{16}$/)
+        expect(name.length).toBeLessThanOrEqual(MAX_SANDBOX_NAME_LENGTH)
+        expect(name).toBe(sandboxNameFor("65f1a2b3c4d5e6f708192a3b"))
+    })
+
+    it("Given two conversations, then their sandboxes have different names", () => {
+        expect(sandboxNameFor("65f1a2b3c4d5e6f708192a3b")).not.toBe(sandboxNameFor("65f1a2b3c4d5e6f708192a3c"))
+    })
+})

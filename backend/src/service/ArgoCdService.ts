@@ -16,7 +16,17 @@ import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
 import { GitOpsApplication, isDeployable } from "./gitops/applicationManifests"
-import { APPLICATION_LABEL, applicationName, appProjectName, buildApplicationSets, buildArgoCdState, COMPONENT_LABEL, clashingName, PROJECT_ID_LABEL } from "./gitops/argoCdManifests"
+import {
+    APPLICATION_LABEL,
+    applicationName,
+    appProjectName,
+    buildApplicationSets,
+    buildArgoCdState,
+    COMPONENT_LABEL,
+    clashingName,
+    ENVIRONMENT_LABEL,
+    PROJECT_ID_LABEL
+} from "./gitops/argoCdManifests"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
 
@@ -26,6 +36,8 @@ export interface ArgoCdInitializeInput {
     token?: string
     /** Read-only token of GitHub or Azure DevOps, for the repositories GitLab does not hold */
     repositoryToken?: string
+    /** Accepts the certificate of Argo CD without verifying it: for a self-signed one */
+    insecure?: boolean
 }
 
 type ArgoCdRepositoryKind = "configuration" | "applications"
@@ -37,6 +49,8 @@ export interface ArgoCdStatusDTO {
     url?: string
     /** A URL and a token are stored: the token may be left out of the next initialization to the same URL */
     configured: boolean
+    /** The certificate of Argo CD is not verified */
+    insecure: boolean
     initializedAt?: Date
     lastError?: IArgoCdError
     /** Why the last deploy did not align the ApplicationSets of the applications */
@@ -223,7 +237,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
         const argoCd = project?.argoCd
         if (!project || !project.gitOps?.enabled || !project.gitOps.applicationsCodeRepository || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) throw notConfigured()
-        const client = new ArgoCdClient(argoCd.url, argoCd.token)
+        const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
         await client.createJobFromCronJob(
             applicationName(String(projectId), project.slug, slug, environmentSlug(environment)),
             appProjectName(String(projectId), project.slug),
@@ -263,6 +277,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         if (!project.gitOps?.enabled || !project.gitOps.codeRepository) throw gitOpsRequired()
 
         const url = normalizeUrl(input?.url)
+        const insecure = input?.insecure === true
         // Checked again under the lease, on the project as it is then: this only refuses early what cannot go through
         if (!retyped(input?.token) && project.argoCd?.url !== url) throw tokenRequired()
 
@@ -282,7 +297,7 @@ export class ArgoCdService extends BaseAuthorizedService {
             const token = retyped(input?.token) ?? (previous?.url === url ? previous.token : undefined)
             if (!token) throw tokenRequired()
 
-            const client = new ArgoCdClient(url, token)
+            const client = new ArgoCdClient(url, token, { insecure })
             const repositories: ArgoCdRepositories = { ...previous?.repositories }
             // Those of another Argo CD are left there, as the rest of what the console made on it
             let deletions = (previous?.pendingRepositoryDeletions ?? []).filter(registration => registration.argoCdUrl === url)
@@ -373,7 +388,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                     repositories[kind] = credential
                     // Stored at once: whatever fails next, the console knows which token Argo CD holds. Until it is
                     // stored the new deploy token stays pending, revoked should the save fail
-                    await save({ ...previous, url, token, repositories })
+                    await save({ ...previous, url, token, insecure, repositories })
                     pending = undefined
                     if (before) undeleted.push(...(await this.retire(client, url, projectIdObj, before, credential)))
                 }
@@ -390,7 +405,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                     if (!(await this.deleteRegistration(client, registration))) retried.push(registration)
                 }
                 deletions = [...retried, ...undeleted]
-                await save({ ...previous, url, token, repositories })
+                await save({ ...previous, url, token, insecure, repositories })
 
                 for (const applicationSet of state.applicationSets) await client.upsertApplicationSet(applicationSet)
 
@@ -408,14 +423,14 @@ export class ArgoCdService extends BaseAuthorizedService {
                         await client.deleteApplicationSet(applicationSet.metadata.name)
                 }
 
-                const argoCd: IProjectArgoCd = { url, token, repositories, initializedAt: new Date() }
+                const argoCd: IProjectArgoCd = { url, token, insecure, repositories, initializedAt: new Date() }
                 await save(argoCd)
                 return this.status(projectIdObj, gitOps, { ...argoCd, pendingRepositoryDeletions: deletions }, true)
             } catch (error) {
                 if (pending) await this.revoke(pending)
                 const lastError = errorOf(error)
                 // Once the token is known to be good it is kept, and so are the credentials Argo CD already holds
-                await save(verified ? { ...previous, url, token, repositories, lastError } : { ...previous, lastError }).catch(saveError =>
+                await save(verified ? { ...previous, url, token, insecure, repositories, lastError } : { ...previous, lastError }).catch(saveError =>
                     fastify.log.error({ error: toErrorMessage(saveError) }, "Argo CD initialization failure not stored")
                 )
                 throw error
@@ -449,7 +464,7 @@ export class ArgoCdService extends BaseAuthorizedService {
             // Argo CD was handed another repository, or none: only an initialization registers this one
             if (registered?.argoCdUrl !== argoCd.url || registered.repoUrl !== repoUrl) throw reinitializeRequired()
 
-            const client = new ArgoCdClient(argoCd.url, argoCd.token)
+            const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
             const projectName = appProjectName(String(projectId), project.slug)
             // The ApplicationSets of an earlier version, per environment, generate the same workloads: an initialization replaces them
             const earlier = await client.listApplicationSets(`${PROJECT_ID_LABEL}=${projectId},${COMPONENT_LABEL}=applications`, projectName)
@@ -489,6 +504,32 @@ export class ArgoCdService extends BaseAuthorizedService {
         }
     }
 
+    /**
+     * Has Argo CD read the repositories again for the Applications of `environmentSlugs`, those of the environments
+     * and those of the backends and frontends, once a deploy has committed to them: they sync now, not at the next
+     * poll of Argo CD, three minutes by default. An Application the ApplicationSet has yet to generate is not there
+     * to refresh, it comes with the next poll of the ApplicationSet. Best effort: the deploy already went through,
+     * and Argo CD gets there anyway.
+     */
+    async refreshApplications(projectId: Schema.Types.ObjectId, environmentSlugs: string[]): Promise<void> {
+        if (environmentSlugs.length === 0) return
+        try {
+            const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
+            const argoCd = project?.argoCd
+            if (!project?.gitOps?.enabled || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) return
+
+            const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
+            const projectName = appProjectName(String(projectId), project.slug)
+            const selector = `${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (${environmentSlugs.join(",")})`
+            const applications = (await client.listApplications(selector, projectName)).filter(application => projectOf(application) === projectName)
+            const refreshes = await Promise.allSettled(applications.map(application => client.refreshApplication(application.metadata.name, projectName)))
+            const failed = refreshes.flatMap((refresh, index) => (refresh.status === "rejected" ? [{ application: applications[index].metadata.name, error: toErrorMessage(refresh.reason) }] : []))
+            if (failed.length > 0) fastify.log.warn({ projectId: String(projectId), failed }, "Argo CD Applications not refreshed after a deploy: they sync at the next poll")
+        } catch (error) {
+            fastify.log.warn({ error: toErrorMessage(error), projectId: String(projectId) }, "Argo CD Applications not refreshed after a deploy: they sync at the next poll")
+        }
+    }
+
     /** The branches of the applications repository: Argo CD fails an ApplicationSet listing a revision that does not exist */
     private async branchesOf({ link, connection }: Pick<RepositoryTarget, "link" | "connection">): Promise<string[]> {
         const branches = await new CodeRepositoryService(this.user).getBranches(String(connection._id), repositoryNameFor(link, connection)).catch(error =>
@@ -516,6 +557,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         return {
             url: argoCd?.url,
             configured: Boolean(argoCd?.url && argoCd.token),
+            insecure: Boolean(argoCd?.insecure),
             initializedAt: argoCd?.initializedAt,
             lastError: argoCd?.lastError,
             alignError: argoCd?.alignError,

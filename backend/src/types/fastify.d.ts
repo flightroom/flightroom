@@ -4,6 +4,7 @@ import { Authenticate } from "fastify-auth0-verify"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import UserModel from "../models/UserModel"
 import type { LlmEffort } from "../service/llm/types"
+import type { OpenShellConfiguration } from "../service/sandbox/OpenShellSandboxes"
 import { FastifyInstanceWithConfig } from "./index"
 import { TelemetryDecisionDTO } from "./TelemetryDTO"
 
@@ -109,7 +110,7 @@ declare module "fastify" {
             REPOSITORIES_MAX_SIZE_MB: number
             REPOSITORIES_EVICT_AFTER_DAYS: number
             ASSISTANT_RATE_LIMIT_MAX: number
-        }
+        } & OpenShellConfiguration
         telemetry: TelemetryRuntimeConfiguration
     }
 

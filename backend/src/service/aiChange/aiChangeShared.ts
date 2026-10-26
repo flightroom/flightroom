@@ -7,10 +7,11 @@ import { IFrontend } from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
 import { withRepositoryLock } from "../../utils/repositoryLock"
-import { isProtectedPath } from "../../utils/workspacePaths"
+import { slugify } from "../../utils/slugUtils"
+import { isUnproposablePath } from "../../utils/workspacePaths"
 import AiModelService from "../AiModelService"
 import BaseAuthorizedService from "../BaseAuthorizedService"
-import { LlmConfiguration } from "../llm"
+import { LlmClient, LlmConfiguration } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
 import { isPushRefused } from "../workspace/GitWorkingCopy"
 import RepositoryWorkspaceService, { OpenedWorkspace } from "../workspace/RepositoryWorkspaceService"
@@ -65,8 +66,73 @@ export const timestamp = (date = new Date()) => date.toISOString().replace(/[-:]
 /** How far back the messages of a conversation are looked up for its pull request. */
 const MAX_CONVERSATION_LENGTH = 50
 
-/** The feature branch of a conversation on one repository. */
-export const branchName = (slug: string) => `ai/${slug}-${timestamp()}`
+/** How many words of the request a branch name keeps. */
+const BRANCH_NAME_WORDS = 6
+/** Words that say nothing about a request, left out of its branch name. */
+const FILLER_WORDS = new Set(
+    (
+        "a an the of to in on at by for from with and or is are be it this that these those please can could you i we me my our want would like should " +
+        "il lo la l i gli le un uno una d di a da in con su per tra fra e ed o del dello della dei degli delle al allo alla ai agli alle dal dallo dalla dai dagli dalle " +
+        "nel nello nella nei negli nelle sul sullo sulla sui sugli sulle che non mi ci si ti vorrei puoi potresti fai favore"
+    ).split(" ")
+)
+
+/** How long the model gets to name a branch before the words of the request are used instead. */
+const BRANCH_TOPIC_TIMEOUT_MS = 15_000
+
+/** How long the title of a conversation in the console's lists can be. */
+const TITLE_MAX_LENGTH = 80
+
+const BRANCH_TOPIC_SYSTEM_PROMPT =
+    "You name a code change asked in the user's request. In `name`, the git branch: 2 to 5 lowercase English words, separated by hyphens, " +
+    "that sum up what the change does, like `logout-button-navbar` or `upgrade-all-dependencies`. No prefix, no date, no punctuation. " +
+    "In `title`, a short title for the list of requests: 3 to 8 words in the language of the request, sentence case, no final punctuation, " +
+    "like `Logout button in the navbar` or `Aggiornamento di tutte le librerie`."
+
+const BRANCH_TOPIC_SCHEMA = {
+    type: "object",
+    properties: { name: { type: "string" }, title: { type: "string" } },
+    required: ["name", "title"],
+    additionalProperties: false
+}
+
+const toBranchWords = (text: string) =>
+    slugify(text.normalize("NFD").replace(/[\u0300-\u036f]/g, ""))
+        .split("-")
+        .filter(word => word && !FILLER_WORDS.has(word))
+        .slice(0, BRANCH_NAME_WORDS)
+
+/**
+ * A few words summing up a request, written by the model: `branch` for its branch name, `title` for the
+ * console's lists. Each is undefined when the model fails or takes too long: the branch is then named after
+ * the words of the request, and the lists show the request itself.
+ */
+export const branchTopic = async (client: LlmClient, prompt: string): Promise<{ branch?: string; title?: string }> => {
+    try {
+        const answer = (await client.json({
+            system: BRANCH_TOPIC_SYSTEM_PROMPT,
+            user: prompt,
+            schema: BRANCH_TOPIC_SCHEMA,
+            maxTokens: 200,
+            effort: "low",
+            signal: AbortSignal.timeout(BRANCH_TOPIC_TIMEOUT_MS)
+        })) as { name?: unknown; title?: unknown } | null
+        const words = typeof answer?.name === "string" ? toBranchWords(answer.name) : []
+        const title = typeof answer?.title === "string" ? firstLine(answer.title, TITLE_MAX_LENGTH) : ""
+        return { branch: words.length ? words.join("-") : undefined, title: title || undefined }
+    } catch (error) {
+        fastify.log.warn({ error: loggable(error) }, "Could not name the AI branch")
+        return {}
+    }
+}
+
+/**
+ * The feature branch of a conversation, named after what was asked so it reads in the provider's branch
+ * list: the model's summary when there is one (`ai-feature/logout-button-navbar-20261024-101500`), else
+ * the words of the request ("Aggiungi il bottone di logout nella navbar" becomes
+ * `ai-feature/aggiungi-bottone-logout-navbar-20261024-101500`).
+ */
+export const branchName = (prompt = "", topic?: string) => `ai-feature/${[...(topic ? [topic] : toBranchWords(prompt)), timestamp()].join("-")}`
 
 /** Who a commit is by: the user who asked for the change, or applied it. */
 export const authorOf = (user: { name?: string; surname?: string; email: string }) => ({ name: [user.name, user.surname].filter(Boolean).join(" ") || user.email, email: user.email })
@@ -211,7 +277,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
         if (files.length === 0) {
             throw createBusinessException({ code: "AI_CHANGE_NOTHING_TO_APPLY", message: "No file left to commit", statusCode: 400 })
         }
-        const invalid = files.find(file => isProtectedPath(file.path) || (file.action !== "delete" && file.proposedContent === undefined))
+        const invalid = files.find(file => isUnproposablePath(file.path) || (file.action !== "delete" && file.proposedContent === undefined))
         if (invalid) {
             throw createBusinessException({ code: "AI_CHANGE_INVALID_FILE", message: `"${invalid.path}" cannot be committed`, statusCode: 422 })
         }
@@ -246,14 +312,15 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
      *
      * When the base has not moved since the proposal, the base fast-forwards to the very commit of the
      * feature branch, so a pull request opened from it reads merged. Otherwise the files are committed
-     * again on top of the latest base. The push is never forced: a protected base turns it down, and
-     * the user opens a pull request instead.
+     * again on top of the latest base. The push is never forced: a protected base turns it down.
      */
     protected async applyClaimed(request: IAiChangeRequest, files: IAiChangeFile[]): Promise<IAiChangeRequest> {
         const component = await findComponent(componentOf(request))
         const user = this.getUser()!
         try {
             if (!component) throw new EntityNotFoundError(componentIdOf(request))
+            const missionJob = request.jobId ? await AiChangeJob.findById(request.jobId, { missionId: 1 }) : null
+            const directToBase = Boolean(missionJob?.missionId)
             const workspaceService = new RepositoryWorkspaceService(this.user)
             const workspace = await workspaceService.open(component)
             const prompts = await conversationPrompts(request)
@@ -269,8 +336,8 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                             commit = request.commit
                         } else {
                             commit = await workspace.workingCopy.commitAndPush({
-                                branch: request.branch ?? branchName(component.slug),
-                                pushTo: request.baseBranch,
+                                branch: directToBase ? request.baseBranch : (request.branch ?? branchName(prompts[0])),
+                                ...(directToBase ? {} : { pushTo: request.baseBranch }),
                                 message: commitMessage(firstLine(prompts[0], 72), request.summary),
                                 author: authorOf(user),
                                 files: toCommitFiles(files)
@@ -280,12 +347,14 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                         if (!isPushRefused(error)) throw error
                         throw createBusinessException({
                             code: "AI_CHANGE_PUSH_REFUSED",
-                            message: `${request.baseBranch} refused the push (${toErrorMessage(error)}): if it is protected, open a pull request instead`,
+                            message: directToBase
+                                ? `${request.baseBranch} refused the direct push (${toErrorMessage(error)}): choose a branch that allows direct pushes`
+                                : `${request.baseBranch} refused the push (${toErrorMessage(error)}): if it is protected, open a pull request instead`,
                             statusCode: 409
                         })
                     }
                     // Its work is on the base now. One with a pull request is left to it: deleting it would close the pull request on some providers.
-                    if (request.branch && request.commit && !request.pullRequestUrl) {
+                    if (!directToBase && request.branch && request.commit && !request.pullRequestUrl) {
                         await workspace.workingCopy
                             .deleteRemoteBranch(request.branch)
                             .catch(error => fastify.log.warn({ error: loggable(error), aiChangeId: String(request._id) }, "Could not delete the branch of an applied change"))
@@ -331,7 +400,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                 workspace.workingCopy.dir,
                 async () => {
                     await this.latestBase(workspaceService, workspace, request, files)
-                    const name = request.branch ?? branchName(component.slug)
+                    const name = request.branch ?? branchName(prompts[0])
                     const commit = await workspace.workingCopy.commitAndPush({ branch: name, message: commitMessage(title, request.summary), author: authorOf(user), files: toCommitFiles(files) })
                     return { branch: name, commit }
                 },

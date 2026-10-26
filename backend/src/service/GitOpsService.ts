@@ -459,8 +459,14 @@ export class GitOpsService extends BaseAuthorizedService {
                 if (undo.length > 0) await commit(`Revert: ${message.toLowerCase()}`, undo)
             })
         })
-        // Once the values are on the branches, outside the locks: a backend or a branch new to Argo CD gets its Applications
-        if (applicationsLink) await new ArgoCdService(this.user).alignApplications(projectId)
+        // Once the values are on the branches, outside the locks: a backend or a branch new to Argo CD gets its Applications,
+        // and those of the deployed environments sync what was just committed
+        const argoCd = new ArgoCdService(this.user)
+        if (applicationsLink) await argoCd.alignApplications(projectId)
+        await argoCd.refreshApplications(
+            projectId,
+            deployed.map(environment => environment.slug)
+        )
         return result
     }
 

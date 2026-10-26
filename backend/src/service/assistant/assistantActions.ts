@@ -102,8 +102,8 @@ export interface AssistantRoundOutcome {
     awaitingConfirmation: boolean
 }
 
-/** Every MCP tool, the console-only ones included, and the tools only the assistant has. */
-export const ASSISTANT_TOOLS: McpToolDefinition[] = [...MCP_TOOLS, ...assistantOnlyTools]
+/** Every MCP tool but the MCP-only ones, the console-only ones included, and the tools only the assistant has. */
+export const ASSISTANT_TOOLS: McpToolDefinition[] = [...MCP_TOOLS.filter(tool => !tool.mcpOnly), ...assistantOnlyTools]
 
 const toolsByName = new Map(ASSISTANT_TOOLS.map(tool => [tool.name, tool]))
 

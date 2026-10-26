@@ -1,12 +1,15 @@
 import { AnyKeys, ObjectId, PipelineStage, Schema, Types } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import AiModel, { AiCurrency } from "../models/AiModelModel"
 import AiUsage, { AI_USAGE_SOURCES, AiUsageSource, IAiUsage } from "../models/AiUsageModel"
 import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
-import UserProject from "../models/UserProjectModel"
+import User from "../models/UserModel"
+import { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrganizationModel"
+import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { LlmEffort, LlmProvider, LlmUsage, NO_USAGE } from "./llm/types"
@@ -50,6 +53,39 @@ export interface OrganizationAiUsageSummary extends AiUsageSummary {
     byProject: ProjectAiUsage[]
 }
 
+/** The periods a member's usage is summed by: a calendar day, an ISO week (Monday first) or a calendar month. */
+export type AiUsageGranularity = "day" | "week" | "month"
+
+export const AI_USAGE_GRANULARITIES: readonly AiUsageGranularity[] = ["day", "week", "month"]
+
+/** The key of each period, in the time zone asked: 2026-10-23, 2026-W43, 2026-10. In string order, they are in time order. */
+const PERIOD_FORMATS: Record<AiUsageGranularity, string> = { day: "%Y-%m-%d", week: "%G-W%V", month: "%Y-%m" }
+
+/** The days a daily series may span: a year, leap day included. Weeks and months have no limit. */
+export const MAX_DAILY_SPAN_DAYS = 366
+
+export const AI_USAGE_RANGE_INVALID = "AI_USAGE_RANGE_INVALID"
+
+export interface MemberAiUsageQuery {
+    /** The first and the last day counted, both included, as YYYY-MM-DD in `timeZone`. */
+    from: string
+    to: string
+    granularity: AiUsageGranularity
+    /** An IANA time zone, e.g. Europe/Rome: where the days begin. UTC when left out, as the dates are stored. */
+    timeZone?: string
+}
+
+/** Who the usage is asked of: by id, or by the email they sign in with. */
+export type MemberRef = { userId: string; email?: undefined } | { userId?: undefined; email: string }
+
+export interface MemberAiUsage extends Required<MemberAiUsageQuery> {
+    projectId: string
+    userId: string
+    total: LlmUsage
+    /** Only the periods with some usage, oldest first. */
+    series: (LlmUsage & { period: string })[]
+}
+
 /** What a caller records: the organization is read from the project when the caller does not hold it. */
 export interface AiUsageEntry extends LlmUsage {
     projectId: Id
@@ -63,6 +99,30 @@ export interface AiUsageEntry extends LlmUsage {
     aiModelId?: string
     provider?: LlmProvider
     effort?: LlmEffort
+    cost?: number
+    currency?: AiCurrency
+    /** Kept for entries written before selecting a currency was supported. */
+    costUsd?: number
+}
+
+export interface AiUsageCost {
+    amount: number
+    currency: AiCurrency
+}
+
+/** Cost in the configured currency; absent rates (including the system AI) stay unpriced. */
+export const calculateAiUsageCost = async (aiModelId: string | undefined, usage: LlmUsage): Promise<AiUsageCost | undefined> => {
+    if (!aiModelId || !/^[a-f\d]{24}$/i.test(aiModelId)) return undefined
+    const model = await AiModel.findById(aiModelId, { tokenCosts: 1 }).lean()
+    const costs = model?.tokenCosts
+    if (!costs || ![costs.input, costs.cachedInput, costs.output].every(value => typeof value === "number" && Number.isFinite(value) && value >= 0 && value <= 1_000_000)) {
+        return undefined
+    }
+    const regularInputTokens = Math.max(0, usage.inputTokens - usage.cachedInputTokens)
+    return {
+        amount: Number(((regularInputTokens * costs.input + usage.cachedInputTokens * costs.cachedInput + usage.outputTokens * costs.output) / 1_000_000).toFixed(12)),
+        currency: costs.currency ?? "USD"
+    }
 }
 
 /**
@@ -134,6 +194,26 @@ export const organizationPipeline = (organizationId: Id, period: AiUsagePeriod):
     matchOf({ organizationId: objectId(organizationId) }, period),
     { $group: { _id: "$projectId", ...sums() } }
 ]
+
+/** A member's usage in the project between two days, summed by period: exported for the tests, which have no MongoDB. */
+export const memberSeriesPipeline = (projectId: Id, userId: Id, { from, to, granularity, timeZone = "UTC" }: MemberAiUsageQuery): PipelineStage[] => {
+    const local = (format: string) => ({ $dateToString: { date: "$createdAt", format, timezone: timeZone } })
+    return [
+        // A day more on each side, whatever the zone, for the index to narrow on: the next stage cuts on the local days.
+        { $match: { projectId: objectId(projectId), userId: objectId(userId), createdAt: { $gte: new Date(Date.parse(from) - DAY_MS), $lt: new Date(Date.parse(to) + 2 * DAY_MS) } } },
+        { $match: { $expr: { $and: [{ $gte: [local("%Y-%m-%d"), from] }, { $lte: [local("%Y-%m-%d"), to] }] } } },
+        { $group: { _id: local(PERIOD_FORMATS[granularity]), ...sums() } },
+        { $sort: { _id: 1 } }
+    ]
+}
+
+const ensureValidRange = ({ from, to, granularity }: MemberAiUsageQuery) => {
+    const days = (Date.parse(to) - Date.parse(from)) / DAY_MS + 1
+    if (days < 1) throw createBusinessException({ code: AI_USAGE_RANGE_INVALID, message: `The last day (${to}) comes before the first (${from})`, statusCode: 400 })
+    if (granularity === "day" && days > MAX_DAILY_SPAN_DAYS) {
+        throw createBusinessException({ code: AI_USAGE_RANGE_INVALID, message: `A daily series spans at most ${MAX_DAILY_SPAN_DAYS} days: ask by week or month, or a shorter range`, statusCode: 400 })
+    }
+}
 
 export const AI_TOKEN_LIMIT_REACHED = "AI_TOKEN_LIMIT_REACHED"
 
@@ -214,6 +294,37 @@ export default class AiUsageService extends BaseAuthorizedService {
         const names = new Map(projects.map(project => [String(project._id), project.name]))
         const byProject = groups.map(group => ({ projectId: String(group._id), name: names.get(String(group._id)), ...rounded(group) })).sort((a, b) => tokensOf(b) - tokensOf(a))
         return { period, since: periodStart(period), total: added(byProject.map(rounded)), byProject }
+    }
+
+    /**
+     * What one person spent in the project between two days, by day, week or month. Theirs to see, and the owners' of
+     * the project and the administrators' of its organization, who set the members' monthly limits. Anyone else is
+     * refused before the person is looked up: the answer must not tell whether an email exists.
+     */
+    async forMember(projectId: string, member: MemberRef, query: MemberAiUsageQuery): Promise<MemberAiUsage> {
+        ensureValidRange(query)
+        await this.ensureAccessToProject(projectId)
+        const caller = this.getUser()
+        const self = member.email === undefined ? member.userId === String(caller?._id) : member.email.toLowerCase() === caller?.email
+        if (!self && !(await this.managesProject(projectId))) {
+            throw createBusinessException({ code: "PROJECT_OWNER_REQUIRED", message: "Only an owner of the project sees the AI usage of the other members", statusCode: 403 })
+        }
+        const userId = member.userId ?? String((await User.findOne({ email: member.email.toLowerCase() }, { _id: 1 }).lean())?._id ?? "")
+        if (!userId) throw new EntityNotFoundError(member.email!, `No user signs in with ${member.email}`)
+        const groups = await AiUsage.aggregate<Totals>(memberSeriesPipeline(projectId, userId, query))
+        const series = groups.map(group => ({ period: String(group._id), ...rounded(group) }))
+        return { projectId, userId, from: query.from, to: query.to, granularity: query.granularity, timeZone: query.timeZone ?? "UTC", total: added(series), series }
+    }
+
+    /** An owner of the whole project, or an administrator of its organization: they act there as owners. An API key is neither. */
+    private async managesProject(projectId: string): Promise<boolean> {
+        const caller = this.user
+        if (!caller || caller.apiKeyId) return false
+        const membership = await UserProject.findOne({ userId: toObjectId(String(caller._id)), projectId: toObjectId(projectId), invitationToken: null }, { role: 1, domainScoped: 1 }).lean()
+        if (membership?.role === RoleInProject.OWNER && !membership.domainScoped) return true
+        const project = await Project.findById(toObjectId(projectId), { organizationId: 1 }).lean()
+        const role = project && (await this.findRoleInOrganization(project.organizationId))
+        return Boolean(role && ORGANIZATION_ADMIN_ROLES.includes(role))
     }
 
     private async summary(pipeline: PipelineStage[], period: AiUsagePeriod): Promise<AiUsageSummary> {

@@ -1,5 +1,6 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { LLM_EFFORTS, LlmEffort } from "../service/llm/types"
+import { AiCurrency } from "./AiModelModel"
 
 export enum AiChangeStatus {
     /** Created, waiting for the working copy (another request may be holding it). */
@@ -29,8 +30,11 @@ export interface IAiChangeFile {
 
 export interface IAiChangeEvent {
     at: Date
-    /** `tool` for a step of the agent, `info` for the job itself, `text` for what the model said, `thinking` for the summary of its reasoning. */
-    kind: "info" | "tool" | "text" | "thinking"
+    /**
+     * `tool` for a step of the agent, `output` for what a script it ran printed, `info` for the job itself,
+     * `text` for what the model said, `thinking` for the summary of its reasoning.
+     */
+    kind: "info" | "tool" | "output" | "text" | "thinking"
     message: string
 }
 
@@ -39,6 +43,9 @@ export interface IAiChangeUsage {
     /** The part of `inputTokens` read from the prompt cache. */
     cachedInputTokens: number
     outputTokens: number
+    cost?: number
+    currency?: AiCurrency
+    costUsd?: number
 }
 
 export interface IAiChangeRequest extends Document<ObjectId> {
@@ -63,6 +70,8 @@ export interface IAiChangeRequest extends Document<ObjectId> {
      */
     conversationId: Schema.Types.ObjectId
     prompt: string
+    /** A few words the model wrote about the prompt, for the console's lists; unset when it could not, or on a follow-up. */
+    title?: string
     baseBranch: string
     baseCommit?: string
     status: AiChangeStatus
@@ -104,7 +113,7 @@ const fileSchema = new Schema<IAiChangeFile>(
 export const aiChangeEventSchema = new Schema<IAiChangeEvent>(
     {
         at: { type: Date, required: true },
-        kind: { type: String, enum: ["info", "tool", "text", "thinking"], required: true },
+        kind: { type: String, enum: ["info", "tool", "output", "text", "thinking"], required: true },
         message: { type: String, required: true }
     },
     { _id: false }
@@ -124,6 +133,7 @@ const aiChangeRequestSchema = new Schema<IAiChangeRequest>(
         parentId: { type: Schema.Types.ObjectId, ref: "AiChangeRequest", index: true },
         conversationId: { type: Schema.Types.ObjectId, required: true, index: true },
         prompt: { type: String, required: true, maxlength: 8_000 },
+        title: { type: String },
         baseBranch: { type: String, required: true },
         baseCommit: { type: String },
         status: { type: String, enum: Object.values(AiChangeStatus), default: AiChangeStatus.PENDING, required: true },
@@ -139,7 +149,10 @@ const aiChangeRequestSchema = new Schema<IAiChangeRequest>(
         usage: {
             inputTokens: { type: Number, default: 0 },
             cachedInputTokens: { type: Number, default: 0 },
-            outputTokens: { type: Number, default: 0 }
+            outputTokens: { type: Number, default: 0 },
+            cost: { type: Number, min: 0 },
+            currency: { type: String, enum: ["USD", "EUR"] },
+            costUsd: { type: Number, min: 0 }
         },
         expiresAt: { type: Date }
     },

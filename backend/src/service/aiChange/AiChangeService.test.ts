@@ -162,18 +162,25 @@ describe("AiChangeService", () => {
 
     it("Given a backend, when its changes are listed, then its latest conversations come back whole", async () => {
         vi.spyOn(Backend, "findById").mockResolvedValue({ _id: backendId, projectId, slug: "orders-api", name: "Orders API", env: [] } as never)
+        const hiddenJobIds = [new Types.ObjectId(), new Types.ObjectId()]
+        vi.spyOn(AiChangeJob, "distinct").mockResolvedValue(hiddenJobIds as never)
         const conversationIds = [new Types.ObjectId(), new Types.ObjectId()]
         const aggregate = vi.spyOn(AiChangeRequest, "aggregate").mockResolvedValue(conversationIds.map(_id => ({ _id })) as never)
         const find = vi.spyOn(AiChangeRequest, "find").mockReturnValue({ sort: async () => [] } as never)
 
         await service().list({ kind: "backend", id: backendId.toString() })
 
-        expect(aggregate.mock.calls[0][0]).toEqual(expect.arrayContaining([{ $match: { backendId } }, { $limit: 20 }]))
+        const owner = { backendId, jobId: { $nin: hiddenJobIds } }
+        expect(AiChangeJob.distinct).toHaveBeenCalledWith("_id", {
+            $or: [{ scope: "domain" }, { missionId: { $exists: true } }],
+            backendIds: backendId
+        })
+        expect(aggregate.mock.calls[0][0]).toEqual(expect.arrayContaining([{ $match: owner }, { $limit: 20 }]))
         // Every request of those conversations, not only the newest ones: the queue shows each conversation once.
-        expect(find).toHaveBeenCalledWith({ backendId, conversationId: { $in: conversationIds } }, expect.anything())
+        expect(find).toHaveBeenCalledWith({ ...owner, conversationId: { $in: conversationIds } }, expect.anything())
     })
 
-    it("Given a proposal on a backend never pushed on its branch, when it is applied, then it is committed under an ai/ branch named after the backend", async () => {
+    it("Given a proposal on a backend never pushed on its branch, when it is applied, then it is committed under an ai-feature/ branch named after the request", async () => {
         vi.spyOn(Backend, "findById").mockResolvedValue({ _id: backendId, projectId, slug: "orders-api", name: "Orders API", env: [] } as never)
         vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(proposal({ frontendId: undefined, backendId }) as never)
         vi.spyOn(AiChangeRequest, "findOneAndUpdate").mockResolvedValue({ status: AiChangeStatus.APPLYING } as never)
@@ -181,7 +188,20 @@ describe("AiChangeService", () => {
         await service().apply(new Types.ObjectId().toString())
 
         expect(workspaceService.open).toHaveBeenCalledWith(expect.objectContaining({ kind: "backend" }))
-        expect(workingCopy.commitAndPush.mock.calls[0][0].branch).toMatch(/^ai\/orders-api-\d{8}-\d{6}$/)
+        expect(workingCopy.commitAndPush.mock.calls[0][0].branch).toMatch(/^ai-feature\/add-404-page-link-home-\d{8}-\d{6}$/)
+    })
+
+    it("Given a fleet proposal, when it is applied, then it is pushed directly to its base without creating a remote branch", async () => {
+        const request = proposal({ jobId: new Types.ObjectId() })
+        vi.spyOn(AiChangeJob, "findById")
+            .mockResolvedValueOnce({ missionId: new Types.ObjectId() } as never)
+            .mockResolvedValueOnce(null as never)
+
+        await (service() as unknown as { applyClaimed: (request: unknown, files: unknown) => Promise<unknown> }).applyClaimed(request, request.files)
+
+        expect(workingCopy.commitAndPush).toHaveBeenCalledWith(expect.objectContaining({ branch: "main" }))
+        expect(workingCopy.commitAndPush.mock.calls[0][0].pushTo).toBeUndefined()
+        expect(workingCopy.deleteRemoteBranch).not.toHaveBeenCalled()
     })
 
     it("Given a viewer who administers the organization, when a proposal is discarded, then it is allowed", async () => {

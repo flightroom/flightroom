@@ -103,11 +103,25 @@ use it. `project_update`, `frontend_create` and `frontend_update` set it, replac
 goes back to the level above. The organization's is set from the console, and by its assistant
 through `organization_update`, which MCP clients do not get.
 
-The `.npmrc` is stored as pasted and the console shows it whole, but every response that reaches an
-AI (MCP tools, the assistant, the agent prompt) masks its credentials: the value of `_authToken`,
-`_auth`, `_password`, `username`, `email`, `certfile`, `keyfile` and similar keys, scoped or not,
-becomes `***`. Registry and scope lines (`@acme:registry=...`) stay readable, as does a value that
-only names an environment variable (`${NPM_TOKEN}`).
+The `.npmrc` is stored as pasted and the console shows it whole. MCP clients read it whole too:
+every `designSystem` an MCP tool returns (`context_get`, `frontend_get`, `repository_checkout_get`,
+`project_get` and the others) carries the `npmrc` with its credentials, and next to it `npmrcUsage`,
+which tells the client to write it as `.npmrc` and install the package, keep it out of git, and that
+`design_system_npmrc_get` returns it as well. Without that note a client would take the token for
+something to ask the user about. A committed `.npmrc` cannot slip through: `code_change_submit`
+refuses it like any registry configuration.
+
+`design_system_npmrc_get` (`mfe:read`, read-only, MCP only) returns the `.npmrc` on its own: the one
+of the design system a frontend builds with (`frontendId`), or of the project's without one, along
+with `packageName` and `source`. A design system without an `.npmrc`, or no design system at all, is
+refused with `DESIGN_SYSTEM_NPMRC_MISSING`. Every call goes into the audit log like any other tool
+call.
+
+The console's own models never read the credentials: the assistant's tool results and the prompt of
+the AI change agent mask them, the value of `_authToken`, `_auth`, `_password`, `username`, `email`,
+`certfile`, `keyfile` and similar keys, scoped or not, becoming `***`. Registry and scope lines
+(`@acme:registry=...`) stay readable, as does a value that only names an environment variable
+(`${NPM_TOKEN}`). The assistant does not have `design_system_npmrc_get`.
 
 ## Domains and backends
 

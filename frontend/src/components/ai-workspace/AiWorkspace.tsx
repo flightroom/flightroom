@@ -59,7 +59,7 @@ import useThemeStore from "@/store/useThemeStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { cn } from "@/utils/styleUtils"
 import { AiChangeDiff } from "./AiChangeDiff"
-import { ProgressLog, StatusBadge } from "./AiChangeProgress"
+import { LivePreviews, ProgressLog, StatusBadge } from "./AiChangeProgress"
 import { AiWorkspaceRepository, BaseBranches, pickedBaseBranches, RepositoryBranches } from "./RepositoryBranches"
 
 const PROMPT_MAX_LENGTH = 8000
@@ -399,6 +399,8 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
                     </output>
                 )}
 
+                <LivePreviews events={request.events ?? []} />
+
                 {request.error && request.status === "PROPOSED" && <WarningAlert title={t("frontend.aiChange.proposal_warning")}>{request.error}</WarningAlert>}
 
                 {request.status === "FAILED" && (
@@ -622,6 +624,8 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
     return (
         <div className="flex flex-col gap-3">
             <p className="max-w-[85%] self-end whitespace-pre-wrap break-words rounded-lg bg-primary/10 px-3 py-2 text-sm">{job.prompt}</p>
+
+            <LivePreviews events={job.events ?? []} />
 
             {/* A job that failed before any repository could tell its own outcome. */}
             {job.status === "FAILED" && !job.stoppedAt && !repositories.some(repository => repository.status === "FAILED") && (
@@ -1138,6 +1142,8 @@ interface QueueEntry {
     ids: string[]
     /** The first request: what the conversation is about. */
     prompt: string
+    /** What the model summed the first request up in; the first line of the request when it could not. */
+    title: string
     /** When it last moved. */
     at: string
     status: AiChangeStatus
@@ -1158,6 +1164,7 @@ const requestEntries = (requests: AiChangeRequest[]): QueueEntry[] => {
             id: current._id,
             ids: chain.map(request => request._id),
             prompt: chain[chain.length - 1].prompt,
+            title: chain[chain.length - 1].title ?? firstLine(chain[chain.length - 1].prompt),
             at: chain[0].createdAt,
             status: current.status,
             turns: chain.length,
@@ -1183,6 +1190,7 @@ const jobEntries = (jobs: AiJob[]): QueueEntry[] => {
             id: rootJobId,
             ids: [rootJobId],
             prompt: first.prompt,
+            title: first.title ?? firstLine(first.prompt),
             at: latest.updatedAt,
             status: reviewable ? "PROPOSED" : status,
             repositories: latest.repositories.length
@@ -1202,14 +1210,16 @@ const QueueItem: React.FC<{ entry: QueueEntry; selected: boolean; onSelect: () =
                 type="button"
                 aria-current={selected ? "true" : undefined}
                 // The label replaces the content of the button: it has to carry the status the badges show.
-                aria-label={`${t("frontend.aiChange.open_request", { prompt: firstLine(entry.prompt) })} · ${t(`frontend.aiChange.status.${entry.status}`)}`}
+                aria-label={`${t("frontend.aiChange.open_request", { prompt: entry.title })} · ${t(`frontend.aiChange.status.${entry.status}`)}`}
                 onClick={onSelect}
                 className={cn(
                     "flex w-full flex-col gap-1 rounded-md border px-3 py-2 text-left transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     selected ? "border-primary bg-primary/5" : "border-divider hover:border-primary/50 hover:bg-muted/40"
                 )}
             >
-                <span className="line-clamp-2 break-words text-sm font-medium">{firstLine(entry.prompt)}</span>
+                <span className="line-clamp-2 break-words text-sm font-medium" title={entry.prompt}>
+                    {entry.title}
+                </span>
                 <span className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs text-muted-foreground">
                     <time dateTime={entry.at}>{format(new Date(entry.at), "PPp", { locale: themeStore.getLocale() })}</time>
                     {entry.turns !== undefined && entry.turns > 1 && <span>· {t("frontend.aiChange.turns_count", { count: entry.turns })}</span>}
@@ -1237,7 +1247,8 @@ const QueueSection: React.FC<QueueSectionProps> = ({ group, entries, selectedId,
     const headingId = useId()
     const Icon = GROUP_ICON[group]
     const containsSelected = entries.some(entry => entry.ids.includes(selectedId))
-    const [open, setOpen] = useState(containsSelected)
+    // Applied and failed requests are done with: keep them out of the way unless one of them is open.
+    const [open, setOpen] = useState(containsSelected || (group !== "applied" && group !== "failed"))
 
     // A conversation of the group opened from elsewhere (a deep link): unfold it. Never fold it back on the user.
     useEffect(() => {
@@ -1246,6 +1257,7 @@ const QueueSection: React.FC<QueueSectionProps> = ({ group, entries, selectedId,
     const heading = (
         <span className="flex items-center justify-between gap-2">
             <span id={headingId} className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-foreground-secondary">
+                <ChevronRight className={cn("size-3.5 transition-transform motion-reduce:transition-none", open && "rotate-90")} aria-hidden="true" />
                 <Icon className={cn("size-3.5", group === "active" && entries.length > 0 && "animate-spin motion-reduce:animate-none")} aria-hidden="true" />
                 {t(`frontend.aiChange.groups.${group}`)}
             </span>
@@ -1269,21 +1281,11 @@ const QueueSection: React.FC<QueueSectionProps> = ({ group, entries, selectedId,
             </ul>
         )
 
-    // Applied and failed requests are done with: keep them out of the way unless one of them is open.
-    if (group === "applied" || group === "failed") {
-        return (
-            <details open={open} onToggle={event => setOpen(event.currentTarget.open)}>
-                <summary className="cursor-pointer list-none [&::-webkit-details-marker]:hidden">{heading}</summary>
-                <div className="mt-2">{list}</div>
-            </details>
-        )
-    }
-
     return (
-        <section aria-labelledby={headingId} className="flex flex-col gap-2">
-            {heading}
-            {list}
-        </section>
+        <details open={open} onToggle={event => setOpen(event.currentTarget.open)}>
+            <summary className="cursor-pointer list-none rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring [&::-webkit-details-marker]:hidden">{heading}</summary>
+            <div className="mt-2">{list}</div>
+        </details>
     )
 }
 

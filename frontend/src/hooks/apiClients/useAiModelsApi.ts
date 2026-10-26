@@ -9,6 +9,16 @@ export const LLM_PROVIDERS = ["anthropic", "azure-foundry", "gemini", "azure-ope
 
 export type LlmProvider = (typeof LLM_PROVIDERS)[number]
 
+export type AiCurrency = "USD" | "EUR"
+
+/** Per million tokens, in the selected currency. */
+export interface AiTokenCosts {
+    input: number
+    cachedInput: number
+    output: number
+    currency?: AiCurrency
+}
+
 /** The id of the AI the backend builds from its environment variables: every organization sees it, nobody edits it. */
 export const SYSTEM_AI_MODEL_ID = "system"
 
@@ -32,6 +42,7 @@ export interface AiModelSummary {
  */
 export interface AiModelDetail extends AiModelSummary {
     config: Record<string, unknown>
+    tokenCosts?: AiTokenCosts
     maxEffort?: LlmEffort
     createdAt?: string
     updatedAt?: string
@@ -50,6 +61,8 @@ export interface AiModelDTO {
     /** Null on an update goes back to the provider's default model. */
     model?: string | null
     config: Record<string, unknown>
+    /** Null on an update clears the configured rates. */
+    tokenCosts?: AiTokenCosts | null
     /** Null on an update takes the limit away. */
     maxEffort?: LlmEffort | null
     isDefault?: boolean

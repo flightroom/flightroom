@@ -95,6 +95,11 @@ export interface McpToolDefinition<Schema extends z.ZodObject = z.ZodObject> {
      */
     consoleOnly?: boolean
     /**
+     * Only MCP clients get this tool; the console assistant never offers it. For a result meant for
+     * the user's machine that the assistant's model must not read, such as an unmasked credential.
+     */
+    mcpOnly?: boolean
+    /**
      * Splits a result that must not reach the model, such as a freshly created API key: the model
      * gets `forModel`, the user's console gets `forUser` (`forModel` when left out). Without it
      * both see the whole result. MCP clients always get the whole result.

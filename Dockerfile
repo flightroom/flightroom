@@ -1,3 +1,4 @@
+# syntax=docker/dockerfile:1
 # Production Image with Nginx
 FROM nginx:alpine
 
@@ -38,7 +39,16 @@ COPY frontend/dist/ /var/www/frontend/
 COPY backend/dist/ /var/www/backend/
 
 WORKDIR /var/www/backend
-RUN pnpm i
+
+# The OpenShell SDK (@nvidia) is published on GitHub Packages, which asks for a
+# token even to read a public package: pass one with read:packages as the
+# build secret npm_token (docker build --secret id=npm_token,env=GITHUB_TOKEN).
+# It is read from the secret mount and written to a user config removed in the
+# same step, so it never ends up in a layer.
+COPY .npmrc ./
+RUN --mount=type=secret,id=npm_token,env=NODE_AUTH_TOKEN \
+    echo '//npm.pkg.github.com/:_authToken=${NODE_AUTH_TOKEN}' > /root/.npmrc && \
+    pnpm i; status=$?; rm -f /root/.npmrc; exit $status
 
 # Expose port 80
 EXPOSE 80

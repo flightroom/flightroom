@@ -325,6 +325,8 @@
             "token": "Token API di Argo CD",
             "tokenHint": "Il token dell'account orchestrator (argocd account generate-token --account orchestrator). Viene salvato cifrato e va reinserito se cambi l'URL.",
             "unchanged": "Invariato",
+            "insecure": "Accetta certificati self-signed",
+            "insecureHint": "Il certificato di Argo CD non viene verificato, come con argocd --insecure. Solo per un Argo CD raggiunto su una rete di cui ti fidi: chi intercettasse la connessione leggerebbe il token e le credenziali dei repository. Con una CA privata, meglio aggiungerla a NODE_EXTRA_CA_CERTS dell'orchestrator.",
             "repositoryToken": "Token in sola lettura dei repository",
             "repositoryTokenHint": "GitHub e Azure DevOps non permettono di crearne uno via API: incolla un token che legga i repository GitOps, usato per tutti quelli che non sono su GitLab. Per GitLab la console crea da sola un deploy token e lo ruota a ogni inizializzazione.",
             "repositoryTokenProviderHint": {
@@ -344,7 +346,7 @@
                 "token_required": "Inserisci il token API di Argo CD: va reinserito ogni volta che cambi l'URL",
                 "repository_token_required": "Inserisci un token in sola lettura con cui Argo CD possa clonare {{repository}}",
                 "unreachable": "Argo CD non è raggiungibile su {{url}} ({{reason}}): verifica l'URL e che il cluster dell'orchestrator possa raggiungere l'API di Argo CD",
-                "tls_untrusted": "Il certificato di Argo CD su {{url}} non è attendibile ({{reason}}): usa un certificato di un'autorità riconosciuta o aggiungi la sua CA a NODE_EXTRA_CA_CERTS dell'orchestrator",
+                "tls_untrusted": "Il certificato di Argo CD su {{url}} non è attendibile ({{reason}}): usa un certificato di un'autorità riconosciuta, aggiungi la sua CA a NODE_EXTRA_CA_CERTS dell'orchestrator o, se è self-signed, spunta \"Accetta certificati self-signed\"",
                 "unauthorized": "Argo CD su {{url}} non accetta il token: verifica che sia un token API dell'account orchestrator e che non sia scaduto o revocato",
                 "forbidden": "L'account del token non ha i permessi necessari su Argo CD: assegnagli role:orchestrator in argocd-rbac-cm, come in \"Permessi dell'account Argo CD\" qui sopra",
                 "request_failed": "Argo CD ha rifiutato la richiesta ({{reason}})",
@@ -862,6 +864,12 @@
         "max_length_other": "Massimo {{count}} caratteri"
     },
     "frontend": {
+        "live_preview": {
+            "button": "Vedi live preview",
+            "starting": "Avvio anteprima live…",
+            "start_error": "Impossibile avviare l'anteprima live. Riprova.",
+            "popup_blocked": "Consenti i popup per aprire l'anteprima live."
+        },
         "kind": {
             "label": "Tipo",
             "bundle": "Bundle",
@@ -893,14 +901,6 @@
             "mfeOrchestratorHub": "Flightroom Hub",
             "customSource": "Sorgente Personalizzata"
         },
-        "backendLinks": {
-            "frontendsColumn": "Frontend",
-            "backendsColumn": "Backend",
-            "hint": "Trascina dal pallino di un frontend a un backend per collegarli. Seleziona un collegamento e premi Canc per rimuoverlo.",
-            "noBackendsTitle": "Nessun backend",
-            "noBackendsDescription": "Crea un backend per poterlo collegare ai frontend.",
-            "createBackend": "Crea un backend"
-        },
         "dashboard": {
             "title": "Frontend",
             "description": "Gestisci i frontend del tuo progetto",
@@ -912,7 +912,6 @@
             "viewFlow": "Vista diagramma",
             "viewGrid": "Vista griglia",
             "viewTable": "Vista tabella",
-            "viewBackend": "Vista collegamenti ai backend",
             "clearSearch": "Cancella la ricerca",
             "noResultsTitle": "Nessun risultato",
             "noResultsDescription": "Nessun frontend corrisponde a «{{searchTerm}}». Prova con un altro termine di ricerca.",
@@ -967,7 +966,7 @@
         "no_frontends_found": "Nessun frontend trovato",
         "no_frontends_found_description": "Nessun frontend è stato ancora registrato. Una volta aggiunti, verranno visualizzati qui. Puoi crearne uno nuovo per iniziare.",
         "add_your_first_frontend": "Aggiungi il tuo primo frontend per iniziare!",
-        "add_new": "Nuovo Frontend",
+        "add_new": "Nuovo frontend",
         "add_new_description": "Crea un nuovo frontend da aggiungere al tuo progetto",
         "edit": "Modifica Frontend",
         "edit_description": "Aggiorna i dettagli del tuo frontend",
@@ -1148,11 +1147,27 @@
                 "applying-previous": "Riparto dalla proposta precedente",
                 "applying": "Applicazione delle modifiche",
                 "apply-failed": "Non è stato possibile applicare le modifiche",
+                "build-required": "L'agente ha modificato dei file senza fare la build: gli è stato chiesto di farla prima",
                 "pushing": "Pubblicazione della proposta sul suo branch",
                 "stopped": "Interrotto dall'utente"
             },
             "progress_log": "Avanzamento dell'agente",
             "progress_empty": "Ancora nessuna attività.",
+            "preview": {
+                "title": "Anteprima live",
+                "show": "Vedi anteprima",
+                "hide": "Nascondi anteprima",
+                "frontend_count": "{{count}} frontend",
+                "frontend_count_plural": "{{count}} frontend",
+                "frontends_label": "Anteprime frontend",
+                "open_for": "Apri {{name}}",
+                "api_for": "Backend {{name}}",
+                "for": "Anteprima live di {{name}}",
+                "access_warning": "Gli URL di anteprima sono raggiungibili da chiunque possa accedere al gateway OpenShell. Usali solo con un gateway fidato e isolato.",
+                "starting": "Le anteprime compariranno qui quando i server di sviluppo saranno pronti.",
+                "unavailable": "Non è stato possibile avviare il server di sviluppo per uno dei repository."
+            },
+            "script_output": "Output del comando",
             "show_progress_log": "Mostra il registro di avanzamento dell'agente",
             "show_prompt": "Mostra la richiesta completa",
             "request_meta": "{{date}} · branch di partenza {{branch}}",
@@ -2164,6 +2179,7 @@
             "input": "{{formatted}} token in ingresso",
             "input_cached": "{{formatted}} token in ingresso ({{cached}} dalla cache)",
             "output": "{{formatted}} in uscita",
+            "cost": "Costo: {{formatted}}",
             "hint": "Token usati per questa risposta, sommando tutti i passaggi del modello. I token letti dalla cache costano molto meno."
         },
         "effort": {
@@ -2501,6 +2517,7 @@
         },
         "release": {
             "action": "Build e deploy",
+            "more_actions": "Opzioni build e deploy",
             "no_domain": "Aggiungilo a un dominio per fare build e deploy",
             "title": "Build e deploy di {{domain}}",
             "description": "Crea la versione come fa Crea versione, attende che la pipeline di ogni repository taggato la registri, la imposta come versione di quei frontend e backend, poi esegue il deploy del dominio sull'ambiente scelto. La console va avanti anche se chiudi questa finestra.",
@@ -2510,6 +2527,7 @@
             "success": "{{domain}} {{version}} deployato su {{environment}}",
             "failed": "Il build e deploy di {{domain}} {{version}} è fallito",
             "untouched_hint": "I frontend e i backend senza repository di codice restano fuori: la loro versione non cambia.",
+            "close_hint": "Puoi chiudere questa finestra: la console va avanti da sola con il rilascio, e riaprendola vedi a che punto è.",
             "steps": {
                 "building": "Build",
                 "waiting_ci": "CI",
@@ -2534,6 +2552,7 @@
                 "DOMAIN_RELEASE_TAG_FAILED": "Alcuni repository non sono stati taggati, quindi il rilascio si è fermato: gli altri restano taggati",
                 "DOMAIN_RELEASE_CI_TIMEOUT": "La pipeline non ha registrato la versione {{version}} entro 60 minuti per: {{names}}",
                 "DOMAIN_RELEASE_CI_FAILED": "La pipeline del tag {{version}} è fallita per: {{names}}",
+                "DOMAIN_RELEASE_CI_NOT_REGISTERED": "La pipeline del tag {{version}} è finita senza registrare la versione nella console per: {{names}}. Controlla lo step della pipeline che la registra e la sua API key",
                 "DOMAIN_RELEASE_INTERRUPTED": "Il rilascio si è fermato a metà di un passo, probabilmente per un riavvio della console: controlla i deployment dell'ambiente prima di avviarlo di nuovo",
                 "DOMAIN_RELEASE_USER_UNAVAILABLE": "L'utente che ha avviato il rilascio non può più operare nella console"
             }
@@ -2568,6 +2587,7 @@
         },
         "viewCards": "Vista schede",
         "viewGalaxy": "Vista galassia",
+        "viewLinks": "Vista collegamenti frontend-backend",
         "galaxy": {
             "legend_canary": "Canary attivo",
             "legend_bridge": "Collegamento tra domini",
@@ -2616,8 +2636,16 @@
             "moon_shared": "Usata anche da {{names}}",
             "ship_job": "Agente al lavoro: {{prompt}}",
             "ship_request": "Agente al lavoro su una richiesta di modifica",
-            "ship_more_one": "+{{count}} altro agente al lavoro qui",
-            "ship_more_other": "+{{count}} altri agenti al lavoro qui"
+            "ship_more_one": "+{{count}} altro agente in volo nella galassia",
+            "ship_more_other": "+{{count}} altri agenti in volo nella galassia"
+        },
+        "links": {
+            "frontendsColumn": "Frontend",
+            "backendsColumn": "Backend",
+            "hint": "Trascina dal pallino di un frontend a un backend per collegarli: tratteggiati i collegamenti verso un altro dominio. Seleziona un collegamento e premi Canc per rimuoverlo. Doppio clic su un box per aprire il dominio.",
+            "noBackendsTitle": "Nessun backend",
+            "noBackendsDescription": "Crea un backend per poterlo collegare ai frontend.",
+            "createBackend": "Crea un backend"
         },
         "form": {
             "create_title": "Nuovo dominio funzionale",
@@ -2714,7 +2742,32 @@
         },
         "workspace": {
             "nav_label": "Sezioni del dominio",
-            "nav_overview": "Panoramica"
+            "nav_overview": "Panoramica",
+            "nav_settings": "Dettagli e impostazioni"
+        },
+        "settings": {
+            "details_title": "Dettagli",
+            "versions_title": "Versioni",
+            "versions_description": "La versione di ogni frontend e backend del dominio: è quella che il deploy del dominio pubblica. Per un frontend BUNDLE è il nome di un bundle caricato, per un frontend DOCKER e per un backend il tag dell'immagine.",
+            "version_all": "Stessa versione per tutti",
+            "version_all_hint": "Riempie la versione di tutti i frontend e backend qui sotto; poi salva.",
+            "version_all_apply": "Applica a tutti",
+            "kind_bundle": "Frontend BUNDLE",
+            "kind_docker": "Frontend DOCKER",
+            "current_version": "attuale {{version}}",
+            "no_version": "nessuna versione",
+            "versions_changed_one": "{{count}} versione modificata",
+            "versions_changed_other": "{{count}} versioni modificate",
+            "versions_save": "Salva versioni",
+            "versions_saved_one": "Versione aggiornata per {{count}} componente",
+            "versions_saved_other": "Versioni aggiornate per {{count}} componenti"
+        },
+        "deploy": {
+            "action": "Deploy",
+            "title": "Deploy di {{domain}}",
+            "description": "Pubblica nell'ambiente scelto i frontend e i backend del dominio, ognuno alla versione impostata, senza fare la build. Gli altri componenti del progetto restano come sono.",
+            "confirm": "Fai il deploy",
+            "success": "{{domain}} pubblicato in {{environment}}"
         },
         "resources": {
             "title": "Risorse",
@@ -2746,6 +2799,8 @@
             "backends": "Backend",
             "maintenance": "Manutenzione"
         },
+        "expand_sidebar": "Espandi la barra laterale",
+        "collapse_sidebar": "Comprimi la barra laterale",
         "top_menu": "Menu del progetto"
     },
     "variableMaps": {
@@ -2899,6 +2954,19 @@
             "max_effort": "Ragionamento massimo",
             "max_effort_hint": "Il livello di ragionamento più alto che gli utenti possono scegliere con questa IA.",
             "max_effort_none": "Nessun limite",
+            "token_costs_title": "Costo dei token (facoltativo)",
+            "token_costs_hint": "Inserisci tutte e tre le tariffe per milione di token nella valuta scelta per mostrare il costo stimato di ogni interazione. Lascia tutti i campi vuoti per non mostrarlo.",
+            "token_costs_invalid": "Inserisci tutte e tre le tariffe da 0 a 1.000.000, oppure lascia vuoti tutti i campi.",
+            "currency": {
+                "label": "Valuta",
+                "USD": "USD ($)",
+                "EUR": "EUR (€)"
+            },
+            "token_costs": {
+                "input": "Token in ingresso",
+                "cached_input": "Token in ingresso dalla cache",
+                "output": "Token in uscita"
+            },
             "default": "IA di default",
             "default_hint": "Preselezionata in ogni progetto che la può usare. Una sola IA dell'organizzazione è quella di default.",
             "fields": {
@@ -2961,7 +3029,7 @@
     },
     "fleet": {
         "title": "Flotta",
-        "description": "Missioni AI: lo stesso compito affidato agli agenti su molte repository, a lotti.",
+        "description": "Missioni AI autonome: gli agenti lavorano e pubblicano direttamente sul branch scelto, repository dopo repository.",
         "new_mission": "Nuova missione",
         "list_label": "Missioni",
         "empty_title": "Nessuna missione",
@@ -3012,13 +3080,14 @@
         },
         "stop": "Ferma missione",
         "stop_title": "Fermare la missione?",
-        "stop_description": "Gli agenti al lavoro vengono fermati e quello che hanno fatto finora viene scartato; i lotti successivi non partono. Le proposte già pronte restano da rivedere.",
+        "stop_description": "Gli agenti al lavoro vengono fermati e le modifiche non ancora pubblicate vengono scartate; i lotti successivi non partono. Le modifiche già inviate al branch restano.",
         "stopping": "Arresto in corso…",
         "stopped_success": "Missione fermata",
         "detail": {
             "title": "Missione",
             "back": "Torna alla flotta",
             "prompt": "Richiesta",
+            "target_branch": "Push diretto su {{branch}}",
             "concurrency_one": "{{count}} agente in parallelo",
             "concurrency_other": "{{count}} agenti in parallelo",
             "batch": "Lotto {{number}} di {{total}}",
@@ -3033,9 +3102,12 @@
         },
         "new": {
             "title": "Nuova missione",
-            "description": "Lo stesso compito su molte repository. Gli agenti propongono le modifiche da rivedere: non viene pubblicato nulla finché non le applichi.",
+            "description": "Lo stesso compito su molte repository. Gli agenti lavorano autonomamente e fanno push diretto sul branch scelto, senza creare branch o pull request.",
             "prompt_label": "Cosa vuoi cambiare?",
             "prompt_placeholder": "es. Aggiorna axios all'ultima versione 1.x e sistema gli usi deprecati",
+            "branch_label": "Branch di destinazione (opzionale)",
+            "branch_placeholder": "Branch predefinito di ogni repository",
+            "branch_hint": "Indica un branch esistente, per esempio main. Se vuoto, ogni agente usa il branch predefinito della propria repository.",
             "prompt_required": "Descrivi la modifica che vuoi",
             "mode_label": "Modalità",
             "repositories_label": "Repository",
@@ -3064,6 +3136,7 @@
             "AI_MISSION_TOO_MANY_REPOSITORIES": "Una missione può lavorare al massimo su 200 repository: riduci la selezione.",
             "AI_MISSION_NOT_RUNNING": "La missione è già finita.",
             "AI_MISSION_INVALID_SELECTION": "Scegli tutte le repository oppure una selezione, non entrambe.",
+            "AI_MISSION_INVALID_BRANCH": "Indica un nome di branch Git valido.",
             "AI_CHANGE_TOO_MANY": "Ci sono troppi job o missioni in corso in questo progetto: attendi che uno finisca.",
             "DOMAIN_SCOPE_FORBIDDEN": "Alcune repository sono fuori dai domini a cui hai accesso.",
             "AI_JOB_NOT_OWNER": "Solo chi ha avviato questa missione, o un amministratore dell'organizzazione, può farlo.",
@@ -3105,7 +3178,7 @@
             "docsUrl": "URL della documentazione",
             "docsUrlInvalid": "Inserisci un URL http(s)",
             "npmrc": ".npmrc",
-            "npmrcHint": "Il contenuto del .npmrc con cui si installa il pacchetto. Gli agenti AI lo leggono con le credenziali mascherate.",
+            "npmrcHint": "Il contenuto del .npmrc con cui si installa il pacchetto. Gli agenti AI lo leggono con le credenziali mascherate; un client MCP con accesso in scrittura lo ottiene intero solo con design_system_npmrc_get, per installare il pacchetto sulla macchina dell'utente.",
             "notes": "Note per gli agenti AI",
             "notesPlaceholder": "Importa i componenti da @acme/ui, usa i suoi token, niente colori CSS scritti a mano.",
             "notesHint": "Markdown: come gli agenti devono usare il design system."

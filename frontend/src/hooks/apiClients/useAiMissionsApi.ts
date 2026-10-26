@@ -26,6 +26,8 @@ export interface AiMissionCreateInput {
     backendIds?: string[]
     /** Only in per repository mode. */
     concurrency?: number
+    /** Push directly to this branch in every repository; defaults to each repository's default branch. */
+    baseBranch?: string
     effort?: LlmEffort
     aiModelId?: string
 }
@@ -70,6 +72,7 @@ export interface AiMissionView {
     prompt: string
     mode: AiMissionMode
     concurrency: number
+    baseBranch?: string
     status: AiMissionStatus
     /** 0-based index of the batch at work, or of the last one once the mission is over. */
     currentBatch: number

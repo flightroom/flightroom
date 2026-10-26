@@ -190,7 +190,8 @@ const useFrontendsApi = () => {
         return response.data
     }
 
-    const update = async (id: string, frontend: Frontend, metadata?: IClientRequestMetadataExtended) => {
+    /** The fields left out are kept: the settings of a domain send only the version */
+    const update = async (id: string, frontend: Partial<Frontend>, metadata?: IClientRequestMetadataExtended) => {
         const response = await apiClient.doRequest({
             url: `/api/frontends/${id}`,
             method: "PUT",

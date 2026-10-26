@@ -1,5 +1,6 @@
 import mongoose, { Schema } from "mongoose"
 import { LLM_EFFORTS, LlmEffort, LlmProvider } from "../service/llm/types"
+import { AiCurrency } from "./AiModelModel"
 
 /** What spent the tokens: an Edit with AI job or an answer of the assistant. */
 export type AiUsageSource = "agent" | "assistant"
@@ -33,6 +34,9 @@ export interface IAiUsage {
     inputTokens: number
     cachedInputTokens: number
     outputTokens: number
+    cost?: number
+    currency?: AiCurrency
+    costUsd?: number
     createdAt: Date
 }
 
@@ -52,7 +56,10 @@ const aiUsageSchema = new Schema<IAiUsage>(
         effort: { type: String, enum: [...LLM_EFFORTS] },
         inputTokens: { type: Number, default: 0 },
         cachedInputTokens: { type: Number, default: 0 },
-        outputTokens: { type: Number, default: 0 }
+        outputTokens: { type: Number, default: 0 },
+        cost: { type: Number, min: 0 },
+        currency: { type: String, enum: ["USD", "EUR"] },
+        costUsd: { type: Number, min: 0 }
     },
     { timestamps: { createdAt: true, updatedAt: false } }
 )
