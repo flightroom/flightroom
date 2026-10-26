@@ -26,7 +26,10 @@ import {
     COMPONENT_LABEL,
     clashingName,
     ENVIRONMENT_LABEL,
-    PROJECT_ID_LABEL
+    legacyLabel,
+    PROJECT_ID_LABEL,
+    projectIdOf,
+    selectorsOf
 } from "./gitops/argoCdManifests"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
@@ -68,7 +71,14 @@ export interface ArgoCdStatusDTO {
 }
 
 /** Every initialization creates one per GitLab repository, under this name */
-const DEPLOY_TOKEN_NAME = "mfe-orchestrator-argocd"
+const DEPLOY_TOKEN_NAME = "flightroom-argocd"
+
+/** What any of `selectors` lists, each object once: the labels of now, and those of before the rename */
+const listUnder = async (selectors: string[], list: (selector: string) => Promise<ArgoCdResource[]>): Promise<ArgoCdResource[]> => {
+    const found = new Map<string, ArgoCdResource>()
+    for (const selector of selectors) for (const resource of await list(selector)) if (!found.has(resource.metadata.name)) found.set(resource.metadata.name, resource)
+    return [...found.values()]
+}
 
 /** An initialization that has not ended after this long is taken for one that died: the next one may start */
 const LEASE_MS = 5 * 60 * 1000
@@ -340,7 +350,7 @@ export class ArgoCdService extends BaseAuthorizedService {
 
                 // Every name is checked before the first write: one taken by something else stops the run with nothing changed.
                 // An object the account may not read is taken too, by something it cannot see
-                const isOurs = (resource: ArgoCdResource | null) => !resource || resource.metadata?.labels?.[PROJECT_ID_LABEL] === String(projectIdObj)
+                const isOurs = (resource: ArgoCdResource | null) => !resource || projectIdOf(resource) === String(projectIdObj)
                 const probe = <T>(request: Promise<T>, conflict: () => BusinessException) =>
                     request.catch(error => Promise.reject(error instanceof BusinessException && error.code === "ARGOCD_FORBIDDEN" ? conflict() : error))
                 if (!isOurs(await probe(client.getProject(projectName), () => nameConflict("AppProject", projectName)))) throw nameConflict("AppProject", projectName)
@@ -424,11 +434,12 @@ export class ArgoCdService extends BaseAuthorizedService {
                 // The console makes no Application itself any more: those an earlier initialization made per
                 // environment go, the ApplicationSet of the environments makes them again
                 const kept = new Set(state.applicationSets.map(resource => resource.metadata.name))
+                // Under the labels of before the rename too: what an earlier version made carries those until it is saved again
                 const selector = `${PROJECT_ID_LABEL}=${projectIdObj}`
-                for (const application of await client.listApplications(`${selector},${COMPONENT_LABEL}=configuration`, projectName)) {
+                for (const application of await listUnder(selectorsOf(`${selector},${COMPONENT_LABEL}=configuration`), labels => client.listApplications(labels, projectName))) {
                     if (projectOf(application) === projectName) await client.deleteApplication(application.metadata.name)
                 }
-                for (const applicationSet of await client.listApplicationSets(selector, projectName)) {
+                for (const applicationSet of await listUnder(selectorsOf(selector), labels => client.listApplicationSets(labels, projectName))) {
                     if (!kept.has(applicationSet.metadata.name) && projectOf({ ...applicationSet, kind: "ApplicationSet" }) === projectName)
                         await client.deleteApplicationSet(applicationSet.metadata.name)
                 }
@@ -477,8 +488,8 @@ export class ArgoCdService extends BaseAuthorizedService {
             const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
             const projectName = appProjectName(String(projectId), project.slug)
             // The ApplicationSets of an earlier version, per environment, generate the same workloads: an initialization replaces them
-            const earlier = await client.listApplicationSets(`${PROJECT_ID_LABEL}=${projectId},${COMPONENT_LABEL}=applications`, projectName)
-            if (earlier.some(applicationSet => !applicationSet.metadata.labels?.[APPLICATION_LABEL])) throw reinitializeRequired()
+            const earlier = await listUnder(selectorsOf(`${PROJECT_ID_LABEL}=${projectId},${COMPONENT_LABEL}=applications`), labels => client.listApplicationSets(labels, projectName))
+            if (earlier.some(({ metadata }) => !metadata.labels?.[APPLICATION_LABEL] && !metadata.labels?.[legacyLabel(APPLICATION_LABEL)])) throw reinitializeRequired()
 
             const target = {
                 projectId: String(projectId),
@@ -503,8 +514,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                 const existing = await client
                     .getApplicationSet(metadata.name)
                     .catch(error => Promise.reject(error instanceof BusinessException && error.code === "ARGOCD_FORBIDDEN" ? nameConflict("ApplicationSet", metadata.name) : error))
-                if (existing && (existing.metadata?.labels?.[PROJECT_ID_LABEL] !== String(projectId) || projectOf({ ...existing, kind: "ApplicationSet" }) !== projectName))
-                    throw nameConflict("ApplicationSet", metadata.name)
+                if (existing && (projectIdOf(existing) !== String(projectId) || projectOf({ ...existing, kind: "ApplicationSet" }) !== projectName)) throw nameConflict("ApplicationSet", metadata.name)
             }
             for (const applicationSet of applicationSets) await client.upsertApplicationSet(applicationSet)
             // The others are aligned already: the settings tell those left out wait for an initialization
@@ -535,7 +545,7 @@ export class ArgoCdService extends BaseAuthorizedService {
             const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
             const projectName = appProjectName(String(projectId), project.slug)
             const selector = `${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (${environmentSlugs.join(",")})`
-            const applications = (await client.listApplications(selector, projectName)).filter(application => projectOf(application) === projectName)
+            const applications = (await listUnder(selectorsOf(selector), labels => client.listApplications(labels, projectName))).filter(application => projectOf(application) === projectName)
             const refreshes = await Promise.allSettled(applications.map(application => client.refreshApplication(application.metadata.name, projectName)))
             const failed = refreshes.flatMap((refresh, index) => (refresh.status === "rejected" ? [{ application: applications[index].metadata.name, error: toErrorMessage(refresh.reason) }] : []))
             if (failed.length > 0) fastify.log.warn({ projectId: String(projectId), failed }, "Argo CD Applications not refreshed after a deploy: they sync at the next poll")

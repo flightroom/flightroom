@@ -13,17 +13,29 @@ import { APPLICATIONS_CHART_FOLDER, applicationValuesPath } from "./applicationM
 export const IN_CLUSTER_SERVER = "https://kubernetes.default.svc"
 
 export const MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
-export const MANAGED_BY = "mfe-orchestrator"
+export const MANAGED_BY = "flightroom"
+/** What the console wrote before it was named Flightroom: what it made then still carries it until it is written again */
+export const LEGACY_MANAGED_BY = "mfe-orchestrator"
 /** What the console finds its own objects by, and tells them from those of a project with the same slug */
-export const PROJECT_ID_LABEL = "mfe-orchestrator/project-id"
-export const ENVIRONMENT_LABEL = "mfe-orchestrator/environment"
+export const PROJECT_ID_LABEL = "flightroom/project-id"
+export const ENVIRONMENT_LABEL = "flightroom/environment"
 /** The slug of the backend or frontend an ApplicationSet, and what it generates, are of */
-export const APPLICATION_LABEL = "mfe-orchestrator/application"
+export const APPLICATION_LABEL = "flightroom/application"
 /**
  * `configuration` for the ApplicationSet of the environments, `environment` for what it generates;
  * `applications` for the ApplicationSet of a backend or frontend, `application` for what that one generates
  */
-export const COMPONENT_LABEL = "mfe-orchestrator/component"
+export const COMPONENT_LABEL = "flightroom/component"
+
+/** A label as an earlier version wrote it, `mfe-orchestrator/<name>`: Argo CD keeps those objects until they are saved again */
+export const legacyLabel = (label: string) => label.replace(/^flightroom\//, `${LEGACY_MANAGED_BY}/`)
+
+/** The project an object of Argo CD was made for, whichever version of the console labelled it */
+export const projectIdOf = (resource: { metadata?: { labels?: Record<string, string> } } | null | undefined) =>
+    resource?.metadata?.labels?.[PROJECT_ID_LABEL] ?? resource?.metadata?.labels?.[legacyLabel(PROJECT_ID_LABEL)]
+
+/** A label selector, and the same with the labels of an earlier version: what either matches is the project's */
+export const selectorsOf = (selector: string) => [selector, selector.replace(/(^|,)flightroom\//g, `$1${LEGACY_MANAGED_BY}/`)]
 
 const NAME_MAX_LENGTH = 63
 const HASH_LENGTH = 6
