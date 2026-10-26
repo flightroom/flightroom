@@ -27,6 +27,7 @@ import { useTranslation } from "react-i18next"
 import useAiUsageApi, {
     AI_USAGE_PERIODS,
     AI_USAGE_QUERY_KEY,
+    AiUsageCost,
     AiUsagePeriod,
     AiUsageSource,
     AiUsageTarget,
@@ -69,6 +70,15 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
     })
 
     const formatted = (value: number) => value.toLocaleString(i18n.language)
+    // One amount per currency the AIs are priced in; the cents of a few answers would read as zero, so below one more digits
+    const money = (costs?: AiUsageCost[]) =>
+        costs?.length
+            ? costs
+                  .map(({ amount, currency }) =>
+                      new Intl.NumberFormat(i18n.language, { style: "currency", currency, minimumFractionDigits: 2, maximumFractionDigits: amount < 1 ? 4 : 2 }).format(amount)
+                  )
+                  .join(" + ")
+            : "—"
     const usage = usageQuery.data
 
     const breakdown: BreakdownRow[] | undefined =
@@ -116,6 +126,7 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.input")} value={formatted(usage.total.inputTokens)} title={t("ai_usage.input_hint")} />
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.cached")} value={formatted(usage.total.cachedInputTokens)} title={t("ai_usage.cached_hint")} />
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.output")} value={formatted(usage.total.outputTokens)} />
+                            <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.cost")} value={money(usage.total.costs)} title={t("ai_usage.cost_hint")} />
                         </div>
                         {breakdown && breakdown.length > 0 && !isEmpty && (
                             <Table>
@@ -125,6 +136,7 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                                         <TableHead className="text-right">{t("ai_usage.input")}</TableHead>
                                         <TableHead className="text-right">{t("ai_usage.cached")}</TableHead>
                                         <TableHead className="text-right">{t("ai_usage.output")}</TableHead>
+                                        <TableHead className="text-right">{t("ai_usage.cost")}</TableHead>
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -134,6 +146,7 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                                             <TableCell className="text-right tabular-nums">{formatted(row.inputTokens)}</TableCell>
                                             <TableCell className="text-right tabular-nums text-muted-foreground">{formatted(row.cachedInputTokens)}</TableCell>
                                             <TableCell className="text-right tabular-nums">{formatted(row.outputTokens)}</TableCell>
+                                            <TableCell className="text-right tabular-nums">{money(row.costs)}</TableCell>
                                         </TableRow>
                                     ))}
                                 </TableBody>

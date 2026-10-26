@@ -3596,6 +3596,8 @@
         "cached": "From cache",
         "cached_hint": "The part of the input read from the prompt cache: it costs far less.",
         "output": "Output tokens",
+        "cost": "Cost",
+        "cost_hint": "What the tokens cost, at the prices set on the AI models. The AIs with no prices, the system one included, are not counted.",
         "columns": {
             "source": "Feature",
             "project": "Project"

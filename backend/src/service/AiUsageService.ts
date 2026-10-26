@@ -1,7 +1,7 @@
 import { AnyKeys, ObjectId, PipelineStage, Schema, Types } from "mongoose"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
-import AiModel, { AiCurrency } from "../models/AiModelModel"
+import AiModel, { AI_CURRENCIES, AiCurrency } from "../models/AiModelModel"
 import AiUsage, { AI_USAGE_SOURCES, AiUsageSource, IAiUsage } from "../models/AiUsageModel"
 import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
@@ -31,18 +31,23 @@ export const periodStart = (period: AiUsagePeriod, now = new Date()): Date | und
     return undefined
 }
 
+/** The tokens, and what they cost: one amount per currency, only the priced usage counted, none when nothing was priced. */
+export interface AiUsageTotals extends LlmUsage {
+    costs: AiUsageCost[]
+}
+
 export interface AiUsageSummary {
     period: AiUsagePeriod
     /** The first instant counted: missing for `all`. */
     since?: Date
-    total: LlmUsage
+    total: AiUsageTotals
 }
 
 export interface ProjectAiUsageSummary extends AiUsageSummary {
-    bySource: Record<AiUsageSource, LlmUsage>
+    bySource: Record<AiUsageSource, AiUsageTotals>
 }
 
-export interface ProjectAiUsage extends LlmUsage {
+export interface ProjectAiUsage extends AiUsageTotals {
     projectId: string
     /** Missing for a project deleted since: its usage still counts for the organization. */
     name?: string
@@ -149,25 +154,42 @@ const matchOf = (filter: Record<string, unknown>, period: AiUsagePeriod): Pipeli
     return { $match: since ? { ...filter, createdAt: { $gte: since } } : filter }
 }
 
+const weighed = (value: unknown, weight: unknown) => (weight === 1 ? value : { $multiply: [value, weight] })
+
 /** The three sums of a `$group`, each token weighed by `weight` (1, or the share of a repository). */
 const sums = (weight: unknown = 1) => ({
-    inputTokens: { $sum: weight === 1 ? "$inputTokens" : { $multiply: ["$inputTokens", weight] } },
-    cachedInputTokens: { $sum: weight === 1 ? "$cachedInputTokens" : { $multiply: ["$cachedInputTokens", weight] } },
-    outputTokens: { $sum: weight === 1 ? "$outputTokens" : { $multiply: ["$outputTokens", weight] } }
+    inputTokens: { $sum: weighed("$inputTokens", weight) },
+    cachedInputTokens: { $sum: weighed("$cachedInputTokens", weight) },
+    outputTokens: { $sum: weighed("$outputTokens", weight) }
 })
+
+/**
+ * One sum per currency, `costUSD` and `costEUR`, weighed as the tokens: an entry of before the currency was chosen is
+ * in USD, an unpriced one has no cost and `$sum` skips it.
+ */
+const costSums = (weight: unknown = 1) =>
+    Object.fromEntries(
+        AI_CURRENCIES.map(currency => [`cost${currency}`, { $sum: { $cond: [{ $eq: [{ $ifNull: ["$currency", "USD"] }, currency] }, weighed({ $ifNull: ["$cost", "$costUsd"] }, weight), 0] } }])
+    )
 
 /** A job on N repositories counts 1/N of its tokens for each of them: summed over the documents, then rounded once. */
 const REPOSITORY_SHARE = {
     $divide: [1, { $max: [1, { $add: [{ $size: { $ifNull: ["$frontendIds", []] } }, { $size: { $ifNull: ["$backendIds", []] } }] }] }]
 }
 
-type Totals = Partial<LlmUsage> & { _id?: unknown }
+type Totals = Partial<LlmUsage> & Partial<Record<`cost${AiCurrency}`, number>> & { _id?: unknown }
 
 const rounded = (totals?: Totals): LlmUsage => ({
     inputTokens: Math.round(totals?.inputTokens ?? 0),
     cachedInputTokens: Math.round(totals?.cachedInputTokens ?? 0),
     outputTokens: Math.round(totals?.outputTokens ?? 0)
 })
+
+/** The currencies something was spent in, in the order of AI_CURRENCIES */
+const costsOf = (amounts: Partial<Record<AiCurrency, number>>): AiUsageCost[] =>
+    AI_CURRENCIES.filter(currency => (amounts[currency] ?? 0) > 0).map(currency => ({ amount: Number((amounts[currency] ?? 0).toFixed(12)), currency }))
+
+const withCosts = (totals?: Totals): AiUsageTotals => ({ ...rounded(totals), costs: costsOf(Object.fromEntries(AI_CURRENCIES.map(currency => [currency, totals?.[`cost${currency}`]]))) })
 
 const added = (usages: LlmUsage[]): LlmUsage =>
     usages.reduce(
@@ -179,20 +201,29 @@ const added = (usages: LlmUsage[]): LlmUsage =>
         NO_USAGE
     )
 
+const addedWithCosts = (usages: AiUsageTotals[]): AiUsageTotals => {
+    const amounts: Partial<Record<AiCurrency, number>> = {}
+    for (const { amount, currency } of usages.flatMap(usage => usage.costs)) amounts[currency] = (amounts[currency] ?? 0) + amount
+    return { ...added(usages), costs: costsOf(amounts) }
+}
+
 const tokensOf = (usage: LlmUsage) => usage.inputTokens + usage.outputTokens
 
 /** The pipeline of the total of a domain, a frontend or a backend: exported for the tests, which have no MongoDB. */
 export const componentPipeline = (field: "domainId" | "frontendIds" | "backendIds", id: Id, period: AiUsagePeriod): PipelineStage[] => [
     matchOf({ [field]: objectId(id) }, period),
     // The domain the job was asked from counts all of it; a repository its share.
-    { $group: { _id: null, ...sums(field === "domainId" ? 1 : REPOSITORY_SHARE) } }
+    { $group: { _id: null, ...sums(field === "domainId" ? 1 : REPOSITORY_SHARE), ...costSums(field === "domainId" ? 1 : REPOSITORY_SHARE) } }
 ]
 
-export const projectPipeline = (projectId: Id, period: AiUsagePeriod): PipelineStage[] => [matchOf({ projectId: objectId(projectId) }, period), { $group: { _id: "$source", ...sums() } }]
+export const projectPipeline = (projectId: Id, period: AiUsagePeriod): PipelineStage[] => [
+    matchOf({ projectId: objectId(projectId) }, period),
+    { $group: { _id: "$source", ...sums(), ...costSums() } }
+]
 
 export const organizationPipeline = (organizationId: Id, period: AiUsagePeriod): PipelineStage[] => [
     matchOf({ organizationId: objectId(organizationId) }, period),
-    { $group: { _id: "$projectId", ...sums() } }
+    { $group: { _id: "$projectId", ...sums(), ...costSums() } }
 ]
 
 /** A member's usage in the project between two days, summed by period: exported for the tests, which have no MongoDB. */
@@ -304,8 +335,8 @@ export default class AiUsageService extends BaseAuthorizedService {
         await this.ensureAccessToProject(projectId)
         await this.ensureWholeProject(projectId)
         const groups = await AiUsage.aggregate<Totals>(projectPipeline(projectId, period))
-        const bySource = Object.fromEntries(AI_USAGE_SOURCES.map(source => [source, rounded(groups.find(group => group._id === source))])) as Record<AiUsageSource, LlmUsage>
-        return { period, since: periodStart(period), total: added(Object.values(bySource)), bySource }
+        const bySource = Object.fromEntries(AI_USAGE_SOURCES.map(source => [source, withCosts(groups.find(group => group._id === source))])) as Record<AiUsageSource, AiUsageTotals>
+        return { period, since: periodStart(period), total: addedWithCosts(Object.values(bySource)), bySource }
     }
 
     async forOrganization(organizationId: string, period: AiUsagePeriod): Promise<OrganizationAiUsageSummary> {
@@ -313,8 +344,8 @@ export default class AiUsageService extends BaseAuthorizedService {
         const groups = await AiUsage.aggregate<Totals>(organizationPipeline(organizationId, period))
         const projects = groups.length ? await Project.find({ _id: { $in: groups.map(group => toObjectId(String(group._id))) } }, { name: 1 }).lean() : []
         const names = new Map(projects.map(project => [String(project._id), project.name]))
-        const byProject = groups.map(group => ({ projectId: String(group._id), name: names.get(String(group._id)), ...rounded(group) })).sort((a, b) => tokensOf(b) - tokensOf(a))
-        return { period, since: periodStart(period), total: added(byProject.map(rounded)), byProject }
+        const byProject = groups.map(group => ({ projectId: String(group._id), name: names.get(String(group._id)), ...withCosts(group) })).sort((a, b) => tokensOf(b) - tokensOf(a))
+        return { period, since: periodStart(period), total: addedWithCosts(byProject), byProject }
     }
 
     /**
@@ -350,6 +381,6 @@ export default class AiUsageService extends BaseAuthorizedService {
 
     private async summary(pipeline: PipelineStage[], period: AiUsagePeriod): Promise<AiUsageSummary> {
         const [totals] = await AiUsage.aggregate<Totals>(pipeline)
-        return { period, since: periodStart(period), total: rounded(totals) }
+        return { period, since: periodStart(period), total: withCosts(totals) }
     }
 }

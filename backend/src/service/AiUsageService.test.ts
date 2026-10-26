@@ -53,11 +53,14 @@ const evaluate = (expression: unknown, document: Record<string, unknown>): unkno
     const args = (Array.isArray(raw) ? raw : [raw]).map(arg => evaluate(arg, document))
     const numbers = args as number[]
     if (operator === "$divide") return numbers[0] / numbers[1]
-    if (operator === "$multiply") return numbers.reduce((product, value) => product * value, 1)
+    // As MongoDB: a missing operand makes the product null, which `$sum` then skips
+    if (operator === "$multiply") return numbers.every(value => typeof value === "number") ? numbers.reduce((product, value) => product * value, 1) : null
     if (operator === "$add") return numbers.reduce((sum, value) => sum + value, 0)
     if (operator === "$max") return Math.max(...numbers)
     if (operator === "$size") return (args[0] as unknown[]).length
     if (operator === "$ifNull") return args[0] ?? args[1]
+    if (operator === "$eq") return args[0] === args[1]
+    if (operator === "$cond") return args[0] ? args[1] : args[2]
     throw new Error(`Operator not supported by the test: ${operator}`)
 }
 
@@ -80,7 +83,13 @@ const groupOver = (pipeline: PipelineStage[], documents: Record<string, unknown>
     return Object.fromEntries(
         Object.entries(group)
             .filter(([field]) => field !== "_id")
-            .map(([field, accumulator]) => [field, matched.reduce((sum, document) => sum + (evaluate((accumulator as { $sum: unknown }).$sum, document) as number), 0)])
+            .map(([field, accumulator]) => [
+                field,
+                matched.reduce((sum, document) => {
+                    const value = evaluate((accumulator as { $sum: unknown }).$sum, document)
+                    return typeof value === "number" ? sum + value : sum
+                }, 0)
+            ])
     )
 }
 
@@ -196,27 +205,43 @@ describe("AiUsageService", () => {
         ]
 
         it("Given jobs on several repositories, when a frontend's total is computed, then it counts an equal share of each job on it and nothing of the others", () => {
-            expect(groupOver(componentPipeline("frontendIds", catalog, "30d"), documents)).toEqual({ inputTokens: 150, cachedInputTokens: 30, outputTokens: 15 })
+            expect(groupOver(componentPipeline("frontendIds", catalog, "30d"), documents)).toEqual({ inputTokens: 150, cachedInputTokens: 30, outputTokens: 15, costUSD: 0, costEUR: 0 })
         })
 
         it("Given a job on two frontends and a backend, when the backend's total is computed, then it counts a third", () => {
-            expect(groupOver(componentPipeline("backendIds", catalogApi, "30d"), documents)).toEqual({ inputTokens: 100, cachedInputTokens: 30, outputTokens: 10 })
+            expect(groupOver(componentPipeline("backendIds", catalogApi, "30d"), documents)).toEqual({ inputTokens: 100, cachedInputTokens: 30, outputTokens: 10, costUSD: 0, costEUR: 0 })
         })
 
         it("Given jobs on several repositories, when their domain's total is computed, then the domain counts all of them and nothing of another domain", () => {
-            expect(groupOver(componentPipeline("domainId", checkout, "30d"), documents)).toEqual({ inputTokens: 350, cachedInputTokens: 90, outputTokens: 35 })
+            expect(groupOver(componentPipeline("domainId", checkout, "30d"), documents)).toEqual({ inputTokens: 350, cachedInputTokens: 90, outputTokens: 35, costUSD: 0, costEUR: 0 })
         })
 
         it("Given all time, when a frontend's total is computed, then the older jobs count too", () => {
-            expect(groupOver(componentPipeline("frontendIds", catalog, "all"), documents)).toEqual({ inputTokens: 2_150, cachedInputTokens: 30, outputTokens: 215 })
+            expect(groupOver(componentPipeline("frontendIds", catalog, "all"), documents)).toEqual({ inputTokens: 2_150, cachedInputTokens: 30, outputTokens: 215, costUSD: 0, costEUR: 0 })
         })
 
         it("Given a document with no list of backends, when the share is computed, then the missing list counts as empty", () => {
             expect(groupOver(componentPipeline("frontendIds", catalog, "all"), [{ frontendIds: [catalog, cart], inputTokens: 8, cachedInputTokens: 0, outputTokens: 2 }])).toEqual({
                 inputTokens: 4,
                 cachedInputTokens: 0,
-                outputTokens: 1
+                outputTokens: 1,
+                costUSD: 0,
+                costEUR: 0
             })
+        })
+
+        it("Given priced, legacy and unpriced jobs, when a frontend's total is computed, then the cost is shared as the tokens, by currency, the legacy one in USD", () => {
+            const priced = [
+                { frontendIds: [catalog, cart], inputTokens: 10, cachedInputTokens: 0, outputTokens: 1, cost: 0.5, currency: "EUR" },
+                { frontendIds: [catalog], inputTokens: 10, cachedInputTokens: 0, outputTokens: 1, costUsd: 0.2 },
+                { frontendIds: [catalog], inputTokens: 10, cachedInputTokens: 0, outputTokens: 1, cost: 0.1, currency: "USD" },
+                { frontendIds: [catalog], inputTokens: 10, cachedInputTokens: 0, outputTokens: 1 }
+            ]
+
+            const totals = groupOver(componentPipeline("frontendIds", catalog, "all"), priced)
+
+            expect(totals.costEUR).toBeCloseTo(0.25)
+            expect(totals.costUSD).toBeCloseTo(0.3)
         })
 
         it("Given shares that do not divide evenly, when a frontend's total is returned, then it is rounded once at the end", async () => {
@@ -225,7 +250,7 @@ describe("AiUsageService", () => {
 
             const summary = await service().forFrontend(String(catalog), "30d")
 
-            expect(summary.total).toEqual({ inputTokens: 33, cachedInputTokens: 1, outputTokens: 3 })
+            expect(summary.total).toEqual({ inputTokens: 33, cachedInputTokens: 1, outputTokens: 3, costs: [] })
         })
     })
 
@@ -311,7 +336,7 @@ describe("AiUsageService", () => {
             expect(await service().forDomain(String(domainId), "month")).toEqual({
                 period: "month",
                 since: new Date("2026-10-01T00:00:00.000Z"),
-                total: { inputTokens: 1000, cachedInputTokens: 600, outputTokens: 80 }
+                total: { inputTokens: 1000, cachedInputTokens: 600, outputTokens: 80, costs: [] }
             })
         })
     })
@@ -325,10 +350,29 @@ describe("AiUsageService", () => {
             expect(summary).toEqual({
                 period: "all",
                 since: undefined,
-                total: { inputTokens: 500, cachedInputTokens: 200, outputTokens: 50 },
-                bySource: { agent: { inputTokens: 500, cachedInputTokens: 200, outputTokens: 50 }, assistant: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 } }
+                total: { inputTokens: 500, cachedInputTokens: 200, outputTokens: 50, costs: [] },
+                bySource: { agent: { inputTokens: 500, cachedInputTokens: 200, outputTokens: 50, costs: [] }, assistant: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, costs: [] } }
             })
             expect(matchOf(vi.mocked(AiUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ projectId })
+        })
+
+        it("Given usage priced in two currencies, when the project's is asked, then each source keeps its amounts and the total adds them by currency", async () => {
+            vi.mocked(AiUsage.aggregate).mockResolvedValue([
+                { _id: "agent", inputTokens: 500, cachedInputTokens: 0, outputTokens: 50, costUSD: 1.5, costEUR: 0 },
+                { _id: "assistant", inputTokens: 100, cachedInputTokens: 0, outputTokens: 10, costUSD: 0.5, costEUR: 0.25 }
+            ] as never)
+
+            const summary = await service().forProject(String(projectId), "30d")
+
+            expect(summary.bySource.agent.costs).toEqual([{ amount: 1.5, currency: "USD" }])
+            expect(summary.bySource.assistant.costs).toEqual([
+                { amount: 0.5, currency: "USD" },
+                { amount: 0.25, currency: "EUR" }
+            ])
+            expect(summary.total.costs).toEqual([
+                { amount: 2, currency: "USD" },
+                { amount: 0.25, currency: "EUR" }
+            ])
         })
 
         it("Given a member confined to some domains, when the project's usage is asked, then it is refused", async () => {
@@ -375,11 +419,11 @@ describe("AiUsageService", () => {
             const summary = await service().forOrganization(String(organizationId), "90d")
 
             expect(summary.byProject).toEqual([
-                { projectId: String(shop), name: "Shop", inputTokens: 900, cachedInputTokens: 300, outputTokens: 90 },
-                { projectId: String(blog), name: "Blog", inputTokens: 100, cachedInputTokens: 0, outputTokens: 10 },
-                { projectId: String(deleted), name: undefined, inputTokens: 5, cachedInputTokens: 0, outputTokens: 1 }
+                { projectId: String(shop), name: "Shop", inputTokens: 900, cachedInputTokens: 300, outputTokens: 90, costs: [] },
+                { projectId: String(blog), name: "Blog", inputTokens: 100, cachedInputTokens: 0, outputTokens: 10, costs: [] },
+                { projectId: String(deleted), name: undefined, inputTokens: 5, cachedInputTokens: 0, outputTokens: 1, costs: [] }
             ])
-            expect(summary.total).toEqual({ inputTokens: 1005, cachedInputTokens: 300, outputTokens: 101 })
+            expect(summary.total).toEqual({ inputTokens: 1005, cachedInputTokens: 300, outputTokens: 101, costs: [] })
             expect(matchOf(vi.mocked(AiUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ organizationId, createdAt: { $gte: new Date("2026-07-24T10:00:00.000Z") } })
         })
     })
