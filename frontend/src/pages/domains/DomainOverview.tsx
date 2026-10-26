@@ -10,9 +10,10 @@ import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useProjectStore from "@/store/useProjectStore"
 import DomainDeploymentsSection from "./partials/DomainDeploymentsSection"
 import DomainHeader from "./partials/DomainHeader"
+import DomainMembersSection from "./partials/DomainMembersSection"
 import DomainResourcesSection from "./partials/DomainResourcesSection"
 
-/** What the domain runs and reaches, next to Edit with AI: the versions deployed in each environment, the resources of its backends, the AI tokens it spent. */
+/** What the domain runs and reaches, next to Edit with AI: its frontends and backends, the versions deployed in each environment, the resources of its backends, the AI tokens it spent. */
 const DomainOverview: React.FC = () => {
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
@@ -57,6 +58,7 @@ const DomainOverview: React.FC = () => {
     return (
         <div className="flex min-h-full flex-col gap-6">
             <DomainHeader domain={domainQuery.data} active="overview" />
+            <DomainMembersSection domain={domainQuery.data} frontends={frontendsQuery.data ?? []} backends={backendsQuery.data ?? []} />
             {deploymentsQuery.data && <DomainDeploymentsSection deployments={deploymentsQuery.data} frontends={frontendsQuery.data ?? []} />}
             <DomainResourcesSection backends={backends} />
             <AiUsageSummary target={{ kind: "domain", id: id! }} />

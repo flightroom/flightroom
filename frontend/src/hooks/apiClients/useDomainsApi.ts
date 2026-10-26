@@ -156,6 +156,17 @@ const useDomainsApi = () => {
         return response.data
     }
 
+    /** Takes the members out of the domain, into no domain; answers how many left it of each */
+    const removeMembers = async (id: string, members: DomainMembersDTO): Promise<{ frontends: number; backends: number }> => {
+        const response = await apiClient.doRequest<{ frontends: number; backends: number }>({
+            url: `/api/domains/${id}/members/remove`,
+            method: "POST",
+            data: members,
+            customErrorMessage: errorMessage
+        })
+        return response.data
+    }
+
     /** Tags the repository of every member with `version` on `ref` (main when left out): each tag starts the pipeline of its repository */
     const build = async (id: string, version: string, ref?: string): Promise<DomainBuildResult> => {
         const response = await apiClient.doRequest<DomainBuildResult>({ url: `/api/domains/${id}/build`, method: "POST", data: { version, ref }, customErrorMessage: errorMessage })
@@ -185,7 +196,7 @@ const useDomainsApi = () => {
         return response.data
     }
 
-    return { getAll, getSingle, create, update, addMembers, build, startRelease, getLatestRelease, deleteSingle, errorMessage }
+    return { getAll, getSingle, create, update, addMembers, removeMembers, build, startRelease, getLatestRelease, deleteSingle, errorMessage }
 }
 
 export default useDomainsApi
