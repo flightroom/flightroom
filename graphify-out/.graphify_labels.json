@@ -321,8 +321,19 @@
   "319": "status",
   "320": "backend_card",
   "321": "account_activation",
+  "322": "projectContentTools.test.ts",
   "323": "AI providers",
+  "324": "MaintenanceAgent.ts",
+  "325": ".getFrontendVersion",
   "326": "Scopes (Optional)",
+  "327": "configurationTools.test.ts",
+  "328": "AiMissionController.ts",
+  "329": "containerRegistry",
   "330": "ArgoCdController.ts",
-  "332": "GitHub Logo (Octocat Mark)"
+  "331": "search",
+  "332": "GitHub Logo (Octocat Mark)",
+  "333": "[7.0.0] - 2026-10-23",
+  "334": "DeploymentCanaryUsersController.ts",
+  "335": "DeploymentController.ts",
+  "336": "AzureDevOpsClient.test.ts"
 }
