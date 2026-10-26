@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.1.2] - 2026-10-26
+
+### Added
+
+- **Open What A Deployment Deployed**: a deployment links to the frontends, backends, resources and variable maps it deployed
+
+### Fixed
+
+- **Repository Shared By Two Projects In Argo CD**: two projects of an organization linking the same repository, typically the applications one, could not both initialize Argo CD: it holds one registration per URL, and the second project was refused with `ARGOCD_REPOSITORY_CONFLICT`. The second project now reads through the global registration the first one made, with no credentials of its own and never deleting it, and the first one leaves it in place while another project reads through it. A registration made by hand or by a project of another organization is still refused
+
+---
+
 ## [8.1.1] - 2026-10-26
 
 ### Changed
