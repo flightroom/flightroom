@@ -35,6 +35,7 @@ const GITOPS_ERROR_KEYS: Record<string, string> = {
     ARGOCD_NAME_CLASH: "settings.argoCd.errors.name_clash",
     ARGOCD_REINITIALIZE_REQUIRED: "settings.argoCd.errors.reinitialize_required",
     ARGOCD_NAMESPACES_NOT_IN_PROJECT: "settings.argoCd.errors.namespaces_not_in_project",
+    ARGOCD_ENVIRONMENTS_WITHOUT_BRANCH: "settings.argoCd.errors.environments_without_branch",
     ARGOCD_BRANCHES_FAILED: "settings.argoCd.errors.branches_failed",
     ARGOCD_DEPLOY_TOKEN_FAILED: "settings.argoCd.errors.deploy_token_failed",
     ARGOCD_URL_INSECURE: "settings.argoCd.errors.url_insecure",

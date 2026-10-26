@@ -169,7 +169,7 @@ export const buildEnvironmentsApplicationSet = (target: ArgoCdProjectTarget & { 
  * them: were the values file wiped from a branch by mistake, the application would otherwise go with it, and
  * its resources with it. An application whose file is gone for good is deleted by hand in Argo CD.
  */
-export const buildApplicationSet = (target: ArgoCdProjectTarget & { applicationsRepoUrl: string }, applicationSlug: string, environments: ArgoCdEnvironment[]) => ({
+export const buildApplicationSet = (target: ArgoCdProjectTarget & { applicationsRepoUrl: string }, applicationSlug: string, environments: BranchedEnvironment[]) => ({
     apiVersion: "argoproj.io/v1alpha1",
     kind: "ApplicationSet",
     metadata: {
@@ -189,12 +189,13 @@ export const buildApplicationSet = (target: ArgoCdProjectTarget & { applications
                                     environment: {
                                         name: applicationName(target.projectId, target.projectSlug, applicationSlug, environment.slug),
                                         slug: environment.slug,
-                                        namespace: environment.namespace
+                                        namespace: environment.namespace,
+                                        branch: environment.branch
                                     }
                                 }))
                             }
                         },
-                        { git: { repoURL: target.applicationsRepoUrl, revision: "{{ .environment.slug }}", files: [{ path: applicationValuesPath({ slug: applicationSlug }) }] } }
+                        { git: { repoURL: target.applicationsRepoUrl, revision: "{{ .environment.branch }}", files: [{ path: applicationValuesPath({ slug: applicationSlug }) }] } }
                     ]
                 }
             }
@@ -209,7 +210,7 @@ export const buildApplicationSet = (target: ArgoCdProjectTarget & { applications
                 project: appProjectName(target.projectId, target.projectSlug),
                 source: {
                     repoURL: target.applicationsRepoUrl,
-                    targetRevision: "{{ .environment.slug }}",
+                    targetRevision: "{{ .environment.branch }}",
                     path: APPLICATIONS_CHART_FOLDER,
                     helm: { releaseName: applicationSlug, valueFiles: [`../${applicationValuesPath({ slug: applicationSlug })}`] }
                 },
@@ -220,8 +221,22 @@ export const buildApplicationSet = (target: ArgoCdProjectTarget & { applications
     }
 })
 
+/** An environment with the branch of the applications repository it deploys from, named as the repository names it */
+export type BranchedEnvironment = ArgoCdEnvironment & { branch: string }
+
+/**
+ * The branch of `environment` in the applications repository: the one named as its slug, or else one that differs only
+ * in case. Azure DevOps takes a push to `UAT` onto an existing `uat`, while Argo CD resolves a revision by its exact name.
+ */
+export const branchOf = (target: Pick<ArgoCdProjectTarget, "applicationBranches">, environment: Pick<ArgoCdEnvironment, "slug">) =>
+    target.applicationBranches?.find(branch => branch === environment.slug) ?? target.applicationBranches?.find(branch => branch.toLowerCase() === environment.slug.toLowerCase())
+
 /** The environments that have a branch in the applications repository: the only ones an application can be on */
-const branchedEnvironments = (target: ArgoCdProjectTarget) => target.environments.filter(environment => target.applicationBranches?.includes(environment.slug))
+const branchedEnvironments = (target: ArgoCdProjectTarget): BranchedEnvironment[] =>
+    target.environments.flatMap(environment => {
+        const branch = branchOf(target, environment)
+        return branch ? [{ ...environment, branch }] : []
+    })
 
 /** The ApplicationSets of the backends and frontends, one each, when the project has an applications repository */
 export const buildApplicationSets = (target: ArgoCdProjectTarget) => {

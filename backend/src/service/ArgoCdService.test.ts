@@ -565,6 +565,30 @@ describe("ArgoCdService.alignApplications", () => {
         expect(storedError()?.update.$set?.["argoCd.alignError"]).toMatchObject({ code: "ARGOCD_NAMESPACES_NOT_IN_PROJECT", details: { slug: "production" } })
     })
 
+    it("given a deployed environment the applications repository lists no branch for, when the deploy aligns it, then the settings name it and the branches read", async () => {
+        previous = initialized()
+        vi.mocked(CodeRepositoryService.prototype.getBranches).mockResolvedValue([{ branch: "main" }, { branch: "development" }] as never)
+
+        await new ArgoCdService().alignApplications(toObjectId(String(projectId)), ["production"])
+
+        expect(calls).toContain(`argo:upsertApplicationSet:${applicationSetNameOf("orders")}`)
+        expect(storedError()?.update.$set?.["argoCd.alignError"]).toMatchObject({ code: "ARGOCD_ENVIRONMENTS_WITHOUT_BRANCH", details: { slug: "production", name: "main, development" } })
+    })
+
+    it("given a deployed environment whose branch differs only in case, when the deploy aligns it, then it deploys from that branch and nothing is reported", async () => {
+        previous = initialized()
+        vi.mocked(CodeRepositoryService.prototype.getBranches).mockResolvedValue([{ branch: "development" }, { branch: "PRODUCTION" }] as never)
+        let orders: ArgoCdResource | undefined
+        vi.mocked(ArgoCdClient.prototype.upsertApplicationSet).mockImplementation(async applicationSet => {
+            if (applicationSet.metadata.name === applicationSetNameOf("orders")) orders = applicationSet
+        })
+
+        await new ArgoCdService().alignApplications(toObjectId(String(projectId)), ["production"])
+
+        expect(JSON.stringify(orders)).toContain('"branch":"PRODUCTION"')
+        expect(storedError()).toBeUndefined()
+    })
+
     it("given an alignment that failed before, when a deploy aligns it, then the stored failure goes", async () => {
         previous = initialized({ alignError: { message: "earlier" } })
 
