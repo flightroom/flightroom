@@ -9,6 +9,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.2.0] - 2026-10-26
+
+### Added
+
+- **AI Context Per Resource**: a resource takes a markdown context for AI agents, as projects and domains do. Edit with AI gives it to the agents working on the backends that attach the resource, tagged as the team's context. Set from the resource form and over MCP
+- **Azure Cosmos DB Resource**: `cosmosdb` joins the resource catalog and reaches an Azure Cosmos DB account through its NoSQL API by account key, connection string, an Entra ID app or the managed identity of the pod, with endpoint, database and an optional container. The agent is told to use the official SDK with the variables of the variant
+- **Domain Members From The Overview**: the overview of a domain lists the frontends and backends it groups. Add puts others of the project in it, moving one out of another domain, and a member can be taken out, staying in the project in no domain (`POST /domains/:id/members/remove`). Only who reaches the whole project changes them
+
+---
+
 ## [8.1.2] - 2026-10-26
 
 ### Added
