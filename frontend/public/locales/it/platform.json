@@ -353,6 +353,7 @@
                 "name_conflict": "Su Argo CD esiste già un oggetto {{name}} che non è stato creato da questo progetto, o che l'account del token non può leggere: rinominalo o eliminalo, poi riprova",
                 "name_clash": "Due oggetti di questo progetto avrebbero lo stesso nome {{name}} su Argo CD: rinomina il backend, il frontend o l'ambiente i cui slug lo compongono, poi riprova",
                 "reinitialize_required": "Argo CD è stato inizializzato con altri repository, o da una versione precedente della console: inizializzalo di nuovo",
+                "namespaces_not_in_project": "Il namespace degli ambienti {{slug}} non è ancora nell'AppProject: inizializza di nuovo Argo CD per deployarli attraverso di esso",
                 "branches_failed": "Impossibile leggere i branch di {{repository}} ({{reason}}): verifica che la connessione raggiunga il repository",
                 "deploy_token_failed": "GitLab non ha creato il deploy token di {{repository}} ({{reason}}): il token della connessione deve avere il ruolo Maintainer sul progetto e lo scope api",
                 "url_insecure": "L'URL di Argo CD deve essere https: token e credenziali dei repository viaggerebbero in chiaro. Solo per un cluster locale l'installazione può permettere http con ARGOCD_ALLOW_INSECURE_HTTP=true",
