@@ -295,8 +295,8 @@
     "semantic_hash": ""
   },
   "backend/src/plugins/config.ts": {
-    "mtime": 1793027765.3211973,
-    "ast_hash": "f75f0c9dbc3224d07e2a086098e40399",
+    "mtime": 1793050130.996904,
+    "ast_hash": "137ceb26456657c3ab3a5d0cf5db599f",
     "semantic_hash": ""
   },
   "backend/src/plugins/cors.ts": {
@@ -1495,8 +1495,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793045157.6998405,
-    "ast_hash": "fb621982b5e30b131b67e6d290f17b0f",
+    "mtime": 1793050504.9158905,
+    "ast_hash": "a1289344780fa50f8bb9de758b70ac53",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2710,8 +2710,8 @@
     "semantic_hash": ""
   },
   "docs/AI-CODE-CHANGES.md": {
-    "mtime": 1793005820.5794032,
-    "ast_hash": "21691a3ac9b9119bf79f403aa63c1d3f",
+    "mtime": 1793050504.9098072,
+    "ast_hash": "a03207bb9cb11a6dc9ee9e82fa4c76d6",
     "semantic_hash": ""
   },
   "backend/src/service/llm/anthropicProvider.ts": {
@@ -4835,33 +4835,33 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeSandboxes.test.ts": {
-    "mtime": 1793005820.5592108,
-    "ast_hash": "8a8245c456c63ad68c7123ca46a741c2",
+    "mtime": 1793050552.8921645,
+    "ast_hash": "31c60554d57ace405dfa33c956b7059a",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeSandboxes.ts": {
-    "mtime": 1793005820.5594416,
-    "ast_hash": "fa20eb18bd5f3c1f67ff42b78594b80a",
+    "mtime": 1793050118.9568558,
+    "ast_hash": "4ce5f3132138218fc6a73e8a8c916de9",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeScripts.test.ts": {
-    "mtime": 1793005820.5595977,
-    "ast_hash": "3588908c5177ca41453adb27b041b678",
+    "mtime": 1793050176.0100727,
+    "ast_hash": "84104c8844bd4aa492afc898fb28942e",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeScripts.ts": {
-    "mtime": 1793005820.5597548,
-    "ast_hash": "bd49b3e9c73e8505aa92b8a252c3d32f",
+    "mtime": 1793050504.8925657,
+    "ast_hash": "ffa3b9b56290bc6787234868a77bef28",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.test.ts": {
-    "mtime": 1793005820.5669844,
-    "ast_hash": "96441d5bf84ff773eee34512dff48a3c",
+    "mtime": 1793050504.9037483,
+    "ast_hash": "87142eb2a993c9a481d8bdcb69917729",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.ts": {
-    "mtime": 1793045062.0998,
-    "ast_hash": "808526907bcce5ff203c9d6592b9976f",
+    "mtime": 1793050207.4174726,
+    "ast_hash": "1320f88324de60eefaf9c3032d61c40f",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/commandSandbox.ts": {
