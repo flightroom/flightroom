@@ -15,6 +15,8 @@ export interface EnvironmentDTO {
     namespace?: string
     /** Sotto cosa e' esposto sul dominio del progetto, es. `dev`; se vuoto, sul dominio stesso */
     subdomain?: string
+    /** Gli indirizzi e i range CIDR a cui risponde il suo host; se vuoto, tutti */
+    ipAllowList?: string[]
     _id?: string
 }
 
@@ -26,6 +28,7 @@ export interface CreateEnvironmentDTO {
     domains?: string[]
     namespace?: string
     subdomain?: string
+    ipAllowList?: string[]
 }
 
 const useEnvironmentsApi = () => {

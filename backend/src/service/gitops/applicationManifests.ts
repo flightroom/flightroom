@@ -111,6 +111,8 @@ export interface ApplicationGateway {
     listener: string
     /** HTTPS: every answer tells the browser to stay on it */
     hsts: boolean
+    /** The Middleware of the environment that lets some addresses only through, when it has one */
+    ipAllowList?: string
 }
 
 /**
@@ -131,7 +133,10 @@ export const renderApplicationValues = (
     // isDeployable lets through only what has one: values without an image would be a Deployment that never starts
     if (!repository) throw new Error(`${application.slug} has no image repository and the project no container registry`)
     const names = (ids: unknown[] | undefined, byId: Map<string, string>) => (ids ?? []).map(id => byId.get(String(id))).filter((name): name is string => Boolean(name))
-    const route = gateway && application.exposurePath ? { gateway: gateway.name, listener: gateway.listener, path: application.exposurePath, hsts: gateway.hsts } : undefined
+    const route =
+        gateway && application.exposurePath
+            ? { gateway: gateway.name, listener: gateway.listener, path: application.exposurePath, hsts: gateway.hsts, ...(gateway.ipAllowList ? { ipAllowList: gateway.ipAllowList } : {}) }
+            : undefined
     const values = {
         replicas: 1,
         image: { ...splitImage(repository), tag: application.version },
@@ -195,6 +200,7 @@ expose:
 #   listener: https
 #   path: /api/orders
 #   hsts: true
+#   ipAllowList: mfe-shop-1a2b3c-ip-allowlist   # the Traefik Middleware of the environment, when it allows some addresses only
 `
 
 const DEPLOYMENT_TEMPLATE = `apiVersion: apps/v1
@@ -327,9 +333,57 @@ spec:
 
 /**
  * The application on the Gateway of the environment, under its path. The path is stripped, so that the
- * container answers at its root whatever it is exposed at; `/` leaves it as it is.
+ * container answers at its root whatever it is exposed at; `/` leaves it as it is. An environment open to some
+ * addresses only sends each request through its Traefik Middleware first.
  */
 const HTTPROUTE_TEMPLATE = `{{- if and .Values.route (gt (int .Values.replicas) 0) }}
+apiVersion: gateway.networking.k8s.io/v1
+kind: HTTPRoute
+metadata:
+  name: {{ .Release.Name }}
+spec:
+  parentRefs:
+    - name: {{ .Values.route.gateway }}
+      {{- with .Values.route.listener }}
+      sectionName: {{ . }}
+      {{- end }}
+  rules:
+    - matches:
+        - path:
+            type: PathPrefix
+            value: {{ .Values.route.path | quote }}
+      {{- if or (ne .Values.route.path "/") .Values.route.hsts .Values.route.ipAllowList }}
+      filters:
+        {{- with .Values.route.ipAllowList }}
+        - type: ExtensionRef
+          extensionRef:
+            group: traefik.io
+            kind: Middleware
+            name: {{ . }}
+        {{- end }}
+        {{- if ne .Values.route.path "/" }}
+        - type: URLRewrite
+          urlRewrite:
+            path:
+              type: ReplacePrefixMatch
+              replacePrefixMatch: /
+        {{- end }}
+        {{- if .Values.route.hsts }}
+        - type: ResponseHeaderModifier
+          responseHeaderModifier:
+            set:
+              - name: Strict-Transport-Security
+                value: "max-age=31536000"
+        {{- end }}
+      {{- end }}
+      backendRefs:
+        - name: {{ .Release.Name }}
+          port: 80
+{{- end }}
+`
+
+/** The template before the IP allow list: a branch still holding it as written gets the current one */
+const HTTPROUTE_TEMPLATE_V1 = `{{- if and .Values.route (gt (int .Values.replicas) 0) }}
 apiVersion: gateway.networking.k8s.io/v1
 kind: HTTPRoute
 metadata:
@@ -436,13 +490,17 @@ spec:
 `
 
 /** Written on a branch only when it is not there yet: the chart is the team's to change afterwards */
-export const CHART_FILES: Array<{ path: string; content: string }> = [
+/**
+ * The chart is written once, then left to the team. `replaces` lists what Flightroom wrote there before: a file
+ * still exactly like one of them was never touched, and takes the current version.
+ */
+export const CHART_FILES: Array<{ path: string; content: string; replaces?: string[] }> = [
     { path: `${APPLICATIONS_CHART_FOLDER}/Chart.yaml`, content: CHART_YAML },
     { path: `${APPLICATIONS_CHART_FOLDER}/values.yaml`, content: CHART_VALUES },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/deployment.yaml`, content: DEPLOYMENT_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/service.yaml`, content: SERVICE_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/ingress.yaml`, content: INGRESS_TEMPLATE },
-    { path: `${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`, content: HTTPROUTE_TEMPLATE },
+    { path: `${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`, content: HTTPROUTE_TEMPLATE, replaces: [HTTPROUTE_TEMPLATE_V1] },
     // A file of its own, so the branches whose chart was written before maintenance agents get it too
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/cronjob.yaml`, content: CRONJOB_TEMPLATE }
 ]

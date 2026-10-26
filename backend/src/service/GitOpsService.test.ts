@@ -14,7 +14,7 @@ import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import ArgoCdService from "./ArgoCdService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
-import GitOpsService, { renderManifest, renderResourceManifest } from "./GitOpsService"
+import GitOpsService, { leavesAsItIs, renderManifest, renderResourceManifest } from "./GitOpsService"
 import { CHART_FILES } from "./gitops/applicationManifests"
 import { TemplateScaffoldService } from "./TemplateScaffoldService"
 import { GitWorkingCopy } from "./workspace/GitWorkingCopy"
@@ -29,7 +29,7 @@ const link = { enabled: true, codeRepositoryId: connectionId, repositoryId: "42"
 
 type GitOpsFile = { path: string; action: string; content?: string }
 type CommitOptions = { branch?: string; prune?: (path: string) => boolean }
-type Commit = (message: string, files: (GitOpsFile & { ifMissing?: boolean })[], options?: CommitOptions) => Promise<GitOpsFile[]>
+type Commit = (message: string, files: (GitOpsFile & { ifMissing?: boolean; replaces?: string[] })[], options?: CommitOptions) => Promise<GitOpsFile[]>
 /** The commit of the configuration repository, and the one of the applications repository */
 let commit: ReturnType<typeof vi.fn<Commit>>
 let applicationsCommit: ReturnType<typeof vi.fn<Commit>>
@@ -601,6 +601,49 @@ describe("GitOpsService.deploy", () => {
             expect(parse(files.find(file => file.path === "orders-api.yaml")!.content!).route).toEqual({ gateway: gateway.metadata.name, path: "/api/orders", ...expected })
             expect(parse(files.find(file => file.path === "billing-api.yaml")!.content!).route).toBeUndefined()
         })
+
+        it("given an environment with an IP allow list, when it is deployed, then its Gateway carries the Middleware and the routes go through it", async () => {
+            exposedOn({ domain: "example.com", certificateIssuer: "letsencrypt" }, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
+            vi.spyOn(Environment, "find").mockResolvedValue([
+                { _id: development, slug: "development", subdomain: "dev", projectId },
+                { _id: production, slug: "production", subdomain: "app", isProduction: true, ipAllowList: ["203.0.113.0/24"], projectId }
+            ] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }] as never)
+
+            await deployOf(production)()
+
+            const documents = documentsOf(commit.mock.calls[0][1].find(file => file.path === "production/gateway.yaml")!.content!)
+            const middleware = documents.find(document => document.kind === "Middleware")
+            expect(middleware.spec.ipAllowList.sourceRange).toEqual(["203.0.113.0/24"])
+            const values = applicationsCommit.mock.calls[0][1].find(file => file.path === "orders-api.yaml")!
+            expect(parse(values.content!).route.ipAllowList).toBe(middleware.metadata.name)
+        })
+
+        it("given an environment whose IP allow list was emptied, when it is deployed, then the routes still go through its Middleware, open to every address", async () => {
+            exposedOn({ domain: "example.com" }, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
+            vi.spyOn(Environment, "find").mockResolvedValue([
+                { _id: development, slug: "development", subdomain: "dev", projectId },
+                { _id: production, slug: "production", subdomain: "app", isProduction: true, ipAllowList: [], projectId }
+            ] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }] as never)
+
+            await deployOf(production)()
+
+            const middleware = documentsOf(commit.mock.calls[0][1].find(file => file.path === "production/gateway.yaml")!.content!).find(document => document.kind === "Middleware")
+            expect(middleware.spec.ipAllowList.sourceRange).toEqual(["0.0.0.0/0", "::/0"])
+            expect(parse(applicationsCommit.mock.calls[0][1].find(file => file.path === "orders-api.yaml")!.content!).route.ipAllowList).toBe(middleware.metadata.name)
+        })
+
+        it("given an environment that never had an IP allow list, when it is deployed, then the routes go through no Middleware", async () => {
+            exposedOn({ domain: "example.com" }, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
+            subdomains("dev", "app")
+            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }] as never)
+
+            await deployOf(production)()
+
+            const values = applicationsCommit.mock.calls[0][1].find(file => file.path === "orders-api.yaml")!
+            expect(parse(values.content!).route).not.toHaveProperty("ipAllowList")
+        })
     })
 
     describe("with two applications exposed at the same path", () => {
@@ -683,6 +726,7 @@ describe("GitOpsService.deploy", () => {
             const chart = applicationsCommit.mock.calls[0][1].filter(file => file.path.startsWith("microservice-chart/"))
             expect(chart.map(file => file.path)).toEqual(CHART_FILES.map(file => file.path))
             expect(chart.every(file => file.ifMissing === true)).toBe(true)
+            expect(chart.find(file => file.path.endsWith("httproute.yaml"))!.replaces).toEqual(CHART_FILES.find(file => file.path.endsWith("httproute.yaml"))!.replaces)
         })
 
         it("given the applications are committed, when the commit prunes, then only the values files of applications that no longer exist go", async () => {
@@ -768,5 +812,19 @@ describe("GitOpsService.deploy", () => {
             expect(commit.mock.calls[1]).toEqual(["Revert: deploy production", configurationUndo])
             expect(applicationsCommit.mock.invocationCallOrder[1]).toBeLessThan(commit.mock.invocationCallOrder[1])
         })
+    })
+})
+
+describe("leavesAsItIs", () => {
+    const chartFile = { ifMissing: true, replaces: ["as written before"] }
+
+    it.each([
+        ["missing from the branch", chartFile, undefined, false],
+        ["as Flightroom wrote it before", chartFile, "as written before", false],
+        ["changed by the team", chartFile, "changed by hand", true],
+        ["changed by the team, with no earlier version", { ifMissing: true }, "changed by hand", true],
+        ["not a chart file", { replaces: ["as written before"] }, "changed by hand", false]
+    ])("given a file %s, when it is committed, then it is left as it is: %s", (_case, file, current, expected) => {
+        expect(leavesAsItIs(file, current)).toBe(expected)
     })
 })

@@ -4,7 +4,7 @@ import DeploymentCanaryUsersService from "../../service/DeploymentCanaryUsersSer
 import DeploymentService from "../../service/DeploymentService"
 import EnvironmentService from "../../service/EnvironmentService"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
-import { SUBDOMAIN } from "../../types/Exposure"
+import { IP_ALLOW_LIST_MAX, isIpRange, SUBDOMAIN } from "../../types/Exposure"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
 
@@ -32,7 +32,12 @@ export const environmentFields = {
         .optional()
         .describe(
             "What the environment is exposed under on the domain of the project, e.g. dev for dev.example.com; empty or left out, the domain itself for a production environment and the slug in lowercase for the others"
-        )
+        ),
+    ipAllowList: z
+        .array(z.string().refine(isIpRange, "an IP address or a CIDR range, e.g. 203.0.113.7 or 203.0.113.0/24"))
+        .max(IP_ALLOW_LIST_MAX)
+        .optional()
+        .describe("Addresses and CIDR ranges the host of the environment answers to, applied on its next deploy; an empty list lets every address in")
 }
 
 /**

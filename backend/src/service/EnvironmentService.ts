@@ -1,4 +1,5 @@
 import { ClientSession, ObjectId, Schema } from "mongoose"
+import { createBusinessException } from "../errors/BusinessException"
 import { EnvironmentNotFoundError } from "../errors/EnvironmentNotFoundError"
 import BackendDeployment from "../models/BackendDeploymentModel"
 import Deployment from "../models/DeploymentModel"
@@ -6,9 +7,51 @@ import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Environment, { IEnvironment } from "../models/EnvironmentModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import { EnvironmentDTO } from "../types/EnvironmentDTO"
+import { IP_ALLOW_LIST_MAX, isIpRange } from "../types/Exposure"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import BaseAuthorizedService from "./BaseAuthorizedService"
+
+/**
+ * The allow list as it is saved: trimmed, without blanks or repeats. Refused before it reaches the Gateway: Traefik
+ * drops a Middleware with a range it cannot parse, and every route through it with it.
+ */
+export const normalizeIpAllowList = (ipAllowList: unknown): string[] => {
+    if (ipAllowList === null || ipAllowList === undefined) return []
+    if (!Array.isArray(ipAllowList)) {
+        throw createBusinessException({ code: "ENVIRONMENT_IP_ALLOWLIST_INVALID", message: "The IP allow list must be a list of addresses and CIDR ranges", details: { value: String(ipAllowList) } })
+    }
+    const ranges = [...new Set(ipAllowList.map(range => (typeof range === "string" ? range.trim() : String(range))).filter(Boolean))]
+    const invalid = ranges.find(range => !isIpRange(range))
+    if (invalid !== undefined) {
+        throw createBusinessException({
+            code: "ENVIRONMENT_IP_ALLOWLIST_INVALID",
+            message: `"${invalid}" is neither an IP address nor a CIDR range, e.g. 203.0.113.7 or 203.0.113.0/24`,
+            details: { value: invalid }
+        })
+    }
+    if (ranges.length > IP_ALLOW_LIST_MAX) {
+        throw createBusinessException({
+            code: "ENVIRONMENT_IP_ALLOWLIST_TOO_LONG",
+            message: `An environment allows at most ${IP_ALLOW_LIST_MAX} addresses and ranges`,
+            details: { value: String(IP_ALLOW_LIST_MAX) }
+        })
+    }
+    return ranges
+}
+
+/**
+ * The data of an environment with its allow list normalized, when it carries one. An empty list is kept only on an
+ * environment that has had one: its Middleware stays, open to every address, as the routes of the applications a
+ * scoped deploy left alone still go through it. On any other, it is left out, and the environment gets no Middleware.
+ */
+const withNormalizedIpAllowList = <T extends Partial<EnvironmentDTO>>(data: T, hadIpAllowList = false): T => {
+    if (data.ipAllowList === undefined) return data
+    const ipAllowList = normalizeIpAllowList(data.ipAllowList)
+    if (ipAllowList.length > 0 || hadIpAllowList) return { ...data, ipAllowList }
+    const { ipAllowList: _left, ...rest } = data
+    return rest as T
+}
 
 class EnvironmentService extends BaseAuthorizedService {
     async getByProjectId(projectId: string) {
@@ -31,7 +74,7 @@ class EnvironmentService extends BaseAuthorizedService {
         await this.ensureAccessToProject(projectIdObj)
         // Every domain is deployed to the environments: only those reaching the whole project change them
         await this.ensureWholeProject(projectIdObj)
-        const environment = new Environment(environmentData)
+        const environment = new Environment(withNormalizedIpAllowList(environmentData))
         environment.projectId = projectIdObj
         if (environment.order === undefined || environment.order === null) {
             environment.order = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
@@ -43,7 +86,7 @@ class EnvironmentService extends BaseAuthorizedService {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
         await this.ensureWholeProject(projectIdObj)
-        const environments = body.map(env => new Environment(env))
+        const environments = body.map(env => new Environment(withNormalizedIpAllowList(env)))
         let maxOrder = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
         environments.forEach(env => {
             env.projectId = projectIdObj
@@ -59,7 +102,8 @@ class EnvironmentService extends BaseAuthorizedService {
         await this.ensureAccessToEnvironment(environmentId)
         await this.ensureWholeProjectOfEnvironment(environmentId)
         const environmentIdObj = toObjectId(environmentId)
-        const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, updateData, { new: true })
+        const current = updateData.ipAllowList === undefined ? null : await Environment.findById(environmentIdObj, { ipAllowList: 1 })
+        const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, withNormalizedIpAllowList(updateData, Array.isArray(current?.ipAllowList)), { new: true })
 
         if (!updatedEnvironment) {
             throw new EnvironmentNotFoundError(environmentIdObj.toString())

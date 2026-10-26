@@ -14,6 +14,8 @@ export interface IEnvironment extends Document<ObjectId> {
     namespace?: string
     /** What it is exposed under on the domain of the project, e.g. `dev`; unset, the domain itself in production, the slug otherwise */
     subdomain?: string
+    /** The addresses and CIDR ranges its host answers to; empty or unset, every one */
+    ipAllowList?: string[]
 }
 
 const environmentSchema = new Schema<IEnvironment>(
@@ -49,6 +51,10 @@ const environmentSchema = new Schema<IEnvironment>(
             type: String,
             trim: true,
             lowercase: true
+        },
+        ipAllowList: {
+            type: [String],
+            default: undefined
         },
         projectId: {
             type: Schema.Types.ObjectId,

@@ -1,3 +1,5 @@
+import { isIP } from "node:net"
+
 /**
  * Where a project is exposed: on the domain of the project, under the subdomain of each environment. Each
  * application declares only the path it is exposed at, the same in every environment.
@@ -45,3 +47,18 @@ export const exposedHost = (domain: string, subdomain?: string): string => (subd
 /** Where browsers reach an environment: HTTPS when the project asks an issuer for its certificates, HTTP without one */
 export const exposedOrigin = (exposure: { domain: string; certificateIssuer?: string | null }, subdomain?: string): string =>
     `${exposure.certificateIssuer ? "https" : "http"}://${exposedHost(exposure.domain, subdomain)}`
+
+/**
+ * An address or a CIDR range Traefik takes in an `ipAllowList` source range, e.g. `203.0.113.7`,
+ * `203.0.113.0/24` or `2001:db8::/32`
+ */
+export const isIpRange = (value: string): boolean => {
+    const [address, prefix, ...rest] = value.split("/")
+    // Node takes an IPv6 zone, `fe80::1%eth0`; Traefik does not
+    const version = address.includes("%") ? 0 : isIP(address)
+    if (version === 0 || rest.length > 0) return false
+    return prefix === undefined || (/^\d{1,3}$/.test(prefix) && Number(prefix) <= (version === 4 ? 32 : 128))
+}
+
+/** At most this many ranges per environment: a longer list belongs in a firewall in front of the cluster */
+export const IP_ALLOW_LIST_MAX = 100

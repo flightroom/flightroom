@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **IP Allowlist Per Environment**: an environment takes the IP addresses and CIDR ranges its applications answer to (`ipAllowList`), set from its dialog and over MCP. With the project exposed on a domain, the deploy commits a Traefik `ipAllowList` Middleware next to the Gateway of the environment, and the HTTPRoute of each application goes through it: any other address gets `403`. Once set, the Middleware stays with the environment, and an emptied list opens it to every address, so a deploy of one domain changes the list for every application at once. The first time, deploy the whole environment: until then, the applications not deployed again answer every address. The chart template `httproute.yaml` of the applications is replaced on the next deploy when it is still as Flightroom wrote it; a template the team changed has to add the `ExtensionRef` filter itself. Traefik must see the real client address: see [EXPOSURE.md](docs/EXPOSURE.md)
+
 ---
 
 ## [8.2.0] - 2026-10-26

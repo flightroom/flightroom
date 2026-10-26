@@ -5,7 +5,8 @@ import { appProjectName, MANAGED_BY, MANAGED_BY_LABEL } from "./argoCdManifests"
  * How an environment is exposed, through the Gateway API as Traefik implements it: the configuration
  * repository holds, per environment, a Gateway that answers on its host, the cert-manager Certificate of that
  * host and the HTTPRoute sending plain HTTP over to HTTPS. Each application then attaches an HTTPRoute of its
- * own to the Gateway, with only the path it is exposed at: the host is the Gateway's.
+ * own to the Gateway, with only the path it is exposed at: the host is the Gateway's. An environment open to
+ * some addresses only also gets a Traefik Middleware, which the route of each application goes through.
  */
 
 /** The GatewayClass Traefik registers when its Gateway provider is on */
@@ -33,6 +34,11 @@ export interface EnvironmentGateway {
     /** The ports of the listeners, GATEWAY_HTTP_PORT and GATEWAY_HTTPS_PORT when left out */
     httpPort?: number
     httpsPort?: number
+    /**
+     * The addresses and CIDR ranges the applications answer to. Empty, every one, through a Middleware that stays for
+     * the routes still pointing at it; left out, the environment never had one, and there is no Middleware at all
+     */
+    ipAllowList?: string[]
 }
 
 export const gatewayName = (projectId: string, projectSlug: string) => appProjectName(projectId, projectSlug)
@@ -41,6 +47,17 @@ export const gatewayName = (projectId: string, projectSlug: string) => appProjec
 export const applicationListener = (gateway: Pick<EnvironmentGateway, "certificateIssuer">) => (gateway.certificateIssuer ? HTTPS_LISTENER : HTTP_LISTENER)
 
 const tlsSecretName = (gateway: EnvironmentGateway) => `${gateway.name}-tls`
+
+/** What an emptied allow list lets through: every IPv4 and IPv6 address */
+export const EVERY_ADDRESS = ["0.0.0.0/0", "::/0"]
+
+/**
+ * The Middleware the routes of the applications go through once the environment has had an allow list, none before.
+ * Gateway API filters attach to routes, not to listeners: Traefik has no way to filter at the Gateway. The Middleware
+ * is the whole environment's and is committed by every deploy of it, while a deploy of one domain writes the routes of
+ * that domain only: the routes always name it, so that a change of the list reaches each one at once.
+ */
+export const ipAllowListMiddleware = (gateway: Pick<EnvironmentGateway, "name" | "ipAllowList">): string | undefined => (gateway.ipAllowList ? `${gateway.name}-ip-allowlist` : undefined)
 
 /** The Gateway of the environment, its Certificate and the redirect to HTTPS, as one multi-document manifest */
 export const renderGateway = (gateway: EnvironmentGateway): string => {
@@ -84,6 +101,18 @@ export const renderGateway = (gateway: EnvironmentGateway): string => {
         metadata: metadata(gateway.name),
         spec: { gatewayClassName: GATEWAY_CLASS, listeners }
     })
+
+    const middleware = ipAllowListMiddleware(gateway)
+    if (middleware) {
+        documents.push({
+            apiVersion: "traefik.io/v1alpha1",
+            kind: "Middleware",
+            metadata: metadata(middleware),
+            // Traefik answers 403 to any other address. It reads the address the connection comes from: behind a load
+            // balancer that does not keep it, the one of the balancer
+            spec: { ipAllowList: { sourceRange: gateway.ipAllowList?.length ? gateway.ipAllowList : EVERY_ADDRESS } }
+        })
+    }
 
     if (gateway.certificateIssuer) {
         documents.push({

@@ -8,6 +8,7 @@ export interface EnvironmentDTO {
     domains: string[]
     namespace?: string
     subdomain?: string
+    ipAllowList?: string[]
 }
 
 export interface EnvironmentOrderDTO {

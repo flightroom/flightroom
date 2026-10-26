@@ -44,10 +44,34 @@ interface EnvironmentDialogFormData {
     domains?: string[]
     namespace?: string
     subdomain?: string
+    ipAllowList?: string[]
 }
 
 /** Come per il backend: etichette DNS separate da punti, oppure niente per il dominio stesso */
 const SUBDOMAIN = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)?$/
+
+const IPV4 = /^((25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)\.){3}(25[0-5]|2[0-4]\d|1\d\d|[1-9]?\d)$/
+
+/** Il parser degli URL del browser riconosce un IPv6 fra parentesi quadre: prima si scartano parentesi, zone e tutto ciò che chiuderebbe l'host */
+const isIpv6 = (address: string) => {
+    if (!address.includes(":") || !/^[0-9a-fA-F:.]+$/.test(address)) return false
+    try {
+        return new URL(`http://[${address}]`).hostname !== ""
+    } catch {
+        return false
+    }
+}
+
+/** Come per il backend (isIpRange): un indirizzo IPv4 o IPv6, con o senza il prefisso CIDR */
+const isIpRange = (value: string) => {
+    const [address, prefix, ...rest] = value.split("/")
+    const isV4 = IPV4.test(address)
+    if ((!isV4 && !isIpv6(address)) || rest.length > 0) return false
+    return prefix === undefined || (/^\d{1,3}$/.test(prefix) && Number(prefix) <= (isV4 ? 32 : 128))
+}
+
+/** Come per il backend (IP_ALLOW_LIST_MAX) */
+const IP_ALLOW_LIST_MAX = 100
 
 const exposedHost = (domain: string, subdomain: string) => (subdomain ? `${subdomain}.${domain}` : domain)
 
@@ -157,6 +181,23 @@ function EnvironmentDialog({ isOpen, onOpenChange, onSubmitSuccess, formData, id
                                 }
                                 // Il backend toglie gli spazi e porta in minuscolo: qui si controlla quello che salverà
                                 rules={{ validate: value => SUBDOMAIN.test((value ?? "").trim().toLowerCase()) || t("environment.form.subdomain_invalid") }}
+                            />
+                        )}
+                        {isGitOpsEnabled && (
+                            <TextareaChipsField
+                                name="ipAllowList"
+                                dataTestId="environment-ip-allow-list"
+                                label={t("environment.form.ip_allow_list")}
+                                placeholder={t("environment.form.ip_allow_list_placeholder")}
+                                description={domain ? t("environment.form.ip_allow_list_description") : t("environment.form.ip_allow_list_description_no_domain")}
+                                textTransform={value => value.trim()}
+                                rules={{
+                                    validate: (ranges?: string[]) => {
+                                        const invalid = ranges?.find(range => !isIpRange(range))
+                                        if (invalid !== undefined) return t("environment.form.ip_allow_list_invalid", { value: invalid })
+                                        return (ranges?.length ?? 0) <= IP_ALLOW_LIST_MAX || t("environment.form.ip_allow_list_too_long", { max: IP_ALLOW_LIST_MAX })
+                                    }
+                                }}
                             />
                         )}
                         <TextareaField name="description" label={t("environment.form.description")} placeholder={t("environment.form.description_placeholder")} />

@@ -294,7 +294,9 @@
                 "environment_host_taken": "Gli ambienti {{slug}} e {{name}} sono entrambi esposti su {{url}}: dai a ognuno un sottodominio diverso",
                 "exposure_path_taken": "{{slug}} e {{name}} sono entrambi esposti su {{url}}: dai a ognuno un path di esposizione diverso",
                 "invalid_repository_name": "Il nome del repository non è valido: usa lettere, cifre, punti, trattini e underscore",
-                "repository_name_taken": "Esiste già un repository con questo nome sul provider, forse lasciato da un tentativo fallito: sceglilo dall'elenco o scegli un altro nome"
+                "repository_name_taken": "Esiste già un repository con questo nome sul provider, forse lasciato da un tentativo fallito: sceglilo dall'elenco o scegli un altro nome",
+                "environment_ip_allowlist_invalid": "{{value}} non è né un indirizzo IP né un range CIDR, es. 203.0.113.7 o 203.0.113.0/24",
+                "environment_ip_allowlist_too_long": "Un ambiente consente al massimo {{value}} indirizzi e range"
             }
         },
         "pipelines": {
@@ -760,7 +762,13 @@
             "subdomain_placeholder": "dev",
             "subdomain_description": "Esposto su {{host}}. Se vuoto: il dominio stesso per un ambiente di produzione, lo slug per gli altri.",
             "subdomain_description_no_domain": "Imposta il dominio del progetto in Impostazioni → Esposizione: fino ad allora l'ambiente non è esposto.",
-            "subdomain_invalid": "Etichette DNS di lettere minuscole, numeri e trattini, separate da punti"
+            "subdomain_invalid": "Etichette DNS di lettere minuscole, numeri e trattini, separate da punti",
+            "ip_allow_list": "IP consentiti",
+            "ip_allow_list_placeholder": "Inserisci un indirizzo o un range CIDR e premi Invio (es. 203.0.113.0/24)",
+            "ip_allow_list_description": "Solo questi indirizzi e range CIDR raggiungono le applicazioni dell'ambiente, dal prossimo deploy: gli altri ricevono 403. Se vuoto: tutti gli indirizzi. La prima volta fai il deploy dell'intero ambiente: fino ad allora le applicazioni non rilasciate di nuovo rispondono a tutti.",
+            "ip_allow_list_description_no_domain": "Si applica quando il progetto è esposto su un dominio, in Impostazioni → Esposizione.",
+            "ip_allow_list_invalid": "{{value}} non è né un indirizzo IP né un range CIDR, es. 203.0.113.7 o 203.0.113.0/24",
+            "ip_allow_list_too_long": "Al massimo {{max}} indirizzi e range"
         },
         "table": {
             "name": "Nome",
