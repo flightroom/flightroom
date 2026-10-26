@@ -1050,8 +1050,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentList.tsx": {
-    "mtime": 1793005820.6285312,
-    "ast_hash": "ec7dc18fc3ffe557ec89754ff2b9b799",
+    "mtime": 1793029962.68,
+    "ast_hash": "264cb3fb8b0ddde8a0aa2006f0a8dbf9",
     "semantic_hash": ""
   },
   "frontend/src/pages/environment-variables/EnvironmentVariables.tsx": {
@@ -3900,8 +3900,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentFrontendCard.tsx": {
-    "mtime": 1793005820.6283948,
-    "ast_hash": "ff7c41e6482fcb8e14af36131d94d870",
+    "mtime": 1793029953.6793883,
+    "ast_hash": "4dfc173cfb9e4ebfc6ad8dfd72521bce",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/AddFrontend.tsx": {
@@ -4060,8 +4060,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentExposedLink.tsx": {
-    "mtime": 1793005820.6283162,
-    "ast_hash": "4cb0d518fd30419e3adad4d395f3190f",
+    "mtime": 1793029953.6511025,
+    "ast_hash": "ed0c36274940cef48ea1c050628ca3a4",
     "semantic_hash": ""
   },
   "backend/src/controller/AiMissionController.ts": {
@@ -4765,8 +4765,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentBackendCard.tsx": {
-    "mtime": 1793005820.628184,
-    "ast_hash": "adc6891711f36f07aeb4d76f7a389f0b",
+    "mtime": 1793029953.6664562,
+    "ast_hash": "d6f83fa7ad2a4deb754cbe1136691c96",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendConfigurationSection.tsx": {
