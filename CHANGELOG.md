@@ -9,6 +9,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.1.0] - 2026-10-26
+
+### Added
+
+- **Installation Name And Logo**: `INSTALLATION_NAME` and `INSTALLATION_LOGO_URL` replace the name and the logo of Flightroom in the sidebar, the login page, the new project wizard and the browser tab. Unset or empty, the console keeps its own. Shipped in the Helm chart `values.yaml`
+- **Money Spent By Members**: the member list adds to the AI tokens of the month what they cost, one amount per currency, at the prices set on the AI models (`aiCostsSpent` on the members of `GET /projects/:id/users`). AIs without prices are not counted
+- **Cost Chip**: the cost of an assistant answer, an Edit with AI job or a fleet mission stands out in a chip next to its tokens
+
+### Changed
+
+- **Labels Renamed To Flightroom**: what the console makes for Kubernetes and Argo CD is labelled `app.kubernetes.io/managed-by: flightroom`, and the Argo CD objects `flightroom/project-id`, `flightroom/environment`, `flightroom/application` and `flightroom/component`. Objects made by an earlier version keep the `mfe-orchestrator` labels until they are saved again: the console still recognizes them as its own, cleans them up and refreshes them, and prunes the GitOps files with the old `managed-by`. Label selectors or policies outside the console that match `mfe-orchestrator` must match `flightroom` too. The GitLab deploy token Argo CD reads with is named `flightroom-argocd`
+
+### Fixed
+
+- **Argo CD With Custom Namespaces**: an environment given a namespace after Argo CD was initialized was dropped in silence from the ApplicationSets of the applications, which came out empty. The other environments are still aligned, and the Argo CD settings now name the environments that wait for Argo CD to be initialized again (`ARGOCD_NAMESPACES_NOT_IN_PROJECT`)
+
+---
+
 ## [7.0.0] - 2026-10-23
 
 ### Breaking
