@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793028078.342766,
-    "ast_hash": "1461f4d283320b5aa8802325adcf15e4",
+    "mtime": 1793028666.8005912,
+    "ast_hash": "a01809e7c0410072b0ef7800ce69564d",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793028078.3411245,
-    "ast_hash": "28ae1243390a4ec1dc13016edc28b5f0",
+    "mtime": 1793028666.7996097,
+    "ast_hash": "c4e7bd40da8fac44324683b203be0b3a",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -3600,13 +3600,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/gitops/applicationManifests.test.ts": {
-    "mtime": 1793005820.565093,
-    "ast_hash": "fa3281588259f12e8a2d86da7017a30b",
+    "mtime": 1793028646.8457794,
+    "ast_hash": "279c3abcc551c245c00ebab845afc77f",
     "semantic_hash": ""
   },
   "backend/src/service/gitops/applicationManifests.ts": {
-    "mtime": 1793028197.4896913,
-    "ast_hash": "2b3afd23af199793a01044163a159ac8",
+    "mtime": 1793028665.7438254,
+    "ast_hash": "978434c5c24bd2018fd4d9ab75d5a5b8",
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.ts": {
@@ -4455,8 +4455,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceFormFields.tsx": {
-    "mtime": 1793005820.6406198,
-    "ast_hash": "2c1034d5d618b5a01fc2a3365957358b",
+    "mtime": 1793028666.7987666,
+    "ast_hash": "f673cf2397b23ad23595a129caf95d63",
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceRunDialog.tsx": {
@@ -4710,8 +4710,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendRuntimeFields.tsx": {
-    "mtime": 1793005820.6237745,
-    "ast_hash": "34be01dd8f4788b2f1bb4181cf0a28c6",
+    "mtime": 1793028666.7983212,
+    "ast_hash": "f0a8e25420516d6d0c4322d7ad5d4a62",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendVariableMapsFields.tsx": {
