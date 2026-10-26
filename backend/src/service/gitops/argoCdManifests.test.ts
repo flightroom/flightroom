@@ -75,7 +75,7 @@ describe("names", () => {
 
 describe("buildAppProject", () => {
     it("given a project, when its AppProject is built, then it carries the labels of the project", () => {
-        expect(buildAppProject(target).metadata).toEqual({ name: PROJECT_NAME, labels: { [MANAGED_BY_LABEL]: "mfe-orchestrator", [PROJECT_ID_LABEL]: projectId } })
+        expect(buildAppProject(target).metadata).toEqual({ name: PROJECT_NAME, labels: { [MANAGED_BY_LABEL]: "flightroom", [PROJECT_ID_LABEL]: projectId } })
     })
 
     it("given two repositories and two environments, when its AppProject is built, then it reads the repositories and writes the namespaces in cluster only", () => {
@@ -99,7 +99,7 @@ describe("buildEnvironmentsApplicationSet", () => {
 
     it("given a project, when the ApplicationSet of its environments is built, then it is one for the project, labelled after it", () => {
         expect(applicationSet.metadata.name).toBe(environmentsApplicationSetName(projectId, "shop"))
-        expect(applicationSet.metadata.labels).toEqual({ [MANAGED_BY_LABEL]: "mfe-orchestrator", [PROJECT_ID_LABEL]: projectId, [COMPONENT_LABEL]: "configuration" })
+        expect(applicationSet.metadata.labels).toEqual({ [MANAGED_BY_LABEL]: "flightroom", [PROJECT_ID_LABEL]: projectId, [COMPONENT_LABEL]: "configuration" })
     })
 
     it("given two environments, when the ApplicationSet is built, then it lists them, not the repository, with the name, folder and namespace of each", () => {
@@ -122,7 +122,7 @@ describe("buildEnvironmentsApplicationSet", () => {
     it("given an environment, when its Application is generated, then it syncs the folder of the environment from the configuration repository into its namespace", () => {
         expect(applicationSet.spec.template.metadata).toEqual({
             name: "{{ .name }}",
-            labels: { [MANAGED_BY_LABEL]: "mfe-orchestrator", [PROJECT_ID_LABEL]: projectId, [ENVIRONMENT_LABEL]: "{{ .slug }}", [COMPONENT_LABEL]: "environment" }
+            labels: { [MANAGED_BY_LABEL]: "flightroom", [PROJECT_ID_LABEL]: projectId, [ENVIRONMENT_LABEL]: "{{ .slug }}", [COMPONENT_LABEL]: "environment" }
         })
         expect(applicationSet.spec.template.spec).toEqual({
             project: PROJECT_NAME,
@@ -139,7 +139,7 @@ describe("buildApplicationSet", () => {
 
     it("given a backend, when its ApplicationSet is built, then it is named after it and labelled with its slug", () => {
         expect(applicationSet.metadata.name).toBe(applicationSetName(projectId, "shop", "orders"))
-        expect(applicationSet.metadata.labels).toEqual({ [MANAGED_BY_LABEL]: "mfe-orchestrator", [PROJECT_ID_LABEL]: projectId, [APPLICATION_LABEL]: "orders", [COMPONENT_LABEL]: "applications" })
+        expect(applicationSet.metadata.labels).toEqual({ [MANAGED_BY_LABEL]: "flightroom", [PROJECT_ID_LABEL]: projectId, [APPLICATION_LABEL]: "orders", [COMPONENT_LABEL]: "applications" })
         expect(applicationSet.spec.goTemplate).toBe(true)
         expect(applicationSet.spec.goTemplateOptions).toEqual(["missingkey=error"])
     })
@@ -163,7 +163,7 @@ describe("buildApplicationSet", () => {
         expect(applicationSet.spec.template.metadata).toEqual({
             name: "{{ .environment.name }}",
             labels: {
-                [MANAGED_BY_LABEL]: "mfe-orchestrator",
+                [MANAGED_BY_LABEL]: "flightroom",
                 [PROJECT_ID_LABEL]: projectId,
                 [APPLICATION_LABEL]: "orders",
                 [ENVIRONMENT_LABEL]: "{{ .environment.slug }}",

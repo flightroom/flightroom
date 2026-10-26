@@ -75,7 +75,7 @@ describe("renderManifest", () => {
         expect(parse(renderManifest("configMap", map, String(development)))).toEqual({
             apiVersion: "v1",
             kind: "ConfigMap",
-            metadata: { name: "orders", labels: { "app.kubernetes.io/managed-by": "mfe-orchestrator" } },
+            metadata: { name: "orders", labels: { "app.kubernetes.io/managed-by": "flightroom" } },
             data: { LOG_LEVEL: "debug" }
         })
     })
@@ -113,7 +113,7 @@ describe("renderResourceManifest", () => {
             apiVersion: "v1",
             kind: "Secret",
             type: "Opaque",
-            metadata: { name: "orders.resource", namespace: "prod", labels: { "app.kubernetes.io/managed-by": "mfe-orchestrator" } }
+            metadata: { name: "orders.resource", namespace: "prod", labels: { "app.kubernetes.io/managed-by": "flightroom" } }
         })
         expect(decoded(manifest)).toEqual({ DB_ORDERS_ENGINE: "POSTGRESQL", DB_ORDERS_HOST: "db.prod.internal", DB_ORDERS_PORT: "5432", DB_ORDERS_PASSWORD: "s3cret" })
     })

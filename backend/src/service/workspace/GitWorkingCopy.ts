@@ -319,7 +319,7 @@ export class GitWorkingCopy {
 
     /** Pushes a commit already in the copy onto the remote `branch`. Never forced: refused unless it is a fast-forward. */
     async pushCommit(commit: string, branch: string): Promise<void> {
-        const ref = "refs/heads/mfe-orchestrator-push"
+        const ref = "refs/heads/flightroom-push"
         await git.writeRef({ fs, dir: this.dir, ref, value: commit, force: true })
         try {
             await git.push({

@@ -44,7 +44,7 @@ describe("renderGateway", () => {
 
     it("given any Gateway, when it is rendered, then every manifest is in the namespace and labelled as managed", () => {
         for (const document of documentsOf(renderGateway({ ...gateway, certificateIssuer: "letsencrypt" }))) {
-            expect(document.metadata).toMatchObject({ namespace: "production", labels: { "app.kubernetes.io/managed-by": "mfe-orchestrator" } })
+            expect(document.metadata).toMatchObject({ namespace: "production", labels: { "app.kubernetes.io/managed-by": "flightroom" } })
         }
     })
 })

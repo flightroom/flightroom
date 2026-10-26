@@ -298,6 +298,18 @@ describe("ArgoCdService.initialize", () => {
         expect(ArgoCdClient.prototype.listApplicationSets).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId}`, PROJECT_NAME)
     })
 
+    it("given the objects a version of before the rename made, labelled mfe-orchestrator, when it is initialized again, then they are its own: no conflict, and those left over are found and deleted", async () => {
+        const legacy = (name: string) => ({ metadata: { name, labels: { "mfe-orchestrator/project-id": String(projectId) } }, spec: { template: { spec: { project: PROJECT_NAME } } } })
+        vi.mocked(ArgoCdClient.prototype.getProject).mockResolvedValue(legacy(PROJECT_NAME))
+        vi.mocked(ArgoCdClient.prototype.getApplicationSet).mockImplementation(async name => legacy(name))
+        vi.mocked(ArgoCdClient.prototype.listApplicationSets).mockImplementation(async selector => (selector.startsWith("mfe-orchestrator/") ? [legacy(applicationSetNameOf("deleted"))] : []))
+
+        await initialize()
+
+        expect(calls.filter(call => call.startsWith("argo:delete"))).toEqual([`argo:deleteApplicationSet:${applicationSetNameOf("deleted")}`])
+        expect(ArgoCdClient.prototype.listApplicationSets).toHaveBeenCalledWith(`mfe-orchestrator/project-id=${projectId}`, PROJECT_NAME)
+    })
+
     it("given the configuration Applications an earlier initialization made per environment, when it is initialized again, then they are deleted", async () => {
         applications = [resource(`${environmentName("development")}.config`), resource(`${environmentName("staging")}.config`)]
 
@@ -307,7 +319,7 @@ describe("ArgoCdService.initialize", () => {
             `argo:deleteApplication:${environmentName("development")}.config`,
             `argo:deleteApplication:${environmentName("staging")}.config`
         ])
-        expect(ArgoCdClient.prototype.listApplications).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},mfe-orchestrator/component=configuration`, PROJECT_NAME)
+        expect(ArgoCdClient.prototype.listApplications).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},flightroom/component=configuration`, PROJECT_NAME)
     })
 
     it("given a labelled Application of another AppProject, when it is initialized, then it is not deleted", async () => {
@@ -592,7 +604,7 @@ describe("ArgoCdService.alignApplications", () => {
 
         await align()
 
-        expect(ArgoCdClient.prototype.listApplicationSets).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},mfe-orchestrator/component=applications`, PROJECT_NAME)
+        expect(ArgoCdClient.prototype.listApplicationSets).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},flightroom/component=applications`, PROJECT_NAME)
         expect(calls.some(call => call.startsWith("argo:upsert"))).toBe(false)
         expect(storedError()?.update.$set?.["argoCd.alignError"]).toMatchObject({ code: "ARGOCD_REINITIALIZE_REQUIRED" })
     })

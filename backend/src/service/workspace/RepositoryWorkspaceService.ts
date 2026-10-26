@@ -106,7 +106,7 @@ export const gitCredentialsFor = (codeRepository: ICodeRepository): GitCredentia
         case CodeRepositoryProvider.GITLAB:
             return { username: "oauth2", password: codeRepository.accessToken }
         default:
-            return { username: "mfe-orchestrator", password: codeRepository.accessToken }
+            return { username: "flightroom", password: codeRepository.accessToken }
     }
 }
 

@@ -11,7 +11,7 @@ import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 
 /** In the first line of every values file the console writes: what tells it from one someone else put there */
-export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: mfe-orchestrator"
+export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: flightroom"
 
 /** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
 export interface GitOpsApplication {

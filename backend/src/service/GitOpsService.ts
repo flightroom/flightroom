@@ -73,10 +73,12 @@ export const NAMESPACE_FILE = "namespace.yaml"
 export const GATEWAY_FILE = "gateway.yaml"
 
 /** Local branch the commit is made on before it is pushed onto the default one */
-const GITOPS_BRANCH = "mfe-orchestrator-gitops"
+const GITOPS_BRANCH = "flightroom-gitops"
 
 const MANAGED_BY_LABEL = "app.kubernetes.io/managed-by"
-const MANAGED_BY = "mfe-orchestrator"
+const MANAGED_BY = "flightroom"
+/** What the files written before the console was named Flightroom carry: they are its own too */
+const LEGACY_MANAGED_BY = "mfe-orchestrator"
 
 /** A deploy waits this long for another one of the same project, not the 10 minutes an AI job may */
 const LOCK_WAIT_MS = 30_000
@@ -660,7 +662,8 @@ export class GitOpsService extends BaseAuthorizedService {
         for (const path of await workingCopy.listFiles()) {
             if (kept.has(path) || !scope(path)) continue
             // A file someone else put there is left alone: the manifests and the values files carry the label
-            if ((await workingCopy.readHeadFile(path))?.includes(`${MANAGED_BY_LABEL}: ${MANAGED_BY}`)) orphans.push({ path, action: "delete" })
+            const content = await workingCopy.readHeadFile(path)
+            if ([MANAGED_BY, LEGACY_MANAGED_BY].some(value => content?.includes(`${MANAGED_BY_LABEL}: ${value}`))) orphans.push({ path, action: "delete" })
         }
         return orphans
     }
