@@ -118,8 +118,8 @@ Precedence, from lowest to highest: `env` → `envSecrets` → `existingConfigMa
 
 Core: `NODE_ENV`, `PORT`, `FRONTEND_URL`, `BACKEND_URL`, `ALLOWED_ORIGINS`,
 `ALLOWED_SERVE_ORIGINS`, `MICROFRONTEND_HOST_FOLDER`, `REGISTRATION_ALLOWED`,
-`ALLOW_EMBEDDED_LOGIN`, `RATE_LIMIT_MAX`, `MARKETING_OPT_IN_ENABLED`,
-`MARKETING_OPT_IN_VERSION`
+`ALLOW_EMBEDDED_LOGIN`, `RATE_LIMIT_MAX`, `INSTALLATION_NAME`, `INSTALLATION_LOGO_URL`,
+`MARKETING_OPT_IN_ENABLED`, `MARKETING_OPT_IN_VERSION`
 
 `RATE_LIMIT_MAX` ships commented out in `values.yaml` on purpose: it is validated as
 `type: number`, and an empty value fails that validation and keeps the container from

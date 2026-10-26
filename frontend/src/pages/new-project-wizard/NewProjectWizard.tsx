@@ -7,6 +7,7 @@ import MainLogo from "@/components/MainLogo"
 import PageHead from "@/components/PageHead"
 import { ProjectDraft } from "@/hooks/apiClients/useAssistantApi"
 import { Project } from "@/hooks/apiClients/useProjectApi"
+import useBranding from "@/hooks/useBranding"
 import useProjectStore from "@/store/useProjectStore"
 import CodeRepositories from "./pages/CodeRepositories"
 import Completed from "./pages/Completed"
@@ -24,6 +25,7 @@ export interface NewProjectWizardProps {
 
 const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ onComplete }) => {
     const { t } = useTranslation()
+    const branding = useBranding()
     const navigate = useNavigate()
 
     const STEPS: WizardStepMeta[] = [
@@ -75,7 +77,7 @@ const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ onComplete }) => {
                 <header className="flex items-center gap-3 mb-10">
                     <MainLogo className="h-9 w-9" />
                     <div>
-                        <h1 className="text-xl font-semibold text-foreground leading-tight">{t("app.name")}</h1>
+                        <h1 className="text-xl font-semibold text-foreground leading-tight">{branding.name}</h1>
                         <p className="text-sm text-foreground-secondary">{t("newProjectWizard.subtitle")}</p>
                     </div>
                     {!embedded && (

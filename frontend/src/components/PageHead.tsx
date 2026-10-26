@@ -1,5 +1,6 @@
 import { Helmet } from "react-helmet-async"
 import { useTranslation } from "react-i18next"
+import useBranding from "@/hooks/useBranding"
 
 export interface PageHeadProps {
     /** Page name, already translated. When omitted the document keeps the bare app name. */
@@ -15,7 +16,7 @@ export interface PageHeadProps {
  */
 const PageHead: React.FC<PageHeadProps> = ({ title, description }) => {
     const { t } = useTranslation()
-    const appName = t("app.name")
+    const { name: appName } = useBranding()
     const documentTitle = title ? t("app.page_title", { page: title, app: appName }) : appName
 
     return (

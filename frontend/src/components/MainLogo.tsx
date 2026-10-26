@@ -1,6 +1,6 @@
 import React from "react"
-import { useTranslation } from "react-i18next"
 import { twMerge } from "tailwind-merge"
+import useBranding from "@/hooks/useBranding"
 
 interface MainLogoProps {
     /**
@@ -21,12 +21,12 @@ const sizeClasses = {
 }
 
 /**
- * MainLogo component that displays the official Flightroom logo
+ * MainLogo component that displays the logo of the installation, Flightroom's unless one is set
  */
 export const MainLogo: React.FC<MainLogoProps> = ({ className = "", size = "md" }) => {
-    const { t } = useTranslation()
+    const { name, logoUrl } = useBranding()
 
-    return <img src="/img/logo.png" alt={t("app.name")} className={twMerge(sizeClasses[size], className)} data-testid="main-logo" />
+    return <img src={logoUrl} alt={name} className={twMerge(sizeClasses[size], "object-contain", className)} data-testid="main-logo" />
 }
 
 export default MainLogo

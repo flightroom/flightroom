@@ -37,6 +37,11 @@ export default interface GlobalConfigDTO {
     registrationAllowed: boolean
     canSendEmail: boolean
     marketingOptInEnabled: boolean
+    /** Nome e logo dell'installazione, se impostati */
+    branding?: {
+        name?: string
+        logoUrl?: string
+    }
     providers: AuthProvidersConfig
     mcp: {
         enabled: boolean
