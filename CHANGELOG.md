@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Service Account By Provider**: a service account resource says whether it is Google or Microsoft. The JSON key becomes the Google variant and sets `SA_<NAME>_PROVIDER=google`. The new Microsoft variant is an Entra ID app: tenant, client id, client secret and an optional scope, with `SA_<NAME>_PROVIDER=microsoft`, and the backend gets its token from `login.microsoftonline.com/<tenant>`. Any other OAuth2 server stays on the client credentials variant, with its token URL. Saved resources keep their variant, but a Google key now adds `SA_<NAME>_PROVIDER` on the next deploy
+
 ---
 
 ## [8.3.0] - 2026-10-26

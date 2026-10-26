@@ -25,6 +25,7 @@ const ENGINE_BRANDS = new Map<string, SimpleIcon>([
 /** Per `tipo.variante` */
 const VARIANT_BRANDS = new Map<string, SimpleIcon>([
     ["storage.google", siGooglecloud],
+    ["serviceAccount.jsonKey", siGooglecloud],
     ["ai.anthropic", siClaude],
     ["ai.google", siGooglegemini]
 ])

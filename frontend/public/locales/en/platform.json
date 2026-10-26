@@ -3440,7 +3440,7 @@
             },
             "serviceAccount": {
                 "label": "Service account",
-                "description": "Credentials a backend uses to call another system on its own behalf."
+                "description": "Credentials a backend uses to call another system on its own behalf: a Google key, a Microsoft Entra ID app or any OAuth2 client."
             },
             "auth0": {
                 "label": "Auth0",
@@ -3496,8 +3496,9 @@
                 "connectionString": "Connection URL"
             },
             "serviceAccount": {
-                "jsonKey": "JSON key",
-                "clientCredentials": "Client credentials"
+                "jsonKey": "Google, JSON key",
+                "microsoft": "Microsoft, Entra ID app",
+                "clientCredentials": "Other, OAuth2 client credentials"
             },
             "auth0": {
                 "default": "Application"
