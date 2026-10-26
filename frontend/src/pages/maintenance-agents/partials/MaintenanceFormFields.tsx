@@ -251,13 +251,14 @@ export const MaintenanceRuntimeFields: React.FC = () => {
     const isContainer = watch("kind") === "container"
 
     // Left empty, the deploy takes the image from the registry of the project: say which one, or that a version would not be deployed
-    const hasImage = Boolean(watch("image.repository")?.trim())
+    // A bare name, with no "/", is an image of that registry too
+    const image = watch("image.repository")?.trim()
     const hasVersion = Boolean(watch("version")?.trim())
-    const imageHint = hasImage
+    const imageHint = image?.includes("/")
         ? t("backends.image_repository_hint")
         : containerRegistry
-          ? t("backends.image_repository_hint_registry", { image: `${containerRegistry}/${watch("slug") || "<slug>"}` })
-          : hasVersion
+          ? t(image ? "backends.image_repository_hint_name" : "backends.image_repository_hint_registry", { image: `${containerRegistry}/${image || watch("slug") || "<slug>"}` })
+          : !image && hasVersion
             ? t("backends.image_repository_missing")
             : t("backends.image_repository_hint")
 

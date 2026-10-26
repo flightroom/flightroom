@@ -86,9 +86,13 @@ export const applicationValuesPath = (application: Pick<GitOpsApplication, "slug
 /**
  * The image an application runs, without tag: its own repository, otherwise `<containerRegistry>/<slug>` when the
  * project has a container registry, so that a CI that never registers its versions still gets deployed. None without either.
+ * A bare name of its own (`bacheca-team-fe`, no `/`) is an image of that registry too: `<containerRegistry>/<name>`.
  */
-export const applicationImageRepository = (application: Pick<GitOpsApplication, "slug" | "image">, containerRegistry?: string): string | undefined =>
-    application.image?.repository?.trim() || (containerRegistry ? `${containerRegistry}/${application.slug}` : undefined)
+export const applicationImageRepository = (application: Pick<GitOpsApplication, "slug" | "image">, containerRegistry?: string): string | undefined => {
+    const own = application.image?.repository?.trim()
+    if (own?.includes("/")) return own
+    return containerRegistry ? `${containerRegistry}/${own || application.slug}` : own || undefined
+}
 
 /** Only what has an image and a version can be installed: the others are left out of the deploy */
 export const isDeployable = (application: GitOpsApplication, containerRegistry?: string): application is GitOpsApplication & { version: string } =>

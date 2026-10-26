@@ -27,6 +27,14 @@ describe("applicationImageRepository", () => {
         expect(applicationImageRepository({ slug: "orders", ...fields }, "azimutmarketplace.azurecr.io")).toBe("azimutmarketplace.azurecr.io/orders")
     })
 
+    it("given a bare name as image repository and a registry in the project, when the image is resolved, then it is the name in the registry", () => {
+        expect(applicationImageRepository({ slug: "orders", image: { repository: " bacheca-team-fe " } }, "azimutmarketplace.azurecr.io")).toBe("azimutmarketplace.azurecr.io/bacheca-team-fe")
+    })
+
+    it("given a bare name as image repository and no registry in the project, when the image is resolved, then it is the name as written", () => {
+        expect(applicationImageRepository({ slug: "orders", image: { repository: "nginx" } })).toBe("nginx")
+    })
+
     it("given no image and no registry in the project, when the image is resolved, then there is none", () => {
         expect(applicationImageRepository({ slug: "orders" })).toBeUndefined()
     })
