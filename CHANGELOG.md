@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.1.1] - 2026-10-26
+
+### Changed
+
+- **Bare Image Names In The Container Registry**: an image repository with no `/`, e.g. `bacheca-team-fe`, is deployed as `<containerRegistry>/<name>`, as an empty one is deployed as `<containerRegistry>/<slug>`; a full path is used as written. The form tells which image will be deployed
+
+### Fixed
+
+- **Argo CD Branches In Another Case**: Azure DevOps keeps the first spelling of a branch, so a deploy of `UAT` lands on an existing `uat`, while Argo CD resolves a revision by its exact name. An environment now finds its branch of the applications repository whatever the case, and the ApplicationSets point Argo CD at the branch as the repository names it
+- **Empty ApplicationSets Explained**: an environment a deploy committed to that finds no branch in the applications repository was left out of the ApplicationSets in silence, which could then list no environment and make no Application. The Argo CD settings now name it, with the branches the console read (`ARGOCD_ENVIRONMENTS_WITHOUT_BRANCH`)
+
+---
+
 ## [8.1.0] - 2026-10-26
 
 ### Added
