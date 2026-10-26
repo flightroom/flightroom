@@ -37,7 +37,8 @@ export interface IProjectPipelines {
  * one the owner pasted, the same for both repositories.
  */
 export interface IArgoCdRepositoryCredential {
-    source: "deployToken" | "manual"
+    /** `shared`: the repository is read through the registration another project of the organization made, with no credentials here */
+    source: "deployToken" | "manual" | "shared"
     username: string
     password: string
     /** The Argo CD the credentials were handed to, and the clone URL they are registered for there */

@@ -150,6 +150,35 @@ const gitlabAddressOf = (link: ICodeRepositoryFrontend, codeRepository: ICodeRep
 const storedRepositoryToken = (argoCd: IProjectArgoCd | undefined, url: string | undefined): string | undefined =>
     Object.values(argoCd?.repositories ?? {}).find(credential => credential?.source === "manual" && credential.password && url && credential.argoCdUrl === url)?.password
 
+const REPOSITORY_KINDS: ArgoCdRepositoryKind[] = ["configuration", "applications"]
+
+/** A project whose credentials hold `registration` on Argo CD, or that reads through them: `shared` for the second */
+const registeredIn = (registration: IArgoCdRepositoryRegistration, extra: Record<string, unknown> = {}) => ({
+    $or: REPOSITORY_KINDS.map(kind => ({
+        [`argoCd.repositories.${kind}.argoCdUrl`]: registration.argoCdUrl,
+        [`argoCd.repositories.${kind}.repoUrl`]: registration.repoUrl,
+        ...Object.fromEntries(Object.entries(extra).map(([field, value]) => [`argoCd.repositories.${kind}.${field}`, value]))
+    }))
+})
+
+/**
+ * The project of the same organization that registered `repoUrl` globally on the Argo CD at `argoCdUrl` with credentials of
+ * its own: a project linking the same repository reads it through that registration rather than fight over it. Argo CD
+ * holds one registration per URL, and taking it over would leave the other project with credentials it does not know of.
+ */
+const holderOf = async (projectId: Schema.Types.ObjectId, organizationId: Schema.Types.ObjectId, argoCdUrl: string, repoUrl: string) => {
+    const candidates = await Project.find({ _id: { $ne: projectId }, organizationId, ...registeredIn({ argoCdUrl, repoUrl }) }, { slug: 1, argoCd: 1 })
+    return candidates.find(candidate =>
+        Object.values(candidate.argoCd?.repositories ?? {}).some(
+            credential => credential?.argoCdUrl === argoCdUrl && credential.repoUrl === repoUrl && !credential.argoProject && credential.source !== "shared"
+        )
+    )
+}
+
+/** Whether another project reads the repository through `registration`: deleting it would cut that project off */
+const sharedByOthers = async (projectId: Schema.Types.ObjectId, registration: IArgoCdRepositoryRegistration) =>
+    Boolean(await Project.exists({ _id: { $ne: projectId }, ...registeredIn(registration, { source: "shared" }) }))
+
 /** The AppProject an Application, or the applications of an ApplicationSet, belong to */
 const projectOf = (resource: ArgoCdResource): unknown => {
     const spec = resource.spec as { project?: unknown; template?: { spec?: { project?: unknown } } } | undefined
@@ -218,7 +247,7 @@ const nameConflict = (kind: string, name: string) =>
 const repositoryConflict = (repository: string) =>
     createBusinessException({
         code: "ARGOCD_REPOSITORY_CONFLICT",
-        message: `Argo CD already has the repository ${repository} registered, and not by this project: remove it in Argo CD, then initialize again`,
+        message: `Argo CD already has the repository ${repository} registered, by hand or by a project of another organization: remove that registration in Argo CD, then initialize again. One made by a project of this organization is shared on its own`,
         statusCode: 409,
         details: { repository }
     })
@@ -373,7 +402,14 @@ export class ArgoCdService extends BaseAuthorizedService {
                     const conflict = () => nameConflict("ApplicationSet", metadata.name)
                     if (!isOurs(await probe(client.getApplicationSet(metadata.name), conflict))) throw conflict()
                 }
+                // A repository another project of the organization registered globally is read through its registration.
+                // Only a global one: a registration scoped to another AppProject is of no use to this one
+                const shared = new Set<ArgoCdRepositoryKind>()
                 for (const target of targets) {
+                    if (!target.argoProject && (await holderOf(projectIdObj, project.organizationId, url, target.repoUrl))) {
+                        shared.add(target.kind)
+                        continue
+                    }
                     const before = previous?.repositories?.[target.kind]
                     const ours = before?.argoCdUrl === url && before.repoUrl === target.repoUrl && before.argoProject === target.argoProject
                     if (!ours && (await client.getRepository(target.repoUrl))) throw repositoryConflict(target.repoUrl)
@@ -386,6 +422,14 @@ export class ArgoCdService extends BaseAuthorizedService {
                     const { kind, link, connection, repoUrl, argoProject } = target
                     const before = previous?.repositories?.[kind]
                     const common = { argoCdUrl: url, repoUrl, argoProject, codeRepositoryId: String(connection._id) }
+                    if (shared.has(kind)) {
+                        // No token of its own: the registration and its credentials stay those of the project that made them
+                        const credential: IArgoCdRepositoryCredential = { source: "shared", username: "", password: "", ...common }
+                        repositories[kind] = credential
+                        await save({ ...previous, url, token, insecure, repositories })
+                        if (before) undeleted.push(...(await this.retire(client, url, projectIdObj, before, credential)))
+                        continue
+                    }
                     let credential: IArgoCdRepositoryCredential
                     if (connection.provider === CodeRepositoryProvider.GITLAB) {
                         const gitlab = new GitlabClient(connection.gitlabData?.url ?? "", connection.accessToken)
@@ -432,7 +476,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                 const retried: IArgoCdRepositoryRegistration[] = []
                 for (const registration of deletions) {
                     if (targets.some(target => target.repoUrl === registration.repoUrl && target.argoProject === registration.argoProject)) continue
-                    if (!(await this.deleteRegistration(client, registration))) retried.push(registration)
+                    if (!(await this.deleteRegistration(client, projectIdObj, registration))) retried.push(registration)
                 }
                 deletions = [...retried, ...undeleted]
                 await save({ ...previous, url, token, insecure, repositories })
@@ -623,9 +667,10 @@ export class ArgoCdService extends BaseAuthorizedService {
     ): Promise<IArgoCdRepositoryRegistration[]> {
         const undeleted: IArgoCdRepositoryRegistration[] = []
         const sameRegistration = next && next.argoCdUrl === before.argoCdUrl && next.repoUrl === before.repoUrl && next.argoProject === before.argoProject
-        if (before.argoCdUrl === url && !sameRegistration) {
+        // A shared registration is the other project's to delete, and so are its credentials
+        if (before.argoCdUrl === url && !sameRegistration && before.source !== "shared") {
             const registration = { argoCdUrl: before.argoCdUrl, repoUrl: before.repoUrl, argoProject: before.argoProject }
-            if (!(await this.deleteRegistration(client, registration))) undeleted.push(registration)
+            if (!(await this.deleteRegistration(client, projectId, registration))) undeleted.push(registration)
         }
         if (before.source !== "deployToken" || before.deployTokenId === undefined || before.gitlabProjectId === undefined) return undeleted
         const connection = await CodeRepository.findOne({ _id: toObjectId(before.codeRepositoryId), projectId })
@@ -637,8 +682,15 @@ export class ArgoCdService extends BaseAuthorizedService {
         return undeleted
     }
 
-    /** Whether the registration is gone from Argo CD, one already gone included: when not, the next run tries again */
-    private async deleteRegistration(client: ArgoCdClient, registration: IArgoCdRepositoryRegistration): Promise<boolean> {
+    /**
+     * Whether the registration is gone from Argo CD, one already gone included: when not, the next run tries again. One another
+     * project reads through is left in place, and done with for this one: its credentials stop being rotated, nothing else.
+     */
+    private async deleteRegistration(client: ArgoCdClient, projectId: Schema.Types.ObjectId, registration: IArgoCdRepositoryRegistration): Promise<boolean> {
+        if (await sharedByOthers(projectId, registration)) {
+            fastify.log.warn({ repository: registration.repoUrl }, "Argo CD registration of a repository no longer used left in place: another project reads through it")
+            return true
+        }
         return client.deleteRepository(registration.repoUrl, registration.argoProject).then(
             () => true,
             error => {

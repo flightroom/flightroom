@@ -358,7 +358,7 @@
                 "branches_failed": "Impossibile leggere i branch di {{repository}} ({{reason}}): verifica che la connessione raggiunga il repository",
                 "deploy_token_failed": "GitLab non ha creato il deploy token di {{repository}} ({{reason}}): il token della connessione deve avere il ruolo Maintainer sul progetto e lo scope api",
                 "url_insecure": "L'URL di Argo CD deve essere https: token e credenziali dei repository viaggerebbero in chiaro. Solo per un cluster locale l'installazione può permettere http con ARGOCD_ALLOW_INSECURE_HTTP=true",
-                "repository_conflict": "Su Argo CD il repository {{repository}} è già registrato, e non da questo progetto: rimuovilo da Argo CD, poi riprova",
+                "repository_conflict": "Su Argo CD il repository {{repository}} è già registrato a mano o da un progetto di un'altra organizzazione: rimuovi quella registrazione da Argo CD, poi riprova. Quella di un progetto di questa organizzazione viene condivisa da sola",
                 "busy": "È già in corso un'inizializzazione di Argo CD per questo progetto: riprova tra un momento",
                 "lease_lost": "Un'altra inizializzazione di Argo CD ha preso il posto di questa mentre era in corso: controllane l'esito e, se serve, inizializza di nuovo"
             },
