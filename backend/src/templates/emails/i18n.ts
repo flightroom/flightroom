@@ -158,7 +158,7 @@ const en: EmailStrings = {
         header: "Your API Key Is About to Expire",
         preheader: ({ key, project, daysLeft }) => `The API key ${key} of ${project} expires ${inDays(daysLeft)}.`,
         intro: ({ key, project, date, daysLeft }) => `The API key ${key} of the project ${project} expires ${inDays(daysLeft)}, on ${date}.`,
-        prompt: "Create a new key and hand it to whatever uses this one (CI pipelines, integrations, MCP clients) before then, or they will stop working:",
+        prompt: "Click the button below to create a new key and replace this one wherever it is used, before it stops working:",
         button: "Manage API Keys",
         ignore: "If the key is no longer needed, you can let it expire.",
         reason: project => `You receive this email because you administer ${project}.`
@@ -248,7 +248,7 @@ const it: EmailStrings = {
         header: "La chiave API sta per scadere",
         preheader: ({ key, project, daysLeft }) => `La chiave API ${key} di ${project} scade ${traGiorni(daysLeft)}.`,
         intro: ({ key, project, date, daysLeft }) => `La chiave API ${key} del progetto ${project} scade ${traGiorni(daysLeft)}, il ${date}.`,
-        prompt: "Crea una nuova chiave e passala a chi usa questa (pipeline di CI, integrazioni, client MCP) prima di allora, altrimenti smetteranno di funzionare:",
+        prompt: "Usa il pulsante qui sotto per creare una nuova chiave e sostituirla dove viene usata, prima che smetta di funzionare:",
         button: "Gestisci le chiavi API",
         ignore: "Se la chiave non serve più, puoi lasciarla scadere.",
         reason: project => `Ricevi questa email perché amministri ${project}.`
