@@ -1550,8 +1550,8 @@
     "semantic_hash": ""
   },
   "pnpm-workspace.yaml": {
-    "mtime": 1793005821.1946132,
-    "ast_hash": "fcba42bd0965883f41bf86058a146210",
+    "mtime": 1793092803.5113122,
+    "ast_hash": "24b490f265c55f6a622b21a91bd63fbd",
     "semantic_hash": ""
   },
   "frontend/public/img/Azure.svg": {
@@ -2450,8 +2450,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/assistant/docs-index.json": {
-    "mtime": 1793028269.036041,
-    "ast_hash": "d661f563a69485d2511d110690273f47",
+    "mtime": 1793093392.7752733,
+    "ast_hash": "f14250af3d72a643a0e2326be725ee7b",
     "semantic_hash": ""
   },
   "backend/src/service/assistant/docsSearch.test.ts": {
@@ -2935,8 +2935,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/TemplateScaffoldService.test.ts": {
-    "mtime": 1793005820.5540981,
-    "ast_hash": "02da7438787b8bce444c4d5b94aedc4f",
+    "mtime": 1793093392.763207,
+    "ast_hash": "ab55809de8c0ede3a6d617aab4a7d57d",
     "semantic_hash": ""
   },
   "backend/src/service/TemplateScaffoldService.ts": {
@@ -3070,8 +3070,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/__fixtures__/template-pipelines/remote/vite/azure_dev_ops/azure-pipelines.yml": {
-    "mtime": 1793005820.5573428,
-    "ast_hash": "a474a500985031574815f974663ba074",
+    "mtime": 1793093392.764566,
+    "ast_hash": "790adfbe3ca7cec661068dfb6fd9d0c2",
     "semantic_hash": ""
   },
   "backend/src/service/__fixtures__/template-pipelines/remote/vite/github/workflows/build-and-deploy.yml": {
@@ -3330,8 +3330,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793091986.1847124,
-    "ast_hash": "7a074f2596d8e8e3c60d8ce7bfa4b318",
+    "mtime": 1793093989.6026363,
+    "ast_hash": "d25cca4fe4dc1081deafa9fb17d600db",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
@@ -4897,71 +4897,6 @@
   "frontend/src/pages/domains/partials/DomainVersionsSection.tsx": {
     "mtime": 1793005820.632397,
     "ast_hash": "a7b41c5d4b30d742705ade9650e2da71",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/package.json": {
-    "mtime": 1793005820.43191,
-    "ast_hash": "09093cebecba75eb218dd923dc8d4b65",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/scripts/build.mjs": {
-    "mtime": 1793005820.4320917,
-    "ast_hash": "4ff454446d6c208f037ed2494dd6cc28",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/src/flightroomApi.ts": {
-    "mtime": 1793005820.4322233,
-    "ast_hash": "1f5a2edb9b8917e03e589d874cdefc8e",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/src/registerDockerImage.ts": {
-    "mtime": 1793005820.4323409,
-    "ast_hash": "4d0e8969195fb94442e818661602bdfe",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/src/uploadMicrofrontend.ts": {
-    "mtime": 1793005820.4324515,
-    "ast_hash": "5f222045ebce38676b14cad77d74f4ac",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/tasks/register-docker-image/task.json": {
-    "mtime": 1793005820.4329734,
-    "ast_hash": "262ec2ec093877463cf19a4eb4537a86",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/tasks/upload-microfrontend/task.json": {
-    "mtime": 1793005820.4331467,
-    "ast_hash": "81f98dc69436e79d28be4d0686ed28d8",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/tests/flightroomApi.test.ts": {
-    "mtime": 1793005820.433325,
-    "ast_hash": "86665d55e65a27f7458e2d615bd522d1",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/tsconfig.json": {
-    "mtime": 1793005820.4334118,
-    "ast_hash": "2985cd54fcadbd45eebf2e6ab3bf1d03",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/vss-extension.json": {
-    "mtime": 1793005820.4334912,
-    "ast_hash": "944ed1f6e228262a21e4c7f01fbaa8ad",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/README.md": {
-    "mtime": 1793005820.4291635,
-    "ast_hash": "bb5ba10fa4540d75b95551ab4caa3e16",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/overview.md": {
-    "mtime": 1793005820.431836,
-    "ast_hash": "ef75f58ee7e0b6889cb7309d44b7cbca",
-    "semantic_hash": ""
-  },
-  "azure-devops-extension/images/extension-icon.png": {
-    "mtime": 1793005820.431691,
-    "ast_hash": "740c89e9e8882f47161528ed95d9eb3b",
     "semantic_hash": ""
   },
   "frontend/src/components/LivePreviewButton.tsx": {
