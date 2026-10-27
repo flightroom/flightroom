@@ -47,6 +47,8 @@ export enum BuildUnavailableReason {
 export interface ComponentBuildStatusDTO {
     name: string
     slug: string
+    /** Functional domain of the component, so the console can group by it */
+    domainId?: string
     provider?: CodeRepositoryProvider
     repositoryName?: string
     /** Version the component itself currently points at. */

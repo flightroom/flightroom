@@ -427,8 +427,9 @@
         "deploying": "Deploy in corso…",
         "active_deployments": "Deployment attivo",
         "history": "Storico",
-        "frontends_title": "Frontend",
-        "backends_title": "Backend",
+        "kind_frontend": "Frontend",
+        "kind_backend": "Backend",
+        "kind_resource": "Risorsa",
         "no_domain": "Senza dominio funzionale",
         "config_maps_title": "Config map",
         "secrets_title": "Secret",
@@ -539,6 +540,7 @@
             "description": "Crea un frontend o un backend per vedere qui lo stato delle sue build."
         },
         "table": {
+            "no_domain": "Senza dominio funzionale",
             "name": "Nome",
             "kind": "Tipo",
             "last_build": "Ultima build",

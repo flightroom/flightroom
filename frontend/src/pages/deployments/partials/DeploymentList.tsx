@@ -6,17 +6,17 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
-import ResourceIcon from "@/components/resource/ResourceIcon"
 import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
-import { resourcePath, useResourcesQuery } from "@/pages/resources/partials/resources"
+import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedBackend, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
 import DeploymentBackendCard from "./DeploymentBackendCard"
 import DeploymentFrontendCard from "./DeploymentFrontendCard"
+import DeploymentResourceCard from "./DeploymentResourceCard"
 
 /** The config maps or the secrets of a deployment, each with the keys it set in the environment and a link to its page */
 const DeployedMaps: React.FC<{
@@ -24,8 +24,7 @@ const DeployedMaps: React.FC<{
     maps: DeployedVariableMap[]
     path: (id: string) => string
     secret?: boolean
-    icon?: (map: DeployedVariableMap) => React.ReactNode
-}> = ({ title, maps, path, secret, icon }) => {
+}> = ({ title, maps, path, secret }) => {
     const { t } = useTranslation()
 
     return (
@@ -33,8 +32,7 @@ const DeployedMaps: React.FC<{
             <h4 className="font-semibold text-primary-strong mb-1">{title}</h4>
             {maps.map(map => (
                 <div key={map._id} className="mt-2">
-                    <p className="flex items-center gap-2 text-sm font-medium">
-                        {icon?.(map)}
+                    <p className="text-sm font-medium">
                         <Link to={path(map._id)} className="underline-offset-4 hover:underline">
                             {map.name}
                         </Link>
@@ -92,12 +90,8 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
     const configMaps = deployment.configMaps ?? []
     const secrets = deployment.secrets ?? []
     const resources = deployment.resources ?? []
-    // The deployment records names and keys only: the icon comes from the resource as it is now, none once it is deleted
+    // The deployment records names and keys only: the type and icon come from the resource as it is now, none once it is deleted
     const resourcesQuery = useResourcesQuery(resources.length > 0)
-    const resourceIcon = (map: DeployedVariableMap) => {
-        const resource = resourcesQuery.data?.find(candidate => candidate._id === map._id)
-        return resource && <ResourceIcon resource={resource} />
-    }
     const exposure = useProjectStore(state => state.project?.exposure)
     const environment = useProjectStore(state => state.environments?.find(candidate => candidate._id === deployment.environmentId))
     // No link without a domain to expose on: the path alone does not open anything
@@ -127,26 +121,15 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
                             )}
                         </h4>
                     )}
-                    {group.frontends.length > 0 && (
-                        <div>
-                            <h5 className="font-semibold text-primary-strong mb-2">{t("deployments.frontends_title")}</h5>
-                            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                                {group.frontends.map(frontend => (
-                                    <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
-                    {group.backends.length > 0 && (
-                        <div className={group.frontends.length > 0 ? "mt-4" : undefined}>
-                            <h5 className="font-semibold text-primary-strong mb-2">{t("deployments.backends_title")}</h5>
-                            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                                {group.backends.map(backend => (
-                                    <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
-                                ))}
-                            </div>
-                        </div>
-                    )}
+                    {/* One grid for both: the tag and the color of each card tell a frontend from a backend */}
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                        {group.frontends.map(frontend => (
+                            <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
+                        ))}
+                        {group.backends.map(backend => (
+                            <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
+                        ))}
+                    </div>
                 </section>
             ))}
             {deployment.variables.length > 0 && (
@@ -163,8 +146,16 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
             )}
             {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} path={VARIABLE_MAP_KINDS.configMap.detailPath} />}
             {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} path={VARIABLE_MAP_KINDS.secret.detailPath} secret />}
-            {/* Recorded keys only, as for a secret: the values stay with the resource */}
-            {resources.length > 0 && <DeployedMaps title={t("deployments.resources_title")} maps={resources} path={resourcePath} secret icon={resourceIcon} />}
+            {resources.length > 0 && (
+                <div className="mt-4">
+                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.resources_title")}</h4>
+                    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                        {resources.map(deployed => (
+                            <DeploymentResourceCard key={deployed._id} deployed={deployed} resource={resourcesQuery.data?.find(candidate => candidate._id === deployed._id)} />
+                        ))}
+                    </div>
+                </div>
+            )}
         </>
     )
 }
