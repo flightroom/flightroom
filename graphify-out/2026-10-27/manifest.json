@@ -940,8 +940,8 @@
     "semantic_hash": ""
   },
   "frontend/src/main.tsx": {
-    "mtime": 1793034024.7069373,
-    "ast_hash": "af34964390e277d525dba4a2f996d0b3",
+    "mtime": 1793136201.756454,
+    "ast_hash": "10209ff1e93e85323be0628e214d2a29",
     "semantic_hash": ""
   },
   "frontend/src/pages/Index.tsx": {
@@ -4490,7 +4490,7 @@
     "semantic_hash": ""
   },
   "backend/src/templates/emails/i18n.ts": {
-    "mtime": 1793136020.8083935,
+    "mtime": 1793136251.7225714,
     "ast_hash": "9944375b5ffd1089a18ce57b3ecfd999",
     "semantic_hash": ""
   },
@@ -5070,8 +5070,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiJobNotices.test.ts": {
-    "mtime": 1793135887.40607,
-    "ast_hash": "c17723c968515b8867ae1086454dd338",
+    "mtime": 1793136214.0188787,
+    "ast_hash": "9c7bbe568ccfdf20280d58aee9db5f39",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiJobNotices.ts": {
