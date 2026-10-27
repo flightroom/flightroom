@@ -245,7 +245,7 @@ describe("TemplateScaffoldService, pipelines of template-pipelines", () => {
     /** The variable list of an Azure DevOps stage, as name to value */
     const azureVariables = (stage: Pipeline) => Object.fromEntries((stage.variables as { name?: string; value?: string }[]).filter(v => v.name).map(v => [v.name, v.value]))
     const azureStage = (pipeline: Pipeline, name: string) => (pipeline.stages as Pipeline[]).find(stage => stage.stage === name) as Pipeline
-    const azureUpload = (pipeline: Pipeline) => (azureStage(pipeline, "Deploy").jobs[0].steps as Pipeline[]).find(step => step.task === "mfe-orchestrator-upload@1")?.inputs
+    const azureUpload = (pipeline: Pipeline) => (azureStage(pipeline, "Deploy").jobs[0].steps as Pipeline[]).find(step => step.task === "flightroom-upload@1")?.inputs
 
     const templates = [
         {
