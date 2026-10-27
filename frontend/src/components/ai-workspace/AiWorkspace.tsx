@@ -1676,7 +1676,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                 {workshop && queueQuery.data && (
                     <Suspense
                         fallback={
-                            <div className="flex h-[clamp(320px,48vw,460px)] items-center justify-center rounded-xl border border-divider">
+                            <div className="flex h-[clamp(380px,65vh,820px)] items-center justify-center rounded-xl border border-divider">
                                 <Spinner size={24} centerScreen={false} label={t("common.loading")} />
                             </div>
                         }
