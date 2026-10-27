@@ -7,9 +7,32 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+---
+
+## [9.0.0] - 2026-10-27
+
 ### Breaking
 
 - **The Deploy Secret Is Named `FLIGHTROOM_API_KEY`**: the API key Flightroom writes into GitHub, GitLab and Azure DevOps for the pipelines, and the official template-pipelines read, was `MICROFRONTEND_ORCHESTRATOR_API_KEY`. Pipelines already in the repositories keep reading the old name and keep working. A frontend or backend created from a template gets pipelines reading the new one, which a connection made before the rename does not have: edit the connection and save it once to have it written. A secret added by hand, or a project pipelines repository, has to move to the new name
+
+### Added
+
+- **Shape A New Project With The Assistant**: the new project wizard opens asking whether to describe the project to the assistant or set it up step by step. The assistant asks its questions until the draft covers the name, the environments and the functional domains, which get a step of their own in place of hosting
+- **API Key Expiry Emails**: the owners of a project and the administrators of its organization get an email 30 days before an active API key of the project expires, and again 7 days before. The keys are checked every hour, and each notice goes out once even with several replicas
+- **The Branch Of Each Member In A Domain Build**: the build and deploy dialog of a domain lists its frontends and backends with their repository, each with its own branch, plus one choice that sets them all: main everywhere, a branch they share, or each repository's default branch. The domain build takes `refs`, the branch of each member by id: a member left out is tagged on `ref`, main when that is left out too. Two members sharing a repository on different branches are refused, as the repository gets one tag. Each repository of the build tells the branch it was tagged on
+- **The Builds Of A Domain Release**: the build and deploy dialog of a domain shows the builds still running and the ones that failed, with Vega waiting while they run
+- **CPU And Memory Of Each Application**: backends, frontends built into an image and maintenance agents take a CPU request, a CPU limit, a memory request and a memory limit. The values file of the application carries only the ones set, and the chart fills in the others with its defaults. A request above its limit, counting the chart default for the side left blank, is refused, as Kubernetes would refuse the Deployment
+
+### Changed
+
+- **Deployments And Builds By Functional Domain**: a deployment shows a box per functional domain, with its name linking to the domain and its frontends and backends inside, two by two on wide screens; the build table gets a heading row per domain with its components below. The domains go by name and the members of none last; a project with no component in a domain keeps the single list
+- **A Bigger Workshop In Edit With AI**: the Vegas off duty, whose work waits, thinks, has a proposal ready or failed, fly from spot to spot of an open deck in front of the bays and go back to their bay once the agent works on them again. The room has four bays to a row, grows a row past four Vegas and grows with the window up to 820 px. An applied work's Vega takes off with its rocket, a discarded one's sinks and fades away, and the queue of the classic view sits under the workshop, so applied and discarded works stay at hand
+- **Vega In The Deploy Game**: Vega flies the deploy game and waits in the deploy pill
+- **Home From The Logo**: the logo and the name at the top left of the sidebar link to the home page
+
+### Fixed
+
+- **A Sandbox That Never Became Ready**: a sandbox stuck provisioning was waited for again by every live preview of the domain, each failing after 300 seconds. It is now deleted and replaced, and the error names the phase it was left in
 
 ---
 
