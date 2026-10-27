@@ -21,6 +21,7 @@ import { format } from "date-fns"
 import {
     AlertTriangle,
     ArrowUp,
+    Box,
     CheckCircle2,
     ChevronDown,
     ChevronRight,
@@ -30,6 +31,7 @@ import {
     GitMerge,
     GitPullRequest,
     LayoutDashboard,
+    List,
     LoaderCircle,
     Plus,
     RotateCcw,
@@ -37,7 +39,7 @@ import {
     Sparkles,
     Trash2
 } from "lucide-react"
-import { Fragment, useEffect, useId, useRef, useState } from "react"
+import { Fragment, lazy, Suspense, useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useSearchParams } from "react-router-dom"
 import AiModelSelect from "@/components/assistant/AiModelSelect"
@@ -63,6 +65,29 @@ import { AiChangeDiff } from "./AiChangeDiff"
 import { LivePreviews, ProgressLog, StatusBadge } from "./AiChangeProgress"
 import { AttachImageButton, PromptImageList, PromptImagesState, usePromptImages } from "./PromptImages"
 import { AiWorkspaceRepository, BaseBranches, pickedBaseBranches, RepositoryBranches } from "./RepositoryBranches"
+import type { WorkshopEntry } from "./workshop/VegaWorkshop"
+
+// three.js comes with it: only the users who open the workshop load it
+const VegaWorkshop = lazy(() => import("./workshop/VegaWorkshop"))
+
+type WorkspaceView = "classic" | "workshop"
+const VIEW_KEY = "flightroom.aiWorkspace.view"
+
+const readView = (): WorkspaceView => {
+    try {
+        return localStorage.getItem(VIEW_KEY) === "workshop" ? "workshop" : "classic"
+    } catch {
+        return "classic"
+    }
+}
+
+const saveView = (view: WorkspaceView) => {
+    try {
+        localStorage.setItem(VIEW_KEY, view)
+    } catch {
+        // Storage blocked: the choice lasts as long as the page
+    }
+}
 
 const PROMPT_MAX_LENGTH = 8000
 const POLL_INTERVAL_MS = 2000
@@ -1165,6 +1190,8 @@ interface QueueEntry {
     repositories?: number
     /** Next to the status. */
     badge?: React.ReactNode
+    /** While the agent works on it: what the workshop reads its events from. */
+    live?: WorkshopEntry["live"]
 }
 
 /** A repository lists its requests, newest first; a conversation is one entry, opened on where it stands: the request the agent works on, else the proposal to review, else the newest. */
@@ -1182,7 +1209,8 @@ const requestEntries = (requests: AiChangeRequest[]): QueueEntry[] => {
             status: current.status,
             turns: chain.length,
             files: current.files.length,
-            badge: <JobBadge request={current} />
+            badge: <JobBadge request={current} />,
+            live: isActive(current.status) ? { kind: "request", id: current._id } : undefined
         }
     })
 }
@@ -1206,7 +1234,8 @@ const jobEntries = (jobs: AiJob[]): QueueEntry[] => {
             title: first.title ?? firstLine(first.prompt),
             at: latest.updatedAt,
             status: reviewable ? "PROPOSED" : status,
-            repositories: latest.repositories.length
+            repositories: latest.repositories.length,
+            live: isJobBusy(latest) ? { kind: "job", id: latest._id } : undefined
         }
     })
 }
@@ -1472,6 +1501,11 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
     const focusComposer = useRef(false)
     const linkedId = searchParams.get("change") ?? undefined
     const repository = isRepositoryTarget(target) ? target : undefined
+    const [view, setView] = useState<WorkspaceView>(readView)
+    const changeView = (next: WorkspaceView) => {
+        setView(next)
+        saveView(next)
+    }
 
     // A repository lists its requests, a domain its jobs: either way, conversations with the agent.
     // Jobs started from the assistant land here too: keep the queue moving while any agent works.
@@ -1579,19 +1613,75 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
     }
 
     const groups: QueueGroup[] = ["review", "active", "discarded", "applied", "failed"]
+    const workshop = view === "workshop"
+
+    const newChangeButton = (
+        <Button type="button" variant={linkedId === NEW_CHANGE ? "secondary" : "primary"} onClick={startNew} dataTestId="ai-change-new">
+            <Plus aria-hidden="true" />
+            {t("frontend.aiChange.new_change")}
+        </Button>
+    )
+    const viewSwitch = (
+        <div role="group" aria-label={t("frontend.aiChange.workshop.view_label")} className="flex gap-1 rounded-md border border-divider p-0.5">
+            {(["classic", "workshop"] as const).map(option => {
+                const Icon = option === "classic" ? List : Box
+                return (
+                    <Button
+                        key={option}
+                        type="button"
+                        size="sm"
+                        variant={view === option ? "secondary" : "ghost"}
+                        aria-pressed={view === option}
+                        onClick={() => changeView(option)}
+                        className="flex-1"
+                        dataTestId={`ai-change-view-${option}`}
+                    >
+                        <Icon aria-hidden="true" />
+                        {t(`frontend.aiChange.workshop.view.${option}`)}
+                    </Button>
+                )
+            })}
+        </div>
+    )
+    const queueStatus = (
+        <>
+            {queueQuery.isPending && <Spinner size={24} centerScreen={false} label={t("common.loading")} />}
+            {queueQuery.isError && <p className="text-sm text-destructive">{t("frontend.aiChange.errors.history")}</p>}
+        </>
+    )
 
     return (
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-            <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
-                <Button type="button" variant={linkedId === NEW_CHANGE ? "secondary" : "primary"} onClick={startNew} dataTestId="ai-change-new">
-                    <Plus aria-hidden="true" />
-                    {t("frontend.aiChange.new_change")}
-                </Button>
-                {queueQuery.isPending && <Spinner size={24} centerScreen={false} label={t("common.loading")} />}
-                {queueQuery.isError && <p className="text-sm text-destructive">{t("frontend.aiChange.errors.history")}</p>}
-                {queueQuery.data &&
-                    groups.map(group => <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />)}
-            </aside>
+        <div className={cn("grid items-start gap-6", !workshop && "lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]")}>
+            {workshop ? (
+                <div className="flex min-w-0 flex-col gap-3">
+                    <div className="flex flex-wrap items-center justify-between gap-3">
+                        {newChangeButton}
+                        {viewSwitch}
+                    </div>
+                    {queueStatus}
+                    {queueQuery.data && (
+                        <Suspense
+                            fallback={
+                                <div className="flex h-[clamp(320px,48vw,460px)] items-center justify-center rounded-xl border border-divider">
+                                    <Spinner size={24} centerScreen={false} label={t("common.loading")} />
+                                </div>
+                            }
+                        >
+                            <VegaWorkshop entries={entries} selectedId={linkedId} onSelect={select} />
+                        </Suspense>
+                    )}
+                </div>
+            ) : (
+                <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
+                    {newChangeButton}
+                    {viewSwitch}
+                    {queueStatus}
+                    {queueQuery.data &&
+                        groups.map(group => (
+                            <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />
+                        ))}
+                </aside>
+            )}
 
             <div className="min-w-0">
                 {(linkedId === NEW_CHANGE || (!linkedId && queueQuery.data?.length === 0)) && (
