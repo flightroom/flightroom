@@ -1,7 +1,7 @@
 import axios, { AxiosError, AxiosHeaders } from "axios"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { BusinessException } from "../errors/BusinessException"
-import AzureDevOpsClient, { AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED, AzureBranchNotFoundError } from "./AzureDevOpsClient"
+import AzureDevOpsClient, { AZURE_DEVOPS_TAG_REFUSED, AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED, AzureBranchNotFoundError } from "./AzureDevOpsClient"
 
 const answered = (status: number) =>
     new AxiosError("Request failed", String(status), undefined, undefined, {
@@ -56,6 +56,23 @@ describe("AzureDevOpsClient.tagExists", () => {
 
         await expect(new AzureDevOpsClient().tagExists("pat", "org", "project", "repo", "1.2")).resolves.toBe(true)
         expect(request.mock.calls[0][0]).toMatchObject({ params: { filter: "tags/1.2" } })
+    })
+})
+
+describe("AzureDevOpsClient.createTag", () => {
+    /** Azure DevOps answers 200 to an update of the refs it refused */
+    it("given Azure refuses the ref, when the tag is created, then the refusal is told", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue({ data: { value: [{ name: "refs/tags/1.2.0", success: false, updateStatus: "createTagPermissionRequired" }] } })
+
+        const tag = new AzureDevOpsClient().createTag("pat", "org", "project", "repo", "1.2.0", "abc")
+
+        await expect(tag).rejects.toMatchObject({ code: AZURE_DEVOPS_TAG_REFUSED, message: expect.stringContaining("createTagPermissionRequired") })
+    })
+
+    it("given Azure creates the ref, when the tag is created, then it resolves", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue({ data: { value: [{ name: "refs/tags/1.2.0", success: true, updateStatus: "succeeded" }] } })
+
+        await expect(new AzureDevOpsClient().createTag("pat", "org", "project", "repo", "1.2.0", "abc")).resolves.toBeUndefined()
     })
 })
 
