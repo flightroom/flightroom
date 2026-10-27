@@ -1652,16 +1652,25 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
     )
 
     return (
-        // The same column on the left in both views: a new request and the choice of the view, then the queue in the classic one
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-            <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
-                {newChangeButton}
-                {viewSwitch}
-                {queueStatus}
-                {!workshop &&
-                    queueQuery.data &&
-                    groups.map(group => <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />)}
-            </aside>
+        // The classic view keeps the queue in a column on the left; the workshop takes the whole width, under a bar with the same controls
+        <div className={cn("grid items-start gap-6", !workshop && "lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]")}>
+            {workshop ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    {newChangeButton}
+                    {viewSwitch}
+                    {queueStatus}
+                </div>
+            ) : (
+                <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
+                    {newChangeButton}
+                    {viewSwitch}
+                    {queueStatus}
+                    {queueQuery.data &&
+                        groups.map(group => (
+                            <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />
+                        ))}
+                </aside>
+            )}
 
             <div className="flex min-w-0 flex-col gap-6">
                 {workshop && queueQuery.data && (
