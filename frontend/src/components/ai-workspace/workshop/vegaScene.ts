@@ -33,7 +33,8 @@ const TILE = 4.4
 const MAX_COLUMNS = 4
 /** Room left between the bays and the two walls, for the consoles, the crates and the pipes */
 const WALL_MARGIN = 2.4
-const OPEN_MARGIN = 1
+/** The open deck on the two sides toward the camera */
+const OPEN_MARGIN = 4
 const WALL_HEIGHT = 5.4
 /** The isometric view: from the open corner of the room, a third of the way up */
 const AZIMUTH = Math.PI / 4
@@ -65,6 +66,15 @@ interface Move {
 }
 
 const STILL: Move = { x: 0, z: 0, lift: 0, roll: 0, pitch: 0, spin: 0 }
+
+/** How fast a Vega off duty roams the workshop, in units a second; the ones the agent is working with stay in their bay */
+const ROAM_SPEEDS: Partial<Record<WorkshopMood, number>> = { queued: 1, thinking: 0.8, done: 1.8, failed: 0.5 }
+/** How fast a Vega flies back to its bay once its work starts again */
+const RETURN_SPEED = 2.6
+/** How close two Vegas fly before they push each other aside */
+const PERSONAL_SPACE = 2.6
+/** How high a Vega on its way flies over its usual height: clear of the consoles and the carts of the bays */
+const CRUISE_LIFT = 0.5
 
 /** How far through a cycle of `period` seconds the time is, from 0 to 1 */
 const phaseOf = (time: number, period: number) => (time % period) / period
@@ -130,6 +140,8 @@ interface Vega {
     ring: THREE.Mesh<THREE.TorusGeometry, THREE.MeshBasicMaterial>
     screen: THREE.MeshBasicMaterial
     liftoff: number
+    /** Where it is on the deck, where it flies to, how fast and which way it goes: unset with reduced motion, when it never leaves its bay */
+    roam?: { at: THREE.Vector2; target: THREE.Vector2; pace: number; heading?: number; restUntil?: number }
     /** Whether its plate shows title and caption: written only when it changes */
     expanded?: boolean
     tag: HTMLDivElement
@@ -213,7 +225,8 @@ const hazard = (repeat: [number, number]) =>
 /**
  * The 3D workshop of Edit with AI, seen in isometric view: a room floating in space with two walls of windows on the
  * stars, a gantry crane, pipes, crates and fuel canisters, and a bay per work on a grid of deck plates. In each bay a
- * Vega whose pose says what its work is doing, next to a console that lights up with it. Plain three.js, kept out of
+ * Vega whose pose says what its work is doing, next to a console that lights up with it. While the agent is not on its
+ * work, waiting, thinking, with a proposal ready or failed, the Vega roams the open deck. Plain three.js, kept out of
  * React: the component hands it the workers and takes back the one picked.
  */
 export class VegaScene {
@@ -239,6 +252,8 @@ export class VegaScene {
     /** What moves in the room by itself: the LEDs of the rack, the welding arm */
     private animations: ((time: number, motion: number) => void)[] = []
     private frame = 0
+    /** The time of the last frame drawn: the Vegas on their way move by how long it has been */
+    private lastTime = 0
     private visible = true
     /** Where the camera stands: all the way round, from low over the deck to almost overhead, and how close */
     private azimuth = AZIMUTH
@@ -1020,13 +1035,14 @@ export class VegaScene {
         VegaScene.disposeTree(vega.root)
     }
 
-    /** The grid of bays, at most four to a row, and a room around it that fits them */
+    /** The grid of bays, four to a row, and a room around it that fits them with an open deck to roam: past four Vegas it grows a row */
     private layout() {
-        const columns = Math.min(MAX_COLUMNS, Math.max(3, this.vegas.length))
+        const columns = MAX_COLUMNS
         const rows = Math.max(1, Math.ceil(this.vegas.length / columns))
         const width = WALL_MARGIN + columns * TILE + OPEN_MARGIN
         const depth = WALL_MARGIN + rows * TILE + OPEN_MARGIN
-        if (width !== this.roomSize.width || depth !== this.roomSize.depth) {
+        const resized = width !== this.roomSize.width || depth !== this.roomSize.depth
+        if (resized) {
             this.roomSize = { width, depth }
             this.buildRoom(width, depth)
         }
@@ -1035,6 +1051,13 @@ export class VegaScene {
             const row = Math.floor(index / columns)
             vega.root.position.set(-width / 2 + WALL_MARGIN + TILE * (column + 0.5), 0, -depth / 2 + WALL_MARGIN + TILE * (row + 0.5))
         })
+        // In a room grown or shrunk, the Vegas on their way pick a spot of the new deck
+        if (resized)
+            for (const vega of this.vegas)
+                if (vega.roam && ROAM_SPEEDS[vega.worker.mood] !== undefined) {
+                    vega.roam.target = this.freeSpot(vega)
+                    vega.roam.restUntil = undefined
+                }
         this.resize()
     }
 
@@ -1133,6 +1156,67 @@ export class VegaScene {
         return object?.userData.workerId as string | undefined
     }
 
+    /** Off duty a Vega roams the open deck, resting a while at every spot; once its work starts again it flies home to its bay */
+    private roamAll(time: number, delta: number) {
+        for (const vega of this.vegas) {
+            const home = new THREE.Vector2(vega.root.position.x, vega.root.position.z)
+            vega.roam ??= { at: home.clone(), target: home.clone(), pace: 0 }
+            const roam = vega.roam
+            const speed = ROAM_SPEEDS[vega.worker.mood]
+            if (speed === undefined) {
+                roam.target.copy(home)
+                roam.restUntil = undefined
+            }
+            const way = new THREE.Vector2().subVectors(roam.target, roam.at)
+            const distance = way.length()
+            if (distance < 0.1 && speed !== undefined) {
+                roam.restUntil ??= time + 1.5 + Math.random() * 3
+                if (time > roam.restUntil) {
+                    roam.target = this.freeSpot(vega)
+                    roam.restUntil = undefined
+                }
+            }
+            // Speeding up off a spot, slowing down onto the next
+            const wanted = distance < 0.1 ? 0 : Math.min(speed ?? RETURN_SPEED, distance * 1.5)
+            roam.pace += (wanted - roam.pace) * Math.min(1, delta * 3)
+            if (distance > 0.001) {
+                way.divideScalar(distance)
+                roam.at.addScaledVector(way, Math.min(distance, roam.pace * delta))
+                if (roam.pace > 0.3) roam.heading = Math.atan2(way.x, way.y)
+            }
+        }
+        // Two Vegas that come too close push each other aside
+        this.vegas.forEach((one, index) => {
+            for (const other of this.vegas.slice(index + 1)) {
+                if (!one.roam || !other.roam) continue
+                const apart = new THREE.Vector2().subVectors(one.roam.at, other.roam.at)
+                const distance = apart.length()
+                if (distance === 0 || distance >= PERSONAL_SPACE) continue
+                apart.multiplyScalar(((PERSONAL_SPACE - distance) / distance) * Math.min(1, delta * 4) * 0.5)
+                one.roam.at.add(apart)
+                other.roam.at.sub(apart)
+            }
+        })
+    }
+
+    /** A spot of the open deck, clear of the furniture along the walls, and as far as it can be from where the other Vegas are and go */
+    private freeSpot(vega: Vega) {
+        const { width, depth } = this.roomSize
+        const taken = this.vegas.filter(other => other !== vega && other.roam).flatMap(other => [other.roam!.at, other.roam!.target])
+        let best = new THREE.Vector2()
+        let bestClearance = -1
+        for (let attempt = 0; attempt < 12; attempt++) {
+            const spot = new THREE.Vector2(THREE.MathUtils.lerp(-width / 2 + 3.6, width / 2 - 2.4, Math.random()), THREE.MathUtils.lerp(-depth / 2 + WALL_MARGIN + 0.8, depth / 2 - 1.6, Math.random()))
+            const clearance = Math.min(Infinity, ...taken.map(other => other.distanceTo(spot)))
+            if (clearance > PERSONAL_SPACE * 1.5) return spot
+            if (clearance > bestClearance) {
+                best = spot
+                bestClearance = clearance
+            }
+        }
+        return best
+    }
+
     private drawCode(vega: Vega, time: number) {
         const context = vega.codeCanvas.getContext("2d")
         if (!context) return
@@ -1175,6 +1259,10 @@ export class VegaScene {
         if (!this.visible || document.hidden) return
         const time = this.clock.getElapsedTime()
         const motion = this.reducedMotion ? 0 : 1
+        // Never a long leap: back from a hidden tab the Vegas go on from where they were
+        const delta = Math.min(0.1, time - this.lastTime)
+        this.lastTime = time
+        if (motion) this.roamAll(time, delta)
         this.fit()
         if (this.trolley) this.trolley.position.x = Math.sin(time * 0.25) * (this.roomSize.width / 2 - 2) * motion
         for (const animate of this.animations) animate(time, motion)
@@ -1218,15 +1306,20 @@ export class VegaScene {
             vega.liftoff += ((launching ? 1 : 0) - vega.liftoff) * 0.04
             const baseY = resting ? 1.2 : failed ? 1.1 : 1.75
             const bob = Math.sin(time * (launching ? 9 : 1.7) + index) * (launching ? 0.05 : 0.09) * motion
-            vega.hover.position.y += (baseY + vega.liftoff * 1.6 + bob + move.lift - vega.hover.position.y) * 0.18
-            vega.hover.position.x += (move.x - vega.hover.position.x) * 0.12
-            vega.hover.position.z += (move.z - vega.hover.position.z) * 0.12
+            const roam = vega.roam
+            const cruise = roam ? Math.min(1, roam.pace) * CRUISE_LIFT : 0
+            vega.hover.position.y += (baseY + vega.liftoff * 1.6 + bob + cruise + move.lift - vega.hover.position.y) * 0.18
+            // Where it roams on the deck, from its bay
+            const awayX = roam ? roam.at.x - vega.root.position.x : 0
+            const awayZ = roam ? roam.at.y - vega.root.position.z : 0
+            vega.hover.position.x += (awayX + move.x - vega.hover.position.x) * 0.12
+            vega.hover.position.z += (awayZ + move.z - vega.hover.position.z) * 0.12
             const tilt = failed ? -0.32 : Math.sin(time * 0.9 + index) * 0.04 * motion
             vega.tilt += (tilt - vega.tilt) * 0.08
             vega.hover.rotation.z = vega.tilt + move.roll
             vega.hover.rotation.x += (move.pitch - vega.hover.rotation.x) * 0.1
-            // Facing the camera, turned a little toward the tool it holds
-            const facing = this.azimuth + (busy ? 0.25 : 0)
+            // Facing where it flies to, and once there the camera, turned a little toward the tool it holds
+            const facing = roam && roam.pace > 0.3 && roam.heading !== undefined ? roam.heading : this.azimuth + (busy ? 0.25 : 0)
             // The shortest way round, so a Vega never spins a whole turn when the camera crosses a full circle
             vega.facing += Math.atan2(Math.sin(facing - vega.facing), Math.cos(facing - vega.facing)) * 0.06
             vega.hover.rotation.y = vega.facing + move.spin
@@ -1273,8 +1366,8 @@ export class VegaScene {
             vega.ring.material.color.set(selected ? "#fe7f2d" : "#fcca46")
             vega.ring.scale.setScalar(selected ? 1.12 : 1)
 
-            // Over the head of the Vega, as wide as its bay: the plates of neighbours never overlap
-            projected.set(vega.root.position.x, 3.9, vega.root.position.z).project(this.camera)
+            // Over the head of the Vega wherever it roams, as wide as a bay
+            projected.set(vega.root.position.x + vega.hover.position.x, 3.9 + cruise, vega.root.position.z + vega.hover.position.z).project(this.camera)
             vega.tag.style.left = `${(projected.x * 0.5 + 0.5) * width}px`
             vega.tag.style.top = `${(-projected.y * 0.5 + 0.5) * height}px`
             vega.tag.style.maxWidth = `${Math.max(96, bayWidth * 1.6)}px`
