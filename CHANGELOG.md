@@ -18,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **The Chart Version Is The Flightroom Version**: the Helm chart is versioned as the release it ships, so chart 9.1.0 runs Flightroom 9.1.0, where 9.0.0 came with chart 0.3.14. A `--version` or an Argo CD `targetRevision` pinned to a 0.3.x range has to move to the new numbers. The release workflow refuses a tag that is not the chart version
+- **The API Key Expiry Email Points At Its Button**: the email asks to create a new key with the button below it and to replace the old one wherever it is used
 
 ### Fixed
 
