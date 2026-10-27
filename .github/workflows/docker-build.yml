@@ -23,7 +23,7 @@ jobs:
   # Lints the Helm chart on every push. On a tag it also stops the release before
   # anything is published when the tag is not on main, when CHANGELOG.md has no
   # section for it, when the chart does not ship the tagged image (appVersion !=
-  # tag) or when its version is already in the registry.
+  # tag), when its version is not the tag or when it is already in the registry.
   helm-chart-check:
     runs-on: ubuntu-24.04
 
@@ -70,6 +70,11 @@ jobs:
 
           if [[ "$app_version" != "$TAG" ]]; then
             echo "::error file=${{ env.CHART_PATH }}/Chart.yaml::appVersion is $app_version but the release tag is $TAG. Set appVersion to \"$TAG\", bump version and tag again."
+            exit 1
+          fi
+
+          if [[ "$chart_version" != "$TAG" ]]; then
+            echo "::error file=${{ env.CHART_PATH }}/Chart.yaml::version is $chart_version but the release tag is $TAG. The chart is versioned as the release it ships: set version to $TAG and tag again."
             exit 1
           fi
 

@@ -9,6 +9,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [9.1.0] - 2026-10-27
+
+### Added
+
+- **An Email When An AI Job Ends While You Are Away**: when a job on a frontend, a backend or a domain finishes or fails and whoever started it has not been seen in the console for 3 minutes, they get an email in their language, linking to the page of the job in its project. Jobs stopped by the user and jobs of a mission send nothing
+
+### Changed
+
+- **The Chart Version Is The Flightroom Version**: the Helm chart is versioned as the release it ships, so chart 9.1.0 runs Flightroom 9.1.0, where 9.0.0 came with chart 0.3.14. A `--version` or an Argo CD `targetRevision` pinned to a 0.3.x range has to move to the new numbers. The release workflow refuses a tag that is not the chart version
+
+### Fixed
+
+- **A Tab Opened Across A Release**: nginx answered a hashed chunk a release had removed with index.html, without cache headers, so a tab opened before the release could keep failing on it. Missing assets now answer 404, index.html is revalidated at every load, and the app reloads once when a chunk fails to load
+- **An Azure DevOps Tag The Provider Refused**: Azure DevOps answers 200 to an update of the refs it refused, so the build looked done and the build and deploy waited for a CI that never started. The tag now fails with the reason Azure DevOps gave
+
+---
+
 ## [9.0.0] - 2026-10-27
 
 ### Breaking
