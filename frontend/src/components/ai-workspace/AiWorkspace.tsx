@@ -73,11 +73,12 @@ const VegaWorkshop = lazy(() => import("./workshop/VegaWorkshop"))
 type WorkspaceView = "classic" | "workshop"
 const VIEW_KEY = "flightroom.aiWorkspace.view"
 
+/** The workshop, unless the user picked the classic view */
 const readView = (): WorkspaceView => {
     try {
-        return localStorage.getItem(VIEW_KEY) === "workshop" ? "workshop" : "classic"
+        return localStorage.getItem(VIEW_KEY) === "classic" ? "classic" : "workshop"
     } catch {
-        return "classic"
+        return "workshop"
     }
 }
 
@@ -1651,39 +1652,29 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
     )
 
     return (
-        <div className={cn("grid items-start gap-6", !workshop && "lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]")}>
-            {workshop ? (
-                <div className="flex min-w-0 flex-col gap-3">
-                    <div className="flex flex-wrap items-center justify-between gap-3">
-                        {newChangeButton}
-                        {viewSwitch}
-                    </div>
-                    {queueStatus}
-                    {queueQuery.data && (
-                        <Suspense
-                            fallback={
-                                <div className="flex h-[clamp(320px,48vw,460px)] items-center justify-center rounded-xl border border-divider">
-                                    <Spinner size={24} centerScreen={false} label={t("common.loading")} />
-                                </div>
-                            }
-                        >
-                            <VegaWorkshop entries={entries} selectedId={linkedId} onSelect={select} />
-                        </Suspense>
-                    )}
-                </div>
-            ) : (
-                <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
-                    {newChangeButton}
-                    {viewSwitch}
-                    {queueStatus}
-                    {queueQuery.data &&
-                        groups.map(group => (
-                            <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />
-                        ))}
-                </aside>
-            )}
+        // The same column on the left in both views: a new request and the choice of the view, then the queue in the classic one
+        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
+            <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
+                {newChangeButton}
+                {viewSwitch}
+                {queueStatus}
+                {!workshop &&
+                    queueQuery.data &&
+                    groups.map(group => <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />)}
+            </aside>
 
-            <div className="min-w-0">
+            <div className="flex min-w-0 flex-col gap-6">
+                {workshop && queueQuery.data && (
+                    <Suspense
+                        fallback={
+                            <div className="flex h-[clamp(320px,48vw,460px)] items-center justify-center rounded-xl border border-divider">
+                                <Spinner size={24} centerScreen={false} label={t("common.loading")} />
+                            </div>
+                        }
+                    >
+                        <VegaWorkshop entries={entries} selectedId={linkedId} onSelect={select} />
+                    </Suspense>
+                )}
                 {(linkedId === NEW_CHANGE || (!linkedId && queueQuery.data?.length === 0)) && (
                     <Composer
                         name={name}
