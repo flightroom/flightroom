@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Breaking
+
+- **The Deploy Secret Is Named `FLIGHTROOM_API_KEY`**: the API key Flightroom writes into GitHub, GitLab and Azure DevOps for the pipelines, and the official template-pipelines read, was `MICROFRONTEND_ORCHESTRATOR_API_KEY`. Pipelines already in the repositories keep reading the old name and keep working. A frontend or backend created from a template gets pipelines reading the new one, which a connection made before the rename does not have: edit the connection and save it once to have it written. A secret added by hand, or a project pipelines repository, has to move to the new name
+
 ---
 
 ## [8.6.1] - 2026-10-27

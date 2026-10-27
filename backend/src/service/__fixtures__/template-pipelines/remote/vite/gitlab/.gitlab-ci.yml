@@ -88,7 +88,7 @@ deploy:
     - cd dist && zip -qr ../dist.zip . && cd ..
     - |
       curl --fail --show-error --silent -X POST \
-        -H "api-key: ${MICROFRONTEND_ORCHESTRATOR_API_KEY}" \
+        -H "api-key: ${FLIGHTROOM_API_KEY}" \
         -F "file=@dist.zip" \
         "${MICROFRONTEND_ORCHESTRATOR_DOMAIN%/}/api/frontends/by-slug/${MICROFRONTEND_SLUG}/upload/${CI_COMMIT_TAG}"
     - echo "published ${MICROFRONTEND_SLUG} ${CI_COMMIT_TAG}"

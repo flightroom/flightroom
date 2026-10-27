@@ -71,7 +71,7 @@ stages:
           - task: flightroom-upload@1
             displayName: '🚀 Upload to MFE Orchestrator'
             inputs:
-              apiKey: '$(MICROFRONTEND_ORCHESTRATOR_API_KEY)'
+              apiKey: '$(FLIGHTROOM_API_KEY)'
               microfrontendSlug: '%microfrontendSlug%'
               filePath: '$(System.ArtifactsDirectory)/app'
               version: '$(VERSION)'

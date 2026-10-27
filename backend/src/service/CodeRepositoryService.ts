@@ -32,7 +32,7 @@ const storedTokenElsewhere = () =>
         statusCode: 400
     })
 
-export const deploySecretName = "MICROFRONTEND_ORCHESTRATOR_API_KEY"
+export const deploySecretName = "FLIGHTROOM_API_KEY"
 
 /**
  * How long a deploy key the platform creates for itself stays valid.
