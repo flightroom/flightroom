@@ -1,3 +1,5 @@
+import { Alert, AlertDescription, AlertTitle } from "@flightroom/design-system"
+import { Sparkles } from "lucide-react"
 import { useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -6,7 +8,6 @@ import TextField from "@/components/input/TextField.rhf"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import ProjectDraftAssistant from "./ProjectDraftAssistant"
 import { StepShell, WizardFooter, WizardStepProps } from "./wizardShared"
 
 interface MainDataForm {
@@ -21,13 +22,13 @@ const slugify = (value: string) =>
         .replace(/[^a-z0-9]+/g, "-")
         .replace(/^-+|-+$/g, "")
 
-const MainData: React.FC<WizardStepProps> = ({ project, onCreated, draft, onDraft }) => {
+const MainData: React.FC<WizardStepProps> = ({ project, onCreated, draft }) => {
     const { t } = useTranslation()
     const projectApi = useProjectApi()
     const notifications = useToastNotificationStore()
     const { organization } = useOrganizationStore()
     const [loading, setLoading] = useState(false)
-    const form = useForm<MainDataForm>({ defaultValues: { name: project?.name ?? "", description: project?.description ?? "" } })
+    const form = useForm<MainDataForm>({ defaultValues: { name: project?.name ?? draft?.name ?? "", description: project?.description ?? draft?.description ?? "" } })
 
     const onSubmit = async (data: MainDataForm) => {
         setLoading(true)
@@ -56,15 +57,12 @@ const MainData: React.FC<WizardStepProps> = ({ project, onCreated, draft, onDraf
                     description={t("newProjectWizard.main_data.description")}
                     footer={<WizardFooter loading={loading} nextLabel={t("newProjectWizard.main_data.submit")} />}
                 >
-                    {!project && onDraft && (
-                        <ProjectDraftAssistant
-                            draft={draft}
-                            onDraft={newDraft => {
-                                form.setValue("name", newDraft.name, { shouldValidate: true })
-                                form.setValue("description", newDraft.description)
-                                onDraft(newDraft)
-                            }}
-                        />
+                    {!project && draft && (
+                        <Alert className="border-primary/50 [&>svg]:text-primary-strong" dataTestId="wizard-ai-draft-applied">
+                            <Sparkles className="size-5" />
+                            <AlertTitle>{t("newProjectWizard.ai_draft.applied_title")}</AlertTitle>
+                            <AlertDescription>{t("newProjectWizard.ai_draft.applied_description")}</AlertDescription>
+                        </Alert>
                     )}
                     <div className="flex flex-col gap-4">
                         <TextField<MainDataForm>

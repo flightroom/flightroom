@@ -32,7 +32,8 @@ export interface AssistantChatRequestDTO {
 export interface AssistantProjectDraftRequestDTO {
     /** The organization the project is created in: its AIs write the draft. */
     organizationId: string
-    description: string
+    /** The conversation about the project so far, oldest first; the last message is the user's. */
+    messages: AssistantChatMessageDTO[]
     locale?: string
     /** One of the organization's AIs: its default when left out. */
     aiModelId?: string
@@ -47,9 +48,25 @@ export interface AssistantProjectDraftDTO {
         isProduction: boolean
         color: string
     }[]
-    storage: "NONE" | "AWS_S3" | "GOOGLE_CLOUD_STORAGE" | "AZURE_BLOB_STORAGE"
+    /** The functional domains the project's frontends and backends will be grouped in. */
+    domains: {
+        name: string
+        description: string
+    }[]
     codeRepository: "NONE" | "GITHUB" | "GITLAB" | "AZURE_DEV_OPS"
     notes: string
+}
+
+/** One answer of the assistant while it shapes a new project with the user. */
+export interface AssistantProjectDraftTurnDTO {
+    /** What the assistant says: a question, or a proposal to confirm. */
+    reply: string
+    /** Short answers the user can pick instead of typing. */
+    options: string[]
+    /** True once the draft covers the name, the environments and the domains. */
+    ready: boolean
+    /** The project as proposed so far. */
+    draft: AssistantProjectDraftDTO
 }
 
 /** A message of a saved conversation, as the panel shows it. Tool inputs and results are never kept. */

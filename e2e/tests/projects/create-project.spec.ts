@@ -9,7 +9,8 @@ import {
     openApp,
     openAppAs,
     openProjectUsers,
-    registerViaUi
+    registerViaUi,
+    startWizardManually
 } from "../fixtures/appUser"
 
 /**
@@ -17,7 +18,7 @@ import {
  *
  * Senza progetti la app apre direttamente il wizard invece della dashboard, e il
  * primo passo del wizard e' gia' quello che crea il progetto: il resto della
- * procedura guidata (ambienti, storage, repository, collaboratori) e' coperto da
+ * procedura guidata (ambienti, domini, repository, collaboratori) e' coperto da
  * project-wizard.spec.ts e non viene ripetuto qui.
  *
  * Prerequisiti: credenziali testmail.app (TESTMAIL_API_KEY, TESTMAIL_NAMESPACE)
@@ -78,6 +79,7 @@ test.describe
             // Finche' non c'e' un progetto la dashboard non c'e': prima i complimenti per l'organizzazione,
             // poi il wizard.
             await page.getByTestId("create-first-project").click()
+            await startWizardManually(page)
             await expect(page.getByTestId("wizard-step-title")).toBeVisible()
             await expect(page.getByTestId("wizard-project-name")).toBeVisible()
 

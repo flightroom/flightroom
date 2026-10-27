@@ -1767,7 +1767,7 @@
         "steps": {
             "name": "Nome",
             "environments": "Ambienti",
-            "storages": "Storage",
+            "domains": "Domini",
             "repositories": "Repository",
             "collaborators": "Collaboratori"
         },
@@ -1776,6 +1776,14 @@
             "skip": "Salta",
             "next": "Continua",
             "loading": "Attendere…"
+        },
+        "start": {
+            "title": "Come vuoi partire?",
+            "description": "Puoi raccontare il progetto all'assistente, che propone ambienti e domini funzionali, oppure configurare tutto passo passo.",
+            "assistant_title": "Descrivi il progetto e lascia fare all'assistente",
+            "assistant_description": "Una breve conversazione: ti chiede quanti ambienti servono, esplora con te i domini funzionali e prepara la proposta. Rivedi tutto prima di creare il progetto.",
+            "manual_title": "Configura passo passo",
+            "manual_description": "Nome, ambienti, domini funzionali, repository e collaboratori, un passaggio alla volta."
         },
         "main_data": {
             "title": "Diamo un nome al progetto",
@@ -1793,11 +1801,17 @@
             "title": "Configura gli ambienti",
             "description": "Gli ambienti (es. sviluppo, produzione) ti permettono di gestire versioni diverse dei frontend. Scegli un preset o personalizzali, poi salva."
         },
-        "hosting": {
-            "title": "Dove ospitiamo i frontend?",
-            "description": "Collega un bucket di storage per il deploy dei bundle. Puoi saltare questo passaggio e configurarlo più tardi.",
-            "alert_title": "Questo passaggio non è fondamentale",
-            "alert_description": "Se lo salti e non colleghi nessun cloud, i bundle dei frontend verranno comunque ospitati direttamente da Flightroom. Potrai collegare uno storage esterno in qualsiasi momento dalle impostazioni del progetto.",
+        "domains": {
+            "title": "Definisci i domini funzionali",
+            "description": "I domini raggruppano frontend e backend per area di business (es. Area clienti, Pagamenti, Back office), così puoi buildarli e rilasciarli insieme.",
+            "skippable_note": "Nessuna fretta: puoi creare domini e assegnare frontend e backend in qualsiasi momento dalla sezione Domini.",
+            "name_label": "Nome del dominio",
+            "name_placeholder": "Es. Area clienti",
+            "description_label": "Descrizione del dominio",
+            "description_placeholder": "Di cosa si occupa questo dominio? (opzionale)",
+            "add": "Aggiungi dominio",
+            "remove": "Rimuovi dominio",
+            "duplicate_name": "Dominio duplicato: {{name}}",
             "submit": "Salva e continua"
         },
         "code_repositories": {
@@ -1831,27 +1845,27 @@
             "add_frontend": "Aggiungi frontend"
         },
         "ai_draft": {
-            "title": "Descrivi il progetto e lascia fare all'assistente",
-            "description": "Scrivi a parole cosa vuoi costruire: l'assistente propone nome, descrizione e ambienti. Potrai rivedere tutto prima di confermare ogni passaggio.",
-            "placeholder": "Es. Un portale clienti fatto di tre frontend React, con ambienti di sviluppo, collaudo e produzione, bundle su AWS S3 e codice su GitHub.",
-            "submit": "Genera una proposta",
-            "loading": "Sto preparando la proposta…",
+            "title": "Raccontami il progetto",
+            "description": "Rispondi alle domande dell'assistente: propone nome, ambienti e domini funzionali. Quando la proposta ti convince, la usi per compilare il wizard e rivedi ogni passaggio.",
+            "placeholder": "Es. Un portale clienti fatto di tre frontend React, con il codice su GitHub.",
+            "loading": "Sto pensando…",
             "error": "Non sono riuscito a generare una proposta. Puoi compilare i campi a mano.",
-            "applied_title": "Proposta applicata",
-            "applied_environments": "Ambienti proposti per il passaggio successivo: {{environments}}.",
-            "suggested_storage": "Storage consigliato: {{storage}}.",
+            "applied_title": "Proposta dell'assistente",
             "suggested_repository": "Repository consigliato: {{repository}}.",
-            "storage": {
-                "AWS_S3": "AWS S3",
-                "GOOGLE_CLOUD_STORAGE": "Google Cloud Storage",
-                "AZURE_BLOB_STORAGE": "Azure Blob Storage"
-            },
             "repository": {
                 "GITHUB": "GitHub",
                 "GITLAB": "GitLab",
                 "AZURE_DEV_OPS": "Azure DevOps"
             },
-            "provider_error": "Il provider IA ha risposto con un errore: riprova tra poco, o compila i campi a mano."
+            "provider_error": "Il provider IA ha risposto con un errore: riprova tra poco, o compila i campi a mano.",
+            "greeting": "Ciao! Raccontami cosa vuoi costruire: a cosa serve il progetto e chi lo userà?",
+            "reply_placeholder": "Rispondi, o scegli una delle proposte",
+            "input_label": "Messaggio per l'assistente",
+            "send": "Invia",
+            "manual": "Preferisco compilare il wizard",
+            "use": "Usa questa proposta",
+            "proposal_title": "Proposta",
+            "applied_description": "Nome, ambienti e domini funzionali sono già compilati con la proposta: rivedili e conferma ogni passaggio."
         }
     },
     "dependencies": {

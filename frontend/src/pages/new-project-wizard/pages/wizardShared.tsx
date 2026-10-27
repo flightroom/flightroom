@@ -20,10 +20,8 @@ export interface WizardStepProps {
     onBack?: () => void
     onSkip?: () => void
     isFirst?: boolean
-    /** What the assistant proposed from the user's description, if they asked for it */
+    /** What the assistant proposed in the conversation with the user, if they chose it */
     draft?: ProjectDraft
-    /** step 1 only: the assistant produced a draft */
-    onDraft?: (draft: ProjectDraft) => void
 }
 
 /* -------------------------------------------------------------------------- */

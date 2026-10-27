@@ -15,7 +15,6 @@ import { getProjectIdFromRequest } from "../utils/requestUtils"
 /** Bounds on what the browser may send: the whole conversation travels on every question. */
 const MAX_MESSAGES = 40
 const MAX_MESSAGE_CHARS = 8_000
-const MAX_DESCRIPTION_CHARS = 4_000
 const HEARTBEAT = ": ping\n\n"
 /** An id of the organization's AIs, or `system`. */
 const AI_MODEL_ID = { type: "string", minLength: 1, maxLength: 64 }
@@ -65,11 +64,11 @@ const chatBodySchema = {
 
 const draftBodySchema = {
     type: "object",
-    required: ["organizationId", "description"],
+    required: ["organizationId", "messages"],
     additionalProperties: false,
     properties: {
         organizationId: { type: "string", pattern: "^[a-fA-F0-9]{24}$" },
-        description: { type: "string", minLength: 1, maxLength: MAX_DESCRIPTION_CHARS },
+        messages: chatBodySchema.properties.messages,
         locale: { type: "string", maxLength: 20 },
         aiModelId: AI_MODEL_ID
     }
@@ -281,17 +280,17 @@ export default async function assistantController(fastify: FastifyInstance) {
         }
     })
 
-    /** A first draft of a new project from a free-text description, used to prefill the wizard. */
+    /** The next answer of the conversation that drafts a new project, used to prefill the wizard. */
     fastify.post<{ Body: AssistantProjectDraftRequestDTO }>(
         "/assistant/project-draft",
         { schema: { body: draftBodySchema }, config: { authMethod: AuthenticationMethod.JWT, rateLimit } },
         async (request, reply) => {
-            const { organizationId, description, locale, aiModelId } = request.body
-            const draft = await new AssistantService(request.databaseUser, fastify.config, request.log).draftProject(organizationId, description, locale, aiModelId)
-            if (!draft) {
+            const { organizationId, messages, locale, aiModelId } = request.body
+            const turn = await new AssistantService(request.databaseUser, fastify.config, request.log).draftProject(organizationId, messages, locale, aiModelId)
+            if (!turn) {
                 throw createBusinessException({ code: "ASSISTANT_NO_DRAFT", message: "The model returned no usable draft", statusCode: 422 })
             }
-            return reply.send(draft)
+            return reply.send(turn)
         }
     )
 

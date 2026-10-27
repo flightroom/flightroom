@@ -1,5 +1,16 @@
 import { Browser, expect, Page, test } from "@playwright/test"
-import { AppSession, activateAccountFromEmail, createProjectViaApi, emailDeliveryUnavailable, loginViaApi, newTestUser, openApp, openAppAs, registerViaUi } from "./fixtures/appUser"
+import {
+    AppSession,
+    activateAccountFromEmail,
+    createProjectViaApi,
+    emailDeliveryUnavailable,
+    loginViaApi,
+    newTestUser,
+    openApp,
+    openAppAs,
+    registerViaUi,
+    startWizardManually
+} from "./fixtures/appUser"
 
 /**
  * Wizard di creazione progetto (/project-wizard), passo per passo.
@@ -9,9 +20,10 @@ import { AppSession, activateAccountFromEmail, createProjectViaApi, emailDeliver
  * mostrerebbe il wizard di primo avvio al posto di quello raggiungibile via
  * rotta. Ogni test riparte da `/project-wizard`, che monta un wizard nuovo.
  *
- * I passi Ambienti e Storage riusano i componenti veri della feature
- * (NoEnvironmentPlaceholder / StorageForm), quindi si guidano con i loro
- * controlli invece che con quelli del wizard.
+ * Il passo Ambienti riusa il componente vero della feature
+ * (NoEnvironmentPlaceholder), quindi si guida con i suoi controlli invece che
+ * con quelli del wizard. Il percorso con l'assistente dipende da un'IA vera e
+ * non e' coperto qui.
  *
  * Prerequisiti: credenziali testmail.app (TESTMAIL_API_KEY, TESTMAIL_NAMESPACE)
  * e SMTP configurato sul backend, per ricevere il link di attivazione.
@@ -32,6 +44,7 @@ test.describe
         const openWizard = async (browser: Browser): Promise<Page> => {
             const { page } = await getSession(browser)
             await page.goto("/project-wizard")
+            await startWizardManually(page)
             await expect(page.getByTestId("wizard-step-title")).toBeVisible({ timeout: 30_000 })
             return page
         }
@@ -77,9 +90,9 @@ test.describe
             // Passo 2 — Ambienti (NoEnvironmentPlaceholder riusato)
             await chooseEnvironmentPresetAndSave(page, "Ambienti Base")
 
-            // Passo 3 — Storage (StorageForm riusato, saltato)
-            await expect(page.getByTestId("wizard-step-title")).toHaveText(/ospitiamo/i)
-            await page.getByTestId("storage-cancel").click()
+            // Passo 3 — Domini funzionali (saltato)
+            await expect(page.getByTestId("wizard-step-title")).toHaveText(/domini funzionali/i)
+            await page.getByTestId("wizard-skip").click()
 
             // Passo 4 — Repository
             await expect(page.getByTestId("wizard-step-title")).toHaveText(/codice sorgente/i)
@@ -116,7 +129,9 @@ test.describe
 
             await fillNameAndContinue(page, `E2E Collab ${suffix}`)
             await chooseEnvironmentPresetAndSave(page, "Ambienti Standard")
-            await page.getByTestId("storage-cancel").click()
+            await expect(page.getByTestId("wizard-step-title")).toHaveText(/domini funzionali/i)
+            await page.getByTestId("wizard-skip").click()
+            await expect(page.getByTestId("wizard-step-title")).toHaveText(/codice sorgente/i)
             await page.getByTestId("wizard-skip").click()
 
             await expect(page.getByTestId("wizard-step-title")).toHaveText(/invita i collaboratori/i)

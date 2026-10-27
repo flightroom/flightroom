@@ -413,3 +413,16 @@ export async function openInvitationFromEmail(page: Page, request: APIRequestCon
     })
     await page.goto(toAppPath(link))
 }
+
+/**
+ * Il wizard di creazione progetto parte chiedendo se descrivere il progetto all'assistente o compilarlo
+ * passo passo, ma solo quando l'organizzazione ha un'IA: senza, si apre subito il primo passo.
+ * Sceglie il passo passo quando la domanda c'e'.
+ */
+export async function startWizardManually(page: Page): Promise<void> {
+    const manual = page.getByTestId("wizard-start-manual")
+    await expect(manual.or(page.getByTestId("wizard-project-name"))).toBeVisible({ timeout: 30_000 })
+    if (await manual.isVisible()) {
+        await manual.click()
+    }
+}
