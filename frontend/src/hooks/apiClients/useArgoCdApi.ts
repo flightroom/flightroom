@@ -63,6 +63,37 @@ export interface ArgoCdLogsQuery {
     filter?: string
 }
 
+/**
+ * Dove sta un'applicazione dopo un deploy, come la vede Argo CD: in attesa che legga il commit, in sincronizzazione,
+ * con i pod in avvio, in esecuzione con la nuova versione, non funzionante, o con la sincronizzazione fallita
+ */
+export type RolloutState = "waiting" | "syncing" | "progressing" | "healthy" | "degraded" | "failed"
+
+/** Un backend o un frontend container del deploy, e dove sta il suo rollout */
+export interface RolloutApplication {
+    _id: string
+    kind: "frontend" | "backend"
+    name: string
+    slug: string
+    state: RolloutState
+    health?: string
+    sync?: string
+    /** Perché non è ancora in esecuzione, con le parole di Argo CD */
+    message?: string
+    /** Solo mentre i pod vengono sostituiti, o sono rotti */
+    pods?: ArgoCdPod[]
+}
+
+export interface Rollout {
+    /** Il progetto fa il deploy con Argo CD: senza, il deploy finisce con il commit */
+    tracked: boolean
+    applications: RolloutApplication[]
+    /** Ogni applicazione gira la versione deployata */
+    done: boolean
+    /** Argo CD non è riuscito ad applicare il commit per almeno un'applicazione */
+    failed: boolean
+}
+
 const useArgoCdApi = () => {
     const apiClient = useApiClient()
     const customErrorMessage = useGitOpsErrorMessage()
@@ -100,7 +131,14 @@ const useArgoCdApi = () => {
         return response.data
     }
 
-    return { getArgoCd, initializeArgoCd, getPods, getLogs }
+    /** Silenziosa: l'overlay del deploy la rilegge finché il rollout non finisce, e mostra lui l'errore */
+    const getRollout = async (projectId: string, deploymentId: string, domainId?: string): Promise<Rollout> => {
+        const query = domainId ? `?${new URLSearchParams({ domainId })}` : ""
+        const response = await apiClient.doRequest<Rollout>({ url: `/api/projects/${projectId}/argocd/deployments/${encodeURIComponent(deploymentId)}/rollout${query}`, silent: true })
+        return response.data
+    }
+
+    return { getArgoCd, initializeArgoCd, getPods, getLogs, getRollout }
 }
 
 export default useArgoCdApi

@@ -9,6 +9,7 @@ import GitlabClient from "../client/GitlabClient"
 import { createBusinessException } from "../errors/BusinessException"
 import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
+import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import Project, { IArgoCdRepositoryCredential, IProjectArgoCd } from "../models/ProjectModel"
@@ -849,5 +850,99 @@ describe("ArgoCdService.getLogs", () => {
     it("given a backend of the project, when its pods are listed, then those of its Application come back", async () => {
         await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))).resolves.toEqual([{ name: "orders-abc", namespace: "development" }])
         expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledWith(ORDERS_DEVELOPMENT, PROJECT_NAME)
+    })
+})
+
+describe("ArgoCdService.rollout", () => {
+    const environmentId = new Types.ObjectId()
+    const deploymentId = new Types.ObjectId()
+    const PUSHED = "a1b2c3d"
+    const rollout = (domainId?: string) => new ArgoCdService().rollout(String(projectId), String(deploymentId), domainId)
+    const deployed = (slug: string, status: ArgoCdResource["status"]): ArgoCdResource => ({ ...resource(applicationName(String(projectId), "shop", slug, "development")), status })
+    const synced = (health: string, revision = PUSHED): ArgoCdResource["status"] => ({ sync: { status: "Synced", revision }, health: { status: health } })
+    let later: Array<{ applicationsRevision: string }>
+
+    beforeEach(() => {
+        later = []
+        vi.spyOn(Deployment, "findById").mockResolvedValue({ _id: deploymentId, environmentId, applicationsRevision: PUSHED } as never)
+        vi.spyOn(Deployment, "find").mockImplementation((async () => later) as never)
+        vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, slug: "development", projectId } as never)
+        vi.spyOn(ArgoCdService.prototype as unknown as { getDomainScope: () => Promise<undefined> }, "getDomainScope").mockResolvedValue(undefined)
+        vi.spyOn(ArgoCdClient.prototype, "listPods").mockResolvedValue([{ name: "checkout-7d9-abc", namespace: "development", health: "Progressing", containers: "0/1" }])
+    })
+
+    it("given a project deploying through no Argo CD, when the rollout is read, then it is not tracked and over with the commit", async () => {
+        const result = await rollout()
+
+        expect(result).toMatchObject({ tracked: false, applications: [], done: true, failed: false })
+        expect(ArgoCdClient.prototype.listApplications).not.toHaveBeenCalled()
+    })
+
+    it("given one application running the deploy and one replacing its pods, when the rollout is read, then it is not done and only the second one's pods are read", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        applications = [deployed("orders", synced("Healthy")), deployed("checkout", synced("Progressing"))]
+
+        const result = await rollout()
+
+        expect(result.tracked).toBe(true)
+        expect(result.done).toBe(false)
+        // The backend without a version is not deployed: nothing to follow
+        expect(result.applications.map(application => [application.slug, application.state])).toEqual([
+            ["orders", "healthy"],
+            ["checkout", "progressing"]
+        ])
+        expect(result.applications[1].pods).toEqual([expect.objectContaining({ containers: "0/1" })])
+        expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledTimes(1)
+        expect(vi.mocked(ArgoCdClient.prototype.listApplications).mock.calls[0][0]).toBe(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL}=development`)
+    })
+
+    it("given Argo CD still on the revision before the deploy, when the rollout is read, then nothing counts as done", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        applications = [deployed("orders", synced("Healthy", "9f8e7d6")), deployed("checkout", synced("Healthy", "9f8e7d6"))]
+
+        const result = await rollout()
+
+        expect(result.applications.every(application => application.state === "waiting")).toBe(true)
+        expect(result.done).toBe(false)
+    })
+
+    it("given a later deploy pushed on the same branch, when the rollout is read, then Argo CD synced to it holds this deploy too", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        later = [{ applicationsRevision: "e5f6a7b" }]
+        applications = [deployed("orders", synced("Healthy", "e5f6a7b")), deployed("checkout", synced("Healthy", "e5f6a7b"))]
+
+        const result = await rollout()
+
+        expect(result.done).toBe(true)
+        expect(vi.mocked(Deployment.find).mock.calls[0][0]).toMatchObject({ environmentId, _id: { $gt: deploymentId } })
+    })
+
+    it("given an Application the ApplicationSet has not generated yet, when the rollout is read, then that application is waiting", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        applications = []
+
+        const result = await rollout()
+
+        expect(result.applications.every(application => application.state === "waiting")).toBe(true)
+    })
+
+    it("given a deploy of one domain, when the rollout is read, then only the applications of that domain are followed", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        const domainId = String(new Types.ObjectId())
+
+        await rollout(domainId)
+
+        expect(vi.mocked(Backend.find).mock.calls[0][0]).toMatchObject({ projectId: toObjectId(String(projectId)), domainId: toObjectId(domainId) })
+        expect(vi.mocked(Frontend.find).mock.calls[0][0]).toMatchObject({ projectId: toObjectId(String(projectId)), domainId: toObjectId(domainId), kind: "DOCKER" })
+    })
+
+    it("given a member scoped to some domains deploying the whole project, when the rollout is read, then only the applications of those domains are followed", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        const scoped = String(new Types.ObjectId())
+        vi.spyOn(ArgoCdService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([scoped])
+
+        await rollout()
+
+        expect(vi.mocked(Backend.find).mock.calls[0][0]).toMatchObject({ domainId: { $in: [toObjectId(scoped)] } })
     })
 })

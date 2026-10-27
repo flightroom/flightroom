@@ -19,12 +19,30 @@ export interface ArgoCdMetadata {
     labels?: Record<string, string>
 }
 
-/** An AppProject, an Application or an ApplicationSet: the console reads back only the metadata */
+/** What Argo CD last saw of an Application: read to follow a deploy until its containers run */
+export interface ArgoCdApplicationStatus {
+    /** Synced, OutOfSync or Unknown, against `revision` */
+    sync?: { status?: string; revision?: string }
+    /** Healthy, Progressing, Degraded, Suspended, Missing or Unknown */
+    health?: { status?: string; message?: string }
+    /** The last sync: Running, Succeeded, Failed, Error or Terminating, and the revision it applied */
+    operationState?: {
+        phase?: string
+        message?: string
+        startedAt?: string
+        finishedAt?: string
+        operation?: { sync?: { revision?: string } }
+        syncResult?: { revision?: string }
+    }
+}
+
+/** An AppProject, an Application or an ApplicationSet: the console reads back the metadata, and the status of an Application */
 export interface ArgoCdResource {
     apiVersion?: string
     kind?: string
     metadata: ArgoCdMetadata
     spec?: Record<string, unknown>
+    status?: ArgoCdApplicationStatus
 }
 
 export interface ArgoCdRepository {

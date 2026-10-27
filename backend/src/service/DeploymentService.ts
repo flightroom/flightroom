@@ -15,7 +15,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import BaseAuthorizedService, { isInDomainScope } from "./BaseAuthorizedService"
 import DeploymentCanaryUsersService from "./DeploymentCanaryUsersService"
-import GitOpsService from "./GitOpsService"
+import GitOpsService, { ApplicationRevisions } from "./GitOpsService"
 import { resourceIdsInScope } from "./ResourceService"
 import { mapIdsInScope } from "./VariableMapService"
 
@@ -160,7 +160,8 @@ class DeploymentService extends BaseAuthorizedService {
         }
     }
 
-    async createRaw(environmentId: string | Schema.Types.ObjectId, session?: ClientSession, domainId?: string) {
+    /** `applicationsRevision`: the commit the deploy pushed on the branch of the environment in the applications repository */
+    async createRaw(environmentId: string | Schema.Types.ObjectId, session?: ClientSession, domainId?: string, applicationsRevision?: string) {
         await this.ensureAccessToEnvironment(environmentId, session)
         const environmentIdObj = toObjectId(environmentId)
         const environment = await Environment.findById(environmentIdObj).session(session || null)
@@ -223,6 +224,7 @@ class DeploymentService extends BaseAuthorizedService {
             variables: variables,
             storages: storages,
             deploymentId,
+            ...(applicationsRevision ? { applicationsRevision } : {}),
             active: true
         }).save({ session })
 
@@ -236,11 +238,11 @@ class DeploymentService extends BaseAuthorizedService {
     }
 
     /** Sequential like setCanaryUserMultipleRaw: one session cannot carry two concurrent commands inside a transaction. */
-    async createMultipleRaw(environmentIds: (string | Schema.Types.ObjectId)[], session?: ClientSession, domainId?: string) {
+    async createMultipleRaw(environmentIds: (string | Schema.Types.ObjectId)[], session?: ClientSession, domainId?: string, revisions?: ApplicationRevisions) {
         const deployments: IDeployment[] = []
 
         for (const environmentId of environmentIds) {
-            deployments.push(await this.createRaw(environmentId, session, domainId))
+            deployments.push(await this.createRaw(environmentId, session, domainId, revisions?.get(String(environmentId))))
         }
 
         return deployments
@@ -248,13 +250,15 @@ class DeploymentService extends BaseAuthorizedService {
 
     /** With GitOps on, what the deploy ships is committed first: when the commit does not go through, nothing is deployed */
     async create(environmentId: string | Schema.Types.ObjectId) {
-        return new GitOpsService(this.user).deploy([environmentId], () => runInTransaction(async session => this.createRaw(environmentId, session)))
+        return new GitOpsService(this.user).deploy([environmentId], revisions =>
+            runInTransaction(async session => this.createRaw(environmentId, session, undefined, revisions.get(String(environmentId))))
+        )
     }
 
     /** With `domainId`, only the frontends and backends of that functional domain move */
     async createMultiple(environmentIds: (string | Schema.Types.ObjectId)[], domainId?: string) {
         await this.ensureDeployableDomain(environmentIds, domainId)
-        return new GitOpsService(this.user).deploy(environmentIds, () => runInTransaction(async session => this.createMultipleRaw(environmentIds, session, domainId)), domainId)
+        return new GitOpsService(this.user).deploy(environmentIds, revisions => runInTransaction(async session => this.createMultipleRaw(environmentIds, session, domainId, revisions)), domainId)
     }
 
     async redeploy(deploymentId: string | Schema.Types.ObjectId) {

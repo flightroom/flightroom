@@ -7,6 +7,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import Backend from "../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
+import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
@@ -33,6 +34,7 @@ import {
     projectIdOf,
     selectorsOf
 } from "./gitops/argoCdManifests"
+import { RolloutDTO, rolloutStateOf } from "./gitops/rollout"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
 
@@ -345,6 +347,65 @@ export class ArgoCdService extends BaseAuthorizedService {
             previous: query.previous === true || query.previous === "true",
             ...(filter ? { filter: filter.slice(0, MAX_FILTER_LENGTH) } : {})
         })
+    }
+
+    /**
+     * Where the deploy `deploymentId` stands, application by application: Argo CD applies what it committed, then
+     * Kubernetes replaces the pods. Followed are the backends and the container frontends a deploy installs through
+     * Argo CD, of `domainId` for the deploy of a domain, otherwise of the domains the user reaches. Not tracked when
+     * the project deploys through no Argo CD: there the deploy is over with its commit.
+     */
+    async rollout(projectId: string | Schema.Types.ObjectId, deploymentId: string | Schema.Types.ObjectId, domainId?: string | Schema.Types.ObjectId): Promise<RolloutDTO> {
+        const projectIdObj = toObjectId(projectId)
+        await this.ensureAccessToProject(projectIdObj)
+        if (!isValidObjectId(deploymentId)) throw new EntityNotFoundError(String(deploymentId))
+        if (domainId !== undefined && !isValidObjectId(domainId)) throw new EntityNotFoundError(String(domainId))
+        if (domainId) await this.ensureInDomainScope(projectIdObj, domainId)
+        const deployment = await Deployment.findById(toObjectId(deploymentId), { environmentId: 1, applicationsRevision: 1 })
+        const [project, environment] = await Promise.all([
+            Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 }),
+            deployment ? Environment.findOne({ _id: deployment.environmentId, projectId: projectIdObj }, { slug: 1, namespace: 1 }) : null
+        ])
+        if (!project) throw new ProjectNotFoundError(String(projectId))
+        if (!deployment || !environment) throw new EntityNotFoundError(String(deploymentId))
+        const argoCd = project.argoCd
+        if (!project.gitOps?.enabled || !project.gitOps.applicationsCodeRepository || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) {
+            return { tracked: false, applications: [], done: true, failed: false }
+        }
+
+        // The commit of the deploy, and those deploys pushed after it on the same branch: they hold it. By creation, as a redeploy moves deployedAt
+        const later = deployment.applicationsRevision
+            ? await Deployment.find({ environmentId: deployment.environmentId, _id: { $gt: deployment._id }, applicationsRevision: { $exists: true } }, { applicationsRevision: 1 })
+            : []
+        const revisions = new Set([deployment.applicationsRevision, ...later.map(newer => newer.applicationsRevision)].filter((revision): revision is string => Boolean(revision)))
+
+        const scope = { projectId: projectIdObj, ...(domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectIdObj)) }
+        const fields = { slug: 1, name: 1, version: 1, image: 1 }
+        const members = [
+            ...(await Backend.find(scope, fields)).map(application => ({ kind: "backend" as const, application })),
+            ...(await Frontend.find({ ...scope, kind: FrontendKind.DOCKER }, fields)).map(application => ({ kind: "frontend" as const, application }))
+        ].filter(({ application }) => isDeployable(application, project.containerRegistry))
+
+        const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
+        const projectName = appProjectName(String(projectIdObj), project.slug)
+        const slug = environmentSlug(environment)
+        const listed = await listUnder(selectorsOf(`${PROJECT_ID_LABEL}=${projectIdObj},${ENVIRONMENT_LABEL}=${slug}`), labels => client.listApplications(labels, projectName))
+        const byName = new Map(listed.filter(application => projectOf(application) === projectName).map(application => [application.metadata.name, application]))
+        const applications = await Promise.all(
+            members.map(async ({ kind, application }) => {
+                const name = applicationName(String(projectIdObj), project.slug, application.slug, slug)
+                const state = rolloutStateOf(byName.get(name), revisions)
+                // Which container is still starting, or crashing: a failure to read them leaves the rest as it is
+                const pods = state.state === "progressing" || state.state === "degraded" ? await client.listPods(name, projectName).catch(() => undefined) : undefined
+                return { _id: String(application._id), kind, name: application.name, slug: application.slug, ...state, ...(pods ? { pods } : {}) }
+            })
+        )
+        return {
+            tracked: true,
+            applications,
+            done: applications.every(application => application.state === "healthy"),
+            failed: applications.some(application => application.state === "failed")
+        }
     }
 
     /**

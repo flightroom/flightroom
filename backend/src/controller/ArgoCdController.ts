@@ -18,6 +18,15 @@ export default async function argoCdController(fastify: FastifyInstance) {
         return reply.send(await new ArgoCdService(request.databaseUser).listPods(projectId, slug, environmentId))
     })
 
+    // Where a deploy stands, application by application, until its containers run
+    fastify.get<{ Params: { projectId: string; deploymentId: string }; Querystring: { domainId?: string } }>(
+        "/projects/:projectId/argocd/deployments/:deploymentId/rollout",
+        async (request, reply) => {
+            const { projectId, deploymentId } = request.params
+            return reply.send(await new ArgoCdService(request.databaseUser).rollout(projectId, deploymentId, request.query.domainId || undefined))
+        }
+    )
+
     // The last lines one of those pods wrote
     fastify.get<{ Params: { projectId: string; environmentId: string; slug: string }; Querystring: ArgoCdLogsInput }>(
         "/projects/:projectId/argocd/environments/:environmentId/applications/:slug/logs",

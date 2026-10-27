@@ -32,6 +32,11 @@ export interface IDeployment extends Document<ObjectId> {
     resources?: IDeployedVariableMap[]
     storages?: IStorage[]
     deploymentId: string
+    /**
+     * The commit the deploy pushed on the branch of the environment in the GitOps applications repository: Argo CD
+     * has applied the deploy once it synced to it. Absent without GitOps, or when no values changed
+     */
+    applicationsRevision?: string
     active: boolean
     deployedAt: Date
 }
@@ -47,6 +52,10 @@ const deploymentSchema = new Schema<IDeployment>(
             type: String,
             required: true,
             trim: true
+        },
+        applicationsRevision: {
+            type: String,
+            required: false
         },
         variables: {
             type: Array,

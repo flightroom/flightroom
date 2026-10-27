@@ -264,7 +264,14 @@ export const leavesAsItIs = (file: Pick<GitOpsFile, "ifMissing" | "replaces">, c
  * does not have yet starts from the default one. `prune` also deletes the files this console wrote that `files`
  * no longer accounts for, among the paths it accepts. Answers with the files that put the branch back as it was.
  */
-type Commit = (message: string, files: GitOpsFile[], options?: { branch?: string; prune?: (path: string) => boolean }) => Promise<GitOpsFile[]>
+/** `onPushed` gets the commit pushed, when there was something to commit */
+type Commit = (message: string, files: GitOpsFile[], options?: { branch?: string; prune?: (path: string) => boolean; onPushed?: (revision: string) => void }) => Promise<GitOpsFile[]>
+
+/**
+ * The commit a deploy pushed on the branch of each environment in the applications repository, by environment id:
+ * an environment whose values did not change has none. Argo CD has applied the deploy once its Applications are synced to it.
+ */
+export type ApplicationRevisions = Map<string, string>
 
 /** The environment slug a manifest belongs to: the folder it is in at the root */
 const environmentOfPath = (path: string): string => path.split("/")[0]
@@ -416,21 +423,25 @@ export class GitOpsService extends BaseAuthorizedService {
      * environments that no longer exist; the other environments are left as their last deploy put them. In the
      * applications repository, one commit on the branch of each of them. When `deploy` fails after the pushes,
      * the files are committed back to what the branches held before, so the repositories do not say it is deployed.
+     * `deploy` gets the commits pushed to the applications repository, for the deployments to record.
      */
-    async deploy<T>(environmentIds: (string | Schema.Types.ObjectId)[], deploy: () => Promise<T>, domainId?: string): Promise<T> {
+    async deploy<T>(environmentIds: (string | Schema.Types.ObjectId)[], deploy: (revisions: ApplicationRevisions) => Promise<T>, domainId?: string): Promise<T> {
         // Checked before anything is pushed: deploy checks them again, too late for the repositories
         for (const environmentId of environmentIds) await this.ensureAccessToEnvironment(environmentId)
         const ids = new Set(environmentIds.map(String))
         const projectIds = [...new Set((await Environment.find({ _id: { $in: [...ids].map(toObjectId) } }, { projectId: 1 })).map(environment => String(environment.projectId)))]
         // One deploy is of one project; were it of several, each one's commits wrap the next
-        const run = projectIds.reduceRight<() => Promise<T>>((next, projectId) => () => this.deployProject(toObjectId(projectId), ids, next, domainId), deploy)
-        return run()
+        const run = projectIds.reduceRight<(revisions: ApplicationRevisions) => Promise<T>>(
+            (next, projectId) => outer => this.deployProject(toObjectId(projectId), ids, revisions => next(new Map([...outer, ...revisions])), domainId),
+            deploy
+        )
+        return run(new Map())
     }
 
-    private async deployProject<T>(projectId: Schema.Types.ObjectId, environmentIds: Set<string>, deploy: () => Promise<T>, domainId?: string): Promise<T> {
+    private async deployProject<T>(projectId: Schema.Types.ObjectId, environmentIds: Set<string>, deploy: (revisions: ApplicationRevisions) => Promise<T>, domainId?: string): Promise<T> {
         const project = await Project.findById(projectId, { gitOps: 1, slug: 1, exposure: 1, containerRegistry: 1 })
         const gitOps = project?.gitOps
-        if (!project || !gitOps?.enabled || !gitOps.codeRepository) return deploy()
+        if (!project || !gitOps?.enabled || !gitOps.codeRepository) return deploy(new Map())
 
         // With GitOps on, a deploy pushes to the provider with the token of the connection
         await this.ensureNotViewer(projectId, { code: "GITOPS_VIEWER_FORBIDDEN", message: "A viewer of the project cannot change what is committed to its GitOps repositories" })
@@ -453,7 +464,7 @@ export class GitOpsService extends BaseAuthorizedService {
                   this.inRepository(projectId, "applications", applicationsLink, commit =>
                       this.commitApplications(projectId, project.containerRegistry, deployed, maps, resources, gateways, commit, deploy, domainId)
                   )
-            : deploy
+            : () => deploy(new Map())
 
         const result = await this.inRepository(projectId, "configuration", gitOps.codeRepository, async commit => {
             const deployedSlugs = new Set(deployed.map(environment => environment.slug))
@@ -499,7 +510,7 @@ export class GitOpsService extends BaseAuthorizedService {
         resources: DeployedResource[],
         gateways: Map<string, EnvironmentGateway | undefined>,
         commit: Commit,
-        deploy: () => Promise<T>,
+        deploy: (revisions: ApplicationRevisions) => Promise<T>,
         domainId?: string
     ): Promise<T> {
         const scope = domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectId)
@@ -534,6 +545,7 @@ export class GitOpsService extends BaseAuthorizedService {
         const isOrphanValues = (path: string) => !path.includes("/") && path.endsWith(".yaml") && !existingSlugs.has(path.slice(0, -".yaml".length))
 
         const pushed: Array<{ branch: string; undo: GitOpsFile[] }> = []
+        const revisions: ApplicationRevisions = new Map()
         const revert = async () => {
             for (const { branch, undo } of pushed.reverse()) {
                 if (undo.length > 0) await commit(`Revert: deploy ${branch}`, undo, { branch })
@@ -554,9 +566,10 @@ export class GitOpsService extends BaseAuthorizedService {
                             content: renderApplicationValues(application, environment, mapNames, route, containerRegistry)
                         }))
                 ]
-                pushed.push({ branch: environment.slug, undo: await commit(`Deploy ${environment.slug}`, files, { branch: environment.slug, prune: isOrphanValues }) })
+                const onPushed = (revision: string) => revisions.set(String(environment._id), revision)
+                pushed.push({ branch: environment.slug, undo: await commit(`Deploy ${environment.slug}`, files, { branch: environment.slug, prune: isOrphanValues, onPushed }) })
             }
-            return deploy()
+            return deploy(revisions)
         }, revert)
     }
 
@@ -647,7 +660,8 @@ export class GitOpsService extends BaseAuthorizedService {
                             if (changed.length === 0) return []
                             await workingCopy.commitAndPush({ branch: GITOPS_BRANCH, pushTo: branch, message, author: this.author(), files: changed }).catch(error => Promise.reject(failed(error)))
                             // The local branch still sits on the commit before the push: the next commit, a revert, compares against the pushed one
-                            await workingCopy.prepare(branch).catch(error => Promise.reject(failed(error)))
+                            const revision = await workingCopy.prepare(branch).catch(error => Promise.reject(failed(error)))
+                            options?.onPushed?.(revision)
                             return undo
                         }
                         return await task(commit)
