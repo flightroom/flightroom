@@ -107,31 +107,34 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
 
     return (
         <>
-            {groups.map((group, index) => (
-                <section key={group.domain?._id ?? "none"} className={cn(index > 0 && "mt-6", showDomains && "rounded-md border border-divider p-4")}>
-                    {showDomains && (
-                        <h4 className="mb-3 flex items-center gap-2 font-semibold">
-                            <LayoutDashboard className="size-4 text-foreground-secondary" aria-hidden="true" />
-                            {group.domain ? (
-                                <Link to={`/domain/${group.domain._id}`} className="underline-offset-4 hover:underline">
-                                    {group.domain.name}
-                                </Link>
-                            ) : (
-                                <span className="text-foreground-secondary">{t("deployments.no_domain")}</span>
-                            )}
-                        </h4>
-                    )}
-                    {/* One grid for both: the tag and the color of each card tell a frontend from a backend */}
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {group.frontends.map(frontend => (
-                            <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
-                        ))}
-                        {group.backends.map(backend => (
-                            <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
-                        ))}
-                    </div>
-                </section>
-            ))}
+            {/* The domains two by two on wide screens, one under the other on narrow ones */}
+            <div className={cn("grid grid-cols-1 gap-6", showDomains && "lg:grid-cols-2")}>
+                {groups.map(group => (
+                    <section key={group.domain?._id ?? "none"} className={cn("min-w-0", showDomains && "rounded-md border border-divider p-4")}>
+                        {showDomains && (
+                            <h4 className="mb-3 flex items-center gap-2 font-semibold">
+                                <LayoutDashboard className="size-4 text-foreground-secondary" aria-hidden="true" />
+                                {group.domain ? (
+                                    <Link to={`/domain/${group.domain._id}`} className="underline-offset-4 hover:underline">
+                                        {group.domain.name}
+                                    </Link>
+                                ) : (
+                                    <span className="text-foreground-secondary">{t("deployments.no_domain")}</span>
+                                )}
+                            </h4>
+                        )}
+                        {/* One grid for both: the tag and the color of each card tell a frontend from a backend */}
+                        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                            {group.frontends.map(frontend => (
+                                <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
+                            ))}
+                            {group.backends.map(backend => (
+                                <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
+                            ))}
+                        </div>
+                    </section>
+                ))}
+            </div>
             {deployment.variables.length > 0 && (
                 <div className="mt-4">
                     <h4 className="font-semibold text-primary-strong mb-1">{t("deployments.env_variables_title")}</h4>
