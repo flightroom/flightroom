@@ -7,9 +7,9 @@ import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import useArgoCdApi, { ArgoCdLogLine } from "@/hooks/apiClients/useArgoCdApi"
+import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import { GitOpsErrorDetails, useGitOpsErrorTranslation } from "@/hooks/apiClients/useGitOpsErrorMessage"
 import { errorCodeOf } from "@/hooks/useApiClient"
-import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 
 const TAIL_OPTIONS = [100, 500, 1000, 5000]
@@ -31,6 +31,11 @@ const lineText = (line: ArgoCdLogLine) => (line.timestamp ? `${line.timestamp} $
 interface ApplicationLogsSectionProps {
     /** The slug of the backend, Docker frontend or maintenance agent: the Helm release, and its Application in every environment */
     slug: string
+    /**
+     * The environments of the project, from the page: a query of its own here would refetch them on mount,
+     * and the page's ApiStatusHandler, which unmounts its children while they refetch, would loop on the spinner.
+     */
+    environments: EnvironmentDTO[]
 }
 
 /**
@@ -38,14 +43,13 @@ interface ApplicationLogsSectionProps {
  * with: no access to the cluster is needed. Only the pods alive now, and the container before their last restart.
  * Not shown to a viewer, as logs may hold what the configuration hides.
  */
-const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug }) => {
+const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug, environments }) => {
     const { t } = useTranslation()
     const id = useId()
     const projectId = useProjectStore(state => state.project?._id)
     const isViewer = useIsProjectViewer()
     const argoCdApi = useArgoCdApi()
     const translateError = useGitOpsErrorTranslation()
-    const environmentsQuery = useProjectEnvironmentsQuery()
     const statusQuery = useQuery({ queryKey: ["argocd", projectId], queryFn: () => argoCdApi.getArgoCd(projectId!), enabled: !!projectId && !isViewer })
 
     const [environmentId, setEnvironmentId] = useState<string>()
@@ -62,7 +66,6 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug })
         return () => clearTimeout(timeout)
     }, [filterDraft])
 
-    const environments = environmentsQuery.data ?? []
     // The first environment in the project's order, unless one was picked
     const selectedEnvironment = environments.some(environment => environment._id === environmentId) ? environmentId : environments[0]?._id
     const ready = Boolean(projectId && statusQuery.data?.initializedAt && selectedEnvironment)
