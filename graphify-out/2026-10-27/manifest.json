@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793113844.6773162,
-    "ast_hash": "b73293bba6aea8344bb1e9ddb22eccbe",
+    "mtime": 1793120604.9129064,
+    "ast_hash": "5a78782de420ca41bd1a5d3089d402f2",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793113844.672592,
-    "ast_hash": "cb9c8234eccb6d05557aa404cb8b933f",
+    "mtime": 1793120605.80127,
+    "ast_hash": "460ec78a10935b24cbc3ec62d9ca6425",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -810,8 +810,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ui/Sidebar/Sidebar.tsx": {
-    "mtime": 1793027811.6975706,
-    "ast_hash": "c6c1dd0fd10de223d62162108042028c",
+    "mtime": 1793120604.0352876,
+    "ast_hash": "79790e20cbd43385ad40a513a83ea99f",
     "semantic_hash": ""
   },
   "frontend/src/components/ui/Sidebar/partials/LanguageSelector.tsx": {
@@ -1495,8 +1495,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793114533.6148522,
-    "ast_hash": "6ea4b3c2699a657bf4787818cf34d7c4",
+    "mtime": 1793116219.440523,
+    "ast_hash": "22ff029f264856d8c8c97edf28a0a499",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3330,8 +3330,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793113849.8694701,
-    "ast_hash": "a062f6e599ad8dc6116223dc4e81b089",
+    "mtime": 1793116645.3398294,
+    "ast_hash": "b6e929063f389b09db47888716fa4bb8",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
@@ -4505,8 +4505,8 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793114534.4909415,
-    "ast_hash": "32d005bd3c3b34b16064c92bc70ce345",
+    "mtime": 1793116220.3178403,
+    "ast_hash": "22c77760eaf108ee2aeb1ef3ce0a917c",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
@@ -5005,13 +5005,13 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/workshop/VegaWorkshop.tsx": {
-    "mtime": 1793113833.6922274,
-    "ast_hash": "b733807501d338bc8e608e1a9eeff68f",
+    "mtime": 1793116645.337687,
+    "ast_hash": "33e98344855bf0f9c5028d37cc0e88b5",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/workshop/vegaScene.ts": {
-    "mtime": 1793114448.4225574,
-    "ast_hash": "7f8740fb5f4145bf02333b4933aa7c6c",
+    "mtime": 1793116571.6541057,
+    "ast_hash": "27ac7db19b6e49395aacc187e60bffd5",
     "semantic_hash": ""
   },
   "frontend/src/components/application-logs/LogLine.tsx": {
