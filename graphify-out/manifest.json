@@ -1495,8 +1495,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793114533.6148522,
-    "ast_hash": "6ea4b3c2699a657bf4787818cf34d7c4",
+    "mtime": 1793116219.440523,
+    "ast_hash": "22ff029f264856d8c8c97edf28a0a499",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3330,8 +3330,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793113849.8694701,
-    "ast_hash": "a062f6e599ad8dc6116223dc4e81b089",
+    "mtime": 1793116164.2084248,
+    "ast_hash": "b54fb471e23305924af11831500bba26",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
@@ -4505,8 +4505,8 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793114534.4909415,
-    "ast_hash": "32d005bd3c3b34b16064c92bc70ce345",
+    "mtime": 1793116220.3178403,
+    "ast_hash": "22c77760eaf108ee2aeb1ef3ce0a917c",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
@@ -5010,8 +5010,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/workshop/vegaScene.ts": {
-    "mtime": 1793114448.4225574,
-    "ast_hash": "7f8740fb5f4145bf02333b4933aa7c6c",
+    "mtime": 1793115232.6169503,
+    "ast_hash": "e52782b21e9e137031b1fbb5a37e6894",
     "semantic_hash": ""
   },
   "frontend/src/components/application-logs/LogLine.tsx": {
