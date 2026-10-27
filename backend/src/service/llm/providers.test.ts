@@ -25,6 +25,8 @@ import {
 
 const tool = { name: "read_file", description: "Reads a file", inputSchema: { type: "object", properties: { path: { type: "string" } }, required: ["path"] } }
 
+const withImage: LlmMessage = { role: "user", text: "Like this", images: [{ mediaType: "image/png", data: "aGk=" }] }
+
 const request = (messages: LlmMessage[], onText?: (delta: string) => void): LlmTurnRequest => ({
     system: "You edit code.",
     tools: [tool],
@@ -368,6 +370,22 @@ describe("AnthropicLlmClient", () => {
         expect(sent[1]).toEqual({ role: "assistant", content })
         expect(sent[2]).toEqual({ role: "user", content: [{ type: "tool_result", tool_use_id: "toolu_1", content: "x", is_error: undefined }] })
     })
+
+    it("Given a user message with an image, then the image goes as a base64 block before the text; without one the text stays a plain string", async () => {
+        const { client, stream } = fakeClaude([{ type: "text", text: "ok" }], "end_turn")
+
+        await new AnthropicLlmClient(LlmProvider.ANTHROPIC, client, "claude-opus-5-5").turn(request([withImage, { role: "assistant", text: "ok", toolCalls: [] }, { role: "user", text: "hi" }]))
+
+        const sent = (stream.mock.calls[0] as unknown as [{ messages: unknown[] }])[0].messages
+        expect(sent[0]).toEqual({
+            role: "user",
+            content: [
+                { type: "image", source: { type: "base64", media_type: "image/png", data: "aGk=" } },
+                { type: "text", text: "Like this" }
+            ]
+        })
+        expect(sent[2]).toEqual({ role: "user", content: "hi" })
+    })
 })
 
 describe("GeminiLlmClient", () => {
@@ -426,6 +444,15 @@ describe("GeminiLlmClient", () => {
         const { client } = fakeGemini([{ candidates: [{ content: { parts: [{ text: "x" }] }, finishReason }] }])
 
         expect((await new GeminiLlmClient(client, "gemini-x").turn(request([{ role: "user", text: "hi" }]))).stopReason).toBe(stopReason)
+    })
+
+    it("Given a user message with an image, then the image goes as inline data after the text", async () => {
+        const { client, generateContentStream } = fakeGemini([{ candidates: [{ content: { parts: [{ text: "ok" }] }, finishReason: "STOP" }] }])
+
+        await new GeminiLlmClient(client, "gemini-x").turn(request([withImage]))
+
+        const contents = (generateContentStream.mock.calls[0] as unknown as [{ contents: unknown[] }])[0].contents
+        expect(contents[0]).toEqual({ role: "user", parts: [{ text: "Like this" }, { inlineData: { mimeType: "image/png", data: "aGk=" } }] })
     })
 })
 
@@ -502,6 +529,21 @@ describe("AzureOpenAiLlmClient", () => {
         const { client } = fakeAzure(response)
 
         expect((await new AzureOpenAiLlmClient(client, "gpt", false).turn(request([{ role: "user", text: "hi" }]))).stopReason).toBe(stopReason)
+    })
+
+    it("Given a user message with an image, then it goes as an input_image data URL after the input_text", async () => {
+        const { client, stream } = fakeAzure({ output: [message("ok")] })
+
+        await new AzureOpenAiLlmClient(client, "gpt-deployment", false).turn(request([withImage]))
+
+        const body = (stream.mock.calls[0] as unknown as [{ input: unknown[] }])[0]
+        expect(body.input[0]).toEqual({
+            role: "user",
+            content: [
+                { type: "input_text", text: "Like this" },
+                { type: "input_image", image_url: "data:image/png;base64,aGk=", detail: "auto" }
+            ]
+        })
     })
 
     it("Given a failed response, then the turn throws instead of ending as if the model had finished", async () => {

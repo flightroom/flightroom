@@ -8,6 +8,7 @@ import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import { jobErrorMessage } from "@/components/assistant/AssistantJobThread"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
+import type { PromptImage } from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob, DomainPlan } from "@/hooks/apiClients/useAiJobsApi"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
@@ -73,6 +74,8 @@ interface ScaffoldState {
     open: boolean
     items: ScaffoldItem[]
     prompt: string
+    /** Attached to the prompt: the job is started with them, the plan is asked for without. */
+    images: PromptImage[]
     /** Hands the job created once everything exists back to the workspace, which opens it. */
     started?: (job: AiJob) => void
 }
@@ -91,7 +94,7 @@ const DomainAiWorkspace: React.FC = () => {
     const frontendsApi = useFrontendsApi()
     const backendsApi = useBackendsApi()
     const aiJobsApi = useAiJobsApi()
-    const [scaffold, setScaffold] = useState<ScaffoldState>({ open: false, items: [], prompt: "" })
+    const [scaffold, setScaffold] = useState<ScaffoldState>({ open: false, items: [], prompt: "", images: [] })
 
     const domainQuery = useQuery({ queryKey: ["domain", id], queryFn: () => domainsApi.getSingle(id!), enabled: !!id })
     const frontendsQuery = useQuery({
@@ -149,13 +152,13 @@ const DomainAiWorkspace: React.FC = () => {
     const linked = repositories.filter(repository => repository.linked)
 
     // Nothing to work on yet: create it first, then the dialog starts the job.
-    const intercept = (prompt: string, started: (job: AiJob) => void) => {
+    const intercept = (prompt: string, images: PromptImage[], started: (job: AiJob) => void) => {
         if (repositories.length === 0) {
-            planMutation.mutate(prompt, { onSuccess: plan => setScaffold({ open: true, items: planItems(plan), prompt, started }) })
+            planMutation.mutate(prompt, { onSuccess: plan => setScaffold({ open: true, items: planItems(plan), prompt, images, started }) })
             return true
         }
         if (linked.length === 0) {
-            setScaffold({ open: true, items: memberItems(repositories), prompt, started })
+            setScaffold({ open: true, items: memberItems(repositories), prompt, images, started })
             return true
         }
         return false
@@ -194,6 +197,7 @@ const DomainAiWorkspace: React.FC = () => {
                 domainId={id!}
                 domainName={domain.name}
                 prompt={scaffold.prompt}
+                images={scaffold.images}
                 items={scaffold.items}
                 maxRepositories={MAX_REPOSITORIES}
                 onCreated={job => scaffold.started?.(job)}

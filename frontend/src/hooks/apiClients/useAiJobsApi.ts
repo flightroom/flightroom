@@ -1,6 +1,6 @@
 import type { LlmEffort } from "@/types/ConfigResponseDTO"
 import useApiClient, { IClientRequestMetadataExtended } from "../useApiClient"
-import { AiChangeEvent, AiChangeStatus } from "./useAiChangesApi"
+import { AiChangeEvent, AiChangeStatus, PromptImage } from "./useAiChangesApi"
 
 export type AiJobStatus = "PENDING" | "RUNNING" | "DONE" | "FAILED"
 
@@ -101,6 +101,7 @@ export type CreateAiJobDTO = (
     aiModelId?: string
     /** The branch each repository starts from, by frontend or backend id: its default branch when left out. */
     baseBranches?: Record<string, string>
+    images?: PromptImage[]
 }
 
 export interface FollowUpAiJobDTO {
@@ -112,6 +113,7 @@ export interface FollowUpAiJobDTO {
     effort?: LlmEffort
     /** The parent's AI when missing and the project can still use it, else the default one. */
     aiModelId?: string
+    images?: PromptImage[]
 }
 
 /** A frontend or a backend the AI proposes to create in a domain that has none, with the repository it would be scaffolded in. */

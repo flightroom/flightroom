@@ -3,7 +3,7 @@ import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import AiChangeJob from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus, IAiChangeRequest } from "../../models/AiChangeRequestModel"
-import { LlmEffort } from "../llm"
+import { LlmEffort, LlmImage } from "../llm"
 import RepositoryWorkspaceService from "../workspace/RepositoryWorkspaceService"
 import { componentIdOf, componentOf, findComponent, findComponents, ownerFields, RepositoryComponent, RepositoryComponentRef } from "../workspace/repositoryComponent"
 import AiChangeJobService from "./AiChangeJobService"
@@ -18,6 +18,8 @@ export interface AiChangeCreateInput {
     effort?: LlmEffort
     /** The AI the agent runs on, one the project may use: the project's default when left out. */
     aiModelId?: string
+    /** Images the user attached to the prompt, shown to the model with it. */
+    images?: LlmImage[]
 }
 
 /**
@@ -61,6 +63,7 @@ export class AiChangeService extends AiChangeBaseService {
             {
                 projectId: component.projectId,
                 prompt: input.prompt,
+                images: input.images,
                 scope: "selection",
                 repositories: [{ component, baseBranch: input.baseBranch?.trim() || workspace.defaultBranch }],
                 effort: input.effort

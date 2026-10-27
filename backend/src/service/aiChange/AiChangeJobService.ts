@@ -26,7 +26,7 @@ import { ResolvedAiModel } from "../AiModelService"
 import { calculateAiUsageCost, ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
 import { redactSecrets } from "../assistant/assistantTools"
 import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
-import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
+import { addUsage, aiProviderError, LlmClient, LlmEffort, LlmImage, LlmUsage, NO_USAGE, resolveEffort } from "../llm"
 import { projectDesignSystemOf } from "../ProjectService"
 import { RepositoryFileService, repositoryNameFor, toErrorMessage } from "../RepositoryFileService"
 import { resourceIdsInScope } from "../ResourceService"
@@ -99,6 +99,8 @@ export interface AiJobCreateInput {
     effort?: LlmEffort
     /** The AI the agent runs on, one the project may use: the project's default when left out. */
     aiModelId?: string
+    /** Images the user attached to the prompt, shown to the model with it. */
+    images?: LlmImage[]
 }
 
 export interface AiJobFollowUpInput {
@@ -110,6 +112,8 @@ export interface AiJobFollowUpInput {
     effort?: LlmEffort
     /** The AI the agent runs on: the parent's when left out and the project may still use it, else the project's default. */
     aiModelId?: string
+    /** Images the user attached to the prompt, shown to the model with it. */
+    images?: LlmImage[]
 }
 
 export interface AiJobRepositoryView {
@@ -597,7 +601,10 @@ export class AiChangeJobService extends AiChangeBaseService {
         for (const component of components) await this.ensureRepositoryInDomainScope(component, component.codeRepository)
 
         const repositories = await this.withBaseBranches(components, input.baseBranches)
-        const { job } = await this.start({ projectId: toObjectId(projectId), prompt: input.prompt, scope: input.scope, domainId: domain?._id, repositories, effort: input.effort }, aiModel)
+        const { job } = await this.start(
+            { projectId: toObjectId(projectId), prompt: input.prompt, images: input.images, scope: input.scope, domainId: domain?._id, repositories, effort: input.effort },
+            aiModel
+        )
         return this.view(job, true)
     }
 
@@ -679,7 +686,17 @@ export class AiChangeJobService extends AiChangeBaseService {
         const scope = repositories.length === parentRefs.length ? parent.scope : "selection"
         // A follow-up of a mission's job stays the mission's: the mission shows and applies its proposal, and it takes no place of its own.
         const { job } = await this.start(
-            { projectId: parent.projectId, prompt: input.prompt, scope, domainId: parent.domainId, repositories, parentJob: parent, effort: input.effort, missionId: parent.missionId },
+            {
+                projectId: parent.projectId,
+                prompt: input.prompt,
+                images: input.images,
+                scope,
+                domainId: parent.domainId,
+                repositories,
+                parentJob: parent,
+                effort: input.effort,
+                missionId: parent.missionId
+            },
             aiModel
         )
         return this.view(job, true)
@@ -693,6 +710,7 @@ export class AiChangeJobService extends AiChangeBaseService {
         input: {
             projectId: IAiChangeJob["projectId"]
             prompt: string
+            images?: LlmImage[]
             scope: AiJobScope
             domainId?: IAiChangeJob["domainId"] | IDomain["_id"]
             repositories: JobRepository[]
@@ -726,6 +744,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             rootJobId: input.parentJob?.rootJobId ?? jobId,
             missionId: input.missionId,
             prompt: input.prompt,
+            images: input.images?.length ? input.images : undefined,
             title: topic.title,
             scope: input.scope,
             domainId: input.domainId,
@@ -846,7 +865,8 @@ export class AiChangeJobService extends AiChangeBaseService {
      * the agent work, store what changed in each repository, reset again.
      */
     private async process(jobId: string, client: LlmClient): Promise<void> {
-        const job = await AiChangeJob.findById(jobId)
+        // The only read of the images: the agent sends them with the request.
+        const job = await AiChangeJob.findById(jobId, "+images")
         if (!job) return
         let usage: LlmUsage = NO_USAGE
         try {
@@ -945,6 +965,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 client,
                 {
                     prompt: job.prompt,
+                    images: job.images?.map(({ mediaType, data }) => ({ mediaType, data })),
                     effort: job.effort,
                     project: { name: project.name, context: project.context, technologies: project.technologies },
                     domain: domain ? toAgentDomain(domain, domainResources) : undefined,

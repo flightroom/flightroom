@@ -9,7 +9,7 @@ const toContents = (messages: LlmMessage[]): Content[] =>
     messages.map(message => {
         switch (message.role) {
             case "user":
-                return { role: "user", parts: [{ text: message.text }] }
+                return { role: "user", parts: [{ text: message.text }, ...(message.images ?? []).map(image => ({ inlineData: { mimeType: image.mediaType, data: image.data } }))] }
             case "assistant":
                 // Native parts first: function calls carry a thought signature Gemini wants back unchanged.
                 return {

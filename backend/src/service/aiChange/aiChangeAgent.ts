@@ -3,7 +3,7 @@ import path from "node:path"
 import { describeDesignSystem, IDesignSystem } from "../../types/DesignSystem"
 import { describeProjectTechnologies, IProjectTechnologies } from "../../types/ProjectTechnology"
 import { isLockfilePath, isProtectedPath, isSecretPath, resolveInsideWorkingCopy, WorkspacePathError } from "../../utils/workspacePaths"
-import { LlmClient, LlmEffort, LlmMessage, LlmTool, LlmUsage } from "../llm"
+import { LlmClient, LlmEffort, LlmImage, LlmMessage, LlmTool, LlmUsage } from "../llm"
 import { AgentLoopOptions, runAgentLoop, runToolsInOrder } from "../llm/agentLoop"
 import { compactTranscript } from "../llm/transcript"
 import { CommandSandbox } from "../sandbox/commandSandbox"
@@ -148,6 +148,8 @@ export interface AiChangeAgentDomain {
 
 export interface AiChangeAgentInput {
     prompt: string
+    /** Images the user attached to this request: sent with its message only, earlier ones are not replayed. */
+    images?: LlmImage[]
     /** How hard the model reasons on every turn of the run: {@link AI_CHANGE_DEFAULT_EFFORT} when left out. */
     effort?: LlmEffort
     /** The technologies are the defaults the team chose, for what the agent adds: never a reason to rewrite existing code. */
@@ -419,12 +421,21 @@ const describePreviousRequests = (previous: NonNullable<AiChangeAgentInput["prev
           ].join("\n")
         : undefined
 
+/** Points the model at the images sent with the request, so it reads them as part of what is asked. */
+const describeImages = (images: AiChangeAgentInput["images"]) =>
+    images?.length
+        ? `The user attached ${images.length === 1 ? "an image" : `${images.length} images`} to this request, above: ${images.length === 1 ? "it shows" : "they show"} what the user means (a layout, a design to match, an error on screen). Read ${images.length === 1 ? "it" : "them"} before you start.`
+        : undefined
+
 /** A message of the user after the first one: the conversation before it already describes the job. */
 const describeNextMessage = (input: AiChangeAgentInput) =>
     [
         "The user goes on with the conversation. The working copies hold the change proposed so far: start from it, do not redo it. If you change files, your proposal replaces the earlier one, so in finish summarise the WHOLE change.",
+        describeImages(input.images),
         `<request>\n${input.prompt}\n</request>`
-    ].join("\n\n")
+    ]
+        .filter(Boolean)
+        .join("\n\n")
 
 /** What a domain is for and what the team wrote for agents about it. */
 const domainNotes = (domain: AiChangeAgentDomain) => [`<domain_context domain="${domain.name}">`, domain.description, domain.context, "</domain_context>"].filter(Boolean).join("\n")
@@ -563,7 +574,7 @@ const describeInput = (input: AiChangeAgentInput, maps: (AiChangeRepositoryMap |
                   projectContext,
                   domainContext
               ]
-    return [...repositories, describePreviousRequests(input.previousRequests ?? []), `<request>\n${input.prompt}\n</request>`].filter(Boolean).join("\n\n")
+    return [...repositories, describePreviousRequests(input.previousRequests ?? []), describeImages(input.images), `<request>\n${input.prompt}\n</request>`].filter(Boolean).join("\n\n")
 }
 
 /** The tool that reads the Swagger/OpenAPI document of an api resource, offered only to a job with one. */
@@ -1233,10 +1244,12 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
         input.previewsEnabled,
         hooks.onEvent
     )
+    // Sent with the new request only: the transcript keeps a note of them, not the images.
+    const images = input.images?.length ? { images: input.images } : {}
     // A conversation that goes on already holds the maps of its first message.
     const messages: LlmMessage[] = input.history?.length
-        ? [...input.history, { role: "user", text: describeNextMessage(input) }]
-        : [{ role: "user", text: describeInput(input, await toolbox.repositoryMaps()) }]
+        ? [...input.history, { role: "user", text: describeNextMessage(input), ...images }]
+        : [{ role: "user", text: describeInput(input, await toolbox.repositoryMaps()), ...images }]
 
     const effort = input.effort ?? AI_CHANGE_DEFAULT_EFFORT
     // One per run: each document is read once however many times the agent asks for it

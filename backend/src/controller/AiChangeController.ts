@@ -1,6 +1,6 @@
 import { FastifyInstance, FastifyRequest } from "fastify"
 import AiChangeService, { AiChangeCreateInput } from "../service/aiChange/AiChangeService"
-import { LLM_EFFORTS } from "../service/llm"
+import { LLM_EFFORTS, PROMPT_IMAGES_BODY_LIMIT, PROMPT_IMAGES_SCHEMA } from "../service/llm"
 import { RepositoryComponentKind } from "../service/workspace/repositoryComponent"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 
@@ -13,7 +13,8 @@ const createBodySchema = {
         baseBranch: { type: "string", maxLength: 255 },
         effort: { type: "string", enum: LLM_EFFORTS },
         // An id of the organization's AIs, or `system`
-        aiModelId: { type: "string", minLength: 1, maxLength: 64 }
+        aiModelId: { type: "string", minLength: 1, maxLength: 64 },
+        images: PROMPT_IMAGES_SCHEMA
     }
 }
 
@@ -52,7 +53,7 @@ export default async function aiChangeController(fastify: FastifyInstance) {
     for (const [path, kind] of owners) {
         fastify.post<{ Params: { id: string }; Body: AiChangeCreateInput }>(
             `/${path}/:id/ai-changes`,
-            { schema: { body: createBodySchema }, config: { ...config, rateLimit } },
+            { bodyLimit: PROMPT_IMAGES_BODY_LIMIT, schema: { body: createBodySchema }, config: { ...config, rateLimit } },
             async (request, reply) => reply.status(202).send(await service(request).create({ kind, id: request.params.id }, request.body))
         )
 

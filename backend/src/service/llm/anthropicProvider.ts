@@ -16,7 +16,16 @@ const toMessages = (messages: LlmMessage[]): Anthropic.Beta.BetaMessageParam[] =
     messages.map(message => {
         switch (message.role) {
             case "user":
-                return { role: "user", content: message.text }
+                // Images first: Claude reads them best before the text that refers to them.
+                return message.images?.length
+                    ? {
+                          role: "user",
+                          content: [
+                              ...message.images.map(image => ({ type: "image" as const, source: { type: "base64" as const, media_type: image.mediaType, data: image.data } })),
+                              { type: "text" as const, text: message.text }
+                          ]
+                      }
+                    : { role: "user", content: message.text }
             case "assistant":
                 // Native content first: it carries the thinking blocks, which must come back unchanged.
                 return {

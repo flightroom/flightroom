@@ -1149,7 +1149,17 @@
                 "failed": "No failed requests."
             },
             "composer_title": "What do you want to change in {{name}}?",
-            "composer_shortcut": "⌘/Ctrl + Enter to generate the proposal",
+            "composer_shortcut": "⌘/Ctrl + Enter to generate the proposal · paste or drop an image to show what you mean",
+            "images": {
+                "attach": "Attach images",
+                "list_label": "Attached images",
+                "image_alt": "Attached image {{index}}",
+                "remove": "Remove image {{index}}",
+                "unsupported": "Only PNG, JPEG, WebP and GIF images can be attached.",
+                "too_many": "At most {{max}} images can be attached to a request.",
+                "too_large": "{{name}} is still larger than 2 MB once scaled down: it was not attached.",
+                "unreadable": "{{name}} could not be read as an image."
+            },
             "description_backend": "Describe the change you want. The agent reads the repository (and its AGENTS.md, if any) together with the AI context of the project and of this backend, then proposes the edits. It cannot run commands or tests. Nothing is pushed until you approve: on approval the changes are committed on a new branch and a pull request is opened.",
             "conversation_label": "Conversation with the agent",
             "turns_count_one": "{{count}} message",

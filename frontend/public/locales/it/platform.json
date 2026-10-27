@@ -1263,7 +1263,17 @@
                 "failed": "Nessuna richiesta non riuscita."
             },
             "composer_title": "Cosa vuoi cambiare in {{name}}?",
-            "composer_shortcut": "⌘/Ctrl + Invio per generare la proposta",
+            "composer_shortcut": "⌘/Ctrl + Invio per generare la proposta · incolla o trascina un'immagine per mostrare cosa intendi",
+            "images": {
+                "attach": "Allega immagini",
+                "list_label": "Immagini allegate",
+                "image_alt": "Immagine allegata {{index}}",
+                "remove": "Rimuovi immagine {{index}}",
+                "unsupported": "Puoi allegare solo immagini PNG, JPEG, WebP e GIF.",
+                "too_many": "Puoi allegare al massimo {{max}} immagini a una richiesta.",
+                "too_large": "{{name}} supera ancora i 2 MB anche ridimensionata: non è stata allegata.",
+                "unreadable": "Non è stato possibile leggere {{name}} come immagine."
+            },
             "description_backend": "Descrivi la modifica che vuoi. L'agente legge il repository (e il suo AGENTS.md, se c'è) insieme al contesto AI del progetto e di questo backend, poi propone le modifiche. Non può eseguire comandi né test. Non viene pubblicato nulla finché non approvi: all'approvazione le modifiche vengono committate su un nuovo branch e viene aperta una pull request.",
             "conversation_label": "Conversazione con l'agente",
             "turns_count_one": "{{count}} messaggio",

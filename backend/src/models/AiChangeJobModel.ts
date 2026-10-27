@@ -1,5 +1,5 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { LLM_EFFORTS, LlmEffort, LlmMessage } from "../service/llm/types"
+import { LLM_EFFORTS, LLM_IMAGE_MEDIA_TYPES, LlmEffort, LlmImage, LlmMessage } from "../service/llm/types"
 import { aiChangeEventSchema, IAiChangeEvent, IAiChangeUsage } from "./AiChangeRequestModel"
 
 export enum AiJobStatus {
@@ -35,6 +35,11 @@ export interface IAiChangeJob extends Document<ObjectId> {
     /** The mission that started the job: it starts the next ones as this one ends. */
     missionId?: Schema.Types.ObjectId
     prompt: string
+    /**
+     * Images the user attached to the prompt, sent to the model with it. Heavy: never read unless asked
+     * for (`select: false`), and never replayed in a follow-up, whose transcript only notes them.
+     */
+    images?: LlmImage[]
     /** A few words the model wrote about the prompt, for the console's lists; unset when it could not, or on a follow-up. */
     title?: string
     scope: AiJobScope
@@ -66,6 +71,8 @@ export interface IAiChangeJob extends Document<ObjectId> {
     updatedAt: Date
 }
 
+const promptImageSchema = new Schema<LlmImage>({ mediaType: { type: String, enum: [...LLM_IMAGE_MEDIA_TYPES], required: true }, data: { type: String, required: true } }, { _id: false })
+
 const aiChangeJobSchema = new Schema<IAiChangeJob>(
     {
         projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
@@ -74,6 +81,7 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         rootJobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob", required: true, index: true },
         missionId: { type: Schema.Types.ObjectId, ref: "AiMission", index: true },
         prompt: { type: String, required: true, maxlength: 8_000 },
+        images: { type: [promptImageSchema], default: undefined, select: false },
         title: { type: String },
         scope: { type: String, enum: ["global", "domain", "selection"], required: true },
         domainId: { type: Schema.Types.ObjectId, ref: "Domain" },

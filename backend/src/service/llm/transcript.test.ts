@@ -52,6 +52,26 @@ describe("compactTranscript", () => {
         ])
     })
 
+    it("Given a user message with images, when compacted, then the image data is dropped and the text notes how many there were", () => {
+        const compacted = compactTranscript(
+            [
+                {
+                    role: "user",
+                    text: "Make it look like this",
+                    images: [
+                        { mediaType: "image/png", data: "aGk=" },
+                        { mediaType: "image/jpeg", data: "aGk=" }
+                    ]
+                },
+                { role: "assistant", text: "Done.", toolCalls: [] }
+            ],
+            "unused"
+        )
+
+        expect(compacted[0]).toEqual({ role: "user", text: "Make it look like this\n[2 image(s) attached]" })
+        expect(JSON.stringify(compacted)).not.toContain("aGk=")
+    })
+
     it("Given a conversation over the budget, when compacted, then the oldest tool exchanges lose their content first", () => {
         const exchange = (id: string): LlmMessage[] => [
             { role: "assistant", text: "", toolCalls: [{ id, name: "read_file", input: { path: `${id}.ts` } }] },
