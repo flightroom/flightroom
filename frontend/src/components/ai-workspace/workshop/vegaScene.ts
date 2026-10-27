@@ -14,6 +14,12 @@ export interface WorkshopWorker {
     caption: string
 }
 
+/** How a Vega leaves the workshop: off with its rocket once its work is applied, fading away once it is discarded */
+export type Departure = "launch" | "fade"
+
+/** How long a departure lasts, in seconds */
+const DEPARTURE_SECONDS = 1.8
+
 /** The body colours of the four liveries, light to dark, from the brand scales of the design system: pumpkin, zomp, sunglow, olivine. */
 export const LIVERIES = [
     ["#FFA060", "#FE7F2D", "#D9581A"],
@@ -226,6 +232,8 @@ export class VegaScene {
     private trolley?: THREE.Group
     private walls: { group: THREE.Group; normal: THREE.Vector3 }[] = []
     private vegas: Vega[] = []
+    /** The Vegas on their way out, removed once their departure is over */
+    private leaving: { vega: Vega; departure: Departure; since: number }[] = []
     private selectedId?: string
     private hoveredId?: string
     /** What moves in the room by itself: the LEDs of the rack, the welding arm */
@@ -272,7 +280,8 @@ export class VegaScene {
         this.loop()
     }
 
-    setWorkers(workers: WorkshopWorker[]) {
+    /** The works in the workshop now; the Vegas of the others leave as their departure says, fading away when it says nothing */
+    setWorkers(workers: WorkshopWorker[], departures: Record<string, Departure> = {}) {
         const known = new Map(this.vegas.map(vega => [vega.worker.id, vega]))
         const next = workers.map(worker => {
             const vega = known.get(worker.id)
@@ -283,7 +292,11 @@ export class VegaScene {
             }
             return this.makeVega(worker)
         })
-        for (const gone of known.values()) this.removeVega(gone)
+        for (const gone of known.values()) {
+            gone.tag.remove()
+            if (this.reducedMotion) this.removeVega(gone)
+            else this.leaving.push({ vega: gone, departure: departures[gone.worker.id] ?? "fade", since: this.clock.getElapsedTime() })
+        }
         this.vegas = next
         // The loop writes the plates again with the new title and caption
         for (const vega of this.vegas) vega.expanded = undefined
@@ -1172,6 +1185,27 @@ export class VegaScene {
         const from = new THREE.Vector3(0, 0, 0).project(this.camera)
         const to = new THREE.Vector3(TILE, 0, 0).project(this.camera)
         const bayWidth = Math.hypot((to.x - from.x) * width, (to.y - from.y) * height) / 2
+        this.leaving = this.leaving.filter(({ vega, departure, since }) => {
+            const progress = (time - since) / DEPARTURE_SECONDS
+            if (progress >= 1) {
+                this.removeVega(vega)
+                return false
+            }
+            if (departure === "launch") {
+                // Up and away, spinning, its flame on
+                vega.flame.visible = true
+                vega.flame.scale.y = 1.2 + Math.sin(time * 40) * 0.15
+                vega.glow.intensity = 5
+                vega.hover.position.y = 1.75 + progress * progress * 14
+                vega.hover.rotation.y += 0.25
+            } else {
+                // Down onto its pad and smaller, until nothing is left
+                vega.hover.position.y = 1.75 - progress * 1.2
+                vega.hover.scale.setScalar(Math.max(0.01, 1 - progress))
+                vega.bodyMaterial.color.lerp(new THREE.Color("#5b6a73"), 0.1)
+            }
+            return true
+        })
         this.vegas.forEach((vega, index) => {
             const mood = vega.worker.mood
             const launching = mood === "applying"

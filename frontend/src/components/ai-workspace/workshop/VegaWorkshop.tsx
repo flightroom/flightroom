@@ -31,8 +31,11 @@ const CAPTION_LENGTH = 42
 const READING_TOOLS = new Set(["read_file", "list_files", "search", "read_api_spec"])
 const WRITING_TOOLS = new Set(["write_file", "edit_file", "delete_file"])
 
-/** What comes first in the workshop: the works the agent is on, then the ones to review, then the rest */
+/** What comes first in the workshop: the works the agent is on, then the ones to review, then the failed ones */
 const PRIORITY: Record<AiChangeStatus, number> = { RUNNING: 0, APPLYING: 0, PENDING: 1, PROPOSED: 2, FAILED: 3, APPLIED: 4, DISCARDED: 5 }
+
+/** The works done with: they have no bay in the workshop */
+const GONE = new Set<AiChangeStatus>(["APPLIED", "DISCARDED"])
 
 /** The same work keeps its number and its livery whatever else the queue holds */
 const hashOf = (id: string) => {
@@ -75,8 +78,12 @@ const VegaWorkshop: React.FC<VegaWorkshopProps> = ({ entries, selectedId, onSele
     onSelectRef.current = onSelect
     const [unsupported, setUnsupported] = useState(false)
 
-    const shown = [...entries].sort((a, b) => PRIORITY[a.status] - PRIORITY[b.status]).slice(0, MAX_BAYS)
-    const hidden = entries.length - shown.length
+    // A work applied or discarded leaves the workshop: only the classic queue keeps it
+    const open = entries.filter(entry => !GONE.has(entry.status))
+    const shown = [...open].sort((a, b) => PRIORITY[a.status] - PRIORITY[b.status]).slice(0, MAX_BAYS)
+    const hidden = open.length - shown.length
+    // How a Vega goes when its work leaves: off with its rocket once applied, fading away once discarded
+    const departures = Object.fromEntries(entries.filter(entry => GONE.has(entry.status)).map(entry => [entry.id, entry.status === "APPLIED" ? "launch" : "fade"] as const))
 
     // Only the works the agent is on are read in full: their events say what it is doing
     const liveQueries = useQueries({
@@ -118,10 +125,10 @@ const VegaWorkshop: React.FC<VegaWorkshopProps> = ({ entries, selectedId, onSele
         }
     }, [])
 
-    const signature = JSON.stringify(workers)
-    // biome-ignore lint/correctness/useExhaustiveDependencies: the signature stands for the workers
+    const signature = JSON.stringify([workers, departures])
+    // biome-ignore lint/correctness/useExhaustiveDependencies: the signature stands for the workers and their departures
     useEffect(() => {
-        sceneRef.current?.setWorkers(workers)
+        sceneRef.current?.setWorkers(workers, departures)
     }, [signature])
 
     const selectedEntry = shown.find(entry => selectedId && entry.ids.includes(selectedId))
@@ -130,12 +137,12 @@ const VegaWorkshop: React.FC<VegaWorkshopProps> = ({ entries, selectedId, onSele
     }, [selectedEntry?.id])
 
     let overlay = <span className="absolute bottom-2 right-3 font-mono text-[11px] text-[#9db2c0]">{t("frontend.aiChange.workshop.hint")}</span>
-    if (entries.length === 0) overlay = <p className="absolute inset-x-0 bottom-6 px-6 text-center text-sm text-[#9db2c0]">{t("frontend.aiChange.workshop.empty")}</p>
+    if (open.length === 0) overlay = <p className="absolute inset-x-0 bottom-6 px-6 text-center text-sm text-[#9db2c0]">{t("frontend.aiChange.workshop.empty")}</p>
     if (unsupported) overlay = <p className="absolute inset-0 grid place-items-center p-6 text-center text-sm text-[#9db2c0]">{t("frontend.aiChange.workshop.no_webgl")}</p>
 
     return (
         <section aria-label={t("frontend.aiChange.workshop.label")} className="flex flex-col gap-3">
-            <div ref={containerRef} className="relative h-[clamp(320px,48vw,460px)] cursor-grab touch-pan-y overflow-hidden rounded-xl border border-divider bg-[#04121a] active:cursor-grabbing">
+            <div ref={containerRef} className="relative h-[clamp(380px,65vh,820px)] cursor-grab touch-pan-y overflow-hidden rounded-xl border border-divider bg-[#04121a] active:cursor-grabbing">
                 {overlay}
             </div>
             {/* The plates of the bays: what a keyboard and a screen reader open the works with */}
