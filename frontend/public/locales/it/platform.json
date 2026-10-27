@@ -870,6 +870,12 @@
         },
         "notifications": {
             "personalDataUpdated": "Dati personali aggiornati"
+        },
+        "preferences": {
+            "title": "Preferenze",
+            "subtitle": "Lingua e tema della console: la scelta viene salvata subito",
+            "language": "Lingua",
+            "theme": "Tema"
         }
     },
     "validation": {

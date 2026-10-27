@@ -2,7 +2,7 @@ import { useTranslation } from "react-i18next"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { useGlobalParameters } from "@/contexts/GlobalParameterProvider"
 import useUserStore from "@/store/useUserStore"
-import { AvatarSection, MarketingConsentSection, PersonalDataSection } from "./partials"
+import { AvatarSection, MarketingConsentSection, PersonalDataSection, PreferencesSection } from "./partials"
 
 export const Profile: React.FC = () => {
     const { t } = useTranslation()
@@ -22,6 +22,7 @@ export const Profile: React.FC = () => {
         <SinglePageLayout title={t("profile.title")} description={t("profile.subtitle")}>
             <AvatarSection user={user} />
             <PersonalDataSection user={user} />
+            <PreferencesSection />
             {marketingOptInEnabled && <MarketingConsentSection user={user} />}
         </SinglePageLayout>
     )

@@ -26,13 +26,13 @@ const ThemeIcon: React.FC<{ theme: ThemeEnum }> = ({ theme }) => {
     }
 }
 
-const ThemeToggle: React.FC<ThemeToggleProps> = ({ isSidebarCollapsed, purpose = "sidebar", dropdownContentSide, dropdownContentAlign }: ThemeToggleProps) => {
-    const { t } = useTranslation()
-    const { theme, setTheme } = useThemeStore()
+/** Changes the theme of the console, and saves it on the user when one is logged in */
+export const useChangeTheme = () => {
+    const { setTheme } = useThemeStore()
     const { user, ...userStore } = useUserStore()
     const userApi = useUserApi()
 
-    const onSetTheme = (theme: ThemeEnum) => {
+    return (theme: ThemeEnum) => {
         setTheme(theme)
         setThemeInLocalStorage(theme)
         if (user) {
@@ -40,6 +40,12 @@ const ThemeToggle: React.FC<ThemeToggleProps> = ({ isSidebarCollapsed, purpose =
             userStore.setTheme(theme)
         }
     }
+}
+
+const ThemeToggle: React.FC<ThemeToggleProps> = ({ isSidebarCollapsed, purpose = "sidebar", dropdownContentSide, dropdownContentAlign }: ThemeToggleProps) => {
+    const { t } = useTranslation()
+    const { theme } = useThemeStore()
+    const onSetTheme = useChangeTheme()
 
     return (
         <DropdownMenu>

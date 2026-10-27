@@ -1,11 +1,9 @@
 import { Sidebar as DesignSystemSidebar, type SidebarProps as DesignSystemSidebarProps, type SidebarNavItemProps } from "@flightroom/design-system"
-import { BookOpen, GitBranch } from "lucide-react"
+import { BookOpen } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation } from "react-router-dom"
 import useBranding from "@/hooks/useBranding"
-import LanguageSelector from "./partials/LanguageSelector"
-import ThemeToggle from "./partials/ThemeToggle"
 import { UserButton } from "./partials/UserButton"
 
 export type { SidebarNavItemProps }
@@ -21,10 +19,7 @@ export type SidebarProps = Omit<DesignSystemSidebarProps, "logo" | "title" | "ma
     mainNavSections: SidebarNavSection[]
 }
 
-const EXTERNAL_NAV_ITEMS: SidebarNavItemProps[] = [
-    { name: "Documentation", path: "https://flightroom.dev/documentation/", icon: <BookOpen /> },
-    { name: "Contribute", path: "https://github.com/flightroom", icon: <GitBranch /> }
-]
+const EXTERNAL_NAV_ITEMS: SidebarNavItemProps[] = [{ name: "Documentation", path: "https://flightroom.dev/documentation/", icon: <BookOpen /> }]
 
 /**
  * A section stays highlighted on its detail pages: `/backends` also covers `/backend/:id/...`, and
@@ -66,12 +61,6 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
             }
             mainNavItems={mainNavItems}
             secondaryNavItems={EXTERNAL_NAV_ITEMS}
-            secondaryContent={({ isCollapsed, isMobile }) => (
-                <>
-                    <LanguageSelector isSidebarCollapsed={isCollapsed} dropdownContentSide={isMobile ? "bottom" : undefined} dropdownContentAlign={isMobile ? "start" : undefined} />
-                    <ThemeToggle isSidebarCollapsed={isCollapsed} dropdownContentSide={isMobile ? "bottom" : undefined} dropdownContentAlign={isMobile ? "start" : undefined} />
-                </>
-            )}
             footer={({ isCollapsed }) => <UserButton isSidebarCollapsed={isCollapsed} />}
             renderLink={({ href, className, children, onClick }) => {
                 const sectionTitle = sectionTitleByPath.get(href)

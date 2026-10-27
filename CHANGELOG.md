@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **A Domain Build Skips What Did Not Change**: the build and the build and deploy of a domain no longer tag a repository whose branch is still on the commit of the version its frontends and backends already have, so a change on the backend alone builds only the backend. The skipped ones show as unchanged and keep their version in the deploy
+- **Language And Theme Live In The Profile**: the sidebar no longer holds the language and theme selectors, which move to a Preferences section of the profile page, nor the Contribute link
 
 ---
 
