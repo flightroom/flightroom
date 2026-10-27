@@ -3330,8 +3330,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793005820.6058984,
-    "ast_hash": "f99a766f765611144593c55e0b3e4a5e",
+    "mtime": 1793091986.1847124,
+    "ast_hash": "7a074f2596d8e8e3c60d8ce7bfa4b318",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
@@ -5050,8 +5050,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/mascot/Mascot.tsx": {
-    "mtime": 1793087375.688371,
-    "ast_hash": "31998137f3b287173f24d74afee8e032",
+    "mtime": 1793091984.4134016,
+    "ast_hash": "50883e1fe22dbdfa28c8e53de229ef14",
     "semantic_hash": ""
   }
 }
