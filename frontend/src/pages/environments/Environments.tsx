@@ -124,7 +124,7 @@ function EnvironmentDialog({ isOpen, onOpenChange, onSubmitSuccess, formData, id
 
     return (
         <Dialog open={isOpen} onOpenChange={form.formState.isSubmitting ? undefined : onOpenChange}>
-            <DialogContent>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                 <DialogHeader>
                     <DialogTitle>{id ? t("environment.page.form.edit_title", { name: formData.name }) : t("environment.page.form.create_title")}</DialogTitle>
                 </DialogHeader>
