@@ -20,8 +20,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/AzureDevOpsClient.ts": {
-    "mtime": 1793005820.5168555,
-    "ast_hash": "09a526b3aeb4cc7b6070d010e33e536f",
+    "mtime": 1793135917.9103084,
+    "ast_hash": "68becfb2a89f4505b25cb496c37eced6",
     "semantic_hash": ""
   },
   "backend/src/client/AzureStorageAccount.ts": {
@@ -220,9 +220,9 @@
     "semantic_hash": ""
   },
   "backend/src/models/ApiKeyModel.ts": {
-    "mtime": 1792649408.3609722,
-    "ast_hash": "ca4b1d77b2fb0d0fd60b05d36c3f78ac",
-    "semantic_hash": "ca4b1d77b2fb0d0fd60b05d36c3f78ac"
+    "mtime": 1793133437.680704,
+    "ast_hash": "eecac9a7a54dd62055348b53a8ac203a",
+    "semantic_hash": ""
   },
   "backend/src/models/BuiltFrontendModel.ts": {
     "mtime": 1793005820.5344064,
@@ -275,8 +275,8 @@
     "semantic_hash": ""
   },
   "backend/src/models/UserModel.ts": {
-    "mtime": 1793005820.5376415,
-    "ast_hash": "315305703a3a63fdd91c68e28e24d415",
+    "mtime": 1793135750.297991,
+    "ast_hash": "b16c31ec4242050b8966459b069fcd69",
     "semantic_hash": ""
   },
   "backend/src/models/UserProjectModel.ts": {
@@ -290,8 +290,8 @@
     "semantic_hash": ""
   },
   "backend/src/plugins/autorization.ts": {
-    "mtime": 1793005820.5388422,
-    "ast_hash": "4d9b5dc920a35fd06bfc09c5326d832c",
+    "mtime": 1793135767.0348253,
+    "ast_hash": "902de557c5d3c16c8d369f25802c9330",
     "semantic_hash": ""
   },
   "backend/src/plugins/config.ts": {
@@ -375,8 +375,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/EmailSenderService.ts": {
-    "mtime": 1793005820.5453453,
-    "ast_hash": "065a52c8921007ae6836a38d720286e0",
+    "mtime": 1793135810.235513,
+    "ast_hash": "0b8dde58b09407603b673cebc62212b3",
     "semantic_hash": ""
   },
   "backend/src/service/EnvironmentService.ts": {
@@ -425,8 +425,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/UserService.ts": {
-    "mtime": 1793005820.555641,
-    "ast_hash": "51d376ea89d737e889797fdacea554f9",
+    "mtime": 1793135765.2921274,
+    "ast_hash": "7579bf504b26cd2c4aa2d429bace5baa",
     "semantic_hash": ""
   },
   "backend/src/types/ApiKeyDTO.ts": {
@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793133118.1933882,
-    "ast_hash": "5f362d25639248e6a5173cfc53dfd6cd",
+    "mtime": 1793133716.5749798,
+    "ast_hash": "d7d13f08453ea0a18762db9325f73c0b",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793133118.190121,
-    "ast_hash": "56a33abbf1aa99b52b37fc9a3997c116",
+    "mtime": 1793133716.5753043,
+    "ast_hash": "e10e72c42b70a08510b354edd5738d5a",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1310,8 +1310,8 @@
     "semantic_hash": "73ce392c58c2f960d77e9bbedd6ad47f"
   },
   "frontend/src/theme/SelectProjectWrapper.tsx": {
-    "mtime": 1793005820.6526718,
-    "ast_hash": "8c42204f2dd696480e9c5fb8e12b16d4",
+    "mtime": 1793135854.2761054,
+    "ast_hash": "1a4cd56f6cdd46371813776d059f14ad",
     "semantic_hash": ""
   },
   "frontend/src/theme/SentryInit.tsx": {
@@ -1490,8 +1490,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793132759.819139,
-    "ast_hash": "e959b17df585c12340795dc4ce952b18",
+    "mtime": 1793134822.5791597,
+    "ast_hash": "8525ab44941dfb6be6c01cc10f7bd412",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2425,8 +2425,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/assistant/AssistantService.test.ts": {
-    "mtime": 1793132984.4013093,
-    "ast_hash": "9c0b6262626bdb9e14fe7b63118c64a6",
+    "mtime": 1793133732.6368797,
+    "ast_hash": "b74d8723b2dc967b99b6ed2b0664aa4d",
     "semantic_hash": ""
   },
   "backend/src/service/assistant/AssistantService.ts": {
@@ -2855,8 +2855,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.ts": {
-    "mtime": 1793098075.7108629,
-    "ast_hash": "359eee95fd891fecb75a5927590afef8",
+    "mtime": 1793136012.0408566,
+    "ast_hash": "8f2cd30f3e547363dde9d8694a28c84a",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeShared.ts": {
@@ -2920,8 +2920,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/AzureDevOpsClient.test.ts": {
-    "mtime": 1793005820.5167124,
-    "ast_hash": "eed70488709232389109c2a7cfa8e4df",
+    "mtime": 1793135926.8944347,
+    "ast_hash": "a3e931263dd7894cf684626dd12ef79c",
     "semantic_hash": ""
   },
   "backend/src/models/AiChangeRequestModel.test.ts": {
@@ -4120,8 +4120,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainBuildAndDeployDialog.tsx": {
-    "mtime": 1793127391.443643,
-    "ast_hash": "931a8b17baa4abc071d403e7e5529fbf",
+    "mtime": 1793133537.2935958,
+    "ast_hash": "838e66b95436804ba6c88c224c694769",
     "semantic_hash": ""
   },
   "frontend/src/pages/fleet/FleetMissionPage.tsx": {
@@ -4485,13 +4485,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/EmailSenderService.test.ts": {
-    "mtime": 1793005820.5452044,
-    "ast_hash": "a33eab9c64c393a73ad617ceca76c78a",
+    "mtime": 1793135982.6237543,
+    "ast_hash": "731603d397a5d52437e5d4240e55c8f4",
     "semantic_hash": ""
   },
   "backend/src/templates/emails/i18n.ts": {
-    "mtime": 1793005820.5691113,
-    "ast_hash": "a2a43f3eb7fccbea48f536eadcdf3b3b",
+    "mtime": 1793136020.8083935,
+    "ast_hash": "9944375b5ffd1089a18ce57b3ecfd999",
     "semantic_hash": ""
   },
   "frontend/src/pages/resources/partials/ResourceCustomFieldsEditor.tsx": {
@@ -4500,8 +4500,8 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793116220.3178403,
-    "ast_hash": "22c77760eaf108ee2aeb1ef3ce0a917c",
+    "mtime": 1793134822.789677,
+    "ast_hash": "8f16b0d5b332c895d21d548f42a3c0a1",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
@@ -5047,6 +5047,36 @@
   "frontend/src/pages/new-project-wizard/pages/StartChoice.tsx": {
     "mtime": 1793133063.451647,
     "ast_hash": "493c0764d27cb315f0eb8d00e60617e7",
+    "semantic_hash": ""
+  },
+  "backend/src/plugins/apiKeyExpiryNotices.ts": {
+    "mtime": 1793133506.4639094,
+    "ast_hash": "c68a4e2baac4cdfda6e7e20c23fa1a5d",
+    "semantic_hash": ""
+  },
+  "backend/src/service/ApiKeyExpiryNoticeService.test.ts": {
+    "mtime": 1793133534.2271006,
+    "ast_hash": "584e4ff83c0926fa2cd07d87c169488f",
+    "semantic_hash": ""
+  },
+  "backend/src/service/ApiKeyExpiryNoticeService.ts": {
+    "mtime": 1793133573.5098596,
+    "ast_hash": "7011d96ff8cb2493f3b464be2b6f59db",
+    "semantic_hash": ""
+  },
+  "backend/src/service/UserService.presence.test.ts": {
+    "mtime": 1793135894.30045,
+    "ast_hash": "1397b76227599195298a4f1ef94a038b",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiJobNotices.test.ts": {
+    "mtime": 1793135887.40607,
+    "ast_hash": "c17723c968515b8867ae1086454dd338",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiJobNotices.ts": {
+    "mtime": 1793136047.3315713,
+    "ast_hash": "b3584f1e26167db9393b8e2b060b1fba",
     "semantic_hash": ""
   }
 }
