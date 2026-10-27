@@ -15,7 +15,7 @@ import { FrontendStackSource } from "../types/FrontendStack"
 import { canonicalTimeZone, isValidSchedule, MaintenanceAgentDTO, MaintenanceAgentKind } from "../types/MaintenanceAgent"
 import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
-import { withManualVersion, withNormalizedReferences } from "./BackendService"
+import { ensureRequestsWithinLimits, withManualVersion, withNormalizedReferences } from "./BackendService"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import { isDeployable } from "./gitops/applicationManifests"
@@ -147,6 +147,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
         await ensureAttachableMaps(scope, projectIdObj, agent)
         await ensureAttachableResources(scope, projectIdObj, agent)
         ensureOnlyNewRepositoryLinked(scope, agent.codeRepository)
+        ensureRequestsWithinLimits(agent, undefined, "MAINTENANCE_AGENT_INVALID")
 
         // Both before the repository is created: a refused save would leave an orphan repository behind
         await ensureSlugFree(slug, projectIdObj)
@@ -222,6 +223,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
         }
         await ensureAttachableMaps(scope, agent.projectId, allowed, agent)
         await ensureAttachableResources(scope, agent.projectId, allowed, agent)
+        ensureRequestsWithinLimits(allowed, agent, "MAINTENANCE_AGENT_INVALID")
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, agent.codeRepository)) delete allowed.codeRepository
         if (allowed.codeRepository) {
             allowed.codeRepository = { ...allowed.codeRepository, createData: undefined }

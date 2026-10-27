@@ -10,6 +10,7 @@ import RepositoryRenameService, { isValidRepositoryName } from "../../service/Re
 import StackDetectionService from "../../service/StackDetectionService"
 import { StorageService } from "../../service/StorageService"
 import { BACKEND_HTTP_PATH } from "../../types/BackendStack"
+import { CHART_RESOURCE_DEFAULTS, parseCpu, parseMemory } from "../../types/ContainerResources"
 import { DESIGN_SYSTEM_MAX_LENGTH, NPM_PACKAGE_NAME } from "../../types/DesignSystem"
 import { isExposurePath } from "../../types/Exposure"
 import FrontendDTO from "../../types/FrontendDTO"
@@ -21,6 +22,17 @@ import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
 const frontendId = objectId("Id of the frontend")
 
 const httpPath = z.string().regex(BACKEND_HTTP_PATH, 'starts with "/", at most 256 characters, no whitespace')
+
+const cpuQuantity = z
+    .string()
+    .refine(value => !value.trim() || parseCpu(value.trim()) !== undefined, "a CPU quantity above zero: cores (0.5, 1) or millicores (250m)")
+    .nullable()
+    .optional()
+const memoryQuantity = z
+    .string()
+    .refine(value => !value.trim() || parseMemory(value.trim()) !== undefined, "a memory quantity above zero: bytes, or with a suffix such as Mi, Gi, M or G")
+    .nullable()
+    .optional()
 
 /**
  * The fields of what runs as a container of its own: a backend, and a frontend of kind
@@ -36,6 +48,10 @@ export const containerFields = {
     readinessPath: httpPath.optional().describe("Readiness probe path, /health/ready when omitted"),
     docsPath: httpPath.nullable().optional().describe("Path of the API documentation UI, e.g. /docs; null when there is none"),
     openApiPath: httpPath.nullable().optional().describe("Path of the OpenAPI spec, e.g. /openapi.json; null when there is none"),
+    cpuRequest: cpuQuantity.describe(`CPU the container asks for, e.g. 250m or 0.5; the chart default (${CHART_RESOURCE_DEFAULTS.cpuRequest}) when null or omitted`),
+    cpuLimit: cpuQuantity.describe(`Most CPU the container may use, e.g. 1; the chart default (${CHART_RESOURCE_DEFAULTS.cpuLimit}) when null or omitted. Not below the request`),
+    memoryRequest: memoryQuantity.describe(`Memory the container asks for, e.g. 256Mi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryRequest}) when null or omitted`),
+    memoryLimit: memoryQuantity.describe(`Most memory the container may use, e.g. 1Gi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryLimit}) when null or omitted. Not below the request`),
     exposurePath: z
         .string()
         .refine(isExposurePath, 'starts with "/", at most 256 characters of letters, digits, -._~!$&\'()*+,;=:@ or %XX; no query, fragment, // nor . or .. segment')

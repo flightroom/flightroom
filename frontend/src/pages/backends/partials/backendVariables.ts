@@ -3,6 +3,7 @@ import * as z from "zod"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi, { type ProjectExposure } from "@/hooks/apiClients/useProjectApi"
 import useProjectStore from "@/store/useProjectStore"
+import { createResourceShape, type ResourceMessages } from "./containerResources"
 
 /** Same rule as the backend (BACKEND_HTTP_PATH): a probe or docs path is absolute, at most 256 characters, without whitespace */
 export const BACKEND_HTTP_PATH = /^\/\S{0,255}$/
@@ -17,7 +18,7 @@ const EXPOSURE_PATH = /^(?!.*%2[fF])(\/|(\/(?!\.{1,2}(\/|$))([-A-Za-z0-9._~!$&'(
  * The form fields of what a container declares, with the rules of the backend: shared by a backend and by a
  * frontend served by its own container, which declares the same.
  */
-export const createBackendRuntimeShape = (messages: { path: string }) => ({
+export const createBackendRuntimeShape = (messages: { path: string } & ResourceMessages) => ({
     port: z.string().regex(/^\d{1,5}$/),
     livenessPath: z.string().trim().regex(BACKEND_HTTP_PATH, messages.path),
     readinessPath: z.string().trim().regex(BACKEND_HTTP_PATH, messages.path),
@@ -30,6 +31,8 @@ export const createBackendRuntimeShape = (messages: { path: string }) => ({
         .string()
         .trim()
         .refine(value => value === "" || BACKEND_HTTP_PATH.test(value), messages.path),
+    // Empty: the default of the chart (that a request is not above its limit is checked by refineResources)
+    ...createResourceShape(messages),
     // Form only: whether it is exposed on the host of the environments, at exposurePath (checked by refineExposure)
     exposed: z.boolean(),
     exposurePath: z.string().trim(),

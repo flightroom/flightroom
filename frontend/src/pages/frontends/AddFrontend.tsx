@@ -24,6 +24,7 @@ import BackendEnvFields from "@/pages/backends/partials/BackendEnvFields"
 import BackendRuntimeFields from "@/pages/backends/partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "@/pages/backends/partials/BackendVariableMapsFields"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
+import { type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "@/pages/backends/partials/containerResources"
 import { CodeRepositorySection, DangerZoneRemoveFrontend, FrontendHeader, FrontendKindField, HostingSection, isAiEditAvailable, ReleaseSection } from "@/pages/frontends/partials/components"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useOrganizationStore from "@/store/useOrganizationStore"
@@ -34,7 +35,7 @@ import { DesignSystemFields, designSystemFormValues, HTTP_URL, NPM_PACKAGE_NAME,
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import { FetchDataTemplateCard } from "../templates-library/partials/"
 
-interface FormMessages {
+interface FormMessages extends ResourceMessages {
     path: string
     exposurePath: string
     exposurePathRequired: string
@@ -82,6 +83,10 @@ const createFormSchema = (messages: FormMessages) => {
             readinessPath: z.string().optional(),
             docsPath: z.string().optional(),
             openApiPath: z.string().optional(),
+            cpuRequest: z.string().optional(),
+            cpuLimit: z.string().optional(),
+            memoryRequest: z.string().optional(),
+            memoryLimit: z.string().optional(),
             exposed: z.boolean().optional(),
             exposurePath: z.string().optional(),
             image: z.object({ repository: z.string().optional() }).optional(),
@@ -153,6 +158,7 @@ const createFormSchema = (messages: FormMessages) => {
                     ctx.addIssue({ code: "custom", message: issue.message, path: issue.path })
                 }
                 refineExposure(data, ctx, messages)
+                refineResources(data, ctx, messages)
                 // Optional, as for a backend: it is the tag of the image, with the same rule
                 if (data.version?.trim() && !BACKEND_VERSION.test(data.version.trim())) {
                     ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["version"] })
@@ -196,7 +202,23 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["name", "slug", "description", "domainId", "kind", "version", "customVersion", "canary", "codeRepository"],
     context: ["context", "designSystem"],
     hosting: ["host"],
-    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "env", "configMapIds", "secretIds"],
+    runtime: [
+        "port",
+        "image",
+        "livenessPath",
+        "readinessPath",
+        "docsPath",
+        "openApiPath",
+        "cpuRequest",
+        "cpuLimit",
+        "memoryRequest",
+        "memoryLimit",
+        "exposed",
+        "exposurePath",
+        "env",
+        "configMapIds",
+        "secretIds"
+    ],
     danger: []
 }
 
@@ -278,7 +300,8 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                 canaryPercentage: t("frontend.validation.canary_percentage"),
                 designSystemPackageRequired: t("designSystem.fields.packageNameRequired"),
                 designSystemPackageInvalid: t("designSystem.fields.packageNameInvalid"),
-                designSystemDocsUrlInvalid: t("designSystem.fields.docsUrlInvalid")
+                designSystemDocsUrlInvalid: t("designSystem.fields.docsUrlInvalid"),
+                ...resourceMessages(t)
             }),
         [t]
     )
@@ -294,6 +317,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
         // being made one. A DOCKER saved without a path was left unexposed on purpose, and stays so
         exposed: frontend?.exposurePath ? true : !frontend || frontend.kind !== FrontendKind.DOCKER,
         exposurePath: frontend?.exposurePath ?? "",
+        ...resourceFormValues(frontend),
         image: { repository: frontend?.image?.repository ?? "" },
         env: frontend?.env ?? [],
         // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
@@ -376,7 +400,26 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
     }, [isDocker, isEdit, form])
 
     const onSubmit = async (data: FormValues) => {
-        const { port, livenessPath, readinessPath, docsPath, openApiPath, exposed, exposurePath, image, env, configMapIds, secretIds, designSystemOverride, designSystem, ...rest } = data
+        const {
+            port,
+            livenessPath,
+            readinessPath,
+            docsPath,
+            openApiPath,
+            cpuRequest,
+            cpuLimit,
+            memoryRequest,
+            memoryLimit,
+            exposed,
+            exposurePath,
+            image,
+            env,
+            configMapIds,
+            secretIds,
+            designSystemOverride,
+            designSystem,
+            ...rest
+        } = data
         const dataToSend = {
             ...rest,
             // Null: it builds with the design system of the project, else the organization's
@@ -392,6 +435,11 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                       readinessPath: readinessPath?.trim(),
                       docsPath: docsPath?.trim(),
                       openApiPath: openApiPath?.trim(),
+                      // Empty: the default of the chart
+                      cpuRequest: cpuRequest?.trim(),
+                      cpuLimit: cpuLimit?.trim(),
+                      memoryRequest: memoryRequest?.trim(),
+                      memoryLimit: memoryLimit?.trim(),
                       // Null: not exposed on the host of the environments
                       exposurePath: exposed ? exposurePath?.trim() : null,
                       image,

@@ -129,6 +129,19 @@ describe("renderApplicationValues", () => {
         expect(values.containerPort).toBe(3000)
         expect(values.probes).toEqual({ liveness: { active: true, path: "/live" }, readiness: { active: false, path: "/" } })
     })
+
+    it("given some of its CPU and memory, when its values are rendered, then only those are written, for the chart to fill in the others", () => {
+        const values = parse(render({ cpuRequest: "250m", memoryLimit: "1Gi", cpuLimit: null, memoryRequest: " " }))
+
+        expect(values.resources).toEqual({ requests: { cpu: "250m" }, limits: { memory: "1Gi" } })
+    })
+
+    it.each([
+        ["none of them", {}],
+        ["all of them blank or null", { cpuRequest: "", cpuLimit: null, memoryRequest: " ", memoryLimit: null }]
+    ])("given %s, when its values are rendered, then there are no resources and the chart decides", (_case, overrides) => {
+        expect(parse(render(overrides))).not.toHaveProperty("resources")
+    })
 })
 
 describe("renderApplicationValues, maintenance agent", () => {

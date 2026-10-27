@@ -26,7 +26,7 @@ import { designSystemOf } from "../types/DesignSystem"
 import FrontendDTO from "../types/FrontendDTO"
 import { FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
 import { toObjectId } from "../utils/mongooseUtils"
-import { ensurePlainFields, imageRepositoryOf, isNewerVersion, parseRegistration, withManualVersion, withNormalizedReferences } from "./BackendService"
+import { ensurePlainFields, ensureRequestsWithinLimits, imageRepositoryOf, isNewerVersion, parseRegistration, withManualVersion, withNormalizedReferences } from "./BackendService"
 import BaseAuthorizedService, { domainScopeForbidden, ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged, isInDomainScope } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
@@ -120,6 +120,7 @@ export class FrontendService extends BaseAuthorizedService {
         await this.ensureReferencesInScope(projectIdObj, scope, frontend)
         await ensureAttachableMaps(scope, projectIdObj, frontend)
         ensureOnlyNewRepositoryLinked(scope, frontend.codeRepository)
+        ensureRequestsWithinLimits(frontend, undefined, "FRONTEND_INVALID")
         // A DOCKER starts without one, like a backend: its first registered version sets it
         if (dto.kind !== FrontendKind.DOCKER && (typeof dto.version !== "string" || !dto.version.trim())) {
             throw createBusinessException({ code: "BUNDLE_VERSION_REQUIRED", message: "A BUNDLE frontend needs a version" })
@@ -268,6 +269,7 @@ export class FrontendService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(frontend.projectId)
         await this.ensureReferencesInScope(frontend.projectId, scope, allowed, frontend)
         await ensureAttachableMaps(scope, frontend.projectId, allowed, frontend)
+        ensureRequestsWithinLimits(allowed, frontend, "FRONTEND_INVALID")
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, frontend.codeRepository)) delete allowed.codeRepository
         // Checked once the link is enabled, as in create: a disabled link lends no token, and refusing it
         // would block every edit of a frontend whose connection was deleted since

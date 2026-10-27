@@ -1,4 +1,5 @@
 import { stringify } from "yaml"
+import { CHART_RESOURCE_DEFAULTS, ContainerResources } from "../../types/ContainerResources"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 
 /**
@@ -14,7 +15,7 @@ export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: flightroom"
 
 /** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
-export interface GitOpsApplication {
+export interface GitOpsApplication extends ContainerResources {
     slug: string
     /** The latest version the CI registered, or the one set by hand: the tag of the image */
     version?: string
@@ -80,6 +81,24 @@ const maintenanceValues = (application: GitOpsApplication, maintenance: Applicat
     }
 }
 
+/**
+ * The resources the application sets, and only those: Helm merges them into the values of the chart, which fill in
+ * the others. None set, the key is left out and the chart decides everything.
+ */
+const resourceValues = (application: ContainerResources) => {
+    const pick = (entries: Array<[string, string | null | undefined]>) => Object.fromEntries(entries.filter(([, value]) => value?.trim()).map(([key, value]) => [key, value!.trim()]))
+    const requests = pick([
+        ["cpu", application.cpuRequest],
+        ["memory", application.memoryRequest]
+    ])
+    const limits = pick([
+        ["cpu", application.cpuLimit],
+        ["memory", application.memoryLimit]
+    ])
+    const resources = { ...(Object.keys(requests).length > 0 ? { requests } : {}), ...(Object.keys(limits).length > 0 ? { limits } : {}) }
+    return Object.keys(resources).length > 0 ? { resources } : {}
+}
+
 /** The values file of an application, at the root of the branch of each environment */
 export const applicationValuesPath = (application: Pick<GitOpsApplication, "slug">) => `${application.slug}.yaml`
 
@@ -141,6 +160,7 @@ export const renderApplicationValues = (
         replicas: 1,
         image: { ...splitImage(repository), tag: application.version },
         containerPort: application.port ?? 8080,
+        ...resourceValues(application),
         probes: {
             liveness: { active: Boolean(application.livenessPath), path: application.livenessPath ?? "/" },
             readiness: { active: Boolean(application.readinessPath), path: application.readinessPath ?? "/" }
@@ -164,11 +184,11 @@ const CHART_VALUES = `replicas: 1
 
 resources:
   requests:
-    cpu: 25m
-    memory: 128Mi
+    cpu: ${CHART_RESOURCE_DEFAULTS.cpuRequest}
+    memory: ${CHART_RESOURCE_DEFAULTS.memoryRequest}
   limits:
-    cpu: 500m
-    memory: 512Mi
+    cpu: ${CHART_RESOURCE_DEFAULTS.cpuLimit}
+    memory: ${CHART_RESOURCE_DEFAULTS.memoryLimit}
 
 image:
   host: docker.io

@@ -53,6 +53,31 @@ describe("Backend model", () => {
         await expect(backend.validate()).rejects.toMatchObject({ errors: { [field]: expect.anything() } })
     })
 
+    it("given blank CPU and memory, when it is built, then they are stored as null for the defaults of the chart", () => {
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", cpuRequest: " ", cpuLimit: "", memoryRequest: "  ", memoryLimit: "" })
+
+        expect([backend.cpuRequest, backend.cpuLimit, backend.memoryRequest, backend.memoryLimit]).toEqual([null, null, null, null])
+    })
+
+    it("given CPU and memory as Kubernetes quantities, when it is validated, then they are accepted, trimmed", async () => {
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", cpuRequest: " 250m ", cpuLimit: "1.5", memoryRequest: "128Mi", memoryLimit: "1000000" })
+
+        await expect(backend.validate()).resolves.toBeUndefined()
+        expect(backend.cpuRequest).toBe("250m")
+    })
+
+    it.each([
+        ["cpuRequest", "250Mi"],
+        ["cpuLimit", "0"],
+        ["cpuLimit", "one"],
+        ["memoryRequest", "128mb"],
+        ["memoryLimit", "-1Gi"]
+    ])("given the %s %j, when it is validated, then it is refused", async (field, value) => {
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", [field]: value })
+
+        await expect(backend.validate()).rejects.toMatchObject({ errors: { [field]: expect.anything() } })
+    })
+
     it("given a path of 256 characters, when it is validated, then it is accepted", async () => {
         const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", livenessPath: `/${"x".repeat(255)}` })
 

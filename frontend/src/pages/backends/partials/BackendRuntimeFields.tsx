@@ -3,8 +3,9 @@ import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 import useProjectStore from "@/store/useProjectStore"
+import ContainerResourceFields from "./ContainerResourceFields"
 
-/** The port, the probes, the docs paths and the image repository of a container: a backend's, or a frontend's served by its own. */
+/** The port, the probes, the docs paths, the image repository, the CPU and the memory of a container: a backend's, or a frontend's served by its own. */
 export const BackendRuntimeFields: React.FC = () => {
     const { t } = useTranslation()
     const { watch } = useFormContext()
@@ -35,6 +36,7 @@ export const BackendRuntimeFields: React.FC = () => {
                 <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
                 <TextField name="docsPath" label={t("backends.docs_path")} placeholder="/docs" description={t("backends.docs_path_hint")} />
                 <TextField name="openApiPath" label={t("backends.openapi_path")} placeholder="/openapi.json" description={t("backends.openapi_path_hint")} />
+                <ContainerResourceFields />
             </CardContent>
         </Card>
     )

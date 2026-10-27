@@ -56,6 +56,12 @@ export interface Backend {
     exposurePath?: string | null
     /** The OpenAPI spec; blank or null when the backend has none */
     openApiPath?: string | null
+    /** Kubernetes quantities, e.g. 250m or 0.5; blank or null for the default of the chart */
+    cpuRequest?: string | null
+    cpuLimit?: string | null
+    /** Kubernetes quantities, e.g. 128Mi or 1Gi; blank or null for the default of the chart */
+    memoryRequest?: string | null
+    memoryLimit?: string | null
     env: BackendEnvVariable[]
     /** Config maps of the project it receives as environment variables */
     configMapIds?: string[]

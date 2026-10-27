@@ -111,6 +111,45 @@ describe("MaintenanceAgentService.create", () => {
     })
 })
 
+describe("MaintenanceAgentService resources", () => {
+    beforeEach(() => {
+        vi.spyOn(MaintenanceAgent, "exists").mockResolvedValue(null)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null)
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null)
+    })
+
+    it.each([
+        ["a CPU request above its limit", { cpuRequest: "1", cpuLimit: "500m" }],
+        ["a memory request above the default limit of the chart", { memoryRequest: "1Gi" }],
+        ["a CPU limit below the default request of the chart", { cpuLimit: "10m" }]
+    ])("given %s, when it is created, then it is refused and nothing is written", async (_case, resources) => {
+        const write = vi.spyOn(MaintenanceAgent, "create")
+
+        expect(await codeOf(serviceAs().create({ name: "Cleaner", slug: "cleaner", ...resources } as MaintenanceAgentDTO, String(projectId)))).toBe("MAINTENANCE_AGENT_INVALID")
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a request within its limit, when it is created, then it is kept", async () => {
+        vi.spyOn(MaintenanceAgent, "create").mockImplementation((async (doc: unknown) => doc) as never)
+
+        const agent = await serviceAs().create({ name: "Cleaner", slug: "cleaner", cpuRequest: "1", cpuLimit: "2", memoryRequest: "1Gi", memoryLimit: "1Gi" } as MaintenanceAgentDTO, String(projectId))
+
+        expect(agent).toMatchObject({ cpuRequest: "1", cpuLimit: "2", memoryRequest: "1Gi", memoryLimit: "1Gi" })
+    })
+
+    it("given a stored limit, when a request above it is saved, then it is refused; cleared with it, it is saved", async () => {
+        const agent = { _id: new Types.ObjectId(), projectId, name: "Cleaner", cpuLimit: "2", backendIds: [], frontendIds: [], configMapIds: [], secretIds: [], resourceIds: [] }
+        vi.spyOn(MaintenanceAgent, "findById").mockResolvedValue(agent as never)
+        const write = vi.spyOn(MaintenanceAgent, "findByIdAndUpdate").mockResolvedValue(agent as never)
+
+        expect(await codeOf(serviceAs().update(String(agent._id), { cpuRequest: "3" } as MaintenanceAgentDTO))).toBe("MAINTENANCE_AGENT_INVALID")
+        expect(write).not.toHaveBeenCalled()
+
+        await serviceAs().update(String(agent._id), { cpuRequest: "400m", cpuLimit: null } as MaintenanceAgentDTO)
+        expect(write).toHaveBeenCalledOnce()
+    })
+})
+
 describe("MaintenanceAgentService.update", () => {
     it("given a domain-scoped member, when they save the targets they see, then those of other domains stay", async () => {
         const mine = String(new Types.ObjectId())

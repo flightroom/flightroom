@@ -4,7 +4,23 @@ import { IDesignSystem } from "./DesignSystem"
 import { FrontendStackDTO } from "./FrontendStack"
 
 /** The container fields of a DOCKER, the same as a backend's and checked the same way */
-type FrontendContainerDTO = Pick<BackendDTO, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "env" | "configMapIds" | "secretIds">
+type FrontendContainerDTO = Pick<
+    BackendDTO,
+    | "image"
+    | "port"
+    | "livenessPath"
+    | "readinessPath"
+    | "docsPath"
+    | "openApiPath"
+    | "exposurePath"
+    | "cpuRequest"
+    | "cpuLimit"
+    | "memoryRequest"
+    | "memoryLimit"
+    | "env"
+    | "configMapIds"
+    | "secretIds"
+>
 
 interface FrontendDTO extends FrontendContainerDTO {
     id: string

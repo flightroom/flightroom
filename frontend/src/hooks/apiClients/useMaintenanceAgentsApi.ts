@@ -43,6 +43,11 @@ export interface MaintenanceAgent {
     port?: number
     livenessPath?: string
     readinessPath?: string
+    /** Kubernetes quantities; blank or null for the default of the chart. A job's CronJob runs with them too */
+    cpuRequest?: string | null
+    cpuLimit?: string | null
+    memoryRequest?: string | null
+    memoryLimit?: string | null
     env: BackendEnvVariable[]
     configMapIds: string[]
     secretIds: string[]

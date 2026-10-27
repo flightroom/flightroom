@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import type { MaintenanceAgentKind } from "@/hooks/apiClients/useMaintenanceAgentsApi"
+import ContainerResourceFields from "@/pages/backends/partials/ContainerResourceFields"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import { KindGlyph } from "./MaintenanceBadges"
@@ -243,7 +244,7 @@ export const MaintenanceTargetPicker: React.FC<{ name: "backendIds" | "frontendI
     )
 }
 
-/** The image and the version, and for a container its port, probes and the endpoint a run calls */
+/** The image, the version, the CPU and the memory, and for a container its port, probes and the endpoint a run calls */
 export const MaintenanceRuntimeFields: React.FC = () => {
     const { t } = useTranslation()
     const { watch } = useFormContext()
@@ -279,6 +280,8 @@ export const MaintenanceRuntimeFields: React.FC = () => {
                         <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
                     </>
                 )}
+                {/* A job's too: its CronJob runs the image with them */}
+                <ContainerResourceFields />
             </CardContent>
         </Card>
     )
