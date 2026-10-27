@@ -1650,6 +1650,9 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
             {queueQuery.isError && <p className="text-sm text-destructive">{t("frontend.aiChange.errors.history")}</p>}
         </>
     )
+    const queueSections =
+        queueQuery.data &&
+        groups.map(group => <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />)
 
     return (
         // The classic view keeps the queue in a column on the left; the workshop takes the whole width, under a bar with the same controls
@@ -1665,10 +1668,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                     {newChangeButton}
                     {viewSwitch}
                     {queueStatus}
-                    {queueQuery.data &&
-                        groups.map(group => (
-                            <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />
-                        ))}
+                    {queueSections}
                 </aside>
             )}
 
@@ -1720,6 +1720,12 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                             }
                         />
                     ))}
+                {/* Applied and discarded works leave the scene: the queue under it still reaches them */}
+                {workshop && queueSections && (
+                    <section aria-label={t("frontend.aiChange.queue_label")} className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                        {queueSections}
+                    </section>
+                )}
             </div>
         </div>
     )
