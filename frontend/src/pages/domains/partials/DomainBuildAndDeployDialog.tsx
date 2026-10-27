@@ -22,9 +22,10 @@ import { z } from "zod"
 import RepositoryBranches, { type BaseBranches, pickedBaseBranches, workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import { Badge, Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
+import Mascot from "@/components/mascot/Mascot"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
-import useBuildsApi, { BUILD_STATUS_QUERY_KEY, type ComponentBuildStatus } from "@/hooks/apiClients/useBuildsApi"
+import useBuildsApi, { BUILD_STATUS_QUERY_KEY, type BuildRun, BuildStatus, type ComponentBuildStatus } from "@/hooks/apiClients/useBuildsApi"
 import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildResult, type DomainRelease, type DomainReleaseMember, isReleaseRunning, singleRefOf } from "@/hooks/apiClients/useDomainsApi"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
@@ -57,9 +58,24 @@ const TRANSLATED_ERRORS = [
     "DOMAIN_BUILD_CHECK_FAILED"
 ]
 
-const MEMBER_VARIANTS: Record<"untouched" | "waiting" | "built", "success" | "outline" | "default"> = { untouched: "default", waiting: "outline", built: "success" }
+type MemberState = "untouched" | "waiting" | "running" | "failed" | "built"
 
-const memberState = (member: DomainReleaseMember) => (!member.tagged ? "untouched" : member.built ? "built" : "waiting")
+const MEMBER_VARIANTS: Record<MemberState, "success" | "outline" | "default" | "info" | "destructive"> = {
+    untouched: "default",
+    waiting: "outline",
+    running: "info",
+    failed: "destructive",
+    built: "success"
+}
+
+/** Where the member is: the release says once the CI registered it, its run on the provider says before */
+const memberState = (member: DomainReleaseMember, runs: BuildRun[]): MemberState => {
+    if (!member.tagged) return "untouched"
+    if (member.built || runs.some(run => run.status === BuildStatus.SUCCESS)) return "built"
+    if (runs.some(run => run.status === BuildStatus.RUNNING)) return "running"
+    if (runs.some(run => run.status === BuildStatus.FAILED || run.status === BuildStatus.CANCELED)) return "failed"
+    return "waiting"
+}
 
 /**
  * Builds and deploys the domain in one go: creates the version as {@link DomainBuildButton} does, then the
@@ -199,6 +215,12 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
         const outcomes = current.repositories.some(repository => repository.status === "failed")
         return (
             <>
+                {/* Vega waits with the release: fixing things while it builds, blasting off once it deploys */}
+                {isReleaseRunning(current) && (
+                    <div className="flex justify-center" data-testid="domain-release-mascot">
+                        <Mascot mood={current.status === "deploying" ? "deploying" : "working"} className="size-24" />
+                    </div>
+                )}
                 <ol className="mt-2 flex items-center gap-2" data-testid="domain-release-steps">
                     {STEPS.map((step, index) => {
                         const done = index < at
@@ -242,7 +264,9 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                     <ul className="my-4 flex flex-col gap-2" data-testid="domain-release-members">
                         {current.members.map(member => {
                             const row = buildsOf(member)
-                            const runs = member.tagged ? (row?.builds.filter(run => run.ref === current.version && run.url) ?? []) : []
+                            const versionRuns = member.tagged ? (row?.builds.filter(run => run.ref === current.version) ?? []) : []
+                            const runs = versionRuns.filter(run => run.url)
+                            const state = memberState(member, versionRuns)
                             const ref = current.repositories.find(repository => repository.members.some(candidate => candidate._id === member._id))?.ref
                             return (
                                 <li key={member._id} className="flex items-center justify-between gap-2 rounded-md border border-divider p-3">
@@ -263,7 +287,9 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                                             </span>
                                         ))}
                                     </div>
-                                    <Badge variant={MEMBER_VARIANTS[memberState(member)]}>{t(`domains.release.member_status.${memberState(member)}`)}</Badge>
+                                    <Badge variant={MEMBER_VARIANTS[state]} data-testid={`domain-release-member-status-${member._id}`}>
+                                        {t(`domains.release.member_status.${state}`)}
+                                    </Badge>
                                 </li>
                             )
                         })}
