@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793086790.7177272,
-    "ast_hash": "46f708bb7c924f05876e98dabfd53ccf",
+    "mtime": 1793087336.0789413,
+    "ast_hash": "6b0aca3c8e727df16f0d4adb21d5ad37",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793086790.7152677,
-    "ast_hash": "dcf7d38c73a5099bdca1accc4f68a071",
+    "mtime": 1793087336.0771074,
+    "ast_hash": "feebb0fbc8699e52d8f243d29f4f39c8",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1210,8 +1210,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/Settings.tsx": {
-    "mtime": 1793005820.648264,
-    "ast_hash": "0dcc7e0e9b3eecb332addb507d879b07",
+    "mtime": 1793087336.0802617,
+    "ast_hash": "5d3e98ab5e3e32db5d24ec74952041f0",
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/DangerZone.tsx": {
@@ -2435,8 +2435,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/assistant/AssistantService.ts": {
-    "mtime": 1793005820.5603654,
-    "ast_hash": "d406cf9f291c89f48176af4bdb1f637e",
+    "mtime": 1793087336.0834162,
+    "ast_hash": "eaa16971c54b2e91d69244f7b9178334",
     "semantic_hash": ""
   },
   "backend/src/service/assistant/assistantTools.test.ts": {
@@ -2525,8 +2525,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantPanel.tsx": {
-    "mtime": 1793005820.6079965,
-    "ast_hash": "788de58b5d5adda512d67713d961e079",
+    "mtime": 1793087353.4573534,
+    "ast_hash": "35b126599be107c4973a8382b11ef62a",
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantToggleButton.tsx": {
@@ -3750,8 +3750,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/deploy-overlay/DeployOverlay.tsx": {
-    "mtime": 1793005820.6096008,
-    "ast_hash": "5d9040b1b1ecf717c5bc51bfb4e83a12",
+    "mtime": 1793087297.2051463,
+    "ast_hash": "2d45155241afbbd8aa70e1f6c253f9b4",
     "semantic_hash": ""
   },
   "docs/assets/banner.png": {
@@ -5047,6 +5047,11 @@
   "frontend/src/components/application-logs/ApplicationLogsSection.tsx": {
     "mtime": 1793086791.228312,
     "ast_hash": "f1001cfc946d03d9a93a531c5259a41b",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/mascot/Mascot.tsx": {
+    "mtime": 1793087375.688371,
+    "ast_hash": "31998137f3b287173f24d74afee8e032",
     "semantic_hash": ""
   }
 }
