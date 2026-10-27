@@ -1,5 +1,4 @@
 import { useIsMutating } from "@tanstack/react-query"
-import { Rocket } from "lucide-react"
 import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
@@ -84,7 +83,7 @@ const DeployPill: React.FC<{ startedAt: number; onShow: () => void }> = ({ start
 
     return (
         <div role="status" className="pointer-events-auto fixed bottom-4 right-4 z-[60] flex items-center gap-3 rounded-full border border-border bg-background py-2 pl-4 pr-2 shadow-lg">
-            <Rocket className="size-4 text-primary animate-pulse motion-reduce:animate-none" aria-hidden="true" />
+            <Mascot mood="deploying" className="size-7" />
             <span className="text-sm tabular-nums">{t("deployments.overlay.pill", { time: elapsed })}</span>
             <Button variant="secondary" size="sm" onClick={onShow} dataTestId="deploy-overlay-show">
                 {t("deployments.overlay.show")}

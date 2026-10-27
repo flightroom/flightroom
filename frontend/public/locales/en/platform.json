@@ -602,7 +602,7 @@
                 "Please keep your dependencies fastened until landing."
             ],
             "game": {
-                "label": "Mini-game: steer the rocket between the towers",
+                "label": "Mini-game: steer Vega between the towers",
                 "score": "Score {{score}}",
                 "best": "Best {{score}}",
                 "start": "Press space or tap to take off",

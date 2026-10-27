@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
-import { drawRocket } from "@/components/ai-agents/drawRocket"
+import Mascot from "@/components/mascot/Mascot"
 
 // Physics in px and seconds
 const GRAVITY = 1400
@@ -10,8 +10,9 @@ const SPEED_PER_POINT = 5
 const TOWER_WIDTH = 56
 const TOWER_SPACING = 240
 const GAP = 150
-const ROCKET_X_RATIO = 0.22
-// A little smaller than the drawn rocket, so that a graze does not count as a crash
+const VEGA_X_RATIO = 0.22
+const VEGA_SIZE = 56
+// A little smaller than the body of Vega, so that a graze does not count as a crash
 const HITBOX = 10
 // A tap meant for the last flap does not restart the game at once
 const RESTART_DELAY = 500
@@ -52,13 +53,14 @@ const saveBestScore = (score: number) => {
 const token = (name: string, alpha = 1) => `hsl(${getComputedStyle(document.documentElement).getPropertyValue(name).trim()} / ${alpha})`
 
 /**
- * A rocket to fly between the towers while the deploy runs: space, arrow up, a click or a tap give it thrust.
- * The game runs outside React, which only shows the score and the hints.
+ * Vega to fly between the towers while the deploy runs: space, arrow up, a click or a tap give it thrust.
+ * The game runs outside React, which only shows the score and the hints: the loop moves Vega, an SVG over the canvas.
  */
 export const DeployGame: React.FC = () => {
     const { t } = useTranslation()
     const containerRef = useRef<HTMLDivElement>(null)
     const canvasRef = useRef<HTMLCanvasElement>(null)
+    const vegaRef = useRef<HTMLDivElement>(null)
     const [phase, setPhase] = useState<Phase>("ready")
     const [score, setScore] = useState(0)
     const [best, setBest] = useState(readBestScore)
@@ -67,13 +69,11 @@ export const DeployGame: React.FC = () => {
     useEffect(() => {
         const container = containerRef.current
         const canvas = canvasRef.current
+        const vega = vegaRef.current
         const context = canvas?.getContext("2d")
-        if (!container || !canvas || !context) return
+        if (!container || !canvas || !vega || !context) return
 
         const colors = {
-            rocket: token("--primary"),
-            flame: token("--primary-active"),
-            window: token("--background"),
             tower: token("--muted-foreground", 0.3),
             towerEdge: token("--muted-foreground", 0.6),
             star: token("--foreground-secondary", 0.5)
@@ -143,7 +143,7 @@ export const DeployGame: React.FC = () => {
                 game.y = height / 2 + Math.sin(now / 300) * 8
                 return
             }
-            // After the crash the rocket falls off the screen
+            // After the crash Vega falls off the screen
             if (game.phase === "over") {
                 if (game.y < height + 40) {
                     game.vy += GRAVITY * dt
@@ -163,9 +163,9 @@ export const DeployGame: React.FC = () => {
                 game.towers.push({ x: width, gapY: GAP / 2 + 20 + Math.random() * Math.max(0, height - GAP - 40), passed: false })
             }
 
-            const rocketX = width * ROCKET_X_RATIO
+            const vegaX = width * VEGA_X_RATIO
             for (const tower of game.towers) {
-                if (!tower.passed && tower.x + TOWER_WIDTH < rocketX - HITBOX) {
+                if (!tower.passed && tower.x + TOWER_WIDTH < vegaX - HITBOX) {
                     tower.passed = true
                     game.score++
                     setScore(game.score)
@@ -174,7 +174,7 @@ export const DeployGame: React.FC = () => {
 
             const outOfSky = game.y - HITBOX < 0 || game.y + HITBOX > height
             const hitTower = game.towers.some(
-                tower => tower.x < rocketX + HITBOX && tower.x + TOWER_WIDTH > rocketX - HITBOX && (game.y - HITBOX < tower.gapY - GAP / 2 || game.y + HITBOX > tower.gapY + GAP / 2)
+                tower => tower.x < vegaX + HITBOX && tower.x + TOWER_WIDTH > vegaX - HITBOX && (game.y - HITBOX < tower.gapY - GAP / 2 || game.y + HITBOX > tower.gapY + GAP / 2)
             )
             if (outOfSky || hitTower) crash()
         }
@@ -196,13 +196,10 @@ export const DeployGame: React.FC = () => {
                 context.stroke()
             }
 
-            const thrusting = game.phase === "ready" || now - game.thrustAt < 180
-            const flame = (thrusting ? 16 : 7) + Math.random() * 5
-            drawRocket(context, width * ROCKET_X_RATIO, game.y, Math.max(-0.5, Math.min(1.2, game.vy / 700)), 36, colors.rocket, {
-                windowColor: colors.window,
-                flameColor: colors.flame,
-                flame
-            })
+            // On a thrust its fins beat fast; it tilts with its speed
+            const tilt = game.phase === "ready" ? 0 : Math.max(-0.4, Math.min(0.8, game.vy / 900))
+            vega.style.transform = `translate(${width * VEGA_X_RATIO - VEGA_SIZE / 2}px, ${game.y - VEGA_SIZE / 2}px) rotate(${tilt}rad)`
+            vega.classList.toggle("mascot-fast", now - game.thrustAt < 180)
         }
 
         const loop = (now: number) => {
@@ -240,6 +237,9 @@ export const DeployGame: React.FC = () => {
     return (
         <div ref={containerRef} className="relative h-[clamp(260px,50vh,420px)] w-full overflow-hidden rounded-xl border border-border bg-muted/40 touch-none select-none">
             <canvas ref={canvasRef} className="absolute inset-0 size-full cursor-pointer" role="img" aria-label={t("deployments.overlay.game.label")} />
+            <div ref={vegaRef} className="pointer-events-none absolute left-0 top-0" style={{ width: VEGA_SIZE, height: VEGA_SIZE }}>
+                <Mascot className="size-full" />
+            </div>
             <div className="pointer-events-none absolute right-4 top-3 flex gap-4 text-sm font-medium tabular-nums">
                 <span>{t("deployments.overlay.game.score", { score })}</span>
                 <span className="text-foreground-secondary">{t("deployments.overlay.game.best", { score: best })}</span>
