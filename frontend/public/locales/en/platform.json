@@ -505,6 +505,12 @@
         },
         "notifications": {
             "personalDataUpdated": "Personal data updated"
+        },
+        "preferences": {
+            "title": "Preferences",
+            "subtitle": "Language and theme of the console: your choice is saved right away",
+            "language": "Language",
+            "theme": "Theme"
         }
     },
     "validation": {

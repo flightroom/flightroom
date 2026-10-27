@@ -14,13 +14,14 @@ interface LanguageSelectorProps {
     dropdownContentAlign?: "start" | "center" | "end"
 }
 
-const LanguageSelector: React.FC<LanguageSelectorProps> = ({ isSidebarCollapsed, purpose = "sidebar", dropdownContentSide, dropdownContentAlign }: LanguageSelectorProps) => {
-    const { t, i18n } = useTranslation()
+/** Changes the language of the console, and saves it on the user when one is logged in */
+export const useChangeLanguage = () => {
+    const { i18n } = useTranslation()
     const userApi = useUserApi()
     const userStore = useUserStore()
     const themeStore = useThemeStore()
 
-    const changeLanguage = (lng: string) => {
+    return (lng: string) => {
         i18n.changeLanguage(lng)
         setLanguageInLocalStorage(lng)
         if (userStore.user) {
@@ -28,6 +29,11 @@ const LanguageSelector: React.FC<LanguageSelectorProps> = ({ isSidebarCollapsed,
             themeStore.setLanguage(lng)
         }
     }
+}
+
+const LanguageSelector: React.FC<LanguageSelectorProps> = ({ isSidebarCollapsed, purpose = "sidebar", dropdownContentSide, dropdownContentAlign }: LanguageSelectorProps) => {
+    const { t } = useTranslation()
+    const changeLanguage = useChangeLanguage()
 
     return (
         <DropdownMenu>
