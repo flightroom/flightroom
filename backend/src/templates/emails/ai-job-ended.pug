@@ -1,0 +1,9 @@
+extends base-email
+
+block content
+  p #{greeting}
+  //- introHtml is built by EmailSenderService with every value already escaped
+  p!= introHtml
+  p #{prompt}
+  +cta(url, button)
+  p #{ignore}

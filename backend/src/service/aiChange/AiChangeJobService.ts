@@ -66,6 +66,7 @@ import {
     storable,
     toCommitFiles
 } from "./aiChangeShared"
+import { notifyAiJobEnded } from "./aiJobNotices"
 import { AiChangeApiSpecSource } from "./apiSpecReader"
 
 /** Repositories one job may work on: each is a clone and a share of the model's context. */
@@ -913,6 +914,8 @@ export class AiChangeJobService extends AiChangeBaseService {
             fastify.log.info({ audit: "ai_job_usage", userId: String(job.userId), projectId: String(job.projectId), jobId, effort: job.effort, aiModelId: job.aiModelId, ...usage }, "AI job usage")
             // A mission starts its next repositories as soon as one of its jobs is over. Listeners log their own failures.
             void aiJobEnded(job, { user: this.user, config: this.config })
+            // Whoever started it hears of it by email when they are no longer at the console.
+            void notifyAiJobEnded(job._id).catch(error => fastify.log.warn({ error: loggable(error), aiJobId: jobId }, "AI job email not sent"))
         }
     }
 
