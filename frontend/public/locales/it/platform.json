@@ -3886,6 +3886,7 @@
         "description": "Le ultime righe scritte dai pod di questo ambiente, lette tramite Argo CD. Ci sono solo i pod attivi: dopo un redeploy i log dei pod precedenti non sono più disponibili.",
         "not_configured": "Inizializza Argo CD nelle impostazioni del progetto per leggere i log dei pod.",
         "no_environments": "Il progetto non ha ancora ambienti.",
+        "application": "Componente",
         "environment": "Ambiente",
         "pod": "Pod",
         "no_pods": "Nessun pod attivo in questo ambiente",
