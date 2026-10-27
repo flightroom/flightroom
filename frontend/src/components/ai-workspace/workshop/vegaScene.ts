@@ -247,7 +247,8 @@ export class VegaScene {
         this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2))
         this.renderer.shadowMap.enabled = true
         this.renderer.shadowMap.type = THREE.PCFSoftShadowMap
-        this.renderer.domElement.style.display = "block"
+        // As big as the box it sits in: the drawing buffer is larger on a retina screen, and left to itself the canvas would show at that size
+        Object.assign(this.renderer.domElement.style, { display: "block", width: "100%", height: "100%" })
         this.renderer.domElement.setAttribute("aria-hidden", "true")
         container.prepend(this.renderer.domElement)
         this.buildSpace()
