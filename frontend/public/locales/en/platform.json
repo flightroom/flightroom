@@ -2852,6 +2852,7 @@
             "backends": "Backend",
             "maintenance": "Maintenance"
         },
+        "home": "Go to the home page",
         "expand_sidebar": "Expand sidebar",
         "collapse_sidebar": "Collapse sidebar",
         "top_menu": "Project menu"

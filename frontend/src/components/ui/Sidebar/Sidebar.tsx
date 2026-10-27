@@ -55,10 +55,15 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
         <DesignSystemSidebar
             ref={ref}
             {...props}
-            title={branding.name}
             expandButtonLabel={t("navigation.expand_sidebar")}
             collapseButtonLabel={t("navigation.collapse_sidebar")}
-            logo={<img src={branding.logoUrl} alt={branding.name} className="h-8 w-8 object-contain" />}
+            // Logo e nome portano alla home: il titolo lo rendiamo qui, dentro il link, invece di passarlo alla sidebar del design system
+            logo={
+                <Link to="/" aria-label={t("navigation.home")} className="flex items-center gap-3 rounded-sm">
+                    <img src={branding.logoUrl} alt="" className="h-8 w-8 object-contain" />
+                    {!props.isCollapsed && <span className="text-lg font-semibold text-foreground">{branding.name}</span>}
+                </Link>
+            }
             mainNavItems={mainNavItems}
             secondaryNavItems={EXTERNAL_NAV_ITEMS}
             secondaryContent={({ isCollapsed, isMobile }) => (
