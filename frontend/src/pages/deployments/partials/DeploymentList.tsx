@@ -1,18 +1,20 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, DescriptionItem, DescriptionList, EmptyState, SectionHeader } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
-import { BadgeCheck, History, PackageOpen, RefreshCw, UsersRound } from "lucide-react"
+import { BadgeCheck, History, LayoutDashboard, PackageOpen, RefreshCw, UsersRound } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
-import { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
+import { Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
 import { resourcePath, useResourcesQuery } from "@/pages/resources/partials/resources"
 import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
-import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
+import { cn } from "@/utils/styleUtils"
+import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedBackend, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
 import DeploymentBackendCard from "./DeploymentBackendCard"
 import DeploymentFrontendCard from "./DeploymentFrontendCard"
 
@@ -61,6 +63,28 @@ const DeployedMaps: React.FC<{
     )
 }
 
+interface DomainGroup {
+    /** Undefined for the members of no domain, or of one deleted since */
+    domain?: Domain
+    frontends: Frontend[]
+    backends: DeployedBackend[]
+}
+
+/** The frontends and backends of a deployment by functional domain: the domains by name, the members of none last */
+const groupByDomain = (frontends: Frontend[], backends: DeployedBackend[], domains: Domain[]): DomainGroup[] => {
+    const domainById = new Map(domains.map(domain => [domain._id, domain]))
+    const groups = new Map<string | undefined, DomainGroup>()
+    const groupOf = (domainId?: string | null) => {
+        const domain = domainId ? domainById.get(domainId) : undefined
+        if (!groups.has(domain?._id)) groups.set(domain?._id, { domain, frontends: [], backends: [] })
+        return groups.get(domain?._id)!
+    }
+    for (const frontend of frontends) groupOf(frontend.domainId).frontends.push(frontend)
+    for (const backend of backends) groupOf(backend.domainId).backends.push(backend)
+    // An empty name sorts after any other: the group of no domain goes last
+    return [...groups.values()].sort((a, b) => Number(!a.domain) - Number(!b.domain) || (a.domain?.name ?? "").localeCompare(b.domain?.name ?? ""))
+}
+
 /** What a deployment shipped: the same summary for the active one and for the history */
 const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment }) => {
     const { t } = useTranslation()
@@ -79,29 +103,52 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
     // No link without a domain to expose on: the path alone does not open anything
     const origin = exposure?.domain && environment ? exposedOrigin(exposure, environment) : undefined
     const exposedUrl = (path?: string | null) => (origin && path ? origin + path : undefined)
+    const projectId = useProjectStore(state => state.project?._id)
+    const domainsApi = useDomainsApi()
+    const inSomeDomain = [...deployment.frontends, ...backends].some(member => member.domainId)
+    const domainsQuery = useQuery({ queryKey: ["domains", projectId], queryFn: domainsApi.getAll, enabled: !!projectId && inSomeDomain })
+    const groups = groupByDomain(deployment.frontends, backends, domainsQuery.data ?? [])
+    // Without any domain the headings would only repeat "without a domain": the members stay as they were
+    const showDomains = groups.some(group => group.domain)
 
     return (
         <>
-            {deployment.frontends.length > 0 && (
-                <div>
-                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.frontends_title")}</h4>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {deployment.frontends.map(frontend => (
-                            <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
-                        ))}
-                    </div>
-                </div>
-            )}
-            {backends.length > 0 && (
-                <div className={deployment.frontends.length > 0 ? "mt-4" : undefined}>
-                    <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.backends_title")}</h4>
-                    <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
-                        {backends.map(backend => (
-                            <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
-                        ))}
-                    </div>
-                </div>
-            )}
+            {groups.map((group, index) => (
+                <section key={group.domain?._id ?? "none"} className={cn(index > 0 && "mt-6", showDomains && "rounded-md border border-divider p-4")}>
+                    {showDomains && (
+                        <h4 className="mb-3 flex items-center gap-2 font-semibold">
+                            <LayoutDashboard className="size-4 text-foreground-secondary" aria-hidden="true" />
+                            {group.domain ? (
+                                <Link to={`/domain/${group.domain._id}`} className="underline-offset-4 hover:underline">
+                                    {group.domain.name}
+                                </Link>
+                            ) : (
+                                <span className="text-foreground-secondary">{t("deployments.no_domain")}</span>
+                            )}
+                        </h4>
+                    )}
+                    {group.frontends.length > 0 && (
+                        <div>
+                            <h5 className="font-semibold text-primary-strong mb-2">{t("deployments.frontends_title")}</h5>
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                                {group.frontends.map(frontend => (
+                                    <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                    {group.backends.length > 0 && (
+                        <div className={group.frontends.length > 0 ? "mt-4" : undefined}>
+                            <h5 className="font-semibold text-primary-strong mb-2">{t("deployments.backends_title")}</h5>
+                            <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
+                                {group.backends.map(backend => (
+                                    <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
+                                ))}
+                            </div>
+                        </div>
+                    )}
+                </section>
+            ))}
             {deployment.variables.length > 0 && (
                 <div className="mt-4">
                     <h4 className="font-semibold text-primary-strong mb-1">{t("deployments.env_variables_title")}</h4>
