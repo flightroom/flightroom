@@ -3,15 +3,16 @@ import nodemailer, { type Transporter } from "nodemailer"
 import path from "path"
 import pug from "pug"
 import { fastify } from ".."
+import { IApiKey } from "../models/ApiKeyModel"
 import { IOrganization } from "../models/OrganizationModel"
 import { IProject } from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
 import { RoleInOrganization } from "../models/UserOrganizationModel"
 import { RoleInProject } from "../models/UserProjectModel"
-import { EmailLanguage, emailStrings, InvitationText, toEmailLanguage } from "../templates/emails/i18n"
+import { ApiKeyExpiryText, EmailLanguage, emailStrings, InvitationText, toEmailLanguage } from "../templates/emails/i18n"
 import type { AuthorizedPrincipal } from "./BaseAuthorizedService"
 
-type EmailTemplate = "account-activation" | "password-reset" | "project-invitation" | "organization-invitation"
+type EmailTemplate = "account-activation" | "password-reset" | "project-invitation" | "organization-invitation" | "api-key-expiry"
 
 /** What every email shows, whatever its template: the button, the link under it and the lines around them. */
 interface EmailMessage {
@@ -114,6 +115,34 @@ class EmailSenderService {
             ignore: strings.ignore,
             expiry: strings.expiry,
             locals: { introHtml: strings.intro(this.invitationMarkup(invitation)) }
+        })
+    }
+
+    /** Warns an administrator of the project that one of its API keys expires in `daysLeft` days. */
+    async sendApiKeyExpiryEmail(user: Pick<IUser, "email" | "name" | "language">, project: Pick<IProject, "name">, apiKey: Pick<IApiKey, "name" | "expiresAt">, daysLeft: number): Promise<void> {
+        const language = toEmailLanguage(user.language)
+        const t = emailStrings[language]
+        const strings = t.apiKeyExpiry
+        // UTC as the console stores it: a key expiring at midnight would otherwise show the day before or after
+        const date = new Intl.DateTimeFormat(language, { dateStyle: "long", timeZone: "UTC" }).format(apiKey.expiresAt)
+        const expiry: ApiKeyExpiryText = { key: apiKey.name, project: project.name, date, daysLeft }
+
+        await this.send({
+            to: user.email,
+            template: "api-key-expiry",
+            language,
+            subject: strings.subject(project.name),
+            url: `${this.config.FRONTEND_URL}/api-keys`,
+            header: strings.header,
+            headerIcon: "⏳",
+            preheader: strings.preheader(expiry),
+            greeting: t.greeting(user.name),
+            intro: strings.intro(expiry),
+            prompt: strings.prompt,
+            button: strings.button,
+            ignore: strings.ignore,
+            expiry: strings.reason(project.name),
+            locals: { introHtml: strings.intro({ ...expiry, key: strong(expiry.key, "accent"), project: strong(expiry.project) }) }
         })
     }
 

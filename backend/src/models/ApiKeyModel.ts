@@ -18,6 +18,11 @@ export interface IApiKey {
     role: ApiKeyRole
     expiresAt: Date
     status: ApiKeyStatus
+    /**
+     * The notice of the coming expiry last emailed to the administrators of the project, as the days it was sent
+     * ahead (30, then 7); unset, none yet. Claimed before sending, so that two replicas never send the same one.
+     */
+    expiryNoticeDays?: number
 }
 
 export type IApiKeyDocument = IApiKey &
@@ -57,6 +62,10 @@ const apiKeySchema = new Schema<IApiKeyDocument>(
             enum: Object.values(ApiKeyStatus),
             default: ApiKeyStatus.ACTIVE,
             required: true
+        },
+        expiryNoticeDays: {
+            type: Number,
+            required: false
         }
     },
     {
@@ -78,6 +87,7 @@ apiKeySchema.methods.toFrontendObject = function (): IApiKey {
     const obj = this.toObject()
     delete obj.apiKey
     delete obj.__v
+    delete obj.expiryNoticeDays
     return obj
 }
 

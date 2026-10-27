@@ -85,6 +85,17 @@ const cases: EmailCase[] = [
             en: "Jane Doe invited you to join the organization Acme as Admin.",
             it: "Jane Doe ti ha invitato a unirti all'organizzazione Acme con il ruolo Amministratore."
         }
+    },
+    {
+        name: "API key expiry",
+        send: language => service.sendApiKeyExpiryEmail(anInvitee(language), { name: "Demo Project" } as IProject, { name: "CI deploy", expiresAt: new Date("2026-11-03T00:00:00Z") }, 7),
+        to: "invitee@example.com",
+        url: `${FRONTEND_URL}/api-keys`,
+        subject: { en: "⏳ An API key of Demo Project is about to expire", it: "⏳ Una chiave API di Demo Project sta per scadere" },
+        body: {
+            en: "The API key CI deploy of the project Demo Project expires in 7 days, on November 3, 2026.",
+            it: "La chiave API CI deploy del progetto Demo Project scade tra 7 giorni, il 3 novembre 2026."
+        }
     }
 ]
 
@@ -157,6 +168,24 @@ describe("invitation emails", () => {
 
     it("given a name carrying markup, when the invitation is sent, then the markup is escaped", async () => {
         await service.sendUserInvitationEmail(anInvitee("en"), { name: "<b>Evil</b>" } as IProject, RoleInProject.MEMBER, "token", INVITER)
+
+        const { html } = sentMessage()
+        expect(html).toContain("&lt;b&gt;Evil&lt;/b&gt;")
+        expect(html).not.toContain("<b>Evil</b>")
+    })
+})
+
+describe("API key expiry email", () => {
+    const project = { name: "Demo Project" } as IProject
+
+    it("given a key expiring within a day, when the notice is sent, then it says tomorrow", async () => {
+        await service.sendApiKeyExpiryEmail(anInvitee("it"), project, { name: "CI deploy", expiresAt: new Date("2026-10-28T10:00:00Z") }, 1)
+
+        expect(sentMessage().text).toContain("La chiave API CI deploy del progetto Demo Project scade domani, il 28 ottobre 2026.")
+    })
+
+    it("given a key name carrying markup, when the notice is sent, then the markup is escaped", async () => {
+        await service.sendApiKeyExpiryEmail(anInvitee("en"), project, { name: "<b>Evil</b>", expiresAt: new Date("2026-11-03T00:00:00Z") }, 7)
 
         const { html } = sentMessage()
         expect(html).toContain("&lt;b&gt;Evil&lt;/b&gt;")

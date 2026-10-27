@@ -34,6 +34,24 @@ interface InvitationEmailStrings extends LinkEmailStrings {
     prompt: string
 }
 
+/** Which key expires, in which project, when, and in how many days. */
+export interface ApiKeyExpiryText {
+    key: string
+    project: string
+    date: string
+    daysLeft: number
+}
+
+interface ApiKeyExpiryEmailStrings extends Omit<LinkEmailStrings, "expiry"> {
+    subject: (project: string) => string
+    preheader: (expiry: ApiKeyExpiryText) => string
+    /** Called with plain values for the text part and with already escaped markup for the HTML one. */
+    intro: (expiry: ApiKeyExpiryText) => string
+    prompt: string
+    /** Shown under the email, where the others say when their link expires: why the recipient receives it. */
+    reason: (project: string) => string
+}
+
 export interface EmailStrings {
     greeting: (name?: string) => string
     copyLink: string
@@ -44,7 +62,11 @@ export interface EmailStrings {
     passwordReset: FixedEmailStrings
     projectInvitation: InvitationEmailStrings
     organizationInvitation: InvitationEmailStrings
+    apiKeyExpiry: ApiKeyExpiryEmailStrings
 }
+
+const inDays = (days: number) => (days <= 1 ? "tomorrow" : `in ${days} days`)
+const traGiorni = (days: number) => (days <= 1 ? "domani" : `tra ${days} giorni`)
 
 // Role labels as the console shows them (frontend/public/locales/*/platform.json, project_users.roles and organization_users.roles)
 const en: EmailStrings = {
@@ -99,6 +121,16 @@ const en: EmailStrings = {
         button: "Accept Invitation",
         ignore: "If you weren't expecting this invitation, you can safely ignore this email.",
         expiry: "This invitation link will expire in 5 days."
+    },
+    apiKeyExpiry: {
+        subject: project => `⏳ An API key of ${project} is about to expire`,
+        header: "Your API Key Is About to Expire",
+        preheader: ({ key, project, daysLeft }) => `The API key ${key} of ${project} expires ${inDays(daysLeft)}.`,
+        intro: ({ key, project, date, daysLeft }) => `The API key ${key} of the project ${project} expires ${inDays(daysLeft)}, on ${date}.`,
+        prompt: "Create a new key and hand it to whatever uses this one (CI pipelines, integrations, MCP clients) before then, or they will stop working:",
+        button: "Manage API Keys",
+        ignore: "If the key is no longer needed, you can let it expire.",
+        reason: project => `You receive this email because you administer ${project}.`
     }
 }
 
@@ -158,6 +190,16 @@ const it: EmailStrings = {
         button: "Accetta l'invito",
         ignore: "Se non ti aspettavi questo invito, puoi ignorare questa email.",
         expiry: "Questo link scade tra 5 giorni."
+    },
+    apiKeyExpiry: {
+        subject: project => `⏳ Una chiave API di ${project} sta per scadere`,
+        header: "La chiave API sta per scadere",
+        preheader: ({ key, project, daysLeft }) => `La chiave API ${key} di ${project} scade ${traGiorni(daysLeft)}.`,
+        intro: ({ key, project, date, daysLeft }) => `La chiave API ${key} del progetto ${project} scade ${traGiorni(daysLeft)}, il ${date}.`,
+        prompt: "Crea una nuova chiave e passala a chi usa questa (pipeline di CI, integrazioni, client MCP) prima di allora, altrimenti smetteranno di funzionare:",
+        button: "Gestisci le chiavi API",
+        ignore: "Se la chiave non serve più, puoi lasciarla scadere.",
+        reason: project => `Ricevi questa email perché amministri ${project}.`
     }
 }
 
