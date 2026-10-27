@@ -2384,6 +2384,18 @@
         "exposure_path_required": "Indica il path su cui esporlo, oppure disattiva l'esposizione",
         "exposure_path_invalid": "Un path che una HTTPRoute accetta: inizia con /, lettere, numeri e -._~!$&'()*+,;=:@ o %XX, senza query, frammento, // né segmenti . o ..",
         "path_invalid": "Deve iniziare con \"/\", avere al massimo 256 caratteri e nessuno spazio",
+        "compute": {
+            "cpu_request": "Richiesta CPU",
+            "cpu_limit": "Limite CPU",
+            "memory_request": "Richiesta memoria",
+            "memory_limit": "Limite memoria",
+            "default_hint": "Facoltativo. Se vuoto, il default del chart: {{value}}",
+            "default_value": "{{value}} (default)",
+            "cpu_invalid": "Una quantità di CPU maggiore di zero: core (0.5, 1) o millicore (250m)",
+            "memory_invalid": "Una quantità di memoria maggiore di zero: byte, o con un suffisso come Mi, Gi, M o G (128Mi, 1Gi)",
+            "cpu_request_above_limit": "La richiesta di CPU non può superare il limite di CPU ({{limit}}): Kubernetes rifiuterebbe il container",
+            "memory_request_above_limit": "La richiesta di memoria non può superare il limite di memoria ({{limit}}): Kubernetes rifiuterebbe il container"
+        },
         "image_repository": "Repository immagine",
         "image_repository_hint": "Facoltativo. Es. ghcr.io/acme/orders-api. Se vuoto, lo imposta la pipeline quando registra una versione.",
         "image_repository_hint_registry": "Facoltativo. Se vuoto, viene deployata {{image}}, dal container registry del progetto. Con solo un nome, quel nome nello stesso registry.",

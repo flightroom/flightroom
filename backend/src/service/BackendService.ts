@@ -11,6 +11,7 @@ import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import BackendDTO, { BackendVersionRegistrationDTO } from "../types/BackendDTO"
 import { BACKEND_SLUG, BACKEND_VERSION, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
+import { CONTAINER_RESOURCE_FIELDS, ContainerResources, requestAboveLimit } from "../types/ContainerResources"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
@@ -43,6 +44,21 @@ export const ensurePlainFields = (fields: object, code = "BACKEND_INVALID") => {
     const key = Object.keys(fields).find(candidate => candidate.startsWith("$") || candidate.includes("."))
     if (key) {
         throw createBusinessException({ code, message: `"${key}" is not a field: update operators and dotted paths are refused` })
+    }
+}
+
+/**
+ * A request above its limit is a Deployment Kubernetes refuses: checked on what the container ends up with, the
+ * stored value where `fields` leaves one out and the default of the chart where neither sets it.
+ */
+export const ensureRequestsWithinLimits = (fields: ContainerResources, existing?: ContainerResources, code = "BACKEND_INVALID") => {
+    const resources = Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, fields[field] !== undefined ? fields[field] : existing?.[field]])) as ContainerResources
+    const resource = requestAboveLimit(resources)
+    if (resource) {
+        throw createBusinessException({
+            code,
+            message: `The ${resource === "cpu" ? "CPU" : "memory"} request is above its limit, which Kubernetes refuses: a value left blank is the default of the chart`
+        })
     }
 }
 
@@ -176,6 +192,7 @@ export class BackendService extends BaseAuthorizedService {
         await ensureAttachableMaps(scope, projectIdObj, backend)
         await ensureAttachableResources(scope, projectIdObj, backend)
         ensureOnlyNewRepositoryLinked(scope, backend.codeRepository)
+        ensureRequestsWithinLimits(backend)
 
         // Both before the repository is created: a refused save would leave an orphan repository behind
         // A maintenance agent's values file is named after its slug as well, next to the backend's
@@ -259,6 +276,7 @@ export class BackendService extends BaseAuthorizedService {
         }
         await ensureAttachableMaps(scope, backend.projectId, allowed, backend)
         await ensureAttachableResources(scope, backend.projectId, allowed, backend)
+        ensureRequestsWithinLimits(allowed, backend)
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, backend.codeRepository)) delete allowed.codeRepository
         if (allowed.codeRepository) {
             allowed.codeRepository = { ...allowed.codeRepository, createData: undefined }

@@ -32,7 +32,25 @@ export enum FrontendKind {
 }
 
 /** What a DOCKER declares about its container: the same fields as a backend, with the same meaning. */
-export type FrontendContainer = Partial<Pick<Backend, "image" | "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "env" | "configMapIds" | "secretIds">>
+export type FrontendContainer = Partial<
+    Pick<
+        Backend,
+        | "image"
+        | "port"
+        | "livenessPath"
+        | "readinessPath"
+        | "docsPath"
+        | "openApiPath"
+        | "exposurePath"
+        | "cpuRequest"
+        | "cpuLimit"
+        | "memoryRequest"
+        | "memoryLimit"
+        | "env"
+        | "configMapIds"
+        | "secretIds"
+    >
+>
 
 export enum CanaryDeploymentType {
     BASED_ON_VERSION = "BASED_ON_VERSION",

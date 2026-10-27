@@ -1,5 +1,6 @@
 import { Schema } from "mongoose"
 import { BACKEND_HTTP_PATH } from "../types/BackendStack"
+import { parseCpu, parseMemory } from "../types/ContainerResources"
 import { isExposurePath } from "../types/Exposure"
 
 /**
@@ -67,4 +68,25 @@ export const exposurePath = {
         message: (props: { path: string; value: unknown }) =>
             `${props.path} "${props.value}" is not a path an HTTPRoute takes: segments of letters, digits and -._~!$&'()*+,;=:@ or %XX, no query, fragment, // nor . or .. segment`
     }
+}
+
+const optionalQuantity = (parse: (value: string) => number | undefined, example: string) => ({
+    type: String,
+    required: false,
+    set: (value?: string | null) => value?.trim() || null,
+    validate: {
+        validator: (value?: string | null) => value == null || parse(value) !== undefined,
+        message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" is not a Kubernetes quantity above zero, e.g. ${example}`
+    }
+})
+
+/**
+ * The CPU and memory of the container, as Kubernetes quantities: blank means the default of the chart, so it is stored
+ * as null. That a request is not above its limit is checked by the services, which see what is stored as well.
+ */
+export const resourceFields = {
+    cpuRequest: optionalQuantity(parseCpu, "250m or 0.5"),
+    cpuLimit: optionalQuantity(parseCpu, "250m or 0.5"),
+    memoryRequest: optionalQuantity(parseMemory, "128Mi or 1Gi"),
+    memoryLimit: optionalQuantity(parseMemory, "128Mi or 1Gi")
 }

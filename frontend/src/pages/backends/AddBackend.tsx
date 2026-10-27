@@ -36,6 +36,7 @@ import BackendRuntimeFields from "./partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
+import { type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 
 /** Same rule as the backend (BACKEND_SLUG): the slug names the workspace folder and the CI registration URL */
 const BACKEND_SLUG = /^[a-z0-9][a-z0-9-]{1,49}$/
@@ -52,7 +53,7 @@ const prefilledValuesOf = (defaults: BackendDefaults): PrefilledValues => ({
     openApiPath: defaults.openApiPath ?? ""
 })
 
-interface FormMessages {
+interface FormMessages extends ResourceMessages {
     slug: string
     version: string
     path: string
@@ -91,7 +92,10 @@ const createFormSchema = (messages: FormMessages) =>
                 })
                 .optional()
         })
-        .superRefine((data, ctx) => refineExposure(data, ctx, messages))
+        .superRefine((data, ctx) => {
+            refineExposure(data, ctx, messages)
+            refineResources(data, ctx, messages)
+        })
 
 type FormSchema = ReturnType<typeof createFormSchema>
 type FormInput = z.input<FormSchema>
@@ -113,7 +117,24 @@ const MERGED_TABS = new Map<string, FormTab>([
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["template", "name", "slug", "version", "description", "domainId", "codeRepository"],
     context: ["context"],
-    runtime: ["port", "image", "livenessPath", "readinessPath", "docsPath", "openApiPath", "exposed", "exposurePath", "env", "configMapIds", "secretIds", "resourceIds"],
+    runtime: [
+        "port",
+        "image",
+        "livenessPath",
+        "readinessPath",
+        "docsPath",
+        "openApiPath",
+        "cpuRequest",
+        "cpuLimit",
+        "memoryRequest",
+        "memoryLimit",
+        "exposed",
+        "exposurePath",
+        "env",
+        "configMapIds",
+        "secretIds",
+        "resourceIds"
+    ],
     danger: []
 }
 
@@ -174,7 +195,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                 version: t("backends.version_invalid"),
                 path: t("backends.path_invalid"),
                 exposurePath: t("backends.exposure_path_invalid"),
-                exposurePathRequired: t("backends.exposure_path_required")
+                exposurePathRequired: t("backends.exposure_path_required"),
+                ...resourceMessages(t)
             }),
         [t]
     )
@@ -190,6 +212,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   openApiPath: backend.openApiPath ?? "",
                   exposed: Boolean(backend.exposurePath),
                   exposurePath: backend.exposurePath ?? "",
+                  ...resourceFormValues(backend),
                   env: backend.env ?? [],
                   // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
                   configMapIds: (backend.configMapIds ?? []).filter(id => configMaps.some(map => map._id === id)),
@@ -212,6 +235,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   // Off until asked for: a new backend is reached from outside only when that is decided
                   exposed: false,
                   exposurePath: "",
+                  ...resourceFormValues(),
                   image: { repository: "" },
                   env: [],
                   configMapIds: [],

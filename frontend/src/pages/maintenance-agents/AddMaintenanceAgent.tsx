@@ -31,6 +31,7 @@ import BackendResourcesFields from "../backends/partials/BackendResourcesFields"
 import BackendVariableMapsFields from "../backends/partials/BackendVariableMapsFields"
 import { isBackendTemplate } from "../backends/partials/backendTemplates"
 import { BACKEND_HTTP_PATH, BACKEND_VERSION } from "../backends/partials/backendVariables"
+import { createResourceShape, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "../backends/partials/containerResources"
 import DomainSelectField from "../domains/partials/DomainSelectField"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import MaintenanceAgentHeader from "./partials/MaintenanceAgentHeader"
@@ -42,7 +43,7 @@ import { isValidCron, isValidTimeZone, MAINTENANCE_LIST_PATH, MAINTENANCE_SLUG, 
 const PREFILLED_FIELDS = ["port", "livenessPath", "readinessPath"] as const
 type PrefilledValues = Record<(typeof PREFILLED_FIELDS)[number], string>
 
-interface FormMessages {
+interface FormMessages extends ResourceMessages {
     slug: string
     version: string
     path: string
@@ -78,6 +79,8 @@ const createFormSchema = (messages: FormMessages) =>
             runPath: z.string().trim(),
             livenessPath: z.string().trim(),
             readinessPath: z.string().trim(),
+            // A job's too: its CronJob runs the image with them
+            ...createResourceShape(messages),
             env: z.array(
                 z.object({
                     name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
@@ -112,6 +115,7 @@ const createFormSchema = (messages: FormMessages) =>
             if (data.scheduleMode !== "manual" && data.timeZone && !isValidTimeZone(data.timeZone)) {
                 ctx.addIssue({ code: "custom", message: messages.timeZone, path: ["timeZone"] })
             }
+            refineResources(data, ctx, messages)
             if (data.kind !== "container") return
             if (!/^\d{1,5}$/.test(data.port)) ctx.addIssue({ code: "custom", message: messages.port, path: ["port"] })
             for (const field of ["runPath", "livenessPath", "readinessPath"] as const) {
@@ -133,7 +137,7 @@ const isFormTab = (value: string | null): value is FormTab => Boolean(value && (
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["template", "name", "slug", "description", "domainId", "context", "kind"],
     schedule: ["scheduleMode", "schedule", "timeZone", "backendIds", "frontendIds"],
-    runtime: ["port", "image", "version", "runPath", "livenessPath", "readinessPath"],
+    runtime: ["port", "image", "version", "runPath", "livenessPath", "readinessPath", "cpuRequest", "cpuLimit", "memoryRequest", "memoryLimit"],
     variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     repository: ["codeRepository"],
     danger: []
@@ -186,7 +190,8 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                 port: t("maintenance.port_invalid"),
                 cronRequired: t("maintenance.schedule.cron_required"),
                 cronInvalid: t("maintenance.schedule.cron_invalid"),
-                timeZone: t("maintenance.schedule.time_zone_invalid")
+                timeZone: t("maintenance.schedule.time_zone_invalid"),
+                ...resourceMessages(t)
             }),
         [t]
     )
@@ -207,6 +212,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   livenessPath: agent.livenessPath ?? "/health/live",
                   readinessPath: agent.readinessPath ?? "/health/ready",
                   image: { repository: agent.image?.repository ?? "" },
+                  ...resourceFormValues(agent),
                   env: agent.env ?? [],
                   // Only what still exists: one deleted meanwhile has no row to remove, and would make every save fail
                   configMapIds: (agent.configMapIds ?? []).filter(mapId => configMaps.some(map => map._id === mapId)),
@@ -232,6 +238,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   livenessPath: "/health/live",
                   readinessPath: "/health/ready",
                   image: { repository: "" },
+                  ...resourceFormValues(),
                   env: [],
                   configMapIds: [],
                   secretIds: [],

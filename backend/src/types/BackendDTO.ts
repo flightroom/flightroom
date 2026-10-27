@@ -35,6 +35,12 @@ interface BackendDTO {
     openApiPath?: string | null
     /** The path on the host of every environment, e.g. /api/orders; blank or null when it is not exposed */
     exposurePath?: string | null
+    /** Kubernetes quantities, e.g. 250m or 0.5; blank or null for the default of the chart */
+    cpuRequest?: string | null
+    cpuLimit?: string | null
+    /** Kubernetes quantities, e.g. 128Mi or 1Gi; blank or null for the default of the chart */
+    memoryRequest?: string | null
+    memoryLimit?: string | null
     env?: BackendEnvVariableDTO[]
     /** Config maps of the project to attach; replaced as a whole, and no key may be set by two attached maps */
     configMapIds?: string[]

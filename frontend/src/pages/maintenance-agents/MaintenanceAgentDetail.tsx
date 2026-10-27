@@ -16,6 +16,8 @@ import BackendResourcesSection from "@/pages/backends/partials/BackendResourcesS
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
+import { RESOURCE_LABELS, ResourceValue } from "@/pages/backends/partials/ContainerResourceFields"
+import { RESOURCE_FIELDS } from "@/pages/backends/partials/containerResources"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
@@ -77,6 +79,11 @@ const ConfigurationSection: React.FC<{ agent: MaintenanceAgent; environments: En
                         </>
                     )}
                     <DescriptionItem label={t("backends.image_repository")}>{agent.image?.repository ? <span className="font-mono">{agent.image.repository}</span> : "—"}</DescriptionItem>
+                    {RESOURCE_FIELDS.map(field => (
+                        <DescriptionItem key={field} label={t(RESOURCE_LABELS[field])}>
+                            <ResourceValue field={field} value={agent[field]} />
+                        </DescriptionItem>
+                    ))}
                 </DescriptionList>
                 <div>
                     <h3 className="mb-2 text-base font-semibold">{t("backends.env.title")}</h3>
