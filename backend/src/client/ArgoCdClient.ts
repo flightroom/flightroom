@@ -60,6 +60,51 @@ export interface ArgoCdUserInfo {
     username?: string
 }
 
+/** A pod an Application runs, as its resource tree describes it */
+export interface ArgoCdPod {
+    name: string
+    namespace: string
+    /** Healthy, Progressing, Degraded... as Argo CD judges it */
+    health?: string
+    /** What Kubernetes says of it: Running, Completed, CrashLoopBackOff... */
+    status?: string
+    /** Ready containers over all of them, as "1/1" */
+    containers?: string
+    restarts?: number
+    createdAt?: string
+}
+
+export interface ArgoCdLogLine {
+    content: string
+    timestamp?: string
+}
+
+export interface ArgoCdLogsQuery {
+    namespace: string
+    podName: string
+    tailLines: number
+    sinceSeconds?: number
+    /** The logs of the container before its last restart: what a crash left */
+    previous?: boolean
+    /** Only the lines holding this text, filtered by Argo CD */
+    filter?: string
+}
+
+interface ArgoCdTreeNode {
+    kind?: string
+    name?: string
+    namespace?: string
+    health?: { status?: string }
+    info?: Array<{ name?: string; value?: string }> | null
+    createdAt?: string
+}
+
+/** One line of the stream of logs: a result, or the error that cut it */
+interface ArgoCdLogEntry {
+    result?: { content?: string; timeStamp?: string; last?: boolean }
+    error?: { message?: string }
+}
+
 export interface ArgoCdClientOptions {
     /** Accepts any certificate, a self-signed one included, as `argocd --insecure`: the TLS of the connection is not verified */
     insecure?: boolean
@@ -179,6 +224,58 @@ class ArgoCdClient {
                 headers: { "Content-Type": "application/json" }
             })
         )
+    }
+
+    /** The pods the Application runs now, from its resource tree; none when it is not there yet */
+    async listPods(application: string, project: string): Promise<ArgoCdPod[]> {
+        const tree = await this.find(`read the resources of the Application ${application}`, () =>
+            this.api.get<{ nodes?: ArgoCdTreeNode[] | null }>(`/applications/${encodeURIComponent(application)}/resource-tree`, { params: { project } })
+        )
+        return (tree?.nodes ?? [])
+            .filter(node => node.kind === "Pod" && node.name && node.namespace)
+            .map(node => {
+                const info = (name: string) => node.info?.find(entry => entry.name === name)?.value
+                const restarts = Number(info("Restart Count"))
+                return {
+                    name: node.name!,
+                    namespace: node.namespace!,
+                    health: node.health?.status,
+                    status: info("Status Reason"),
+                    containers: info("Containers"),
+                    restarts: Number.isFinite(restarts) ? restarts : undefined,
+                    createdAt: node.createdAt
+                }
+            })
+    }
+
+    /**
+     * The last lines a pod of the Application wrote, from its default container. Argo CD answers a stream of
+     * JSON lines even without follow, and refuses a pod the Application does not run. An error entry in the
+     * stream is a failure as an HTTP one is; Kubernetes' own refusals, such as no previous container to read or a
+     * pod of several containers, may instead come as a line of content, and are shown as such.
+     */
+    async getPodLogs(application: string, project: string, query: ArgoCdLogsQuery): Promise<ArgoCdLogLine[]> {
+        const action = `read the logs of the pod ${query.podName}`
+        const body = await this.call(action, () =>
+            this.api.get<string>(`/applications/${encodeURIComponent(application)}/logs`, {
+                params: { ...query, project, follow: false },
+                responseType: "text"
+            })
+        )
+        const lines: ArgoCdLogLine[] = []
+        for (const raw of String(body ?? "").split("\n")) {
+            if (!raw.trim()) continue
+            let entry: ArgoCdLogEntry
+            try {
+                entry = JSON.parse(raw)
+            } catch {
+                continue
+            }
+            if (entry.error) throw this.failure(action, new Error(String(entry.error.message ?? "the stream of logs failed").slice(0, MESSAGE_MAX_LENGTH)))
+            if (!entry.result || entry.result.last) continue
+            lines.push({ content: entry.result.content ?? "", ...(entry.result.timeStamp ? { timestamp: entry.result.timeStamp } : {}) })
+        }
+        return lines
     }
 
     /** What `request` answers, null when Argo CD has no such object */

@@ -784,3 +784,70 @@ describe("renderNamespace", () => {
         expect(parse(renderNamespace({ slug: "production" })).metadata.annotations).toEqual({ "argocd.argoproj.io/sync-options": "Prune=false,Delete=false" })
     })
 })
+
+describe("ArgoCdService.getLogs", () => {
+    const environmentId = new Types.ObjectId()
+    const ORDERS_DEVELOPMENT = applicationName(String(projectId), "shop", "orders", "development")
+
+    beforeEach(() => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        vi.spyOn(ArgoCdService.prototype as unknown as { ensureNotViewer: () => Promise<void> }, "ensureNotViewer").mockResolvedValue(undefined)
+        vi.spyOn(Environment, "findOne").mockResolvedValue({ slug: "development", projectId } as never)
+        vi.spyOn(Backend, "exists").mockImplementation(((filter: { slug: string }) => Promise.resolve(filter.slug === "orders" ? { _id: new Types.ObjectId() } : null)) as never)
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(ArgoCdClient.prototype, "getPodLogs").mockResolvedValue([{ content: "started" }])
+        vi.spyOn(ArgoCdClient.prototype, "listPods").mockResolvedValue([{ name: "orders-abc", namespace: "development" }])
+    })
+
+    const getLogs = (slug: string, query: Record<string, unknown>) => new ArgoCdService().getLogs(String(projectId), slug, String(environmentId), query)
+
+    it("given a backend of the project, when its logs are read, then Argo CD is asked for those of the pod of its Application, within bounds", async () => {
+        const lines = await getLogs("orders", { pod: "orders-abc", tailLines: "99999", sinceSeconds: "", previous: "true", filter: "  ERROR " })
+
+        expect(lines).toEqual([{ content: "started" }])
+        expect(ArgoCdClient.prototype.getPodLogs).toHaveBeenCalledWith(ORDERS_DEVELOPMENT, PROJECT_NAME, {
+            namespace: "development",
+            podName: "orders-abc",
+            tailLines: 5000,
+            sinceSeconds: undefined,
+            previous: true,
+            filter: "ERROR"
+        })
+    })
+
+    it("given no tail, when the logs are read, then the last 500 lines are asked for", async () => {
+        await getLogs("orders", { pod: "orders-abc" })
+
+        expect(vi.mocked(ArgoCdClient.prototype.getPodLogs).mock.calls[0][2]).toMatchObject({ tailLines: 500, previous: false })
+    })
+
+    it("given a slug that is none of the project's, when its logs are read, then nothing is asked of Argo CD", async () => {
+        await expect(getLogs("payments", { pod: "payments-abc" })).rejects.toThrow()
+
+        expect(ArgoCdClient.prototype.getPodLogs).not.toHaveBeenCalled()
+    })
+
+    it("given a pod name that is not one, when the logs are read, then it is refused", async () => {
+        await expect(getLogs("orders", { pod: "../secrets" })).rejects.toMatchObject({ code: "ARGOCD_LOGS_INVALID" })
+    })
+
+    it("given a viewer, when the logs are read, then it is refused before Argo CD is asked", async () => {
+        vi.mocked((ArgoCdService.prototype as unknown as { ensureNotViewer: () => Promise<void> }).ensureNotViewer).mockRejectedValue(
+            createBusinessException({ code: "ARGOCD_LOGS_FORBIDDEN", message: "viewer", statusCode: 403 })
+        )
+
+        await expect(getLogs("orders", { pod: "orders-abc" })).rejects.toMatchObject({ code: "ARGOCD_LOGS_FORBIDDEN" })
+        expect(ArgoCdClient.prototype.getPodLogs).not.toHaveBeenCalled()
+    })
+
+    it("given Argo CD not initialized, when the pods are listed, then it says so", async () => {
+        previous = undefined
+
+        await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))).rejects.toMatchObject({ code: "ARGOCD_NOT_CONFIGURED" })
+    })
+
+    it("given a backend of the project, when its pods are listed, then those of its Application come back", async () => {
+        await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))).resolves.toEqual([{ name: "orders-abc", namespace: "development" }])
+        expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledWith(ORDERS_DEVELOPMENT, PROJECT_NAME)
+    })
+})

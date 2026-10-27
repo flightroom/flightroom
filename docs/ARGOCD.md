@@ -186,9 +186,13 @@ data:
     p, role:orchestrator, projects, *, mfe-*, allow
     p, role:orchestrator, applications, *, mfe-*/*, allow
     p, role:orchestrator, applicationsets, *, mfe-*/*, allow
+    p, role:orchestrator, logs, get, mfe-*/*, allow
     p, role:orchestrator, repositories, *, *, allow
     g, orchestrator, role:orchestrator
 ```
+
+The `logs` line lets the console show the logs of the pods on the pages of the backends and frontends.
+An installation set up before it answers those with a permission error until the line is added.
 
 The repositories cannot be narrowed the same way: the RBAC object of a global repository is its URL,
 and the applications repository is registered globally.

@@ -3870,5 +3870,32 @@
             "run_forbidden": "Chi ha accesso in sola lettura non può eseguire gli agenti di manutenzione.",
             "argocd_not_configured": "Argo CD non è configurato per questo progetto: configuralo nelle impostazioni per eseguire gli agenti."
         }
+    },
+    "applicationLogs": {
+        "title": "Log",
+        "description": "Le ultime righe scritte dai pod di questo ambiente, lette tramite Argo CD. Ci sono solo i pod attivi: dopo un redeploy i log dei pod precedenti non sono più disponibili.",
+        "not_configured": "Inizializza Argo CD nelle impostazioni del progetto per leggere i log dei pod.",
+        "no_environments": "Il progetto non ha ancora ambienti.",
+        "environment": "Ambiente",
+        "pod": "Pod",
+        "no_pods": "Nessun pod attivo in questo ambiente",
+        "pod_option_one": "{{name}} · {{status}} · {{count}} riavvio",
+        "pod_option_other": "{{name}} · {{status}} · {{count}} riavvii",
+        "tail": "Righe",
+        "tail_option_one": "Ultima riga",
+        "tail_option_other": "Ultime {{count}} righe",
+        "filter": "Filtro",
+        "filter_placeholder": "Solo le righe che contengono…",
+        "follow": "Aggiorna automaticamente",
+        "previous": "Container precedente",
+        "previous_hint": "I log del container prima del suo ultimo riavvio: utile dopo un crash",
+        "refresh": "Aggiorna",
+        "download": "Scarica",
+        "empty": "Nessuna riga di log.",
+        "errors": {
+            "not_configured": "Argo CD non è più configurato per il progetto: attiva il GitOps con un repository delle applicazioni e inizializza di nuovo Argo CD.",
+            "forbidden": "Chi ha il ruolo di viewer non può leggere i log delle applicazioni.",
+            "invalid": "Scegli il pod di cui leggere i log."
+        }
     }
 }
