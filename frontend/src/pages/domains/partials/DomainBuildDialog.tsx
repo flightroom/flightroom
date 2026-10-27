@@ -1,13 +1,13 @@
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
-import { Hammer } from "lucide-react"
+import { GitBranch, Hammer } from "lucide-react"
 import { useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
 import { Badge, Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
-import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildRepository, type DomainBuildResult } from "@/hooks/apiClients/useDomainsApi"
+import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildRepository, type DomainBuildResult, singleRefOf } from "@/hooks/apiClients/useDomainsApi"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
@@ -24,7 +24,7 @@ export const DomainBuildOutcomes: React.FC<{ result: DomainBuildResult }> = ({ r
     const reasonOf = (repository: DomainBuildRepository) => {
         if (repository.status !== "failed") return undefined
         if (!repository.reason || repository.reason === "PROVIDER_ERROR") return t("domains.build.reasons.PROVIDER_ERROR", { message: repository.message ?? "" })
-        return t(`domains.build.reasons.${repository.reason}`, { ref: result.ref, version: result.version })
+        return t(`domains.build.reasons.${repository.reason}`, { ref: repository.ref ?? result.ref, version: result.version })
     }
 
     return (
@@ -35,7 +35,13 @@ export const DomainBuildOutcomes: React.FC<{ result: DomainBuildResult }> = ({ r
                         <span className="truncate font-mono text-sm">{repository.repository}</span>
                         <Badge variant={STATUS_VARIANTS[repository.status]}>{t(`domains.build.status.${repository.status}`)}</Badge>
                     </div>
-                    <span className="text-xs text-foreground-secondary">{repository.members.map(member => member.name).join(", ")}</span>
+                    <span className="flex flex-wrap items-center gap-x-2 text-xs text-foreground-secondary">
+                        {repository.members.map(member => member.name).join(", ")}
+                        <span className="flex items-center gap-1">
+                            <GitBranch className="size-3 shrink-0" aria-hidden="true" />
+                            <span className="font-mono">{repository.ref ?? result.ref}</span>
+                        </span>
+                    </span>
                     {reasonOf(repository) && <span className="text-xs text-destructive">{reasonOf(repository)}</span>}
                 </li>
             ))}
@@ -112,7 +118,13 @@ export const DomainBuildButton: React.FC<DomainBuildButtonProps> = ({ domain, op
                 <DialogContent>
                     <DialogHeader>
                         <DialogTitle>{t("domains.build.title", { domain: domain.name })}</DialogTitle>
-                        <DialogDescription>{result ? t("domains.build.result_description", { version: result.version, ref: result.ref }) : t("domains.build.description")}</DialogDescription>
+                        <DialogDescription>
+                            {result
+                                ? singleRefOf(result)
+                                    ? t("domains.build.result_description", { version: result.version, ref: singleRefOf(result) })
+                                    : t("domains.build.result_description_branches", { version: result.version })
+                                : t("domains.build.description")}
+                        </DialogDescription>
                     </DialogHeader>
                     {result ? (
                         <>

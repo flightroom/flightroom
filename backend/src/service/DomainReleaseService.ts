@@ -65,8 +65,8 @@ export class DomainReleaseService extends BaseAuthorizedService {
      * does it, with the same checks and the same refusal; the release tick takes the other steps. One release per
      * domain at a time: a second one is refused while the first is not over.
      */
-    async start(id: string | ObjectId, version: unknown, ref: unknown, environmentId: unknown): Promise<IDomainRelease | null> {
-        ensureBuildTarget(version, ref)
+    async start(id: string | ObjectId, version: unknown, ref: unknown, environmentId: unknown, refs?: unknown): Promise<IDomainRelease | null> {
+        ensureBuildTarget(version, ref, refs)
         if (typeof environmentId !== "string" || !isValidObjectId(environmentId)) {
             throw createBusinessException({ code: "DOMAIN_RELEASE_ENVIRONMENT_INVALID", message: "The environment to deploy to is required" })
         }
@@ -109,7 +109,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
 
         let repositories: DomainBuildRepository[]
         try {
-            repositories = (await new DomainService(this.user).build(domain._id, version, ref)).repositories
+            repositories = (await new DomainService(this.user).build(domain._id, version, ref, refs)).repositories
         } catch (error) {
             // The refusal of the check goes back as the build gives it: the dialog lists it repository by repository
             await failRelease(release, DomainReleaseStatus.BUILDING, error, (error as BusinessException).details?.repositories)

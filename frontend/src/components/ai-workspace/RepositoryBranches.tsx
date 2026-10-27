@@ -42,10 +42,11 @@ interface BranchSelectProps {
     value: string
     onChange: (branch: string) => void
     disabled?: boolean
+    explicit?: boolean
 }
 
 /** Where one repository starts from: its branches once known, free text when the provider cannot list them. */
-const BranchSelect: React.FC<BranchSelectProps> = ({ repository, branches, failed, value, onChange, disabled }) => {
+const BranchSelect: React.FC<BranchSelectProps> = ({ repository, branches, failed, value, onChange, disabled, explicit }) => {
     const { t } = useTranslation()
     const label = t("frontend.aiChange.base_branch_of", { name: repository.name })
 
@@ -69,8 +70,8 @@ const BranchSelect: React.FC<BranchSelectProps> = ({ repository, branches, faile
     if (value && !names.includes(value)) names.unshift(value)
 
     return (
-        // The default branch is kept as no choice at all: the server resolves it when the job starts.
-        <Select layoutSize="sm" value={value} onValueChange={branch => onChange(branch === defaultBranch ? "" : branch)} disabled={disabled || !branches}>
+        // Unless explicit, the default branch is kept as no choice at all: the server resolves it when the job starts.
+        <Select layoutSize="sm" value={value} onValueChange={branch => onChange(branch === defaultBranch && !explicit ? "" : branch)} disabled={disabled || !branches}>
             <SelectTrigger aria-label={label} className="w-48 shrink-0" dataTestId="ai-change-base-branch">
                 <SelectValue placeholder={branches ? t("frontend.aiChange.base_branch_default", { branch: defaultBranch ?? "" }) : t("common.loading")} />
             </SelectTrigger>
@@ -90,13 +91,17 @@ interface RepositoryBranchesProps {
     value: BaseBranches
     onChange: (value: BaseBranches) => void
     disabled?: boolean
+    /** Every repository keeps the name of its branch, its default one included: for a server that does not resolve the default branch. */
+    explicit?: boolean
+    /** In place of the hint about the agent's feature branches. */
+    hint?: string
 }
 
 /**
  * The repositories the agent works on, each linked to its page on the provider, and the branch each starts from.
  * Over several, one choice sets them all: their own default branches, or a branch every one of them has.
  */
-export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ repositories, value, onChange, disabled }) => {
+export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ repositories, value, onChange, disabled, explicit, hint }) => {
     const { t } = useTranslation()
     const { getBranches } = useCodeRepositoriesApi()
     const headingId = useId()
@@ -115,8 +120,11 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
     const common = branchQueries.every(query => query.data)
         ? branchQueries.map(query => query.data!.map(branch => branch.branch)).reduce((shared, names) => shared.filter(name => names.includes(name)))
         : []
+    const defaults = branchQueries.map(query => query.data?.find(branch => branch.default)?.branch)
     const picked = repositories.map(repository => value[repository.id] ?? "")
-    const sharedValue = picked.every(branch => branch === "") ? EACH_DEFAULT : picked.every(branch => branch === picked[0]) && common.includes(picked[0]) ? picked[0] : ""
+    const eachDefault = explicit ? picked.every((branch, index) => branch === defaults[index]) : picked.every(branch => branch === "")
+    const sharedValue = picked.every(branch => branch === picked[0]) && common.includes(picked[0]) ? picked[0] : eachDefault ? EACH_DEFAULT : ""
+    const toEachDefault = () => (explicit ? Object.fromEntries(repositories.map(({ id }, index) => [id, defaults[index] ?? value[id] ?? ""])) : {})
 
     return (
         <section className="flex flex-col gap-2" aria-labelledby={headingId}>
@@ -128,7 +136,7 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
                     <Select
                         layoutSize="sm"
                         value={sharedValue}
-                        onValueChange={branch => onChange(branch === EACH_DEFAULT ? {} : Object.fromEntries(repositories.map(({ id }) => [id, branch])))}
+                        onValueChange={branch => onChange(branch === EACH_DEFAULT ? toEachDefault() : Object.fromEntries(repositories.map(({ id }) => [id, branch])))}
                         disabled={disabled}
                     >
                         <SelectTrigger aria-label={t("frontend.aiChange.base_branch_all")} className="w-60" dataTestId="ai-change-base-branch-all">
@@ -169,13 +177,14 @@ export const RepositoryBranches: React.FC<RepositoryBranchesProps> = ({ reposito
                                     value={value[repository.id] ?? ""}
                                     onChange={branch => onChange({ ...value, [repository.id]: branch })}
                                     disabled={disabled}
+                                    explicit={explicit}
                                 />
                             </span>
                         </li>
                     )
                 })}
             </ul>
-            <p className="text-xs text-foreground-secondary">{t("frontend.aiChange.base_branch_hint")}</p>
+            <p className="text-xs text-foreground-secondary">{hint ?? t("frontend.aiChange.base_branch_hint")}</p>
         </section>
     )
 }

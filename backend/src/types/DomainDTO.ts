@@ -21,6 +21,8 @@ export interface DomainBuildRepository {
     /** Stable across builds: the connection, the repository id or name, and the GitLab path when there is one */
     id: string
     repository: string
+    /** The branch it is tagged on */
+    ref: string
     members: { kind: "frontend" | "backend"; _id: string; name: string }[]
     /** ready: checked, but left untagged because another repository failed its check */
     status: "tagged" | "ready" | "failed"
@@ -28,7 +30,7 @@ export interface DomainBuildRepository {
     message?: string
 }
 
-/** What a domain build did: every repository was tagged with `version` on `ref`, unless its status says otherwise */
+/** What a domain build did: every repository was tagged with `version` on its own `ref`, unless its status says otherwise. `ref` is the branch of the members given none */
 export interface DomainBuildResult {
     version: string
     ref: string
