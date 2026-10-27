@@ -1,6 +1,7 @@
 import type { AxiosError } from "axios"
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf } from "../useApiClient"
+import type { RolloutApplication } from "./useArgoCdApi"
 
 /** A functional domain: a named group of frontends and backends of the project */
 export interface Domain {
@@ -57,8 +58,11 @@ export interface DomainBuildResult {
     repositories: DomainBuildRepository[]
 }
 
-/** Where a build and deploy of a domain stands: building, then the console waits for the CI, sets the versions and deploys */
-export type DomainReleaseStatus = "building" | "waiting_ci" | "updating_versions" | "deploying" | "deployed" | "failed"
+/**
+ * Where a build and deploy of a domain stands: building, then the console waits for the CI, sets the versions,
+ * deploys and, with Argo CD, waits for the new containers to run
+ */
+export type DomainReleaseStatus = "building" | "waiting_ci" | "updating_versions" | "deploying" | "rolling_out" | "deployed" | "failed"
 
 /** A frontend or a backend of the domain, as the release found it when it started */
 export interface DomainReleaseMember {
@@ -87,6 +91,14 @@ export interface DomainRelease {
     /** The backend's English wording, shown when the code has no translation */
     errorMessage?: string
     deploymentId?: string
+    /** Only where the project deploys through Argo CD: where its containers stand, as the last check read it */
+    rollout?: {
+        since: string
+        applications: RolloutApplication[]
+        checkedAt?: string
+        /** Why the last check could not read it: the console tries again */
+        error?: string
+    }
     createdAt: string
     finishedAt?: string
 }

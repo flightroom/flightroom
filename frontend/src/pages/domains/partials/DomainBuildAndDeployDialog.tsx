@@ -21,9 +21,11 @@ import { useTranslation } from "react-i18next"
 import { z } from "zod"
 import RepositoryBranches, { type BaseBranches, pickedBaseBranches, workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import { Badge, Button } from "@/components/atoms"
+import RolloutApplications from "@/components/deploy-overlay/RolloutApplications"
 import TextField from "@/components/input/TextField.rhf"
 import Mascot from "@/components/mascot/Mascot"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
+import type { RolloutState } from "@/hooks/apiClients/useArgoCdApi"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useBuildsApi, { BUILD_STATUS_QUERY_KEY, type BuildRun, BuildStatus, type ComponentBuildStatus } from "@/hooks/apiClients/useBuildsApi"
 import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildResult, type DomainRelease, type DomainReleaseMember, isReleaseRunning, singleRefOf } from "@/hooks/apiClients/useDomainsApi"
@@ -45,7 +47,7 @@ const RUNS_EVERY_MS = 15_000
 
 const NO_ENVIRONMENTS: EnvironmentDTO[] = []
 
-const STEPS = ["building", "waiting_ci", "updating_versions", "deploying"] as const
+const STEPS = ["building", "waiting_ci", "updating_versions", "deploying", "rolling_out"] as const
 
 /** The failures told in the console's words: any other keeps the backend's */
 const TRANSLATED_ERRORS = [
@@ -55,8 +57,18 @@ const TRANSLATED_ERRORS = [
     "DOMAIN_RELEASE_CI_NOT_REGISTERED",
     "DOMAIN_RELEASE_INTERRUPTED",
     "DOMAIN_RELEASE_USER_UNAVAILABLE",
-    "DOMAIN_BUILD_CHECK_FAILED"
+    "DOMAIN_BUILD_CHECK_FAILED",
+    "DOMAIN_RELEASE_ROLLOUT_FAILED",
+    "DOMAIN_RELEASE_ROLLOUT_DEGRADED",
+    "DOMAIN_RELEASE_ROLLOUT_TIMEOUT"
 ]
+
+/** Failures of the rollout name the applications in that state, not the members the CI left behind */
+const ROLLOUT_ERRORS: Record<string, (state: RolloutState) => boolean> = {
+    DOMAIN_RELEASE_ROLLOUT_FAILED: state => state === "failed",
+    DOMAIN_RELEASE_ROLLOUT_DEGRADED: state => state === "degraded",
+    DOMAIN_RELEASE_ROLLOUT_TIMEOUT: state => state !== "healthy"
+}
 
 type MemberState = "untouched" | "unchanged" | "waiting" | "running" | "failed" | "built"
 
@@ -200,11 +212,11 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const buildsOf = (member: DomainReleaseMember): ComponentBuildStatus | undefined =>
         member.kind === "frontend" ? buildStatus?.frontends.find(row => row.frontendId === member._id) : buildStatus?.backends.find(row => row.backendId === member._id)
 
-    /** The failure in the console's words, naming the members still waiting when it was the CI */
+    /** The failure in the console's words, naming the members still waiting when it was the CI, those not running when it was the rollout */
     const errorOf = (failed: DomainRelease) => {
         if (!failed.errorCode || !TRANSLATED_ERRORS.includes(failed.errorCode)) return t("domains.release.errors.generic", { message: failed.errorMessage ?? "" })
-        const names = failed.members
-            .filter(member => member.tagged && !member.built)
+        const inRollout = ROLLOUT_ERRORS[failed.errorCode]
+        const names = (inRollout ? (failed.rollout?.applications ?? []).filter(application => inRollout(application.state)) : failed.members.filter(member => member.tagged && !member.built))
             .map(member => member.name)
             .join(", ")
         return t(`domains.release.errors.${failed.errorCode}`, { version: failed.version, names })
@@ -221,7 +233,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                 {/* Vega waits with the release: fixing things while it builds, blasting off once it deploys */}
                 {isReleaseRunning(current) && (
                     <div className="flex justify-center" data-testid="domain-release-mascot">
-                        <Mascot mood={current.status === "deploying" ? "deploying" : "working"} className="size-24" />
+                        <Mascot mood={current.status === "deploying" || current.status === "rolling_out" ? "deploying" : "working"} className="size-24" />
                     </div>
                 )}
                 <ol className="mt-2 flex items-center gap-2" data-testid="domain-release-steps">
@@ -297,6 +309,18 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                             )
                         })}
                     </ul>
+                )}
+                {current.rollout && current.rollout.applications.length > 0 && (
+                    <section className="mb-4" data-testid="domain-release-rollout">
+                        <h3 className="text-sm font-medium">{t("deployments.rollout.title")}</h3>
+                        <p className="mb-2 text-xs text-foreground-secondary">{t("domains.release.rollout_description")}</p>
+                        <RolloutApplications applications={current.rollout.applications} />
+                    </section>
+                )}
+                {current.status === "rolling_out" && current.rollout?.error && (
+                    <p className="mb-4 text-xs text-foreground-secondary" data-testid="domain-release-rollout-error">
+                        {t("domains.release.rollout_read_error", { message: current.rollout.error })}
+                    </p>
                 )}
                 {unchanged.size > 0 && <p className="mb-4 text-xs text-foreground-secondary">{t("domains.release.unchanged_hint")}</p>}
                 {current.members.some(member => !member.tagged && !unchanged.has(member._id)) && <p className="mb-4 text-xs text-foreground-secondary">{t("domains.release.untouched_hint")}</p>}

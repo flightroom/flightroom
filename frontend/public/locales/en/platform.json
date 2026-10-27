@@ -617,9 +617,42 @@
                 "over_one": "Crash! You passed {{count}} tower",
                 "over_other": "Crash! You passed {{count}} towers",
                 "new_best": "New record: {{score}}!"
-            }
+            },
+            "committing_description": "Committing the changes to the GitOps repositories…",
+            "rollout_title": "Starting the containers",
+            "rollout_description": "The commit is in: Argo CD applies the changes and Kubernetes starts the new pods. The deploy is over once each one runs the new version.",
+            "done_title": "Deploy complete",
+            "done_description": "Every container runs the new version.",
+            "failed_title": "Deploy failed",
+            "failed_description": "Some components do not run the new version: the reason is below and in the logs of their pods.",
+            "timeout_title": "The containers are not ready yet",
+            "timeout_description": "After {{minutes}} minutes some components do not run the new version yet: check the logs of their pods.",
+            "read_error": "Argo CD did not answer the last check: trying again shortly.",
+            "close": "Close",
+            "pill_rollout": "Starting containers · {{time}}",
+            "pill_done": "Deploy complete",
+            "pill_failed": "Deploy failed",
+            "pill_timeout": "Containers not ready yet"
         },
-        "resources_title": "Resources"
+        "resources_title": "Resources",
+        "rollout": {
+            "title": "Containers",
+            "states": {
+                "waiting": "Waiting for Argo CD",
+                "syncing": "Syncing",
+                "progressing": "Starting pods",
+                "healthy": "Running",
+                "degraded": "Broken",
+                "failed": "Failed"
+            },
+            "kinds": {
+                "frontend": "Frontend",
+                "backend": "Backend"
+            },
+            "restarts_one": "{{count}} restart",
+            "restarts_other": "{{count}} restarts",
+            "empty": "No containers to start in this deploy."
+        }
     },
     "builds": {
         "title": "Builds",
@@ -2588,7 +2621,7 @@
             "more_actions": "Build and deploy options",
             "no_domain": "Add it to a domain to build and deploy it",
             "title": "Build and deploy {{domain}}",
-            "description": "Creates the version as Create version does, waits for the pipeline of every tagged repository to register it, sets it as the version of those frontends and backends, then deploys the domain to the environment picked. The console goes on with it even if you close this window.",
+            "description": "Creates the version as Create version does, waits for the pipeline of every tagged repository to register it, sets it as the version of those frontends and backends, deploys the domain to the environment picked and, with Argo CD, waits for the new containers to start. The console goes on with it even if you close this window.",
             "progress_description": "Version {{version}} from branch {{ref}} to {{environment}}.",
             "progress_description_branches": "Version {{version}} to {{environment}}, each repository from its own branch.",
             "start": "Build and deploy",
@@ -2602,7 +2635,8 @@
                 "building": "Build",
                 "waiting_ci": "CI",
                 "updating_versions": "Versions",
-                "deploying": "Deploy"
+                "deploying": "Deploy",
+                "rolling_out": "Rollout"
             },
             "kinds": {
                 "frontend": "Frontend",
@@ -2627,9 +2661,14 @@
                 "DOMAIN_RELEASE_CI_FAILED": "The pipeline of tag {{version}} failed for: {{names}}",
                 "DOMAIN_RELEASE_CI_NOT_REGISTERED": "The pipeline of tag {{version}} ended without registering the version in the console for: {{names}}. Check the step of the pipeline that registers it and its API key",
                 "DOMAIN_RELEASE_INTERRUPTED": "The release stopped in the middle of a step, most likely on a restart of the console: check the deployments of the environment before starting it again",
-                "DOMAIN_RELEASE_USER_UNAVAILABLE": "The user who started the release can no longer act in the console"
+                "DOMAIN_RELEASE_USER_UNAVAILABLE": "The user who started the release can no longer act in the console",
+                "DOMAIN_RELEASE_ROLLOUT_FAILED": "Argo CD could not apply version {{version}} for: {{names}}",
+                "DOMAIN_RELEASE_ROLLOUT_DEGRADED": "Version {{version}} does not work for: {{names}}. Check the logs of their pods",
+                "DOMAIN_RELEASE_ROLLOUT_TIMEOUT": "After 20 minutes version {{version}} does not run yet for: {{names}}"
             },
-            "unchanged_hint": "Frontends and backends with no change since their version are not built again: they keep their current version."
+            "unchanged_hint": "Frontends and backends with no change since their version are not built again: they keep their current version.",
+            "rollout_description": "The deploy is over once Argo CD has started the new version of every frontend and backend.",
+            "rollout_read_error": "Argo CD did not answer the last check, the console tries again: {{message}}"
         },
         "deployments": {
             "open": "Deployed versions",
@@ -2841,7 +2880,7 @@
             "title": "Deploy {{domain}}",
             "description": "Ships the frontends and backends of the domain to the chosen environment, each at the version it is set to, without building. The rest of the project stays as it is.",
             "confirm": "Deploy",
-            "success": "{{domain}} deployed to {{environment}}"
+            "success": "{{domain}}: changes sent to {{environment}}"
         },
         "members": {
             "title": "Frontends and backends",

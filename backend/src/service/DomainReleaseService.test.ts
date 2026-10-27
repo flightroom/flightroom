@@ -13,11 +13,13 @@ import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import User, { UserStatus } from "../models/UserModel"
 import { BuildStatus } from "../types/BuildStatusDTO"
+import ArgoCdService from "./ArgoCdService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import BuildStatusService from "./BuildStatusService"
 import DeploymentService from "./DeploymentService"
-import { advanceDomainReleases, CI_TIMEOUT_MS, DomainReleaseService, REGISTRATION_GRACE_MS, STALE_STEP_MS } from "./DomainReleaseService"
+import { advanceDomainReleases, CI_TIMEOUT_MS, DEGRADED_GRACE_MS, DomainReleaseService, REGISTRATION_GRACE_MS, ROLLOUT_TIMEOUT_MS, STALE_STEP_MS } from "./DomainReleaseService"
 import DomainService from "./DomainService"
+import { RolloutApplication, RolloutDTO } from "./gitops/rollout"
 
 const projectId = new Types.ObjectId()
 const domainId = new Types.ObjectId()
@@ -142,7 +144,29 @@ describe("advanceDomainReleases", () => {
     let deploy: ReturnType<typeof vi.spyOn>
     let updateFrontends: ReturnType<typeof vi.spyOn>
     let updateBackends: ReturnType<typeof vi.spyOn>
+    let rollout: ReturnType<typeof vi.spyOn>
     const deploymentId = new Types.ObjectId()
+    const deployedAt = new Date()
+
+    /** An application of the domain as Argo CD tells it */
+    const application = (member: { _id: Types.ObjectId; name: string; kind: "frontend" | "backend" }, state: RolloutApplication["state"]): RolloutApplication => ({
+        _id: String(member._id),
+        kind: member.kind,
+        name: member.name,
+        slug: member.name.toLowerCase(),
+        state
+    })
+    /** What Argo CD tells of the deploy: tracked, with these applications */
+    const argoCdTells = (...applications: RolloutApplication[]) =>
+        rollout.mockResolvedValue({
+            tracked: true,
+            applications,
+            done: applications.every(candidate => candidate.state === "healthy"),
+            failed: applications.some(candidate => candidate.state === "failed")
+        } satisfies RolloutDTO)
+    /** A release deployed at `since`, its containers still starting */
+    const rollingOut = (since = deployedAt, applications: RolloutApplication[] = []) =>
+        release({ status: DomainReleaseStatus.ROLLING_OUT, deploymentId: deploymentId as never, rollout: { since, applications } })
 
     const release = (overrides: Partial<IDomainRelease> = {}) =>
         ({
@@ -180,7 +204,9 @@ describe("advanceDomainReleases", () => {
         updateOne = vi.spyOn(DomainRelease, "updateOne").mockResolvedValue({ modifiedCount: 1 } as never)
         updateFrontends = vi.spyOn(Frontend, "updateMany").mockResolvedValue({} as never)
         updateBackends = vi.spyOn(Backend, "updateMany").mockResolvedValue({} as never)
-        deploy = vi.spyOn(DeploymentService.prototype, "createMultiple").mockResolvedValue([{ _id: deploymentId }] as never)
+        deploy = vi.spyOn(DeploymentService.prototype, "createMultiple").mockResolvedValue([{ _id: deploymentId, deployedAt }] as never)
+        // A project deploying through no Argo CD: the deploy is over with its commit
+        rollout = vi.spyOn(ArgoCdService.prototype, "rollout").mockResolvedValue({ tracked: false, applications: [], done: true, failed: false })
         vi.spyOn(BuildStatusService.prototype, "getByProjectId").mockResolvedValue({ frontends: [], backends: [], environments: [] } as never)
     })
 
@@ -190,13 +216,143 @@ describe("advanceDomainReleases", () => {
 
         await advanceDomainReleases()
 
-        expect(writesOf(updateOne).map(write => write.$set.status)).toEqual([undefined, DomainReleaseStatus.UPDATING_VERSIONS, DomainReleaseStatus.DEPLOYING, DomainReleaseStatus.DEPLOYED])
+        expect(writesOf(updateOne).map(write => write.$set.status)).toEqual([
+            undefined,
+            DomainReleaseStatus.UPDATING_VERSIONS,
+            DomainReleaseStatus.DEPLOYING,
+            DomainReleaseStatus.ROLLING_OUT,
+            DomainReleaseStatus.DEPLOYED
+        ])
         expect(deploy).toHaveBeenCalledWith([String(environmentId)], String(domainId))
+        expect(writesOf(updateOne).at(-2)!.$set).toMatchObject({ deploymentId })
         const deployed = writesOf(updateOne).at(-1)!
-        expect(deployed.$set).toMatchObject({ deploymentId })
-        expect(deployed.$unset).toEqual({ active: "" })
+        expect(deployed.$unset).toEqual({ active: "", rollout: "" })
+        expect(rollout).toHaveBeenCalledWith(projectId, deploymentId, domainId)
         // Acting as the user who started it
         expect((deploy.mock.contexts[0] as unknown as { user: unknown }).user).toEqual(user)
+    })
+
+    it("given Argo CD still replacing the pods once the deploy is committed, when the tick runs, then the release is rolling out, not deployed", async () => {
+        withReleases(release())
+        registered([cart, search], [ordersApi])
+        argoCdTells(application(cart, "healthy"), application(ordersApi, "progressing"))
+
+        await advanceDomainReleases()
+
+        const statuses = writesOf(updateOne).map(write => write.$set.status)
+        expect(statuses).not.toContain(DomainReleaseStatus.DEPLOYED)
+        const last = writesOf(updateOne).at(-1)!
+        expect(last.$set.rollout).toMatchObject({
+            since: deployedAt,
+            applications: [
+                { name: "Cart", state: "healthy" },
+                { name: "Orders API", state: "progressing" }
+            ]
+        })
+        expect(updateOne.mock.calls.at(-1)![0]).toMatchObject({ status: DomainReleaseStatus.ROLLING_OUT })
+    })
+
+    it("given every application healthy, when the tick follows the rollout, then the release is deployed with what Argo CD told", async () => {
+        withReleases(rollingOut())
+        argoCdTells(application(cart, "healthy"), application(ordersApi, "healthy"))
+
+        await advanceDomainReleases()
+
+        const [deployed] = writesOf(updateOne)
+        expect(deployed.$set).toMatchObject({ status: DomainReleaseStatus.DEPLOYED, rollout: { applications: [{ state: "healthy" }, { state: "healthy" }] } })
+        expect(deployed.$unset).toEqual({ active: "" })
+        expect(deploy).not.toHaveBeenCalled()
+    })
+
+    it("given Argo CD failing to apply the commit, when the tick follows the rollout, then the release fails naming the application", async () => {
+        withReleases(rollingOut())
+        argoCdTells(application(cart, "healthy"), application(ordersApi, "failed"))
+
+        await advanceDomainReleases()
+
+        const [failed] = writesOf(updateOne)
+        expect(failed.$set).toMatchObject({ status: DomainReleaseStatus.FAILED, failedStep: DomainReleaseStatus.ROLLING_OUT, errorCode: "DOMAIN_RELEASE_ROLLOUT_FAILED" })
+        expect(failed.$set.errorMessage).toContain("Orders API")
+        expect(failed.$set.errorMessage).not.toContain("Cart")
+        expect(failed.$set.rollout).toMatchObject({ applications: [{ state: "healthy" }, { state: "failed" }] })
+    })
+
+    it("given an application turning degraded, when the tick follows the rollout, then the release gives it time to recover", async () => {
+        withReleases(rollingOut())
+        argoCdTells(application(ordersApi, "degraded"))
+
+        await advanceDomainReleases()
+
+        const [kept] = writesOf(updateOne)
+        expect(kept.$set.status).toBeUndefined()
+        expect((kept.$set.rollout as { applications: { degradedAt?: Date }[] }).applications[0].degradedAt).toBeInstanceOf(Date)
+    })
+
+    it("given an application degraded past the grace, when the tick follows the rollout, then the release fails naming it", async () => {
+        const degradedAt = new Date(Date.now() - DEGRADED_GRACE_MS - 1000)
+        withReleases(rollingOut(deployedAt, [{ ...application(ordersApi, "degraded"), degradedAt } as RolloutApplication]))
+        argoCdTells(application(ordersApi, "degraded"))
+
+        await advanceDomainReleases()
+
+        const [failed] = writesOf(updateOne)
+        expect(failed.$set).toMatchObject({ status: DomainReleaseStatus.FAILED, failedStep: DomainReleaseStatus.ROLLING_OUT, errorCode: "DOMAIN_RELEASE_ROLLOUT_DEGRADED" })
+        expect(failed.$set.errorMessage).toContain("Orders API")
+    })
+
+    it("given a member the release did not build that was broken already, when the tick follows the rollout, then it neither fails nor holds the release", async () => {
+        const degradedAt = new Date(Date.now() - DEGRADED_GRACE_MS - 1000)
+        withReleases(rollingOut(deployedAt, [{ ...application(legacy, "degraded"), degradedAt } as RolloutApplication]))
+        argoCdTells(application(cart, "healthy"), application(ordersApi, "healthy"), application(legacy, "degraded"))
+
+        await advanceDomainReleases()
+
+        const [deployed] = writesOf(updateOne)
+        expect(deployed.$set.status).toBe(DomainReleaseStatus.DEPLOYED)
+    })
+
+    it("given a member built and running while one not built is still being applied, when the tick follows the rollout, then the release waits for it", async () => {
+        withReleases(rollingOut())
+        argoCdTells(application(ordersApi, "healthy"), application(legacy, "syncing"))
+
+        await advanceDomainReleases()
+
+        const [kept] = writesOf(updateOne)
+        expect(kept.$set.status).toBeUndefined()
+    })
+
+    it("given a member built going from degraded back to progressing, when the tick follows the rollout, then it keeps the time it broke", async () => {
+        const degradedAt = new Date(Date.now() - 60_000)
+        withReleases(rollingOut(deployedAt, [{ ...application(ordersApi, "degraded"), degradedAt } as RolloutApplication]))
+        argoCdTells(application(ordersApi, "progressing"))
+
+        await advanceDomainReleases()
+
+        const [kept] = writesOf(updateOne)
+        expect((kept.$set.rollout as { applications: { degradedAt?: Date }[] }).applications[0].degradedAt).toEqual(degradedAt)
+    })
+
+    it("given the pods still not ready after the timeout, when the tick follows the rollout, then the release fails naming those not running", async () => {
+        withReleases(rollingOut(new Date(Date.now() - ROLLOUT_TIMEOUT_MS - 1000)))
+        argoCdTells(application(cart, "healthy"), application(ordersApi, "progressing"))
+
+        await advanceDomainReleases()
+
+        const [failed] = writesOf(updateOne)
+        expect(failed.$set).toMatchObject({ status: DomainReleaseStatus.FAILED, failedStep: DomainReleaseStatus.ROLLING_OUT, errorCode: "DOMAIN_RELEASE_ROLLOUT_TIMEOUT" })
+        expect(failed.$set.errorMessage).toContain("Orders API")
+        expect(failed.$set.errorMessage).not.toContain("Cart")
+    })
+
+    it("given Argo CD out of reach before the timeout, when the tick follows the rollout, then the release keeps rolling out and tells why", async () => {
+        withReleases(rollingOut())
+        rollout.mockRejectedValue(createBusinessException({ code: "ARGOCD_UNREACHABLE", message: "Argo CD cannot be reached", statusCode: 502 }))
+
+        await advanceDomainReleases()
+
+        const [kept] = writesOf(updateOne)
+        expect(kept.$set.status).toBeUndefined()
+        expect(kept.$set.rollout).toMatchObject({ since: deployedAt, error: "Argo CD cannot be reached" })
     })
 
     /** The release decides the version: a CI registration would move it only to a newer one */

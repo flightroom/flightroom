@@ -44,6 +44,8 @@ export const DomainDeployButton: React.FC<DomainDeployButtonProps> = ({ domain, 
     // With GitOps on the deploy commits to the repositories first, and takes a while: the deploy overlay follows it
     const deployMutation = useMutation({
         mutationKey: DEPLOY_MUTATION_KEY,
+        // The overlay follows the rollout of this domain's frontends and backends only
+        meta: { followRollout: true, domainId: domain._id },
         mutationFn: (target: EnvironmentDTO) => deploymentsApi.createDeployment([target._id!], domain._id),
         onSuccess: async (_deployment, target) => {
             notifications.showSuccessNotification({ message: t("domains.deploy.success", { domain: domain.name, environment: target.name }) })

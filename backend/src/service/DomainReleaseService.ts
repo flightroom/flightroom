@@ -5,17 +5,19 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
 import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
-import DomainRelease, { DomainReleaseStatus, DomainReleaseStep, IDomainRelease, IDomainReleaseMember } from "../models/DomainReleaseModel"
+import DomainRelease, { DomainReleaseStatus, DomainReleaseStep, IDomainRelease, IDomainReleaseMember, IDomainReleaseRollout, IDomainReleaseRolloutApplication } from "../models/DomainReleaseModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import User, { UserStatus } from "../models/UserModel"
 import { BuildStatus } from "../types/BuildStatusDTO"
 import { DomainBuildRepository } from "../types/DomainDTO"
 import { toObjectId } from "../utils/mongooseUtils"
+import ArgoCdService from "./ArgoCdService"
 import BaseAuthorizedService, { AuthorizedPrincipal } from "./BaseAuthorizedService"
 import BuildStatusService from "./BuildStatusService"
 import DeploymentService from "./DeploymentService"
 import DomainService, { buildBranchOf, ensureBuildTarget } from "./DomainService"
+import { RolloutApplication, RolloutDTO } from "./gitops/rollout"
 
 /** How long the CI of the tagged repositories is given to register the version: a release still waiting then fails */
 export const CI_TIMEOUT_MS = 60 * 60 * 1000
@@ -32,9 +34,18 @@ export const STALE_STEP_MS = 15 * 60 * 1000
  */
 export const REGISTRATION_GRACE_MS = 2 * 60 * 1000
 
+/**
+ * How long Argo CD and Kubernetes are given to run what the release deployed: past it the release fails, naming
+ * what does not run yet. Longer than the 10 minutes Kubernetes gives a rollout before calling it degraded.
+ */
+export const ROLLOUT_TIMEOUT_MS = 20 * 60 * 1000
+
+/** How long an application may stay degraded before the release takes it for broken: a pod restarting may recover */
+export const DEGRADED_GRACE_MS = 2 * 60 * 1000
+
 const ENDED = [BuildStatus.SUCCESS, BuildStatus.FAILED, BuildStatus.CANCELED]
 
-const ACTIVE_STATUSES = [DomainReleaseStatus.BUILDING, DomainReleaseStatus.WAITING_CI, DomainReleaseStatus.UPDATING_VERSIONS, DomainReleaseStatus.DEPLOYING]
+const ACTIVE_STATUSES = [DomainReleaseStatus.BUILDING, DomainReleaseStatus.WAITING_CI, DomainReleaseStatus.UPDATING_VERSIONS, DomainReleaseStatus.DEPLOYING, DomainReleaseStatus.ROLLING_OUT]
 
 const FORBIDDEN = { code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain" }
 
@@ -46,18 +57,28 @@ const errorOf = (error: unknown): { errorCode: string; errorMessage: string } =>
         ? { errorCode: error.code, errorMessage: error.message }
         : { errorCode: "DOMAIN_RELEASE_STEP_FAILED", errorMessage: error instanceof Error ? error.message : String(error) }
 
-/** Ends the release as failed in `step`, unless it is over already. `repositories` replaces what the build told, when given. */
-const failRelease = async (release: Pick<IDomainRelease, "_id">, step: DomainReleaseStep, error: unknown, repositories?: unknown) => {
+/**
+ * Ends the release as failed in `step`, unless it is over already. `repositories` replaces what the build told, when
+ * given, and `rollout` what Argo CD told.
+ */
+const failRelease = async (release: Pick<IDomainRelease, "_id">, step: DomainReleaseStep, error: unknown, repositories?: unknown, rollout?: IDomainReleaseRollout) => {
     await DomainRelease.updateOne(
         { _id: release._id, status: { $in: ACTIVE_STATUSES } },
         {
-            $set: { status: DomainReleaseStatus.FAILED, failedStep: step, ...errorOf(error), finishedAt: new Date(), ...(Array.isArray(repositories) && { repositories }) },
+            $set: {
+                status: DomainReleaseStatus.FAILED,
+                failedStep: step,
+                ...errorOf(error),
+                finishedAt: new Date(),
+                ...(Array.isArray(repositories) && { repositories }),
+                ...(rollout && { rollout })
+            },
             $unset: { active: "" }
         }
     )
 }
 
-const namesOf = (members: IDomainReleaseMember[]) => members.map(member => member.name).join(", ")
+const namesOf = (members: Pick<IDomainReleaseMember, "name">[]) => members.map(member => member.name).join(", ")
 
 export class DomainReleaseService extends BaseAuthorizedService {
     /**
@@ -153,6 +174,10 @@ export class DomainReleaseService extends BaseAuthorizedService {
     async advance(release: IDomainRelease): Promise<void> {
         let step = release.status as DomainReleaseStep
         try {
+            if (step === DomainReleaseStatus.ROLLING_OUT) {
+                await this.followRollout(release, new Date(release.rollout?.since ?? release.updatedAt))
+                return
+            }
             if (step !== DomainReleaseStatus.WAITING_CI) {
                 if (Date.now() - new Date(release.updatedAt).getTime() > STALE_STEP_MS) {
                     throw createBusinessException({ code: "DOMAIN_RELEASE_INTERRUPTED", message: "The release stopped in the middle of a step, most likely on a restart of the console" })
@@ -192,13 +217,70 @@ export class DomainReleaseService extends BaseAuthorizedService {
             step = DomainReleaseStatus.DEPLOYING
             // As the deploy button of the domain: only its frontends and backends move
             const [deployment] = await new DeploymentService(this.user).createMultiple([String(release.environmentId)], String(release.domainId))
+            // Committed: the containers of the new version are still to start, Argo CD tells when they run
+            step = DomainReleaseStatus.ROLLING_OUT
+            const since = deployment?.deployedAt ?? new Date()
             await DomainRelease.updateOne(
                 { _id: release._id, status: DomainReleaseStatus.DEPLOYING },
-                { $set: { status: DomainReleaseStatus.DEPLOYED, deploymentId: deployment?._id, finishedAt: new Date() }, $unset: { active: "" } }
+                { $set: { status: DomainReleaseStatus.ROLLING_OUT, deploymentId: deployment?._id, rollout: { since, applications: [] } } }
             )
+            await this.followRollout({ ...release, deploymentId: deployment?._id, rollout: undefined }, since)
         } catch (error) {
             await failRelease(release, step, error)
         }
+    }
+
+    /**
+     * Reads from Argo CD where the deploy of the release stands, and ends the release once the members it built run
+     * the new version and the others are applied. It fails when Argo CD could not apply the commit, when a member it
+     * built stays broken past the grace, or when the rollout is not over in time. A member the release did not build
+     * that was broken already does not fail it. Argo CD out of reach is tried again at the next tick.
+     */
+    private async followRollout(release: Pick<IDomainRelease, "_id" | "projectId" | "domainId" | "version" | "members" | "deploymentId" | "rollout">, since: Date): Promise<void> {
+        const current = { _id: release._id, status: DomainReleaseStatus.ROLLING_OUT }
+        const deployed = { status: DomainReleaseStatus.DEPLOYED, finishedAt: new Date() }
+        if (!release.deploymentId) {
+            await DomainRelease.updateOne(current, { $set: deployed, $unset: { active: "", rollout: "" } })
+            return
+        }
+        const late = Date.now() - since.getTime() > ROLLOUT_TIMEOUT_MS
+        let rollout: RolloutDTO
+        try {
+            rollout = await new ArgoCdService(this.user).rollout(release.projectId, release.deploymentId, release.domainId)
+        } catch (error) {
+            if (late) throw error
+            await DomainRelease.updateOne(current, { $set: { rollout: { since, applications: release.rollout?.applications ?? [], checkedAt: new Date(), error: errorOf(error).errorMessage } } })
+            return
+        }
+        if (!rollout.tracked) {
+            await DomainRelease.updateOne(current, { $set: deployed, $unset: { active: "", rollout: "" } })
+            return
+        }
+
+        const now = new Date()
+        const before = new Map((release.rollout?.applications ?? []).map(application => [application._id, application]))
+        // Kept until it is healthy again: a crash loop goes from progressing to degraded and back
+        const applications: IDomainReleaseRolloutApplication[] = rollout.applications.map(application => {
+            const degradedAt = application.state === "healthy" ? undefined : (before.get(application._id)?.degradedAt ?? (application.state === "degraded" ? now : undefined))
+            return degradedAt ? { ...application, degradedAt } : application
+        })
+        const snapshot: IDomainReleaseRollout = { since, applications, checkedAt: now }
+        const fail = (code: string, message: string, names: RolloutApplication[]) =>
+            failRelease(release, DomainReleaseStatus.ROLLING_OUT, createBusinessException({ code, message: `${message}: ${namesOf(names)}` }), undefined, snapshot)
+
+        const built = new Set(release.members.filter(member => member.tagged).map(member => String(member._id)))
+        const failed = applications.filter(application => application.state === "failed")
+        if (failed.length > 0) return fail("DOMAIN_RELEASE_ROLLOUT_FAILED", `Argo CD could not apply version ${release.version}`, failed)
+        const broken = applications.filter(application => built.has(application._id) && application.degradedAt && now.getTime() - new Date(application.degradedAt).getTime() > DEGRADED_GRACE_MS)
+        if (broken.length > 0) return fail("DOMAIN_RELEASE_ROLLOUT_DEGRADED", `Version ${release.version} does not run, its pods are broken`, broken)
+        // A member built must run the new version; the others need only be applied, broken as they may have been already
+        const pending = applications.filter(application => (built.has(application._id) ? application.state !== "healthy" : ["waiting", "syncing", "progressing"].includes(application.state)))
+        if (pending.length === 0) {
+            await DomainRelease.updateOne(current, { $set: { ...deployed, rollout: snapshot }, $unset: { active: "" } })
+            return
+        }
+        if (late) return fail("DOMAIN_RELEASE_ROLLOUT_TIMEOUT", `Version ${release.version} does not run yet after ${ROLLOUT_TIMEOUT_MS / 60_000} minutes`, pending)
+        await DomainRelease.updateOne(current, { $set: { rollout: snapshot } })
     }
 
     /** Moves the release from `from` to `to`: false when another tick did it first, or it was failed meanwhile */

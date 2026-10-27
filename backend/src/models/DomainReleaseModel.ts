@@ -1,4 +1,5 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
+import { RolloutApplication } from "../service/gitops/rollout"
 import { DomainBuildRepository } from "../types/DomainDTO"
 
 /**
@@ -12,12 +13,29 @@ export enum DomainReleaseStatus {
     WAITING_CI = "waiting_ci",
     UPDATING_VERSIONS = "updating_versions",
     DEPLOYING = "deploying",
+    /** Committed: waiting for Argo CD to apply it and for the pods of the new version to run */
+    ROLLING_OUT = "rolling_out",
     DEPLOYED = "deployed",
     FAILED = "failed"
 }
 
 /** The steps a release can fail in: whatever it was doing when it stopped */
-export type DomainReleaseStep = DomainReleaseStatus.BUILDING | DomainReleaseStatus.WAITING_CI | DomainReleaseStatus.UPDATING_VERSIONS | DomainReleaseStatus.DEPLOYING
+export type DomainReleaseStep = DomainReleaseStatus.BUILDING | DomainReleaseStatus.WAITING_CI | DomainReleaseStatus.UPDATING_VERSIONS | DomainReleaseStatus.DEPLOYING | DomainReleaseStatus.ROLLING_OUT
+
+/** An application of the rollout, and since when it is degraded: a release gives a broken one a little time to recover */
+export interface IDomainReleaseRolloutApplication extends RolloutApplication {
+    degradedAt?: Date
+}
+
+/** The rollout of the deploy, as the last tick read it from Argo CD */
+export interface IDomainReleaseRollout {
+    /** When the deploy committed: what Argo CD saw before it is of the version before */
+    since: Date
+    applications: IDomainReleaseRolloutApplication[]
+    checkedAt?: Date
+    /** Why the last tick could not read it: the next one tries again */
+    error?: string
+}
 
 /** A frontend or a backend of the domain, as the release found it when it started */
 export interface IDomainReleaseMember {
@@ -55,6 +73,8 @@ export interface IDomainRelease extends Document<ObjectId> {
     errorCode?: string
     errorMessage?: string
     deploymentId?: Schema.Types.ObjectId
+    /** Only for a project deploying through Argo CD */
+    rollout?: IDomainReleaseRollout
     finishedAt?: Date
     createdAt: Date
     updatedAt: Date
@@ -84,10 +104,15 @@ const domainReleaseSchema = new Schema<IDomainRelease>(
         members: { type: [domainReleaseMemberSchema], default: [] },
         // As the build tells them: never queried, only shown
         repositories: { type: Schema.Types.Mixed, default: [] },
-        failedStep: { type: String, enum: [DomainReleaseStatus.BUILDING, DomainReleaseStatus.WAITING_CI, DomainReleaseStatus.UPDATING_VERSIONS, DomainReleaseStatus.DEPLOYING] },
+        failedStep: {
+            type: String,
+            enum: [DomainReleaseStatus.BUILDING, DomainReleaseStatus.WAITING_CI, DomainReleaseStatus.UPDATING_VERSIONS, DomainReleaseStatus.DEPLOYING, DomainReleaseStatus.ROLLING_OUT]
+        },
         errorCode: { type: String },
         errorMessage: { type: String },
         deploymentId: { type: Schema.Types.ObjectId, ref: "Deployment" },
+        // As Argo CD told it: never queried, only shown
+        rollout: { type: Schema.Types.Mixed },
         finishedAt: { type: Date }
     },
     { timestamps: true }

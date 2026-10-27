@@ -22,6 +22,8 @@ export const Deployments: React.FC = () => {
     // With GitOps on the deploy commits to the repositories first, and takes a while
     const deployMutation = useMutation({
         mutationKey: DEPLOY_MUTATION_KEY,
+        // The overlay follows the containers until they run what was committed
+        meta: { followRollout: true },
         mutationFn: (environmentId: string) => deploymentsApi.createDeployment([environmentId]),
         onSuccess: (_deployment, environmentId) => queryClient.invalidateQueries({ queryKey: ["deployments", environmentId] })
     })
