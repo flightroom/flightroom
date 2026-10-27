@@ -247,6 +247,19 @@ class GitLabClient {
         }
     }
 
+    /** The commit the tag points to, undefined without the tag */
+    async getTagCommitSha(projectId: string | number, tagName: string): Promise<string | undefined> {
+        try {
+            const res = await this.api.get<{ commit?: { id: string } }>(`/projects/${projectId}/repository/tags/${encodeURIComponent(tagName)}`)
+            return res.data.commit?.id
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return undefined
+            }
+            throw error
+        }
+    }
+
     async createTag(projectId: string | number, tagName: string, ref: string): Promise<void> {
         await this.api.post(`/projects/${projectId}/repository/tags`, {
             tag_name: tagName,

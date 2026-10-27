@@ -925,6 +925,18 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
         return false
     }
 
+    /** The commit the tag `version` points to in the repository of `target`, undefined without the tag */
+    async tagCommit({ codeRepository, link }: TagTarget, version: string): Promise<string | undefined> {
+        if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {
+            return new GithubClient().getTagCommitSha(codeRepository.accessToken, link.name, version, codeRepository.githubData?.organizationId, codeRepository.githubData?.userName)
+        } else if (codeRepository.provider === CodeRepositoryProvider.GITLAB) {
+            return new GitlabClient(codeRepository.gitlabData?.url || "", codeRepository.accessToken).getTagCommitSha(link.repositoryId, version)
+        } else if (codeRepository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && codeRepository.azureData) {
+            return new AzureDevOpsClient().getTagCommitId(codeRepository.accessToken, codeRepository.azureData.organization, codeRepository.azureData.projectId, link.repositoryId, version)
+        }
+        return undefined
+    }
+
     /** Creates the tag `version` on the commit {@link resolveTagTarget} found */
     async pushTag({ codeRepository, link, commit }: TagTarget, version: string): Promise<void> {
         if (codeRepository.provider === CodeRepositoryProvider.GITHUB) {

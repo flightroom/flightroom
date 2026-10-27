@@ -42,8 +42,8 @@ export interface DomainBuildRepository {
     /** The branch it is tagged on: missing on the releases made before each repository had its own */
     ref?: string
     members: { kind: "frontend" | "backend"; _id: string; name: string }[]
-    /** ready: checked, but left untagged because another repository failed its check */
-    status: "tagged" | "ready" | "failed"
+    /** ready: checked, but left untagged because another repository failed its check. unchanged: left untagged, nothing changed since the version of its members */
+    status: "tagged" | "ready" | "failed" | "unchanged"
     reason?: DomainBuildFailure
     /** The backend's English wording, shown only for a provider error that has no translation */
     message?: string

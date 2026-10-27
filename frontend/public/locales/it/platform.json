@@ -2574,7 +2574,8 @@
             "status": {
                 "tagged": "Taggato",
                 "ready": "Non taggato",
-                "failed": "Fallito"
+                "failed": "Fallito",
+                "unchanged": "Invariato"
             },
             "reasons": {
                 "CONNECTION_NOT_FOUND": "La connessione al repository di codice non appartiene più a questo progetto",
@@ -2592,7 +2593,8 @@
                 "check_failed": "Nessun repository è stato taggato: la verifica è fallita per almeno uno di essi",
                 "ref_conflict": "Frontend e backend che condividono un repository devono usare lo stesso branch",
                 "forbidden": "Chi ha il ruolo di viewer non può creare una versione del dominio"
-            }
+            },
+            "nothing_changed": "Nessuna modifica in {{domain}}: nessun repository è stato taggato"
         },
         "release": {
             "action": "Build e deploy",
@@ -2624,7 +2626,8 @@
                 "waiting": "In attesa",
                 "running": "In esecuzione",
                 "failed": "Fallita",
-                "built": "Completata"
+                "built": "Completata",
+                "unchanged": "Invariato"
             },
             "errors": {
                 "running": "È già in corso un build e deploy di questo dominio",
@@ -2638,7 +2641,8 @@
                 "DOMAIN_RELEASE_CI_NOT_REGISTERED": "La pipeline del tag {{version}} è finita senza registrare la versione nella console per: {{names}}. Controlla lo step della pipeline che la registra e la sua API key",
                 "DOMAIN_RELEASE_INTERRUPTED": "Il rilascio si è fermato a metà di un passo, probabilmente per un riavvio della console: controlla i deployment dell'ambiente prima di avviarlo di nuovo",
                 "DOMAIN_RELEASE_USER_UNAVAILABLE": "L'utente che ha avviato il rilascio non può più operare nella console"
-            }
+            },
+            "unchanged_hint": "I frontend e i backend senza modifiche dalla loro versione non vengono ricompilati: restano alla versione attuale."
         },
         "deployments": {
             "open": "Versioni deployate",
