@@ -184,6 +184,7 @@ interface BuildableComponent {
     name: string
     slug: string
     version?: string
+    domainId?: Schema.Types.ObjectId | null
     codeRepository?: ICodeRepositoryFrontend
 }
 
@@ -252,7 +253,7 @@ class BuildStatusService extends BaseAuthorizedService {
         if (!component || component.projectId.toString() !== projectId) {
             throw new Error(`${label} not found in this project`)
         }
-        await this.ensureAccessToDomainMember(component as BuildableComponent & { domainId?: unknown })
+        await this.ensureAccessToDomainMember(component)
 
         const codeRepositoryId = component.codeRepository?.enabled ? component.codeRepository.codeRepositoryId : undefined
         const repository = codeRepositoryId ? await CodeRepository.findById(codeRepositoryId) : null
@@ -432,6 +433,7 @@ class BuildStatusService extends BaseAuthorizedService {
         const base: ComponentBuildStatusDTO = {
             name: component.name,
             slug: component.slug,
+            domainId: component.domainId?.toString(),
             selectedVersion: component.version,
             latestBuiltVersion,
             versionByEnvironmentId,

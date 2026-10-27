@@ -524,8 +524,9 @@
         "deploying": "Deploying…",
         "active_deployments": "Active deployment",
         "history": "History",
-        "frontends_title": "Frontends",
-        "backends_title": "Backends",
+        "kind_frontend": "Frontend",
+        "kind_backend": "Backend",
+        "kind_resource": "Resource",
         "no_domain": "Without a functional domain",
         "config_maps_title": "Config maps",
         "secrets_title": "Secrets",
@@ -636,6 +637,7 @@
             "description": "Create a frontend or a backend to see its build status here."
         },
         "table": {
+            "no_domain": "Without a functional domain",
             "name": "Name",
             "kind": "Type",
             "last_build": "Last build",

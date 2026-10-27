@@ -35,6 +35,8 @@ export interface BuildRun {
 export interface ComponentBuildStatus {
     name: string
     slug: string
+    /** Functional domain of the component, if any */
+    domainId?: string
     provider?: CodeRepositoryProvider
     repositoryName?: string
     selectedVersion?: string
