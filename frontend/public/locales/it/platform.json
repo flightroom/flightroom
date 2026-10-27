@@ -429,6 +429,7 @@
         "history": "Storico",
         "frontends_title": "Frontend",
         "backends_title": "Backend",
+        "no_domain": "Senza dominio funzionale",
         "config_maps_title": "Config map",
         "secrets_title": "Secret",
         "map_no_keys": "Nessuna chiave impostata in questo ambiente",
@@ -2545,6 +2546,7 @@
             "title": "Crea una versione di {{domain}}",
             "description": "Ogni frontend e backend del dominio con un repository di codice riceve la stessa versione, taggata sullo stesso branch: ogni tag avvia la pipeline del suo repository. Un repository condiviso da più di loro viene taggato una volta sola. Ogni repository viene verificato prima: se uno fallisce, non ne viene taggato nessuno.",
             "result_description": "Versione {{version}} sul branch {{ref}}, repository per repository.",
+            "result_description_branches": "Versione {{version}}, repository per repository, ognuno sul suo branch.",
             "version": "Versione",
             "branch": "Branch",
             "branch_hint": "In ogni repository viene taggato lo stesso branch: main se lasciato vuoto.",
@@ -2572,6 +2574,7 @@
                 "empty": "Il dominio non ha frontend né backend da buildare",
                 "no_repositories": "Nessun frontend o backend del dominio ha un repository di codice collegato",
                 "check_failed": "Nessun repository è stato taggato: la verifica è fallita per almeno uno di essi",
+                "ref_conflict": "Frontend e backend che condividono un repository devono usare lo stesso branch",
                 "forbidden": "Chi ha il ruolo di viewer non può creare una versione del dominio"
             }
         },
@@ -2582,11 +2585,13 @@
             "title": "Build e deploy di {{domain}}",
             "description": "Crea la versione come fa Crea versione, attende che la pipeline di ogni repository taggato la registri, la imposta come versione di quei frontend e backend, poi esegue il deploy del dominio sull'ambiente scelto. La console va avanti anche se chiudi questa finestra.",
             "progress_description": "Versione {{version}} dal branch {{ref}} su {{environment}}.",
+            "progress_description_branches": "Versione {{version}} su {{environment}}, ogni repository dal suo branch.",
             "start": "Build e deploy",
             "new": "Nuovo build e deploy",
             "success": "{{domain}} {{version}} deployato su {{environment}}",
             "failed": "Il build e deploy di {{domain}} {{version}} è fallito",
             "untouched_hint": "I frontend e i backend senza repository di codice restano fuori: la loro versione non cambia.",
+            "branches_hint": "In ogni repository il tag della versione viene creato sull'ultimo commit del branch scelto.",
             "close_hint": "Puoi chiudere questa finestra: la console va avanti da sola con il rilascio, e riaprendola vedi a che punto è.",
             "steps": {
                 "building": "Build",

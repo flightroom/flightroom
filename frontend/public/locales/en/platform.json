@@ -526,6 +526,7 @@
         "history": "History",
         "frontends_title": "Frontends",
         "backends_title": "Backends",
+        "no_domain": "Without a functional domain",
         "config_maps_title": "Config maps",
         "secrets_title": "Secrets",
         "map_no_keys": "No key set in this environment",
@@ -2526,6 +2527,7 @@
             "title": "Create a version of {{domain}}",
             "description": "Every frontend and backend of the domain with a code repository gets the same version, tagged on the same branch: each tag starts the pipeline of its repository. A repository shared by several of them is tagged once. Every repository is checked first: if one fails, none is tagged.",
             "result_description": "Version {{version}} on branch {{ref}}, repository by repository.",
+            "result_description_branches": "Version {{version}}, repository by repository, each on its own branch.",
             "version": "Version",
             "branch": "Branch",
             "branch_hint": "The same branch is tagged in every repository: main when left empty.",
@@ -2553,6 +2555,7 @@
                 "empty": "The domain has no frontend or backend to build",
                 "no_repositories": "No frontend or backend of the domain has a linked code repository",
                 "check_failed": "No repository was tagged: the check failed for at least one of them",
+                "ref_conflict": "Frontends and backends that share a repository must use the same branch",
                 "forbidden": "A viewer cannot create a version of the domain"
             }
         },
@@ -2563,11 +2566,13 @@
             "title": "Build and deploy {{domain}}",
             "description": "Creates the version as Create version does, waits for the pipeline of every tagged repository to register it, sets it as the version of those frontends and backends, then deploys the domain to the environment picked. The console goes on with it even if you close this window.",
             "progress_description": "Version {{version}} from branch {{ref}} to {{environment}}.",
+            "progress_description_branches": "Version {{version}} to {{environment}}, each repository from its own branch.",
             "start": "Build and deploy",
             "new": "New build and deploy",
             "success": "{{domain}} {{version}} deployed to {{environment}}",
             "failed": "The build and deploy of {{domain}} {{version}} failed",
             "untouched_hint": "Frontends and backends without a code repository are left out: their version does not change.",
+            "branches_hint": "In each repository the version tag is created on the latest commit of the branch picked.",
             "close_hint": "You can close this window: the console goes on with the release by itself, and opening it again shows where it stands.",
             "steps": {
                 "building": "Build",
