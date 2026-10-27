@@ -43,7 +43,7 @@ describe("DomainController build", () => {
 
         expect(response.statusCode).toBe(200)
         expect(response.json()).toEqual(result)
-        expect(build).toHaveBeenCalledWith(DOMAIN, "1.4.0", "release/1.4")
+        expect(build).toHaveBeenCalledWith(DOMAIN, "1.4.0", "release/1.4", undefined)
     })
 
     it("Given no body, when the domain is built, then the backend decides: it gets no version and no ref", async () => {
@@ -51,7 +51,7 @@ describe("DomainController build", () => {
 
         await app.inject({ method: "POST", url: `/domains/${DOMAIN}/build` })
 
-        expect(build).toHaveBeenCalledWith(DOMAIN, undefined, undefined)
+        expect(build).toHaveBeenCalledWith(DOMAIN, undefined, undefined, undefined)
     })
 })
 
@@ -78,7 +78,7 @@ describe("DomainController build and deploy", () => {
 
         expect(response.statusCode).toBe(200)
         expect(response.json()).toEqual(release)
-        expect(start).toHaveBeenCalledWith(DOMAIN, "1.4.0", "release/1.4", "env-1")
+        expect(start).toHaveBeenCalledWith(DOMAIN, "1.4.0", "release/1.4", "env-1", undefined)
     })
 
     it("Given a domain, when its latest release is asked for, then the service answers it", async () => {
