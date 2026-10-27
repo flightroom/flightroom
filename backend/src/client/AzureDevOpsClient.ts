@@ -4,6 +4,15 @@ import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../ty
 
 /** Code of the error raised when the token cannot reach the variable groups the deploy key is kept in */
 export const AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED = "AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED"
+export const AZURE_DEVOPS_TAG_REFUSED = "AZURE_DEVOPS_TAG_REFUSED"
+
+/** One ref of an update of the refs, e.g. `updateStatus: "createTagPermissionRequired"` when `success` is false */
+interface AzureDevOpsRefUpdateResult {
+    name: string
+    success: boolean
+    updateStatus?: string
+    customMessage?: string
+}
 
 export interface AzureAccessTokenResponse {
     access_token: string
@@ -581,10 +590,11 @@ class AzureDevOpsClient {
         return (response.data.value ?? []).some(ref => ref.name === `refs/tags/${tagName}`)
     }
 
+    /** Azure DevOps answers 200 even when it refuses the ref: the refusal is told in `success` and `updateStatus` */
     async createTag(token: string, organization: string, project: string, repositoryId: string, tagName: string, objectId: string): Promise<void> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/refs?api-version=7.1-preview.1`
 
-        const response = await axios.request({
+        const response = await axios.request<{ value?: AzureDevOpsRefUpdateResult[] }>({
             method: "POST",
             url,
             headers: {
@@ -600,7 +610,13 @@ class AzureDevOpsClient {
             ]
         })
 
-        return response.data
+        const refused = (response.data.value ?? []).find(result => !result.success)
+        if (refused) {
+            throw createBusinessException({
+                code: AZURE_DEVOPS_TAG_REFUSED,
+                message: `Azure DevOps refused the tag ${tagName}: ${refused.customMessage || refused.updateStatus || "no reason given"}`
+            })
+        }
     }
 
     /**
