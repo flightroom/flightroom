@@ -1189,7 +1189,33 @@
             "pushed_on": "Pushed on the branch",
             "push_error_title": "The proposal could not be pushed on its branch: applying it or opening its pull request tries again",
             "view_pull_request": "View the pull request",
-            "pull_request_opened": "Pull request opened"
+            "pull_request_opened": "Pull request opened",
+            "workshop": {
+                "view_label": "Edit with AI view",
+                "view": {
+                    "classic": "Classic",
+                    "workshop": "3D workshop"
+                },
+                "label": "Workshop: a Vega for each work",
+                "plates": "Works in the workshop",
+                "hint": "drag to turn the camera · click a Vega to open its work",
+                "empty": "The workshop is empty: ask for a change and the first Vega takes its bay.",
+                "no_webgl": "The 3D workshop needs WebGL, which this browser does not offer: use the classic view.",
+                "more_one": "One more work is only in the classic view.",
+                "more_other": "{{count}} more works are only in the classic view.",
+                "mood": {
+                    "queued": "Queued",
+                    "thinking": "Thinking",
+                    "analyzing": "Reading the code",
+                    "coding": "Writing code",
+                    "working": "Running a script",
+                    "done": "Proposal ready",
+                    "applying": "Applying",
+                    "applied": "Applied",
+                    "failed": "Failed",
+                    "parked": "Discarded"
+                }
+            }
         },
         "workspace": {
             "back": "All frontends",

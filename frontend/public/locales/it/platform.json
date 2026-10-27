@@ -1303,7 +1303,33 @@
             "pushed_on": "Pubblicata sul branch",
             "push_error_title": "Non è stato possibile pubblicare la proposta sul suo branch: applicandola o aprendo la sua pull request si riprova",
             "view_pull_request": "Vedi la pull request",
-            "pull_request_opened": "Pull request aperta"
+            "pull_request_opened": "Pull request aperta",
+            "workshop": {
+                "view_label": "Vista di Modifica con AI",
+                "view": {
+                    "classic": "Classica",
+                    "workshop": "Officina 3D"
+                },
+                "label": "Officina: una Vega per ogni lavoro",
+                "plates": "Lavori in officina",
+                "hint": "trascina per girare la telecamera · clicca una Vega per aprire il suo lavoro",
+                "empty": "Officina vuota: chiedi una modifica e la prima Vega entra nella sua baia.",
+                "no_webgl": "L'officina 3D ha bisogno di WebGL, che questo browser non offre: usa la vista classica.",
+                "more_one": "Un altro lavoro è solo nella vista classica.",
+                "more_other": "Altri {{count}} lavori sono solo nella vista classica.",
+                "mood": {
+                    "queued": "In coda",
+                    "thinking": "Pensa",
+                    "analyzing": "Ispeziona il codice",
+                    "coding": "Scrive il codice",
+                    "working": "Esegue uno script",
+                    "done": "Proposta pronta",
+                    "applying": "In applicazione",
+                    "applied": "Applicata",
+                    "failed": "Non riuscita",
+                    "parked": "Scartata"
+                }
+            }
         },
         "workspace": {
             "back": "Tutti i frontend",
