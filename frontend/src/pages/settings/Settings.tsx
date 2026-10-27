@@ -291,7 +291,7 @@ export const Settings: React.FC = () => {
                                 }
                             ]}
                         />
-                        {/* I token spesi da Modifica con AI e da Maestro: una risorsa del progetto come le altre di questa scheda. Non per chi vede solo alcuni domini: il totale e' di tutto il progetto, il server lo rifiuta */}
+                        {/* I token spesi da Modifica con AI e da Vega: una risorsa del progetto come le altre di questa scheda. Non per chi vede solo alcuni domini: il totale e' di tutto il progetto, il server lo rifiuta */}
                         {project._id && !project.domainScoped && <AiUsageSummary target={{ kind: "project", id: project._id }} />}
                     </TabsContent>
 
