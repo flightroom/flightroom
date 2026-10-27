@@ -152,7 +152,7 @@ const FrontendOverview: React.FC = () => {
                             <BackendVersionsTable versions={buildsQuery.data ?? []} />
                             <BackendConfigurationSection backend={frontend} environments={environmentsQuery.data ?? []} description={t("frontend.overview.container_description")} />
                             <BackendVariableMapsSection backend={frontend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
-                            <ApplicationLogsSection slug={frontend.slug} />
+                            <ApplicationLogsSection slug={frontend.slug} environments={environmentsQuery.data ?? []} />
                         </>
                     ) : (
                         <>

@@ -112,7 +112,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                     <BackendConfigurationSection backend={backend} environments={environmentsQuery.data ?? []} />
                     <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                     <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} canDetach={!isViewer} />
-                    <ApplicationLogsSection slug={backend.slug} />
+                    <ApplicationLogsSection slug={backend.slug} environments={environmentsQuery.data ?? []} />
                 </div>
             )}
         </ApiStatusHandler>
