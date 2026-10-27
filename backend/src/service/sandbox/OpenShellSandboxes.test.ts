@@ -132,6 +132,20 @@ describe("OpenShellSandboxes", () => {
         expect(sandbox.create).toHaveBeenCalled()
     })
 
+    it("Given a sandbox stuck provisioning, when the wait for it times out, then it is deleted for the next attempt and the error says its phase", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "provisioning" })
+        sandbox.waitReady.mockRejectedValue(new Error(`timed out waiting for sandbox '${NAME}'`))
+        await expect(new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)).rejects.toThrow(/phase: provisioning.*timed out waiting/)
+        expect(sandbox.delete).toHaveBeenCalledWith(NAME, { workspace: undefined, allowMissing: true })
+    })
+
+    it("Given a ready sandbox, when only the wait for it fails, then it is kept and the error goes through", async () => {
+        sandbox.get.mockResolvedValue({ id: "1", name: NAME, phase: "ready" })
+        sandbox.waitReady.mockRejectedValue(new Error("network"))
+        await expect(new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION)).rejects.toThrow("network")
+        expect(sandbox.delete).not.toHaveBeenCalled()
+    })
+
     it("Given another replica creating it at the same time, when one is acquired, then the existing one is waited for", async () => {
         sandbox.get.mockRejectedValue(sdkError("not_found"))
         sandbox.create.mockRejectedValue(sdkError("already_exists"))
