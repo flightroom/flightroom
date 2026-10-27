@@ -1075,8 +1075,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/Environments.tsx": {
-    "mtime": 1793033863.21944,
-    "ast_hash": "7121950e45a7fff3ca55be992ee1e059",
+    "mtime": 1793140494.623284,
+    "ast_hash": "864b05db26ac017ea3099828b938fd81",
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/EnvironmentList.tsx": {
