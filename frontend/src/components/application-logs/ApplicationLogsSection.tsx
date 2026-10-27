@@ -1,7 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Checkbox, Input, Label, Select, SelectContent, SelectItem, SelectTrigger, SelectValue, Spinner } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { AxiosError } from "axios"
-import { format, isValid } from "date-fns"
 import { Download, RefreshCw, ScrollText } from "lucide-react"
 import { useEffect, useId, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -11,6 +10,7 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import { GitOpsErrorDetails, useGitOpsErrorTranslation } from "@/hooks/apiClients/useGitOpsErrorMessage"
 import { errorCodeOf } from "@/hooks/useApiClient"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
+import LogLine from "./LogLine"
 
 const TAIL_OPTIONS = [100, 500, 1000, 5000]
 /** While following, the logs are read again this often, and the pods, which come and go with a rollout, less often */
@@ -75,7 +75,8 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
     const [filterDraft, setFilterDraft] = useState("")
     const [filter, setFilter] = useState("")
     const [follow, setFollow] = useState(false)
-    const outputRef = useRef<HTMLPreElement>(null)
+    const [formatJson, setFormatJson] = useState(true)
+    const outputRef = useRef<HTMLDivElement>(null)
 
     useEffect(() => {
         const timeout = setTimeout(() => setFilter(filterDraft.trim()), FILTER_DEBOUNCE_MS)
@@ -260,6 +261,12 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
                                     </Label>
                                 </div>
                                 <div className="flex items-center gap-2">
+                                    <Checkbox id={`${id}-json`} checked={formatJson} onCheckedChange={checked => setFormatJson(checked === true)} dataTestId="application-logs-format-json" />
+                                    <Label htmlFor={`${id}-json`} className="cursor-pointer" title={t("applicationLogs.format_json_hint")}>
+                                        {t("applicationLogs.format_json")}
+                                    </Label>
+                                </div>
+                                <div className="flex items-center gap-2">
                                     <Checkbox id={`${id}-previous`} checked={previous} onCheckedChange={checked => setPrevious(checked === true)} />
                                     <Label htmlFor={`${id}-previous`} className="cursor-pointer" title={t("applicationLogs.previous_hint")}>
                                         {t("applicationLogs.previous")}
@@ -276,23 +283,16 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
                                 </div>
                             ) : (
                                 selectedPod && (
-                                    <pre
+                                    // A div, not a pre: a formatted JSON line opens as a details element
+                                    <div
                                         ref={outputRef}
+                                        role="log"
                                         className={`max-h-[480px] min-h-[96px] overflow-auto rounded-md bg-muted p-3 font-mono text-xs leading-relaxed whitespace-pre-wrap break-all ${logsQuery.isPlaceholderData ? "opacity-60" : ""}`}
                                         aria-label={t("applicationLogs.title")}
                                         data-testid="application-logs-output"
                                     >
-                                        {lines.length === 0
-                                            ? t("applicationLogs.empty")
-                                            : lines.map((line, index) => (
-                                                  <span key={index} className="block">
-                                                      {line.timestamp && isValid(new Date(line.timestamp)) && (
-                                                          <span className="text-foreground-secondary select-none">{format(new Date(line.timestamp), "yyyy-MM-dd HH:mm:ss")} </span>
-                                                      )}
-                                                      {line.content}
-                                                  </span>
-                                              ))}
-                                    </pre>
+                                        {lines.length === 0 ? t("applicationLogs.empty") : lines.map((line, index) => <LogLine key={index} line={line} formatJson={formatJson} />)}
+                                    </div>
                                 )
                             )}
                         </>

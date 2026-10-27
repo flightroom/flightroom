@@ -3898,6 +3898,8 @@
         "filter": "Filtro",
         "filter_placeholder": "Solo le righe che contengono…",
         "follow": "Aggiorna automaticamente",
+        "format_json": "Formatta JSON",
+        "format_json_hint": "Le righe in JSON mostrano livello, messaggio e campi: clicca una riga per vedere tutto il JSON.",
         "previous": "Container precedente",
         "previous_hint": "I log del container prima del suo ultimo riavvio: utile dopo un crash",
         "refresh": "Aggiorna",
