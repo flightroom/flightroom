@@ -9,6 +9,22 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.5.0] - 2026-10-27
+
+### Added
+
+- **Pod Logs Through Argo CD**: a Logs card on the overview of a backend and of a Docker frontend reads the last lines the pods of its Application wrote in an environment, through the Argo CD the project deploys with, with no access to the cluster. Pick the environment and the pod, how many lines, a filter, the container before the last restart, and follow to read them again every 5 seconds; download them as a file. Only the pods alive now are there. Viewers do not see it, as logs may hold what the configuration hides. The Argo CD account of Flightroom needs `p, role:orchestrator, logs, get, mfe-*/*, allow`: add it to the role of an installation set up before
+- **Logs On The Overview Of A Domain**: the same Logs card on the overview of a domain, with a picker of its backends and Docker frontends first. A static frontend has no pods, so no logs
+- **Images In Edit With AI**: paste, drop or attach up to five images (PNG, JPEG, WebP or GIF) to a request and to its follow-ups, on a frontend, a backend or a domain. The console scales them down to 1568 px on the long edge and refuses one still over 2 MB, and the agent receives them as images on Anthropic, Azure AI Foundry, Amazon Bedrock, Azure OpenAI and Gemini. They are saved on the job, which expires with it, never in its transcript: a later turn only reads that images were attached. A model that does not read images fails the job with the provider's error. The assistant and the MCP tools stay text-only
+- **Vega, The Mascot**: a small orange drone that shows how it feels with its light. It blasts off on the deploy screen, waits on the empty assistant, and sits in the middle of the Edit with AI composer, ready to code with its editor, picking up a wrench once the request is sent. Drawn in SVG with CSS animations, still when the system asks for reduced motion
+
+### Changed
+
+- **The Assistant Is Vega**: the console assistant, Maestro until now, is called Vega in the console and introduces itself so
+- **Azure Pipelines Upload Task**: the generated Azure pipelines call the `flightroom-upload@1` task instead of `mfe-orchestrator-upload@1`, and the source of the Azure DevOps extension left this repository. Pipelines generated before keep the task they were written with
+
+---
+
 ## [8.4.0] - 2026-10-26
 
 ### Added
