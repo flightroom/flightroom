@@ -61,7 +61,7 @@ jobs:
     - name: 🚀 Publish to MFE Orchestrator
       uses: mfe-orchestrator-hub/github-action@0.0.29
       with:
-        apikey: ${{ secrets.MICROFRONTEND_ORCHESTRATOR_API_KEY }}
+        apikey: ${{ secrets.FLIGHTROOM_API_KEY }}
         microfrontend-slug: %microfrontendSlug%
         domain: ${{ vars.MICROFRONTEND_ORCHESTRATOR_DOMAIN || '%domain%' }}
         file-path: './dist'
