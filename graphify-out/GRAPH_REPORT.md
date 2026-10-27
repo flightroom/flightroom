@@ -1,16 +1,16 @@
 # Graph Report - flightroom  (2026-10-27)
 
 ## Corpus Check
-- 941 files · ~1,133,930 words
+- 941 files · ~1,134,197 words
 - Verdict: corpus is large enough that graph structure adds value.
 
 ## Summary
-- 8205 nodes · 22752 edges · 326 communities (281 shown, 45 thin omitted)
+- 8206 nodes · 22754 edges · 329 communities (279 shown, 50 thin omitted)
 - Extraction: 99% EXTRACTED · 1% INFERRED · 0% AMBIGUOUS · INFERRED: 234 edges (avg confidence: 0.72)
 - Token cost: 0 input · 0 output
 
 ## Graph Freshness
-- Built from commit: `c4321129`
+- Built from commit: `5240243b`
 - Run `git rev-parse HEAD` and compare to check if the graph is stale.
 - Run `graphify update .` after code changes (no API cost).
 
@@ -305,6 +305,7 @@
 - [[_COMMUNITY_start-mongod.sh|start-mongod.sh]]
 - [[_COMMUNITY_start-redis.sh|start-redis.sh]]
 - [[_COMMUNITY_overlay|overlay]]
+- [[_COMMUNITY_ArgoCdController.ts|ArgoCdController.ts]]
 - [[_COMMUNITY_StartupController.test.ts|StartupController.test.ts]]
 - [[_COMMUNITY_start.sh|start.sh]]
 - [[_COMMUNITY_start-redis.sh|start-redis.sh]]
@@ -323,6 +324,8 @@
 - [[_COMMUNITY_projectContext|projectContext]]
 - [[_COMMUNITY_AccessProbe|AccessProbe]]
 - [[_COMMUNITY_backend_card|backend_card]]
+- [[_COMMUNITY_8.5.0 - 2026-10-27|[8.5.0] - 2026-10-27]]
+- [[_COMMUNITY_LinkForce|LinkForce]]
 - [[_COMMUNITY_4.0.0 - 2026-08-27|[4.0.0] - 2026-08-27]]
 - [[_COMMUNITY_DeploymentCanaryUsersController.ts|DeploymentCanaryUsersController.ts]]
 - [[_COMMUNITY_GitHub Logo (Octocat Mark)|GitHub Logo (Octocat Mark)]]
@@ -348,41 +351,41 @@
   docker-local/docker-compose-development.yaml → docker-compose.yaml
 - `usePromptImages()` --indirect_call--> `image()`  [INFERRED]
   frontend/src/components/ai-workspace/PromptImages.tsx → backend/src/controller/AiJobController.test.ts
-- `AddNewFrontendForm()` --indirect_call--> `image()`  [INFERRED]
-  frontend/src/pages/frontends/AddFrontend.tsx → backend/src/controller/AiJobController.test.ts
-- `useResourcesApi()` --indirect_call--> `resource()`  [INFERRED]
-  frontend/src/hooks/apiClients/useResourcesApi.ts → backend/src/service/ArgoCdService.test.ts
+- `BackendVersionsTable()` --indirect_call--> `image()`  [INFERRED]
+  frontend/src/pages/backends/partials/BackendVersionsTable.tsx → backend/src/controller/AiJobController.test.ts
+- `DomainGalaxy()` --indirect_call--> `resource()`  [INFERRED]
+  frontend/src/pages/domains/partials/DomainGalaxy.tsx → backend/src/service/ArgoCdService.test.ts
 
 ## Import Cycles
 - 3-file cycle: `frontend/src/pages/integration/partials/index.ts -> frontend/src/pages/integration/partials/views/index.ts -> frontend/src/pages/integration/partials/views/FrontendIntegration.tsx -> frontend/src/pages/integration/partials/index.ts`
 - 3-file cycle: `frontend/src/authentication/components/LoginPage.tsx -> frontend/src/authentication/components/SocialLoginRow.tsx -> frontend/src/authentication/components/LoginWithAuth0Button.tsx -> frontend/src/authentication/components/LoginPage.tsx`
 - 3-file cycle: `frontend/src/authentication/components/LoginPage.tsx -> frontend/src/authentication/components/SocialLoginRow.tsx -> frontend/src/authentication/components/LoginWithGoogleButton.tsx -> frontend/src/authentication/components/LoginPage.tsx`
 - 3-file cycle: `frontend/src/authentication/components/LoginPage.tsx -> frontend/src/authentication/components/SocialLoginRow.tsx -> frontend/src/authentication/components/LoginWithMicrosoftButton.tsx -> frontend/src/authentication/components/LoginPage.tsx`
+- 3-file cycle: `frontend/src/hooks/apiClients/useFrontendsApi.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/utils/technologies.ts -> frontend/src/hooks/apiClients/useFrontendsApi.ts`
 - 3-file cycle: `frontend/src/hooks/apiClients/useEnvironmentsApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useEnvironmentsApi.ts`
 - 3-file cycle: `frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts`
-- 3-file cycle: `frontend/src/hooks/apiClients/useFrontendsApi.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/utils/technologies.ts -> frontend/src/hooks/apiClients/useFrontendsApi.ts`
+- 4-file cycle: `frontend/src/hooks/apiClients/useBackendsApi.ts -> frontend/src/hooks/apiClients/useFrontendsApi.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/utils/technologies.ts -> frontend/src/hooks/apiClients/useBackendsApi.ts`
 - 4-file cycle: `frontend/src/hooks/apiClients/useEnvironmentsApi.ts -> frontend/src/hooks/apiClients/useGitOpsErrorMessage.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useEnvironmentsApi.ts`
 - 4-file cycle: `frontend/src/hooks/apiClients/useEnvironmentsApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/hooks/apiClients/useEnvironmentsApi.ts`
 - 4-file cycle: `frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/hooks/apiClients/useProjectUserApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts`
-- 4-file cycle: `frontend/src/hooks/apiClients/useBackendsApi.ts -> frontend/src/hooks/apiClients/useFrontendsApi.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/utils/technologies.ts -> frontend/src/hooks/apiClients/useBackendsApi.ts`
-- 5-file cycle: `frontend/src/hooks/apiClients/useEnvironmentsApi.ts -> frontend/src/hooks/apiClients/useGitOpsErrorMessage.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/hooks/apiClients/useEnvironmentsApi.ts`
-- 5-file cycle: `frontend/src/hooks/apiClients/useAiModelsApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/hooks/apiClients/useProjectUserApi.ts -> frontend/src/hooks/apiClients/useAiModelsApi.ts`
 - 5-file cycle: `frontend/src/hooks/apiClients/useBackendsApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/utils/technologies.ts -> frontend/src/hooks/apiClients/useBackendsApi.ts`
 - 5-file cycle: `frontend/src/hooks/apiClients/useFrontendsApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/utils/technologies.ts -> frontend/src/hooks/apiClients/useFrontendsApi.ts`
 - 5-file cycle: `frontend/src/hooks/apiClients/useMarketApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/utils/technologies.ts -> frontend/src/hooks/apiClients/useMarketApi.ts`
+- 5-file cycle: `frontend/src/hooks/apiClients/useEnvironmentsApi.ts -> frontend/src/hooks/apiClients/useGitOpsErrorMessage.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/hooks/apiClients/useEnvironmentsApi.ts`
+- 5-file cycle: `frontend/src/hooks/apiClients/useAiModelsApi.ts -> frontend/src/hooks/useApiClient.tsx -> frontend/src/store/useProjectStore.ts -> frontend/src/hooks/apiClients/useProjectApi.ts -> frontend/src/hooks/apiClients/useProjectUserApi.ts -> frontend/src/hooks/apiClients/useAiModelsApi.ts`
 
 ## Hyperedges (group relationships)
 - **CI/CD Pipeline (build, dockerize, deploy, e2e)** — _github_workflows_monorepo_build_build_and_test, _github_workflows_docker_build_docker_build, _github_workflows_deploy_deploy_to_server, _github_workflows_e2e_tests_e2e_tests [EXTRACTED 1.00]
 
-## Communities (326 total, 45 thin omitted)
+## Communities (329 total, 50 thin omitted)
 
 ### Community 1 - "Frontend Dependencies"
-Cohesion: 0.31
-Nodes (8): cpuQuantity, memoryQuantity, CHART_RESOURCE_DEFAULTS, CONTAINER_RESOURCE_FIELDS, MEMORY_UNITS, parseCpu(), parseMemory(), requestAboveLimit()
+Cohesion: 0.07
+Nodes (36): McpToolContext, backendFields, backendId, createSchema, updateSchema, domainFields, domainFilter, domainId (+28 more)
 
 ### Community 2 - "Backend Controllers & Auth"
-Cohesion: 0.15
-Nodes (14): organizationAdminTools, context(), createOrganization, deleteOrganization, getOrganizationUsers, getSummary, inviteToOrganization, notAdmin() (+6 more)
+Cohesion: 0.16
+Nodes (13): context(), createOrganization, deleteOrganization, getOrganizationUsers, getSummary, inviteToOrganization, notAdmin(), { principals, serviceClass } (+5 more)
 
 ### Community 3 - "Backend Error Types"
 Cohesion: 0.10
@@ -397,28 +400,32 @@ Cohesion: 0.38
 Nodes (8): clip(), clipInput(), compactCall(), compactMessage(), compactTranscript(), emptied(), sizeOf(), TRANSCRIPT_LIMITS
 
 ### Community 6 - "Biome Configuration"
-Cohesion: 0.10
-Nodes (36): BackendCodeRepository, BackendEnvVariable, MaintenanceAgent, MaintenanceAgentKind, Station, ConfigurationSection(), describeCron(), isValidCron() (+28 more)
+Cohesion: 0.03
+Nodes (101): TemplateRepositoryLink(), BackendCodeRepository, BackendEnvVariable, MAINTENANCE_ERROR_KEYS, MaintenanceAgent, MaintenanceAgentDTO, MaintenanceAgentKind, MaintenanceAgentLastRun (+93 more)
 
 ### Community 7 - "Azure Storage & Microfrontend Model"
-Cohesion: 0.02
-Nodes (135): newEnvironment(), ColorPickerProps, TextareaFieldProps, TextFieldProps, EnvironmentSelectorProps, CreateEnvironmentDTO, EnvironmentDTO, useEnvironmentsApi() (+127 more)
+Cohesion: 0.03
+Nodes (85): image(), newEnvironment(), ColorPickerProps, TextFieldProps, EnvironmentSelectorProps, CreateEnvironmentDTO, EnvironmentDTO, useEnvironmentsApi() (+77 more)
+
+### Community 8 - "Auth Pages & Form Inputs"
+Cohesion: 0.11
+Nodes (26): IAiChangeFile, RunningRepository, ACTIVE_STATUSES, AiCapCheckListener, AiChangeBaseService, aiJobEnded(), AiJobEndedListener, authorOf() (+18 more)
 
 ### Community 9 - "Code Repositories UI"
-Cohesion: 0.05
-Nodes (59): textDecoder, AnswerUsageProps, AssistantConfirmationCard(), AssistantConfirmationCardProps, readableValue(), AssistantHistory(), AssistantHistoryProps, toPanelMessages() (+51 more)
+Cohesion: 0.06
+Nodes (48): textDecoder, AnswerUsageProps, AskAssistantButton(), AskAssistantButtonProps, AssistantConfirmationCard(), AssistantConfirmationCardProps, readableValue(), AssistantHistory() (+40 more)
 
 ### Community 10 - "Root Package Config"
-Cohesion: 0.09
-Nodes (37): AI_MODEL_ID, assistantController(), chatBodySchema, conversationBodySchema, conversationParamsSchema, draftBodySchema, SHORT_STRING, AssistantConversation (+29 more)
+Cohesion: 0.06
+Nodes (52): AI_MODEL_ID, assistantController(), chatBodySchema, conversationBodySchema, conversationParamsSchema, draftBodySchema, SHORT_STRING, buildController() (+44 more)
 
 ### Community 11 - "Project & Environment APIs"
 Cohesion: 0.05
-Nodes (53): StartupUserRegistrationDTO, toFocus(), designSystemSchema, IOrganization, organizationSchema, IProjectExposure, projectSchema, Commit (+45 more)
+Nodes (37): aToken(), callMcp(), ENVIRONMENT, grantState, listToolNames(), previousEnvironment, PROTOCOL_HEADERS, readJsonRpc() (+29 more)
 
 ### Community 12 - "Microfrontend Pages & API"
 Cohesion: 0.07
-Nodes (54): defineTool(), DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, McpToolAnnotations, NO_INPUT, objectId(), READ_ONLY, READ_ONLY_EXTERNAL (+46 more)
+Nodes (45): defineTool(), DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, McpToolAnnotations, NO_INPUT, objectId(), READ_ONLY, READ_ONLY_EXTERNAL (+37 more)
 
 ### Community 13 - "Backend Dependencies"
 Cohesion: 0.04
@@ -433,12 +440,12 @@ Cohesion: 0.06
 Nodes (34): suspicious, noAsyncPromiseExecutor, noCatchAssign, noClassAssign, noCompareNegZero, noConstantBinaryExpressions, noControlCharactersInRegex, noDebugger (+26 more)
 
 ### Community 16 - "Dialogs & Color Picker"
-Cohesion: 0.07
-Nodes (34): McpToolDefinition, requiresConfirmation(), ASSISTANT_TOOLS, AssistantConfirmFrame, AssistantRoundOutcome, AssistantToolCallFrame, assistantToolDefinitions, AssistantToolKind (+26 more)
+Cohesion: 0.08
+Nodes (30): McpToolDefinition, ASSISTANT_TOOLS, AssistantConfirmFrame, AssistantToolCallFrame, assistantToolDefinitions, AssistantToolEvents, AssistantToolKind, AssistantToolResultFrame (+22 more)
 
 ### Community 17 - "UI Inputs & Popover"
 Cohesion: 0.03
-Nodes (103): AuthConfig, GoogleStorageConfig, S3ClientConfig, EntityNotFoundError, EnvironmentNotFoundError, OrganizationNotFoundError, ProjectNotFoundError, ApiKey (+95 more)
+Nodes (80): EntityNotFoundError, EnvironmentNotFoundError, ProjectNotFoundError, BackendDeployment, backendDeploymentSchema, configSchema, Configuration, IConfiguration (+72 more)
 
 ### Community 18 - "Frontend Routes"
 Cohesion: 0.03
@@ -449,32 +456,32 @@ Cohesion: 0.12
 Nodes (30): PROJECT, RESOURCE_SECRET_PATHS, projectId, SECRET_ENCRYPTED_PATHS, NODE_ENVS, RFC-7591, OPENSHELL_DEFAULTS, asList() (+22 more)
 
 ### Community 21 - "Sidebar & Theme Toggle"
-Cohesion: 0.08
-Nodes (41): useOpenAgentJob(), ApplyAllButton(), ApplyAllButtonProps, AssistantJobThread(), AssistantJobThreadProps, FollowUpFormProps, isBusy(), JOB_ERROR_CODES (+33 more)
+Cohesion: 0.10
+Nodes (40): useOpenAgentJob(), FollowUpForm(), followUpScope(), AssistantJobTabs(), AssistantJobTabsProps, jobTabLabel(), ApplyAllButton(), ApplyAllButtonProps (+32 more)
 
 ### Community 22 - "ApiKeyService.ts"
-Cohesion: 0.03
-Nodes (96): AcceptInvitationDTO, AddUserToOrganizationDTO, organizationUserController(), UpdateUserRoleDTO, AcceptInvitationDTO, AddUserToProjectDTO, PopulatedProject, projectUserController() (+88 more)
+Cohesion: 0.07
+Nodes (33): AcceptInvitationDTO, AddUserToProjectDTO, PopulatedProject, projectUserController(), addUserToProjectByEmail, removeUserFromProject, resendInvitation, updateUserRole (+25 more)
 
 ### Community 23 - "Frontend API Client"
-Cohesion: 0.05
-Nodes (81): AiChangeFileAction, AiChangeRequest, AiChangeStatus, IAiChangeFile, IAiChangeRequest, AiChangeAgentBackend, AGENT_VISIBLE_FIELDS, AiJobRepositoryView (+73 more)
+Cohesion: 0.10
+Nodes (24): IAiChangeRequest, AiChangeService, ensureNotBeingRefined(), staleOutcome(), timestamp(), GitOpsFile, ProjectContextDTO, BranchNotFoundError (+16 more)
 
 ### Community 24 - "Auth Wrappers & Context"
-Cohesion: 0.12
-Nodes (21): IOAuthClient, oauthClientSchema, RFC-7591, ClientRegistrationResponse, OAuthClientService, optionalHttpsUrl(), optionalString(), parseClientName() (+13 more)
+Cohesion: 0.10
+Nodes (27): added(), addedWithCosts(), AiUsageService, componentPipeline(), costsOf(), costsSpentThisMonth(), costSums(), matchOf() (+19 more)
 
 ### Community 25 - "Project Docs & Tooling"
 Cohesion: 0.40
 Nodes (5): mfe-orchestrator Docker Service, MongoDB Docker Service (production compose), Redis Docker Service (production compose), MongoDB Docker Service (local development, port 27018), Redis Docker Service (local development, port 6380)
 
 ### Community 26 - "Biome Correctness Rules"
-Cohesion: 0.09
-Nodes (39): Domain, LivePreviewTarget, useLivePreviewsApi(), RoleInProject, DOMAIN_SCOPE_ERROR_KEYS, domainScopeErrorMessage(), ProjectUser, UpdateProjectUserDTO (+31 more)
+Cohesion: 0.06
+Nodes (51): CostChipProps, AiCurrency, AiUsageCost, Domain, LivePreviewTarget, useLivePreviewsApi(), AddUserToProjectDTO, ProjectSummaryDTO (+43 more)
 
 ### Community 27 - "Tabs Component"
 Cohesion: 0.04
-Nodes (121): isConnected(), AiWorkspaceRepository, BaseBranches, branchesPath(), BranchSelectProps, CodeRepository, pickedBaseBranches(), RepositoryBranches() (+113 more)
+Nodes (122): AiWorkspaceRepository, BaseBranches, branchesPath(), BranchSelectProps, CodeRepository, pickedBaseBranches(), RepositoryBranches(), RepositoryBranchesProps (+114 more)
 
 ### Community 28 - "API Key Domain"
 Cohesion: 0.07
@@ -489,20 +496,20 @@ Cohesion: 0.05
 Nodes (40): compiler_label, config_step, description, detected_stack, federation_tab, framework_label, install_step, integrate_all_button (+32 more)
 
 ### Community 31 - "Code Repository Service"
-Cohesion: 0.14
-Nodes (3): CodeRepositoryService, CreateAzureDevOpsRepositoryDTO, UpdateGithubDTO
+Cohesion: 0.13
+Nodes (3): GitLabBranch, CodeRepositoryService, CreateAzureDevOpsRepositoryDTO
 
 ### Community 32 - "Login & Social Buttons"
 Cohesion: 0.03
-Nodes (99): GitHub Code Repository Provider, GitHub Logo (Octocat Mark), queryClient, Auth0AuthWrapper(), Auth0AuthWrapperProps, FormValues, LoginComponentProps, LoginPage() (+91 more)
+Nodes (97): GitHub Code Repository Provider, GitHub Logo (Octocat Mark), queryClient, Auth0AuthWrapper(), Auth0AuthWrapperProps, FormValues, LoginComponentProps, LoginPage() (+89 more)
 
 ### Community 33 - "Select & Environment Selector"
 Cohesion: 0.12
 Nodes (15): DatabaseTarget, databaseTargetOf(), DEFAULT_PORT, sqlServerTargetOf(), SSL_MODES, credentials, testDatabaseConnection(), TESTERS (+7 more)
 
 ### Community 34 - "Frontend App TSConfig"
-Cohesion: 0.21
-Nodes (11): deployableSlugs(), errorOf(), listUnder(), projectOf(), branchedEnvironments(), branchOf(), buildApplicationSets(), buildArgoCdState() (+3 more)
+Cohesion: 0.16
+Nodes (12): deployableSlugs(), environmentsWithoutBranch(), errorOf(), listUnder(), nameClash(), nameConflict(), namespacesNotInProject(), projectOf() (+4 more)
 
 ### Community 35 - "Dropdown Menu & Sidebar"
 Cohesion: 0.24
@@ -513,92 +520,92 @@ Cohesion: 0.05
 Nodes (40): compiler_label, config_step, description, detected_stack, federation_tab, framework_label, install_step, integrate_all_button (+32 more)
 
 ### Community 37 - "GitHub Client Methods"
-Cohesion: 0.05
-Nodes (54): createUrl(), doRequest(), getUTMFields(), IClientRequestData, IClientRequestMetadata, IUTMFields, out, removeUTMFields() (+46 more)
+Cohesion: 0.11
+Nodes (18): AuthorizedPrincipal, EmailMessage, EmailSenderService, EmailTemplate, escapeHtml(), strong(), cases, EmailCase (+10 more)
 
 ### Community 38 - "Frontend Dev Dependencies"
-Cohesion: 0.15
-Nodes (18): ApplicationGateway, applicationImageRepository(), ApplicationMaintenance, CHART_FILES, inClusterUrl(), isDeployable(), MaintainedTarget, maintenanceValues() (+10 more)
+Cohesion: 0.05
+Nodes (69): IProjectGitOps, environmentsOf(), ApplicationGateway, applicationImageRepository(), ApplicationMaintenance, CHART_FILES, GitOpsApplication, inClusterUrl() (+61 more)
 
 ### Community 39 - "Deployments & Variables API"
-Cohesion: 0.17
-Nodes (20): OAuthClient, IOAuthGrant, OAuthGrant, OAuthGrantRevocationReason, oauthGrantSchema, addProjectToGrant(), AuthenticatedGrant, authenticateGrant() (+12 more)
+Cohesion: 0.06
+Nodes (61): mcpClientController(), oauthController(), RFC-6749, OAuthError, RFC-6749, IOAuthClient, OAuthClient, OAuthClientRegistrationType (+53 more)
 
 ### Community 40 - "Azure DevOps Client Types"
 Cohesion: 0.09
-Nodes (26): AuthenticationLayoutProps, sizeClasses, MainLogo(), MainLogoProps, sizeClasses, PageHead(), PageHeadProps, ProjectDraft (+18 more)
+Nodes (25): AuthenticationLayoutProps, sizeClasses, MainLogo(), MainLogoProps, sizeClasses, PageHead(), PageHeadProps, ProjectDraft (+17 more)
 
 ### Community 41 - "E2E Package Config"
-Cohesion: 0.11
-Nodes (14): DeployPill(), DeployScreen(), formatElapsed(), useElapsed(), CODE_LINES, COLORS, EYES, hexagon() (+6 more)
+Cohesion: 0.07
+Nodes (20): DeployPill(), DeployScreen(), formatElapsed(), useElapsed(), CODE_LINES, COLORS, EYES, hexagon() (+12 more)
 
 ### Community 42 - "AuthenticationMethod.ts"
-Cohesion: 0.07
-Nodes (34): FederationFileChange, FederationIntegrationApplyResult, FederationIntegrationPlan, FederationIntegrationStatus, FrontendIntegrationPlan, FrontendIntegrationResult, IntegrationScope, useIntegrationApi() (+26 more)
+Cohesion: 0.08
+Nodes (33): FederationFileChange, FederationIntegrationApplyResult, FederationIntegrationPlan, FederationIntegrationStatus, FrontendIntegrationPlan, FrontendIntegrationResult, IntegrationScope, useIntegrationApi() (+25 more)
 
 ### Community 43 - "E2E TSConfig"
-Cohesion: 0.06
-Nodes (38): AddRepositoryAzureDTO, AddRepositoryGithubDTO, AddRepositoryGitlabDTO, AzureDevOpsProject, AzureDevOpsProjectsResponse, GithubOrganization, GithubUser, GitlabProject (+30 more)
+Cohesion: 0.05
+Nodes (52): AuthenticationType, createUrl(), doRequest(), getUTMFields(), IClientRequestData, IClientRequestMetadata, IUTMFields, out (+44 more)
 
 ### Community 44 - "FrontendIntegration.tsx"
-Cohesion: 0.05
-Nodes (26): StartupController(), UserController(), InvalidCredentialsError, UserAlreadyExistsError, UserNotFoundError, ALLOWED_AVATAR_MIME_TYPES, IUserAvatar, IUserAvatarDocument (+18 more)
+Cohesion: 0.07
+Nodes (24): StartupController(), createOrganization, createProject, existsAtLeastOneUser, register, UserController(), ALLOWED_AVATAR_MIME_TYPES, IUserAvatar (+16 more)
 
 ### Community 45 - "Canary Users Domain"
-Cohesion: 0.06
-Nodes (67): Composer(), FollowUpForm(), AiModelSelect(), AiModelSelectProps, FollowUpForm(), AssistantNewJobDialogProps, NewJobForm(), NewJobFormProps (+59 more)
+Cohesion: 0.07
+Nodes (55): AiModelSelect(), AiModelSelectProps, NO_MODELS, ProjectAiModels, AiModelDetail, AiModelDTO, aiModelErrorMessage(), aiModelFieldLabel() (+47 more)
 
 ### Community 46 - "Form Input Fields"
 Cohesion: 0.04
-Nodes (76): ProjectPickerListProps, AddUserToProjectDTO, DesignSystem, Project, ProjectExposure, ProjectGitOps, ProjectGitOpsRepository, ProjectPipelines (+68 more)
+Nodes (80): ArgoCdCredentialSource, ArgoCdInitializeDTO, ArgoCdLogLine, ArgoCdLogsQuery, ArgoCdPod, ArgoCdRepositoryKind, ArgoCdRepositoryProvider, ArgoCdStatus (+72 more)
 
 ### Community 47 - "Environment List & Drag-Drop"
-Cohesion: 0.07
-Nodes (33): buildEnvironments(), DomainDeploymentService, findEnvironments(), findVersions(), isDocker(), backendDeployments, cart, checkoutUi (+25 more)
+Cohesion: 0.05
+Nodes (48): ICanaryFrontend, buildEnvironments(), CurrentDeployment, DEPLOYMENT_FIELDS, DomainDeploymentBackendVersion, DomainDeploymentDomain, DomainDeploymentEnvironment, DomainDeployments (+40 more)
 
 ### Community 48 - "Frontend Node TSConfig"
 Cohesion: 0.08
 Nodes (26): noConstantCondition, noConstAssign, noEmptyCharacterClassInRegex, noEmptyPattern, noGlobalObjectCalls, noInvalidBuiltinInstantiation, noInvalidConstructorSuper, noNonoctalDecimalEscape (+18 more)
 
 ### Community 49 - "Telemetry Service & Config"
-Cohesion: 0.08
-Nodes (33): Market, marketSchema, component, describeTemplate(), DomainPlan, DomainPlanComponent, freeSlug(), PLAN_SCHEMA (+25 more)
+Cohesion: 0.06
+Nodes (42): Market, marketSchema, IProjectExposure, IProjectPipelines, projectSchema, component, describeTemplate(), DomainPlan (+34 more)
 
 ### Community 51 - "integration"
-Cohesion: 0.05
-Nodes (38): description, success, title, auth, account_activation, already_have_account, confirm_password, create_account (+30 more)
+Cohesion: 0.06
+Nodes (34): auth, already_have_account, confirm_password, create_account, email, email_placeholder, forgot_password, hide_password (+26 more)
 
 ### Community 52 - "Azure DevOps Client"
 Cohesion: 0.06
 Nodes (34): auth, already_have_account, confirm_password, create_account, email, email_placeholder, forgot_password, hide_password (+26 more)
 
 ### Community 53 - "Error Handler Middleware"
-Cohesion: 0.02
-Nodes (147): Backend, backendSchema, backendStackSchema, IBackend, IBackendStack, withoutInlineVariables, azureDataSchema, CodeRepository (+139 more)
+Cohesion: 0.03
+Nodes (91): Backend, backendSchema, backendStackSchema, IBackendStack, withoutInlineVariables, backendEnvVariableSchema, CONTAINER_DEFAULTS, exposurePath (+83 more)
 
 ### Community 54 - "Fastify App Bootstrap"
 Cohesion: 0.05
 Nodes (39): dependencies, @auth0/auth0-react, axios, @azure/msal-browser, @azure/msal-react, clsx, date-fns, diff (+31 more)
 
 ### Community 55 - "UserModel.ts"
-Cohesion: 0.11
-Nodes (33): AiUsage, AiMissionCounts, AiMissionCreateInput, AiMissionMode, AiMissionRepositoryOption, AiMissionRepositoryOptions, AiMissionRepositoryView, AiMissionStatus (+25 more)
+Cohesion: 0.10
+Nodes (34): JOB_ERROR_CODES, AiUsage, AiMissionCounts, AiMissionCreateInput, AiMissionMode, AiMissionRepositoryOption, AiMissionRepositoryOptions, AiMissionRepositoryView (+26 more)
 
 ### Community 56 - "useUserApi.ts"
-Cohesion: 0.04
-Nodes (74): AskAssistantButton(), AskAssistantButtonProps, Button, ApiStatusHandler(), SinglePageHeaderProps, DeleteConfirmationDialog(), DeleteConfirmationDialogProps, ApiKey (+66 more)
+Cohesion: 0.05
+Nodes (53): ApiStatusHandler(), SinglePageHeaderProps, DeleteConfirmationDialog(), DeleteConfirmationDialogProps, useApiKeysApi(), CanaryUser, useCanaryUsersApi(), DEPLOY_MUTATION_KEY (+45 more)
 
 ### Community 57 - "Project Wizard Service"
-Cohesion: 0.08
-Nodes (26): AI_SCRIPT_LIMITS, commandFor(), describeResult(), INSTALL_ARGS, LOCKFILES, looksBinary(), PACKAGE_MANAGERS, PackageManager (+18 more)
+Cohesion: 0.09
+Nodes (28): AI_SCRIPT_LIMITS, commandFor(), describeResult(), INSTALL_ARGS, LOCKFILES, looksBinary(), PACKAGE_MANAGERS, PackageManager (+20 more)
 
 ### Community 58 - "Backend TSConfig"
 Cohesion: 0.14
-Nodes (18): IProjectPipelines, CodeRepositoryImportService, ensureTarget(), FailedRepositoryResult, ImportableRepository, ImportedRepositoryResult, ImportRepositoriesResult, LinkedMember (+10 more)
+Nodes (17): CodeRepositoryImportService, ensureTarget(), FailedRepositoryResult, ImportableRepository, ImportedRepositoryResult, ImportRepositoriesResult, LinkedMember, SkippedRepositoryResult (+9 more)
 
 ### Community 59 - "Code Repository Model"
-Cohesion: 0.12
-Nodes (25): API_SPEC_LIMITS, ApiDocument, ApiSpecReader, argument(), authOf(), bounded(), describeApiIndex(), describeApiOperation() (+17 more)
+Cohesion: 0.09
+Nodes (35): API_SPEC_LIMITS, ApiDocument, ApiSpecReader, argument(), authOf(), bounded(), describeApiIndex(), describeApiOperation() (+27 more)
 
 ### Community 60 - "CodeRepositoryController.ts"
 Cohesion: 0.06
@@ -606,15 +613,15 @@ Nodes (36): Additional Types, Backend Layer Scopes, Basic Feature, Best Practice
 
 ### Community 61 - "MicrofrontendController.ts"
 Cohesion: 0.10
-Nodes (20): aiModelController(), aiModelId, aiModelParamsSchema, aiModelProperties, config, CONFIG_STRING, createBodySchema, organizationParamsSchema (+12 more)
+Nodes (19): aiModelId, aiModelParamsSchema, aiModelProperties, config, CONFIG_STRING, createBodySchema, organizationParamsSchema, projectAccessBodySchema (+11 more)
 
 ### Community 62 - "Telemetry Flags & Plugins"
 Cohesion: 0.07
-Nodes (31): AssistantToolEvents, AssistantConfirmation, AssistantService, AssistantSpentOn, AssistantStopReason, AssistantStreamHandlers, describeContext(), isProjectDraft() (+23 more)
+Nodes (31): AiJobListenerContext, AssistantConfirmation, AssistantService, AssistantStopReason, AssistantStreamHandlers, describeContext(), isProjectDraft(), MAX_TOKENS_BY_EFFORT (+23 more)
 
 ### Community 63 - "Frontend App Entry & Theme"
-Cohesion: 0.18
-Nodes (12): OAuthAuthorizationRequest, asString(), OAuthAuthorizationService, withoutTrailingSlash(), issueRefreshToken(), computeS256Challenge(), generateOpaqueToken(), hashOpaqueToken() (+4 more)
+Cohesion: 0.06
+Nodes (40): IOAuthAuthorizationCode, OAuthAuthorizationCode, oauthAuthorizationCodeSchema, RFC-6749, IOAuthAuthorizationRequest, OAuthAuthorizationRequest, oauthAuthorizationRequestSchema, RFC-6749 (+32 more)
 
 ### Community 64 - "Frontend Base TSConfig"
 Cohesion: 0.12
@@ -622,19 +629,15 @@ Nodes (19): busy, commit_failed, environment_host_taken, environment_ip_allowlis
 
 ### Community 65 - "MicrofrontendService.ts"
 Cohesion: 0.10
-Nodes (31): apiKeyController(), backendController(), codeRepositoryController(), databaseController(), domainDeploymentController(), domainLinkController(), environmentController(), frontendController() (+23 more)
+Nodes (30): aiModelController(), apiKeyController(), codeRepositoryController(), databaseController(), domainDeploymentController(), domainLinkController(), environmentController(), frontendDependencyController() (+22 more)
 
 ### Community 66 - "IntegrationService.ts"
 Cohesion: 0.12
 Nodes (19): busy, commit_failed, environment_host_taken, environment_ip_allowlist_invalid, environment_ip_allowlist_too_long, environment_slug_invalid, environment_subdomain_invalid, exposure_path_taken (+11 more)
 
-### Community 67 - "errorHandler.ts"
-Cohesion: 0.27
-Nodes (4): AuthConfig, AzureStorageClient, AzureStorageConfig, probeStorage()
-
 ### Community 68 - "Backend Dev Dependencies"
-Cohesion: 0.21
-Nodes (8): assistantOnlyTools, DocsSection, documentFrequency, indexed, IndexedSection, searchDocs(), tokenize(), BuildRunOwner
+Cohesion: 0.16
+Nodes (10): assistantOnlyTools, context, getFailedRunLogs, DocsSection, documentFrequency, indexed, IndexedSection, searchDocs() (+2 more)
 
 ### Community 69 - "AuthenticationMethod.ts"
 Cohesion: 0.17
@@ -654,27 +657,27 @@ Nodes (15): Creating a project, Design system, Domains and backends, Fallback: a
 
 ### Community 73 - "DeploymentCanaryUsersController.ts"
 Cohesion: 0.04
-Nodes (79): AiChangeDiff(), AiChangeDiffProps, buildRows(), countLines(), DiffRow, MARKERS, ROW_CLASSES, LivePreviews() (+71 more)
+Nodes (76): AiChangeDiff(), AiChangeDiffProps, buildRows(), countLines(), DiffRow, MARKERS, ROW_CLASSES, LivePreviews() (+68 more)
 
 ### Community 74 - "Backend Test TSConfig"
 Cohesion: 0.10
 Nodes (20): compilerOptions, allowImportingTsExtensions, isolatedModules, jsx, lib, module, moduleDetection, moduleResolution (+12 more)
 
 ### Community 75 - "Biome Style Rules"
-Cohesion: 0.13
-Nodes (14): aiUsageController(), idParamsSchema, organizationParamsSchema, PeriodQuery, periodQuerySchema, projectParamsSchema, forBackend, forDomain (+6 more)
+Cohesion: 0.12
+Nodes (23): PromptImage, DomainPlan, FollowUpAiJobDTO, DomainAiWorkspace(), DomainRepository, memberItems(), planItems(), ScaffoldState (+15 more)
 
 ### Community 76 - "AuthenticationMethod.ts"
 Cohesion: 0.07
 Nodes (28): common, actions, active, add, back, cancel, close, configuration (+20 more)
 
 ### Community 77 - "Switch.rhf.tsx"
-Cohesion: 0.10
-Nodes (16): AiUsage, cart, catalog, catalogApi, connectionId, Cursor, { log }, projectId (+8 more)
+Cohesion: 0.04
+Nodes (58): aiChangeController(), applyBodySchema, createBodySchema, create, aiChangeJobSchema, AiJobStatus, promptImageSchema, aiChangeEventSchema (+50 more)
 
 ### Community 78 - "EnvironmentVariableForm.tsx"
-Cohesion: 0.22
-Nodes (16): componentWorkspacePath(), backendWorkspacePath(), frontendWorkspacePath(), gitOpsWorkspacePath(), isInsideGitDir(), isProtectedPath(), isSecretPath(), normalizeRelativePath() (+8 more)
+Cohesion: 0.16
+Nodes (25): componentWorkspacePath(), findComponents(), fromBackend(), fromFrontend(), FrontendComponent, RepositoryComponentBase, forgetBackends(), forgetComponents() (+17 more)
 
 ### Community 79 - "AzureDevOpsClient.ts"
 Cohesion: 0.08
@@ -689,11 +692,11 @@ Cohesion: 0.21
 Nodes (12): AUTH_VIEWPORT, authHeaders(), decodeHtmlEntities(), ensureOrganization(), ensureOwner(), ensureProject(), openAnonymously(), openConsole() (+4 more)
 
 ### Community 82 - "App.tsx"
-Cohesion: 0.08
-Nodes (52): toAgentResource(), field(), secret(), ERROR_KEYS, ResourceCustomField, ResourceDTO, ResourceEnvKey, ResourceFieldInput (+44 more)
+Cohesion: 0.06
+Nodes (84): resource(), azureSqlVariant(), field(), schema(), secret(), TextareaFieldProps, ResourceIcon(), ResourceIconProps (+76 more)
 
 ### Community 83 - "UserService"
-Cohesion: 0.11
+Cohesion: 0.10
 Nodes (13): ArgoCdClientOptions, ArgoCdLogEntry, ArgoCdLogLine, ArgoCdLogsQuery, ArgoCdMetadata, ArgoCdPod, ArgoCdRegisteredRepository, ArgoCdRepository (+5 more)
 
 ### Community 84 - "Backend Postbuild Script"
@@ -701,8 +704,8 @@ Cohesion: 0.40
 Nodes (4): copyDirectory(), fs, path, postBuild()
 
 ### Community 85 - "Dependencies.tsx"
-Cohesion: 0.09
-Nodes (26): AlignmentApplyRequest, AlignmentApplyResult, AlignmentApplyResultItem, AlignmentPlan, CodeRepositoryProvider, Dependency, DependencyAlignmentIssue, DependencyKind (+18 more)
+Cohesion: 0.08
+Nodes (31): AlignmentApplyRequest, AlignmentApplyResult, AlignmentApplyResultItem, AlignmentPlan, CodeRepositoryProvider, Dependency, DependencyAlignmentIssue, DependencyKind (+23 more)
 
 ### Community 86 - "autorization.ts"
 Cohesion: 0.08
@@ -710,19 +713,19 @@ Nodes (23): devDependencies, @biomejs/biome, @commitlint/cli, @commitlint/config
 
 ### Community 87 - "Sidebar.tsx"
 Cohesion: 0.21
-Nodes (6): AiChangeToolbox, decodeStart(), linesHolding(), linesOf(), looksBinary(), underPrefix()
+Nodes (8): AiChangeToolbox, decodeStart(), linesHolding(), linesOf(), looksBinary(), underPrefix(), isSecretPath(), resolveInsideWorkingCopy()
 
 ### Community 88 - "IMarket"
-Cohesion: 0.10
-Nodes (4): getFrontendUrlCanary(), hashToBucket(), isDocker(), ServeService
+Cohesion: 0.11
+Nodes (6): IProject, ProjectSummaryDTO, getFrontendUrlCanary(), hashToBucket(), isDocker(), ServeService
 
 ### Community 90 - "Microfrontend"
 Cohesion: 0.05
 Nodes (31): aiChangeTools, aiModelId, backendId, changeId, componentFields, effort, frontendId, jobId (+23 more)
 
 ### Community 91 - "Switch Component"
-Cohesion: 0.17
-Nodes (15): Database, DATABASE_SECRET_PATHS, DatabaseConnection, databaseSchema, DatabaseType, IDatabase, DatabaseService, invalid() (+7 more)
+Cohesion: 0.16
+Nodes (16): Database, DATABASE_SECRET_KEYS, DATABASE_SECRET_PATHS, DatabaseConnection, databaseSchema, DatabaseType, IDatabase, DatabaseService (+8 more)
 
 ### Community 93 - "MicrofrontendModel.ts"
 Cohesion: 0.09
@@ -745,8 +748,8 @@ Cohesion: 0.08
 Nodes (30): expectLoginPage(), isAuthenticated(), marketingOptInEnabled(), openInvitationFromEmail(), decodeHtmlEntities(), EmailMessage, emailSubjects, extractLinks() (+22 more)
 
 ### Community 100 - "app"
-Cohesion: 0.09
-Nodes (36): applicationSetNameOf(), applicationsLink, configurationLink, environmentName(), ENVIRONMENTS_SET, githubConnection, githubConnectionId, gitlabConnection (+28 more)
+Cohesion: 0.15
+Nodes (30): applicationSetNameOf(), environmentName(), applicationValuesPath(), applicationName(), applicationSetName(), appProjectName(), ArgoCdEnvironment, ArgoCdProjectTarget (+22 more)
 
 ### Community 102 - "Azure Provider Branding"
 Cohesion: 0.67
@@ -757,16 +760,16 @@ Cohesion: 0.67
 Nodes (3): Cloud Provider Option in Frontend UI, Google Cloud Platform, Google Cloud Logo (SVG)
 
 ### Community 104 - "Web App Manifest"
-Cohesion: 0.10
-Nodes (28): domainResources(), refuseSecretFields(), DATABASE_SECRET_KEYS, STORAGE_SECRET_KEYS, renderResourceManifest(), keysOf(), apiVariant(), azureSqlVariant() (+20 more)
+Cohesion: 0.13
+Nodes (17): AnthropicLlmClient, ClaudeClient, aboveCap(), AI_MODEL_CONFIG_KEYS, aiProviderError(), AZURE_OPENAI_HOST_SUFFIXES, clients, effortsFor() (+9 more)
 
 ### Community 110 - "Local Installation for development 🛠️"
 Cohesion: 0.12
 Nodes (18): projectAdminTools, addUserToProjectByEmail, context(), createApiKey, deleteProject, getApiKeys, getProjectUsers, listGrants (+10 more)
 
 ### Community 116 - "Start Script"
-Cohesion: 0.05
-Nodes (51): BuiltBackend, builtBackendSchema, DomainRelease, domainReleaseMemberSchema, domainReleaseSchema, DomainReleaseStatus, DomainReleaseStep, IDomainRelease (+43 more)
+Cohesion: 0.04
+Nodes (66): createBusinessException(), refOf(), ensureMcpEnabled(), toFocus(), BuiltBackend, builtBackendSchema, DomainLink, domainLinkSchema (+58 more)
 
 ### Community 117 - "Start Complete Script"
 Cohesion: 0.11
@@ -777,8 +780,8 @@ Cohesion: 0.09
 Nodes (23): alignErrorTitle, details, initialize, initialized, initializedAt, insecure, insecureHint, lastErrorTitle (+15 more)
 
 ### Community 120 - "Multipart Plugin"
-Cohesion: 0.33
-Nodes (10): clip(), GONE, hashOf(), lastActivity(), moodOf(), PRIORITY, READING_TOOLS, VegaWorkshop() (+2 more)
+Cohesion: 0.24
+Nodes (13): clip(), GONE, hashOf(), lastActivity(), moodOf(), PRIORITY, READING_TOOLS, VegaWorkshop() (+5 more)
 
 ### Community 126 - "TelemetryService"
 Cohesion: 0.38
@@ -793,8 +796,8 @@ Cohesion: 0.09
 Nodes (23): alignErrorTitle, details, initialize, initialized, initializedAt, insecure, insecureHint, lastErrorTitle (+15 more)
 
 ### Community 131 - "common"
-Cohesion: 0.04
-Nodes (63): CODE_REPOSITORY_SECRET_PATHS, PROJECT_SECRET_PATHS, IResourceOverride, IResourceValue, Resource, resourceCustomFieldSchema, ResourceFieldJSON, resourceOverrideSchema (+55 more)
+Cohesion: 0.03
+Nodes (94): domainResources(), refuseSecretFields(), IResource, IResourceOverride, IResourceValue, Resource, resourceCustomFieldSchema, ResourceFieldJSON (+86 more)
 
 ### Community 132 - "README.md"
 Cohesion: 0.11
@@ -809,12 +812,8 @@ Cohesion: 0.24
 Nodes (5): cache, CacheEntry, clearNpmRegistryCache(), NpmAbbreviatedPackument, NpmRegistryClient
 
 ### Community 135 - "ProjectService.test.ts"
-Cohesion: 0.08
-Nodes (36): AI_CHANGE_LIMITS, AiChangeAgentResource, commitAll(), gitEnv, makeRepository(), AgentLoopOptions, AgentLoopStopReason, runAgentLoop() (+28 more)
-
-### Community 136 - "GitHub Actions Workflows"
-Cohesion: 0.16
-Nodes (10): IOAuthAuthorizationRequest, oauthAuthorizationRequestSchema, RFC-6749, anAuthorizationQuery(), applyUpdate(), config, fakeCollection(), matches() (+2 more)
+Cohesion: 0.11
+Nodes (35): AssistantRoundOutcome, ExecutedCall, AgentLoopOptions, AgentLoopStopReason, AgentToolsOutcome, runAgentLoop(), sleep(), turnRetryingRateLimits() (+27 more)
 
 ### Community 137 - "setup"
 Cohesion: 0.11
@@ -825,8 +824,8 @@ Cohesion: 0.11
 Nodes (19): advanced, certificate_issuer, certificate_issuer_custom, certificate_issuer_custom_name, certificate_issuer_hint, certificate_issuer_invalid, certificate_issuer_none, details (+11 more)
 
 ### Community 139 - "BuildController.ts"
-Cohesion: 0.12
-Nodes (15): apiSpec, customFields, fields, name, resourceId, resourceTools, catalog, context() (+7 more)
+Cohesion: 0.20
+Nodes (10): resourceTools, catalog, context(), create, getById, getByProjectId, remove, run() (+2 more)
 
 ### Community 140 - "[2.3.0] - 2026-08-11"
 Cohesion: 0.11
@@ -849,12 +848,12 @@ Cohesion: 0.11
 Nodes (19): grantedAt, notifications, subtitle, title, granted, personalDataUpdated, withdrawn, email (+11 more)
 
 ### Community 146 - "quit-on-fatal.py"
-Cohesion: 0.10
-Nodes (23): Backend, Resource, BackendBuildDialogProps, BackendDangerZone(), DomainGalaxyProps, AttachResourceDialogProps, MaintenanceStatus, BayArt() (+15 more)
+Cohesion: 0.20
+Nodes (6): JobRepository, noRepositories(), sameComponent(), tooMany(), RepositoryComponent, RepositoryWorkspaceService
 
 ### Community 147 - "start-mongod.sh"
-Cohesion: 0.17
-Nodes (15): AuthenticationError, AuthUserDTO, checkApiKey(), ensureGoogleAudience(), findMatching(), getDataFromAuth0(), getDataFromGoogle(), getDataFromLocal() (+7 more)
+Cohesion: 0.11
+Nodes (26): AuthenticationError, authenticateAccessToken(), authenticateApiKey(), authenticateMcpRequest(), looksLikeJwt(), McpRequestHeaders, readBearer(), scopesForApiKeyRole() (+18 more)
 
 ### Community 148 - "start-redis.sh"
 Cohesion: 0.50
@@ -873,8 +872,8 @@ Cohesion: 0.09
 Nodes (22): app, error, name, page_title, back_home, generic, not_found, not_found_description (+14 more)
 
 ### Community 164 - "dashboard"
-Cohesion: 0.10
-Nodes (20): domainTools, buildDomain, context(), createDomain, createFrontend, deleteDomain, domain, getContext (+12 more)
+Cohesion: 0.11
+Nodes (19): buildDomain, context(), createDomain, createFrontend, deleteDomain, domain, getContext, getDomain (+11 more)
 
 ### Community 165 - "CreateApiKeyForm.tsx"
 Cohesion: 0.15
@@ -885,8 +884,8 @@ Cohesion: 0.10
 Nodes (20): deployments, active_deployments, backends_title, config_maps_title, deploy_button, deploying, env_variables_title, environment_select (+12 more)
 
 ### Community 167 - "dashboard"
-Cohesion: 0.06
-Nodes (36): IFrontendStack, FederationConfigRequest, FederationRemote, FRAMEWORK_PROFILES, FrameworkProfile, IntegrationInstructions, REQUIRED_DEV_DEPENDENCIES, remotes (+28 more)
+Cohesion: 0.07
+Nodes (37): IFrontendStack, FederationConfigRequest, FRAMEWORK_PROFILES, FrameworkProfile, IntegrationInstructions, REQUIRED_DEV_DEPENDENCIES, remotes, COMMIT_MESSAGES (+29 more)
 
 ### Community 168 - "theme"
 Cohesion: 0.13
@@ -901,12 +900,12 @@ Cohesion: 0.08
 Nodes (24): cta, description, hint, title, project, create, create_new, create_new_project (+16 more)
 
 ### Community 172 - "platform.json"
-Cohesion: 0.25
-Nodes (8): IResource, ensureNoReservedKey(), isDuplicateKeyError(), ResourceService, ResourceCustomField, ResourceType, ResourceDTO, ResourceFieldDTO
+Cohesion: 0.23
+Nodes (12): DeployedBackend, DeployedFrontend, DomainDeployments, EnvironmentDeployment, DomainDeploymentsMatrix(), filterRows(), matches(), DeployedVersion() (+4 more)
 
 ### Community 173 - "AssistantPanel.tsx"
-Cohesion: 0.08
-Nodes (20): AzureAccessTokenRequest, AzureAccessTokenResponse, AzureDevOpsBranch, AzureDevOpsBranchDTO, AzureDevOpsBuildsResponse, AzureDevOpsItem, AzureDevOpsPipeline, AzureDevOpsProject (+12 more)
+Cohesion: 0.06
+Nodes (41): AzureAccessTokenRequest, AzureAccessTokenResponse, AzureDevOpsBranch, AzureDevOpsBranchDTO, AzureDevOpsBuild, AzureDevOpsBuildsResponse, AzureDevOpsItem, AzureDevOpsPipeline (+33 more)
 
 ### Community 174 - "EmailSenderService"
 Cohesion: 0.14
@@ -917,8 +916,8 @@ Cohesion: 0.10
 Nodes (20): errors, branches_failed, deploy_token_failed, environments_without_branch, forbidden, gitops_required, lease_lost, name_clash (+12 more)
 
 ### Community 176 - "settings"
-Cohesion: 0.22
-Nodes (10): scaffoldTools, context(), createBackend, createFrontend, findCodeRepository, getDomain, getTemplate, run() (+2 more)
+Cohesion: 0.09
+Nodes (22): requiresConfirmation(), frontendTools, context(), principals, renameRepository, run(), tool(), localChangeTools (+14 more)
 
 ### Community 177 - "server.ts"
 Cohesion: 0.10
@@ -941,48 +940,44 @@ Cohesion: 0.12
 Nodes (15): Architecture Overview, Authentication & Authorization, Backend Controller Pattern, Backend Key Directories, Backend Service Pattern, Common Implementation Patterns, Critical Rules, Development Workflows (+7 more)
 
 ### Community 183 - "DeploymentController.ts"
-Cohesion: 0.04
-Nodes (76): aiChangeController(), applyBodySchema, createBodySchema, create, aiChangeJobSchema, promptImageSchema, aiChangeEventSchema, aiChangeRequestSchema (+68 more)
+Cohesion: 0.06
+Nodes (41): aiUsageController(), idParamsSchema, organizationParamsSchema, PeriodQuery, periodQuerySchema, projectParamsSchema, forBackend, forDomain (+33 more)
 
 ### Community 184 - "project_invitation"
-Cohesion: 0.15
-Nodes (12): UserCannotAccessThisProjectError, projectContentTools, bulkDelete, context(), createBulk, deleteMultiple, getFrontend, { principals, serviceClass } (+4 more)
+Cohesion: 0.20
+Nodes (11): projectContentTools, bulkDelete, context(), createBulk, deleteMultiple, getFrontend, { principals, serviceClass }, run() (+3 more)
 
 ### Community 185 - "project_invitation"
-Cohesion: 0.14
-Nodes (13): argoCdController(), IArgoCdRepositoryRegistration, IProjectArgoCd, ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdService, gitlabAddressOf(), holderOf() (+5 more)
+Cohesion: 0.15
+Nodes (13): IArgoCdRepositoryRegistration, ArgoCdService, gitlabAddressOf(), gitOpsRequired(), holderOf(), linksOf(), normalizeUrl(), registeredIn() (+5 more)
 
 ### Community 186 - "AzureStorageClient"
-Cohesion: 0.07
-Nodes (45): AiJobStatus, AiMission, AiMissionMode, AiMissionStatus, IAiMission, IAiMissionRepository, ACTIVE_JOB_STATUSES, isStale() (+37 more)
+Cohesion: 0.11
+Nodes (30): AiMission, AiMissionMode, AiMissionStatus, IAiMission, IAiMissionRepository, loggable(), onAiJobEnded(), AiMissionCreateInput (+22 more)
 
 ### Community 188 - "NpmRegistryClient.ts"
 Cohesion: 0.22
 Nodes (9): description, id, name, nameMinLength, nameRequired, slug, slugHint, title (+1 more)
 
 ### Community 189 - "stats"
-Cohesion: 0.18
-Nodes (16): authenticateAccessToken(), IOAuthRefreshToken, OAuthRefreshToken, oauthRefreshTokenSchema, getSecret(), consumeRefreshToken(), getMcpAccessTokenKey(), McpAccessTokenClaims (+8 more)
-
-### Community 190 - "marketing"
-Cohesion: 0.15
-Nodes (11): adm-zip, IFrontend, FrontendService, FrontendComponent, RepositoryComponentBase, forgetBackends(), forgetComponents(), forgetFrontends() (+3 more)
+Cohesion: 0.20
+Nodes (12): noFrontend(), scriptRepositoryOf(), StandalonePreviewService, tooManyRepositories(), unavailable(), localLocks, redisAvailable(), release() (+4 more)
 
 ### Community 191 - "card"
-Cohesion: 0.09
-Nodes (17): beamBetween(), canvasTexture(), CONSOLE_COLORS, deckPlates(), Departure, ELEVATION, hazard(), LIVERIES (+9 more)
+Cohesion: 0.13
+Nodes (16): beamBetween(), canvasTexture(), CONSOLE_COLORS, deckPlates(), Departure, ELEVATION, hazard(), LIVERIES (+8 more)
 
 ### Community 192 - "BaseAuthorizedService"
 Cohesion: 0.17
 Nodes (11): compilerOptions, allowJs, noImplicitAny, noUnusedLocals, noUnusedParameters, paths, skipLibCheck, strictNullChecks (+3 more)
 
 ### Community 193 - "DeploymentService"
-Cohesion: 0.15
-Nodes (5): deploymentController(), IDeployment, deployedMap(), DeploymentService, DeploymentDTO
+Cohesion: 0.19
+Nodes (3): IDeployment, deployedMap(), DeploymentService
 
 ### Community 194 - "microfrontend"
-Cohesion: 0.05
-Nodes (70): AI_CURRENCIES, AiModel, AiTokenCosts, IAiModel, AiJobListenerContext, AiModelCandidate, AiModelDetail, AiModelInput (+62 more)
+Cohesion: 0.07
+Nodes (51): AI_CURRENCIES, AiModel, aiModelSchema, AiTokenCosts, aiTokenCostsSchema, IAiModel, AiModelCandidate, AiModelInput (+43 more)
 
 ### Community 195 - "table"
 Cohesion: 0.12
@@ -993,8 +988,8 @@ Cohesion: 0.17
 Nodes (12): Anonymous telemetry 📡, Environment variables, Full precedence, How to check all of this yourself, How to turn it off, Our commitments, The installation id, What we never send (+4 more)
 
 ### Community 197 - "FederationConfigService"
-Cohesion: 0.10
-Nodes (21): description, integrate_button, integrate_dialog_description, integrate_dialog_title, integrate_nothing_to_do, integrate_partial, integrate_success, javascript_auto_note (+13 more)
+Cohesion: 0.13
+Nodes (15): description, integrate_button, integrate_dialog_description, integrate_dialog_title, integrate_nothing_to_do, integrate_partial, integrate_success, javascript_auto_note (+7 more)
 
 ### Community 198 - "ProjectUsers.tsx"
 Cohesion: 0.13
@@ -1010,23 +1005,23 @@ Nodes (21): description, integrate_button, integrate_dialog_description, integra
 
 ### Community 201 - "delete"
 Cohesion: 0.04
-Nodes (45): [1.2.0] - 2026-07-14, [2.0.0] - 2026-08-04, [2.2.0] - 2026-08-07, [5.1.0] - 2026-10-22, [8.1.0] - 2026-10-26, [8.1.1] - 2026-10-26, [8.1.2] - 2026-10-26, [8.2.0] - 2026-10-26 (+37 more)
+Nodes (45): [1.2.0] - 2026-07-14, [2.0.0] - 2026-08-04, [2.2.0] - 2026-08-07, [5.1.0] - 2026-10-22, [6.0.0] - 2026-10-23, [6.2.0] - 2026-10-23, [8.1.1] - 2026-10-26, [8.1.2] - 2026-10-26 (+37 more)
 
 ### Community 202 - "EmailSenderService"
-Cohesion: 0.16
-Nodes (18): AiUsageSummary(), AiUsageSummaryProps, BreakdownRow, SOURCES, CostChipProps, AiCurrency, AI_USAGE_PERIODS, AiUsageCost (+10 more)
+Cohesion: 0.22
+Nodes (15): AiUsageSummary(), AiUsageSummaryProps, BreakdownRow, SOURCES, AI_USAGE_PERIODS, AiUsagePeriod, AiUsageSource, AiUsageSummary (+7 more)
 
 ### Community 203 - "validation"
 Cohesion: 0.12
 Nodes (20): telemetryController(), logTelemetryNotice(), TelemetryService, fastify, FastifyContextConfig, FastifyMultipartRequest, FastifyReplyWithConfig, FastifyRequest (+12 more)
 
 ### Community 204 - "TelemetryService"
-Cohesion: 0.07
-Nodes (58): IBuiltBackend, IBuiltFrontend, IMaintenanceAgent, MaintenanceAgent, IMaintenanceRun, MaintenanceRun, maintenanceRunSchema, MaintenanceRunStatus (+50 more)
+Cohesion: 0.06
+Nodes (59): IBackend, IBuiltBackend, IBuiltFrontend, IFrontend, IMaintenanceAgent, MaintenanceAgent, IMaintenanceRun, MaintenanceRun (+51 more)
 
 ### Community 205 - "theme"
-Cohesion: 0.04
-Nodes (63): AzureBranchNotFoundError, fastify, CodeRepositoryProvider, CodeRepositoryType, ICodeRepository, ICodeRepositoryFrontend, IMarket, Organization (+55 more)
+Cohesion: 0.02
+Nodes (105): ArgoCdResource, AzureBranchNotFoundError, params, AddGroupSecretRequest, CheckGroupSecretExistsRequest, CommitAction, CommitFilesRequest, CreateRepositoryRequest (+97 more)
 
 ### Community 206 - "personalData"
 Cohesion: 0.14
@@ -1037,12 +1032,12 @@ Cohesion: 0.10
 Nodes (21): Anonymous telemetry 📡, Available commands, Contributing 🤝, Development URLs, Docker Compose, Documentation 📚, Environment variables 🔧, Everything in a single container 📦 (+13 more)
 
 ### Community 208 - "withRepositoryLock"
-Cohesion: 0.13
-Nodes (13): configMapId, entries, secretId, context(), create, getById, getByProjectId, { kinds } (+5 more)
+Cohesion: 0.22
+Nodes (9): context(), create, getById, getByProjectId, { kinds }, remove, run(), tool() (+1 more)
 
 ### Community 209 - "delete"
-Cohesion: 0.11
-Nodes (15): aiMissionController(), createBodySchema, idParamsSchema, ids, listQuerySchema, projectIdOf(), authorizationController(), GoogleTokenResponse (+7 more)
+Cohesion: 0.15
+Nodes (11): authorizationController(), GoogleTokenResponse, backendController(), configurationController(), frontendController(), serveController(), StartupUserRegistrationDTO, CreateRepositoryInput (+3 more)
 
 ### Community 210 - "build-docs-index.js"
 Cohesion: 0.23
@@ -1053,16 +1048,16 @@ Cohesion: 0.11
 Nodes (19): details, hint, invalid, label, subtitle, title, hint, label (+11 more)
 
 ### Community 212 - "NpmRegistryClient.ts"
-Cohesion: 0.17
-Nodes (12): scripts, build, dev, docs:index, format, lint, st, start (+4 more)
+Cohesion: 0.09
+Nodes (21): author, description, keywords, license, main, name, packageManager, scripts (+13 more)
 
 ### Community 213 - "MainLayout.tsx"
 Cohesion: 0.12
-Nodes (15): aiChange, aiJob, backendById, context, deploymentById, deploymentsOf, domainById, environmentById (+7 more)
+Nodes (14): aiChange, aiJob, backendById, context, deploymentById, deploymentsOf, domainById, environmentById (+6 more)
 
 ### Community 214 - "connectionTest.ts"
-Cohesion: 0.13
-Nodes (27): NpmPackageInfo, ManifestFile, ManifestSnapshot, PackageManifest, SECTION_BY_KIND, AlignmentApplyResultDTO, AlignmentApplyResultItemDTO, AlignmentPlanDTO (+19 more)
+Cohesion: 0.12
+Nodes (29): NpmPackageInfo, DEPENDENCY_SECTIONS, ManifestFile, PackageManifest, SECTION_BY_KIND, AlignmentApplyRequestDTO, AlignmentApplyResultDTO, AlignmentApplyResultItemDTO (+21 more)
 
 ### Community 215 - "DomainDeploymentsSection.tsx"
 Cohesion: 0.14
@@ -1072,29 +1067,33 @@ Nodes (14): delete, subtitle, title, button, description, dialog, confirmation, 
 Cohesion: 0.14
 Nodes (14): setup, applications, applicationsets, projects, repositories, account, controller, intro (+6 more)
 
+### Community 217 - "docsSearch.ts"
+Cohesion: 0.26
+Nodes (12): toModelContent(), projectDesignSystemOf(), toContextEntry(), describeDesignSystem(), designSystemForMcp(), designSystemsForMcp(), effectiveDesignSystem(), FIELDS (+4 more)
+
 ### Community 218 - "findComponents"
-Cohesion: 0.19
-Nodes (10): aiSandboxController(), organizationParamsSchema, StandalonePreviewService, OpenShellConfiguration, Probe, probeGateway(), sandboxGatewayStatus(), SandboxStatus (+2 more)
+Cohesion: 0.21
+Nodes (9): aiSandboxController(), organizationParamsSchema, OpenShellConfiguration, Probe, probeGateway(), sandboxGatewayStatus(), SandboxStatus, SandboxStatusService (+1 more)
 
 ### Community 219 - "assist"
-Cohesion: 0.25
-Nodes (5): FederationIntegrationService, isIntegrationModel(), globalVariablesScriptTag(), globalVariablesScriptUrl(), injectGlobalVariablesScript()
+Cohesion: 0.16
+Nodes (11): loadSharedProjects(), countBy(), FederationRemote, FederationIntegrationService, ManifestSnapshot, map, RepositoryTarget, isDependencyDeclared() (+3 more)
 
 ### Community 220 - "confirmationDetails.test.ts"
-Cohesion: 0.18
-Nodes (13): { json }, manifest(), isDependencyDeclared(), PackageManifest, serializePackageJson(), fieldText(), JsonObject, levelClass() (+5 more)
+Cohesion: 0.24
+Nodes (11): { json }, manifest(), getToken(), fieldText(), JsonObject, levelClass(), levelOf(), LogLine() (+3 more)
 
 ### Community 221 - "BaseAuthorizedService.test.ts"
-Cohesion: 0.39
-Nodes (6): buildController(), sleep(), getByProjectId, snapshot, openEventStream(), sendEvent()
+Cohesion: 0.23
+Nodes (10): Composer(), AssistantNewJobDialogProps, NewJobForm(), NewJobFormProps, EffortSelect(), EffortSelectProps, useEffort(), useProjectAiModels() (+2 more)
 
 ### Community 222 - "useAssistantChat.ts"
 Cohesion: 0.17
 Nodes (12): stats, accessTitle, apiKeys, codeRepositories, databases, environments, manage, mcpClients (+4 more)
 
 ### Community 223 - "UserService.test.ts"
-Cohesion: 0.09
-Nodes (16): calculateCost, chat, checkTokenLimit, conversations, draftProject, ensureCanChat, question, recordUsage (+8 more)
+Cohesion: 0.10
+Nodes (13): calculateCost, chat, checkTokenLimit, conversations, draftProject, ensureCanChat, question, recordUsage (+5 more)
 
 ### Community 224 - "server.test.ts"
 Cohesion: 0.25
@@ -1116,21 +1115,17 @@ Nodes (9): API Calls, Architecture, Development Commands, Frontend, Full Documen
 Cohesion: 0.17
 Nodes (12): stats, accessTitle, apiKeys, codeRepositories, databases, environments, manage, mcpClients (+4 more)
 
-### Community 230 - "AssistantController.test.ts"
-Cohesion: 0.20
-Nodes (15): consentWarnings(), hostnameOf(), parseRedirectUris(), describeRedirectHost(), FORBIDDEN_SCHEMES, isCustomScheme(), isLoopbackRedirect(), LOOPBACK_HOSTS (+7 more)
-
 ### Community 231 - "globalVariablesScript.ts"
-Cohesion: 0.10
-Nodes (19): parseApiDocument(), ensureValidApiSpec(), ensureValidValue(), isHttpUrl(), isPlainObject(), normalizeCustomFields(), normalizeField(), normalizeResourceFields() (+11 more)
+Cohesion: 0.39
+Nodes (3): IStorage, StorageService, StorageDTO
 
 ### Community 232 - "actions"
-Cohesion: 0.11
-Nodes (21): AiChangeJob, AiJobScope, IAiChangeJob, IAiChangeEvent, IDomain, agentRepository(), AiChangeJobService, AiJobView (+13 more)
+Cohesion: 0.17
+Nodes (10): AiChangeJob, IAiChangeJob, IAiChangeEvent, AiChangeJobService, expiry(), notDone(), sameRepositories(), toJobView() (+2 more)
 
 ### Community 233 - "MainLayout.tsx"
-Cohesion: 0.04
-Nodes (35): AuthTokenDataDTO, AssistantDisabledError, BusinessException, ErrorDetails, CustomError, RFC-6749, UserCannotAccessThisDeploymentError, UserCannotAccessThisOrganizationError (+27 more)
+Cohesion: 0.17
+Nodes (10): AuthTokenDataDTO, IUserDocument, User, userSchema, UserStatus, aMembership(), aUser(), FakeMembership (+2 more)
 
 ### Community 234 - ".isCanary"
 Cohesion: 0.20
@@ -1150,7 +1145,7 @@ Nodes (7): engines, node, name, packageManager, private, type, version
 
 ### Community 238 - "DeploymentService"
 Cohesion: 0.07
-Nodes (37): AiWorkingJob, BACKGROUND_STARS, Body, bodyColors(), brandPath(), brandPaths, ChargeForce, distanceToSegment() (+29 more)
+Nodes (39): resourceTypeGlyph(), AiWorkingJob, BACKGROUND_STARS, Body, bodyColors(), brandPath(), brandPaths, ChargeForce (+31 more)
 
 ### Community 239 - "error"
 Cohesion: 0.20
@@ -1165,44 +1160,40 @@ Cohesion: 0.13
 Nodes (16): backendTools, backendVersions, buildBackend, context(), createBackend, deleteBackend, findCodeRepository, getBackend (+8 more)
 
 ### Community 243 - "status"
-Cohesion: 0.06
-Nodes (52): AGENT_INSTRUCTION_FILES, agentLimitsFor(), AI_FIELD_LABELS, AI_PROVIDER_LABELS, AiChangeAgentDomain, AiChangeAgentFrontend, AiChangeAgentHooks, AiChangeAgentRepository (+44 more)
+Cohesion: 0.05
+Nodes (57): AGENT_INSTRUCTION_FILES, agentLimitsFor(), AI_CHANGE_LIMITS, AI_FIELD_LABELS, AI_PROVIDER_LABELS, AiChangeAgentDomain, AiChangeAgentFrontend, AiChangeAgentHooks (+49 more)
 
 ### Community 245 - "setup"
 Cohesion: 0.25
-Nodes (16): resource(), backend(), ResourceIcon(), ResourceIconProps, ResourceIconSource, BackendResourcesFields(), BackendResourcesSection(), valueIn() (+8 more)
+Nodes (7): allowProjectAccess(), backend(), HEAD, OLD, ref, user, { workingCopy, prepare, openPullRequest, ensureCanChangeProject, findComponent }
 
 ### Community 246 - "FrontendDependencyService"
-Cohesion: 0.18
+Cohesion: 0.15
 Nodes (7): IGlobalVariable, GlobalVariablesService, GetAllDataDTO, EnvironmentValue, GlobalVariableCreateDTO, GlobalVariableUpdateDTO, GlobalVariableDTO
 
 ### Community 247 - "status"
-Cohesion: 0.15
-Nodes (12): IStorage, IStorageAuth, StorageType, clientOf(), identityOf(), StorageClient, StorageService, s3 (+4 more)
+Cohesion: 0.11
+Nodes (18): AuthConfig, AzureStorageConfig, AuthConfig, GoogleStorageConfig, S3ClientConfig, IStorageAuth, Storage, STORAGE_SECRET_KEYS (+10 more)
 
 ### Community 248 - "status"
-Cohesion: 0.08
-Nodes (35): mcpController(), RFC-9728, UserCannotAccessThisEnvironmentError, buildWwwAuthenticate(), createMcpServer(), describeToolError(), MCP_TOOLS, McpProjectSelectionError (+27 more)
+Cohesion: 0.06
+Nodes (30): mcpController(), RFC-9728, CustomError, EnvironmentHeaderNotFoundError, InvalidCredentialsError, UserAlreadyExistsError, UserCannotAccessThisDeploymentError, UserCannotAccessThisEnvironmentError (+22 more)
 
 ### Community 249 - "TemplateScaffoldService.test.ts"
-Cohesion: 0.22
-Nodes (6): DEPENDENCY_SECTIONS, FrontendDependencyService, mapWithConcurrency(), AlignmentApplyRequestDTO, DependencyScanRequestDTO, FrontendAlignmentChangeDTO
+Cohesion: 0.30
+Nodes (3): FrontendDependencyService, mapWithConcurrency(), FrontendAlignmentChangeDTO
 
 ### Community 250 - "codeRepositoryUtils.ts"
-Cohesion: 0.15
-Nodes (23): authenticateApiKey(), authenticateMcpRequest(), looksLikeJwt(), McpAuthenticationResult, McpRequestHeaders, readBearer(), scopesForApiKeyRole(), RFC-9728 (+15 more)
+Cohesion: 0.33
+Nodes (9): cacheApiKeyCredential(), CachedApiKeyCredential, clearApiKeyCredentialCache(), getCachedApiKeyCredential(), invalidateApiKeyCredential(), memory, redisIndexKey(), redisKey() (+1 more)
 
 ### Community 251 - "CodeRepositoryImportService"
-Cohesion: 0.14
-Nodes (9): ConversationState, DEAD_PHASES, hasCode(), OpenShellClient, OpenShellSandboxes, OpenShellSdk, sandboxNameFor(), NAME (+1 more)
+Cohesion: 0.09
+Nodes (13): LocalSandbox, SandboxCommandResult, SandboxExecOptions, ConversationState, DEAD_PHASES, hasCode(), OpenShellClient, OpenShellCommandSandbox (+5 more)
 
 ### Community 252 - "NpmRegistryClient.ts"
-Cohesion: 0.19
-Nodes (14): OAuthClientWarning, OAuthDecisionResponse, OAuthProject, OAuthRequestDetails, OAuthScope, useOAuthApi(), useLogout(), OAuthConsent() (+6 more)
-
-### Community 253 - "AzureStorageClient"
-Cohesion: 0.11
-Nodes (10): AddGroupSecretRequest, CheckGroupSecretExistsRequest, CommitAction, CommitFilesRequest, CreateRepositoryRequest, GitLabBranch, GitLabDeployToken, GitLabGroup (+2 more)
+Cohesion: 0.26
+Nodes (11): OAuthClientWarning, OAuthDecisionResponse, OAuthRequestDetails, OAuthScope, useOAuthApi(), OAuthConsent(), WARNING_KEYS, KNOWN_CODES (+3 more)
 
 ### Community 254 - "resourceTools.test.ts"
 Cohesion: 0.24
@@ -1213,11 +1204,11 @@ Cohesion: 0.29
 Nodes (6): Dependencies, Reporting a Vulnerability, Secure Development, Security Policy, Security Updates, Supported Versions
 
 ### Community 256 - "LocalChangeService.test.ts"
-Cohesion: 0.09
-Nodes (21): author, description, devDependencies, tsx, @types/fs-extra, @types/jsonwebtoken, @types/mssql, @types/node (+13 more)
+Cohesion: 0.17
+Nodes (12): devDependencies, tsx, @types/fs-extra, @types/jsonwebtoken, @types/mssql, @types/node, @types/oracledb, @types/pg (+4 more)
 
 ### Community 257 - "scaffoldTools.test.ts"
-Cohesion: 0.29
+Cohesion: 0.31
 Nodes (3): BuildStatusService, CachedSnapshot, ProjectBuildStatusDTO
 
 ### Community 258 - "ConfigResponseDTO.ts"
@@ -1245,20 +1236,20 @@ Cohesion: 0.33
 Nodes (5): compilerOptions, noEmit, exclude, extends, include
 
 ### Community 264 - "[4.0.0] - 2026-08-27"
-Cohesion: 0.12
-Nodes (14): OAuthError, IOAuthAuthorizationCode, OAuthAuthorizationCode, oauthAuthorizationCodeSchema, RFC-6749, OAuthClientRegistrationType, buildRedirect(), ConsentRequestDTO (+6 more)
+Cohesion: 0.22
+Nodes (7): azureGetProjects, connection(), connectionId, gitlabClients, gitlabConnection(), Guards, storedTokenRequired
 
 ### Community 265 - "ProjectWizardService"
-Cohesion: 0.15
-Nodes (11): AzureDevOpsBuild, GithubWorkflowRun, GitLabPipeline, normalizeAzureStatus(), normalizeGithubStatus(), normalizeGitlabStatus(), shortenRef(), toAzureRun() (+3 more)
+Cohesion: 0.22
+Nodes (4): LEGACY, logger, mocks, MODELS
 
 ### Community 266 - "BaseAuthorizedService.test.ts"
-Cohesion: 0.13
-Nodes (17): mcpClientController(), aiUsageTools, context, forMember, ensureMcpEnabled(), MCP_CORS_OPTIONS, assertMcpConfigurationIsUsable(), getOAuthConfig() (+9 more)
+Cohesion: 0.21
+Nodes (11): MCP_CORS_OPTIONS, assertMcpConfigurationIsUsable(), parseBooleanFlag(), parseTrustProxy(), PLACEHOLDER_SECRETS, protectedResourceMetadataUrlFor(), redactOAuthUrl(), RFC-8707 (+3 more)
 
 ### Community 267 - "CodeRepositoryService.test.ts"
-Cohesion: 0.22
-Nodes (10): aToken(), callMcp(), ENVIRONMENT, grantState, listToolNames(), previousEnvironment, PROTOCOL_HEADERS, readJsonRpc() (+2 more)
+Cohesion: 0.08
+Nodes (27): ApiKey, ApiKeyRole, apiKeySchema, ApiKeyStatus, IApiKey, IApiKeyDocument, IBackendDeployment, FrontendDeployment (+19 more)
 
 ### Community 268 - "projectContext"
 Cohesion: 0.40
@@ -1269,16 +1260,12 @@ Cohesion: 0.40
 Nodes (5): [2.3.0] - 2026-08-11, Added, Changed, Documentation, Fixed
 
 ### Community 270 - "PromptImages.tsx"
-Cohesion: 0.36
-Nodes (6): IStandalonePreviewSession, StandalonePreviewSession, standalonePreviewSessionSchema, conversationState(), sandboxForJob(), sweepIdleSandboxes()
-
-### Community 271 - "Sidebar.tsx"
-Cohesion: 0.31
-Nodes (8): canonicalTimeZone(), DAYS, FIELDS, fieldValue(), isValidPart(), isValidSchedule(), MACROS, MONTHS
+Cohesion: 0.09
+Nodes (29): AiJobScope, IDomain, AiChangeAgentBackend, ACTIVE_JOB_STATUSES, AGENT_VISIBLE_FIELDS, agentRepository(), AiJobCreateInput, AiJobView (+21 more)
 
 ### Community 272 - "curl"
 Cohesion: 0.03
-Nodes (109): image(), ComponentWorkingAgents(), NO_JOBS, useWorkingAgentJobs(), useWorkingAgents(), useWorkingAgentsQuery(), WorkingAgentsIndicator(), WorkingAgentsIndicatorProps (+101 more)
+Nodes (135): ComponentWorkingAgents(), NO_JOBS, useWorkingAgentJobs(), useWorkingAgents(), useWorkingAgentsQuery(), WorkingAgentsIndicator(), WorkingAgentsIndicatorProps, navLinkClassName() (+127 more)
 
 ### Community 273 - "DomainDeploymentController.test.ts"
 Cohesion: 0.22
@@ -1289,44 +1276,48 @@ Cohesion: 0.40
 Nodes (5): [3.0.0] - 2026-08-16, Added, Changed, CI, Fixed
 
 ### Community 275 - "configurationTools.test.ts"
-Cohesion: 0.43
-Nodes (6): header(), splitName(), TarEntry, tarGz(), writeOctal(), writeString()
+Cohesion: 0.33
+Nodes (6): aiMissionController(), createBodySchema, idParamsSchema, ids, listQuerySchema, projectIdOf()
 
 ### Community 276 - "configurationTools.test.ts"
 Cohesion: 0.47
 Nodes (3): App(), broadcastMsalResponse(), isMsalResponse()
 
 ### Community 277 - "BuildStatusDTO.ts"
-Cohesion: 0.27
-Nodes (12): ENGINE_BRANDS, resourceBrand(), resourceEngine(), resourceIconUrl(), resourceTypeGlyph(), resourceTypeIcon(), TYPE_BRANDS, TYPE_ICON_MARKUP (+4 more)
+Cohesion: 0.38
+Nodes (5): AssistantMessageText(), COMPONENTS, isTrusted(), Link(), TRUSTED_HOSTS
 
 ### Community 278 - "ServeService.ts"
 Cohesion: 0.40
 Nodes (4): background_color, icons, name, theme_color
 
 ### Community 279 - "environmentFiles"
-Cohesion: 0.24
-Nodes (9): evaluate(), groupOver(), matches(), applicationListener(), EVERY_ADDRESS, ipAllowListMiddleware(), renderGateway(), tlsSecretName() (+1 more)
+Cohesion: 0.36
+Nodes (6): applicationListener(), EVERY_ADDRESS, gatewayName(), ipAllowListMiddleware(), renderGateway(), tlsSecretName()
 
 ### Community 280 - "tabs"
-Cohesion: 0.06
-Nodes (69): AuthenticationType, AuthenticationLayout(), CreateOrganizationForm(), CreateOrganizationFormProps, CreateOrganizationFormValues, OrganizationPickerListProps, InvitationKind, InvitationRow (+61 more)
+Cohesion: 0.05
+Nodes (80): AuthenticationLayout(), CreateOrganizationForm(), CreateOrganizationFormProps, CreateOrganizationFormValues, LivePreviewButton(), OrganizationPickerListProps, InvitationKind, InvitationRow (+72 more)
 
 ### Community 281 - "UserService.test.ts"
-Cohesion: 0.50
-Nodes (3): addUserToOrganizationByEmail, resendInvitation, updateRole
+Cohesion: 0.47
+Nodes (4): checkReplicaSet(), onConnected(), log, { runMigrations }
 
 ### Community 282 - "i18n.ts"
-Cohesion: 0.50
-Nodes (3): configSchema, Configuration, IConfiguration
+Cohesion: 0.40
+Nodes (5): query(), EntityPickerList(), OAuthProject, OAuthProjectsPicker(), OAuthProjectsPickerProps
 
 ### Community 283 - "account_activation"
-Cohesion: 0.10
-Nodes (5): AiChangeAgentRepositoryBase, AiChangeToolboxRepository, run(), startGitServer(), GitWorkingCopy
+Cohesion: 0.09
+Nodes (7): AiChangeAgentRepositoryBase, AiChangeToolboxRepository, isConnected(), run(), startGitServer(), GitWorkingCopy, FrontendFlow()
 
 ### Community 284 - "curl"
 Cohesion: 0.15
 Nodes (13): details, enabled, layout, placeholders, ref, refHint, refInvalid, refPlaceholder (+5 more)
+
+### Community 285 - "Exposure.ts"
+Cohesion: 0.33
+Nodes (6): integration, frontend_select_label, frontend_select_placeholder, sidebar_title, subtitle, title
 
 ### Community 286 - ".getEnvironmentFomRefererAndProjectId"
 Cohesion: 0.50
@@ -1337,8 +1328,8 @@ Cohesion: 0.50
 Nodes (4): description, success, title, account_activation
 
 ### Community 288 - "migrations.backends.test.ts"
-Cohesion: 0.07
-Nodes (29): checkReplicaSet(), onConnected(), log, { runMigrations }, AnyModel, LEGACY, logger, mocks (+21 more)
+Cohesion: 0.09
+Nodes (33): CODE_REPOSITORY_SECRET_PATHS, PROJECT_SECRET_PATHS, IVariableMapEntry, AiChangeRequestLinks, AnyModel, BackendWithInlineVariables, backfillAiChangeConversations(), conversationOf() (+25 more)
 
 ### Community 289 - "[2.1.0] - 2026-08-06"
 Cohesion: 0.22
@@ -1349,12 +1340,12 @@ Cohesion: 0.50
 Nodes (3): Costo di contesto, graphify, i18n
 
 ### Community 291 - "configurationTools.test.ts"
-Cohesion: 0.08
-Nodes (27): McpSession, McpToolContext, configurationTools, context(), getDatabase, getStorage, run(), testDatabase (+19 more)
+Cohesion: 0.09
+Nodes (22): McpSession, context(), getDatabase, getStorage, run(), testDatabase, testStorage, tool() (+14 more)
 
 ### Community 292 - "[5.1.0] - 2026-10-22"
-Cohesion: 0.67
-Nodes (3): [6.0.0] - 2026-10-23, Changed, Removed
+Cohesion: 0.70
+Nodes (3): globalVariablesScriptTag(), globalVariablesScriptUrl(), injectGlobalVariablesScript()
 
 ### Community 294 - "[7.0.0] - 2026-10-23"
 Cohesion: 0.40
@@ -1376,9 +1367,9 @@ Nodes (4): description, step2, title, curl
 Cohesion: 0.25
 Nodes (8): overlay, elapsed, hide, hide_hint, messages, pill, show, title
 
-### Community 303 - "StartupController.test.ts"
-Cohesion: 0.40
-Nodes (5): localChangeTools, { checkout, submit }, COMMIT, run(), tool()
+### Community 302 - "ArgoCdController.ts"
+Cohesion: 0.50
+Nodes (3): argoCdController(), ArgoCdInitializeInput, ArgoCdLogsInput
 
 ### Community 306 - "projectContext"
 Cohesion: 0.29
@@ -1390,7 +1381,7 @@ Nodes (4): Adding New Workflows, Available Workflows, E2E Tests (`e2e-tests.yml`
 
 ### Community 308 - "[6.2.0] - 2026-10-23"
 Cohesion: 0.50
-Nodes (4): [6.2.0] - 2026-10-23, Added, Changed, Fixed
+Nodes (4): [8.1.0] - 2026-10-26, Added, Changed, Fixed
 
 ### Community 309 - "status"
 Cohesion: 0.29
@@ -1413,60 +1404,64 @@ Cohesion: 0.67
 Nodes (3): columns, status, user
 
 ### Community 314 - "UserAlreadyExistsError"
-Cohesion: 0.39
-Nodes (9): environmentsOf(), environmentFiles(), environmentNamespace(), environmentSlug(), gatewayFilePath(), gitOpsFilePath(), namespaceFilePath(), renderNamespace() (+1 more)
+Cohesion: 0.50
+Nodes (4): description, success, title, account_activation
 
 ### Community 315 - "README.md"
 Cohesion: 0.13
 Nodes (11): AI providers, AIs of an organization, Notes per provider, Reasoning effort and visible reasoning, The console assistant, The system AI, Which AIs a project may use, Exposing environments through the Gateway API (+3 more)
 
+### Community 316 - "AccessProbe"
+Cohesion: 0.12
+Nodes (7): AccessProbe, anOrganization(), aUser(), FakeOrganizationMembership, FakeProjectMembership, newId(), RepositoryProbe
+
 ### Community 317 - "noSQL.ts"
 Cohesion: 0.40
 Nodes (5): [2.1.0] - 2026-08-06, Added, Changed, Documentation, Fixed
 
-### Community 318 - "projectContext"
-Cohesion: 0.33
-Nodes (4): IWizardProjectState, WizardProjectState, WizardProjectStateSchema, ProjectWizardService
-
 ### Community 319 - "AccessProbe"
 Cohesion: 0.06
-Nodes (18): DomainLink, domainLinkSchema, IDomainLink, BaseAuthorizedService, anOrganization(), aUser(), FakeOrganizationMembership, FakeProjectMembership (+10 more)
+Nodes (21): AcceptInvitationDTO, AddUserToOrganizationDTO, organizationUserController(), addUserToOrganizationByEmail, resendInvitation, updateRole, UpdateUserRoleDTO, IUserOrganization (+13 more)
 
 ### Community 320 - "backend_card"
 Cohesion: 0.67
 Nodes (3): no_version, version, backend_card
+
+### Community 321 - "[8.5.0] - 2026-10-27"
+Cohesion: 0.67
+Nodes (3): [8.5.0] - 2026-10-27, Added, Changed
 
 ### Community 326 - "[4.0.0] - 2026-08-27"
 Cohesion: 0.40
 Nodes (5): [4.0.0] - 2026-08-27, Added, Changed, Documentation, Fixed
 
 ### Community 332 - "GitHub Logo (Octocat Mark)"
-Cohesion: 0.05
-Nodes (51): query(), QueueItem(), QueueSection(), navLinkClassName(), WorkspaceHeaderProps, WorkspaceTab, ReadOnlyNote(), AssistantMessageText() (+43 more)
+Cohesion: 0.12
+Nodes (25): BackendBuildStatus, BuildRun, BuildStatus, BuildStatusEnvironment, BuildUnavailableReason, ComponentBuildStatus, FrontendBuildStatus, ProjectBuildStatus (+17 more)
 
 ### Community 334 - "DeploymentCanaryUsersController.ts"
-Cohesion: 0.21
-Nodes (11): clip(), describeConfirmation(), describeFrontend(), describeServed(), describeServedChanges(), DetailResolver, formatDate(), hostOf() (+3 more)
+Cohesion: 0.18
+Nodes (13): clip(), describeConfirmation(), describeFrontend(), describeServed(), describeServedChanges(), DetailResolver, formatDate(), hostOf() (+5 more)
 
 ## Knowledge Gaps
 - **3012 isolated node(s):** `description`, `main`, `start`, `st`, `dev` (+3007 more)
   These have ≤1 connection - possible missing edges or undocumented components.
-- **45 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
+- **50 thin communities (<3 nodes) omitted from report** — run `graphify query` to explore isolated nodes.
 
 ## Suggested Questions
 _Questions this graph is uniquely positioned to answer:_
 
-- **Why does `{ json }` connect `confirmationDetails.test.ts` to `Deployment Service & Models`, `UI Cards & Alerts`, `ProjectService.test.ts`, `Code Repositories UI`, `CodeRepositoryService.test.ts`, `BuildController.ts`, `Dialogs & Color Picker`, `start-mongod.sh`, `configurationTools.test.ts`, `ApiKeyService.ts`, `environmentFiles`, `Auth Wrappers & Context`, `Login & Social Buttons`, `GitHub Client Methods`, `Frontend Dev Dependencies`, `Azure DevOps Client Types`, `project`, `Environment List & Drag-Drop`, `delete`, `Error Handler Middleware`, `Project Wizard Service`, `Backend TSConfig`, `Code Repository Model`, `Telemetry Flags & Plugins`, `microfrontend`, `TelemetryService`, `DeploymentCanaryUsersController.ts`, `telemetry.ts`, `Multipart Plugin`, `BaseAuthorizedService.test.ts`, `[4.0.0] - 2026-08-27`, `Registration E2E Test`, `globalVariablesScript.ts`, `GoogleStorageClient`, `status`, `status`, `TemplateScaffoldService.test.ts`, `codeRepositoryUtils.ts`, `NpmRegistryClient.ts`?**
-  _High betweenness centrality (0.151) - this node is a cross-community bridge._
-- **Why does `toObjectId()` connect `ApiKeyService.ts` to `scaffoldTools.test.ts`, `common`, `[4.0.0] - 2026-08-27`, `Root Package Config`, `Project & Environment APIs`, `PromptImages.tsx`, `UI Inputs & Popover`, `start-redis.sh`, `Frontend API Client`, `Code Repository Service`, `Select & Environment Selector`, `Frontend Dev Dependencies`, `dashboard`, `Deployments & Variables API`, `platform.json`, `FrontendIntegration.tsx`, `Environment List & Drag-Drop`, `Telemetry Service & Config`, `Error Handler Middleware`, `DeploymentController.ts`, `project_invitation`, `AzureStorageClient`, `Backend TSConfig`, `stats`, `Telemetry Flags & Plugins`, `AccessProbe`, `marketing`, `DeploymentService`, `microfrontend`, `Frontend App Entry & Theme`, `projectContext`, `TelemetryService`, `theme`, `UserService`, `IMarket`, `Switch Component`, `assist`, `confirmationDetails.test.ts`, `app`, `AssistantController.test.ts`, `actions`, `MainLayout.tsx`, `Start Script`, `FrontendDependencyService`, `status`, `AzureStorageClient`?**
-  _High betweenness centrality (0.114) - this node is a cross-community bridge._
-- **Why does `map` connect `codeRepositoryUtils.ts` to `scaffoldTools.test.ts`, `common`, `deployments`, `ProjectService.test.ts`, `Azure Storage & Microfrontend Model`, `Dialogs & Color Picker`, `curl`, `quit-on-fatal.py`, `start-mongod.sh`, `BuildStatusDTO.ts`, `ApiKeyService.ts`, `Frontend API Client`, `Tabs Component`, `Frontend App TSConfig`, `Frontend Dev Dependencies`, `Deployments & Variables API`, `dashboard`, `platform.json`, `Environment List & Drag-Drop`, `DeploymentController.ts`, `Telemetry Flags & Plugins`, `card`, `DeploymentService`, `microfrontend`, `Backend Dev Dependencies`, `DeploymentCanaryUsersController.ts`, `GitHub Logo (Octocat Mark)`, `DeploymentCanaryUsersController.ts`, `App.tsx`, `connectionTest.ts`, `assist`, `AssistantController.test.ts`, `globalVariablesScript.ts`, `actions`, `MainLayout.tsx`, `Web App Manifest`, `DeploymentService`, `status`, `Start Script`, `TemplateScaffoldService.test.ts`?**
-  _High betweenness centrality (0.066) - this node is a cross-community bridge._
+- **Why does `{ json }` connect `confirmationDetails.test.ts` to `Deployment Service & Models`, `UI Cards & Alerts`, `ProjectService.test.ts`, `Code Repositories UI`, `Root Package Config`, `Project & Environment APIs`, `BuildController.ts`, `Dialogs & Color Picker`, `start-mongod.sh`, `configurationTools.test.ts`, `Auth Wrappers & Context`, `Login & Social Buttons`, `Frontend Dev Dependencies`, `Deployments & Variables API`, `Azure DevOps Client Types`, `project`, `E2E TSConfig`, `Environment List & Drag-Drop`, `Telemetry Service & Config`, `delete`, `useUserApi.ts`, `Project Wizard Service`, `Backend TSConfig`, `Code Repository Model`, `Telemetry Flags & Plugins`, `AccessProbe`, `microfrontend`, `TelemetryService`, `DeploymentCanaryUsersController.ts`, `telemetry.ts`, `docsSearch.ts`, `assist`, `Multipart Plugin`, `[4.0.0] - 2026-08-27`, `Registration E2E Test`, `Web App Manifest`, `GoogleStorageClient`, `status`, `status`, `TemplateScaffoldService.test.ts`, `codeRepositoryUtils.ts`?**
+  _High betweenness centrality (0.136) - this node is a cross-community bridge._
+- **Why does `toObjectId()` connect `AccessProbe` to `scaffoldTools.test.ts`, `Frontend Dependencies`, `common`, `Root Package Config`, `CodeRepositoryService.test.ts`, `Microfrontend Pages & API`, `Project & Environment APIs`, `PromptImages.tsx`, `UI Inputs & Popover`, `quit-on-fatal.py`, `start-redis.sh`, `ApiKeyService.ts`, `Auth Wrappers & Context`, `Code Repository Service`, `Select & Environment Selector`, `Frontend Dev Dependencies`, `dashboard`, `Deployments & Variables API`, `FrontendIntegration.tsx`, `AssistantPanel.tsx`, `Environment List & Drag-Drop`, `Telemetry Service & Config`, `Error Handler Middleware`, `DeploymentController.ts`, `project_invitation`, `AzureStorageClient`, `Backend TSConfig`, `stats`, `Telemetry Flags & Plugins`, `marketing`, `Frontend App Entry & Theme`, `DeploymentService`, `microfrontend`, `projectContext`, `TelemetryService`, `Switch.rhf.tsx`, `theme`, `DeploymentCanaryUsersController.ts`, `EnvironmentVariableForm.tsx`, `UserService`, `IMarket`, `docsSearch.ts`, `assist`, `Switch Component`, `confirmationDetails.test.ts`, `AssistantController.test.ts`, `globalVariablesScript.ts`, `actions`, `Start Script`, `FrontendDependencyService`, `status`, `AzureStorageClient`?**
+  _High betweenness centrality (0.109) - this node is a cross-community bridge._
+- **Why does `map` connect `assist` to `scaffoldTools.test.ts`, `common`, `deployments`, `Biome Configuration`, `GitHub Actions Workflows`, `Project & Environment APIs`, `PromptImages.tsx`, `Dialogs & Color Picker`, `curl`, `quit-on-fatal.py`, `start-mongod.sh`, `ApiKeyService.ts`, `Auth Wrappers & Context`, `i18n.ts`, `Tabs Component`, `Frontend App TSConfig`, `Frontend Dev Dependencies`, `Deployments & Variables API`, `dashboard`, `platform.json`, `Environment List & Drag-Drop`, `useUserApi.ts`, `Telemetry Flags & Plugins`, `Frontend App Entry & Theme`, `DeploymentService`, `microfrontend`, `Backend Dev Dependencies`, `DeploymentCanaryUsersController.ts`, `DeploymentCanaryUsersController.ts`, `App.tsx`, `connectionTest.ts`, `DeploymentService`, `status`, `TemplateScaffoldService.test.ts`, `codeRepositoryUtils.ts`?**
+  _High betweenness centrality (0.068) - this node is a cross-community bridge._
 - **Are the 5 inferred relationships involving `toObjectId()` (e.g. with `.getRepositoriesById()` and `.build()`) actually correct?**
   _`toObjectId()` has 5 INFERRED edges - model-reasoned connections that need verification._
 - **What connects `description`, `main`, `start` to the rest of the system?**
   _3015 weakly-connected nodes found - possible documentation gaps or missing edges._
+- **Should `Frontend Dependencies` be split into smaller, more focused modules?**
+  _Cohesion score 0.07428571428571429 - nodes in this community are weakly interconnected._
 - **Should `Backend Error Types` be split into smaller, more focused modules?**
   _Cohesion score 0.09538461538461539 - nodes in this community are weakly interconnected._
-- **Should `Cloud Storage & Project Controllers` be split into smaller, more focused modules?**
-  _Cohesion score 0.04081632653061224 - nodes in this community are weakly interconnected._
