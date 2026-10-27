@@ -1748,7 +1748,7 @@
         "steps": {
             "name": "Name",
             "environments": "Environments",
-            "storages": "Storage",
+            "domains": "Domains",
             "repositories": "Repositories",
             "collaborators": "Collaborators"
         },
@@ -1757,6 +1757,14 @@
             "skip": "Skip",
             "next": "Continue",
             "loading": "Please wait…"
+        },
+        "start": {
+            "title": "How do you want to start?",
+            "description": "You can tell the assistant about the project, and it proposes environments and functional domains, or set everything up step by step.",
+            "assistant_title": "Describe the project and let the assistant draft it",
+            "assistant_description": "A short conversation: it asks how many environments you need, explores the functional domains with you and prepares a proposal. You review everything before the project is created.",
+            "manual_title": "Set it up step by step",
+            "manual_description": "Name, environments, functional domains, repositories and collaborators, one step at a time."
         },
         "main_data": {
             "title": "Let's name your project",
@@ -1774,11 +1782,17 @@
             "title": "Configure environments",
             "description": "Environments (e.g. development, production) let you manage different versions of your frontends. Choose a preset or customize them, then save."
         },
-        "hosting": {
-            "title": "Where do we host your frontends?",
-            "description": "Connect a storage bucket to deploy your bundles. You can skip this step and configure it later.",
-            "alert_title": "This step is not essential",
-            "alert_description": "If you skip it and don't connect any cloud, frontend bundles will still be hosted directly by Flightroom. You can connect an external storage at any time from the project settings.",
+        "domains": {
+            "title": "Define the functional domains",
+            "description": "Domains group frontends and backends by business area (e.g. Customer area, Payments, Back office), so you can build and release them together.",
+            "skippable_note": "No rush: you can create domains and assign frontends and backends at any time from the Domains section.",
+            "name_label": "Domain name",
+            "name_placeholder": "E.g. Customer area",
+            "description_label": "Domain description",
+            "description_placeholder": "What does this domain cover? (optional)",
+            "add": "Add domain",
+            "remove": "Remove domain",
+            "duplicate_name": "Duplicate domain: {{name}}",
             "submit": "Save and continue"
         },
         "code_repositories": {
@@ -1812,27 +1826,27 @@
             "add_frontend": "Add frontend"
         },
         "ai_draft": {
-            "title": "Describe the project and let the assistant draft it",
-            "description": "Describe what you want to build in your own words: the assistant proposes a name, a description and the environments. You review everything before confirming each step.",
-            "placeholder": "E.g. A customer portal made of three React frontends, with development, staging and production environments, bundles on AWS S3 and code on GitHub.",
-            "submit": "Generate a proposal",
-            "loading": "Preparing the proposal…",
+            "title": "Tell me about the project",
+            "description": "Answer the assistant's questions: it proposes a name, the environments and the functional domains. Once you like the proposal, use it to fill the wizard and review every step.",
+            "placeholder": "E.g. A customer portal made of three React frontends, with the code on GitHub.",
+            "loading": "Thinking…",
             "error": "I could not generate a proposal. You can fill in the fields by hand.",
-            "applied_title": "Proposal applied",
-            "applied_environments": "Environments proposed for the next step: {{environments}}.",
-            "suggested_storage": "Suggested storage: {{storage}}.",
+            "applied_title": "The assistant's proposal",
             "suggested_repository": "Suggested repository: {{repository}}.",
-            "storage": {
-                "AWS_S3": "AWS S3",
-                "GOOGLE_CLOUD_STORAGE": "Google Cloud Storage",
-                "AZURE_BLOB_STORAGE": "Azure Blob Storage"
-            },
             "repository": {
                 "GITHUB": "GitHub",
                 "GITLAB": "GitLab",
                 "AZURE_DEV_OPS": "Azure DevOps"
             },
-            "provider_error": "The AI provider answered with an error: try again shortly, or fill in the fields by hand."
+            "provider_error": "The AI provider answered with an error: try again shortly, or fill in the fields by hand.",
+            "greeting": "Hi! Tell me what you want to build: what is the project for, and who will use it?",
+            "reply_placeholder": "Answer, or pick one of the suggestions",
+            "input_label": "Message to the assistant",
+            "send": "Send",
+            "manual": "I'd rather fill in the wizard",
+            "use": "Use this proposal",
+            "proposal_title": "Proposal",
+            "applied_description": "Name, environments and functional domains are already filled in with the proposal: review them and confirm each step."
         }
     },
     "dependencies": {

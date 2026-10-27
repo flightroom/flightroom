@@ -1,19 +1,24 @@
-import { Database, FolderPlus, GitBranch, Layers, Users, X } from "lucide-react"
+import { useQuery } from "@tanstack/react-query"
+import { Boxes, FolderPlus, GitBranch, Layers, Users, X } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import MainLogo from "@/components/MainLogo"
 import PageHead from "@/components/PageHead"
+import useAiModelsApi, { AVAILABLE_AI_MODELS_QUERY_KEY } from "@/hooks/apiClients/useAiModelsApi"
 import { ProjectDraft } from "@/hooks/apiClients/useAssistantApi"
 import { Project } from "@/hooks/apiClients/useProjectApi"
 import useBranding from "@/hooks/useBranding"
+import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import CodeRepositories from "./pages/CodeRepositories"
 import Completed from "./pages/Completed"
+import Domains from "./pages/Domains"
 import Environments from "./pages/Environments"
-import Hosting from "./pages/Hosting"
 import MainData from "./pages/MainData"
+import ProjectDraftAssistant from "./pages/ProjectDraftAssistant"
+import StartChoice from "./pages/StartChoice"
 import TeamMates from "./pages/TeamMates"
 import { WizardStepMeta, WizardStepper } from "./pages/wizardShared"
 
@@ -23,6 +28,9 @@ export interface NewProjectWizardProps {
     onComplete?: () => void
 }
 
+/** choose: describe the project to the assistant or fill the steps by hand; assistant: the conversation; steps: the wizard */
+type Mode = "choose" | "assistant" | "steps"
+
 const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ onComplete }) => {
     const { t } = useTranslation()
     const branding = useBranding()
@@ -31,16 +39,31 @@ const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ onComplete }) => {
     const STEPS: WizardStepMeta[] = [
         { key: "name", label: t("newProjectWizard.steps.name"), icon: <FolderPlus className="size-5" /> },
         { key: "environments", label: t("newProjectWizard.steps.environments"), icon: <Layers className="size-5" /> },
-        { key: "storages", label: t("newProjectWizard.steps.storages"), icon: <Database className="size-5" /> },
+        { key: "domains", label: t("newProjectWizard.steps.domains"), icon: <Boxes className="size-5" /> },
         { key: "repositories", label: t("newProjectWizard.steps.repositories"), icon: <GitBranch className="size-5" /> },
         { key: "collaborators", label: t("newProjectWizard.steps.collaborators"), icon: <Users className="size-5" /> }
     ]
     const embedded = Boolean(onComplete)
     const projectStore = useProjectStore()
+    const organizationId = useOrganizationStore(state => state.organization?._id)
+    const aiModelsApi = useAiModelsApi()
+    const [chosenMode, setChosenMode] = useState<Mode>()
     const [stepIndex, setStepIndex] = useState(0)
     const [completed, setCompleted] = useState(false)
     const [project, setProject] = useState<Project>()
     const [draft, setDraft] = useState<ProjectDraft>()
+
+    // The project does not exist yet: the AIs are those of the organization it will belong to, and the draft takes its default.
+    const availableQuery = useQuery({
+        queryKey: [AVAILABLE_AI_MODELS_QUERY_KEY, "organization", organizationId],
+        queryFn: () => aiModelsApi.availableForOrganization(organizationId!, { silent: true }),
+        enabled: Boolean(organizationId)
+    })
+    const assistantAvailable = Boolean(organizationId) && Boolean(availableQuery.data?.models.length)
+    const checkingAssistant = Boolean(organizationId) && availableQuery.isPending
+    // Without an AI there is nothing to choose: the wizard starts at once.
+    const defaultMode: Mode = assistantAvailable ? "choose" : "steps"
+    const mode: Mode | undefined = chosenMode ?? (checkingAssistant ? undefined : defaultMode)
 
     const goNext = () => setStepIndex(i => Math.min(i + 1, STEPS.length - 1))
     const goBack = () => setStepIndex(i => Math.max(i - 1, 0))
@@ -56,11 +79,11 @@ const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ onComplete }) => {
     const renderStep = () => {
         switch (stepIndex) {
             case 0:
-                return <MainData project={project} onCreated={onCreated} onNext={goNext} isFirst draft={draft} onDraft={setDraft} />
+                return <MainData project={project} onCreated={onCreated} onNext={goNext} isFirst draft={draft} />
             case 1:
                 return <Environments project={project} onNext={goNext} onBack={goBack} draft={draft} />
             case 2:
-                return <Hosting project={project} onNext={goNext} onBack={goBack} onSkip={goNext} />
+                return <Domains project={project} onNext={goNext} onBack={goBack} onSkip={goNext} draft={draft} />
             case 3:
                 return <CodeRepositories project={project} onNext={goNext} onBack={goBack} onSkip={goNext} />
             case 4:
@@ -68,6 +91,33 @@ const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ onComplete }) => {
             default:
                 return null
         }
+    }
+
+    const renderBody = () => {
+        if (completed) return <Completed project={project} onNext={() => undefined} onDone={onComplete} />
+        if (mode === "choose") return <StartChoice onAssistant={() => setChosenMode("assistant")} onManual={() => setChosenMode("steps")} />
+        if (mode === "assistant" && organizationId) {
+            return (
+                <ProjectDraftAssistant
+                    organizationId={organizationId}
+                    aiModelId={availableQuery.data?.defaultId}
+                    onUse={proposal => {
+                        setDraft(proposal)
+                        setChosenMode("steps")
+                    }}
+                    onManual={() => setChosenMode("steps")}
+                />
+            )
+        }
+        if (mode === "steps") {
+            return (
+                <>
+                    <WizardStepper steps={STEPS} current={stepIndex} />
+                    {renderStep()}
+                </>
+            )
+        }
+        return null
     }
 
     return (
@@ -94,14 +144,7 @@ const NewProjectWizard: React.FC<NewProjectWizardProps> = ({ onComplete }) => {
                     )}
                 </header>
 
-                {completed ? (
-                    <Completed project={project} onNext={() => undefined} onDone={onComplete} />
-                ) : (
-                    <>
-                        <WizardStepper steps={STEPS} current={stepIndex} />
-                        {renderStep()}
-                    </>
-                )}
+                {renderBody()}
             </div>
         </div>
     )

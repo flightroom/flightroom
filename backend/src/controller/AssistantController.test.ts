@@ -331,21 +331,26 @@ describe("AssistantController", () => {
     })
 
     it("Given a project description, when a draft is asked, then the draft is returned", async () => {
-        draftProject.mockResolvedValue({ name: "Portal", description: "", environments: [], storage: "NONE", codeRepository: "NONE", notes: "" })
+        draftProject.mockResolvedValue({
+            reply: "How many environments?",
+            options: [],
+            ready: false,
+            draft: { name: "Portal", description: "", environments: [], domains: [], codeRepository: "NONE", notes: "" }
+        })
 
         const response = await app.inject({
             method: "POST",
             url: "/assistant/project-draft",
-            payload: { organizationId: "64b7f0c2a1b2c3d4e5f60719", description: "A portal", locale: "it", aiModelId: "system" }
+            payload: { organizationId: "64b7f0c2a1b2c3d4e5f60719", messages: [{ role: "user", content: "A portal" }], locale: "it", aiModelId: "system" }
         })
 
         expect(response.statusCode).toBe(200)
-        expect(response.json().name).toBe("Portal")
-        expect(draftProject).toHaveBeenCalledWith("64b7f0c2a1b2c3d4e5f60719", "A portal", "it", "system")
+        expect(response.json().draft.name).toBe("Portal")
+        expect(draftProject).toHaveBeenCalledWith("64b7f0c2a1b2c3d4e5f60719", [{ role: "user", content: "A portal" }], "it", "system")
     })
 
     it("Given a draft asked without the organization, when it is sent, then it is rejected: the AIs are the organization's", async () => {
-        const response = await app.inject({ method: "POST", url: "/assistant/project-draft", payload: { description: "A portal", locale: "it" } })
+        const response = await app.inject({ method: "POST", url: "/assistant/project-draft", payload: { messages: [{ role: "user", content: "A portal" }], locale: "it" } })
 
         expect(response.statusCode).toBe(400)
         expect(draftProject).not.toHaveBeenCalled()

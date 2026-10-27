@@ -430,18 +430,50 @@ describe("AssistantService", () => {
         })
     })
 
-    it("Given a project description, when a draft is asked, then the structured answer is parsed", async () => {
-        const draft = {
-            name: "Customer portal",
-            description: "Self-service area",
-            environments: [{ name: "Production", slug: "prod", isProduction: true, color: "#DC2626" }],
-            storage: "AWS_S3",
-            codeRepository: "GITHUB",
-            notes: ""
+    it("Given a conversation about a new project, when the next answer is asked, then the structured answer is parsed", async () => {
+        const turn = {
+            reply: "Which domains does the portal cover?",
+            options: ["Customer area", "Payments"],
+            ready: false,
+            draft: {
+                name: "Customer portal",
+                description: "Self-service area",
+                environments: [{ name: "Production", slug: "prod", isProduction: true, color: "#DC2626" }],
+                domains: [{ name: "Customer area", description: "What customers do on their own" }],
+                codeRepository: "GITHUB",
+                notes: ""
+            }
         }
-        create.mockResolvedValue({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(draft) }] })
+        create.mockResolvedValue({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(turn) }] })
 
-        await expect(new AssistantService(user, { ANTHROPIC_API_KEY: "test-key" }).draftProject(ORGANIZATION, "A portal on AWS, code on GitHub", "en")).resolves.toEqual(draft)
+        await expect(new AssistantService(user, { ANTHROPIC_API_KEY: "test-key" }).draftProject(ORGANIZATION, [{ role: "user", content: "A portal, code on GitHub" }], "en")).resolves.toEqual(turn)
         expect(create.mock.calls[0][0].output_config.format.type).toBe("json_schema")
+        expect(JSON.stringify(create.mock.calls[0][0].messages)).toContain("user: A portal, code on GitHub")
+    })
+
+    it("Given an answer with odd slugs, colors and blank domains, when it is parsed, then they are normalised before reaching the wizard", async () => {
+        const turn = {
+            reply: "Ok",
+            options: ["a", "b", "c", "d", "e", " "],
+            ready: true,
+            draft: {
+                name: "Portal",
+                description: "",
+                environments: [{ name: "Staging Env", slug: "", isProduction: false, color: "blue" }],
+                domains: [
+                    { name: " ", description: "" },
+                    { name: "Payments", description: "" }
+                ],
+                codeRepository: "NONE",
+                notes: ""
+            }
+        }
+        create.mockResolvedValue({ stop_reason: "end_turn", content: [{ type: "text", text: JSON.stringify(turn) }] })
+
+        const parsed = await new AssistantService(user, { ANTHROPIC_API_KEY: "test-key" }).draftProject(ORGANIZATION, [{ role: "user", content: "A portal" }], "en")
+
+        expect(parsed?.options).toEqual(["a", "b", "c", "d"])
+        expect(parsed?.draft.environments).toEqual([{ name: "Staging Env", slug: "staging-env", isProduction: false, color: "#60A5FA" }])
+        expect(parsed?.draft.domains).toEqual([{ name: "Payments", description: "" }])
     })
 })

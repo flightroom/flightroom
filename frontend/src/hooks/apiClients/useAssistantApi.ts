@@ -10,9 +10,29 @@ export interface ProjectDraft {
         isProduction: boolean
         color: string
     }[]
-    storage: "NONE" | "AWS_S3" | "GOOGLE_CLOUD_STORAGE" | "AZURE_BLOB_STORAGE"
+    /** The functional domains the frontends and backends will be grouped in */
+    domains: {
+        name: string
+        description: string
+    }[]
     codeRepository: "NONE" | "GITHUB" | "GITLAB" | "AZURE_DEV_OPS"
     notes: string
+}
+
+export interface ProjectDraftMessage {
+    role: "user" | "assistant"
+    content: string
+}
+
+/** One answer of the assistant while it shapes a new project with the user */
+export interface ProjectDraftTurn {
+    /** A question, or a proposal to confirm */
+    reply: string
+    /** Short answers the user can pick instead of typing */
+    options: string[]
+    /** The draft covers the name, the environments and the domains */
+    ready: boolean
+    draft: ProjectDraft
 }
 
 /** An entry of the assistant's history on the project open in the console. */
@@ -30,14 +50,14 @@ const useAssistantApi = () => {
     const apiClient = useApiClient()
 
     /**
-     * A draft of a new project from a free-text description, with an AI of `organizationId`, the organization the
+     * The next answer of the conversation that drafts a new project, with an AI of `organizationId`, the organization the
      * project will belong to. The chat itself streams, see useAssistantChat.
      */
-    const draftProject = async (description: string, locale: string, organizationId: string, aiModelId?: string): Promise<ProjectDraft> => {
-        const response = await apiClient.doRequest<ProjectDraft>({
+    const draftProject = async (messages: ProjectDraftMessage[], locale: string, organizationId: string, aiModelId?: string): Promise<ProjectDraftTurn> => {
+        const response = await apiClient.doRequest<ProjectDraftTurn>({
             url: "/api/assistant/project-draft",
             method: "POST",
-            data: { description, locale, organizationId, aiModelId },
+            data: { messages, locale, organizationId, aiModelId },
             silent: true
         })
         return response.data
