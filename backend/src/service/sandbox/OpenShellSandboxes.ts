@@ -292,8 +292,29 @@ export class OpenShellSandboxes {
                 if (!hasCode(error, "already_exists")) throw error
             })
         }
-        await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace })
+        await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace }).catch(error => this.unready(client, name, error))
         return new OpenShellCommandSandbox(client, name, workspace, this.config.OPENSHELL_SANDBOX_ROOT || OPENSHELL_DEFAULTS.root)
+    }
+
+    /**
+     * A sandbox that never became ready, stuck provisioning on a node that cannot run it, would be waited
+     * for again by every next attempt: its name is the conversation's. It is deleted, so the next attempt
+     * creates a new one, and the error says the phase it was left in. A ready one is kept: only the wait failed.
+     */
+    private async unready(client: OpenShellClient, name: string, error: unknown): Promise<never> {
+        const workspace = this.workspace
+        const phase = await client.sandbox.get(name, { workspace }).then(
+            sandbox => sandbox.phase,
+            () => undefined
+        )
+        if (phase === "ready") throw error
+        try {
+            await client.sandbox.delete(name, { workspace, allowMissing: true })
+        } catch {
+            // The next attempt finds it still stuck, and tries again
+        }
+        const reason = error instanceof Error ? error.message : String(error)
+        throw new Error(`Sandbox ${name} was not ready (phase: ${phase ?? "unknown"}), it was deleted for the next attempt: ${reason}`, { cause: error })
     }
 
     /** What the gateway says of itself: connecting makes no call, this is the one that reaches it. */
