@@ -49,6 +49,7 @@ import { useEffort, useFollowUpAiModel, useFollowUpEffort } from "@/components/a
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import type { IBadgeProps } from "@/components/atoms"
 import { Badge, Button } from "@/components/atoms"
+import Mascot from "@/components/mascot/Mascot"
 import RepositoryLink from "@/components/RepositoryLink"
 import useAiChangesApi, { AI_CHANGE_ACTIVE_STATUSES, AiChangeFile, AiChangeRequest, AiChangeStatus, AiChangeTarget } from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob, AiJobRepository, isAiJobActive } from "@/hooks/apiClients/useAiJobsApi"
@@ -1349,11 +1350,17 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
         >
             <Card className="border-primary/40 bg-gradient-to-br from-primary/5 via-transparent to-transparent">
                 <CardHeader>
-                    <CardTitle className="mb-0 flex items-center gap-2 break-words text-xl">
-                        <Sparkles className="size-5 shrink-0 text-primary-strong" aria-hidden="true" />
-                        {t("frontend.aiChange.composer_title", { name })}
-                    </CardTitle>
-                    <CardDescription>{t("frontend.aiChange.description", { context })}</CardDescription>
+                    <div className="flex items-center gap-4">
+                        <div className="flex min-w-0 flex-1 flex-col gap-1">
+                            <CardTitle className="mb-0 flex items-center gap-2 break-words text-xl">
+                                <Sparkles className="size-5 shrink-0 text-primary-strong" aria-hidden="true" />
+                                {t("frontend.aiChange.composer_title", { name })}
+                            </CardTitle>
+                            <CardDescription>{t("frontend.aiChange.description", { context })}</CardDescription>
+                        </div>
+                        {/* Vega, ready to code: it picks up the wrench once the request is on its way */}
+                        <Mascot mood={busy ? "working" : "coding"} className="size-24 shrink-0 max-sm:hidden" />
+                    </div>
                 </CardHeader>
                 <CardContent className="flex flex-col gap-4 pt-3">
                     {extension?.context}

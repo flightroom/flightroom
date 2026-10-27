@@ -1,7 +1,7 @@
 import { useId } from "react"
 import { cn } from "@/utils/styleUtils"
 
-export type MascotMood = "idle" | "working" | "deploying" | "analyzing"
+export type MascotMood = "idle" | "coding" | "working" | "deploying" | "analyzing"
 
 interface MascotProps {
     mood?: MascotMood
@@ -33,6 +33,7 @@ const COLORS = {
 /** Each mood is framed like its pose in Figma: the body stays in the same place, the room around it changes. */
 const VIEW_BOX: Record<MascotMood, string> = {
     idle: "-64 -64 640 640",
+    coding: "-40 -100 640 640",
     working: "-40 -100 640 640",
     deploying: "-64 0 640 640",
     analyzing: "-64 -64 640 640"
@@ -56,6 +57,9 @@ const ANIMATIONS = `
     .mascot-beam { animation: mascot-beam 1.4s ease-in-out infinite alternate; }
     .mascot-lens { animation: mascot-lens 3.2s ease-in-out infinite; }
     .mascot-scan { animation: mascot-scan 1.8s ease-in-out infinite; }
+    .mascot-type { animation: mascot-type 4s ease-out infinite both; transform-box: fill-box; transform-origin: 0% 50%; }
+    .mascot-cursor { animation: mascot-cursor 1s steps(1) infinite; }
+    .mascot-glance { animation: mascot-glance 4s ease-in-out infinite; }
 }
 @keyframes mascot-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-10px); } }
 @keyframes mascot-fin-back { 0%, 100% { transform: rotate(0deg); } 50% { transform: rotate(10deg); } }
@@ -71,11 +75,18 @@ const ANIMATIONS = `
 @keyframes mascot-beam { from { opacity: 0.55; } to { opacity: 1; } }
 @keyframes mascot-lens { 0%, 100% { transform: translate(0, 0); } 33% { transform: translate(8px, -5px); } 66% { transform: translate(-6px, 4px); } }
 @keyframes mascot-scan { 0%, 100% { opacity: 0.15; } 50% { opacity: 0.8; } }
+@keyframes mascot-type { 0% { opacity: 1; transform: scaleX(0); } 12%, 80% { opacity: 1; transform: scaleX(1); } 92%, 100% { opacity: 0; transform: scaleX(1); } }
+@keyframes mascot-cursor { 0% { opacity: 1; } 50% { opacity: 0; } }
+@keyframes mascot-glance { 0%, 100% { transform: translate(0, 0); } 40%, 70% { transform: translate(7px, -5px); } }
 `
 
 /** The radii of the left and right eye: narrowed at work, the right one bigger behind the magnifying glass. */
 const EYES: Record<Exclude<MascotMood, "deploying">, [{ rx: number; ry: number }, { rx: number; ry: number }]> = {
     idle: [
+        { rx: 14, ry: 22 },
+        { rx: 14, ry: 22 }
+    ],
+    coding: [
         { rx: 14, ry: 22 },
         { rx: 14, ry: 22 }
     ],
@@ -101,12 +112,39 @@ const Eyes: React.FC<{ mood: MascotMood }> = ({ mood }) => {
     }
     const [left, right] = EYES[mood]
     return (
-        <g className="mascot-blink" fill={COLORS.eye}>
-            <ellipse cx={194} cy={256} rx={left.rx} ry={left.ry} />
-            <ellipse cx={260} cy={256} rx={right.rx} ry={right.ry} />
+        // Ready to code, it keeps glancing at its editor
+        <g className={mood === "coding" ? "mascot-glance" : undefined}>
+            <g className="mascot-blink" fill={COLORS.eye}>
+                <ellipse cx={194} cy={256} rx={left.rx} ry={left.ry} />
+                <ellipse cx={260} cy={256} rx={right.rx} ry={right.ry} />
+            </g>
         </g>
     )
 }
+
+const CODE_LINES = [
+    { x: 380, y: -30, width: 120, color: COLORS.body, delay: 0 },
+    { x: 404, y: -6, width: 96, color: COLORS.eye, delay: 0.5 },
+    { x: 404, y: 18, width: 140, color: COLORS.fin[0], delay: 1 },
+    { x: 380, y: 42, width: 72, color: COLORS.eye, delay: 1.5 }
+]
+
+/** A small editor the beam projects next to it: the lines type themselves out, the cursor blinks. */
+const Coding: React.FC<{ id: string }> = ({ id }) => (
+    <g>
+        <path className="mascot-beam" d="M290 200 L372 82 L440 82 L308 220 Z" fill={`url(#${id}-beam)`} />
+        <g className="mascot-float">
+            <rect x={356} y={-78} width={228} height={160} rx={18} fill={COLORS.navy} fillOpacity={0.88} stroke={COLORS.light} strokeOpacity={0.7} strokeWidth={3} />
+            {[COLORS.body, "#FFC24D", COLORS.eye].map((color, index) => (
+                <circle key={color} cx={380 + index * 18} cy={-56} r={5} fill={color} />
+            ))}
+            {CODE_LINES.map(line => (
+                <rect key={line.y} className="mascot-type" style={{ animationDelay: `${line.delay}s` }} x={line.x} y={line.y} width={line.width} height={10} rx={5} fill={line.color} />
+            ))}
+            <rect className="mascot-cursor" x={460} y={36} width={5} height={22} rx={2} fill={COLORS.lightCore} />
+        </g>
+    </g>
+)
 
 /** The wrench, held by the beam and turning a bolt with its jaw. */
 const Wrench: React.FC<{ id: string }> = ({ id }) => (
@@ -299,6 +337,7 @@ export const Mascot: React.FC<MascotProps> = ({ mood = "idle", className }) => {
                 <path className="mascot-fin-front" d="M362 264 C405 246 452 238 486 240 C504 241 508 258 492 266 C455 284 405 296 368 298 C352 296 348 272 362 264 Z" fill={`url(#${id}-fin)`} />
             </g>
 
+            {mood === "coding" && <Coding id={id} />}
             {mood === "working" && <Working id={id} />}
             {mood === "deploying" && <Deploying />}
             {mood === "analyzing" && <Analyzing />}
