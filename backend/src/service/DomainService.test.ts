@@ -365,6 +365,44 @@ describe("DomainService.build", () => {
         expect(result.ref).toBe("main")
     })
 
+    it("given a branch for some members, when the domain is built, then each repository is tagged on its members' branch and the others on the branch of the build", async () => {
+        const cart = member("Cart", link("cart-fe", "1"))
+        const orders = member("Orders API", link("orders-be", "3"))
+        withMembers([cart, member("Search", link("search-fe", "2"))], [orders])
+
+        const result = await new DomainService().build(String(domainId), "1.4.0", undefined, { [String(cart._id)]: "develop", [String(orders._id)]: "release/1.4" })
+
+        expect(getBranchCommitSha.mock.calls.map((call: unknown[]) => [call[1], call[2]])).toEqual([
+            ["cart-fe", "develop"],
+            ["search-fe", "main"],
+            ["orders-be", "release/1.4"]
+        ])
+        expect(result.repositories.map(repository => [repository.repository, repository.ref, repository.status])).toEqual([
+            ["cart-fe", "develop", "tagged"],
+            ["search-fe", "main", "tagged"],
+            ["orders-be", "release/1.4", "tagged"]
+        ])
+    })
+
+    it("given two members sharing a repository on different branches, when the domain is built, then it is refused and nothing is tagged", async () => {
+        const front = member("Cart", link("shop", "7"))
+        const back = member("Cart API", link("shop", "7"))
+        withMembers([front], [back])
+
+        await expect(new DomainService().build(String(domainId), "1.4.0", undefined, { [String(front._id)]: "develop", [String(back._id)]: "main" })).rejects.toMatchObject({
+            code: "DOMAIN_BUILD_REF_CONFLICT",
+            statusCode: 400
+        })
+        expect(createTag).not.toHaveBeenCalled()
+    })
+
+    it.each([[["main"]], ["main"], [{ any: "has space" }], [{ any: 42 }]])("given the branches %j, when the domain is built, then they are refused before anything is read", async refs => {
+        const findDomain = vi.spyOn(Domain, "findById")
+
+        await expect(new DomainService().build(String(domainId), "1.4.0", undefined, refs)).rejects.toMatchObject({ code: "DOMAIN_BUILD_REF_INVALID", statusCode: 400 })
+        expect(findDomain).not.toHaveBeenCalled()
+    })
+
     /** A tag of a version starts the pipeline of the whole repository: a second one of the same name would fail */
     it("given a repository shared by a frontend and a backend, when the domain is built, then it is tagged once for both", async () => {
         withMembers([member("Cart", link("shop", "7"))], [member("Cart API", link("shop", "7"))])

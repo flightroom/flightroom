@@ -159,24 +159,55 @@ const toBuildFailure = (error: unknown): { reason: DomainBuildFailure; message: 
     return { reason: "PROVIDER_ERROR", message: error instanceof Error ? error.message : String(error) }
 }
 
-/** Refuses, before anything is read, a version or a branch the providers would not take as a tag of a domain build */
-export function ensureBuildTarget(version: unknown, ref?: unknown): asserts version is string {
-    // The rule of a backend build: the tag becomes, in the pipelines, an image tag and a URL segment
-    if (typeof version !== "string" || !BACKEND_VERSION.test(version)) {
-        throw createBusinessException({ code: "DOMAIN_BUILD_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
-    }
+/** The branch of each frontend or backend of a domain build, by its id: one left out, or empty, takes the branch of the whole build */
+export type BuildRefs = Record<string, string>
+
+const ensureRef = (ref: unknown) => {
     // The branch goes into the URL of each provider: only a name git itself accepts
     if (ref !== undefined && ref !== null && ref !== "" && (typeof ref !== "string" || !isValidRefName(ref))) {
         throw createBusinessException({ code: "DOMAIN_BUILD_REF_INVALID", message: "The branch must be a valid git branch name of at most 255 characters" })
     }
 }
 
+/** Refuses, before anything is read, a version or a branch the providers would not take as a tag of a domain build */
+export function ensureBuildTarget(version: unknown, ref?: unknown, refs?: unknown): asserts version is string {
+    // The rule of a backend build: the tag becomes, in the pipelines, an image tag and a URL segment
+    if (typeof version !== "string" || !BACKEND_VERSION.test(version)) {
+        throw createBusinessException({ code: "DOMAIN_BUILD_VERSION_INVALID", message: "The version may hold only letters, digits, dots, dashes and underscores (at most 128)" })
+    }
+    ensureRef(ref)
+    if (refs === undefined || refs === null) return
+    if (typeof refs !== "object" || Array.isArray(refs)) {
+        throw createBusinessException({ code: "DOMAIN_BUILD_REF_INVALID", message: "The branches must be given by frontend or backend id" })
+    }
+    Object.values(refs).forEach(ensureRef)
+}
+
 /** The branch a domain build tags: main when none is given */
 export const buildBranchOf = (ref?: unknown): string => (typeof ref === "string" && ref ? ref : "main")
 
-const toOutcome = ({ id, link, members }: BuildRepository, outcome: Pick<DomainBuildRepository, "status" | "reason" | "message">): DomainBuildRepository => ({
+/**
+ * The branch each repository is tagged on: the one picked for its members, else `branch`. Two members sharing
+ * the repository on two different branches are refused, as there is one tag of the version per repository.
+ */
+const branchesOf = (repositories: BuildRepository[], branch: string, refs?: BuildRefs): Map<string, string> =>
+    new Map(
+        repositories.map(repository => {
+            const picked = [...new Set(repository.members.map(member => refs?.[member._id]).filter((ref): ref is string => Boolean(ref)))]
+            if (picked.length > 1) {
+                throw createBusinessException({
+                    code: "DOMAIN_BUILD_REF_CONFLICT",
+                    message: `The members of ${repository.link.name} share the repository but were given different branches: ${picked.join(", ")}`
+                })
+            }
+            return [repository.id, picked[0] ?? branch]
+        })
+    )
+
+const toOutcome = ({ id, link, members }: BuildRepository, ref: string, outcome: Pick<DomainBuildRepository, "status" | "reason" | "message">): DomainBuildRepository => ({
     id,
     repository: link.name,
+    ref,
     members,
     ...outcome
 })
@@ -316,13 +347,13 @@ export class DomainService extends BaseAuthorizedService {
 
     /**
      * Releases the whole domain: tags the repository of each of its frontends and backends with the same
-     * `version`, on the same `ref` (main by default), as their own builds do one at a time. Every repository is
+     * `version`, on the branch `refs` gives its members or else on `ref` (main by default), as their own builds do one at a time. Every repository is
      * checked first (its connection, the domain scope, the ref, a tag of that name): when one fails, none is
      * tagged and the refusal lists each one. A tag that still fails afterwards leaves the others made, and the
      * result says which.
      */
-    async build(id: string | ObjectId, version: unknown, ref?: unknown): Promise<DomainBuildResult> {
-        ensureBuildTarget(version, ref)
+    async build(id: string | ObjectId, version: unknown, ref?: unknown, refs?: unknown): Promise<DomainBuildResult> {
+        ensureBuildTarget(version, ref, refs)
         const branch = buildBranchOf(ref)
         const domain = await this.getById(id)
         if (!domain) {
@@ -346,12 +377,13 @@ export class DomainService extends BaseAuthorizedService {
         if (repositories.length === 0) {
             throw createBusinessException({ code: "DOMAIN_BUILD_NO_REPOSITORIES", message: "No frontend nor backend of the domain has a linked code repository to tag" })
         }
+        const branches = branchesOf(repositories, branch, refs as BuildRefs | undefined)
 
         const scaffold = new TemplateScaffoldService(this.user)
         // A tag starts a release: half a domain released on a typo in the branch is worse than none
         const checks = await mapWithLimit(repositories, CHECK_CONCURRENCY, async repository => {
             try {
-                const target = await scaffold.resolveTagTarget(repository.link, domain.projectId, branch)
+                const target = await scaffold.resolveTagTarget(repository.link, domain.projectId, branches.get(repository.id))
                 if (!target) {
                     return { repository, failure: { reason: "PROVIDER_ERROR" as const, message: "The provider of the connection cannot be tagged" } }
                 }
@@ -364,7 +396,7 @@ export class DomainService extends BaseAuthorizedService {
             }
         })
         if (checks.some(check => check.failure)) {
-            const outcomes = checks.map(check => toOutcome(check.repository, check.failure ? { status: "failed", ...check.failure } : { status: "ready" }))
+            const outcomes = checks.map(check => toOutcome(check.repository, branches.get(check.repository.id)!, check.failure ? { status: "failed", ...check.failure } : { status: "ready" }))
             const failed = outcomes.filter(outcome => outcome.status === "failed").map(outcome => `${outcome.repository}: ${outcome.message}`)
             throw createBusinessException({
                 code: "DOMAIN_BUILD_CHECK_FAILED",
@@ -379,9 +411,9 @@ export class DomainService extends BaseAuthorizedService {
         for (const { repository, target } of checks) {
             try {
                 await scaffold.pushTag(target as TagTarget, version)
-                outcomes.push(toOutcome(repository, { status: "tagged" }))
+                outcomes.push(toOutcome(repository, branches.get(repository.id)!, { status: "tagged" }))
             } catch (error) {
-                outcomes.push(toOutcome(repository, { status: "failed", ...toBuildFailure(error) }))
+                outcomes.push(toOutcome(repository, branches.get(repository.id)!, { status: "failed", ...toBuildFailure(error) }))
             }
         }
         return { version, ref: branch, repositories: outcomes }

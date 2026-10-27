@@ -69,6 +69,7 @@ describe("DomainReleaseService.start", () => {
                 {
                     id: "c/1",
                     repository: "shop",
+                    ref: "main",
                     status: "tagged",
                     members: [
                         { kind: "frontend", _id: String(cart._id), name: "Cart" },
@@ -84,7 +85,7 @@ describe("DomainReleaseService.start", () => {
     it("given a domain with no release running, when a build and deploy starts, then the domain is built and the release waits for the CI of the tagged members", async () => {
         await start()
 
-        expect(build).toHaveBeenCalledWith(domainId, "1.4.0", undefined)
+        expect(build).toHaveBeenCalledWith(domainId, "1.4.0", undefined, undefined)
         expect(DomainRelease.create).toHaveBeenCalledWith(expect.objectContaining({ version: "1.4.0", ref: "main", startedBy: user._id, active: true, status: DomainReleaseStatus.BUILDING }))
         const [waiting] = writesOf(updateOne)
         expect(waiting.$set.status).toBe(DomainReleaseStatus.WAITING_CI)

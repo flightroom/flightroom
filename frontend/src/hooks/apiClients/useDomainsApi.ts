@@ -39,6 +39,8 @@ export interface DomainBuildRepository {
     /** Stable across builds: the connection, the repository id or name, and the GitLab path when there is one */
     id: string
     repository: string
+    /** The branch it is tagged on: missing on the releases made before each repository had its own */
+    ref?: string
     members: { kind: "frontend" | "backend"; _id: string; name: string }[]
     /** ready: checked, but left untagged because another repository failed its check */
     status: "tagged" | "ready" | "failed"
@@ -50,6 +52,7 @@ export interface DomainBuildRepository {
 /** What a domain build did, or, in the refusal of its check, what each repository would have done */
 export interface DomainBuildResult {
     version: string
+    /** The branch of the members given none */
     ref: string
     repositories: DomainBuildRepository[]
 }
@@ -103,6 +106,7 @@ const DOMAIN_ERROR_KEYS: Record<string, string> = {
     DOMAIN_BUILD_EMPTY: "domains.build.errors.empty",
     DOMAIN_BUILD_NO_REPOSITORIES: "domains.build.errors.no_repositories",
     DOMAIN_BUILD_CHECK_FAILED: "domains.build.errors.check_failed",
+    DOMAIN_BUILD_REF_CONFLICT: "domains.build.errors.ref_conflict",
     DOMAIN_BUILD_FORBIDDEN: "domains.build.errors.forbidden",
     DOMAIN_RELEASE_RUNNING: "domains.release.errors.running",
     DOMAIN_RELEASE_ENVIRONMENT_INVALID: "domains.release.errors.environment_invalid",
@@ -173,12 +177,15 @@ const useDomainsApi = () => {
         return response.data
     }
 
-    /** Builds the domain now; the console then waits for the CI, sets the version on its members and deploys it to `environmentId` */
-    const startRelease = async (id: string, version: string, environmentId: string, ref?: string): Promise<DomainRelease> => {
+    /**
+     * Builds the domain now; the console then waits for the CI, sets the version on its members and deploys it to `environmentId`.
+     * `refs` is the branch of each frontend or backend, by its id: one left out is tagged on `ref`, main when that is left out too.
+     */
+    const startRelease = async (id: string, version: string, environmentId: string, ref?: string, refs?: Record<string, string>): Promise<DomainRelease> => {
         const response = await apiClient.doRequest<DomainRelease>({
             url: `/api/domains/${id}/build-and-deploy`,
             method: "POST",
-            data: { version, ref, environmentId },
+            data: { version, ref, refs, environmentId },
             customErrorMessage: errorMessage
         })
         return response.data
@@ -200,3 +207,9 @@ const useDomainsApi = () => {
 }
 
 export default useDomainsApi
+
+/** The one branch every repository of the build was tagged on: undefined when they were on different ones */
+export const singleRefOf = (result: DomainBuildResult): string | undefined => {
+    const refs = new Set(result.repositories.map(repository => repository.ref ?? result.ref))
+    return refs.size > 1 ? undefined : ([...refs][0] ?? result.ref)
+}

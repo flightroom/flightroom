@@ -14,17 +14,20 @@ import {
 } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Check, ChevronDown, Circle, Hammer, Loader2, Rocket, Workflow, X } from "lucide-react"
+import { AlertTriangle, Check, ChevronDown, Circle, GitBranch, Hammer, Loader2, Rocket, Workflow, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { z } from "zod"
+import RepositoryBranches, { type BaseBranches, pickedBaseBranches, workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import { Badge, Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useBuildsApi, { BUILD_STATUS_QUERY_KEY, type ComponentBuildStatus } from "@/hooks/apiClients/useBuildsApi"
-import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildResult, type DomainRelease, type DomainReleaseMember, isReleaseRunning } from "@/hooks/apiClients/useDomainsApi"
+import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildResult, type DomainRelease, type DomainReleaseMember, isReleaseRunning, singleRefOf } from "@/hooks/apiClients/useDomainsApi"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import ProviderRunLink from "@/pages/builds/partials/ProviderRunLink"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
@@ -72,6 +75,8 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const notifications = useToastNotificationStore()
     const isViewer = useIsProjectViewer()
     const { getBuildStatus } = useBuildsApi()
+    const frontendsApi = useFrontendsApi()
+    const backendsApi = useBackendsApi()
     const [open, setOpen] = useState(false)
     const [buildOpen, setBuildOpen] = useState(false)
     const [deployOpen, setDeployOpen] = useState(false)
@@ -80,12 +85,25 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const [refusal, setRefusal] = useState<DomainBuildResult | undefined>()
     /** The release started or followed here: still shown once over, until the dialog is closed */
     const [followedId, setFollowedId] = useState<string | undefined>()
+    /** The branches picked, by frontend or backend id */
+    const [branches, setBranches] = useState<BaseBranches>({})
 
     // Read here, not from the store: the store has them only once a page under the environments gate was opened
     const environments = useProjectEnvironmentsQuery().data ?? NO_ENVIRONMENTS
     // A pick of an environment deleted since, or of another project, does not stick
     const selected = environments.find(candidate => candidate._id === environment?._id) ?? environments.find(candidate => candidate._id === projectStore.environment?._id) ?? environments[0]
     const queryKey = ["domain-release", domain._id]
+    const projectId = projectStore.project?._id
+
+    // The lists the AI workspace of the domain reads too: its members, each with its repository
+    const frontendsQuery = useQuery({ queryKey: ["frontends-by-project-id", projectId], queryFn: () => frontendsApi.getByProjectId(projectId!), enabled: open && Boolean(projectId) })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: open && Boolean(projectId) })
+    const repositories = [
+        ...(frontendsQuery.data ?? []).filter(frontend => frontend.domainId === domain._id).flatMap(frontend => workspaceRepositoriesOf("frontend", frontend)),
+        ...(backendsQuery.data ?? []).filter(backend => backend.domainId === domain._id).flatMap(backend => workspaceRepositoriesOf("backend", backend))
+    ]
+    // main for each, as the build tags when given no branch: a pick goes over it
+    const pickedBranches: BaseBranches = { ...Object.fromEntries(repositories.map(({ id }) => [id, "main"])), ...branches }
 
     // Read even with the dialog closed: the end of a release is told wherever the domain is open
     const { data: release } = useQuery({
@@ -96,10 +114,9 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     })
 
     const schema = z.object({
-        version: z.string().regex(VERSION, t("domains.build.errors.version_invalid")),
-        branch: z.string().max(255)
+        version: z.string().regex(VERSION, t("domains.build.errors.version_invalid"))
     })
-    const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), mode: "onChange", defaultValues: { version: "", branch: "main" } })
+    const form = useForm<z.infer<typeof schema>>({ resolver: zodResolver(schema), mode: "onChange", defaultValues: { version: "" } })
     const submitting = form.formState.isSubmitting
 
     // Told once, when the release is seen ending: not for one that was over already when the page loaded
@@ -125,7 +142,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const onSubmit = async (values: z.infer<typeof schema>) => {
         if (!selected?._id) return
         try {
-            const started = await domainsApi.startRelease(domain._id, values.version, selected._id, values.branch.trim() || undefined)
+            const started = await domainsApi.startRelease(domain._id, values.version, selected._id, undefined, pickedBaseBranches(repositories, pickedBranches))
             queryClient.setQueryData(queryKey, started)
             setFollowedId(started._id)
             form.reset()
@@ -143,6 +160,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
         if (!value) {
             setRefusal(undefined)
             setFollowedId(undefined)
+            setBranches({})
             form.reset()
         }
     }
@@ -151,7 +169,6 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const shown = release && (running || release._id === followedId) ? release : undefined
 
     // The runs the tag started, to open them on the provider: read only while a release is on screen
-    const projectId = projectStore.project?._id
     const { data: buildStatus } = useQuery({
         queryKey: [BUILD_STATUS_QUERY_KEY, projectId],
         queryFn: getBuildStatus,
@@ -226,11 +243,20 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                         {current.members.map(member => {
                             const row = buildsOf(member)
                             const runs = member.tagged ? (row?.builds.filter(run => run.ref === current.version && run.url) ?? []) : []
+                            const ref = current.repositories.find(repository => repository.members.some(candidate => candidate._id === member._id))?.ref
                             return (
                                 <li key={member._id} className="flex items-center justify-between gap-2 rounded-md border border-divider p-3">
                                     <div className="flex min-w-0 flex-col">
                                         <span className="truncate text-sm">{member.name}</span>
-                                        <span className="text-xs text-foreground-secondary">{t(`domains.release.kinds.${member.kind}`)}</span>
+                                        <span className="flex items-center gap-2 text-xs text-foreground-secondary">
+                                            {t(`domains.release.kinds.${member.kind}`)}
+                                            {ref && (
+                                                <span className="flex min-w-0 items-center gap-1" data-testid={`domain-release-ref-${member._id}`}>
+                                                    <GitBranch className="size-3 shrink-0" aria-hidden="true" />
+                                                    <span className="truncate font-mono">{ref}</span>
+                                                </span>
+                                            )}
+                                        </span>
                                         {runs.map(run => (
                                             <span key={run.id} className="mt-1" data-testid={`domain-release-run-${member._id}`}>
                                                 <ProviderRunLink url={run.url!} provider={row?.provider} />
@@ -281,16 +307,18 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
             <DomainDeployButton domain={domain} open={deployOpen} onOpenChange={setDeployOpen} showTrigger={false} />
             <DomainBuildButton domain={domain} open={buildOpen} onOpenChange={setBuildOpen} showTrigger={false} />
             <Dialog open={open} onOpenChange={changeOpen}>
-                <DialogContent>
+                <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
                         <DialogTitle>{t("domains.release.title", { domain: domain.name })}</DialogTitle>
                         <DialogDescription>
                             {refusal
-                                ? t("domains.build.result_description", { version: refusal.version, ref: refusal.ref })
+                                ? singleRefOf(refusal)
+                                    ? t("domains.build.result_description", { version: refusal.version, ref: singleRefOf(refusal) })
+                                    : t("domains.build.result_description_branches", { version: refusal.version })
                                 : shown
-                                  ? t("domains.release.progress_description", {
+                                  ? t(singleRefOf(shown) ? "domains.release.progress_description" : "domains.release.progress_description_branches", {
                                         version: shown.version,
-                                        ref: shown.ref,
+                                        ref: singleRefOf(shown),
                                         environment: environments.find(candidate => candidate._id === shown.environmentId)?.name ?? ""
                                     })
                                   : t("domains.release.description")}
@@ -327,8 +355,16 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                             <form onSubmit={form.handleSubmit(onSubmit)}>
                                 <div className={cn("mt-2 mb-4 space-y-2", submitting && "pointer-events-none opacity-60")}>
                                     <TextField name="version" label={t("domains.build.version")} placeholder={t("backends.build.versionPlaceholder")} required />
-                                    <TextField name="branch" label={t("domains.build.branch")} placeholder="main" />
-                                    <p className="text-xs text-foreground-secondary">{t("domains.build.branch_hint")}</p>
+                                    <div className="pt-2">
+                                        <RepositoryBranches
+                                            repositories={repositories}
+                                            value={pickedBranches}
+                                            onChange={setBranches}
+                                            disabled={submitting}
+                                            explicit
+                                            hint={t("domains.release.branches_hint")}
+                                        />
+                                    </div>
                                     <div className="pt-2">
                                         <EnvironmentSelector selectedEnvironment={selected} environments={environments} onEnvironmentChange={setEnvironment} />
                                     </div>
@@ -339,7 +375,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                                     </Button>
                                     <Button
                                         type="submit"
-                                        disabled={submitting || !form.formState.isValid || !selected?._id}
+                                        disabled={submitting || !form.formState.isValid || !selected?._id || frontendsQuery.isLoading || backendsQuery.isLoading}
                                         loading={submitting}
                                         loadingLabel={t("backends.build.building")}
                                         dataTestId="domain-build-and-deploy-confirm"
