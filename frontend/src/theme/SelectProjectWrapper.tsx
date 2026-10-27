@@ -1,7 +1,7 @@
 import { Spinner } from "@flightroom/design-system"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowLeft, PartyPopper, Settings } from "lucide-react"
-import { lazy, Suspense, useState } from "react"
+import { lazy, Suspense, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation, useNavigate } from "react-router-dom"
 import AuthenticationLayout from "@/authentication/components/AuthenticationLayout"
@@ -169,6 +169,8 @@ const SelectProjectWrapper: React.FC<React.PropsWithChildren> = props => {
     const projectStore = useProjectStore()
 
     const { organization } = useOrganizationStore()
+    // A link from an email names the project it is about (`?project=`): it wins once, on the first answer.
+    const linkedProjectId = useRef(new URLSearchParams(window.location.search).get("project"))
 
     const projectsQuery = useQuery({
         // Keyed on the organization: switching tenant has to fetch its projects, not reuse the
@@ -194,7 +196,13 @@ const SelectProjectWrapper: React.FC<React.PropsWithChildren> = props => {
                 // to ask about. Read fresh, because a refetch runs long after this closure was built.
                 const active = useProjectStore.getState().project
                 const rememberedId = getProjectIdFromLocalStorage()
-                const selected = projects.find(project => project._id === active?._id) ?? projects.find(project => project._id === rememberedId) ?? (projects.length === 1 ? projects[0] : undefined)
+                const linkedId = linkedProjectId.current
+                linkedProjectId.current = null
+                const selected =
+                    projects.find(project => project._id === linkedId) ??
+                    projects.find(project => project._id === active?._id) ??
+                    projects.find(project => project._id === rememberedId) ??
+                    (projects.length === 1 ? projects[0] : undefined)
 
                 // Anything that is not in this organization is dropped instead of carried over, which
                 // leaves the picker to ask. Forgetting it too keeps the next visit from restoring it.

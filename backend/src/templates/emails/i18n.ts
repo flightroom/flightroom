@@ -52,6 +52,36 @@ interface ApiKeyExpiryEmailStrings extends Omit<LinkEmailStrings, "expiry"> {
     reason: (project: string) => string
 }
 
+/** What an AI job worked on: one frontend, one backend, a domain, or several repositories. */
+export type AiJobTarget = { kind: "frontend" | "backend" | "domain"; name: string } | { kind: "repositories"; count: number }
+
+/** Which job ended (its title, else its prompt), on what, in which project. `target` is already worded by `aiJobEnded.target`. */
+export interface AiJobEndedText {
+    job: string
+    target: string
+    project: string
+}
+
+interface AiJobOutcomeStrings {
+    subject: (job: string) => string
+    header: string
+    preheader: (ended: AiJobEndedText) => string
+    /** Called with plain values for the text part and with already escaped markup for the HTML one. */
+    intro: (ended: AiJobEndedText) => string
+    prompt: string
+    button: string
+}
+
+interface AiJobEndedEmailStrings {
+    done: AiJobOutcomeStrings
+    failed: AiJobOutcomeStrings
+    /** With its preposition ("on the domain X", "sul dominio X"). `name` comes plain or as escaped markup, like the intro it goes into. */
+    target: (target: AiJobTarget, name: string) => string
+    ignore: string
+    /** Shown under the email, where the others say when their link expires: why the recipient receives it. */
+    reason: string
+}
+
 export interface EmailStrings {
     greeting: (name?: string) => string
     copyLink: string
@@ -63,6 +93,7 @@ export interface EmailStrings {
     projectInvitation: InvitationEmailStrings
     organizationInvitation: InvitationEmailStrings
     apiKeyExpiry: ApiKeyExpiryEmailStrings
+    aiJobEnded: AiJobEndedEmailStrings
 }
 
 const inDays = (days: number) => (days <= 1 ? "tomorrow" : `in ${days} days`)
@@ -131,6 +162,27 @@ const en: EmailStrings = {
         button: "Manage API Keys",
         ignore: "If the key is no longer needed, you can let it expire.",
         reason: project => `You receive this email because you administer ${project}.`
+    },
+    aiJobEnded: {
+        done: {
+            subject: job => `✅ The AI job is done: ${job}`,
+            header: "Your AI Job Is Done",
+            preheader: ({ target }) => `The AI agent finished working ${target}.`,
+            intro: ({ job, target, project }) => `The AI agent finished the job ${job} ${target} of the project ${project}.`,
+            prompt: "Click the button below to see what it did and review its changes:",
+            button: "Review the Job"
+        },
+        failed: {
+            subject: job => `⚠️ The AI job failed: ${job}`,
+            header: "Your AI Job Failed",
+            preheader: ({ target }) => `The AI agent stopped before finishing its work ${target}.`,
+            intro: ({ job, target, project }) => `The AI agent stopped before finishing the job ${job} ${target} of the project ${project}.`,
+            prompt: "Click the button below to see what went wrong and try again:",
+            button: "Open the Job"
+        },
+        target: (target, name) => (target.kind === "repositories" ? `on ${target.count} repositories` : `on the ${target.kind} ${name}`),
+        ignore: "If you have already seen it in Flightroom, you can ignore this email.",
+        reason: "You receive this email because you started this job and were away from Flightroom when it ended."
     }
 }
 
@@ -200,6 +252,28 @@ const it: EmailStrings = {
         button: "Gestisci le chiavi API",
         ignore: "Se la chiave non serve più, puoi lasciarla scadere.",
         reason: project => `Ricevi questa email perché amministri ${project}.`
+    },
+    aiJobEnded: {
+        done: {
+            subject: job => `✅ Il job AI è terminato: ${job}`,
+            header: "Il tuo job AI è terminato",
+            preheader: ({ target }) => `L'agente AI ha finito di lavorare ${target}.`,
+            intro: ({ job, target, project }) => `L'agente AI ha terminato il job ${job} ${target} del progetto ${project}.`,
+            prompt: "Usa il pulsante qui sotto per vedere cosa ha fatto e rivedere le modifiche:",
+            button: "Rivedi il job"
+        },
+        failed: {
+            subject: job => `⚠️ Il job AI non è riuscito: ${job}`,
+            header: "Il tuo job AI non è riuscito",
+            preheader: ({ target }) => `L'agente AI si è fermato prima di finire il lavoro ${target}.`,
+            intro: ({ job, target, project }) => `L'agente AI si è fermato prima di terminare il job ${job} ${target} del progetto ${project}.`,
+            prompt: "Usa il pulsante qui sotto per vedere cosa è andato storto e riprovare:",
+            button: "Apri il job"
+        },
+        target: (target, name) =>
+            target.kind === "repositories" ? `su ${target.count} repository` : `${{ frontend: "sul frontend", backend: "sul backend", domain: "sul dominio" }[target.kind]} ${name}`,
+        ignore: "Se l'hai già visto su Flightroom, puoi ignorare questa email.",
+        reason: "Ricevi questa email perché hai avviato questo job e non eri su Flightroom quando è terminato."
     }
 }
 

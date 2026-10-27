@@ -96,6 +96,23 @@ const cases: EmailCase[] = [
             en: "The API key CI deploy of the project Demo Project expires in 7 days, on November 3, 2026.",
             it: "La chiave API CI deploy del progetto Demo Project scade tra 7 giorni, il 3 novembre 2026."
         }
+    },
+    {
+        name: "AI job ended",
+        send: language =>
+            service.sendAiJobEndedEmail(anInvitee(language), { _id: "p1", name: "Demo Project" } as unknown as IProject, {
+                label: "Checkout page",
+                failed: false,
+                target: { kind: "domain", name: "Payments" },
+                path: "/domain/d1"
+            }),
+        to: "invitee@example.com",
+        url: `${FRONTEND_URL}/domain/d1?project=p1`,
+        subject: { en: "✅ The AI job is done: Checkout page", it: "✅ Il job AI è terminato: Checkout page" },
+        body: {
+            en: "The AI agent finished the job Checkout page on the domain Payments of the project Demo Project.",
+            it: "L'agente AI ha terminato il job Checkout page sul dominio Payments del progetto Demo Project."
+        }
     }
 ]
 
@@ -115,7 +132,7 @@ describe.each(cases)("$name email", ({ send, to, url, subject, body }) => {
             await send(language)
 
             const { html } = sentMessage()
-            expect(html.match(new RegExp(`href="${url}"`, "g"))).toHaveLength(2)
+            expect(html.split(`href="${url}"`)).toHaveLength(3)
             expect(html).toContain(`src="${FRONTEND_URL}/img/logo.png"`)
         })
 

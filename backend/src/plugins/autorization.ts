@@ -7,7 +7,7 @@ import jwt, { JwtPayload } from "jsonwebtoken"
 import AuthenticationError from "../errors/AuthenticationError"
 import ApiKey, { ApiKeyStatus, IApiKeyDocument } from "../models/ApiKeyModel"
 import UserModel, { getSecret, ISSUER } from "../models/UserModel"
-import UserService, { FEDERATED_LOGIN_WINDOW_MS, recordLogin } from "../service/UserService"
+import UserService, { FEDERATED_LOGIN_WINDOW_MS, recordLogin, recordPresence } from "../service/UserService"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 import { redisClient } from "./redis"
 
@@ -415,6 +415,9 @@ export default fastifyPlugin(
                 const authenticatedAt = getFederatedAuthenticationMoment(authToken)
                 await recordLogin(user, authenticatedAt ?? new Date(), authenticatedAt ? 0 : FEDERATED_LOGIN_WINDOW_MS)
             }
+
+            // Whether the user is at the console: an AI job that ends while they are away is emailed to them
+            await recordPresence(user)
 
             request.databaseUser = {
                 ...user.toObject()

@@ -74,6 +74,36 @@ export const recordLogin = async (user: Pick<IUser, "_id" | "lastLoginAt">, at: 
     }
 }
 
+/** How often the presence of a user is written at most: the console asks something every few seconds while it is on screen. */
+export const PRESENCE_WRITE_MS = 60 * 1000
+
+/**
+ * Away once the console has not been heard from for this long. A hidden tab stops polling, a closed
+ * one too: whoever started an AI job and left gets an email when it ends.
+ */
+export const AWAY_AFTER_MS = 3 * 60 * 1000
+
+/**
+ * Stores that the user is at the console, at most once every {@link PRESENCE_WRITE_MS}. Called by the
+ * authorization hook on every request, so, like `recordLogin`, it never fails one.
+ */
+export const recordPresence = async (user: Pick<IUser, "_id" | "lastSeenAt">, at: Date = new Date()): Promise<void> => {
+    if (user.lastSeenAt && at.getTime() - user.lastSeenAt.getTime() < PRESENCE_WRITE_MS) {
+        return
+    }
+
+    const userId = toObjectId(user._id)
+    try {
+        // Timestamps off, as for the last login: being seen is not a change to the user.
+        await User.updateOne({ _id: userId }, { lastSeenAt: at }, { timestamps: false })
+    } catch (error) {
+        fastify?.log?.warn({ err: error, userId: userId.toString() }, "Unable to record the presence of the user")
+    }
+}
+
+/** Whether the user has not been at the console for {@link AWAY_AFTER_MS}; never seen counts as away. */
+export const isAway = (user: Pick<IUser, "lastSeenAt">, now: Date = new Date()): boolean => !user.lastSeenAt || now.getTime() - user.lastSeenAt.getTime() >= AWAY_AFTER_MS
+
 export class UserService {
     private emailService: EmailService
 

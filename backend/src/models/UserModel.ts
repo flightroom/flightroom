@@ -27,6 +27,8 @@ export interface IUser {
     createdAt: Date
     updatedAt: Date
     lastLoginAt?: Date
+    /** The last request of the user from the console, written at most once a minute: whether they are at it. */
+    lastSeenAt?: Date
     language?: string
     theme?: string
     marketingConsent?: boolean
@@ -134,6 +136,12 @@ const userSchema = new Schema<IUserDocument>(
         lastLoginAt: {
             type: Date,
             required: false
+        },
+        // Written by recordPresence() and stripped from toFrontendObject() like lastLoginAt:
+        // it only tells the backend whom to email when an AI job ends.
+        lastSeenAt: {
+            type: Date,
+            required: false
         }
     },
     {
@@ -170,6 +178,7 @@ userSchema.methods.toFrontendObject = function (): IUser {
     // The access date is internal: it exists for the operator querying the
     // database, not for the client, so it never leaves the backend.
     delete obj.lastLoginAt
+    delete obj.lastSeenAt
     return obj
 }
 

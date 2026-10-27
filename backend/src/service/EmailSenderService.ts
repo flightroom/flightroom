@@ -9,10 +9,10 @@ import { IProject } from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
 import { RoleInOrganization } from "../models/UserOrganizationModel"
 import { RoleInProject } from "../models/UserProjectModel"
-import { ApiKeyExpiryText, EmailLanguage, emailStrings, InvitationText, toEmailLanguage } from "../templates/emails/i18n"
+import { AiJobEndedText, AiJobTarget, ApiKeyExpiryText, EmailLanguage, emailStrings, InvitationText, toEmailLanguage } from "../templates/emails/i18n"
 import type { AuthorizedPrincipal } from "./BaseAuthorizedService"
 
-type EmailTemplate = "account-activation" | "password-reset" | "project-invitation" | "organization-invitation" | "api-key-expiry"
+type EmailTemplate = "account-activation" | "password-reset" | "project-invitation" | "organization-invitation" | "api-key-expiry" | "ai-job-ended"
 
 /** What every email shows, whatever its template: the button, the link under it and the lines around them. */
 interface EmailMessage {
@@ -143,6 +143,43 @@ class EmailSenderService {
             ignore: strings.ignore,
             expiry: strings.reason(project.name),
             locals: { introHtml: strings.intro({ ...expiry, key: strong(expiry.key, "accent"), project: strong(expiry.project) }) }
+        })
+    }
+
+    /**
+     * Tells whoever started an AI job that it ended while they were away. `path` is the page of the
+     * console that shows it; the link names the project too, which the console selects on opening.
+     */
+    async sendAiJobEndedEmail(
+        user: Pick<IUser, "email" | "name" | "language">,
+        project: Pick<IProject, "_id" | "name">,
+        job: { label: string; failed: boolean; target: AiJobTarget; path: string }
+    ): Promise<void> {
+        const language = toEmailLanguage(user.language)
+        const t = emailStrings[language]
+        const strings = t.aiJobEnded
+        const outcome = job.failed ? strings.failed : strings.done
+        const targetName = job.target.kind === "repositories" ? "" : job.target.name
+        const ended: AiJobEndedText = { job: job.label, target: strings.target(job.target, targetName), project: project.name }
+
+        await this.send({
+            to: user.email,
+            template: "ai-job-ended",
+            language,
+            subject: outcome.subject(job.label),
+            url: `${this.config.FRONTEND_URL}${job.path}?project=${String(project._id)}`,
+            header: outcome.header,
+            headerIcon: job.failed ? "⚠️" : "🤖",
+            preheader: outcome.preheader(ended),
+            greeting: t.greeting(user.name),
+            intro: outcome.intro(ended),
+            prompt: outcome.prompt,
+            button: outcome.button,
+            ignore: strings.ignore,
+            expiry: strings.reason,
+            locals: {
+                introHtml: outcome.intro({ job: strong(ended.job, "accent"), target: strings.target(job.target, targetName && strong(targetName)), project: strong(ended.project) })
+            }
         })
     }
 
