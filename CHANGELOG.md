@@ -9,6 +9,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.6.0] - 2026-10-27
+
+### Added
+
+- **The Workshop Of Edit With AI**: a second look of Edit with AI, next to the classic queue, picked with Classic | 3D workshop and remembered by the browser. Every work of the queue is a Vega in its bay of a workshop floating in space, seen in isometric view: two walls of windows on the stars, pegboards of tools, a workbench, shelves of spare parts, a server rack, a welding arm, a gantry crane, and in each bay a console and a tool cart. The Vega moves as its work goes: it slides between its console and its editor while the agent writes code, loops the loop with its wrench while a script runs, circles its pad over a magnifying glass while the agent reads, hops with a proposal ready, spirals up while it is applied, and shudders, grey and smoking, when it failed. While a work runs, the last tool the agent called sets the move, read every 2 seconds. A click on a Vega, or on its plate under the deck, opens the work. Drag to turn the camera all the way round and tilt it, pinch or Ctrl/Cmd and the wheel to zoom. Up to 8 works at once, the running ones and the ones to review first; the classic view lists every work. Each work keeps its callsign and its colour. three.js loads only with the workshop, the scene stops out of sight, and with reduced motion the Vegas change pose without moving. A browser without WebGL is told to use the classic view
+
+### Fixed
+
+- **Files Changed By A Script In A Stable Order**: the files a script changed in Edit with AI are listed by path, where they came in the order of the sandbox's filesystem, so the same change reads the same every time
+
+---
+
 ## [8.5.0] - 2026-10-27
 
 ### Added
