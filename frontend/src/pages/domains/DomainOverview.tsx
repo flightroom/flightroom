@@ -3,10 +3,12 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import ApplicationLogsSection, { LogsApplication } from "@/components/application-logs/ApplicationLogsSection"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainDeploymentsApi from "@/hooks/apiClients/useDomainDeploymentsApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
-import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
+import useFrontendsApi, { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import DomainDeploymentsSection from "./partials/DomainDeploymentsSection"
 import DomainHeader from "./partials/DomainHeader"
@@ -33,8 +35,10 @@ const DomainOverview: React.FC = () => {
         enabled: !!projectId
     })
 
+    const environmentsQuery = useProjectEnvironmentsQuery()
+
     // Not an ApiStatusHandler: it unmounts its children on every background refetch, and with them an open dialog of the header or of the resources.
-    const queries = [domainQuery, deploymentsQuery, backendsQuery, frontendsQuery]
+    const queries = [domainQuery, deploymentsQuery, backendsQuery, frontendsQuery, environmentsQuery]
     if (queries.some(query => query.isPending)) {
         return (
             <div className="flex min-h-[200px] items-center justify-center">
@@ -54,6 +58,11 @@ const DomainOverview: React.FC = () => {
     }
 
     const backends = (backendsQuery.data ?? []).filter(backend => backend.domainId === id && backend._id)
+    // What runs in pods: the backends and the Docker frontends of the domain, a static bundle has no logs
+    const applications: LogsApplication[] = [...backends, ...(frontendsQuery.data ?? []).filter(frontend => frontend.domainId === id && frontend.kind === FrontendKind.DOCKER)].map(application => ({
+        slug: application.slug,
+        name: application.name
+    }))
 
     return (
         <div className="flex min-h-full flex-col gap-6">
@@ -62,6 +71,7 @@ const DomainOverview: React.FC = () => {
             {deploymentsQuery.data && <DomainDeploymentsSection deployments={deploymentsQuery.data} frontends={frontendsQuery.data ?? []} />}
             <DomainResourcesSection backends={backends} />
             <AiUsageSummary target={{ kind: "domain", id: id! }} />
+            {applications.length > 0 && <ApplicationLogsSection applications={applications} environments={environmentsQuery.data ?? []} />}
         </div>
     )
 }

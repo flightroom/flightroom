@@ -3867,6 +3867,7 @@
         "description": "The latest lines written by the pods in this environment, read through Argo CD. Only running pods are shown: after a redeploy, the logs of the previous pods are no longer available.",
         "not_configured": "Initialize Argo CD in the project settings to read the logs of the pods.",
         "no_environments": "The project has no environments yet.",
+        "application": "Component",
         "environment": "Environment",
         "pod": "Pod",
         "no_pods": "No running pods in this environment",

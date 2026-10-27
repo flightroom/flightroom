@@ -28,22 +28,37 @@ const LOGS_ERROR_KEYS: Record<string, string> = {
 
 const lineText = (line: ArgoCdLogLine) => (line.timestamp ? `${line.timestamp} ${line.content}` : line.content)
 
-interface ApplicationLogsSectionProps {
-    /** The slug of the backend, Docker frontend or maintenance agent: the Helm release, and its Application in every environment */
+/** A backend, Docker frontend or maintenance agent the logs can be read of */
+export interface LogsApplication {
     slug: string
+    name: string
+}
+
+type ApplicationLogsSectionProps = {
     /**
      * The environments of the project, from the page: a query of its own here would refetch them on mount,
      * and the page's ApiStatusHandler, which unmounts its children while they refetch, would loop on the spinner.
      */
     environments: EnvironmentDTO[]
-}
+} & (
+    | {
+          /** The slug of the backend, Docker frontend or maintenance agent: the Helm release, and its Application in every environment */
+          slug: string
+          applications?: never
+      }
+    | {
+          /** Several of them, as on the overview of a domain: the card reads one at a time, picked first */
+          applications: LogsApplication[]
+          slug?: never
+      }
+)
 
 /**
  * The last lines the pods of an application wrote, per environment, read through the Argo CD the project deploys
  * with: no access to the cluster is needed. Only the pods alive now, and the container before their last restart.
  * Not shown to a viewer, as logs may hold what the configuration hides.
  */
-const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug, environments }) => {
+const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: fixedSlug, applications, environments }) => {
     const { t } = useTranslation()
     const id = useId()
     const projectId = useProjectStore(state => state.project?._id)
@@ -52,6 +67,7 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug, e
     const translateError = useGitOpsErrorTranslation()
     const statusQuery = useQuery({ queryKey: ["argocd", projectId], queryFn: () => argoCdApi.getArgoCd(projectId!), enabled: !!projectId && !isViewer })
 
+    const [applicationSlug, setApplicationSlug] = useState<string>()
     const [environmentId, setEnvironmentId] = useState<string>()
     const [pod, setPod] = useState<string>()
     const [tailLines, setTailLines] = useState(500)
@@ -68,11 +84,14 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug, e
 
     // The first environment in the project's order, unless one was picked
     const selectedEnvironment = environments.some(environment => environment._id === environmentId) ? environmentId : environments[0]?._id
-    const ready = Boolean(projectId && statusQuery.data?.initializedAt && selectedEnvironment)
+    // The application picked among several, else the first
+    const pickedSlug = applications?.some(application => application.slug === applicationSlug) ? applicationSlug : applications?.[0]?.slug
+    const slug = fixedSlug ?? pickedSlug
+    const ready = Boolean(projectId && statusQuery.data?.initializedAt && selectedEnvironment && slug)
 
     const podsQuery = useQuery({
         queryKey: ["argocd-pods", projectId, selectedEnvironment, slug],
-        queryFn: () => argoCdApi.getPods(projectId!, selectedEnvironment!, slug),
+        queryFn: () => argoCdApi.getPods(projectId!, selectedEnvironment!, slug!),
         enabled: ready,
         refetchInterval: follow ? PODS_INTERVAL_MS : false
     })
@@ -82,7 +101,7 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug, e
 
     const logsQuery = useQuery({
         queryKey: ["argocd-logs", projectId, selectedEnvironment, slug, selectedPod, tailLines, previous, filter],
-        queryFn: () => argoCdApi.getLogs(projectId!, selectedEnvironment!, slug, { pod: selectedPod!, tailLines, previous, filter }),
+        queryFn: () => argoCdApi.getLogs(projectId!, selectedEnvironment!, slug!, { pod: selectedPod!, tailLines, previous, filter }),
         enabled: ready && !!selectedPod,
         refetchInterval: follow ? FOLLOW_INTERVAL_MS : false,
         // The lines of before stay, dimmed, while the next ones load: the box does not jump
@@ -151,6 +170,23 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug, e
                     ) : (
                         <>
                             <div className="flex flex-wrap items-end gap-3">
+                                {applications && (
+                                    <div className="flex flex-col gap-1">
+                                        <Label htmlFor={`${id}-application`}>{t("applicationLogs.application")}</Label>
+                                        <Select layoutSize="sm" value={slug} onValueChange={setApplicationSlug}>
+                                            <SelectTrigger id={`${id}-application`} className="w-56 max-w-full" dataTestId="application-logs-application">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {applications.map(application => (
+                                                    <SelectItem key={application.slug} value={application.slug}>
+                                                        {application.name}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    </div>
+                                )}
                                 <div className="flex flex-col gap-1">
                                     <Label htmlFor={`${id}-environment`}>{t("applicationLogs.environment")}</Label>
                                     <Select layoutSize="sm" value={selectedEnvironment} onValueChange={setEnvironmentId}>
