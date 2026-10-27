@@ -3879,6 +3879,8 @@
         "filter": "Filter",
         "filter_placeholder": "Only lines containing…",
         "follow": "Refresh automatically",
+        "format_json": "Format JSON",
+        "format_json_hint": "JSON lines show their level, message and fields: click a line to see the whole JSON.",
         "previous": "Previous container",
         "previous_hint": "The logs of the container before its last restart: useful after a crash",
         "refresh": "Refresh",
