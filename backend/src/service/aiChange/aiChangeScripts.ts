@@ -481,6 +481,9 @@ export class AiChangeScriptRunner {
             else if (isProtectedPath(resolved.relative) && !isLockfilePath(resolved.relative)) refused.push(resolved.relative)
             else changed.push({ path: resolved.relative, hash })
         }
+        // The listing comes in the order of the sandbox's filesystem: by path, the same change reads the same every time
+        refused.sort()
+        changed.sort((a, b) => a.path.localeCompare(b.path))
         const left = refused.length ? [`${refused.join(", ")}: CI configuration, registry configuration or not a regular file, not part of your change`] : []
         const paths = changed.map(file => file.path)
         const tooMany = paths.length ? refusal(paths) : undefined
