@@ -2588,8 +2588,10 @@
             },
             "member_status": {
                 "untouched": "No repository",
-                "waiting": "Waiting for CI",
-                "built": "Built"
+                "waiting": "Waiting",
+                "running": "Running",
+                "failed": "Failed",
+                "built": "Completed"
             },
             "errors": {
                 "running": "A build and deploy of this domain is already running",

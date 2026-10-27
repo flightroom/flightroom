@@ -2607,8 +2607,10 @@
             },
             "member_status": {
                 "untouched": "Senza repository",
-                "waiting": "In attesa della CI",
-                "built": "Buildato"
+                "waiting": "In attesa",
+                "running": "In esecuzione",
+                "failed": "Fallita",
+                "built": "Completata"
             },
             "errors": {
                 "running": "È già in corso un build e deploy di questo dominio",
