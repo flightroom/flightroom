@@ -38,6 +38,31 @@ export interface ArgoCdInitializeDTO {
     insecure?: boolean
 }
 
+/** Un pod che l'Application di un backend, frontend o agente fa girare in un ambiente */
+export interface ArgoCdPod {
+    name: string
+    namespace: string
+    health?: string
+    status?: string
+    /** Container pronti sul totale, come "1/1" */
+    containers?: string
+    restarts?: number
+    createdAt?: string
+}
+
+export interface ArgoCdLogLine {
+    content: string
+    timestamp?: string
+}
+
+export interface ArgoCdLogsQuery {
+    pod: string
+    tailLines: number
+    /** I log del container prima dell'ultimo riavvio: quello che ha lasciato un crash */
+    previous: boolean
+    filter?: string
+}
+
 const useArgoCdApi = () => {
     const apiClient = useApiClient()
     const customErrorMessage = useGitOpsErrorMessage()
@@ -59,7 +84,23 @@ const useArgoCdApi = () => {
         return response.data
     }
 
-    return { getArgoCd, initializeArgoCd }
+    const applicationUrl = (projectId: string, environmentId: string, slug: string) =>
+        `/api/projects/${projectId}/argocd/environments/${encodeURIComponent(environmentId)}/applications/${encodeURIComponent(slug)}`
+
+    /** Silenziose: l'errore lo mostra la sezione dei log, non un toast a ogni refresh */
+    const getPods = async (projectId: string, environmentId: string, slug: string): Promise<ArgoCdPod[]> => {
+        const response = await apiClient.doRequest<ArgoCdPod[]>({ url: `${applicationUrl(projectId, environmentId, slug)}/pods`, silent: true })
+        return response.data
+    }
+
+    const getLogs = async (projectId: string, environmentId: string, slug: string, query: ArgoCdLogsQuery): Promise<ArgoCdLogLine[]> => {
+        const params = new URLSearchParams({ pod: query.pod, tailLines: String(query.tailLines), previous: String(query.previous) })
+        if (query.filter) params.set("filter", query.filter)
+        const response = await apiClient.doRequest<ArgoCdLogLine[]>({ url: `${applicationUrl(projectId, environmentId, slug)}/logs?${params}`, silent: true })
+        return response.data
+    }
+
+    return { getArgoCd, initializeArgoCd, getPods, getLogs }
 }
 
 export default useArgoCdApi

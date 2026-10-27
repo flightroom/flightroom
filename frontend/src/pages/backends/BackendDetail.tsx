@@ -5,6 +5,7 @@ import { Navigate, useParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
+import ApplicationLogsSection from "@/components/application-logs/ApplicationLogsSection"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { ApiStatusHandler } from "@/components/organisms"
 import RepositoryLink from "@/components/RepositoryLink"
@@ -111,6 +112,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                     <BackendConfigurationSection backend={backend} environments={environmentsQuery.data ?? []} />
                     <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                     <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} canDetach={!isViewer} />
+                    <ApplicationLogsSection slug={backend.slug} />
                 </div>
             )}
         </ApiStatusHandler>

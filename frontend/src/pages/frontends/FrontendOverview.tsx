@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import ApplicationLogsSection from "@/components/application-logs/ApplicationLogsSection"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
@@ -151,6 +152,7 @@ const FrontendOverview: React.FC = () => {
                             <BackendVersionsTable versions={buildsQuery.data ?? []} />
                             <BackendConfigurationSection backend={frontend} environments={environmentsQuery.data ?? []} description={t("frontend.overview.container_description")} />
                             <BackendVariableMapsSection backend={frontend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                            <ApplicationLogsSection slug={frontend.slug} />
                         </>
                     ) : (
                         <>

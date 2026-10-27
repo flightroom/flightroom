@@ -22,6 +22,7 @@ data:
     p, role:orchestrator, projects, *, mfe-*, allow
     p, role:orchestrator, applications, *, mfe-*/*, allow
     p, role:orchestrator, applicationsets, *, mfe-*/*, allow
+    p, role:orchestrator, logs, get, mfe-*/*, allow
     p, role:orchestrator, repositories, *, *, allow
     g, orchestrator, role:orchestrator`
 

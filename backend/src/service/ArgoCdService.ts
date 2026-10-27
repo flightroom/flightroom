@@ -1,8 +1,9 @@
-import { Schema } from "mongoose"
+import { isValidObjectId, Schema } from "mongoose"
 import { fastify } from ".."
-import ArgoCdClient, { ArgoCdResource } from "../client/ArgoCdClient"
+import ArgoCdClient, { ArgoCdLogLine, ArgoCdPod, ArgoCdResource } from "../client/ArgoCdClient"
 import GitlabClient from "../client/GitlabClient"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import Backend from "../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
@@ -43,6 +44,30 @@ export interface ArgoCdInitializeInput {
     repositoryToken?: string
     /** Accepts the certificate of Argo CD without verifying it: for a self-signed one */
     insecure?: boolean
+}
+
+/** What the screen of logs asks for, as the query string brings it */
+export interface ArgoCdLogsInput {
+    pod?: string
+    tailLines?: string | number
+    sinceSeconds?: string | number
+    previous?: string | boolean
+    filter?: string
+}
+
+const DEFAULT_LOG_LINES = 500
+const MAX_LOG_LINES = 5000
+/** A week: the kubelet rotates the logs well before */
+const MAX_LOG_SECONDS = 7 * 24 * 60 * 60
+const MAX_FILTER_LENGTH = 200
+/** The characters of the name of a pod, a DNS subdomain: Argo CD checks the pod is one of the Application */
+const POD_NAME = /^[a-z0-9][-a-z0-9.]{0,252}$/
+
+/** A whole number within the bounds, clamped to them; undefined when none is given */
+const boundedInteger = (value: unknown, min: number, max: number): number | undefined => {
+    const number = Math.trunc(Number(value))
+    if (value === undefined || value === "" || !Number.isFinite(number)) return undefined
+    return Math.min(Math.max(number, min), max)
 }
 
 type ArgoCdRepositoryKind = "configuration" | "applications"
@@ -293,16 +318,65 @@ export class ArgoCdService extends BaseAuthorizedService {
      * checks who may.
      */
     async createJobFromCronJob(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }): Promise<void> {
+        const { client, application, appProject } = await this.deployedApplication(projectId, slug, environment)
+        await client.createJobFromCronJob(application, appProject, environmentNamespace(environment), slug)
+    }
+
+    /** The pods the backend, frontend or maintenance agent `slug` runs in the environment now, read through Argo CD */
+    async listPods(projectId: string, slug: string, environmentId: string): Promise<ArgoCdPod[]> {
+        const { client, application, appProject } = await this.readableApplication(projectId, slug, environmentId)
+        return client.listPods(application, appProject)
+    }
+
+    /**
+     * The last lines a pod of `slug` wrote in the environment, read through Argo CD, which refuses a pod its
+     * Application does not run: a pod of another application of the namespace is not reachable from here.
+     */
+    async getLogs(projectId: string, slug: string, environmentId: string, query: ArgoCdLogsInput): Promise<ArgoCdLogLine[]> {
+        const pod = String(query.pod ?? "")
+        if (!POD_NAME.test(pod)) throw createBusinessException({ code: "ARGOCD_LOGS_INVALID", message: "Choose the pod to read the logs of" })
+        const { client, application, appProject, namespace } = await this.readableApplication(projectId, slug, environmentId)
+        const filter = String(query.filter ?? "").trim()
+        return client.getPodLogs(application, appProject, {
+            namespace,
+            podName: pod,
+            tailLines: boundedInteger(query.tailLines, 1, MAX_LOG_LINES) ?? DEFAULT_LOG_LINES,
+            sinceSeconds: boundedInteger(query.sinceSeconds, 1, MAX_LOG_SECONDS),
+            previous: query.previous === true || query.previous === "true",
+            ...(filter ? { filter: filter.slice(0, MAX_FILTER_LENGTH) } : {})
+        })
+    }
+
+    /**
+     * The Application of `slug` in the environment, for a member of the project who is not a viewer: logs may
+     * hold what the configuration hides, a viewer does not read them. `slug` must be one of the project's.
+     */
+    private async readableApplication(projectId: string, slug: string, environmentId: string) {
+        const projectIdObj = toObjectId(projectId)
+        await this.ensureAccessToProject(projectIdObj)
+        await this.ensureNotViewer(projectIdObj, { code: "ARGOCD_LOGS_FORBIDDEN", message: "A viewer cannot read the logs of the applications" })
+        if (!isValidObjectId(environmentId)) throw new EntityNotFoundError(String(environmentId))
+        const [environment, backend, frontend, agent] = await Promise.all([
+            Environment.findOne({ _id: toObjectId(environmentId), projectId: projectIdObj }, { slug: 1, namespace: 1 }),
+            Backend.exists({ projectId: projectIdObj, slug }),
+            Frontend.exists({ projectId: projectIdObj, slug, kind: FrontendKind.DOCKER }),
+            MaintenanceAgent.exists({ projectId: projectIdObj, slug })
+        ])
+        if (!environment) throw new EntityNotFoundError(String(environmentId))
+        if (!backend && !frontend && !agent) throw new EntityNotFoundError(String(slug))
+        return { ...(await this.deployedApplication(projectIdObj, slug, environment)), namespace: environmentNamespace(environment) }
+    }
+
+    /** The client of the Argo CD the project deploys through, and the names of the Application of `slug` in the environment there */
+    private async deployedApplication(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }) {
         const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
         const argoCd = project?.argoCd
         if (!project || !project.gitOps?.enabled || !project.gitOps.applicationsCodeRepository || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) throw notConfigured()
-        const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
-        await client.createJobFromCronJob(
-            applicationName(String(projectId), project.slug, slug, environmentSlug(environment)),
-            appProjectName(String(projectId), project.slug),
-            environmentNamespace(environment),
-            slug
-        )
+        return {
+            client: new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure }),
+            application: applicationName(String(projectId), project.slug, slug, environmentSlug(environment)),
+            appProject: appProjectName(String(projectId), project.slug)
+        }
     }
 
     /** Any member of the project sees where it is deployed from; the credentials stay behind */

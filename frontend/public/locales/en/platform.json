@@ -3851,5 +3851,32 @@
             "run_forbidden": "Viewers cannot run maintenance agents.",
             "argocd_not_configured": "Argo CD is not set up for this project: configure it in the settings to run agents."
         }
+    },
+    "applicationLogs": {
+        "title": "Logs",
+        "description": "The latest lines written by the pods in this environment, read through Argo CD. Only running pods are shown: after a redeploy, the logs of the previous pods are no longer available.",
+        "not_configured": "Initialize Argo CD in the project settings to read the logs of the pods.",
+        "no_environments": "The project has no environments yet.",
+        "environment": "Environment",
+        "pod": "Pod",
+        "no_pods": "No running pods in this environment",
+        "pod_option_one": "{{name}} · {{status}} · {{count}} restart",
+        "pod_option_other": "{{name}} · {{status}} · {{count}} restarts",
+        "tail": "Lines",
+        "tail_option_one": "Last line",
+        "tail_option_other": "Last {{count}} lines",
+        "filter": "Filter",
+        "filter_placeholder": "Only lines containing…",
+        "follow": "Refresh automatically",
+        "previous": "Previous container",
+        "previous_hint": "The logs of the container before its last restart: useful after a crash",
+        "refresh": "Refresh",
+        "download": "Download",
+        "empty": "No log lines.",
+        "errors": {
+            "not_configured": "Argo CD is no longer configured for the project: turn GitOps on with an applications repository and initialize Argo CD again.",
+            "forbidden": "A viewer cannot read the logs of the applications.",
+            "invalid": "Choose the pod to read the logs of."
+        }
     }
 }
