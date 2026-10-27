@@ -51,7 +51,7 @@ import type { IBadgeProps } from "@/components/atoms"
 import { Badge, Button } from "@/components/atoms"
 import Mascot from "@/components/mascot/Mascot"
 import RepositoryLink from "@/components/RepositoryLink"
-import useAiChangesApi, { AI_CHANGE_ACTIVE_STATUSES, AiChangeFile, AiChangeRequest, AiChangeStatus, AiChangeTarget } from "@/hooks/apiClients/useAiChangesApi"
+import useAiChangesApi, { AI_CHANGE_ACTIVE_STATUSES, AiChangeFile, AiChangeRequest, AiChangeStatus, AiChangeTarget, PromptImage } from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob, AiJobRepository, isAiJobActive } from "@/hooks/apiClients/useAiJobsApi"
 import { effortsOf } from "@/hooks/apiClients/useAiModelsApi"
 import { AI_USAGE_QUERY_KEY } from "@/hooks/apiClients/useAiUsageApi"
@@ -61,6 +61,7 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { cn } from "@/utils/styleUtils"
 import { AiChangeDiff } from "./AiChangeDiff"
 import { LivePreviews, ProgressLog, StatusBadge } from "./AiChangeProgress"
+import { AttachImageButton, PromptImageList, PromptImagesState, usePromptImages } from "./PromptImages"
 import { AiWorkspaceRepository, BaseBranches, pickedBaseBranches, RepositoryBranches } from "./RepositoryBranches"
 
 const PROMPT_MAX_LENGTH = 8000
@@ -715,12 +716,18 @@ const FollowUpForm: React.FC<FollowUpFormProps> = ({ target, open, latest, runni
     const [effort, setEffort] = useFollowUpEffort((open ?? latest)?.job, aiModel)
     const promptId = useId()
     const locked = !open
+    const images = usePromptImages()
 
     const followUpMutation = useMutation({
         mutationFn: ({ jobId, prompt }: { jobId: string; prompt: string }) =>
-            aiJobsApi.followUp(jobId, { prompt, effort, aiModelId: aiModel?.id, ...followUpScope(target) }, { customErrorMessage: error => jobErrorMessage(t, error, "follow_up") }),
+            aiJobsApi.followUp(
+                jobId,
+                { prompt, effort, aiModelId: aiModel?.id, ...followUpScope(target), images: images.images.length ? images.images : undefined },
+                { customErrorMessage: error => jobErrorMessage(t, error, "follow_up") }
+            ),
         onSuccess: child => {
             setDraft("")
+            images.clear()
             onSent(child)
         },
         onError: onFailed
@@ -733,54 +740,59 @@ const FollowUpForm: React.FC<FollowUpFormProps> = ({ target, open, latest, runni
 
     return (
         <form
-            className="flex items-end gap-2 border-t border-divider pt-4"
+            className="flex flex-col gap-2 border-t border-divider pt-4"
             onSubmit={event => {
                 event.preventDefault()
                 submit()
             }}
         >
-            <Label htmlFor={promptId} className="sr-only">
-                {t("frontend.aiChange.follow_up_label")}
-            </Label>
-            <Textarea
-                id={promptId}
-                value={draft}
-                maxLength={PROMPT_MAX_LENGTH}
-                rows={2}
-                className={cn("min-h-[44px] resize-none", locked && "cursor-not-allowed opacity-60")}
-                // Read-only rather than disabled: the field keeps the focus while the agent works on what was just sent.
-                readOnly={locked || followUpMutation.isPending}
-                aria-disabled={locked || undefined}
-                aria-describedby={`${promptId}-state`}
-                placeholder={placeholder}
-                dataTestId="ai-change-follow-up"
-                onChange={event => setDraft(event.target.value)}
-                onKeyDown={event => {
-                    if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
-                        event.preventDefault()
-                        submit()
-                    }
-                }}
-            />
-            {/* A placeholder is not read out: the state of the conversation is, as the field's description. */}
-            <span id={`${promptId}-state`} className="sr-only" aria-live="polite">
-                {placeholder}
-            </span>
-            <AiModelSelect value={aiModel?.id} onChange={setAiModel} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-ai-model" />
-            <EffortSelect value={effort} onChange={setEffort} efforts={effortsOf(aiModel)} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-effort" />
-            {running ? (
-                <StopJobButton job={running} onStopped={onStopped} dataTestId="ai-change-stop" />
-            ) : (
-                <Button
-                    type="submit"
-                    size="icon"
-                    aria-label={t("frontend.aiChange.follow_up_send")}
-                    disabled={!draft.trim() || locked || followUpMutation.isPending}
-                    dataTestId="ai-change-follow-up-send"
-                >
-                    {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp aria-hidden="true" />}
-                </Button>
-            )}
+            <PromptImageList state={images} disabled={locked || followUpMutation.isPending} />
+            <div className="flex items-end gap-2">
+                <Label htmlFor={promptId} className="sr-only">
+                    {t("frontend.aiChange.follow_up_label")}
+                </Label>
+                <Textarea
+                    id={promptId}
+                    value={draft}
+                    maxLength={PROMPT_MAX_LENGTH}
+                    rows={2}
+                    className={cn("min-h-[44px] resize-none", locked && "cursor-not-allowed opacity-60", images.dragging && !locked && "ring-2 ring-primary")}
+                    // Read-only rather than disabled: the field keeps the focus while the agent works on what was just sent.
+                    readOnly={locked || followUpMutation.isPending}
+                    aria-disabled={locked || undefined}
+                    aria-describedby={`${promptId}-state`}
+                    placeholder={placeholder}
+                    dataTestId="ai-change-follow-up"
+                    {...(locked || followUpMutation.isPending ? {} : images.fieldProps)}
+                    onChange={event => setDraft(event.target.value)}
+                    onKeyDown={event => {
+                        if (event.key === "Enter" && !event.shiftKey && !event.nativeEvent.isComposing) {
+                            event.preventDefault()
+                            submit()
+                        }
+                    }}
+                />
+                {/* A placeholder is not read out: the state of the conversation is, as the field's description. */}
+                <span id={`${promptId}-state`} className="sr-only" aria-live="polite">
+                    {placeholder}
+                </span>
+                <AttachImageButton state={images} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-attach" />
+                <AiModelSelect value={aiModel?.id} onChange={setAiModel} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-ai-model" />
+                <EffortSelect value={effort} onChange={setEffort} efforts={effortsOf(aiModel)} disabled={locked || followUpMutation.isPending} dataTestId="ai-change-follow-up-effort" />
+                {running ? (
+                    <StopJobButton job={running} onStopped={onStopped} dataTestId="ai-change-stop" />
+                ) : (
+                    <Button
+                        type="submit"
+                        size="icon"
+                        aria-label={t("frontend.aiChange.follow_up_send")}
+                        disabled={!draft.trim() || locked || followUpMutation.isPending}
+                        dataTestId="ai-change-follow-up-send"
+                    >
+                        {followUpMutation.isPending ? <Spinner size={16} centerScreen={false} /> : <ArrowUp aria-hidden="true" />}
+                    </Button>
+                )}
+            </div>
         </form>
     )
 }
@@ -1301,10 +1313,10 @@ export interface AiWorkspaceComposerExtension {
     /** In place of the keyboard shortcut while `pending`. */
     pendingLabel?: string
     /**
-     * Called with the prompt before the request is created; returning true takes the request over. The page calls
-     * `started` with the job it starts in the end, and the workspace opens it.
+     * Called with the prompt and its images before the request is created; returning true takes the request over. The
+     * page calls `started` with the job it starts in the end, and the workspace opens it.
      */
-    intercept?: (prompt: string, started: (job: AiJob) => void) => boolean
+    intercept?: (prompt: string, images: PromptImage[], started: (job: AiJob) => void) => boolean
 }
 
 interface ComposerProps {
@@ -1320,12 +1332,28 @@ interface ComposerProps {
     pending: boolean
     error?: string
     promptRef: React.RefObject<HTMLTextAreaElement | null>
+    images: PromptImagesState
     /** Set when "New change" or "Try again" asked for the composer before it was on screen. */
     focusOnMount: React.RefObject<boolean>
     extension?: AiWorkspaceComposerExtension
 }
 
-const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, baseBranches, onPromptChange, onBaseBranchesChange, onSubmit, pending, error, promptRef, focusOnMount, extension }) => {
+const Composer: React.FC<ComposerProps> = ({
+    name,
+    kind,
+    prompt,
+    repositories,
+    baseBranches,
+    onPromptChange,
+    onBaseBranchesChange,
+    onSubmit,
+    pending,
+    error,
+    promptRef,
+    images,
+    focusOnMount,
+    extension
+}) => {
     const { t } = useTranslation()
     const [effort, setEffort] = useEffort("code")
     const { selected: aiModel, setSelected: setAiModel } = useProjectAiModels()
@@ -1375,6 +1403,8 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
                             aria-describedby={`${promptId}-hint`}
                             placeholder={t("frontend.aiChange.prompt_placeholder", { context: kind === "domain" ? kind : undefined })}
                             disabled={busy}
+                            className={cn(images.dragging && "ring-2 ring-primary")}
+                            {...images.fieldProps}
                             onChange={event => onPromptChange(event.target.value)}
                             onKeyDown={event => {
                                 if (event.key === "Enter" && (event.metaKey || event.ctrlKey)) {
@@ -1388,6 +1418,7 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
                             <span className="text-destructive">{error}</span>
                             <span className="text-muted-foreground">{t("frontend.aiChange.prompt_counter", { count: prompt.length, max: PROMPT_MAX_LENGTH })}</span>
                         </div>
+                        <PromptImageList state={images} disabled={busy} />
                     </div>
                     <RepositoryBranches repositories={repositories} value={baseBranches} onChange={onBaseBranchesChange} disabled={busy} />
                     <div className="flex flex-wrap items-center justify-between gap-2">
@@ -1395,6 +1426,7 @@ const Composer: React.FC<ComposerProps> = ({ name, kind, prompt, repositories, b
                             {extension?.pending && extension.pendingLabel ? extension.pendingLabel : t("frontend.aiChange.composer_shortcut")}
                         </span>
                         <div className="flex items-center gap-2">
+                            <AttachImageButton state={images} disabled={busy} dataTestId="ai-change-attach" />
                             <AiModelSelect value={aiModel?.id} onChange={setAiModel} disabled={busy} dataTestId="ai-change-ai-model" />
                             <EffortSelect value={effort} onChange={setEffort} disabled={busy} dataTestId="ai-change-effort" />
                             <Button type="submit" disabled={busy || extension?.blocked} dataTestId="ai-change-generate">
@@ -1430,6 +1462,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
     const queryClient = useQueryClient()
     const [prompt, setPrompt] = useState("")
     const [baseBranches, setBaseBranches] = useState<BaseBranches>({})
+    const images = usePromptImages()
     // Picked in the composer, sent from here.
     const [effort] = useEffort("code")
     const aiModelId = useProjectAiModels().selected?.id
@@ -1480,22 +1513,24 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
     const reset = () => {
         setPrompt("")
         setBaseBranches({})
+        images.clear()
         setSubmitted(false)
         invalidateQueue()
     }
 
     const createMutation = useMutation({
         mutationFn: async (): Promise<string> => {
+            const attached = images.images.length ? images.images : undefined
             if (!repository) {
                 const job = await aiJobsApi.create(
-                    { prompt: prompt.trim(), scope: "domain", domainId: target.id, baseBranches: pickedBaseBranches(repositories, baseBranches), effort, aiModelId },
+                    { prompt: prompt.trim(), scope: "domain", domainId: target.id, baseBranches: pickedBaseBranches(repositories, baseBranches), effort, aiModelId, images: attached },
                     { customErrorMessage: error => jobErrorMessage(t, error, "create") }
                 )
                 return job.rootJobId
             }
             const created = await aiChangesApi.create(
                 repository,
-                { prompt: prompt.trim(), baseBranch: baseBranches[repository.id]?.trim() || undefined, effort, aiModelId },
+                { prompt: prompt.trim(), baseBranch: baseBranches[repository.id]?.trim() || undefined, effort, aiModelId, images: attached },
                 {
                     customErrorMessage: error => {
                         const code = errorCodeOf(error)
@@ -1526,7 +1561,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
             promptRef.current?.focus()
             return
         }
-        if (composer?.blocked || composer?.intercept?.(prompt.trim(), started)) return
+        if (composer?.blocked || composer?.intercept?.(prompt.trim(), images.images, started)) return
         // Navigation goes in the call options: they are skipped once the page is left, the hook-level callback is not.
         createMutation.mutate(undefined, { onSuccess: select })
     }
@@ -1572,6 +1607,7 @@ export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, reposito
                         pending={createMutation.isPending}
                         error={promptError}
                         promptRef={promptRef}
+                        images={images}
                         focusOnMount={focusComposer}
                         extension={composer}
                     />

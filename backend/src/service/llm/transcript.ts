@@ -31,7 +31,8 @@ const compactCall = (call: LlmToolCall, max: number): LlmToolCall => ({ id: call
 const compactMessage = (message: LlmMessage): LlmMessage => {
     switch (message.role) {
         case "user":
-            return { role: "user", text: clip(message.text, TRANSCRIPT_LIMITS.maxText) }
+            // Images are never stored: the replay only says they were there.
+            return { role: "user", text: clip(message.text, TRANSCRIPT_LIMITS.maxText) + (message.images?.length ? `\n[${message.images.length} image(s) attached]` : "") }
         case "assistant":
             return { role: "assistant", text: clip(message.text, TRANSCRIPT_LIMITS.maxText), toolCalls: message.toolCalls.map(call => compactCall(call, TRANSCRIPT_LIMITS.maxToolText)) }
         case "tool":

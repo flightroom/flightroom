@@ -39,8 +39,36 @@ export interface LlmToolResult {
     isError?: boolean
 }
 
+/** The image formats every provider reads. */
+export const LLM_IMAGE_MEDIA_TYPES = ["image/png", "image/jpeg", "image/webp", "image/gif"] as const
+
+/** An image the user attached to a message, sent to the model as an image input. */
+export interface LlmImage {
+    mediaType: (typeof LLM_IMAGE_MEDIA_TYPES)[number]
+    /** Base64, without the `data:` prefix. */
+    data: string
+}
+
+/** The images of a request body: the console downsizes them first, so each stays under 2 MB, and five fit both the body limit and a MongoDB document. */
+export const PROMPT_IMAGES_SCHEMA = {
+    type: "array",
+    maxItems: 5,
+    items: {
+        type: "object",
+        additionalProperties: false,
+        required: ["mediaType", "data"],
+        properties: {
+            mediaType: { type: "string", enum: LLM_IMAGE_MEDIA_TYPES },
+            data: { type: "string", minLength: 1, maxLength: 2_800_000, pattern: "^[A-Za-z0-9+/]+={0,2}$" }
+        }
+    }
+}
+
+/** The body limit of a request that may carry images: Fastify's default 1 MiB would refuse a single screenshot. */
+export const PROMPT_IMAGES_BODY_LIMIT = 16 * 1024 * 1024
+
 export type LlmMessage =
-    | { role: "user"; text: string }
+    | { role: "user"; text: string; images?: LlmImage[] }
     /**
      * `native` is the turn exactly as the provider returned it. It is sent back as is: Claude's
      * thinking blocks and Gemini's thought signatures must come back unchanged on the next request,

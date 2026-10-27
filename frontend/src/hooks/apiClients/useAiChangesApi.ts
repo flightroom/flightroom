@@ -74,6 +74,12 @@ export interface AiChangeRequest {
     updatedAt: string
 }
 
+/** An image attached to a prompt, shown to the model with it: base64 without the `data:` prefix. */
+export interface PromptImage {
+    mediaType: "image/png" | "image/jpeg" | "image/webp" | "image/gif"
+    data: string
+}
+
 export interface CreateAiChangeDTO {
     prompt: string
     baseBranch?: string
@@ -81,6 +87,7 @@ export interface CreateAiChangeDTO {
     effort?: LlmEffort
     /** Without it, the backend works with the default AI of the project. */
     aiModelId?: string
+    images?: PromptImage[]
 }
 
 const useAiChangesApi = () => {

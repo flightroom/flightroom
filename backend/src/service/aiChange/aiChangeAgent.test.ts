@@ -547,6 +547,18 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(firstPrompt).toContain("<request>\nAdd a 404 page\n</request>")
     })
 
+    it("Given images attached to the request, when it runs, then they go with the first message, which tells the agent about them, and the transcript keeps only a note", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+
+        const result = await runAiChangeAgent(client, { ...input(), images: [{ mediaType: "image/png", data: "aGk=" }] }, hooks().hooks)
+
+        const firstMessage = sent[0].messages[0]
+        expect(firstMessage).toMatchObject({ role: "user", images: [{ mediaType: "image/png", data: "aGk=" }] })
+        expect(firstMessage.role === "user" ? firstMessage.text : "").toContain("The user attached an image to this request")
+        expect(JSON.stringify(result.transcript)).not.toContain("aGk=")
+        expect(result.transcript[0]).toMatchObject({ role: "user", text: expect.stringContaining("[1 image(s) attached]") })
+    })
+
     it("Given a project with default technologies, when it runs, then the first prompt tells the agent to follow them for new code", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
 

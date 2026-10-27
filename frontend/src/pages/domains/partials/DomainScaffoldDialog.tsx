@@ -31,6 +31,7 @@ import { useEffort } from "@/components/assistant/useEffort"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
+import type { PromptImage } from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob } from "@/hooks/apiClients/useAiJobsApi"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useCodeRepositoriesApi, { CodeRepositoryProvider } from "@/hooks/apiClients/useCodeRepositoriesApi"
@@ -115,6 +116,8 @@ interface DomainScaffoldDialogProps {
     domainName: string
     /** The request the job starts with once everything is created. */
     prompt: string
+    /** Attached to the request. */
+    images: PromptImage[]
     /** Proposed by the AI for an empty domain, or the members of the domain without a repository. */
     items: ScaffoldItem[]
     /**
@@ -131,7 +134,7 @@ interface DomainScaffoldDialogProps {
  * they are created one by one (each repository scaffolded from its template) and the job starts on
  * them. A failed row stays in the dialog: confirming again retries only what is not created yet.
  */
-const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpenChange, domainId, domainName, prompt, items: proposed, maxRepositories, onCreated }) => {
+const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpenChange, domainId, domainName, prompt, images, items: proposed, maxRepositories, onCreated }) => {
     const { t } = useTranslation()
     const id = useId()
     const queryClient = useQueryClient()
@@ -251,7 +254,10 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                 queryClient.invalidateQueries({ queryKey: ["domains"] })
             ])
             if (failed) return undefined
-            return aiJobsApi.create({ prompt, scope: "domain", domainId, effort, aiModelId }, { customErrorMessage: error => jobErrorMessage(t, error, "create") })
+            return aiJobsApi.create(
+                { prompt, scope: "domain", domainId, effort, aiModelId, images: images.length ? images : undefined },
+                { customErrorMessage: error => jobErrorMessage(t, error, "create") }
+            )
         },
         onSuccess: job => {
             if (!job) return

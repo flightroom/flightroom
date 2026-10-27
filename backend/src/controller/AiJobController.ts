@@ -2,7 +2,7 @@ import { FastifyInstance, FastifyRequest } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import AiChangeJobService, { AiJobCreateInput, AiJobFollowUpInput } from "../service/aiChange/AiChangeJobService"
 import DomainPlanService, { DomainPlanInput } from "../service/aiChange/DomainPlanService"
-import { LLM_EFFORTS } from "../service/llm"
+import { LLM_EFFORTS, PROMPT_IMAGES_BODY_LIMIT, PROMPT_IMAGES_SCHEMA } from "../service/llm"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 import { getProjectIdFromRequest } from "../utils/requestUtils"
 
@@ -14,6 +14,7 @@ const domainId = { type: "string", pattern: "^[a-fA-F0-9]{24}$" }
 const effort = { type: "string", enum: LLM_EFFORTS }
 // An id of the organization's AIs, or `system`
 const aiModelId = { type: "string", minLength: 1, maxLength: 64 }
+const images = PROMPT_IMAGES_SCHEMA
 // The branch each repository starts from, by frontend or backend id
 const baseBranches = { type: "object", maxProperties: 100, propertyNames: { pattern: "^[a-fA-F0-9]{24}$" }, additionalProperties: { type: "string", minLength: 1, maxLength: 255 } }
 
@@ -21,7 +22,7 @@ const createBodySchema = {
     type: "object",
     required: ["prompt", "scope"],
     additionalProperties: false,
-    properties: { prompt, scope: { type: "string", enum: ["global", "domain", "selection"] }, domainId, frontendIds, backendIds, baseBranches, effort, aiModelId },
+    properties: { prompt, scope: { type: "string", enum: ["global", "domain", "selection"] }, domainId, frontendIds, backendIds, baseBranches, effort, aiModelId, images },
     // A domain job works on the members of that domain: without it there is nothing to work on.
     if: { properties: { scope: { const: "domain" } } },
     then: { required: ["domainId"] }
@@ -43,7 +44,7 @@ const followUpBodySchema = {
     type: "object",
     required: ["prompt"],
     additionalProperties: false,
-    properties: { prompt, frontendIds, backendIds, effort, aiModelId }
+    properties: { prompt, frontendIds, backendIds, effort, aiModelId, images }
 }
 
 const projectIdOf = (request: FastifyRequest) => {
@@ -70,7 +71,7 @@ export default async function aiJobController(fastify: FastifyInstance) {
         keyGenerator: (request: FastifyRequest) => request.databaseUser?._id?.toString() ?? request.ip
     }
 
-    fastify.post<{ Body: AiJobCreateInput }>("/ai-jobs", { schema: { body: createBodySchema }, config: { ...config, rateLimit } }, async (request, reply) =>
+    fastify.post<{ Body: AiJobCreateInput }>("/ai-jobs", { bodyLimit: PROMPT_IMAGES_BODY_LIMIT, schema: { body: createBodySchema }, config: { ...config, rateLimit } }, async (request, reply) =>
         reply.status(202).send(await service(request).create(projectIdOf(request), request.body))
     )
 
@@ -79,8 +80,10 @@ export default async function aiJobController(fastify: FastifyInstance) {
         reply.send(await new DomainPlanService(request.databaseUser, fastify.config).plan(projectIdOf(request), request.body))
     )
 
-    fastify.post<{ Params: { id: string }; Body: AiJobFollowUpInput }>("/ai-jobs/:id/follow-ups", { schema: { body: followUpBodySchema }, config: { ...config, rateLimit } }, async (request, reply) =>
-        reply.status(202).send(await service(request).followUp(request.params.id, request.body))
+    fastify.post<{ Params: { id: string }; Body: AiJobFollowUpInput }>(
+        "/ai-jobs/:id/follow-ups",
+        { bodyLimit: PROMPT_IMAGES_BODY_LIMIT, schema: { body: followUpBodySchema }, config: { ...config, rateLimit } },
+        async (request, reply) => reply.status(202).send(await service(request).followUp(request.params.id, request.body))
     )
 
     // With a domain, everyone's conversations on it (first and latest job of each chain): the domain page shows them as a frontend page shows its requests.

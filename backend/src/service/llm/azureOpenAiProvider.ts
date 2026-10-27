@@ -19,7 +19,17 @@ const toInput = (messages: LlmMessage[]): ResponseInputItem[] =>
     messages.flatMap((message): ResponseInputItem[] => {
         switch (message.role) {
             case "user":
-                return [{ role: "user", content: message.text }]
+                return message.images?.length
+                    ? [
+                          {
+                              role: "user",
+                              content: [
+                                  { type: "input_text", text: message.text },
+                                  ...message.images.map(image => ({ type: "input_image" as const, image_url: `data:${image.mediaType};base64,${image.data}`, detail: "auto" as const }))
+                              ]
+                          }
+                      ]
+                    : [{ role: "user", content: message.text }]
             case "assistant":
                 return (
                     (message.native as ResponseInputItem[] | undefined) ?? [
