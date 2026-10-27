@@ -21,9 +21,9 @@ jobs:
     secrets: inherit
 
   # Lints the Helm chart on every push. On a tag it also stops the release before
-  # anything is published when the tag is not on main, when the chart does not
-  # ship the tagged image (appVersion != tag) or when its version is already in
-  # the registry.
+  # anything is published when the tag is not on main, when CHANGELOG.md has no
+  # section for it, when the chart does not ship the tagged image (appVersion !=
+  # tag) or when its version is already in the registry.
   helm-chart-check:
     runs-on: ubuntu-24.04
 
@@ -40,6 +40,16 @@ jobs:
         run: |
           if ! git merge-base --is-ancestor "$GITHUB_SHA" origin/main; then
             echo "::error::Tag $TAG is not on main. Releases are tagged on the main merge commit of the release PR."
+            exit 1
+          fi
+
+      - name: 📝 Check The Changelog Has The Release
+        if: github.ref_type == 'tag'
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          if ! grep -qF "## [$TAG]" CHANGELOG.md; then
+            echo "::error file=CHANGELOG.md::CHANGELOG.md has no section ## [$TAG]: the GitHub release takes its notes from it. Add it and tag again."
             exit 1
           fi
 
@@ -178,3 +188,28 @@ jobs:
           echo "$GITHUB_TOKEN" | helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
           helm package ${{ env.CHART_PATH }} --destination dist
           helm push dist/flightroom-*.tgz ${{ env.CHART_REGISTRY }}
+
+  # Opens the GitHub release of the tag once its image and chart are out, so a tag
+  # is a release, with the notes of its section of CHANGELOG.md.
+  github-release:
+    needs: [helm-publish]
+    if: github.ref_type == 'tag'
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+
+    steps:
+      - name: 🔄 Checkout
+        uses: actions/checkout@v7
+
+      - name: 📝 Release Notes From The Changelog
+        env:
+          TAG: ${{ github.ref_name }}
+        run: |
+          awk -v header="## [$TAG]" 'index($0, header) == 1 { found = 1; next } found && (/^## \[/ || /^---/) { exit } found' CHANGELOG.md > release-notes.md
+
+      - name: 🚀 Create GitHub Release
+        env:
+          TAG: ${{ github.ref_name }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: gh release create "$TAG" --title "$TAG" --notes-file release-notes.md --verify-tag
