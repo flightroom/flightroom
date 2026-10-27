@@ -505,7 +505,7 @@
                 "Si prega di non slacciare le dipendenze fino all'atterraggio."
             ],
             "game": {
-                "label": "Mini-gioco: guida il razzo tra le torri",
+                "label": "Mini-gioco: guida Vega tra le torri",
                 "score": "Punti {{score}}",
                 "best": "Record {{score}}",
                 "start": "Premi spazio o tocca per decollare",
