@@ -292,7 +292,7 @@ describe("DomainService.build", () => {
     const codeRepositoryId = new Types.ObjectId()
     const domain = { _id: domainId, projectId, slug: "payments", name: "Payments" }
     const link = (name: string, repositoryId: string) => ({ enabled: true, codeRepositoryId, repositoryId, name })
-    const member = (name: string, codeRepository?: Record<string, unknown>) => ({ _id: new Types.ObjectId(), name, codeRepository })
+    const member = (name: string, codeRepository?: Record<string, unknown>, version?: string) => ({ _id: new Types.ObjectId(), name, codeRepository, version })
     const answered = (status: number) =>
         new AxiosError(`Request failed with status code ${status}`, "ERR_BAD_REQUEST", undefined, undefined, {
             status,
@@ -354,6 +354,41 @@ describe("DomainService.build", () => {
             [`${codeRepositoryId}/2`, "search-fe", "tagged"],
             [`${codeRepositoryId}/3`, "orders-be", "tagged"]
         ])
+    })
+
+    it("given a repository whose branch is still on the commit of its member's version, when the domain is built, then only the others are tagged", async () => {
+        withMembers([member("Cart", link("cart-fe", "1"), "1.3.0")], [member("Orders API", link("orders-be", "3"), "1.3.0")])
+        vi.spyOn(GithubClient.prototype, "getTagCommitSha").mockImplementation((async (_token: string, name: string) => (name === "cart-fe" ? "sha-of-cart-fe" : "older-sha")) as never)
+
+        const result = await new DomainService().build(String(domainId), "1.4.0")
+
+        expect(createTag).toHaveBeenCalledTimes(1)
+        expect(createTag).toHaveBeenCalledWith("token", "orders-be", "1.4.0", "sha-of-orders-be", undefined, "acme")
+        expect(result.repositories.map(repository => [repository.repository, repository.status])).toEqual([
+            ["cart-fe", "unchanged"],
+            ["orders-be", "tagged"]
+        ])
+    })
+
+    it("given a shared repository where one member has no version yet, when the domain is built, then it is tagged", async () => {
+        withMembers([member("Cart", link("web", "1"), "1.3.0"), member("Search", link("web", "1"))])
+        const getTagCommitSha = vi.spyOn(GithubClient.prototype, "getTagCommitSha").mockResolvedValue("sha-of-web")
+
+        const result = await new DomainService().build(String(domainId), "1.4.0")
+
+        expect(getTagCommitSha).not.toHaveBeenCalled()
+        expect(createTag).toHaveBeenCalledTimes(1)
+        expect(result.repositories.map(repository => repository.status)).toEqual(["tagged"])
+    })
+
+    it("given a version tag the provider cannot read, when the domain is built, then the repository is tagged anyway", async () => {
+        withMembers([member("Cart", link("cart-fe", "1"), "1.3.0")])
+        vi.spyOn(GithubClient.prototype, "getTagCommitSha").mockRejectedValue(answered(500))
+
+        const result = await new DomainService().build(String(domainId), "1.4.0")
+
+        expect(createTag).toHaveBeenCalledTimes(1)
+        expect(result.repositories.map(repository => repository.status)).toEqual(["tagged"])
     })
 
     it("given no branch, when the domain is built, then main is tagged", async () => {

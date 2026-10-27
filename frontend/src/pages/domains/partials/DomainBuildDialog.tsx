@@ -14,7 +14,12 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 /** The rule of the backend: the tag becomes, in the pipelines, an image tag and a URL segment */
 export const VERSION = /^[A-Za-z0-9._-]{1,128}$/
 
-const STATUS_VARIANTS: Record<DomainBuildRepository["status"], "success" | "outline" | "destructive"> = { tagged: "success", ready: "outline", failed: "destructive" }
+const STATUS_VARIANTS: Record<DomainBuildRepository["status"], "success" | "outline" | "default" | "destructive"> = {
+    tagged: "success",
+    ready: "outline",
+    unchanged: "default",
+    failed: "destructive"
+}
 
 /** What a domain build did, or would have done, repository by repository: also shown by the build and deploy of the domain */
 export const DomainBuildOutcomes: React.FC<{ result: DomainBuildResult }> = ({ result }) => {
@@ -83,8 +88,11 @@ export const DomainBuildButton: React.FC<DomainBuildButtonProps> = ({ domain, op
             const built = await domainsApi.build(domain._id, values.version, values.branch.trim() || undefined)
             setResult(built)
             const failed = built.repositories.filter(repository => repository.status === "failed").length
-            if (failed === 0) {
-                notifications.showSuccessNotification({ message: t("domains.build.success", { domain: domain.name, version: built.version, count: built.repositories.length }) })
+            const tagged = built.repositories.filter(repository => repository.status === "tagged").length
+            if (failed === 0 && tagged === 0) {
+                notifications.showInfoNotification({ message: t("domains.build.nothing_changed", { domain: domain.name }) })
+            } else if (failed === 0) {
+                notifications.showSuccessNotification({ message: t("domains.build.success", { domain: domain.name, version: built.version, count: tagged }) })
             } else {
                 notifications.showWarningNotification({ message: t("domains.build.partial", { count: failed }) })
             }

@@ -83,9 +83,11 @@ interface BuildRepository {
     /** What tells the repository, as {@link repositoryKeys} gives it: another link with any of them is the same repository */
     keys: Set<string>
     members: DomainBuildRepository["members"]
+    /** The version each member has now, in the order of `members` */
+    versions: (string | undefined)[]
 }
 
-type BuildMember = { kind: "frontend" | "backend"; _id: unknown; name: string; codeRepository?: ICodeRepositoryFrontend }
+type BuildMember = { kind: "frontend" | "backend"; _id: unknown; name: string; version?: string; codeRepository?: ICodeRepositoryFrontend }
 
 /**
  * The members' repositories, once each: two members linked to the same repository would otherwise tag it twice.
@@ -94,7 +96,7 @@ type BuildMember = { kind: "frontend" | "backend"; _id: unknown; name: string; c
  */
 const repositoriesOf = (members: BuildMember[], providers: Map<string, CodeRepositoryProvider>): BuildRepository[] => {
     let repositories: BuildRepository[] = []
-    for (const { kind, _id, name, codeRepository } of members) {
+    for (const { kind, _id, name, version, codeRepository } of members) {
         if (!codeRepository?.enabled) continue
         const connection = String(codeRepository.codeRepositoryId)
         const keys = new Set(repositoryKeys(providers.get(connection), codeRepository).map(({ field, value }) => `${connection}/${field}:${value}`))
@@ -103,15 +105,18 @@ const repositoriesOf = (members: BuildMember[], providers: Map<string, CodeRepos
             id: [connection, codeRepository.repositoryId || codeRepository.name, codeRepository.gitlab?.path].filter(Boolean).join("/"),
             link: codeRepository,
             keys: new Set<string>(),
-            members: []
+            members: [],
+            versions: []
         }
         // A link that holds the keys of two repositories found so far shows they were one
         for (const other of same.slice(1)) {
             for (const key of other.keys) repository.keys.add(key)
             repository.members.push(...other.members)
+            repository.versions.push(...other.versions)
         }
         for (const key of keys) repository.keys.add(key)
         repository.members.push({ kind, _id: String(_id), name })
+        repository.versions.push(version)
         if (same.length === 0) {
             repositories.push(repository)
         } else {
@@ -203,6 +208,20 @@ const branchesOf = (repositories: BuildRepository[], branch: string, refs?: Buil
             return [repository.id, picked[0] ?? branch]
         })
     )
+
+/**
+ * Whether the branch of the repository is still on the commit every member's version was tagged on: a new tag
+ * would only build the same code again. A member without a version, or a tag that cannot be read, is a change.
+ */
+const isUnchanged = async (scaffold: TemplateScaffoldService, repository: BuildRepository, target: TagTarget): Promise<boolean> => {
+    if (repository.versions.some(version => !version)) return false
+    try {
+        const commits = await Promise.all([...new Set(repository.versions as string[])].map(version => scaffold.tagCommit(target, version)))
+        return commits.every(commit => commit === target.commit)
+    } catch {
+        return false
+    }
+}
 
 const toOutcome = ({ id, link, members }: BuildRepository, ref: string, outcome: Pick<DomainBuildRepository, "status" | "reason" | "message">): DomainBuildRepository => ({
     id,
@@ -350,7 +369,8 @@ export class DomainService extends BaseAuthorizedService {
      * `version`, on the branch `refs` gives its members or else on `ref` (main by default), as their own builds do one at a time. Every repository is
      * checked first (its connection, the domain scope, the ref, a tag of that name): when one fails, none is
      * tagged and the refusal lists each one. A tag that still fails afterwards leaves the others made, and the
-     * result says which.
+     * result says which. A repository whose branch has not moved since the version of its members is left
+     * untagged: only the side that changed is built again.
      */
     async build(id: string | ObjectId, version: unknown, ref?: unknown, refs?: unknown): Promise<DomainBuildResult> {
         ensureBuildTarget(version, ref, refs)
@@ -362,13 +382,14 @@ export class DomainService extends BaseAuthorizedService {
         await this.ensureNotViewer(domain.projectId, { code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain" })
 
         const inDomain = { projectId: domain.projectId, domainId: domain._id }
-        const [frontends, backends] = await Promise.all([Frontend.find(inDomain, { name: 1, codeRepository: 1 }), Backend.find(inDomain, { name: 1, codeRepository: 1 })])
+        const fields = { name: 1, version: 1, codeRepository: 1 }
+        const [frontends, backends] = await Promise.all([Frontend.find(inDomain, fields), Backend.find(inDomain, fields)])
         if (frontends.length + backends.length === 0) {
             throw createBusinessException({ code: "DOMAIN_BUILD_EMPTY", message: "The domain has no frontend nor backend to build" })
         }
         const members: BuildMember[] = [
-            ...frontends.map(member => ({ kind: "frontend" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository })),
-            ...backends.map(member => ({ kind: "backend" as const, _id: member._id, name: member.name, codeRepository: member.codeRepository }))
+            ...frontends.map(member => ({ kind: "frontend" as const, _id: member._id, name: member.name, version: member.version, codeRepository: member.codeRepository })),
+            ...backends.map(member => ({ kind: "backend" as const, _id: member._id, name: member.name, version: member.version, codeRepository: member.codeRepository }))
         ]
         // The provider decides which of name and GitLab path tells a repository
         const connectionIds = [...new Set(members.filter(member => member.codeRepository?.enabled).map(member => String(member.codeRepository?.codeRepositoryId)))]
@@ -390,13 +411,15 @@ export class DomainService extends BaseAuthorizedService {
                 if (await scaffold.tagExists(target, version)) {
                     return { repository, failure: { reason: "TAG_EXISTS" as const, message: `The tag ${version} already exists in the repository` } }
                 }
-                return { repository, target }
+                return { repository, target, unchanged: await isUnchanged(scaffold, repository, target) }
             } catch (error) {
                 return { repository, failure: toBuildFailure(error) }
             }
         })
         if (checks.some(check => check.failure)) {
-            const outcomes = checks.map(check => toOutcome(check.repository, branches.get(check.repository.id)!, check.failure ? { status: "failed", ...check.failure } : { status: "ready" }))
+            const outcomes = checks.map(check =>
+                toOutcome(check.repository, branches.get(check.repository.id)!, check.failure ? { status: "failed", ...check.failure } : { status: check.unchanged ? "unchanged" : "ready" })
+            )
             const failed = outcomes.filter(outcome => outcome.status === "failed").map(outcome => `${outcome.repository}: ${outcome.message}`)
             throw createBusinessException({
                 code: "DOMAIN_BUILD_CHECK_FAILED",
@@ -408,7 +431,11 @@ export class DomainService extends BaseAuthorizedService {
 
         // One after the other: whatever was tagged stays tagged, and a failure is told with the rest
         const outcomes: DomainBuildRepository[] = []
-        for (const { repository, target } of checks) {
+        for (const { repository, target, unchanged } of checks) {
+            if (unchanged) {
+                outcomes.push(toOutcome(repository, branches.get(repository.id)!, { status: "unchanged" }))
+                continue
+            }
             try {
                 await scaffold.pushTag(target as TagTarget, version)
                 outcomes.push(toOutcome(repository, branches.get(repository.id)!, { status: "tagged" }))

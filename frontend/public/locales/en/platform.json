@@ -2555,7 +2555,8 @@
             "status": {
                 "tagged": "Tagged",
                 "ready": "Not tagged",
-                "failed": "Failed"
+                "failed": "Failed",
+                "unchanged": "Unchanged"
             },
             "reasons": {
                 "CONNECTION_NOT_FOUND": "The code repository connection is no longer one of this project",
@@ -2573,7 +2574,8 @@
                 "check_failed": "No repository was tagged: the check failed for at least one of them",
                 "ref_conflict": "Frontends and backends that share a repository must use the same branch",
                 "forbidden": "A viewer cannot create a version of the domain"
-            }
+            },
+            "nothing_changed": "Nothing changed in {{domain}}: no repository was tagged"
         },
         "release": {
             "action": "Build and deploy",
@@ -2605,7 +2607,8 @@
                 "waiting": "Waiting",
                 "running": "Running",
                 "failed": "Failed",
-                "built": "Completed"
+                "built": "Completed",
+                "unchanged": "Unchanged"
             },
             "errors": {
                 "running": "A build and deploy of this domain is already running",
@@ -2619,7 +2622,8 @@
                 "DOMAIN_RELEASE_CI_NOT_REGISTERED": "The pipeline of tag {{version}} ended without registering the version in the console for: {{names}}. Check the step of the pipeline that registers it and its API key",
                 "DOMAIN_RELEASE_INTERRUPTED": "The release stopped in the middle of a step, most likely on a restart of the console: check the deployments of the environment before starting it again",
                 "DOMAIN_RELEASE_USER_UNAVAILABLE": "The user who started the release can no longer act in the console"
-            }
+            },
+            "unchanged_hint": "Frontends and backends with no change since their version are not built again: they keep their current version."
         },
         "deployments": {
             "open": "Deployed versions",

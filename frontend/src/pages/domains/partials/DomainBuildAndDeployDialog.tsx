@@ -58,10 +58,11 @@ const TRANSLATED_ERRORS = [
     "DOMAIN_BUILD_CHECK_FAILED"
 ]
 
-type MemberState = "untouched" | "waiting" | "running" | "failed" | "built"
+type MemberState = "untouched" | "unchanged" | "waiting" | "running" | "failed" | "built"
 
 const MEMBER_VARIANTS: Record<MemberState, "success" | "outline" | "default" | "info" | "destructive"> = {
     untouched: "default",
+    unchanged: "default",
     waiting: "outline",
     running: "info",
     failed: "destructive",
@@ -69,8 +70,8 @@ const MEMBER_VARIANTS: Record<MemberState, "success" | "outline" | "default" | "
 }
 
 /** Where the member is: the release says once the CI registered it, its run on the provider says before */
-const memberState = (member: DomainReleaseMember, runs: BuildRun[]): MemberState => {
-    if (!member.tagged) return "untouched"
+const memberState = (member: DomainReleaseMember, runs: BuildRun[], unchanged: boolean): MemberState => {
+    if (!member.tagged) return unchanged ? "unchanged" : "untouched"
     if (member.built || runs.some(run => run.status === BuildStatus.SUCCESS)) return "built"
     if (runs.some(run => run.status === BuildStatus.RUNNING)) return "running"
     if (runs.some(run => run.status === BuildStatus.FAILED || run.status === BuildStatus.CANCELED)) return "failed"
@@ -213,6 +214,8 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
         const failed = current.status === "failed"
         const at = current.status === "deployed" ? STEPS.length : STEPS.indexOf(failed ? (current.failedStep ?? "building") : (current.status as (typeof STEPS)[number]))
         const outcomes = current.repositories.some(repository => repository.status === "failed")
+        // Left out of the build because their repository has not changed since their version
+        const unchanged = new Set(current.repositories.filter(repository => repository.status === "unchanged").flatMap(repository => repository.members.map(member => member._id)))
         return (
             <>
                 {/* Vega waits with the release: fixing things while it builds, blasting off once it deploys */}
@@ -266,7 +269,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                             const row = buildsOf(member)
                             const versionRuns = member.tagged ? (row?.builds.filter(run => run.ref === current.version) ?? []) : []
                             const runs = versionRuns.filter(run => run.url)
-                            const state = memberState(member, versionRuns)
+                            const state = memberState(member, versionRuns, unchanged.has(member._id))
                             const ref = current.repositories.find(repository => repository.members.some(candidate => candidate._id === member._id))?.ref
                             return (
                                 <li key={member._id} className="flex items-center justify-between gap-2 rounded-md border border-divider p-3">
@@ -295,7 +298,8 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                         })}
                     </ul>
                 )}
-                {current.members.some(member => !member.tagged) && <p className="mb-4 text-xs text-foreground-secondary">{t("domains.release.untouched_hint")}</p>}
+                {unchanged.size > 0 && <p className="mb-4 text-xs text-foreground-secondary">{t("domains.release.unchanged_hint")}</p>}
+                {current.members.some(member => !member.tagged && !unchanged.has(member._id)) && <p className="mb-4 text-xs text-foreground-secondary">{t("domains.release.untouched_hint")}</p>}
                 {isReleaseRunning(current) && (
                     <p className="mb-4 text-xs text-foreground-secondary" data-testid="domain-release-close-hint">
                         {t("domains.release.close_hint")}

@@ -590,6 +590,20 @@ class AzureDevOpsClient {
         return (response.data.value ?? []).some(ref => ref.name === `refs/tags/${tagName}`)
     }
 
+    /** The commit the tag points to, undefined without the tag: an annotated tag is peeled to its commit */
+    async getTagCommitId(token: string, organization: string, project: string, repositoryId: string, tagName: string): Promise<string | undefined> {
+        const response = await axios.request<{ value?: { name: string; objectId: string; peeledObjectId?: string }[] }>({
+            url: `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/refs`,
+            params: { filter: `tags/${tagName}`, peelTags: true, "api-version": "7.1-preview.1" },
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            }
+        })
+        const tag = (response.data.value ?? []).find(ref => ref.name === `refs/tags/${tagName}`)
+        return tag && (tag.peeledObjectId || tag.objectId)
+    }
+
     /** Azure DevOps answers 200 even when it refuses the ref: the refusal is told in `success` and `updateStatus` */
     async createTag(token: string, organization: string, project: string, repositoryId: string, tagName: string, objectId: string): Promise<void> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/refs?api-version=7.1-preview.1`

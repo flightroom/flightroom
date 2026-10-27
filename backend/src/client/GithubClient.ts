@@ -715,6 +715,26 @@ class GithubClient {
         }
     }
 
+    /** The commit the tag points to, undefined without the tag: an annotated tag is followed to its commit */
+    async getTagCommitSha(accessToken: string, repositoryName: string, tag: string, orgName?: string, userName?: string): Promise<string | undefined> {
+        const base = this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)
+        const headers = { Authorization: `Bearer ${accessToken}`, Accept: "application/vnd.github.v3+json", "User-Agent": "Flightroom" }
+        try {
+            const response = await axios.request<{ object: { sha: string; type: string } }>({ url: `${base}/git/ref/tags/${encodeURIComponent(tag)}`, headers })
+            // A list answers the refs that only start with the name: none of them is the tag
+            if (Array.isArray(response.data)) return undefined
+            const { sha, type } = response.data.object
+            if (type !== "tag") return sha
+            const annotated = await axios.request<{ object: { sha: string } }>({ url: `${base}/git/tags/${sha}`, headers })
+            return annotated.data.object.sha
+        } catch (error) {
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                return undefined
+            }
+            throw error
+        }
+    }
+
     async createTag(accessToken: string, repositoryName: string, tag: string, sha: string, orgName?: string, userName?: string): Promise<void> {
         const response = await axios.request({
             method: "POST",
