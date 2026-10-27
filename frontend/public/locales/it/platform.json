@@ -2063,10 +2063,10 @@
         "projects": "Progetti"
     },
     "assistant": {
-        "title": "Maestro",
-        "open": "Apri Maestro",
-        "close": "Chiudi Maestro",
-        "shortcut": "Maestro (⌘J / Ctrl+J)",
+        "title": "Vega",
+        "open": "Apri Vega",
+        "close": "Chiudi Vega",
+        "shortcut": "Vega (⌘J / Ctrl+J)",
         "new_conversation": "Nuova conversazione",
         "history": {
             "open": "Conversazioni recenti",
@@ -2083,7 +2083,7 @@
         "placeholder_awaiting_confirmation": "Conferma o annulla l'azione qui sopra per continuare…",
         "send": "Invia",
         "stop": "Interrompi",
-        "disclaimer": "Le risposte sono generate da un'intelligenza artificiale e possono contenere errori. Maestro può modificare il progetto: le azioni che eliminano o rimuovono qualcosa vengono eseguite solo dopo la tua conferma.",
+        "disclaimer": "Le risposte sono generate da un'intelligenza artificiale e possono contenere errori. Vega può modificare il progetto: le azioni che eliminano o rimuovono qualcosa vengono eseguite solo dopo la tua conferma.",
         "empty_title": "Come posso aiutarti?",
         "empty_description": "Posso consultare e modificare frontend, build, deploy, ambienti e variabili di questo progetto e cercare nella documentazione.",
         "thinking": "Sto pensando…",
@@ -2116,7 +2116,7 @@
                 "declined": "Annullata.",
                 "expired": "Questa conferma è scaduta o ha già ricevuto una risposta."
             },
-            "raw_input": "Input inviato da Maestro",
+            "raw_input": "Input inviato da Vega",
             "details": {
                 "project": "Progetto",
                 "organization": "Organizzazione",
@@ -2156,7 +2156,7 @@
         "errors": {
             "generic": "Non sono riuscito a rispondere. Riprova tra poco.",
             "rate_limited": "Troppe domande in poco tempo. Attendi un minuto e riprova.",
-            "disabled": "Maestro non è attivo in questo progetto: non ha IA disponibili.",
+            "disabled": "Vega non è attiva in questo progetto: non ha IA disponibili.",
             "refusal": "Non posso rispondere a questa richiesta.",
             "incomplete": "La risposta è incompleta: prova a fare una domanda più specifica.",
             "stopped": "Risposta interrotta.",
@@ -3621,8 +3621,8 @@
             "domain": "Spesi da Modifica con AI sulle richieste fatte da questo dominio.",
             "frontend": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
             "backend": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
-            "project": "Spesi sull'intero progetto da Modifica con AI e da Maestro.",
-            "organization": "Spesi da tutti i progetti dell'organizzazione, Modifica con AI e Maestro insieme."
+            "project": "Spesi sull'intero progetto da Modifica con AI e da Vega.",
+            "organization": "Spesi da tutti i progetti dell'organizzazione, Modifica con AI e Vega insieme."
         },
         "period": {
             "label": "Periodo",
@@ -3644,7 +3644,7 @@
         },
         "sources": {
             "agent": "Modifica con AI",
-            "assistant": "Maestro"
+            "assistant": "Vega"
         },
         "deleted_project": "Progetto eliminato",
         "since": "Conteggiati dal {{date}}.",
