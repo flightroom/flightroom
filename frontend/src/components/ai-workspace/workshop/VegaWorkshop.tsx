@@ -142,7 +142,7 @@ const VegaWorkshop: React.FC<VegaWorkshopProps> = ({ entries, selectedId, onSele
 
     return (
         <section aria-label={t("frontend.aiChange.workshop.label")} className="flex flex-col gap-3">
-            <div ref={containerRef} className="relative h-[clamp(380px,65vh,820px)] cursor-grab touch-pan-y overflow-hidden rounded-xl border border-divider bg-[#04121a] active:cursor-grabbing">
+            <div ref={containerRef} className="relative h-[clamp(440px,75vh,960px)] cursor-grab touch-pan-y overflow-hidden rounded-xl border border-divider bg-[#04121a] active:cursor-grabbing">
                 {overlay}
             </div>
             {/* The plates of the bays: what a keyboard and a screen reader open the works with */}
