@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { createPortal } from "react-dom"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
+import Mascot from "@/components/mascot/Mascot"
 import { DEPLOY_MUTATION_KEY } from "@/hooks/apiClients/useDeploymentsApi"
 import DeployGame from "./DeployGame"
 
@@ -55,7 +56,7 @@ const DeployScreen: React.FC<{ startedAt: number; onHide: () => void }> = ({ sta
             className="pointer-events-auto fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 overflow-y-auto bg-background/95 p-4 backdrop-blur-sm"
         >
             <div className="flex flex-col items-center gap-2 text-center">
-                <Rocket className="size-10 text-primary animate-bounce motion-reduce:animate-none" aria-hidden="true" />
+                <Mascot mood="deploying" className="size-28" />
                 <h2 id="deploy-overlay-title" className="text-2xl font-semibold">
                     {t("deployments.overlay.title")}
                 </h2>

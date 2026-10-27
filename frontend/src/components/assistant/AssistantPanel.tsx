@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
 import { Button } from "@/components/atoms"
+import Mascot from "@/components/mascot/Mascot"
 import useAssistantChat from "@/hooks/useAssistantChat"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
 import useAssistantStore, { AssistantMessage } from "@/store/useAssistantStore"
@@ -251,6 +252,7 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
                                 <div className={cn("flex flex-1 flex-col gap-4", isPage && "mx-auto w-full max-w-3xl")}>
                                     {messages.length === 0 ? (
                                         <div className={cn("flex flex-col gap-3", isPage && "flex-1 items-center justify-center text-center")}>
+                                            <Mascot className={isPage ? "size-28" : "size-16"} />
                                             <p className={cn("font-medium text-foreground", isPage && "text-2xl font-semibold")}>{t("assistant.empty_title")}</p>
                                             <p className={cn("text-sm text-foreground-secondary", isPage && "max-w-xl")}>{t("assistant.empty_description")}</p>
                                             <div className={cn("flex flex-col gap-2", isPage && "mt-4 grid w-full sm:grid-cols-3")}>
