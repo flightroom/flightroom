@@ -9,6 +9,19 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ---
 
+## [8.6.1] - 2026-10-27
+
+### Changed
+
+- **Edit With AI Opens On The Workshop**: the 3D workshop is the view Edit with AI opens on; whoever picks Classic keeps it, as the browser remembers the choice. The workshop takes the whole width, under a bar with New change and the switch of the view, where the classic view keeps its column with the queue
+
+### Fixed
+
+- **The Workshop On A Retina Screen**: the scene showed at the size of its drawing buffer, twice its box on a retina screen, so only a corner of the room was in sight
+- **Live Previews That Take More Than A Minute To Start**: a live preview copies the repositories into a sandbox, installs them and starts their development servers before it answers, often for minutes; the nginx of the image gave up after its default 60 seconds with `504 Gateway Time-out`, and the console closed the preview tab. It now waits up to 15 minutes for `POST /api/live-previews`, in the standard and in the all-in-one image. A reverse proxy or load balancer in front of Flightroom needs its own timeout raised for that path too
+
+---
+
 ## [8.6.0] - 2026-10-27
 
 ### Added
