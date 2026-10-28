@@ -135,8 +135,15 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
         await this.ensureAccessToProject(projectIdObj)
 
         const slug = (dto.slug ?? "").trim().toLowerCase()
-        // Nothing of what the console or its runs set: the project comes from the request, the last run from Play
-        const { id: _id, _id: _mongoId, projectId: _projectId, lastRun: _lastRun, ...fields } = { ...dto, slug } as MaintenanceAgentDTO & { _id?: unknown; projectId?: unknown; lastRun?: unknown }
+        // Nothing of what the console or its runs set: the project comes from the request, the last run from Play, the tokens from the deploys
+        const {
+            id: _id,
+            _id: _mongoId,
+            projectId: _projectId,
+            lastRun: _lastRun,
+            runtimeTokens: _runtimeTokens,
+            ...fields
+        } = { ...dto, slug } as MaintenanceAgentDTO & { _id?: unknown; projectId?: unknown; lastRun?: unknown; runtimeTokens?: unknown }
         const agent = await this.withCheckedTargets(withNormalizedRunning(await withNormalizedReferences(withManualVersion(fields), projectIdObj, undefined, { resources: true })), projectIdObj)
         if (agent.domainId !== undefined) {
             agent.domainId = await resolveDomainId(agent.domainId, projectIdObj)
@@ -208,8 +215,9 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
             projectId: _projectId,
             slug: _slug,
             lastRun: _lastRun,
+            runtimeTokens: _runtimeTokens,
             ...fields
-        } = updates as Partial<MaintenanceAgentDTO> & { _id?: unknown; projectId?: unknown; lastRun?: unknown }
+        } = updates as Partial<MaintenanceAgentDTO> & { _id?: unknown; projectId?: unknown; lastRun?: unknown; runtimeTokens?: unknown }
         const scope = await this.getDomainScope(agent.projectId)
         const withHidden = await withResourcesOutOfScope(scope, agent.projectId, fields, agent)
         const allowed = await this.withCheckedTargets(

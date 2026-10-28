@@ -77,7 +77,7 @@ export const maintenanceAgentTools = [
         name: "maintenance_agent_get",
         title: "Get maintenance agent",
         description:
-            "One maintenance agent, with targets: the backends and frontends it maintains, with their slug, name and exposure path. The container receives them as JSON in the MAINTAINED_TARGETS environment variable, with the URL of each inside the environment.",
+            "One maintenance agent, with targets: the backends and frontends it maintains, with their slug, name and exposure path. The container receives them as JSON in the MAINTAINED_TARGETS environment variable, with the URL of each inside the environment, and reads their pod logs and builds through the console API at FLIGHTROOM_API_URL with the token in FLIGHTROOM_AGENT_TOKEN.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ maintenanceAgentId }),

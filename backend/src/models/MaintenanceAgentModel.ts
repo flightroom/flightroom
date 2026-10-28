@@ -15,6 +15,16 @@ export interface IMaintenanceAgentLastRun {
 }
 
 /**
+ * The credential the container of the agent calls the console with in one environment, to read the logs and the
+ * builds of what it maintains there: minted at the first deploy of the environment and written by every deploy
+ * into the Secret the container reads. Kept encrypted, as the deploy needs it back.
+ */
+export interface IMaintenanceAgentRuntimeToken {
+    environmentId: Schema.Types.ObjectId
+    token: string
+}
+
+/**
  * A container that looks after backends and frontends of the project: it has a repository, an image and
  * versions as a backend does, and is deployed the same way, but is started by a schedule or by Play rather than
  * serving requests. Its slug names its values file in the GitOps repository, next to those of the backends and
@@ -53,6 +63,8 @@ export interface IMaintenanceAgent extends Document<ObjectId>, ContainerResource
     /** The frontends it maintains */
     frontendIds: Schema.Types.ObjectId[]
     lastRun?: IMaintenanceAgentLastRun
+    /** Never read unless asked for: no answer of the console carries them */
+    runtimeTokens?: IMaintenanceAgentRuntimeToken[]
     createdAt: Date
     updatedAt: Date
 }
@@ -100,6 +112,16 @@ const maintenanceAgentSchema = new Schema<IMaintenanceAgent>(
                 { _id: false }
             ),
             required: false
+        },
+        runtimeTokens: {
+            type: [
+                new Schema<IMaintenanceAgentRuntimeToken>(
+                    { environmentId: { type: Schema.Types.ObjectId, ref: "Environment", required: true }, token: { type: String, required: true } },
+                    { _id: false }
+                )
+            ],
+            default: undefined,
+            select: false
         }
     },
     { timestamps: true }

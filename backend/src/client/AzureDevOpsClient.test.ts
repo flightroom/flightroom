@@ -110,3 +110,28 @@ describe("AzureDevOpsClient.getBranchCommitId", () => {
         expect(request.mock.calls[0][0]).toMatchObject({ params: { filter: "heads/main" } })
     })
 })
+
+describe("AzureDevOpsClient failed job logs", () => {
+    it("given a build of another repository of the Azure DevOps project, when its logs are read, then they are refused before its timeline is read", async () => {
+        const request = vi.spyOn(axios, "request").mockResolvedValue({ data: { repository: { id: "other-repository" } } })
+
+        await expect(new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")).rejects.toThrow("Build 41 is not a build of this repository")
+        expect(request).toHaveBeenCalledTimes(1)
+    })
+
+    it("given a build of the repository, when its logs are read, then the log of each failed task comes back", async () => {
+        vi.spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { repository: { id: "orders-repository" } } })
+            .mockResolvedValueOnce({
+                data: {
+                    records: [
+                        { name: "Build", type: "Task", result: "failed", log: { id: 7 } },
+                        { name: "Test", type: "Task", result: "succeeded", log: { id: 8 } }
+                    ]
+                }
+            })
+            .mockResolvedValueOnce({ data: "error TS2322" })
+
+        expect(await new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")).toEqual([{ name: "Build", log: "error TS2322" }])
+    })
+})

@@ -58,6 +58,16 @@ export const PAUSED_SCHEDULE = "0 0 1 1 *"
 /** The name of the environment variable that lists the targets of a maintenance agent, as JSON */
 export const MAINTAINED_TARGETS_VARIABLE = "MAINTAINED_TARGETS"
 
+/**
+ * The Secret, in the configuration repository, with what the container of a maintenance agent calls the console
+ * with to read the logs and the builds of its targets: the URL of the API and the token of the environment.
+ */
+export const maintenanceAgentSecretName = (slug: string) => `${slug}.flightroom`
+
+/** The variables of that Secret, as the container reads them */
+export const MAINTENANCE_AGENT_API_URL_VARIABLE = "FLIGHTROOM_API_URL"
+export const MAINTENANCE_AGENT_TOKEN_VARIABLE = "FLIGHTROOM_AGENT_TOKEN"
+
 /** A container application of the environment answers on port 80 of the Service named after it */
 export const inClusterUrl = (slug: string, path = "") => `http://${slug}${path}`
 
@@ -166,7 +176,11 @@ export const renderApplicationValues = (
             readiness: { active: Boolean(application.readinessPath), path: application.readinessPath ?? "/" }
         },
         environmentMaps: names(application.configMapIds, mapNames.configMaps),
-        secrets: [...names(application.secretIds, mapNames.secrets), ...names(application.resourceIds, mapNames.resources ?? new Map())],
+        secrets: [
+            ...names(application.secretIds, mapNames.secrets),
+            ...names(application.resourceIds, mapNames.resources ?? new Map()),
+            ...(application.maintenance ? [maintenanceAgentSecretName(application.slug)] : [])
+        ],
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }

@@ -178,7 +178,7 @@ export type BuildRunOwner = { frontendId: string; backendId?: undefined } | { ba
  * What reading the runs of a component needs. A frontend and a backend link their
  * repository the same way, so everything below works on either.
  */
-interface BuildableComponent {
+export interface BuildableComponent {
     _id: ObjectId
     projectId: Schema.Types.ObjectId
     name: string
@@ -254,12 +254,12 @@ class BuildStatusService extends BaseAuthorizedService {
             throw new Error(`${label} not found in this project`)
         }
         await this.ensureAccessToDomainMember(component)
+        return this.failedRunLogsOf(component, isBackend ? "backend" : "frontend", runId)
+    }
 
-        const codeRepositoryId = component.codeRepository?.enabled ? component.codeRepository.codeRepositoryId : undefined
-        const repository = codeRepositoryId ? await CodeRepository.findById(codeRepositoryId) : null
-        if (!repository) {
-            throw new Error(`The ${label.toLowerCase()} has no code repository connected`)
-        }
+    /** As {@link getFailedRunLogs}, for a frontend or a backend already read. Whoever calls it checks who may. */
+    async failedRunLogsOf(component: BuildableComponent, kind: "frontend" | "backend", runId: string): Promise<BuildJobLogDTO[]> {
+        const repository = await this.connectedRepository(component, kind)
 
         if (repository.provider === CodeRepositoryProvider.GITHUB) {
             const repositoryName = component.codeRepository?.name
@@ -275,10 +275,27 @@ class BuildStatusService extends BaseAuthorizedService {
         }
 
         if (repository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && repository.azureData) {
-            return new AzureDevOpsClient().getFailedJobLogs(repository.accessToken, repository.azureData.organization, repository.azureData.projectId, runId)
+            return new AzureDevOpsClient().getFailedJobLogs(repository.accessToken, repository.azureData.organization, repository.azureData.projectId, repositoryId, runId)
         }
 
         return []
+    }
+
+    /**
+     * The latest runs of one frontend or backend, newest first, read live from its CI provider and not from the
+     * snapshot: that one holds the whole project. Whoever calls it checks who may.
+     */
+    async runsOf(component: BuildableComponent, kind: "frontend" | "backend"): Promise<BuildRunDTO[]> {
+        return this.getRuns(component, await this.connectedRepository(component, kind))
+    }
+
+    private async connectedRepository(component: BuildableComponent, kind: "frontend" | "backend"): Promise<ICodeRepository> {
+        const codeRepositoryId = component.codeRepository?.enabled ? component.codeRepository.codeRepositoryId : undefined
+        const repository = codeRepositoryId ? await CodeRepository.findById(codeRepositoryId) : null
+        if (!repository) {
+            throw new Error(`The ${kind} has no code repository connected`)
+        }
+        return repository
     }
 
     private async fetchSnapshot(projectId: string): Promise<ProjectBuildStatusDTO> {

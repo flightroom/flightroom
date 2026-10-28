@@ -12,11 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SharePoint Resource**: `sharepoint` joins the resource catalog and reaches a SharePoint Online site through Microsoft Graph by an Entra ID app, with a client secret or a certificate, or by the managed identity of the pod, with the site URL and an optional document library. The agent is told to resolve the site and the library through Graph with the variables of the variant
 - **How Long A Job Took**: each AI job shows how long the agent worked, live while it works and not counting the wait in the queue
 - **Delete A Failed Edit With AI Conversation**: a conversation that failed or was discarded, with nothing left to review nor applied, can be deleted from its queue by who started it or an organization administrator. The deletion is logical: its jobs are only marked deleted, and the tokens they spent stay counted in the AI usage
+- **Maintenance Agents Read The Logs Of What They Maintain**: every deploy gives the container of a maintenance agent `FLIGHTROOM_API_URL` and `FLIGHTROOM_AGENT_TOKEN`, in a Secret `<slug>.flightroom` of the configuration repository. With that token the agent reads, through the console API, the pods and pod logs of the backends and container frontends it maintains, through Argo CD, and their latest builds with the logs of the failed jobs. Only its own targets, and only in the environment it runs in: the token of each environment is its own
 - **Stop A Domain Build And Deploy**: a build and deploy of a domain that is still running can be stopped from its dialog, after a confirmation. It ends where it stands and the console no longer takes it forward; what it did stays: the tags pushed, the CI runs they started, a deploy already committed
 
 ### Changed
 
 - **AI Jobs Run Side By Side**: a job clones its repositories into working copies of its own, so jobs on the same frontend or backend start at once instead of waiting for each other with "Waiting for the repository to be free". Their proposals meet only when applied: a file changed on the base branch by a proposal applied first stops the next apply with a conflict, as before. A project runs up to 5 jobs at once, was 3
+
+### Fixed
+
+- **Azure DevOps Build Logs Of Another Repository**: the logs of a failed build are read only when the build is one of the repository of the frontend or backend asked about. Azure DevOps numbers builds across the whole Azure DevOps project, so a build number of another repository returned its logs
 
 ## [9.2.0] - 2026-10-28
 

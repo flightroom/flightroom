@@ -8,6 +8,7 @@ import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
@@ -395,6 +396,46 @@ describe("GitOpsService.deploy", () => {
             expect(prune("production/resources/deleted.yaml")).toBe(true)
             expect(prune("development/resources/deleted.yaml")).toBe(false)
             expect(prune("production/resources/nested/deleted.yaml")).toBe(false)
+        })
+    })
+
+    describe("with a maintenance agent", () => {
+        const agentId = new Types.ObjectId()
+        const token = `fra_${agentId}_${production}_${"a".repeat(64)}`
+
+        beforeEach(() => {
+            vi.stubEnv("BACKEND_URL", "https://console.example.com/api")
+            const agents = [{ _id: agentId, slug: "cleaner", runtimeTokens: [{ environmentId: production, token }] }]
+            vi.spyOn(MaintenanceAgent, "find").mockImplementation((() => Object.assign(Promise.resolve(agents), { select: () => Promise.resolve(agents) })) as never)
+        })
+
+        afterEach(() => {
+            vi.unstubAllEnvs()
+        })
+
+        it("given an agent with its token for production, when production is deployed, then its Secret holds the URL of the console and that token, after the maps", async () => {
+            gitOpsOn()
+
+            await deployOf(production)()
+
+            const files = commit.mock.calls[0][1]
+            expect(files.map(file => file.path).at(-1)).toBe("production/maintenanceAgents/cleaner.yaml")
+            const manifest = parse(files.at(-1)!.content!)
+            expect(manifest).toMatchObject({ kind: "Secret", type: "Opaque", metadata: { name: "cleaner.flightroom", namespace: "production" } })
+            expect(Object.fromEntries(Object.entries(manifest.data as Record<string, string>).map(([key, value]) => [key, Buffer.from(value, "base64").toString()]))).toEqual({
+                FLIGHTROOM_API_URL: "https://console.example.com/api",
+                FLIGHTROOM_AGENT_TOKEN: token
+            })
+        })
+
+        it("given an agent deleted since the last deploy, when production is deployed, then its Secret is among those the commit prunes", async () => {
+            gitOpsOn()
+
+            await deployOf(production)()
+
+            const prune = commit.mock.calls[0][2]!.prune!
+            expect(prune("production/maintenanceAgents/deleted.yaml")).toBe(true)
+            expect(prune("development/maintenanceAgents/cleaner.yaml")).toBe(false)
         })
     })
 
