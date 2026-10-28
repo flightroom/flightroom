@@ -18,6 +18,9 @@ jobs:
     permissions:
       contents: read
       packages: write
+    env:
+      # Through env only: the version is a tag name or a typed input, never pasted into a script body
+      VERSION: ${{ inputs.version || github.ref_name }}
     steps:
     - uses: actions/checkout@v7
 
@@ -35,16 +38,21 @@ jobs:
     - name: 🔧 Install Dependencies
       run: pnpm install --frozen-lockfile
 
-    # The single-spa root config reads these at build time (see .env.example). Set them as
-    # repository variables: VITE_MFE_PROJECT_ID is required, the backend url
-    # defaults to this console, VITE_MFE_ENVIRONMENT is optional (left empty, the
-    # backend resolves the environment from the domain the host is served on).
+    # The single-spa root config reads these at build time (see .env.example). Set them as repository
+    # variables: VITE_MFE_PROJECT_ID is required, the backend url defaults to this console,
+    # VITE_MFE_ENVIRONMENT is optional (left empty, the backend resolves the environment
+    # from the domain the host is served on).
+
     - name: 🏗️ Build
       run: pnpm build
       env:
         VITE_MFE_BACKEND_URL: ${{ vars.VITE_MFE_BACKEND_URL || '%domain%/api' }}
         VITE_MFE_PROJECT_ID: ${{ vars.VITE_MFE_PROJECT_ID }}
         VITE_MFE_ENVIRONMENT: ${{ vars.VITE_MFE_ENVIRONMENT }}
+
+    # The image reference: registry host + repository (lowercase, as Docker wants it) + tag
+    - name: 🏷️ Compute image name
+      run: echo "IMAGE=ghcr.io/${GITHUB_REPOSITORY,,}" >> "$GITHUB_ENV"
 
     - name: 🐳 Set up Docker Buildx
       uses: docker/setup-buildx-action@v4
@@ -56,25 +64,29 @@ jobs:
         username: ${{ github.actor }}
         password: ${{ secrets.GITHUB_TOKEN }}
 
-    - name: 🏷️ Extract metadata
-      id: meta
-      uses: docker/metadata-action@v6
-      with:
-        images: ghcr.io/${{ github.repository }}
-        tags: |
-          type=ref,event=tag
-          type=semver,pattern={{version}}
-          type=semver,pattern={{major}}.{{minor}}
-          type=sha
-
     # The Dockerfile serves dist/ with nginx, non-root, on port 8080
     - name: 🚢 Build and push Docker image
+      id: build
       uses: docker/build-push-action@v7
       with:
         context: .
         push: true
         platforms: linux/amd64,linux/arm64
-        tags: ${{ steps.meta.outputs.tags }}
-        labels: ${{ steps.meta.outputs.labels }}
+        tags: ${{ env.IMAGE }}:${{ env.VERSION }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
+
+    # A host is a DOCKER frontend: the console learns about a version from this call, not from an upload.
+    # Secret FLIGHTROOM_API_KEY is created by the console in this repository.
+    # Variable MICROFRONTEND_ORCHESTRATOR_DOMAIN (optional) points it at another installation.
+    - name: 📝 Register version in MFE Orchestrator
+      env:
+        MFE_API_KEY: ${{ secrets.FLIGHTROOM_API_KEY }}
+        MFE_DOMAIN: ${{ vars.MICROFRONTEND_ORCHESTRATOR_DOMAIN || '%domain%' }}
+        DIGEST: ${{ steps.build.outputs.digest }}
+      run: |
+        curl --fail-with-body --show-error --silent -X POST \
+          -H "api-key: ${MFE_API_KEY}" \
+          -H "Content-Type: application/json" \
+          -d "{\"image\":\"${IMAGE}:${VERSION}\",\"digest\":\"${DIGEST}\",\"commitSha\":\"${GITHUB_SHA}\"}" \
+          "${MFE_DOMAIN%/}/api/frontends/by-slug/%microfrontendSlug%/versions/${VERSION}"

@@ -449,6 +449,28 @@ class AzureDevOpsClient {
     }
 
     /**
+     * Lets the pipeline `pipelineId` use the variable group `variableGroupName`: a YAML pipeline naming a group
+     * it is not authorized for stops at its first run until someone permits it by hand. Only that pipeline, not
+     * every pipeline of the project: the group holds the deploy key. False when the project has no such group.
+     */
+    async authorizePipelineVariableGroup(token: string, organization: string, projectId: string, variableGroupName: string, pipelineId: number): Promise<boolean> {
+        const groups = await this.getVariableGroups(token, organization, projectId)
+        const variableGroup = groups.value.find(g => g.name === variableGroupName)
+        if (!variableGroup) return false
+
+        await axios.request({
+            method: "PATCH",
+            url: `https://dev.azure.com/${organization}/${projectId}/_apis/pipelines/pipelinePermissions/variablegroup/${variableGroup.id}?api-version=7.1-preview.1`,
+            headers: {
+                Authorization: `Bearer ${token}`,
+                "Content-Type": "application/json"
+            },
+            data: { pipelines: [{ id: pipelineId, authorized: true }] }
+        })
+        return true
+    }
+
+    /**
      * Get all variable groups for a project
      */
     async getVariableGroups(token: string, organization: string, projectId: string): Promise<AzureVariableGroupsResponse> {

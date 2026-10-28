@@ -47,12 +47,13 @@ describe("MarketService", () => {
         expect(fetchMock).not.toHaveBeenCalled()
     })
 
-    it("ships exactly the Node.js, Python, Spring Boot and Quarkus backend templates", () => {
+    it("ships exactly the Node.js, Python, Spring Boot, Quarkus and Micronaut backend templates", () => {
         expect(BACKEND_TEMPLATES.map(t => [t.slug, t.name, t.framework, t.repo])).toEqual([
             ["service-node-fastify", "Node.js & Fastify", "Node.js", "https://github.com/flightroom/template-service-node-fastify"],
             ["service-python-fastapi", "Python & FastAPI", "Python", "https://github.com/flightroom/template-service-python-fastapi"],
             ["service-spring-boot", "Spring Boot", "Spring Boot", "https://github.com/flightroom/template-service-spring-boot"],
-            ["service-quarkus", "Quarkus", "Quarkus", "https://github.com/flightroom/template-service-quarkus"]
+            ["service-quarkus", "Quarkus", "Quarkus", "https://github.com/flightroom/template-service-quarkus"],
+            ["service-micronaut", "Micronaut", "Micronaut", "https://github.com/flightroom/template-service-micronaut"]
         ])
     })
 
@@ -63,7 +64,8 @@ describe("MarketService", () => {
             "service-spring-boot",
             { port: 8080, livenessPath: "/actuator/health/liveness", readinessPath: "/actuator/health/readiness", docsPath: "/swagger-ui/index.html", openApiPath: "/v3/api-docs" }
         ],
-        ["service-quarkus", { port: 8080, livenessPath: "/q/health/live", readinessPath: "/q/health/ready", docsPath: "/q/swagger-ui/", openApiPath: "/q/openapi.json" }]
+        ["service-quarkus", { port: 8080, livenessPath: "/q/health/live", readinessPath: "/q/health/ready", docsPath: "/q/swagger-ui/", openApiPath: "/q/openapi.json" }],
+        ["service-micronaut", { port: 8080, livenessPath: "/health/liveness", readinessPath: "/health/readiness", docsPath: "/swagger-ui/index.html", openApiPath: "/swagger/openapi.json" }]
     ])("Given the %s template, then it declares the port, probes and API docs of its framework", (slug, defaults) => {
         expect(BACKEND_TEMPLATES.find(t => t.slug === slug)?.backendDefaults).toEqual(defaults)
     })

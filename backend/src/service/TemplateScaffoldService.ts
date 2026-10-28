@@ -16,11 +16,12 @@ import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType, ICodeReposi
 import { ICodeRepositoryFrontend } from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
 import Project from "../models/ProjectModel"
+import { BackendRuntime, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
 import FrontendDTO from "../types/FrontendDTO"
 import { createSystemDeployKey } from "./ApiKeyService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeManagementService from "./CodeManagementService"
-import { deployKeyExpiry, deploySecretName } from "./CodeRepositoryService"
+import { azureDevOpsVariableGroupName, deployKeyExpiry, deploySecretName } from "./CodeRepositoryService"
 import { federationName } from "./FederationConfigService"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { isRepositoryNameTakenError } from "./RepositoryRenameService"
@@ -55,6 +56,29 @@ export type PipelineProvider = "github" | "gitlab" | "azure_dev_ops"
 
 /** The pipeline file a provider reads at the root of the repository; GitHub reads the whole `.github` folder instead */
 const ROOT_PIPELINE_FILES: Record<Exclude<PipelineProvider, "github">, string> = { gitlab: ".gitlab-ci.yml", azure_dev_ops: "azure-pipelines.yml" }
+
+/** The language folder of a backend runtime in a pipeline templates repository; none for one the console cannot name */
+const LANGUAGE_FOLDERS: Record<BackendRuntime, string | undefined> = {
+    [BackendRuntime.NODE]: "javascript",
+    [BackendRuntime.PYTHON]: "python",
+    [BackendRuntime.JAVA]: "java",
+    [BackendRuntime.GO]: "go",
+    [BackendRuntime.DOTNET]: "dotnet",
+    [BackendRuntime.OTHER]: undefined
+}
+
+/**
+ * The language a template is written in, as a folder of the pipeline templates: what a project's own
+ * repository can hold one pipeline per, for every template of that language. A backend's comes from its
+ * framework, every frontend template is javascript.
+ */
+const pipelineLanguage = (template: IMarket): string | undefined => {
+    if (isBackendTemplateType(template.type)) {
+        const runtime = parseRuntime(template.framework)
+        return runtime && LANGUAGE_FOLDERS[runtime]
+    }
+    return template.type === "host" || template.type === "remote" ? "javascript" : undefined
+}
 
 /** The pipeline templates of one scaffold, on disk: the project's repository, or the official template-pipelines */
 export interface PipelineTemplates {
@@ -208,6 +232,12 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             if (template) {
                 await this.injectTemplateAzureDevOps(slug, codeRepository.accessToken, createdRepository.name, codeRepository, "azure_dev_ops", template, options, pipelines)
                 await this.createPipelineAzureDevOps(createdRepository.name, codeRepository)
+            } else if (options?.deploySecret !== false) {
+                // Without a template the repository starts empty: its pipeline is there already, waiting for the
+                // azure-pipelines.yml the team pushes. One Azure refuses leaves the repository standing all the same
+                await this.createPipelineAzureDevOps(createdRepository.name, codeRepository).catch(error =>
+                    fastify.log.warn(`⚠️ No pipeline for the empty repository ${createdRepository.name}: ${toErrorMessage(error)}`)
+                )
             }
         } else if (codeRepository.provider === CodeRepositoryProvider.GITLAB) {
             if (!codeRepository.gitlabData?.url) {
@@ -527,6 +557,21 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             fastify.log.info(`✅ Pipeline created successfully: ${pipeline.name} (ID: ${pipeline.id})`)
             fastify.log.info(`🔗 Pipeline URL: ${pipeline._links.web.href}`)
 
+            // Its first run would otherwise wait for someone to permit the group of the deploy key. Not fatal:
+            // the pipeline is there, and permitting it by hand still works
+            try {
+                const authorized = await azureDevOpsClient.authorizePipelineVariableGroup(
+                    accessToken,
+                    codeRepository.azureData.organization,
+                    codeRepository.azureData.projectId,
+                    azureDevOpsVariableGroupName,
+                    pipeline.id
+                )
+                if (!authorized) fastify.log.warn(`⚠️ No variable group ${azureDevOpsVariableGroupName} to authorize pipeline ${pipeline.name} on`)
+            } catch (error) {
+                fastify.log.warn(`⚠️ Pipeline ${pipeline.name} could not be authorized on ${azureDevOpsVariableGroupName}: ${toErrorMessage(error)}`)
+            }
+
             return pipeline
         } catch (error: unknown) {
             fastify.log.error(`❌ Failed to create pipeline for repository ${repositoryName}:` + error)
@@ -666,8 +711,9 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
     /**
      * Copies the pipeline of `provider` from `pipelines` into the template in `tempDir`, then replaces the
      * placeholders of a pipeline in what it copied. The first folder found wins:
-     * `<type>/<compiler>/<template slug>/<provider>`, then `<type>/<compiler>/<provider>`. When the source has
-     * neither, the template keeps the pipeline it ships with; a GitHub folder counts only with a file under
+     * `<type>/<compiler>/<template slug>/<provider>`, then `<type>/<compiler>/<provider>`, then
+     * `<type>/<language>/<provider>` (e.g. `service/java/azure_dev_ops`, one pipeline for every Java backend).
+     * When the source has none, the template keeps the pipeline it ships with; a GitHub folder counts only with a file under
      * `workflows/`. On GitHub the template's own workflows go first, so that two release workflows named
      * differently never run side by side; the rest of its `.github` stays. Nothing outside the source is ever
      * copied, whatever symlink it holds. Left out, `pipelines` are the official ones, downloaded here.
@@ -680,7 +726,12 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
         const source = pipelines ?? (await this.officialPipelineTemplates())
         try {
             const base = join(source.root, template.type, template.compiler)
-            const folders = [...(isFolderName(template.slug) ? [join(base, template.slug, provider)] : []), join(base, provider)]
+            const language = pipelineLanguage(template)
+            const folders = [
+                ...(isFolderName(template.slug) ? [join(base, template.slug, provider)] : []),
+                join(base, provider),
+                ...(language ? [join(source.root, template.type, language, provider)] : [])
+            ]
             const file = provider === "github" ? undefined : ROOT_PIPELINE_FILES[provider]
             const isUsable = async (folder: string) => {
                 if (!(await isInside(source.root, folder))) return false

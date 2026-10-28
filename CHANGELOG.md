@@ -14,6 +14,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Delete A Failed Edit With AI Conversation**: a conversation that failed or was discarded, with nothing left to review nor applied, can be deleted from its queue by who started it or an organization administrator. The deletion is logical: its jobs are only marked deleted, and the tokens they spent stay counted in the AI usage
 - **Maintenance Agents Read The Logs Of What They Maintain**: every deploy gives the container of a maintenance agent `FLIGHTROOM_API_URL` and `FLIGHTROOM_AGENT_TOKEN`, in a Secret `<slug>.flightroom` of the configuration repository. With that token the agent reads, through the console API, the pods and pod logs of the backends and container frontends it maintains, through Argo CD, and their latest builds with the logs of the failed jobs. Only its own targets, and only in the environment it runs in: the token of each environment is its own
 - **Stop A Domain Build And Deploy**: a build and deploy of a domain that is still running can be stopped from its dialog, after a confirmation. It ends where it stands and the console no longer takes it forward; what it did stays: the tags pushed, the CI runs they started, a deploy already committed
+- **Micronaut Backend Template**: `service-micronaut` joins the backend templates, so a project whose backend technology is Micronaut gets one to scaffold from. Java 25 and Maven, port 8080, probes on `/health/liveness` and `/health/readiness`, OpenAPI on `/swagger/openapi.json`
+- **Pipelines By Language**: the pipeline templates repository of a project can hold one pipeline per language, `<type>/<language>/<provider>/` with java, python or javascript, e.g. `service/java/azure_dev_ops/azure-pipelines.yml` for every Java backend. A folder of the template or of its compiler still wins over it
 
 ### Changed
 
@@ -22,6 +24,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Azure DevOps Build Logs Of Another Repository**: the logs of a failed build are read only when the build is one of the repository of the frontend or backend asked about. Azure DevOps numbers builds across the whole Azure DevOps project, so a build number of another repository returned its logs
+- **New Backends And Frontends Never Registered A Version**: the pipelines of the templates registered backend versions at `/services`, gone with the rename to backends, and read the deploy key as `MICROFRONTEND_ORCHESTRATOR_API_KEY` while the console stores it as `FLIGHTROOM_API_KEY`, so nothing built from a template could be deployed. The console answers at `/services` too, and writes the deploy key of an organization, a GitLab group or an Azure DevOps variable group under both names, the old one for the repositories scaffolded until now: saving the connection again writes the missing one
+- **An Azure DevOps Pipeline Waiting For Permission**: the pipeline the console creates for a new Azure DevOps repository is permitted on the `MFE_ORCHESTRATOR_SECRETS` variable group, where its first run stopped until someone allowed it by hand. A repository created without a template gets its pipeline too, ready for the azure-pipelines.yml the team pushes
 
 ## [9.2.0] - 2026-10-28
 

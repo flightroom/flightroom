@@ -111,6 +111,37 @@ describe("AzureDevOpsClient.getBranchCommitId", () => {
     })
 })
 
+describe("AzureDevOpsClient.authorizePipelineVariableGroup", () => {
+    it("given the group exists, when a pipeline is authorized, then only that pipeline is permitted on it", async () => {
+        const request = vi
+            .spyOn(axios, "request")
+            .mockResolvedValueOnce({
+                data: {
+                    value: [
+                        { id: 4, name: "OTHER" },
+                        { id: 12, name: "GROUP" }
+                    ]
+                }
+            })
+            .mockResolvedValueOnce({ data: {} })
+
+        await expect(new AzureDevOpsClient().authorizePipelineVariableGroup("pat", "org", "project", "GROUP", 9)).resolves.toBe(true)
+
+        expect(request.mock.calls[1][0]).toMatchObject({
+            method: "PATCH",
+            url: "https://dev.azure.com/org/project/_apis/pipelines/pipelinePermissions/variablegroup/12?api-version=7.1-preview.1",
+            data: { pipelines: [{ id: 9, authorized: true }] }
+        })
+    })
+
+    it("given no such group, when a pipeline is authorized, then nothing is permitted", async () => {
+        const request = vi.spyOn(axios, "request").mockResolvedValue({ data: { value: [{ id: 4, name: "OTHER" }] } })
+
+        await expect(new AzureDevOpsClient().authorizePipelineVariableGroup("pat", "org", "project", "GROUP", 9)).resolves.toBe(false)
+        expect(request).toHaveBeenCalledTimes(1)
+    })
+})
+
 describe("AzureDevOpsClient failed job logs", () => {
     it("given a build of another repository of the Azure DevOps project, when its logs are read, then they are refused before its timeline is read", async () => {
         const request = vi.spyOn(axios, "request").mockResolvedValue({ data: { repository: { id: "other-repository" } } })

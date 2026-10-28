@@ -17,17 +17,22 @@ vi.mock("../client/GitlabClient", () => ({
 }))
 
 const azureGetProjects = vi.fn()
+const azureSecretExists = vi.fn()
+const azureUpsertSecret = vi.fn()
 vi.mock("../client/AzureDevOpsClient", () => ({
     default: class {
         getProjects = azureGetProjects
         getVariableGroups = vi.fn()
+        checkOrganizationSecretExists = azureSecretExists
+        upsertOrganizationSecret = azureUpsertSecret
     }
 }))
 
-import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
+import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import { IUser } from "../models/UserModel"
+import { ApiKeyService } from "./ApiKeyService"
 import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedService"
-import CodeRepositoryService from "./CodeRepositoryService"
+import CodeRepositoryService, { deploySecretName, legacyDeploySecretName } from "./CodeRepositoryService"
 
 type Guards = { ensureAccessToProject: () => Promise<void>; ensureWholeProject: () => Promise<void> }
 const guards = BaseAuthorizedService.prototype as unknown as Guards
@@ -130,5 +135,46 @@ describe("GitLab connection edited with the stored token", () => {
 
         expect(stored.save).toHaveBeenCalledTimes(1)
         expect(stored).toMatchObject({ name: "renamed", accessToken: STORED_TOKEN })
+    })
+})
+
+describe("deploy key of an Azure DevOps connection", () => {
+    const azureConnection = () =>
+        connection({ provider: CodeRepositoryProvider.AZURE_DEV_OPS, name: "acme", azureData: { organization: "acme", projectId: "p", projectName: "Shop" } }) as unknown as ICodeRepository
+    let mint: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        azureSecretExists.mockReset()
+        azureUpsertSecret.mockReset().mockResolvedValue(undefined)
+        mint = vi.spyOn(ApiKeyService.prototype, "createRaw").mockResolvedValue({ apiKey: "minted" } as never)
+    })
+
+    /** The pipelines scaffolded before the templates moved to FLIGHTROOM_API_KEY read the old name */
+    it("given a group with the key under its current name only, when the connection is saved, then a key is minted and written under the old name too", async () => {
+        azureSecretExists.mockImplementation(async ({ secretName }: { secretName: string }) => secretName === deploySecretName)
+
+        await service().injectSecretsToDeployOnAzureDevOpsRaw(azureConnection())
+
+        expect(mint).toHaveBeenCalledTimes(1)
+        expect(azureUpsertSecret).toHaveBeenCalledTimes(1)
+        expect(azureUpsertSecret).toHaveBeenCalledWith(expect.objectContaining({ secretName: legacyDeploySecretName, value: "minted", variableGroupName: "MFE_ORCHESTRATOR_SECRETS" }))
+    })
+
+    it("given no key in the group, when the connection is saved, then one key is minted and written under both names", async () => {
+        azureSecretExists.mockResolvedValue(false)
+
+        await service().injectSecretsToDeployOnAzureDevOpsRaw(azureConnection())
+
+        expect(mint).toHaveBeenCalledTimes(1)
+        expect(azureUpsertSecret.mock.calls.map(([params]) => params.secretName)).toEqual([deploySecretName, legacyDeploySecretName])
+    })
+
+    it("given the key under both names, when the connection is saved, then nothing is minted", async () => {
+        azureSecretExists.mockResolvedValue(true)
+
+        await service().injectSecretsToDeployOnAzureDevOpsRaw(azureConnection())
+
+        expect(mint).not.toHaveBeenCalled()
+        expect(azureUpsertSecret).not.toHaveBeenCalled()
     })
 })

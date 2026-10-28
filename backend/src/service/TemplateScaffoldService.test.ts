@@ -454,6 +454,64 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         expect(committed[provider.own]).toBe(backendFiles[provider.own as keyof typeof backendFiles])
     })
 
+    it.each(providers)("given only a folder of the language on $folder, when a backend is scaffolded, then it is copied", async provider => {
+        const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({ [`service/javascript/${provider.folder}/${provider.source}`]: "from: language %serviceSlug%" }))
+
+        await provider.scaffold(service)
+
+        expect(committed[provider.committed]).toBe("from: language orders-api")
+    })
+
+    it.each(providers)("given a folder of the compiler and one of the language on $folder, when it is scaffolded, then the one of the compiler wins", async provider => {
+        const service = scaffoldWith(
+            await templateZip(backendFiles),
+            await pipelinesZip({
+                [`service/docker/${provider.folder}/${provider.source}`]: "from: generic",
+                [`service/javascript/${provider.folder}/${provider.source}`]: "from: language"
+            })
+        )
+
+        await provider.scaffold(service)
+
+        expect(committed[provider.committed]).toBe("from: generic")
+    })
+
+    it.each([
+        { framework: "Spring Boot", folder: "java" },
+        { framework: "Quarkus", folder: "java" },
+        { framework: "Micronaut", folder: "java" },
+        { framework: "Python", folder: "python" }
+    ])("given a $framework backend, when it is scaffolded, then the $folder folder is its language", async ({ framework, folder }) => {
+        const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({ [`service/${folder}/gitlab/.gitlab-ci.yml`]: `from: ${folder}` }))
+
+        await service.injectTemplateGitlab("orders-api", "token", "https://gitlab.com", "orders-api", "acme", providersConnection.gitlab, "gitlab", { ...backendTemplate, framework } as IMarket)
+
+        expect(committed[".gitlab-ci.yml"]).toBe(`from: ${folder}`)
+    })
+
+    it("given a backend framework the console cannot name, when it is scaffolded, then no language folder is looked up and it keeps its own pipeline", async () => {
+        const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({ "service/javascript/gitlab/.gitlab-ci.yml": "from: language" }))
+
+        await service.injectTemplateGitlab("orders-api", "token", "https://gitlab.com", "orders-api", "acme", providersConnection.gitlab, "gitlab", {
+            ...backendTemplate,
+            framework: "Elixir"
+        } as IMarket)
+
+        expect(committed[".gitlab-ci.yml"]).toBe("own: gitlab")
+    })
+
+    it("given a remote, when it is scaffolded, then the javascript folder of its type is its language", async () => {
+        const service = scaffoldWith(
+            await templateZip({ "src/index.ts": "x" }),
+            await pipelinesZip({ "remote/javascript/gitlab/.gitlab-ci.yml": "from: language %microfrontendSlug%", "host/javascript/gitlab/.gitlab-ci.yml": "from: host" })
+        )
+        const remote = { slug: "vite-remote-react", type: "remote", compiler: "vite", zipUrl: "https://example.com/t.zip" } as IMarket
+
+        await service.injectTemplateGitlab("cart", "token", "https://gitlab.com", "cart", "acme", providersConnection.gitlab, "gitlab", remote)
+
+        expect(committed[".gitlab-ci.yml"]).toBe("from: language cart")
+    })
+
     /** Two release workflows named differently would both run on every tag */
     it("given a GitHub pipeline, when it is copied, then the workflows of the template go and the rest of its .github stays", async () => {
         const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({ "service/docker/github/workflows/build.yml": "from: generic" }))
@@ -686,6 +744,65 @@ describe("TemplateScaffoldService, pipeline templates", () => {
     })
 })
 
+describe("TemplateScaffoldService, pipeline of an Azure DevOps repository", () => {
+    const connection = {
+        projectId: new Types.ObjectId(),
+        provider: CodeRepositoryProvider.AZURE_DEV_OPS,
+        accessToken: "pat",
+        azureData: { organization: "acme", projectId: "p" }
+    } as unknown as ICodeRepository
+    const template = { slug: "service-node-fastify", type: "service", compiler: "docker", framework: "Node.js", zipUrl: "https://example.com/t.zip" } as IMarket
+    const target = () => ({ enabled: true, codeRepositoryId: String(new Types.ObjectId()), repositoryId: "", createData: { name: "orders-api" } }) as never
+
+    let createPipeline: ReturnType<typeof vi.spyOn>
+    let authorize: ReturnType<typeof vi.spyOn>
+
+    beforeEach(async () => {
+        const files = await templateZip({ "azure-pipelines.yml": "own: azure" })
+        const pipelines = await pipelinesZip({})
+        vi.spyOn(TemplateScaffoldService.prototype, "downloadZip").mockImplementation(async prefix => (prefix === "template" ? files : pipelines))
+        vi.spyOn(Project, "findById").mockResolvedValue({ _id: new Types.ObjectId() } as never)
+        vi.spyOn(AzureDevOpsClient.prototype, "createRepository").mockResolvedValue({ id: "r1", name: "orders-api", remoteUrl: "https://dev.azure.com/acme/p/_git/orders-api", sshUrl: "" } as never)
+        vi.spyOn(AzureDevOpsClient.prototype, "getRepository").mockResolvedValue({ id: "r1" } as never)
+        createPipeline = vi
+            .spyOn(AzureDevOpsClient.prototype, "createPipeline")
+            .mockResolvedValue({ id: 9, name: "orders-api", _links: { web: { href: "https://dev.azure.com/acme/p/_build?definitionId=9" } } } as never)
+        authorize = vi.spyOn(AzureDevOpsClient.prototype, "authorizePipelineVariableGroup").mockResolvedValue(true)
+    })
+
+    it("given a template, when the repository is created, then its pipeline is created and permitted on the group of the deploy key", async () => {
+        await new TemplateScaffoldService().createRepository(connection, target(), "orders-api", template)
+
+        expect(createPipeline).toHaveBeenCalledWith("pat", "acme", "p", "r1", "orders-api", "azure-pipelines.yml", "/")
+        expect(authorize).toHaveBeenCalledWith("pat", "acme", "p", "MFE_ORCHESTRATOR_SECRETS", 9)
+    })
+
+    it("given Azure refuses the permission, when the repository is created, then it is created all the same", async () => {
+        authorize.mockRejectedValue(new Error("Request failed with status code 403"))
+
+        await expect(new TemplateScaffoldService().createRepository(connection, target(), "orders-api", template)).resolves.toBeUndefined()
+        expect(createPipeline).toHaveBeenCalled()
+    })
+
+    it("given no template, when the repository is created, then it gets its pipeline too", async () => {
+        await new TemplateScaffoldService().createRepository(connection, target(), "orders-api", null)
+
+        expect(createPipeline).toHaveBeenCalledWith("pat", "acme", "p", "r1", "orders-api", "azure-pipelines.yml", "/")
+    })
+
+    it("given no template and a pipeline Azure refuses, when the repository is created, then the empty repository stands", async () => {
+        createPipeline.mockRejectedValue(new Error("Request failed with status code 400"))
+
+        await expect(new TemplateScaffoldService().createRepository(connection, target(), "orders-api", null)).resolves.toBeUndefined()
+    })
+
+    it("given a repository no pipeline of the console builds, as the GitOps one, when it is created, then it gets no pipeline", async () => {
+        await new TemplateScaffoldService().createRepository(connection, target(), "orders-api", null, { deploySecret: false })
+
+        expect(createPipeline).not.toHaveBeenCalled()
+    })
+})
+
 describe("replaceFederationName", () => {
     it("given a line with the marker, when the name is replaced, then its string literal becomes the name and keeps its quotes", () => {
         expect(replaceFederationName("      name: 'exampleremote', // mfe-orchestrator:federation-name", "checkoutnew")).toBe("      name: 'checkoutnew', // mfe-orchestrator:federation-name")
@@ -848,6 +965,7 @@ describe("TemplateScaffoldService, single-spa and micro-lc templates through Fro
                     name: "cart",
                     _links: { web: { href: "https://dev.azure.com/acme/p/_build?definitionId=9" } }
                 } as never)
+                vi.spyOn(AzureDevOpsClient.prototype, "authorizePipelineVariableGroup").mockResolvedValue(true)
             }
         }
     ]
