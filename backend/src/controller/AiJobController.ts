@@ -1,6 +1,7 @@
 import { FastifyInstance, FastifyRequest } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import AiChangeJobService, { AiJobCreateInput, AiJobFollowUpInput } from "../service/aiChange/AiChangeJobService"
+import DomainDraftService, { DomainDraftInput } from "../service/aiChange/DomainDraftService"
 import DomainPlanService, { DomainPlanInput } from "../service/aiChange/DomainPlanService"
 import { LLM_EFFORTS, PROMPT_IMAGES_BODY_LIMIT, PROMPT_IMAGES_SCHEMA } from "../service/llm"
 import AuthenticationMethod from "../types/AuthenticationMethod"
@@ -33,6 +34,28 @@ const domainPlanBodySchema = {
     required: ["prompt", "domainId"],
     additionalProperties: false,
     properties: { prompt, domainId, aiModelId }
+}
+
+// As the conversation that drafts a new project
+const domainDraftBodySchema = {
+    type: "object",
+    required: ["messages"],
+    additionalProperties: false,
+    properties: {
+        messages: {
+            type: "array",
+            minItems: 1,
+            maxItems: 40,
+            items: {
+                type: "object",
+                required: ["role", "content"],
+                additionalProperties: false,
+                properties: { role: { type: "string", enum: ["user", "assistant"] }, content: { type: "string", minLength: 1, maxLength: 8_000 } }
+            }
+        },
+        locale: { type: "string", maxLength: 20 },
+        aiModelId
+    }
 }
 
 const listQuerySchema = {
@@ -78,6 +101,11 @@ export default async function aiJobController(fastify: FastifyInstance) {
     // What to create in a domain without frontends nor backends before a job can work on it: one model call, so the same ceiling.
     fastify.post<{ Body: DomainPlanInput }>("/ai-jobs/domain-plan", { schema: { body: domainPlanBodySchema }, config: { ...config, rateLimit } }, async (request, reply) =>
         reply.send(await new DomainPlanService(request.databaseUser, fastify.config).plan(projectIdOf(request), request.body))
+    )
+
+    // The conversation that designs a new domain before it exists: one model call per answer, so the same ceiling.
+    fastify.post<{ Body: DomainDraftInput }>("/ai-jobs/domain-draft", { schema: { body: domainDraftBodySchema }, config: { ...config, rateLimit } }, async (request, reply) =>
+        reply.send(await new DomainDraftService(request.databaseUser, fastify.config).draft(projectIdOf(request), request.body))
     )
 
     fastify.post<{ Params: { id: string }; Body: AiJobFollowUpInput }>(

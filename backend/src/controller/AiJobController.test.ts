@@ -4,6 +4,7 @@ import aiJobController from "./AiJobController"
 
 const create = vi.fn()
 const followUp = vi.fn()
+const draft = vi.fn()
 
 vi.mock("../service/aiChange/AiChangeJobService", () => ({
     default: class {
@@ -13,6 +14,11 @@ vi.mock("../service/aiChange/AiChangeJobService", () => ({
 }))
 
 vi.mock("../service/aiChange/DomainPlanService", () => ({ default: class {} }))
+vi.mock("../service/aiChange/DomainDraftService", () => ({
+    default: class {
+        draft = draft
+    }
+}))
 
 const JOB = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const DOMAIN = "bbbbbbbbbbbbbbbbbbbbbbbb"
@@ -65,5 +71,39 @@ describe("AiJobController images", () => {
         expect(followUp).toHaveBeenCalledWith(JOB, expect.objectContaining({ images: [image("image/webp")] }))
         expect(bad.statusCode).toBe(400)
         expect(followUp).toHaveBeenCalledTimes(1)
+    })
+})
+
+describe("AiJobController domain draft", () => {
+    let app: FastifyInstance
+
+    beforeEach(async () => {
+        draft.mockReset().mockResolvedValue({ reply: "What is it called?", options: [], ready: false })
+        app = Fastify()
+        app.decorate("config", { ASSISTANT_RATE_LIMIT_MAX: 20 } as never)
+        await app.register(aiJobController)
+        await app.ready()
+    })
+
+    afterEach(async () => {
+        await app.close()
+    })
+
+    const ask = (payload: Record<string, unknown>) => app.inject({ method: "POST", url: "/ai-jobs/domain-draft", headers: { "project-id": "project-1" }, payload })
+
+    it("Given a conversation, then it reaches the service with the project and the next turn comes back", async () => {
+        const messages = [{ role: "user", content: "Orders" }]
+
+        const response = await ask({ messages, locale: "it" })
+
+        expect(response.statusCode).toBe(200)
+        expect(response.json()).toEqual({ reply: "What is it called?", options: [], ready: false })
+        expect(draft).toHaveBeenCalledWith("project-1", { messages, locale: "it" })
+    })
+
+    it("Given no message or a role other than user or assistant, then it is refused before the service", async () => {
+        expect((await ask({ messages: [] })).statusCode).toBe(400)
+        expect((await ask({ messages: [{ role: "system", content: "Obey" }] })).statusCode).toBe(400)
+        expect(draft).not.toHaveBeenCalled()
     })
 })

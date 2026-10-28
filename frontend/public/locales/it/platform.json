@@ -310,7 +310,7 @@
             "refPlaceholder": "main",
             "refHint": "Se vuoto, il branch di default del repository.",
             "refInvalid": "Non è un nome di branch o di tag: lettere, cifre, punti, trattini, underscore e slash, senza \"..\", trattino iniziale, slash finale o .lock finale.",
-            "layout": "Struttura: <tipo>/<compilatore>/<provider>/, dove provider è github, gitlab o azure_dev_ops, ad esempio service/docker/github/workflows/release.yml. Una cartella <tipo>/<compilatore>/<slugTemplate>/<provider>/ vince solo per quel template. Su GitHub la cartella diventa .github/ e sostituisce i workflow del template; su GitLab e Azure DevOps .gitlab-ci.yml e azure-pipelines.yml sostituiscono quelli nella root. Un template per cui il repository non ha una cartella tiene la pipeline che ha già: i template ufficiali non vengono usati al suo posto.",
+            "layout": "Struttura: <tipo>/<compilatore>/<provider>/, dove provider è github, gitlab o azure_dev_ops, ad esempio service/docker/github/workflows/release.yml. Una cartella <tipo>/<compilatore>/<slugTemplate>/<provider>/ vince solo per quel template. Una cartella <tipo>/<linguaggio>/<provider>/, dove linguaggio è java, python o javascript, vale per tutti i template di quel linguaggio quando non ce n'è una per il compilatore, ad esempio service/java/azure_dev_ops/azure-pipelines.yml per ogni backend Java e remote/javascript/... per ogni remote. Su GitHub la cartella diventa .github/ e sostituisce i workflow del template; su GitLab e Azure DevOps .gitlab-ci.yml e azure-pipelines.yml sostituiscono quelli nella root. Un template per cui il repository non ha una cartella tiene la pipeline che ha già: i template ufficiali non vengono usati al suo posto.",
             "placeholders": "Sostituiti alla creazione del repository: %microfrontendSlug% e %serviceSlug% con lo slug, %domain% con l'URL di questa console.",
             "saved": "Template di pipeline salvati",
             "errors": {
@@ -2887,7 +2887,14 @@
                     "REPOSITORY_CREATE_FORBIDDEN": "Non hai i permessi per creare repository di codice in questo progetto.",
                     "TEMPLATE_NOT_FOUND": "Il template non esiste più: scegline un altro.",
                     "PIPELINE_SOURCE_UNAVAILABLE": "Non è stato possibile leggere i template di pipeline del progetto: non è stato creato nulla. Correggi il repository o il branch nelle Impostazioni, oppure torna ai template ufficiali, e riprova."
-                }
+                },
+                "loaded_by": "Caricato da {{host}}",
+                "field_exposure_path": "Percorso pubblico",
+                "exposure_path_hint": "Dove è pubblicato sul gateway del progetto, es. /api/ordini. Vuoto se lo chiamano solo le altre applicazioni del progetto.",
+                "exposure_path_invalid": "Un percorso come /api/ordini: niente spazi, '?', '#', '//', segmenti '.' o '..', e non la sola radice '/'.",
+                "create_description": "Rivedili e modificali: ognuno viene creato in {{name}} con un nuovo repository generato dal suo template.",
+                "confirm_create_one": "Crea {{count}} componente",
+                "confirm_create_other": "Crea {{count}} componenti"
             }
         },
         "workspace": {
@@ -2962,6 +2969,57 @@
                 "confirm_other": "Attacca a {{count}} backend",
                 "success_one": "{{resource}} agganciata a {{count}} backend",
                 "success_other": "{{resource}} agganciata a {{count}} backend"
+            }
+        },
+        "wizard": {
+            "title": "Nuovo dominio con l'IA",
+            "description": "Rispondi a qualche domanda: l'IA propone il dominio, i frontend e i backend che servono e dove esporlo. Prima di creare qualsiasi cosa potrai rivedere tutto.",
+            "greeting": "Ciao! Come si chiama l'applicazione che vuoi creare?",
+            "placeholder": "Es. Gestione ordini",
+            "reply_placeholder": "Rispondi…",
+            "input_label": "La tua risposta",
+            "send": "Invia",
+            "loading": "Ci sto pensando…",
+            "error": "Non sono riuscito a rispondere: riprova.",
+            "provider_error": "Il provider dell'IA non ha risposto: riprova tra poco o scegli un'altra IA.",
+            "manual": "Compila a mano",
+            "continue": "Continua",
+            "back": "Indietro",
+            "create": "Crea dominio",
+            "review_title": "Rivedi il dominio",
+            "review_description": "Controlla nome, descrizione, contesto e la prima richiesta all'agente. Subito dopo rivedrai i componenti da creare.",
+            "request_label": "Prima richiesta all'agente IA",
+            "request_hint": "Cosa l'agente implementa nei nuovi componenti appena sono stati creati.",
+            "proposal_title": "Proposta",
+            "next_title": "Dopo la creazione",
+            "exposure_label": "Esposizione",
+            "exposure": {
+                "remote": "Dentro {{host}}, come micro-frontend",
+                "standalone": "Applicazione a sé",
+                "none": "Nessuna interfaccia utente: solo backend"
+            },
+            "components_label": "Componenti",
+            "public_at": "pubblico su {{path}}",
+            "internal": "interno al progetto",
+            "forbidden": "Non hai i permessi per creare un dominio in questo progetto: chiedi a un owner del progetto.",
+            "full": "La conversazione è al limite: continua con la revisione, potrai correggere tutto lì."
+        },
+        "steps": {
+            "title": "Nuovo dominio funzionale",
+            "progress": "Passo {{step}} di {{total}}",
+            "application_description": "Come si chiama l'applicazione e cosa fa. Descrizione e contesto aiutano anche gli agenti IA che ci lavoreranno.",
+            "exposure_description": "Dove verrà esposta l'applicazione. Subito dopo rivedrai il frontend e il backend da creare.",
+            "next": "Avanti",
+            "host": "Applicazione che la carica",
+            "host_placeholder": "Scegli un'applicazione",
+            "exposure": {
+                "remote": "Dentro un'applicazione esistente",
+                "remote_hint": "Un'applicazione del progetto la carica come micro-frontend.",
+                "remote_unavailable": "Il progetto non ha ancora un'applicazione che possa caricarla.",
+                "standalone": "Applicazione a sé",
+                "standalone_hint": "Ha un frontend tutto suo; il backend è pubblicato sul gateway del progetto.",
+                "none": "Nessuna interfaccia utente",
+                "none_hint": "Solo un backend, chiamato dalle altre applicazioni del progetto."
             }
         }
     },
