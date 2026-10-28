@@ -653,8 +653,6 @@ const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, proposa
         <div className="flex flex-col gap-3">
             <p className="max-w-[85%] self-end whitespace-pre-wrap break-words rounded-lg bg-primary/10 px-3 py-2 text-sm">{job.prompt}</p>
 
-            <LivePreviews events={job.events ?? []} />
-
             {/* A job that failed before any repository could tell its own outcome. */}
             {job.status === "FAILED" && !job.stoppedAt && !repositories.some(repository => repository.status === "FAILED") && (
                 <Alert variant="destructive">
@@ -989,6 +987,9 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                 </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-6 pt-3">
+                {/* One preview for the whole conversation: the one of the message being worked on or reviewed. */}
+                <LivePreviews events={current.job.events ?? []} />
+
                 <ol aria-label={t("frontend.aiChange.conversation_label")} className="flex flex-col gap-8">
                     {turns.map((turn, index) => {
                         const later = turns.slice(index + 1).filter(candidate => candidate.job.status === "DONE")
