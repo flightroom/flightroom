@@ -4,6 +4,7 @@ import { Authenticate } from "fastify-auth0-verify"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import UserModel from "../models/UserModel"
 import type { LlmEffort } from "../service/llm/types"
+import type { MaintenanceAgentCaller } from "../service/MaintenanceAgentRuntimeService"
 import type { OpenShellConfiguration } from "../service/sandbox/OpenShellSandboxes"
 import { FastifyInstanceWithConfig } from "./index"
 import { TelemetryDecisionDTO } from "./TelemetryDTO"
@@ -120,6 +121,8 @@ declare module "fastify" {
         databaseUser: UserModel
         /** Set on API key routes only: the role of the key the request carried */
         apiKeyRole?: ApiKeyRole
+        /** Set on maintenance agent routes only: the agent the token belongs to, and its environment */
+        maintenanceAgent?: MaintenanceAgentCaller
     }
 
     interface FastifyContextConfig {

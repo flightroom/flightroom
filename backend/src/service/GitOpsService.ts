@@ -19,6 +19,7 @@ import { variableMapModels } from "../models/VariableMapModel"
 import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
 import { ResourceWithValues, resourceEnvironmentValues, resourceSecretName } from "../types/ResourceCatalog"
 import { VariableMapKind } from "../types/VariableMapDTO"
+import { getBackendUrl } from "../utils/backendUrl"
 import { NormalizedRepository } from "../utils/codeRepositoryUtils"
 import { toObjectId } from "../utils/mongooseUtils"
 import { RepositoryLockTimeoutError, withRepositoryLock } from "../utils/repositoryLock"
@@ -27,9 +28,19 @@ import ArgoCdService from "./ArgoCdService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
-import { applicationValuesPath, CHART_FILES, GitOpsApplication, isDeployable, renderApplicationValues } from "./gitops/applicationManifests"
+import {
+    applicationValuesPath,
+    CHART_FILES,
+    GitOpsApplication,
+    isDeployable,
+    MAINTENANCE_AGENT_API_URL_VARIABLE,
+    MAINTENANCE_AGENT_TOKEN_VARIABLE,
+    maintenanceAgentSecretName,
+    renderApplicationValues
+} from "./gitops/applicationManifests"
 import { applicationListener, EnvironmentGateway, gatewayName, HTTPS_LISTENER, ipAllowListMiddleware, renderGateway } from "./gitops/gatewayManifests"
 import { maintenanceApplications } from "./gitops/maintenanceApplications"
+import { ensureRuntimeTokens, runtimeTokenOf } from "./MaintenanceAgentRuntimeService"
 import { RepositoryFileService, repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { isValidRepositoryName } from "./RepositoryRenameService"
 import { CodeRepositoryTarget, TemplateScaffoldService } from "./TemplateScaffoldService"
@@ -65,6 +76,9 @@ export const GITOPS_FOLDER: Record<VariableMapKind, string> = { configMap: "conf
 
 /** The folder of the resources, beside those of the maps: each one a Secret named `<name>.resource` */
 export const RESOURCES_FOLDER = "resources"
+
+/** The folder of the maintenance agents, beside those of the resources: each one a Secret named `<slug>.flightroom` */
+export const MAINTENANCE_AGENTS_FOLDER = "maintenanceAgents"
 
 /** The Namespace manifest of every environment, in the folder of the environment */
 export const NAMESPACE_FILE = "namespace.yaml"
@@ -120,6 +134,8 @@ export const environmentNamespace = (environment: Pick<IEnvironment, "slug" | "n
 export const gitOpsFilePath = (kind: VariableMapKind, environment: Pick<IEnvironment, "slug">, name: string) => `${environmentSlug(environment)}/${GITOPS_FOLDER[kind]}/${name}.yaml`
 
 export const resourceFilePath = (environment: Pick<IEnvironment, "slug">, resource: Pick<IResource, "name">) => `${environmentSlug(environment)}/${RESOURCES_FOLDER}/${resource.name}.yaml`
+
+export const maintenanceAgentFilePath = (environment: Pick<IEnvironment, "slug">, agent: { slug: string }) => `${environmentSlug(environment)}/${MAINTENANCE_AGENTS_FOLDER}/${agent.slug}.yaml`
 
 export const namespaceFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${NAMESPACE_FILE}`
 
@@ -204,6 +220,24 @@ export const renderResourceManifest = (resource: ResourceWithValues, environment
 }
 
 /**
+ * The Kubernetes Secret of a maintenance agent in one environment: where the console API answers and the token the
+ * agent reads the logs and the builds of its targets with, there only. Base64 encoded, not encrypted, as a secret map is.
+ */
+export const renderMaintenanceAgentManifest = (agent: { slug: string }, token: string, namespace?: string): string =>
+    stringify({
+        apiVersion: "v1",
+        kind: "Secret",
+        metadata: { name: maintenanceAgentSecretName(agent.slug), ...(namespace ? { namespace } : {}), labels: { [MANAGED_BY_LABEL]: MANAGED_BY } },
+        type: "Opaque",
+        data: Object.fromEntries(
+            [
+                [MAINTENANCE_AGENT_API_URL_VARIABLE, getBackendUrl()],
+                [MAINTENANCE_AGENT_TOKEN_VARIABLE, token]
+            ].map(([key, value]) => [key, Buffer.from(value).toString("base64")])
+        )
+    })
+
+/**
  * The Namespace of an environment, the one its config maps and secrets are meant to be applied in. Argo CD
  * never prunes nor deletes it: the applications of the environment run in it, and a configuration repository
  * emptied by mistake, or an Application deleted, must not take them down with it.
@@ -230,6 +264,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 - \`<environment>/configMaps/<name>.yaml\`: the ConfigMaps, in that namespace
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
 - \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a backend attaches, in that namespace, values base64 encoded (not encrypted)
+- \`<environment>/maintenanceAgents/<slug>.yaml\`: a Secret \`<slug>.flightroom\` per maintenance agent, with the URL of the console API and the token it reads the logs and builds of its targets with, base64 encoded (not encrypted)
 
 Do not edit these manifests here: the next deploy of the environment overwrites them.
 `,
@@ -276,7 +311,7 @@ export type ApplicationRevisions = Map<string, string>
 /** The environment slug a manifest belongs to: the folder it is in at the root */
 const environmentOfPath = (path: string): string => path.split("/")[0]
 
-const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER])
+const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER, MAINTENANCE_AGENTS_FOLDER])
 
 /** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
 const isConfigurationManifest = (path: string) => {
@@ -299,7 +334,8 @@ const environmentFiles = (
     environment: Pick<IEnvironment, "_id" | "slug" | "namespace">,
     maps: Record<VariableMapKind, DeployedMap[]>,
     resources: DeployedResource[],
-    gateway?: EnvironmentGateway
+    gateway?: EnvironmentGateway,
+    agents: Array<{ slug: string; token: string }> = []
 ): GitOpsFile[] => {
     const namespace = environmentNamespace(environment)
     return [
@@ -308,7 +344,8 @@ const environmentFiles = (
         ...(Object.keys(GITOPS_FOLDER) as VariableMapKind[]).flatMap(kind =>
             maps[kind].map(map => ({ path: gitOpsFilePath(kind, environment, map.name), action: "update" as const, content: renderManifest(kind, map, String(environment._id), namespace) }))
         ),
-        ...resources.map(resource => ({ path: resourceFilePath(environment, resource), action: "update" as const, content: renderResourceManifest(resource, String(environment._id), namespace) }))
+        ...resources.map(resource => ({ path: resourceFilePath(environment, resource), action: "update" as const, content: renderResourceManifest(resource, String(environment._id), namespace) })),
+        ...agents.map(agent => ({ path: maintenanceAgentFilePath(environment, agent), action: "update" as const, content: renderMaintenanceAgentManifest(agent, agent.token, namespace) }))
     ]
 }
 
@@ -456,6 +493,17 @@ export class GitOpsService extends BaseAuthorizedService {
         // Every one of the project, as the maps: a values file that still names the Secret of a resource must find it,
         // whoever detached it. Through the model too, credentials decrypted; the API document of an api is not read
         const resources = await Resource.find({ projectId })
+        // Every one of the project as well, those of other domains too: the prune would take away the Secret their containers read
+        const agents = await MaintenanceAgent.find({ projectId }, { slug: 1 })
+        const agentTokens = await ensureRuntimeTokens(
+            agents.map(agent => agent._id),
+            deployed.map(environment => environment._id)
+        )
+        const agentSecrets = (environment: Pick<IEnvironment, "_id">) =>
+            agents.flatMap(agent => {
+                const token = runtimeTokenOf(agentTokens, agent._id, environment._id)
+                return token ? [{ slug: agent.slug, token }] : []
+            })
 
         const applicationsLink = gitOps.applicationsCodeRepository
         if (applicationsLink && [...gateways.values()].some(Boolean)) await this.ensureDistinctExposurePaths(projectId, project.containerRegistry)
@@ -472,7 +520,7 @@ export class GitOpsService extends BaseAuthorizedService {
             const message = `Deploy ${[...deployedSlugs].join(", ")}`
             const undo = await commit(
                 message,
-                deployed.flatMap(environment => environmentFiles(environment, maps, resources, gateways.get(String(environment._id)))),
+                deployed.flatMap(environment => environmentFiles(environment, maps, resources, gateways.get(String(environment._id)), agentSecrets(environment))),
                 { prune: path => isConfigurationManifest(path) && (deployedSlugs.has(environmentOfPath(path)) || !existingSlugs.has(environmentOfPath(path))) }
             )
             return revertingOnFailure(withApplications, async () => {

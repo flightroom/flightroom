@@ -142,6 +142,25 @@ The backends and frontends the agent maintains reach its container as JSON in `M
 the URL inside the namespace of those that run as a container. A backend keeps `"kind": "service"` in that
 JSON, the name the containers of the agents already read.
 
+The agent can read the logs and the builds of those targets through the console API. Every deploy writes
+`<environment>/maintenanceAgents/<slug>.yaml` in the configuration repository: a Secret
+`<slug>.flightroom` its container reads, with `FLIGHTROOM_API_URL`, where the console API answers, and
+`FLIGHTROOM_AGENT_TOKEN`, the token of the agent in that environment, minted at its first deploy there and
+kept from one deploy to the next. Sent as `Authorization: Bearer <token>`, it reads only the targets of the
+agent, and only in the environment it was minted for:
+
+| Request | What it returns |
+| --- | --- |
+| `GET /maintenance-agent-runtime/targets` | the targets, each with `logs` (it runs as a container) and `builds` (it has a code repository) |
+| `GET /maintenance-agent-runtime/targets/<slug>/pods` | the pods of the target in the environment, through Argo CD |
+| `GET /maintenance-agent-runtime/targets/<slug>/logs?pod=<pod>` | the last lines of a pod, with `tailLines` (500, at most 5000), `sinceSeconds`, `previous` and `filter` as the console reads them |
+| `GET /maintenance-agent-runtime/targets/<slug>/builds` | the latest runs of its CI |
+| `GET /maintenance-agent-runtime/targets/<slug>/builds/<runId>/logs` | the logs of the failed jobs of one run |
+
+The token is in the configuration repository as the other Secrets are, base64 encoded and not encrypted:
+whoever reads that repository can read those logs. The pod logs need the project deployed through Argo
+CD; the builds, a code repository on the target. Deleting the agent revokes its tokens.
+
 ## Network
 
 The backend of the orchestrator opens HTTPS connections to the Argo CD API. Nothing goes the other way:

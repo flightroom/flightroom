@@ -180,11 +180,24 @@ describe("renderApplicationValues, maintenance agent", () => {
         expect(agent({}).env).toEqual([{ name: "MAINTAINED_TARGETS", value: JSON.stringify(targets) }])
     })
 
+    it("given an agent, when its values are rendered, then its container reads the Secret with the URL of the console and its token, after its own secrets", () => {
+        const values = parse(
+            renderApplicationValues(
+                { slug: "cleaner", version: "1.0.0", image: { repository: "ghcr.io/acme/cleaner" }, secretIds: ["s1"], maintenance: { kind: MaintenanceAgentKind.JOB, runPath: "/run", targets } },
+                environment,
+                { ...mapNames, secrets: new Map([["s1", "smtp"]]) }
+            )
+        )
+
+        expect(values.secrets).toEqual(["smtp", "cleaner.flightroom"])
+    })
+
     it("given a backend, when its values are rendered, then there is no CronJob", () => {
         const values = parse(renderApplicationValues({ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, environment, mapNames))
 
         expect(values.maintenance).toBeUndefined()
         expect(values.env).toBeUndefined()
+        expect(values.secrets).toEqual([])
     })
 })
 

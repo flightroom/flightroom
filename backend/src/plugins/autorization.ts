@@ -7,6 +7,7 @@ import jwt, { JwtPayload } from "jsonwebtoken"
 import AuthenticationError from "../errors/AuthenticationError"
 import ApiKey, { ApiKeyStatus, IApiKeyDocument } from "../models/ApiKeyModel"
 import UserModel, { getSecret, ISSUER } from "../models/UserModel"
+import { resolveRuntimeToken } from "../service/MaintenanceAgentRuntimeService"
 import UserService, { FEDERATED_LOGIN_WINDOW_MS, recordLogin, recordPresence } from "../service/UserService"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 import { redisClient } from "./redis"
@@ -366,6 +367,13 @@ export default fastifyPlugin(
                 fastify.log.debug("Authorization is API Key")
                 const projectId = await checkApiKey(request)
                 request.headers["project-id"] = projectId
+                return
+            }
+
+            if (authMethod === AuthenticationMethod.MAINTENANCE_AGENT) {
+                fastify.log.debug("Authorization is a maintenance agent token")
+                // Never logged either: the token is what the container of the agent calls with
+                request.maintenanceAgent = await resolveRuntimeToken(request.headers["authorization"]?.replace(/^Bearer /, ""))
                 return
             }
 

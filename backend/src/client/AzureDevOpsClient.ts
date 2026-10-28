@@ -358,14 +358,20 @@ class AzureDevOpsClient {
     }
 
     /**
-     * Plain-text logs of the failed tasks of a build.
+     * Plain-text logs of the failed tasks of a build of the repository `repositoryId`.
      *
-     * Azure keeps one log per timeline record: the timeline says which records
-     * failed and which log each one wrote.
+     * A build id is unique across the whole Azure DevOps project, not per repository: the build is read
+     * first, and one of another repository is refused, or any number would read the builds of the others.
+     * Azure keeps one log per timeline record: the timeline says which records failed and which log each one wrote.
      */
-    async getFailedJobLogs(token: string, organization: string, project: string, buildId: string): Promise<BuildJobLogDTO[]> {
+    async getFailedJobLogs(token: string, organization: string, project: string, repositoryId: string, buildId: string): Promise<BuildJobLogDTO[]> {
         const headers = { Authorization: `Bearer ${token}` }
         const baseUrl = `https://dev.azure.com/${organization}/${project}/_apis/build/builds/${encodeURIComponent(buildId)}`
+
+        const build = await axios.request<{ repository?: { id?: string } }>({ url: `${baseUrl}?api-version=7.1`, headers })
+        if (build.data?.repository?.id !== repositoryId) {
+            throw new Error(`Build ${buildId} is not a build of this repository`)
+        }
 
         const timeline = await axios.request<{ records?: { name: string; type: string; result?: string; log?: { id: number } }[] }>({
             url: `${baseUrl}/timeline?api-version=7.1`,

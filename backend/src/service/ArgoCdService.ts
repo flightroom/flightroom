@@ -326,7 +326,13 @@ export class ArgoCdService extends BaseAuthorizedService {
 
     /** The pods the backend, frontend or maintenance agent `slug` runs in the environment now, read through Argo CD */
     async listPods(projectId: string, slug: string, environmentId: string): Promise<ArgoCdPod[]> {
-        const { client, application, appProject } = await this.readableApplication(projectId, slug, environmentId)
+        const environment = await this.readableEnvironment(projectId, slug, environmentId)
+        return this.podsOf(toObjectId(projectId), slug, environment)
+    }
+
+    /** As {@link listPods}, for an application of the project in `environment`. Whoever calls it checks who may. */
+    async podsOf(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }): Promise<ArgoCdPod[]> {
+        const { client, application, appProject } = await this.deployedApplication(projectId, slug, environment)
         return client.listPods(application, appProject)
     }
 
@@ -335,9 +341,16 @@ export class ArgoCdService extends BaseAuthorizedService {
      * Application does not run: a pod of another application of the namespace is not reachable from here.
      */
     async getLogs(projectId: string, slug: string, environmentId: string, query: ArgoCdLogsInput): Promise<ArgoCdLogLine[]> {
+        const environment = await this.readableEnvironment(projectId, slug, environmentId)
+        return this.logsOf(toObjectId(projectId), slug, environment, query)
+    }
+
+    /** As {@link getLogs}, for an application of the project in `environment`. Whoever calls it checks who may. */
+    async logsOf(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }, query: ArgoCdLogsInput): Promise<ArgoCdLogLine[]> {
         const pod = String(query.pod ?? "")
         if (!POD_NAME.test(pod)) throw createBusinessException({ code: "ARGOCD_LOGS_INVALID", message: "Choose the pod to read the logs of" })
-        const { client, application, appProject, namespace } = await this.readableApplication(projectId, slug, environmentId)
+        const { client, application, appProject } = await this.deployedApplication(projectId, slug, environment)
+        const namespace = environmentNamespace(environment)
         const filter = String(query.filter ?? "").trim()
         return client.getPodLogs(application, appProject, {
             namespace,
@@ -409,10 +422,10 @@ export class ArgoCdService extends BaseAuthorizedService {
     }
 
     /**
-     * The Application of `slug` in the environment, for a member of the project who is not a viewer: logs may
+     * The environment of the Application of `slug`, for a member of the project who is not a viewer: logs may
      * hold what the configuration hides, a viewer does not read them. `slug` must be one of the project's.
      */
-    private async readableApplication(projectId: string, slug: string, environmentId: string) {
+    private async readableEnvironment(projectId: string, slug: string, environmentId: string) {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
         await this.ensureNotViewer(projectIdObj, { code: "ARGOCD_LOGS_FORBIDDEN", message: "A viewer cannot read the logs of the applications" })
@@ -425,7 +438,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         ])
         if (!environment) throw new EntityNotFoundError(String(environmentId))
         if (!backend && !frontend && !agent) throw new EntityNotFoundError(String(slug))
-        return { ...(await this.deployedApplication(projectIdObj, slug, environment)), namespace: environmentNamespace(environment) }
+        return environment
     }
 
     /** The client of the Argo CD the project deploys through, and the names of the Application of `slug` in the environment there */
