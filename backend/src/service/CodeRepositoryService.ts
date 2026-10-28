@@ -35,6 +35,21 @@ const storedTokenElsewhere = () =>
 export const deploySecretName = "FLIGHTROOM_API_KEY"
 
 /**
+ * The name the pipelines of the templates read the deploy key by until they moved to {@link deploySecretName}.
+ * The secrets of an organization, a group or a variable group get both, so a repository scaffolded before
+ * the move still finds its key.
+ */
+export const legacyDeploySecretName = "MICROFRONTEND_ORCHESTRATOR_API_KEY"
+
+const deploySecretNames = [deploySecretName, legacyDeploySecretName]
+
+/** The names of the deploy key `exists` does not find: a key is minted only when one is missing, and written under those only */
+const missingDeploySecrets = async (exists: (secretName: string) => Promise<boolean>): Promise<string[]> => {
+    const found = await Promise.all(deploySecretNames.map(exists))
+    return deploySecretNames.filter((_, index) => !found[index])
+}
+
+/**
  * How long a deploy key the platform creates for itself stays valid.
  *
  * Spelled out unit by unit on purpose: this was `3600 * 1000 * 365` in four places, which
@@ -244,12 +259,9 @@ export class CodeRepositoryService extends BaseAuthorizedService {
 
         const gitlabClient = new GitLabClient(repository.gitlabData.url, repository.accessToken)
 
-        const exists = await gitlabClient.checkGroupSecretExists({
-            groupId: repository.gitlabData.groupId,
-            secretName: deploySecretName
-        })
-
-        if (exists) return
+        const groupId = repository.gitlabData.groupId
+        const missing = await missingDeploySecrets(secretName => gitlabClient.checkGroupSecretExists({ groupId, secretName }))
+        if (!missing.length) return
 
         const apiKey = await new ApiKeyService(this.user).createRaw(
             repository.projectId.toString(),
@@ -261,11 +273,9 @@ export class CodeRepositoryService extends BaseAuthorizedService {
             session
         )
 
-        await gitlabClient.addGroupSecret({
-            groupId: repository.gitlabData.groupId,
-            secretName: deploySecretName,
-            secretValue: apiKey.apiKey
-        })
+        for (const secretName of missing) {
+            await gitlabClient.addGroupSecret({ groupId, secretName, secretValue: apiKey.apiKey })
+        }
     }
 
     async injectSecretsToDeployOnGithubRaw(repository: ICodeRepository, session?: ClientSession) {
@@ -274,13 +284,9 @@ export class CodeRepositoryService extends BaseAuthorizedService {
 
         const githubClient = new GithubClient()
 
-        const exists = await githubClient.checkOrganizationSecretExists({
-            accessToken: repository.accessToken,
-            orgName: repository.githubData.organizationId,
-            secretName: deploySecretName
-        })
-
-        if (exists) return
+        const orgName = repository.githubData.organizationId
+        const missing = await missingDeploySecrets(secretName => githubClient.checkOrganizationSecretExists({ accessToken: repository.accessToken, orgName, secretName }))
+        if (!missing.length) return
 
         const apiKey = await new ApiKeyService(this.user).createRaw(
             repository.projectId.toString(),
@@ -292,13 +298,9 @@ export class CodeRepositoryService extends BaseAuthorizedService {
             session
         )
 
-        await githubClient.upsertOrganizationSecret({
-            accessToken: repository.accessToken,
-            orgName: repository.githubData.organizationId,
-            secretName: deploySecretName,
-            visibility: "all",
-            value: apiKey.apiKey
-        })
+        for (const secretName of missing) {
+            await githubClient.upsertOrganizationSecret({ accessToken: repository.accessToken, orgName, secretName, visibility: "all", value: apiKey.apiKey })
+        }
     }
 
     async injectSecretsToDeployOnAzureDevOpsRaw(repository: ICodeRepository, session?: ClientSession) {
@@ -307,15 +309,11 @@ export class CodeRepositoryService extends BaseAuthorizedService {
 
         const azureDevOpsClient = new AzureDevOpsClient()
 
-        const exists = await azureDevOpsClient.checkOrganizationSecretExists({
-            accessToken: repository.accessToken,
-            organization: repository.azureData.organization,
-            projectId: repository.azureData.projectId,
-            variableGroupName: azureDevOpsVariableGroupName,
-            secretName: deploySecretName
-        })
-
-        if (exists) return
+        const { organization, projectId, projectName } = repository.azureData
+        const missing = await missingDeploySecrets(secretName =>
+            azureDevOpsClient.checkOrganizationSecretExists({ accessToken: repository.accessToken, organization, projectId, variableGroupName: azureDevOpsVariableGroupName, secretName })
+        )
+        if (!missing.length) return
 
         const apiKey = await new ApiKeyService(this.user).createRaw(
             repository.projectId.toString(),
@@ -327,16 +325,19 @@ export class CodeRepositoryService extends BaseAuthorizedService {
             session
         )
 
-        await azureDevOpsClient.upsertOrganizationSecret({
-            accessToken: repository.accessToken,
-            organization: repository.azureData.organization,
-            projectId: repository.azureData.projectId,
-            projectName: repository.azureData.projectName,
-            secretName: deploySecretName,
-            value: apiKey.apiKey,
-            variableGroupName: azureDevOpsVariableGroupName,
-            variableGroupDescription: "Flightroom Deploy Secret"
-        })
+        // One after the other: each write reads the group the previous one left
+        for (const secretName of missing) {
+            await azureDevOpsClient.upsertOrganizationSecret({
+                accessToken: repository.accessToken,
+                organization,
+                projectId,
+                projectName,
+                secretName,
+                value: apiKey.apiKey,
+                variableGroupName: azureDevOpsVariableGroupName,
+                variableGroupDescription: "Flightroom Deploy Secret"
+            })
+        }
     }
 
     async create(projectId: string, repositoryData: CodeRepositoryCreateInput): Promise<ICodeRepository> {

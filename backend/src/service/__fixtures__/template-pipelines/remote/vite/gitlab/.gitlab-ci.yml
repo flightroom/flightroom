@@ -1,6 +1,5 @@
+# Needs the group (or project) CI/CD variable FLIGHTROOM_API_KEY, created by the console.
 stages:
-  - install
-  - lint
   - test
   - build
   - deploy
@@ -8,7 +7,9 @@ stages:
 variables:
   NODE_VERSION: "24"
 
-.pnpm_cache:
+# pnpm comes from the packageManager field of package.json, through corepack
+.pnpm:
+  image: node:${NODE_VERSION}
   cache:
     key:
       files:
@@ -20,46 +21,9 @@ variables:
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
 
-install:
-  stage: install
-  image: node:${NODE_VERSION}
-  extends: .pnpm_cache
-  script:
-    - echo "Dependencies installed"
-  artifacts:
-    paths:
-      - node_modules/
-      - .pnpm-store
-    expire_in: 1 hour
-
-test:
-  stage: test
-  image: node:${NODE_VERSION}
-  extends: .pnpm_cache
-  dependencies:
-    - install
-  script:
-    - pnpm run test
-  coverage: '/All files[^|]*\|[^|]*\s+([\d\.]+)/'
-  artifacts:
-    when: always
-    reports:
-      junit:
-        - coverage/junit.xml
-      coverage_report:
-        coverage_format: cobertura
-        path: coverage/cobertura-coverage.xml
-    paths:
-      - coverage/
-    expire_in: 30 days
-  allow_failure: false
-
 build:
+  extends: .pnpm
   stage: build
-  image: node:${NODE_VERSION}
-  extends: .pnpm_cache
-  dependencies:
-    - install
   script:
     - pnpm run build
     - echo "Build completed successfully"
@@ -67,15 +31,14 @@ build:
     paths:
       - dist/
     expire_in: 7 days
-  only:
-    - main
-    - develop
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH =~ /^(main|develop|development)$/
 
 deploy:
   stage: deploy
-  image: alpine:latest
-  dependencies:
+  image: alpine:3
+  needs:
     - build
   variables:
     MICROFRONTEND_SLUG: "%microfrontendSlug%"
@@ -87,10 +50,10 @@ deploy:
   script:
     - cd dist && zip -qr ../dist.zip . && cd ..
     - |
-      curl --fail --show-error --silent -X POST \
+      curl --fail-with-body --show-error --silent -X POST \
         -H "api-key: ${FLIGHTROOM_API_KEY}" \
         -F "file=@dist.zip" \
         "${MICROFRONTEND_ORCHESTRATOR_DOMAIN%/}/api/frontends/by-slug/${MICROFRONTEND_SLUG}/upload/${CI_COMMIT_TAG}"
     - echo "published ${MICROFRONTEND_SLUG} ${CI_COMMIT_TAG}"
-  only:
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG

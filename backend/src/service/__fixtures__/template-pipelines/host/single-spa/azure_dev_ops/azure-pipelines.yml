@@ -1,3 +1,11 @@
+# Needs the variable group MFE_ORCHESTRATOR_SECRETS (FLIGHTROOM_API_KEY, created by the console) and:
+#   MFE_ORCHESTRATOR_REGISTRY_CONNECTION  name of the Docker registry service connection
+#   MFE_ORCHESTRATOR_IMAGE_REPOSITORY     repository path inside the registry (e.g. my-org/%microfrontendSlug%)
+#   VITE_MFE_PROJECT_ID                       id of the project in the console (required)
+#   VITE_MFE_BACKEND_URL / VITE_MFE_ENVIRONMENT     optional, see below
+# Optional:
+#   MFE_ORCHESTRATOR_REGISTRY_HOST        registry host prepended to the image reference sent to the console (e.g. myregistry.azurecr.io)
+#   MICROFRONTEND_ORCHESTRATOR_DOMAIN     console base URL, defaults to %domain%
 trigger:
   branches:
     include:
@@ -12,12 +20,6 @@ pool:
   vmImage: 'ubuntu-latest'
 
 variables:
-  - name: isTag
-    value: $[startsWith(variables['Build.SourceBranch'], 'refs/tags/')]
-  - name: tagName
-    value: $[replace(variables['Build.SourceBranch'], 'refs/tags/', '')]
-  - name: isCdCiBranch
-    value: $[in(variables['Build.SourceBranch'], 'refs/heads/main', 'refs/heads/develop', 'refs/heads/development')]
   # The single-spa root config reads these at build time (see .env.example). Define them as
   # pipeline variables: VITE_MFE_PROJECT_ID is required, the backend url defaults
   # to this console, VITE_MFE_ENVIRONMENT is optional (left empty, the backend
@@ -30,15 +32,11 @@ variables:
     value: $[coalesce(variables['VITE_MFE_ENVIRONMENT'], '')]
 
 stages:
-  - stage: BuildAndDeploy
-    displayName: '🏗️ Build & Deploy'
+  - stage: Build
+    displayName: '🏗️ Build'
     jobs:
-      # One job: the Docker build copies the dist/ this job has just built
       - job: BuildJob
-        displayName: '⚙️ Build single-spa host and its image'
-        variables:
-          - name: imageName
-            value: ${{ coalesce(variables['imageName'], variables['Build.Repository.Name']) }}
+        displayName: '⚙️ Build single-spa host'
         steps:
           - task: NodeTool@0
             displayName: '📦 Install Node.js'
@@ -49,15 +47,18 @@ stages:
           - script: corepack enable
             displayName: '📦 Enable pnpm (corepack)'
 
+          - script: pnpm config set store-dir $(Pipeline.Workspace)/.pnpm-store
+            displayName: '⚙️ Set the pnpm store'
+
           - task: Cache@2
-            displayName: '💾 Cache node_modules'
+            displayName: '💾 Cache the pnpm store'
             inputs:
               key: 'pnpm | "$(Agent.OS)" | pnpm-lock.yaml'
-              path: node_modules
+              path: $(Pipeline.Workspace)/.pnpm-store
               restoreKeys: |
                 pnpm | "$(Agent.OS)"
 
-          - script: pnpm i --frozen-lockfile
+          - script: pnpm install --frozen-lockfile
             displayName: '📥 Install dependencies'
 
           - script: pnpm build
@@ -67,38 +68,66 @@ stages:
               VITE_MFE_PROJECT_ID: $(VITE_MFE_PROJECT_ID_RESOLVED)
               VITE_MFE_ENVIRONMENT: $(VITE_MFE_ENVIRONMENT_RESOLVED)
 
-          - publish: $(System.DefaultWorkingDirectory)/dist
-            artifact: app-source
-            displayName: '📦 Publish the build'
-
-          - task: Docker@2
-            condition: or(eq(variables.isTag, true), eq(variables.isCdCiBranch, true))
-            displayName: '🔑 Login to Container Registry'
+          - task: PublishPipelineArtifact@1
+            displayName: '📤 Publish the build'
             inputs:
-              containerRegistry: '$(CONTAINER_REGISTRY)'
-              command: 'login'
+              targetPath: 'dist'
+              artifact: 'dist'
+
+  - stage: Release
+    displayName: '🚀 Release'
+    dependsOn: Build
+    condition: and(succeeded(), startsWith(variables['Build.SourceBranch'], 'refs/tags/'))
+    variables:
+      - group: MFE_ORCHESTRATOR_SECRETS
+      - name: VERSION
+        value: $[replace(variables['Build.SourceBranch'], 'refs/tags/', '')]
+      - name: MICROFRONTEND_ORCHESTRATOR_DOMAIN_RESOLVED
+        value: $[coalesce(variables['MICROFRONTEND_ORCHESTRATOR_DOMAIN'], '%domain%')]
+      # Empty unless set: declaring MFE_ORCHESTRATOR_REGISTRY_HOST itself here would shadow a value
+      # set in the pipeline settings, since YAML variables take precedence over those
+      - name: MFE_ORCHESTRATOR_REGISTRY_HOST_RESOLVED
+        value: $[coalesce(variables['MFE_ORCHESTRATOR_REGISTRY_HOST'], '')]
+    jobs:
+      - job: Release
+        displayName: '🐳 Docker build, push and register'
+        steps:
+          # The Dockerfile copies dist/: put the build of the previous stage where it expects it
+          - task: DownloadPipelineArtifact@2
+            displayName: '📥 Download the build'
+            inputs:
+              artifact: 'dist'
+              targetPath: '$(Build.SourcesDirectory)/dist'
 
           # The Dockerfile serves dist/ with nginx, non-root, on port 8080
           - task: Docker@2
-            condition: eq(variables.isTag, true)
-            displayName: '🐳 Build & Push Docker Image (Tag)'
+            displayName: '🐳 Build and push image'
             inputs:
-              containerRegistry: '$(CONTAINER_REGISTRY)'
-              repository: '$(imageName)'
-              command: 'buildAndPush'
-              Dockerfile: 'Dockerfile'
+              command: buildAndPush
+              containerRegistry: $(MFE_ORCHESTRATOR_REGISTRY_CONNECTION)
+              repository: $(MFE_ORCHESTRATOR_IMAGE_REPOSITORY)
+              Dockerfile: Dockerfile
               buildContext: '.'
-              tags: |
-                $(tagName)
-                latest
+              tags: $(VERSION)
 
-          - task: Docker@2
-            condition: eq(variables.isCdCiBranch, true)
-            displayName: '🐳 Build & Push Docker Image (DEV)'
-            inputs:
-              containerRegistry: '$(CONTAINER_REGISTRY)'
-              repository: '$(imageName)'
-              command: 'buildAndPush'
-              Dockerfile: 'Dockerfile'
-              buildContext: '.'
-              tags: 'dev'
+          # A host is a DOCKER frontend: the console learns about a version from this call.
+          # Pipeline values reach the script through env only: a $(…) macro pasted into the script
+          # body is substituted as text before bash runs, so a tag could inject shell
+          - script: |
+              IMAGE="${IMAGE_REPOSITORY}:${VERSION}"
+              if [ -n "$REGISTRY_HOST" ]; then
+                IMAGE="${REGISTRY_HOST}/${IMAGE}"
+              fi
+              curl --fail-with-body --show-error --silent -X POST \
+                -H "api-key: ${MFE_API_KEY}" \
+                -H "Content-Type: application/json" \
+                -d "{\"image\":\"${IMAGE}\",\"commitSha\":\"${COMMIT_SHA}\"}" \
+                "${DOMAIN%/}/api/frontends/by-slug/%microfrontendSlug%/versions/${VERSION}"
+            displayName: '📝 Register version in MFE Orchestrator'
+            env:
+              MFE_API_KEY: $(FLIGHTROOM_API_KEY)
+              VERSION: $(VERSION)
+              IMAGE_REPOSITORY: $(MFE_ORCHESTRATOR_IMAGE_REPOSITORY)
+              REGISTRY_HOST: $(MFE_ORCHESTRATOR_REGISTRY_HOST_RESOLVED)
+              DOMAIN: $(MICROFRONTEND_ORCHESTRATOR_DOMAIN_RESOLVED)
+              COMMIT_SHA: $(Build.SourceVersion)

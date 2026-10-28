@@ -1,6 +1,6 @@
+# Needs the group (or project) CI/CD variable FLIGHTROOM_API_KEY, created by the console.
 stages:
-  - install
-  - lint
+  - test
   - build
   - docker
 
@@ -8,7 +8,8 @@ variables:
   NODE_VERSION: "24"
 
 # pnpm comes from the packageManager field of package.json, through corepack
-.pnpm_cache:
+.pnpm:
+  image: node:${NODE_VERSION}
   cache:
     key:
       files:
@@ -20,34 +21,19 @@ variables:
     - pnpm config set store-dir .pnpm-store
     - pnpm install --frozen-lockfile
 
-install:
-  stage: install
-  image: node:${NODE_VERSION}
-  extends: .pnpm_cache
-  script:
-    - echo "Dependencies installed"
-  artifacts:
-    paths:
-      - node_modules/
-      - .pnpm-store
-    expire_in: 1 hour
-
 # The template has no test suite: the type check is the gate
 typecheck:
-  stage: lint
-  image: node:${NODE_VERSION}
-  extends: .pnpm_cache
-  dependencies:
-    - install
+  extends: .pnpm
+  stage: test
   script:
     - pnpm run typecheck
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH =~ /^(main|develop|development)$/
 
 build:
+  extends: .pnpm
   stage: build
-  image: node:${NODE_VERSION}
-  extends: .pnpm_cache
-  dependencies:
-    - install
   # The single-spa root config reads VITE_MFE_BACKEND_URL, VITE_MFE_PROJECT_ID and the optional
   # VITE_MFE_ENVIRONMENT at build time (see .env.example). Set them as project
   # CI/CD variables: those win over the default below, which is this console.
@@ -60,24 +46,39 @@ build:
     paths:
       - dist/
     expire_in: 7 days
-  only:
-    - main
-    - develop
-    - tags
+  rules:
+    - if: $CI_COMMIT_TAG
+    - if: $CI_COMMIT_BRANCH =~ /^(main|develop|development)$/
 
-# The Dockerfile serves dist/ with nginx, non-root, on port 8080
+# The Dockerfile serves dist/ with nginx, non-root, on port 8080.
+# A host is a DOCKER frontend: the console learns about a version from the registration call.
 docker:
   stage: docker
-  image: docker:27
+  image: docker:29
   services:
-    - docker:27-dind
-  dependencies:
+    - docker:29-dind
+  needs:
     - build
+  variables:
+    DOCKER_TLS_CERTDIR: "/certs"
+    MICROFRONTEND_SLUG: "%microfrontendSlug%"
+    # Base URL of your orchestrator console. Set a project CI/CD variable of the
+    # same name to register versions on a different installation.
+    MICROFRONTEND_ORCHESTRATOR_DOMAIN: "%domain%"
   before_script:
+    - apk add --no-cache curl
     - echo "$CI_REGISTRY_PASSWORD" | docker login -u "$CI_REGISTRY_USER" --password-stdin "$CI_REGISTRY"
   script:
-    - docker build -t "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG" -t "$CI_REGISTRY_IMAGE:latest" .
-    - docker push "$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"
-    - docker push "$CI_REGISTRY_IMAGE:latest"
-  only:
-    - tags
+    - IMAGE="$CI_REGISTRY_IMAGE:$CI_COMMIT_TAG"
+    - docker build -t "$IMAGE" .
+    - docker push "$IMAGE"
+    - DIGEST=$(docker inspect --format='{{index .RepoDigests 0}}' "$IMAGE" | cut -d@ -f2)
+    - |
+      curl --fail-with-body --show-error --silent -X POST \
+        -H "api-key: ${FLIGHTROOM_API_KEY}" \
+        -H "Content-Type: application/json" \
+        -d "{\"image\":\"${IMAGE}\",\"digest\":\"${DIGEST}\",\"commitSha\":\"${CI_COMMIT_SHA}\"}" \
+        "${MICROFRONTEND_ORCHESTRATOR_DOMAIN%/}/api/frontends/by-slug/${MICROFRONTEND_SLUG}/versions/${CI_COMMIT_TAG}"
+    - echo "registered ${MICROFRONTEND_SLUG} ${CI_COMMIT_TAG}"
+  rules:
+    - if: $CI_COMMIT_TAG

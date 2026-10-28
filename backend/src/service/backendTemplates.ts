@@ -53,5 +53,12 @@ export const BACKEND_TEMPLATES: IMarket[] = [
         readinessPath: "/q/health/ready",
         docsPath: "/q/swagger-ui/",
         openApiPath: "/q/openapi.json"
+    }),
+    backendTemplate("service-micronaut", "Micronaut", "Micronaut", "Backend with Java and Micronaut, packaged as a Docker image", {
+        port: 8080,
+        livenessPath: "/health/liveness",
+        readinessPath: "/health/readiness",
+        docsPath: "/swagger-ui/index.html",
+        openApiPath: "/swagger/openapi.json"
     })
 ]

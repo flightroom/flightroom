@@ -12,57 +12,39 @@ on:
         type: string
         description: 'Version to release'
 
+permissions:
+  contents: read
+
 jobs:
   build-and-deploy:
     runs-on: ubuntu-latest
     steps:
     - uses: actions/checkout@v7
-    
+
+    # pnpm comes from the packageManager field of package.json
     - name: 🔄 Setup pnpm
       uses: pnpm/action-setup@v6
-    
+
     - name: ⚙️ Setup Node.js
       uses: actions/setup-node@v7
       with:
         node-version: '24'
         cache: 'pnpm'
         cache-dependency-path: '**/pnpm-lock.yaml'
-    
-    - name: 💾 Cache pnpm store
-      uses: actions/cache@v6
-      id: pnpm-cache
-      with:
-        path: |
-          ~/.pnpm-store
-          ~/.local/share/pnpm/store
-        key: ${{ runner.os }}-pnpm-store-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-pnpm-store-
-    
-    - name: 📦 Cache dependencies
-      uses: actions/cache@v6
-      id: cache-deps
-      with:
-        path: |
-          node_modules
-          host/node_modules
-          remote/node_modules
-        key: ${{ runner.os }}-deps-${{ hashFiles('**/pnpm-lock.yaml') }}
-        restore-keys: |
-          ${{ runner.os }}-deps-
-    
+
     - name: 🔧 Install Dependencies
-      run: pnpm install
-      if: steps.cache-deps.outputs.cache-hit != 'true'
-        
+      run: pnpm install --frozen-lockfile
+
     - name: 🏗️ Build
       run: pnpm build
-                
+
+    # Secret FLIGHTROOM_API_KEY is created by the console in this repository.
+    # Variable MICROFRONTEND_ORCHESTRATOR_DOMAIN (optional) points the upload at another installation.
     - name: 🚀 Publish to MFE Orchestrator
       uses: mfe-orchestrator-hub/github-action@0.0.29
       with:
         apikey: ${{ secrets.FLIGHTROOM_API_KEY }}
-        microfrontend-slug: %microfrontendSlug%
+        microfrontend-slug: '%microfrontendSlug%'
         domain: ${{ vars.MICROFRONTEND_ORCHESTRATOR_DOMAIN || '%domain%' }}
         file-path: './dist'
         version: ${{ inputs.version || github.ref_name }}
