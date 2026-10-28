@@ -1,4 +1,4 @@
-import { Card, CardContent, CardHeader, CardTitle } from "@flightroom/design-system"
+import { Card, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
@@ -19,7 +19,7 @@ export const DeploymentResourceCard: React.FC<DeploymentResourceCardProps> = ({ 
     return (
         // The name is the link; it stretches over the whole card, so the card opens the resource on a click anywhere.
         <Card className="relative border-l-4 border-l-accent transition-colors duration-200 focus-within:border-primary hover:border-primary">
-            <CardHeader className="border-0 pb-0">
+            <CardHeader className="border-0">
                 <Badge variant="accent" className="mb-2 w-fit">
                     {resource && <ResourceIcon resource={resource} size={12} decorative />}
                     {resource ? typeLabel(t, resource.type) : t("deployments.kind_resource")}
@@ -30,20 +30,6 @@ export const DeploymentResourceCard: React.FC<DeploymentResourceCardProps> = ({ 
                     </Link>
                 </CardTitle>
             </CardHeader>
-            <CardContent className="pt-2">
-                {/* Recorded keys only, as for a secret: the values stay with the resource */}
-                {deployed.entries.length > 0 ? (
-                    <ul className="flex flex-wrap gap-1">
-                        {deployed.entries.map(entry => (
-                            <li key={entry.key} className="max-w-full truncate rounded bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground-secondary" title={entry.key}>
-                                {entry.key}
-                            </li>
-                        ))}
-                    </ul>
-                ) : (
-                    <p className="text-sm text-foreground-secondary">{t("deployments.map_no_keys")}</p>
-                )}
-            </CardContent>
         </Card>
     )
 }

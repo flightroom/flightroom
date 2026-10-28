@@ -29,9 +29,6 @@ export const DeploymentBackendCard: React.FC<DeploymentBackendCardProps> = ({ ba
                             {backend.name}
                         </Link>
                     </CardTitle>
-                    <div className="text-sm text-foreground-secondary truncate" title={backend.slug}>
-                        {backend.slug}
-                    </div>
                 </div>
                 <Badge variant="outline" className="shrink-0" title={backend.version ? t("deployments.backend_card.version") : t("deployments.backend_card.no_version")}>
                     {backend.version || "—"}

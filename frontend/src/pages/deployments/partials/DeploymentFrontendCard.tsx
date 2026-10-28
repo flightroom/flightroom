@@ -42,9 +42,6 @@ export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ 
                             </Link>
                         </CardTitle>
                     </div>
-                    <div className="text-sm text-foreground-secondary truncate" title={frontend.slug}>
-                        {frontend.slug}
-                    </div>
                 </div>
                 <Badge variant="outline" className="shrink-0" title={t("deployments.frontend_card.stable_version")}>
                     {frontend.version || "—"}
