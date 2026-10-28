@@ -76,6 +76,17 @@ describe("resourceEnvKeys", () => {
         ])
     })
 
+    it("given a SharePoint site reached by an Entra ID certificate, when its variables are derived, then the site is required, the library optional, the certificate the one credential and the variant the AUTH one", () => {
+        expect(resourceEnvKeys({ name: "docs", type: "sharepoint", variant: "azureAadCertificate" })).toEqual([
+            { key: "SHAREPOINT_DOCS_SITE_URL", field: "siteUrl", secret: false, required: true },
+            { key: "SHAREPOINT_DOCS_LIBRARY", field: "library", secret: false, required: false },
+            { key: "SHAREPOINT_DOCS_TENANT_ID", field: "tenantId", secret: false, required: true },
+            { key: "SHAREPOINT_DOCS_CLIENT_ID", field: "clientId", secret: false, required: true },
+            { key: "SHAREPOINT_DOCS_CERTIFICATE", field: "certificate", secret: true, required: true },
+            { key: "SHAREPOINT_DOCS_AUTH", secret: false, required: true, value: "azureAadCertificate" }
+        ])
+    })
+
     it("given a storage on AWS, when its variables are derived, then the provider is among them with its fixed value", () => {
         expect(resourceEnvKeys({ name: "media", type: "storage", variant: "aws" })).toContainEqual({ key: "STORAGE_MEDIA_PROVIDER", secret: false, required: true, value: "AWS" })
     })

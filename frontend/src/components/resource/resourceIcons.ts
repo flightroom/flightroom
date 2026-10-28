@@ -1,4 +1,4 @@
-import { Box, Braces, Database, HardDrive, KeyRound, type LucideIcon, Mail, Sparkles } from "lucide-react"
+import { Box, Braces, Database, FolderOpen, HardDrive, KeyRound, type LucideIcon, Mail, Sparkles } from "lucide-react"
 import { type SimpleIcon, siAuth0, siClaude, siGooglebigquery, siGooglecloud, siGooglegemini, siMariadb, siMongodb, siMysql, siOpenapiinitiative, siPostgresql, siRedis } from "simple-icons"
 import { isNearBlack } from "@/components/technology/technologyIcons"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
@@ -45,6 +45,7 @@ const TYPE_ICONS = new Map<string, LucideIcon>([
     ["serviceAccount", KeyRound],
     ["ai", Sparkles],
     ["smtp", Mail],
+    ["sharepoint", FolderOpen],
     ["generic", Braces]
 ])
 
@@ -59,6 +60,8 @@ const TYPE_ICON_MARKUP = new Map<string, string>(
             '<path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/>',
         ai: '<path d="M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z"/><path d="M20 2v4"/><path d="M22 4h-4"/><circle cx="4" cy="20" r="2"/>',
         smtp: '<path d="m22 7-8.991 5.727a2 2 0 0 1-2.009 0L2 7"/><rect x="2" y="4" width="20" height="16" rx="2"/>',
+        sharepoint:
+            '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
         generic: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>'
     })
 )

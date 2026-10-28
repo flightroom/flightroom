@@ -5,7 +5,7 @@ import { DatabaseType } from "../models/DatabaseModel"
  * attaches the resource: the platform knows its fields, so it names the variables and keeps the
  * credentials among them encrypted, where a config map or a secret leaves both to whoever fills it.
  */
-export type ResourceType = "database" | "mongodb" | "cosmosdb" | "bigquery" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "generic"
+export type ResourceType = "database" | "mongodb" | "cosmosdb" | "bigquery" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "sharepoint" | "generic"
 
 /** How the console asks for a field; the backend checks number, boolean, select, url and email against it too */
 export type ResourceFieldInput = "text" | "number" | "boolean" | "select" | "multiline" | "url" | "email"
@@ -105,6 +105,14 @@ const smtpServer = [
     field("security", "SECURITY", { input: "select", options: ["none", "starttls", "tls"], default: "starttls" })
 ]
 const smtpSender = [field("from", "FROM", { input: "email" }), field("fromName", "FROM_NAME", { required: false })]
+
+/** A SharePoint site reached through Microsoft Graph: the variant is the way to authenticate, which the client reads rather than guesses */
+const sharepointVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
+    id,
+    // Without a library the client uses the default one of the site
+    fields: [field("siteUrl", "SITE_URL", { input: "url", connection: true }), field("library", "LIBRARY", { required: false }), ...fields],
+    fixed: { AUTH: id }
+})
 
 /**
  * An external HTTP API: where it answers and where its Swagger/OpenAPI document is, in every variant. A
@@ -363,6 +371,20 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
         variants: [
             { id: "credentials", fields: [...smtpServer, field("username", "USERNAME"), secret("password", "PASSWORD"), ...smtpSender] },
             { id: "noAuth", fields: [...smtpServer, ...smtpSender] }
+        ]
+    },
+    /**
+     * A SharePoint Online site and its documents, by an Entra ID app (client secret or certificate) or by the identity
+     * of the pod. The certificate is the PEM of the certificate and its private key, as @azure/identity reads it
+     */
+    sharepoint: {
+        type: "sharepoint",
+        envPrefix: "SHAREPOINT",
+        variants: [
+            sharepointVariant("azureAad", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET")]),
+            sharepointVariant("azureAadCertificate", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("certificate", "CERTIFICATE", { input: "multiline" })]),
+            // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
+            sharepointVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
         ]
     },
     /** Anything the catalog lacks: the resource defines its own variables (customFields), none of them a connection */

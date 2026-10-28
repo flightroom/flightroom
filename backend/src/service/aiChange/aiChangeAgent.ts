@@ -341,6 +341,20 @@ const RESOURCE_USAGE: Record<string, (resource: AiChangeAgentResource) => (strin
             values.from ? `from: ${values.from}` : undefined,
             `usage: send mail through these variables with the stack's usual mail library (e.g. nodemailer): host from ${key("host")}, port from ${key("port")}, security from ${key("security")} (tls: TLS from the start, starttls: upgraded after connecting, none: plain), ${login}, sender from ${key("from")} (display name from ${key("fromName")} when set)`
         ]
+    },
+    sharepoint: resource => {
+        const key = keyOfField(resource)
+        const values = resource.values ?? {}
+        const auth: Record<string, string> = {
+            azureAad: `an Entra ID client secret credential (tenant from ${key("tenantId")}, client from ${key("clientId")}, secret from ${key("clientSecret")})`,
+            azureAadCertificate: `an Entra ID client certificate credential (tenant from ${key("tenantId")}, client from ${key("clientId")}, PEM certificate and private key from ${key("certificate")})`,
+            azureManagedIdentity: `the managed identity of the pod (a user-assigned one by its client id from ${key("clientId")} when set)`
+        }
+        return [
+            values.siteUrl ? `site_url: ${values.siteUrl}` : undefined,
+            values.library ? `library: ${values.library}` : undefined,
+            `usage: call Microsoft Graph (e.g. @microsoft/microsoft-graph-client with @azure/identity, scope https://graph.microsoft.com/.default), resolving the site from ${key("siteUrl")} with GET /sites/{hostname}:/{site path} and its document library by the name in ${key("library")} when set (the default drive of the site otherwise), authenticating with ${auth[resource.variant] ?? "what its variables say"}; never hardcode any of them`
+        ]
     }
 }
 
