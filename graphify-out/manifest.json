@@ -3210,8 +3210,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/VariableMapService.ts": {
-    "mtime": 1793005820.5560296,
-    "ast_hash": "d5a0675a15f4a19286b7119a20ea82d5",
+    "mtime": 1793184234.372829,
+    "ast_hash": "3a7ac39835ea4b24ca629ab02afbb0b1",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/DomainPlanService.test.ts": {
@@ -3235,8 +3235,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/VariableMapService.test.ts": {
-    "mtime": 1793005820.555811,
-    "ast_hash": "bda2ae54719d29f4cd521097981750de",
+    "mtime": 1793184235.2337854,
+    "ast_hash": "fc49e430e94e2e6e79b6d26e3c075c05",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainScaffoldDialog.tsx": {
@@ -3790,8 +3790,8 @@
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/frontendTools.ts": {
-    "mtime": 1793120993.2736182,
-    "ast_hash": "5952219c6af2e30b65be95630b42ac16",
+    "mtime": 1793184173.1696033,
+    "ast_hash": "b9883028f677cd2fb0239bef7c852aea",
     "semantic_hash": ""
   },
   "backend/src/models/FrontendModel.test.ts": {
@@ -4555,13 +4555,13 @@
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/backendTools.test.ts": {
-    "mtime": 1793005820.526576,
-    "ast_hash": "d3ec0f7c2f14baeb74d96f54aaacb6ee",
+    "mtime": 1793184206.4011352,
+    "ast_hash": "f6604df6f0127b2418c8a861041b91d5",
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/backendTools.ts": {
-    "mtime": 1793005820.5267532,
-    "ast_hash": "4a8a56a4c3364c208c43645008fb8d98",
+    "mtime": 1793184171.332468,
+    "ast_hash": "a8ed067c2f2a507852bce7b3492cbada",
     "semantic_hash": ""
   },
   "backend/src/models/BackendDeploymentModel.ts": {
