@@ -1,5 +1,5 @@
+import { StatusBadge } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
-import { Badge } from "@/components/atoms"
 import { DependencyUpdateStatus } from "@/hooks/apiClients/useDependenciesApi"
 
 const VARIANT_BY_STATUS: Record<DependencyUpdateStatus, "default" | "accent" | "destructive" | "outline"> = {
@@ -17,7 +17,7 @@ export interface DependencyStatusBadgeProps {
 export const DependencyStatusBadge: React.FC<DependencyStatusBadgeProps> = ({ status }) => {
     const { t } = useTranslation()
 
-    return <Badge variant={VARIANT_BY_STATUS[status]}>{t(`dependencies.status.${status}`)}</Badge>
+    return <StatusBadge variant={VARIANT_BY_STATUS[status]}>{t(`dependencies.status.${status}`)}</StatusBadge>
 }
 
 export default DependencyStatusBadge

@@ -426,6 +426,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                             <CardContent className="pt-3">
                                 <TextareaField
                                     name="context"
+                                    maxLength={CONTEXT_MAX_LENGTH}
                                     label={t("backends.context.label")}
                                     placeholder={t("backends.context.placeholder")}
                                     description={t("backends.context.hint")}

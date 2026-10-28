@@ -1,10 +1,10 @@
-import { Tabs, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { StatusBadge as DesignSystemStatusBadge, Tabs, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { format } from "date-fns"
 import { Brain, ChevronDown, ExternalLink, Monitor, Server } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { IBadgeProps } from "@/components/atoms"
-import { Badge, Button } from "@/components/atoms"
+import { Button } from "@/components/atoms"
 import type { AiChangeEvent, AiChangeStatus } from "@/hooks/apiClients/useAiChangesApi"
 
 const STATUS_VARIANT: Record<AiChangeStatus, IBadgeProps["variant"]> = {
@@ -20,7 +20,11 @@ const STATUS_VARIANT: Record<AiChangeStatus, IBadgeProps["variant"]> = {
 /** The status of an AI change request, shared by the frontend page and the job tabs of the assistant. */
 export const StatusBadge: React.FC<{ status: AiChangeStatus }> = ({ status }) => {
     const { t } = useTranslation()
-    return <Badge variant={STATUS_VARIANT[status]}>{t(`frontend.aiChange.status.${status}`)}</Badge>
+    return (
+        <DesignSystemStatusBadge variant={STATUS_VARIANT[status]} live={status === "RUNNING" || status === "APPLYING"}>
+            {t(`frontend.aiChange.status.${status}`)}
+        </DesignSystemStatusBadge>
+    )
 }
 
 const previewOf = (message: string): { kind: "frontend" | "backend"; slug: string; url: string } | undefined => {

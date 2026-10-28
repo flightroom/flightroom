@@ -7,6 +7,8 @@ import type { DesignSystem } from "@/hooks/apiClients/useProjectApi"
 /** Gli stessi controlli del backend: un nome di pacchetto npm, con o senza scope, e documentazione su http(s) */
 export const NPM_PACKAGE_NAME = /^(@[a-z0-9-~][a-z0-9-._~]*\/)?[a-z0-9-~][a-z0-9-._~]*$/
 export const HTTP_URL = /^https?:\/\/\S+$/
+/** Gli stessi limiti del backend, che rifiuta il design system intero se un campo li supera */
+export const DESIGN_SYSTEM_MAX_LENGTH = { packageName: 214, version: 100, docsUrl: 2_000, npmrc: 5_000, notes: 10_000 } as const
 
 export interface DesignSystemFormValues {
     packageName: string
@@ -65,6 +67,7 @@ export const DesignSystemFields = <T extends FieldValues>({ prefix = "", require
             <div className="flex flex-wrap gap-x-4 gap-y-2">
                 <TextField<T>
                     name={path("packageName")}
+                    maxLength={DESIGN_SYSTEM_MAX_LENGTH.packageName}
                     label={t("designSystem.fields.packageName")}
                     placeholder="@acme/ui"
                     description={t("designSystem.fields.packageNameHint")}
@@ -74,6 +77,7 @@ export const DesignSystemFields = <T extends FieldValues>({ prefix = "", require
                 />
                 <TextField<T>
                     name={path("version")}
+                    maxLength={DESIGN_SYSTEM_MAX_LENGTH.version}
                     label={t("designSystem.fields.version")}
                     placeholder="^3.2.0"
                     description={t("designSystem.fields.versionHint")}
@@ -83,6 +87,7 @@ export const DesignSystemFields = <T extends FieldValues>({ prefix = "", require
             </div>
             <TextField<T>
                 name={path("docsUrl")}
+                maxLength={DESIGN_SYSTEM_MAX_LENGTH.docsUrl}
                 label={t("designSystem.fields.docsUrl")}
                 placeholder="https://ui.acme.dev"
                 dataTestId={`${dataTestId}-docs`}
@@ -90,6 +95,7 @@ export const DesignSystemFields = <T extends FieldValues>({ prefix = "", require
             />
             <TextareaField<T>
                 name={path("npmrc")}
+                maxLength={DESIGN_SYSTEM_MAX_LENGTH.npmrc}
                 label={t("designSystem.fields.npmrc")}
                 placeholder={"@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=..."}
                 description={t("designSystem.fields.npmrcHint")}
@@ -100,6 +106,7 @@ export const DesignSystemFields = <T extends FieldValues>({ prefix = "", require
             />
             <TextareaField<T>
                 name={path("notes")}
+                maxLength={DESIGN_SYSTEM_MAX_LENGTH.notes}
                 label={t("designSystem.fields.notes")}
                 placeholder={t("designSystem.fields.notesPlaceholder")}
                 description={t("designSystem.fields.notesHint")}

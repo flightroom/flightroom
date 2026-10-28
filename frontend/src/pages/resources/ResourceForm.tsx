@@ -470,6 +470,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                             <TextareaField name="description" label={t("resources.description")} placeholder={t("resources.description_placeholder")} />
                             <TextareaField
                                 name="context"
+                                maxLength={MAX_CONTEXT_LENGTH}
                                 label={t("resources.context")}
                                 placeholder={t("resources.context_placeholder")}
                                 description={t("resources.context_hint")}

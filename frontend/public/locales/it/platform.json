@@ -161,6 +161,7 @@
         "create": "Crea",
         "update": "Aggiorna",
         "no_data": "Nessun dato disponibile",
+        "character_counter": "{{current}} / {{max}} caratteri",
         "loading": "Caricamento...",
         "default": "Predefinito",
         "error": "Si è verificato un errore",

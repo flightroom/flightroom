@@ -1,3 +1,4 @@
+import { StatusDot } from "@flightroom/design-system"
 import { Play } from "lucide-react"
 import { Fragment, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
@@ -692,7 +693,7 @@ export const MaintenanceBay: React.FC<MaintenanceBayProps> = ({ agents, backends
             </span>
             {(["scheduled", "standby", "failed", "recent"] as const).map(status => (
                 <span key={status} className="flex items-center gap-1.5">
-                    <span className={cn("size-2.5 rounded-full", STATUS_DOT_CLASS[status])} aria-hidden="true" />
+                    <StatusDot size="lg" className={STATUS_DOT_CLASS[status]} />
                     {t(`maintenance.bay.legend_${status}`)}
                 </span>
             ))}

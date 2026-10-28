@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, StatusDot, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo, useRef, useState } from "react"
@@ -143,7 +143,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     danger: []
 }
 
-const ErrorDot: React.FC = () => <span className="ml-2 inline-block size-1.5 rounded-full bg-destructive align-middle" aria-hidden="true" />
+const ErrorDot: React.FC = () => <StatusDot tone="destructive" size="sm" className="ml-2 align-middle" />
 
 interface AddMaintenanceAgentFormProps {
     repositories: ICodeRepository[]
@@ -401,6 +401,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                                 <MaintenanceKindField />
                                 <TextareaField
                                     name="context"
+                                    maxLength={CONTEXT_MAX_LENGTH}
                                     label={t("backends.context.label")}
                                     placeholder={t("maintenance.context_placeholder")}
                                     description={t("backends.context.hint")}
