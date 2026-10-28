@@ -272,8 +272,8 @@ describe("AiMissionService", () => {
             expect(AiMission.create).not.toHaveBeenCalled()
         })
 
-        it("Given 2 jobs and a mission already running, when a mission is started, then it is refused: a mission counts as one", async () => {
-            activeJobs = 2
+        it("Given 4 jobs and a mission already running, when a mission is started, then it is refused: a mission counts as one", async () => {
+            activeJobs = 4
             runningMissions = 1
 
             await expect(start("global")).rejects.toMatchObject({ code: "AI_CHANGE_TOO_MANY", statusCode: 429 })
@@ -561,7 +561,7 @@ describe("AiMissionService", () => {
             const stuck = stored!
             // Its job died with a restart: declared failed since, and nobody moved the mission on.
             jobs.get(String(started[0].jobId))!.status = AiJobStatus.FAILED
-            activeJobs = 2
+            activeJobs = 4
             vi.spyOn(AiMission, "countDocuments").mockImplementation((() => Promise.resolve(stored?.status === AiMissionStatus.RUNNING ? 1 : 0)) as never)
 
             await start("perRepository")

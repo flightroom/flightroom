@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, AlertTitle, Spinner, Textarea } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
-import { AlertTriangle, ArrowUp, ExternalLink, Eye, GitBranch, Server, Square } from "lucide-react"
+import { AlertTriangle, ArrowUp, ExternalLink, Eye, GitBranch, Server, Square, Timer } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
@@ -11,6 +11,7 @@ import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDial
 import useAiJobsApi, { AiJob, AiJobRepository, AiUsage, isAiJobActive } from "@/hooks/apiClients/useAiJobsApi"
 import { effortsOf } from "@/hooks/apiClients/useAiModelsApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
+import useElapsed from "@/hooks/useElapsed"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { cn } from "@/utils/styleUtils"
@@ -129,6 +130,18 @@ const RepositoryCard: React.FC<{ repository: AiJobRepository }> = ({ repository 
     )
 }
 
+/** How long the agent worked, out of the queue: live while it works. */
+const JobDuration: React.FC<{ startedAt: string; finishedAt?: string }> = ({ startedAt, finishedAt }) => {
+    const { t } = useTranslation()
+    const elapsed = useElapsed(new Date(startedAt).getTime(), finishedAt ? new Date(finishedAt).getTime() : undefined)
+    return (
+        <span className="inline-flex items-center gap-1 text-xs tabular-nums text-foreground-secondary" title={t("assistant.jobs.duration_hint")} data-testid="assistant-job-duration">
+            <Timer className="size-3" aria-hidden="true" />
+            {t("assistant.jobs.duration", { time: elapsed })}
+        </span>
+    )
+}
+
 /** One job of the chain: the request as the user's bubble, then what the agent did. */
 const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
     const { t } = useTranslation()
@@ -146,6 +159,8 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
                 </Badge>
                 {job.scope === "global" && <Badge variant="outline">{t("assistant.jobs.scope_global")}</Badge>}
                 {job.scope === "domain" && <Badge variant="outline">{t("assistant.jobs.scope_domain")}</Badge>}
+                {/* Older jobs recorded neither time; one stopped in the queue never started. */}
+                {job.startedAt && (active || job.finishedAt) && <JobDuration startedAt={job.startedAt} finishedAt={active ? undefined : job.finishedAt} />}
             </div>
             {active ? (
                 <ProgressLog events={job.events ?? []} live />

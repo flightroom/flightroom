@@ -1,4 +1,5 @@
 import fs from "node:fs/promises"
+import path from "node:path"
 import { fastify } from "../.."
 import AiChangeRequest from "../../models/AiChangeRequestModel"
 import { IBackend } from "../../models/BackendModel"
@@ -6,7 +7,7 @@ import { IFrontend } from "../../models/FrontendModel"
 import Organization from "../../models/OrganizationModel"
 import Project, { IProject } from "../../models/ProjectModel"
 import { toObjectId } from "../../utils/mongooseUtils"
-import { projectWorkspacePath } from "../../utils/workspacePaths"
+import { isJobWorkspacePath, projectWorkspacePath, sharedWorkspacePath } from "../../utils/workspacePaths"
 import { componentWorkspacePath, fromBackend, fromFrontend, RepositoryComponent } from "./repositoryComponent"
 
 /**
@@ -27,11 +28,21 @@ const removeFolder = async (folder: string) => {
     await fs.rm(folder, { recursive: true, force: true })
 }
 
+/** The shared copy of a component and the copies of its jobs, next to it. */
+const removeComponentFolders = async (folder: string) => {
+    await removeFolder(folder)
+    const siblings = await fs.readdir(path.dirname(folder)).catch(() => [])
+    for (const name of siblings) {
+        const sibling = path.join(path.dirname(folder), name)
+        if (isJobWorkspacePath(sibling) && sharedWorkspacePath(sibling) === folder) await removeFolder(sibling)
+    }
+}
+
 const forgetComponents = async (components: RepositoryComponent[]) => {
     try {
         for (const component of components) {
             const owner = await ownerOf(await Project.findById(component.projectId))
-            if (owner) await removeFolder(componentWorkspacePath(fastify.config.REPOSITORIES_FOLDER, owner, component))
+            if (owner) await removeComponentFolders(componentWorkspacePath(fastify.config.REPOSITORIES_FOLDER, owner, component))
         }
         const idsOf = (kind: RepositoryComponent["kind"]) => components.filter(component => component.kind === kind).map(component => component._id)
         await AiChangeRequest.deleteMany({ $or: [{ frontendId: { $in: idsOf("frontend") } }, { backendId: { $in: idsOf("backend") } }] })

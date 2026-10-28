@@ -65,6 +65,9 @@ export interface AiJob {
     error?: string
     /** Set when a user stopped the agent before it finished: the job is FAILED, its requests DISCARDED. */
     stoppedAt?: string
+    /** When the agent began to work, out of the queue, and when it ended: missing on jobs from before they were recorded. */
+    startedAt?: string
+    finishedAt?: string
     /** The cost of this job alone, every model round summed. */
     usage: AiUsage
     /** The reasoning effort the agent worked at. */

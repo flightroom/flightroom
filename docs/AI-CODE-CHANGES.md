@@ -33,27 +33,27 @@ backend repositories together; the preview URL is the sandbox's frontend, not a 
 The sandbox is removed after the configured OpenShell idle period.
 
 1. The request is stored and a background job starts; the console follows it by polling.
-2. The job takes a lock on the frontend's working copy (Redis, or in-process without Redis), so
-   two requests on the same repository queue instead of sharing a checkout.
-3. The working copy is cloned if missing, otherwise fetched and reset to `origin/<base branch>`:
-   every run starts from exactly what the remote has.
-4. The agent explores and edits the files. It receives the [project and frontend context](MCP.md#project-context)
+2. The job clones the repository into a working copy of its own, on `origin/<base branch>`: every run
+   starts from exactly what the remote has, and jobs on the same repository run side by side, each
+   with its own checkout. Their proposals only meet when they are applied (step 6).
+3. The agent explores and edits the files. It receives the [project and frontend context](MCP.md#project-context)
    and the detected stack.
-5. The changed files are committed on the conversation's feature branch,
+4. The changed files are committed on the conversation's feature branch,
    `ai-feature/<a few words summing up the request, written by the model>-<timestamp>` (author: the user who asked, committer: Flightroom), on top of
    the base the agent started from, and force-pushed. A follow-up that only answers a question, without
    changing a file, pushes nothing. A push that fails does not lose the proposal: the console shows the
    error, and applying it or opening its pull request pushes it again.
-6. The changed files (original and proposed content) are stored as a proposal, the working copy is
-   reset and the lock released. Proposals nobody acts upon are removed after 7 days; their branch stays.
-7. On **Apply** the copy is reset to the latest base again and every file is checked to still be what
-   the agent saw. A file changed on the base branch in the meantime stops the apply with a conflict,
-   so nothing is silently overwritten. When the base has not moved since the proposal, the base
-   fast-forwards to the very commit of the feature branch, so a pull request opened on it reads merged;
+5. The changed files (original and proposed content) are stored as a proposal and the job's working
+   copy is deleted; one a crash left behind is removed a day later. Proposals nobody acts upon are removed after 7 days; their branch stays.
+6. On **Apply** the shared working copy of the repository, locked meanwhile (Redis, or in-process
+   without Redis), is reset to the latest base and every file is checked to still be what the agent
+   saw. A file changed on the base branch in the meantime, by another job applied first for instance,
+   stops the apply with a conflict, so nothing is silently overwritten. When the base has not moved
+   since the proposal, the base fast-forwards to the very commit of the feature branch, so a pull request opened on it reads merged;
    otherwise the files are committed again on top of the latest base. The push is never forced: a
    protected base branch refuses it, and the console suggests opening a pull request instead. The
    feature branch is then deleted, unless a pull request is open on it.
-8. On **Open a pull request** the provider opens it from the feature branch onto the base. If it refuses
+7. On **Open a pull request** the provider opens it from the feature branch onto the base. If it refuses
    (for example a token without that permission), the console shows why and the branch stays pushed.
 
 Clone, fetch, commit and push use [isomorphic-git](https://isomorphic-git.org): no `git` binary is
@@ -119,7 +119,7 @@ A follow-up takes no place of its own among the active jobs, and never holds up 
 Limits:
 
 - At most 200 repositories per mission.
-- A running mission takes one of the 3 places for AI work at once in a project, however many jobs it
+- A running mission takes one of the 5 places for AI work at once in a project, however many jobs it
   runs. Its jobs do not take places of their own.
 - While a mission runs, its jobs and their proposals do not expire, however long ago they finished. Once it
   ends, the mission, its jobs and the proposals nobody applied are removed 7 days later. Applied work is

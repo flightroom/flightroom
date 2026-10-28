@@ -2324,6 +2324,8 @@
             "usage_latest": "Questo job",
             "usage_total_one": "Intera conversazione ({{count}} job)",
             "usage_total_other": "Intera conversazione ({{count}} job)",
+            "duration": "Durata: {{time}}",
+            "duration_hint": "Quanto ha lavorato l'agente, senza l'attesa in coda.",
             "usage_job": "Costo",
             "usage_hint": "Token usati dall'agente, sommando tutti i passaggi del modello. Un solo agente lavora su tutti i repository del job, quindi il costo è del job. I token letti dalla cache costano molto meno.",
             "apply_all_one": "Applica la proposta",

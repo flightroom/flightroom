@@ -45,6 +45,20 @@ export const backendWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "
 /** `<project folder>/variables.gitops`: the repository config maps and secrets are committed to. No slug holds a dot, so no component folder can take it. */
 export const gitOpsWorkspacePath = (root: string, owner: Pick<WorkspaceOwner, "organization" | "project">) => path.join(projectWorkspacePath(root, owner), "variables.gitops")
 
+/**
+ * `<component folder>.job-<jobId>`: the copy one AI job works in, next to the shared one, so jobs on the
+ * same repository run side by side. No slug holds a dot, so no component folder can take it. The job
+ * deletes it when it ends; one a crash left behind goes with the unused copies.
+ */
+export const jobWorkspacePath = (componentFolder: string, jobId: string) => `${componentFolder}.job-${safeSegment(jobId)}`
+
+const JOB_SUFFIX = /\.job-[a-z0-9-]+$/
+
+export const isJobWorkspacePath = (folder: string) => JOB_SUFFIX.test(folder)
+
+/** The shared copy a job's copy is of; the folder itself for a shared one. */
+export const sharedWorkspacePath = (folder: string) => folder.replace(JOB_SUFFIX, "")
+
 export class WorkspacePathError extends Error {}
 
 /** Paths an agent may never read: credentials that can sit in a repository by mistake. */

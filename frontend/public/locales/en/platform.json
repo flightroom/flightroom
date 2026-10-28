@@ -2305,6 +2305,8 @@
             "usage_latest": "This job",
             "usage_total_one": "Whole conversation ({{count}} job)",
             "usage_total_other": "Whole conversation ({{count}} jobs)",
+            "duration": "Duration: {{time}}",
+            "duration_hint": "How long the agent worked, not counting the wait in the queue.",
             "usage_job": "Cost",
             "usage_hint": "Tokens used by the agent, every model step summed. One agent works on all the repositories of the job, so the cost belongs to the job. Tokens read from the cache cost far less.",
             "apply_all_one": "Apply the proposal",

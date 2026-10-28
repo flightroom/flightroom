@@ -2,7 +2,7 @@ import fs from "node:fs"
 import os from "node:os"
 import path from "node:path"
 import { afterAll, beforeAll, describe, expect, it } from "vitest"
-import { backendWorkspacePath, frontendWorkspacePath, isProtectedPath, isSecretPath, normalizeRelativePath, resolveInsideWorkingCopy, WorkspacePathError } from "./workspacePaths"
+import { backendWorkspacePath, frontendWorkspacePath, isProtectedPath, isSecretPath, jobWorkspacePath, normalizeRelativePath, resolveInsideWorkingCopy, WorkspacePathError } from "./workspacePaths"
 
 const owner = {
     organization: { slug: "acme", id: "64b000000000000000000001" },
@@ -29,6 +29,19 @@ describe("backendWorkspacePath", () => {
 
     it("Given an unsafe slug, when the path is built, then it is refused", () => {
         expect(() => backendWorkspacePath("/repositories", { ...owner, backendSlug: "../etc" })).toThrow(/workspace folder name/)
+    })
+})
+
+describe("jobWorkspacePath", () => {
+    it("Given a job, when the path is built, then it sits next to the shared copy, apart from it and from every component folder", () => {
+        const shared = backendWorkspacePath("/repositories", { ...owner, backendSlug: "catalog" })
+        const copy = jobWorkspacePath(shared, "64b0000000000000000000ff")
+        expect(copy).toBe(`${shared}.job-64b0000000000000000000ff`)
+        expect(path.dirname(copy)).toBe(path.dirname(shared))
+    })
+
+    it("Given an unsafe job id, when the path is built, then it is refused", () => {
+        expect(() => jobWorkspacePath("/repositories/acme/portal/catalog", "../etc")).toThrow(/workspace folder name/)
     })
 })
 
