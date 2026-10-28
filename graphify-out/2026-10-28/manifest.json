@@ -2650,28 +2650,28 @@
     "semantic_hash": ""
   },
   "backend/src/service/workspace/GitWorkingCopy.test.ts": {
-    "mtime": 1793005820.567637,
-    "ast_hash": "9c8ab21f6589ef8424faf38b1912a1b6",
+    "mtime": 1793217425.3331404,
+    "ast_hash": "e04daeb3a156f0ff0ce5b503d1608ff4",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/GitWorkingCopy.ts": {
-    "mtime": 1793217003.0091138,
-    "ast_hash": "cab5e94772697d9fde0079fe6c352b58",
+    "mtime": 1793217463.9960437,
+    "ast_hash": "cb489d2116b9f15400501f61a22f6e7c",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/RepositoryWorkspaceService.test.ts": {
-    "mtime": 1793005820.5681477,
-    "ast_hash": "ecd0f008efa1dbbd812d287609b43e83",
+    "mtime": 1793217512.838956,
+    "ast_hash": "275f4f5ecb5c8340e5c53f0345da1125",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/RepositoryWorkspaceService.ts": {
-    "mtime": 1793217117.7306783,
-    "ast_hash": "7075c073211007d61de38dff0e00fa65",
+    "mtime": 1793217402.1957123,
+    "ast_hash": "c710fb70baf16d63669a0a5183fbf274",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/workspaceCleanup.ts": {
-    "mtime": 1793005820.5685797,
-    "ast_hash": "a38067463ce11487701f7b616334cbce",
+    "mtime": 1793217402.1965883,
+    "ast_hash": "a48c1019045c1db8ec01f1f6620a953f",
     "semantic_hash": ""
   },
   "backend/src/utils/repositoryLock.ts": {
@@ -2685,8 +2685,8 @@
     "semantic_hash": ""
   },
   "backend/src/utils/workspacePaths.ts": {
-    "mtime": 1793217003.0080898,
-    "ast_hash": "f0d445ca8cca1e5670f5a9b5299d6d42",
+    "mtime": 1793217383.2819974,
+    "ast_hash": "0db1f0f45fceab87045aaac1df23c076",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useAiChangesApi.ts": {
@@ -2695,8 +2695,8 @@
     "semantic_hash": ""
   },
   "docs/AI-CODE-CHANGES.md": {
-    "mtime": 1793217148.959543,
-    "ast_hash": "d61b3944795de2e44a0052ac20634eb8",
+    "mtime": 1793217525.198952,
+    "ast_hash": "0668d0d3fe34d2292763f31f645d5829",
     "semantic_hash": ""
   },
   "backend/src/service/llm/anthropicProvider.ts": {
