@@ -206,14 +206,14 @@ describe("AiChangeJobService", () => {
             })
         })
 
-        it("Given 3 jobs already running in the project, when another is started, then it is refused", async () => {
-            activeJobs = 3
+        it("Given 5 jobs already running in the project, when another is started, then it is refused", async () => {
+            activeJobs = 5
 
             await expect(service().create(projectId, { prompt: "Rename the price API", scope: "global" })).rejects.toMatchObject({ code: "AI_CHANGE_TOO_MANY", statusCode: 429 })
         })
 
-        it("Given 2 jobs and a mission running in the project, when another job is started, then the mission counts as one and the mission's jobs do not count", async () => {
-            activeJobs = 2
+        it("Given 4 jobs and a mission running in the project, when another job is started, then the mission counts as one and the mission's jobs do not count", async () => {
+            activeJobs = 4
             vi.spyOn(AiMission, "countDocuments").mockResolvedValue(1 as never)
 
             await expect(service().create(projectId, { prompt: "Rename the price API", scope: "global" })).rejects.toMatchObject({ code: "AI_CHANGE_TOO_MANY", statusCode: 429 })
@@ -222,7 +222,7 @@ describe("AiChangeJobService", () => {
         })
 
         it("Given the cap reached by a mission whose last job died unnoticed, when a job is started, then the mission is moved on first and the job starts once it ended", async () => {
-            activeJobs = 2
+            activeJobs = 4
             let missionRunning = true
             vi.spyOn(AiMission, "countDocuments").mockImplementation((() => Promise.resolve(missionRunning ? 1 : 0)) as never)
             const missionId = new Types.ObjectId()
@@ -782,9 +782,18 @@ describe("AiChangeJobService", () => {
                 expect.objectContaining({ filter: { _id: parent._id, status: AiChangeStatus.PROPOSED }, update: expect.objectContaining({ status: AiChangeStatus.DISCARDED }) })
             )
             expect(updates).toContainEqual(
-                expect.objectContaining({ model: "job", filter: { _id: jobId, status: AiJobStatus.RUNNING }, update: expect.objectContaining({ status: AiJobStatus.DONE }) })
+                expect.objectContaining({
+                    model: "job",
+                    filter: { _id: jobId, status: AiJobStatus.RUNNING },
+                    update: expect.objectContaining({ status: AiJobStatus.DONE, finishedAt: expect.any(Date) })
+                })
             )
-            expect(workingCopy.discardChanges).toHaveBeenCalled()
+            expect(updates).toContainEqual(
+                expect.objectContaining({ model: "job", filter: { _id: jobId, status: AiJobStatus.PENDING }, update: { status: AiJobStatus.RUNNING, startedAt: expect.any(Date) } })
+            )
+            // Its own copy, deleted once done: another job on the same repository never waits for it.
+            expect(workspaceService.open).toHaveBeenCalledWith(expect.objectContaining({ _id: catalog._id }), String(jobId))
+            expect(fs.existsSync(dir)).toBe(false)
         })
 
         it("Given a frontend and a project without a design system, when the job runs, then the agent builds with the organization's", async () => {
@@ -834,7 +843,7 @@ describe("AiChangeJobService", () => {
 
             expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
             expect(updates.some(({ update }) => update.status === AiChangeStatus.PROPOSED || update.status === AiJobStatus.DONE)).toBe(false)
-            expect(workingCopy.discardChanges).toHaveBeenCalled()
+            expect(fs.existsSync(dir)).toBe(false)
         })
 
         it("Given a proposal, when the job ends, then it is pushed on the conversation's branch, named after its first message, before it is saved", async () => {
@@ -1303,7 +1312,7 @@ describe("AiChangeJobService", () => {
             expect(failure?.update.error).toContain("catalog/src/App.tsx")
             expect(updates).toContainEqual(expect.objectContaining({ model: "job", update: expect.objectContaining({ status: AiJobStatus.FAILED }) }))
             expect(updates.some(({ update }) => update.status === AiChangeStatus.DISCARDED)).toBe(false)
-            expect(fs.readFileSync(path.join(dir, "src/App.tsx"), "utf8")).toBe("base\n")
+            expect(fs.existsSync(dir)).toBe(false)
         })
 
         it("Given an agent spending tokens over two rounds, when it runs, then job and requests add each round, cached tokens included, and the total is audited once", async () => {
@@ -1377,7 +1386,9 @@ describe("AiChangeJobService", () => {
             await run()
 
             expect(updates.some(({ update }) => update.status === AiChangeStatus.PROPOSED)).toBe(false)
-            expect(updates).toContainEqual(expect.objectContaining({ model: "job", update: expect.objectContaining({ status: AiJobStatus.FAILED, error: expect.stringContaining("21 files") }) }))
+            expect(updates).toContainEqual(
+                expect.objectContaining({ model: "job", update: expect.objectContaining({ status: AiJobStatus.FAILED, error: expect.stringContaining("21 files"), finishedAt: expect.any(Date) }) })
+            )
         })
 
         it("Given a save that fails after one proposal was stored, when the job ends, then it is done with the partial failure and the rest failed", async () => {
@@ -1433,7 +1444,7 @@ describe("AiChangeJobService", () => {
             expect(proposal?.update.error).toMatch(/incomplete.*rate limiting/)
             expect(updates).toContainEqual(expect.objectContaining({ model: "job", update: expect.objectContaining({ status: AiJobStatus.DONE }) }))
             expect(failed()).toBe(false)
-            expect(workingCopy.discardChanges).toHaveBeenCalled()
+            expect(fs.existsSync(dir)).toBe(false)
         })
 
         it("Given an agent that stops before writing anything, when the job ends, then it fails with the provider's error", async () => {
@@ -1622,7 +1633,7 @@ describe("AiChangeJobService", () => {
                 expect.objectContaining({
                     model: "job",
                     filter: { _id: jobId, status: { $in: [AiJobStatus.PENDING, AiJobStatus.RUNNING] }, "events.message": { $ne: "pushing" } },
-                    update: expect.objectContaining({ status: AiJobStatus.FAILED, stoppedAt: expect.any(Date) })
+                    update: expect.objectContaining({ status: AiJobStatus.FAILED, stoppedAt: expect.any(Date), finishedAt: expect.any(Date) })
                 })
             )
             expect(updates).toContainEqual(

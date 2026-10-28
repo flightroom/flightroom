@@ -9,6 +9,7 @@ import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../../models/CodeRepositoryModel"
 import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
+import { isJobWorkspacePath, jobWorkspacePath, sharedWorkspacePath } from "../../utils/workspacePaths"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import { RepositoryFileService, repositoryNameFor } from "../RepositoryFileService"
 import { GitCredentials, GitWorkingCopy } from "./GitWorkingCopy"
@@ -110,9 +111,12 @@ export const gitCredentialsFor = (codeRepository: ICodeRepository): GitCredentia
     }
 }
 
-/** Repositories refused for their size, by folder, until when. */
+/** Repositories refused for their size, by the folder of their shared copy (a job's copy counts as it), until when. */
 const refusedRepositories = new Map<string, number>()
 const REFUSED_FOR_MS = 60 * 60 * 1000
+
+/** A job deletes its copy when it ends, long before this: one older was left by a crash. */
+const JOB_COPY_EVICT_AFTER_MS = 24 * 60 * 60 * 1000
 
 const exists = async (target: string) =>
     fs
@@ -131,8 +135,11 @@ export class RepositoryWorkspaceService extends BaseAuthorizedService {
         return fastify.config.REPOSITORIES_FOLDER
     }
 
-    /** Resolves the repository of a frontend or a backend and the folder its working copy lives in. Clones nothing yet. */
-    async open(component: RepositoryComponent): Promise<OpenedWorkspace> {
+    /**
+     * Resolves the repository of a frontend or a backend and the folder its working copy lives in. Clones nothing yet.
+     * With `jobId`, the copy is that job's own instead of the shared one.
+     */
+    async open(component: RepositoryComponent, jobId?: string): Promise<OpenedWorkspace> {
         await this.ensureAccessToProject(component.projectId)
 
         const link = component.codeRepository
@@ -148,7 +155,8 @@ export class RepositoryWorkspaceService extends BaseAuthorizedService {
         }
 
         const target: WorkspaceTarget = { component, codeRepository, repositoryName }
-        const dir = await this.pathFor(component)
+        const shared = await this.pathFor(component)
+        const dir = jobId ? jobWorkspacePath(shared, jobId) : shared
         const workingCopy = new GitWorkingCopy(dir, cloneUrlFor(target), gitCredentialsFor(codeRepository))
         return { target, workingCopy, defaultBranch: await new RepositoryFileService(this.user).getDefaultBranch(target) }
     }
@@ -211,19 +219,20 @@ export class RepositoryWorkspaceService extends BaseAuthorizedService {
      */
     async prepare({ workingCopy, target }: { workingCopy: GitWorkingCopy; target: Pick<WorkspaceTarget, "codeRepository" | "repositoryName"> }, branch: string): Promise<string> {
         const maxBytes = fastify.config.REPOSITORIES_MAX_SIZE_MB * 1024 * 1024
-        const refusedUntil = refusedRepositories.get(workingCopy.dir)
+        const refusalKey = sharedWorkspacePath(workingCopy.dir)
+        const refusedUntil = refusedRepositories.get(refusalKey)
         if (refusedUntil && refusedUntil > Date.now()) throw this.tooBig()
         if (!(await exists(path.join(workingCopy.dir, ".git")))) {
             const reported = await this.providerSizeBytes(target)
             if (reported !== undefined && reported > maxBytes) {
-                refusedRepositories.set(workingCopy.dir, Date.now() + REFUSED_FOR_MS)
+                refusedRepositories.set(refusalKey, Date.now() + REFUSED_FOR_MS)
                 throw this.tooBig()
             }
         }
         const head = await workingCopy.prepare(branch)
         if ((await workingCopy.sizeInBytes()) > maxBytes) {
             await fs.rm(workingCopy.dir, { recursive: true, force: true })
-            refusedRepositories.set(workingCopy.dir, Date.now() + REFUSED_FOR_MS)
+            refusedRepositories.set(refusalKey, Date.now() + REFUSED_FOR_MS)
             throw this.tooBig()
         }
         await fs.writeFile(path.join(workingCopy.dir, LAST_USED_MARKER), new Date().toISOString())
@@ -262,8 +271,9 @@ export class RepositoryWorkspaceService extends BaseAuthorizedService {
 }
 
 /**
- * Deletes the working copies not used for `days` days, then the folders left empty. Returns how
- * many copies went. A copy with no marker is judged by its folder's modification time.
+ * Deletes the working copies not used for `days` days, and the copies of jobs left by a crash after a
+ * day, then the folders left empty. Returns how many copies went. A copy with no marker is judged by
+ * its folder's modification time.
  */
 export const evictUnusedWorkspaces = async (root: string, days: number, now = Date.now()): Promise<number> => {
     if (!(await exists(root))) return 0
@@ -278,7 +288,7 @@ export const evictUnusedWorkspaces = async (root: string, days: number, now = Da
                 if (!(await exists(path.join(copyDir, ".git")))) continue
                 const marker = path.join(copyDir, LAST_USED_MARKER)
                 const lastUsed = (await fs.stat(marker).catch(() => fs.stat(copyDir))).mtimeMs
-                if (lastUsed < threshold) {
+                if (lastUsed < (isJobWorkspacePath(copyDir) ? now - JOB_COPY_EVICT_AFTER_MS : threshold)) {
                     await fs.rm(copyDir, { recursive: true, force: true })
                     evicted++
                 }

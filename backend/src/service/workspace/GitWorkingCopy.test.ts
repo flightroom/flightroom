@@ -158,6 +158,31 @@ describe.skipIf(!hasGit)("GitWorkingCopy against a local smart HTTP remote", () 
         expect(await copy.changes()).toEqual([])
     })
 
+    it("Given a proposal pushed from a job's own copy, when another copy fetches its branch, then it gets only what the base lacks and the base fast-forwards to that commit", async () => {
+        const jobCopy = new GitWorkingCopy(`${workspace}.job-1`, remoteUrl, credentials)
+        await jobCopy.prepare("main")
+        const commit = await jobCopy.commitAndPush({
+            branch: "ai/app-job",
+            message: "feat: from the job's copy",
+            author: { name: "Ada", email: "ada@example.com" },
+            files: [{ path: "JOB.md", action: "create", content: "job\n" }]
+        })
+        const shared = new GitWorkingCopy(workspace, remoteUrl, credentials)
+        await shared.prepare("main")
+        const inPack = () => Number(/in-pack: (\d+)/.exec(run(workspace, "count-objects", "-v"))![1])
+        const before = inPack()
+
+        expect(await shared.hasCommit(commit)).toBe(false)
+        await shared.fetchBranch("ai/app-job")
+
+        expect(await shared.hasCommit(commit)).toBe(true)
+        // The commit, its root tree and the new file: not the whole tree again.
+        expect(inPack() - before).toBe(3)
+        await shared.pushCommit(commit, "main")
+        expect(run(seed, "ls-remote", "origin", "refs/heads/main").split("\t")[0]).toBe(commit)
+        expect(fs.existsSync(path.join(workspace, ".git", "refs", "heads", "ai", "app-job"))).toBe(false)
+    })
+
     it("Given a base that moved on, when a commit made on the old base is pushed onto it, then the push is refused and the base is untouched", async () => {
         const copy = new GitWorkingCopy(workspace, remoteUrl, credentials)
         await copy.prepare("main")

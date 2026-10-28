@@ -1,3 +1,6 @@
+import fs from "node:fs"
+import os from "node:os"
+import path from "node:path"
 import { Types } from "mongoose"
 import { afterEach, describe, expect, it, vi } from "vitest"
 
@@ -7,7 +10,7 @@ import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../../m
 import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
 import { RepositoryFileService } from "../RepositoryFileService"
-import RepositoryWorkspaceService, { cloneUrlFor, gitCredentialsFor, WorkspaceTarget } from "./RepositoryWorkspaceService"
+import RepositoryWorkspaceService, { cloneUrlFor, evictUnusedWorkspaces, gitCredentialsFor, WorkspaceTarget } from "./RepositoryWorkspaceService"
 import { RepositoryComponent } from "./repositoryComponent"
 
 const github = { provider: CodeRepositoryProvider.GITHUB, accessToken: "ghs_token", githubData: { organizationId: "acme" } } as unknown as ICodeRepository
@@ -87,5 +90,30 @@ describe("RepositoryWorkspaceService.open", () => {
         expect(backendCopy.workingCopy.dir).toMatch(/\/catalog\.service$/)
         expect(backendCopy.target.component.kind).toBe("backend")
         expect(backendCopy.defaultBranch).toBe("main")
+    })
+})
+
+describe("evictUnusedWorkspaces", () => {
+    const DAY = 24 * 60 * 60 * 1000
+
+    it("Given a job's copy left by a crash two days ago and a shared copy used as long ago, when unused copies are evicted, then only the job's copy goes", async () => {
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "evict-"))
+        try {
+            const project = path.join(root, "acme-1", "portal-2")
+            const shared = path.join(project, "catalog")
+            const jobCopy = `${shared}.job-64b0000000000000000000ff`
+            const twoDaysAgo = new Date(Date.now() - 2 * DAY)
+            for (const copy of [shared, jobCopy]) {
+                fs.mkdirSync(path.join(copy, ".git"), { recursive: true })
+                fs.writeFileSync(path.join(copy, ".git", "mfe-last-used"), "")
+                fs.utimesSync(path.join(copy, ".git", "mfe-last-used"), twoDaysAgo, twoDaysAgo)
+            }
+
+            expect(await evictUnusedWorkspaces(root, 14)).toBe(1)
+            expect(fs.existsSync(shared)).toBe(true)
+            expect(fs.existsSync(jobCopy)).toBe(false)
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true })
+        }
     })
 })

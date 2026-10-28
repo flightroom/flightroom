@@ -317,6 +317,20 @@ export class GitWorkingCopy {
         return commit
     }
 
+    /** Fetches the tip of the remote `branch` without checking it out: a commit pushed from another copy can then be pushed from this one. */
+    async fetchBranch(branch: string): Promise<void> {
+        // A single-branch fetch tells the remote it has only the local ref of the same name: pointed at HEAD
+        // meanwhile, the base the branch grew from is not sent again. Not shallow either, since a shallow fetch
+        // ignores what the copy has: the history stops at that base anyway, and only the new objects come.
+        const ref = `refs/heads/${branch}`
+        await git.writeRef({ fs, dir: this.dir, ref, value: await git.resolveRef({ fs, dir: this.dir, ref: "HEAD" }), force: true })
+        try {
+            await git.fetch({ fs, http, dir: this.dir, remote: "origin", ref: branch, singleBranch: true, onAuth: this.onAuth, headers: { "User-Agent": "flightroom" }, corsProxy: NO_PROXY })
+        } finally {
+            await git.deleteRef({ fs, dir: this.dir, ref }).catch(() => undefined)
+        }
+    }
+
     /** Pushes a commit already in the copy onto the remote `branch`. Never forced: refused unless it is a fast-forward. */
     async pushCommit(commit: string, branch: string): Promise<void> {
         const ref = "refs/heads/flightroom-push"

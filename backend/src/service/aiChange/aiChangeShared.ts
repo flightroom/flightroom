@@ -139,6 +139,18 @@ export const authorOf = (user: { name?: string; surname?: string; email: string 
 
 export const commitMessage = (title: string, summary?: string) => `${title}\n\n${summary ?? ""}`.trim()
 
+/**
+ * Whether the copy holds `commit`, fetched from its branch when it is not there: a job pushes its
+ * proposal from a copy of its own, which is gone by the time the proposal is applied.
+ */
+const holdsCommit = async ({ workingCopy }: OpenedWorkspace, commit: string, branch?: string) => {
+    if (await workingCopy.hasCommit(commit)) return true
+    if (!branch) return false
+    // The branch may be gone or moved on: the files are then committed again, on top of the latest base.
+    await workingCopy.fetchBranch(branch).catch(() => undefined)
+    return workingCopy.hasCommit(commit)
+}
+
 export const toCommitFiles = (files: IAiChangeFile[]) => files.map(file => ({ path: file.path, action: file.action, content: file.proposedContent }))
 
 /**
@@ -331,7 +343,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                     const head = await this.latestBase(workspaceService, workspace, request, files)
                     let commit: string
                     try {
-                        if (request.commit && head === request.baseCommit && (await workspace.workingCopy.hasCommit(request.commit))) {
+                        if (request.commit && head === request.baseCommit && (await holdsCommit(workspace, request.commit, request.branch))) {
                             await workspace.workingCopy.pushCommit(request.commit, request.baseBranch)
                             commit = request.commit
                         } else {

@@ -20,7 +20,6 @@ import { effectiveDesignSystem, IDesignSystem } from "../../types/DesignSystem"
 import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
-import { withRepositoryLock } from "../../utils/repositoryLock"
 import { isUnproposablePath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { ResolvedAiModel } from "../AiModelService"
 import { calculateAiUsageCost, ensureWithinTokenLimit, recordAiUsage } from "../AiUsageService"
@@ -72,15 +71,13 @@ import { AiChangeApiSpecSource } from "./apiSpecReader"
 /** Repositories one job may work on: each is a clone and a share of the model's context. */
 export const MAX_REPOSITORIES_PER_JOB = 10
 /** Jobs running or queued at once in one project: each one is minutes of paid model time. A running mission counts as one. */
-export const MAX_ACTIVE_JOBS_PER_PROJECT = 3
+export const MAX_ACTIVE_JOBS_PER_PROJECT = 5
 export const ACTIVE_JOB_STATUSES = [AiJobStatus.PENDING, AiJobStatus.RUNNING]
 const LISTED_JOBS = 20
 /** Pages of LISTED_JOBS a list reads at most, filling the places of the jobs out of a member's domain scope. */
 const MAX_LISTED_PAGES = 10
 /** How far back a follow-up looks for the requests that came before it. */
 const MAX_CHAIN_LENGTH = 50
-/** How long a job waits for all its working copies together: well before it would look dead. */
-const LOCK_WAIT_MS = 10 * 60_000
 
 /** File contents stay out of every view: the diff is read from the request of each repository. */
 const WITHOUT_CONTENTS = { "files.originalContent": 0, "files.proposedContent": 0, events: 0 } as const
@@ -160,6 +157,9 @@ export interface AiJobView {
     error?: string
     /** Set when a user stopped the agent before it finished. */
     stoppedAt?: Date
+    /** When the agent began to work, and when it ended: unset on jobs from before they were recorded. */
+    startedAt?: Date
+    finishedAt?: Date
     usage: LlmUsage & { cost?: number; currency?: "USD" | "EUR"; costUsd?: number }
     repositories: AiJobRepositoryView[]
     /** Whether the caller may apply, stop or follow it up: who started it, or an organization administrator. Others only read it. */
@@ -455,6 +455,8 @@ const toJobView = (
     summary: job.summary,
     error: job.error,
     stoppedAt: job.stoppedAt,
+    startedAt: job.startedAt,
+    finishedAt: job.finishedAt,
     usage: {
         inputTokens: job.usage?.inputTokens ?? 0,
         cachedInputTokens: job.usage?.cachedInputTokens ?? 0,
@@ -836,7 +838,7 @@ export class AiChangeJobService extends AiChangeBaseService {
 
     private async fail(jobId: string, error: string) {
         await AiChangeRequest.updateMany({ jobId: toObjectId(jobId), status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] } }, { status: AiChangeStatus.FAILED, error, expiresAt: expiry() })
-        await AiChangeJob.updateOne({ _id: toObjectId(jobId), status: { $in: ACTIVE_JOB_STATUSES } }, { status: AiJobStatus.FAILED, error, expiresAt: expiry() })
+        await AiChangeJob.updateOne({ _id: toObjectId(jobId), status: { $in: ACTIVE_JOB_STATUSES } }, { status: AiJobStatus.FAILED, error, finishedAt: new Date(), expiresAt: expiry() })
     }
 
     /**
@@ -863,8 +865,8 @@ export class AiChangeJobService extends AiChangeBaseService {
     }
 
     /**
-     * The job: lock every working copy, reset them, write the proposals a follow-up starts from, let
-     * the agent work, store what changed in each repository, reset again.
+     * The job: clone its own working copies, write the proposals a follow-up starts from, let the agent
+     * work, store what changed in each repository, delete the copies.
      */
     private async process(jobId: string, client: LlmClient): Promise<void> {
         // The only read of the images: the agent sends them with the request.
@@ -888,26 +890,13 @@ export class AiChangeJobService extends AiChangeBaseService {
                 const component = components.find(sameComponent(ref))
                 const request = requests.find(candidate => componentIdOf(candidate) === ref.id)
                 if (!component || !request) throw new Error(`A ${ref.kind} of the job no longer exists`)
-                repositories.push({ request, component, workspace: await workspaceService.open(component) })
+                // A copy of its own: jobs on the same repository work side by side, and their proposals meet only when applied.
+                repositories.push({ request, component, workspace: await workspaceService.open(component, jobId) })
             }
 
-            // Locked by folder, in folder order: two jobs sharing repositories take them in the same
-            // order and never wait for each other in a circle.
-            const byFolder = [...repositories].sort((a, b) => (a.workspace.workingCopy.dir < b.workspace.workingCopy.dir ? -1 : a.workspace.workingCopy.dir > b.workspace.workingCopy.dir ? 1 : 0))
-            let waiting = false
-            const deadline = Date.now() + LOCK_WAIT_MS
-            const onWait = async () => {
-                if (waiting) return
-                waiting = true
-                await this.log(jobId, "info", "waiting-for-repository")
-            }
-            const locked = (index: number): Promise<void> =>
-                index < byFolder.length
-                    ? withRepositoryLock(byFolder[index].workspace.workingCopy.dir, () => locked(index + 1), { onWait, waitMs: Math.max(0, deadline - Date.now()) })
-                    : this.work(job, project, domain, memberDomains, repositories, workspaceService, client, delta => {
-                          usage = addUsage(usage, delta)
-                      })
-            await locked(0)
+            await this.work(job, project, domain, memberDomains, repositories, workspaceService, client, delta => {
+                usage = addUsage(usage, delta)
+            })
         } catch (error) {
             fastify.log.warn({ error: loggable(error), aiJobId: jobId }, "AI job failed")
             await this.fail(jobId, toErrorMessage(error))
@@ -920,7 +909,7 @@ export class AiChangeJobService extends AiChangeBaseService {
         }
     }
 
-    /** Runs with every working copy locked. The copies are reset however it ends. */
+    /** Runs on the job's own working copies, deleted however it ends. */
     private async work(
         job: IAiChangeJob,
         project: IProject,
@@ -937,7 +926,7 @@ export class AiChangeJobService extends AiChangeBaseService {
         runningAgents.set(jobId, abort)
         try {
             // Guarded: a job declared dead (or stopped) while it waited for the locks stays dead.
-            if (!(await AiChangeJob.findOneAndUpdate({ _id: job._id, status: AiJobStatus.PENDING }, { status: AiJobStatus.RUNNING }))) return
+            if (!(await AiChangeJob.findOneAndUpdate({ _id: job._id, status: AiJobStatus.PENDING }, { status: AiJobStatus.RUNNING, startedAt: new Date() }))) return
             await AiChangeRequest.updateMany({ jobId: job._id, status: AiChangeStatus.PENDING }, { status: AiChangeStatus.RUNNING })
             await this.log(jobId, "info", "preparing")
             for (const repository of repositories) {
@@ -1097,6 +1086,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 { _id: job._id, status: AiJobStatus.RUNNING },
                 {
                     status: AiJobStatus.DONE,
+                    finishedAt: new Date(),
                     summary,
                     transcript: result?.transcript,
                     error: partial ?? incomplete,
@@ -1109,7 +1099,7 @@ export class AiChangeJobService extends AiChangeBaseService {
             }
         } finally {
             runningAgents.delete(jobId)
-            for (const repository of repositories) await repository.workspace.workingCopy.discardChanges().catch(() => undefined)
+            for (const repository of repositories) await fs.rm(repository.workspace.workingCopy.dir, { recursive: true, force: true }).catch(() => undefined)
         }
     }
 
@@ -1208,7 +1198,8 @@ export class AiChangeJobService extends AiChangeBaseService {
     async failIfStale<T extends ListedJob>(job: T): Promise<T | IAiChangeJob> {
         if (!isStale(job)) return job
         const error = "The job stopped without finishing"
-        const failed = await AiChangeJob.findOneAndUpdate({ _id: job._id, status: job.status }, { status: AiJobStatus.FAILED, error, expiresAt: expiry() }, { new: true })
+        // It ended when it was last heard of, not when somebody noticed.
+        const failed = await AiChangeJob.findOneAndUpdate({ _id: job._id, status: job.status }, { status: AiJobStatus.FAILED, error, finishedAt: job.updatedAt, expiresAt: expiry() }, { new: true })
         await AiChangeRequest.updateMany({ jobId: job._id, status: { $in: [AiChangeStatus.PENDING, AiChangeStatus.RUNNING] } }, { status: AiChangeStatus.FAILED, error, expiresAt: expiry() })
         return failed ?? job
     }
@@ -1393,7 +1384,7 @@ export class AiChangeJobService extends AiChangeBaseService {
         await this.ensureCanAct(job)
         const stopped = await AiChangeJob.findOneAndUpdate(
             { _id: job._id, status: { $in: ACTIVE_JOB_STATUSES }, "events.message": { $ne: "pushing" } },
-            { status: AiJobStatus.FAILED, error: STOPPED_ERROR, stoppedAt: new Date(), expiresAt: expiry(), ...event("info", "stopped") },
+            { status: AiJobStatus.FAILED, error: STOPPED_ERROR, stoppedAt: new Date(), finishedAt: new Date(), expiresAt: expiry(), ...event("info", "stopped") },
             { new: true }
         )
         if (!stopped) throw notRunning()

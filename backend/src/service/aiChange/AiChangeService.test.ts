@@ -13,6 +13,7 @@ const workingCopy = {
     commitAndPush: vi.fn(),
     pushCommit: vi.fn(),
     hasCommit: vi.fn(),
+    fetchBranch: vi.fn(),
     deleteRemoteBranch: vi.fn(),
     discardChanges: vi.fn()
 }
@@ -265,6 +266,32 @@ describe("AiChangeService", () => {
         expect(workingCopy.deleteRemoteBranch).toHaveBeenCalledWith("ai/catalog-20261020-090000")
         expect(workspaceService.openPullRequest).not.toHaveBeenCalled()
         expect(applied).toMatchObject({ status: AiChangeStatus.APPLIED, commit: "branch-commit" })
+    })
+
+    it("Given a proposal pushed from the job's own copy, when it is applied on an unmoved base, then its branch is fetched and the base still fast-forwards to its commit", async () => {
+        vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(pushedProposal() as never)
+        vi.spyOn(AiChangeRequest, "findOneAndUpdate").mockResolvedValue({ status: AiChangeStatus.APPLYING } as never)
+        workingCopy.hasCommit.mockResolvedValueOnce(false).mockResolvedValueOnce(true)
+        workingCopy.fetchBranch.mockResolvedValue(undefined)
+
+        const applied = await service().apply(new Types.ObjectId().toString())
+
+        expect(workingCopy.fetchBranch).toHaveBeenCalledWith("ai/catalog-20261020-090000")
+        expect(workingCopy.pushCommit).toHaveBeenCalledWith("branch-commit", "main")
+        expect(applied).toMatchObject({ status: AiChangeStatus.APPLIED, commit: "branch-commit" })
+    })
+
+    it("Given a proposal whose branch cannot be fetched any more, when it is applied, then its files are committed again on top of the base", async () => {
+        vi.spyOn(AiChangeRequest, "findById").mockResolvedValue(pushedProposal() as never)
+        vi.spyOn(AiChangeRequest, "findOneAndUpdate").mockResolvedValue({ status: AiChangeStatus.APPLYING } as never)
+        workingCopy.hasCommit.mockResolvedValue(false)
+        workingCopy.fetchBranch.mockRejectedValue(new Error("branch not found"))
+
+        const applied = await service().apply(new Types.ObjectId().toString())
+
+        expect(workingCopy.pushCommit).not.toHaveBeenCalled()
+        expect(workingCopy.commitAndPush).toHaveBeenCalled()
+        expect(applied).toMatchObject({ status: AiChangeStatus.APPLIED, commit: "new-commit" })
     })
 
     it("Given a base that moved on since the proposal, when it is applied, then its files are committed again on top of the latest base and pushed onto it", async () => {
