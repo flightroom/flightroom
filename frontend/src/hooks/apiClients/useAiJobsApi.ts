@@ -228,6 +228,15 @@ const useAiJobsApi = () => {
         return response.data
     }
 
+    /** Deletes the conversation of a failed or discarded job, logically: its jobs and the tokens they spent are kept. */
+    const remove = async (id: string, metadata?: IClientRequestMetadataExtended): Promise<void> => {
+        await apiClient.doRequest<void>({
+            url: `/api/ai-jobs/${id}`,
+            method: "DELETE",
+            ...metadata
+        })
+    }
+
     /** What the AI proposes to create in a domain without frontends nor backends, for the request: nothing is created yet. */
     const planDomain = async (data: DomainPlanDTO, metadata?: IClientRequestMetadataExtended): Promise<DomainPlan> => {
         const response = await apiClient.doRequest<DomainPlan, DomainPlanDTO>({
@@ -248,7 +257,8 @@ const useAiJobsApi = () => {
         list,
         working,
         apply,
-        stop
+        stop,
+        remove
     }
 }
 

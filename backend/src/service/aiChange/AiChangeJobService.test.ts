@@ -1661,6 +1661,58 @@ describe("AiChangeJobService", () => {
         })
     })
 
+    describe("remove", () => {
+        const jobId = new Types.ObjectId()
+        const followUpId = new Types.ObjectId()
+        const job = (status: AiJobStatus) => ({ _id: jobId, rootJobId: jobId, projectId, userId: user._id, frontendIds: [catalog._id], status, usage: {}, updatedAt: new Date() })
+
+        beforeEach(() => {
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue(job(AiJobStatus.FAILED) as never)
+            vi.spyOn(AiChangeJob, "find").mockResolvedValue([job(AiJobStatus.DONE), { ...job(AiJobStatus.FAILED), _id: followUpId }] as never)
+        })
+
+        it("Given a conversation whose requests all failed or were discarded, when it is deleted, then every job of it is marked deleted and nothing is removed", async () => {
+            await service().remove(String(followUpId))
+
+            expect(AiChangeRequest.exists).toHaveBeenCalledWith({ jobId: { $in: [jobId, followUpId] }, status: { $nin: [AiChangeStatus.FAILED, AiChangeStatus.DISCARDED] } })
+            expect(updates).toEqual([
+                {
+                    model: "job",
+                    filter: { rootJobId: jobId, projectId, deletedAt: { $exists: false } },
+                    update: { deletedAt: expect.any(Date), deletedBy: user._id }
+                }
+            ])
+        })
+
+        it("Given a conversation with a proposal open or applied, when it is deleted, then it is refused and nothing is touched", async () => {
+            vi.spyOn(AiChangeRequest, "exists").mockResolvedValue({ _id: new Types.ObjectId() } as never)
+
+            await expect(service().remove(String(jobId))).rejects.toMatchObject({ code: "AI_JOB_NOT_CLOSED", statusCode: 409 })
+            expect(updates).toEqual([])
+        })
+
+        it("Given a conversation whose agent still works, when it is deleted, then it is refused", async () => {
+            vi.spyOn(AiChangeJob, "find").mockResolvedValue([job(AiJobStatus.RUNNING)] as never)
+
+            await expect(service().remove(String(jobId))).rejects.toMatchObject({ code: "AI_JOB_NOT_CLOSED", statusCode: 409 })
+            expect(updates).toEqual([])
+        })
+
+        it("Given a conversation someone else started, when a member deletes it, then it is refused", async () => {
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({ ...job(AiJobStatus.FAILED), userId: new Types.ObjectId() } as never)
+
+            await expect(service().remove(String(jobId))).rejects.toMatchObject({ code: "AI_JOB_NOT_OWNER", statusCode: 403 })
+            expect(updates).toEqual([])
+        })
+
+        it("Given a viewer of the project, when they delete a conversation, then it is refused", async () => {
+            role = RoleInProject.VIEWER
+
+            await expect(service().remove(String(jobId))).rejects.toBeDefined()
+            expect(updates).toEqual([])
+        })
+    })
+
     describe("a job someone else started", () => {
         it("Given a job of another member, when it is read, then it reads as not theirs to act on, with who started it", async () => {
             const jobId = new Types.ObjectId()
