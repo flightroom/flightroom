@@ -625,8 +625,8 @@
     "semantic_hash": ""
   },
   "frontend/package.json": {
-    "mtime": 1793113650.500447,
-    "ast_hash": "6caef381ede84ffb4925f2762f6463b4",
+    "mtime": 1793173808.5507216,
+    "ast_hash": "c97cf4cbce6e310cc1e63272fab6c53f",
     "semantic_hash": ""
   },
   "frontend/postcss.config.js": {
@@ -1485,8 +1485,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793138073.5535116,
-    "ast_hash": "eb167daef4564525adef0cab1e9a23cd",
+    "mtime": 1793173846.388854,
+    "ast_hash": "86653120554608166df215476ebde5e2",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {

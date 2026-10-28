@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793173445.7033112,
-    "ast_hash": "cf246e36ab82658d31adbe9036384331",
+    "mtime": 1793179118.1654513,
+    "ast_hash": "c6de3ff150e58b3b2d0f0a114ef2bdd4",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793173445.7026002,
-    "ast_hash": "95c35a49399dbf4ad6b69945a20e3f49",
+    "mtime": 1793179120.9516973,
+    "ast_hash": "13a7ff3cb11902b5c855cd2713ff8252",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1485,8 +1485,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793173846.388854,
-    "ast_hash": "86653120554608166df215476ebde5e2",
+    "mtime": 1793179143.5890775,
+    "ast_hash": "de79e622afeadb7d0061d579c27a62e7",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2575,8 +2575,8 @@
     "semantic_hash": ""
   },
   "docs/MCP.md": {
-    "mtime": 1793032271.1636164,
-    "ast_hash": "2e504bf169b5137d0644163ad4d39035",
+    "mtime": 1793179140.5825675,
+    "ast_hash": "1cacd4df5895a5518b7aea623121c127",
     "semantic_hash": ""
   },
   "backend/src/utils/apiKeyCredentialCache.ts": {
@@ -2640,13 +2640,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeAgent.test.ts": {
-    "mtime": 1793097838.478003,
-    "ast_hash": "0ab3e5245a04b63ac80889411cbe6e9e",
+    "mtime": 1793179139.6974924,
+    "ast_hash": "22ae74e60a65bd49437ac53a2e2176b4",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeAgent.ts": {
-    "mtime": 1793097792.2922757,
-    "ast_hash": "165196609e56d95490c21909616da907",
+    "mtime": 1793179093.1572824,
+    "ast_hash": "0a35ba8fc9149fa828d966f2a1505240",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/GitWorkingCopy.test.ts": {
@@ -2845,8 +2845,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.ts": {
-    "mtime": 1793136012.0408566,
-    "ast_hash": "8f2cd30f3e547363dde9d8694a28c84a",
+    "mtime": 1793179092.2564545,
+    "ast_hash": "bdf599271ee1f355ce322e3f033d1a06",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeShared.ts": {
@@ -4200,13 +4200,13 @@
     "semantic_hash": ""
   },
   "backend/src/types/ResourceCatalog.test.ts": {
-    "mtime": 1793043747.2471719,
-    "ast_hash": "c62d6d04c948ac938f0b31e6c3f9bac5",
+    "mtime": 1793179138.7540932,
+    "ast_hash": "fdc91e711e59fa005525c920e67cfcb5",
     "semantic_hash": ""
   },
   "backend/src/types/ResourceCatalog.ts": {
-    "mtime": 1793043723.2652748,
-    "ast_hash": "ebc79fc0b4322ed5795b4895a6383989",
+    "mtime": 1793179091.2187288,
+    "ast_hash": "c3a5a87fc8a106423c9d4443d4f49653",
     "semantic_hash": ""
   },
   "backend/src/types/ResourceDTO.ts": {
@@ -4310,8 +4310,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/resource/resourceIcons.ts": {
-    "mtime": 1793043746.371783,
-    "ast_hash": "d366179ff2b2c955ec440eca56bb0792",
+    "mtime": 1793179115.5785437,
+    "ast_hash": "818a2811ce1550d5e0a7ade419648b09",
     "semantic_hash": ""
   },
   "backend/src/service/FrontendService.designSystem.test.ts": {
@@ -4490,13 +4490,13 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793137237.5184534,
-    "ast_hash": "6e80310c6c48436549b0f1072d1ce3d9",
+    "mtime": 1793174128.1040595,
+    "ast_hash": "0e5492e575406cb422ac853eda96426a",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
-    "mtime": 1793137238.2814443,
-    "ast_hash": "6ad7ed7502f752414a45cff4f559bec8",
+    "mtime": 1793174128.104534,
+    "ast_hash": "49bff530c9de04b5a41c589e7cd72272",
     "semantic_hash": ""
   },
   "helm/flightroom/templates/NOTES.txt": {
