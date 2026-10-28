@@ -1,3 +1,4 @@
+import { StatusDot } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import type { MaintenanceAgent, MaintenanceAgentKind } from "@/hooks/apiClients/useMaintenanceAgentsApi"
@@ -55,7 +56,7 @@ export const StatusLight: React.FC<{ status: MaintenanceStatus; className?: stri
     const { t } = useTranslation()
     return (
         <span className={cn("inline-flex items-center gap-1.5 text-xs font-medium", className)}>
-            <span className={cn("size-2 shrink-0 rounded-full", STATUS_DOT_CLASS[status])} aria-hidden="true" />
+            <StatusDot className={STATUS_DOT_CLASS[status]} />
             {t(`maintenance.status.${status}`)}
         </span>
     )

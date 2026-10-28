@@ -1,4 +1,4 @@
-import { TabsList, TabsTrigger } from "@flightroom/design-system"
+import { StatusDot, TabsList, TabsTrigger } from "@flightroom/design-system"
 import type { TFunction } from "i18next"
 import { X } from "lucide-react"
 import { useRef } from "react"
@@ -55,7 +55,7 @@ const AssistantJobTabs: React.FC<AssistantJobTabsProps> = ({ projectId, tabs }) 
                                     }
                                 }}
                             >
-                                {running && <span className="size-2 shrink-0 animate-pulse rounded-full bg-primary" aria-hidden="true" />}
+                                {running && <StatusDot pulse />}
                                 <span className="truncate">{label}</span>
                                 {running && <span className="sr-only">{t("assistant.jobs.running")}</span>}
                             </TabsTrigger>

@@ -161,6 +161,7 @@
         "create": "Create",
         "update": "Update",
         "no_data": "No data available",
+        "character_counter": "{{current}} / {{max}} characters",
         "loading": "Loading...",
         "default": "Default",
         "error": "An error occurred",

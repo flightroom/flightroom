@@ -1,6 +1,6 @@
+import { StatusBadge } from "@flightroom/design-system"
 import { Ban, CheckCircle2, CircleDashed, CircleHelp, Loader2, XCircle } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Badge } from "@/components/atoms"
 import { BuildStatus } from "@/hooks/apiClients/useBuildsApi"
 import { cn } from "@/utils/styleUtils"
 
@@ -36,10 +36,9 @@ const BuildStatusBadge: React.FC<BuildStatusBadgeProps> = ({ status }) => {
     const Icon = STATUS_ICONS[status] ?? CircleHelp
 
     return (
-        <Badge variant={STATUS_VARIANTS[status] ?? "outline"}>
-            <Icon className={cn("size-3.5 shrink-0", status === BuildStatus.RUNNING && "animate-spin")} />
-            <span>{t(`builds.status.${status}`)}</span>
-        </Badge>
+        <StatusBadge variant={STATUS_VARIANTS[status] ?? "outline"} icon={<Icon className={cn("size-3.5 shrink-0", status === BuildStatus.RUNNING && "animate-spin")} />}>
+            {t(`builds.status.${status}`)}
+        </StatusBadge>
     )
 }
 

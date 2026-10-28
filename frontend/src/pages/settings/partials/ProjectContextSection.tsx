@@ -39,6 +39,7 @@ export const ProjectContextSection: React.FC<ProjectContextSectionProps> = ({ co
                     <form onSubmit={form.handleSubmit(onUpdate)} className="flex flex-col gap-4">
                         <TextareaField<ProjectContextFormValues>
                             name="context"
+                            maxLength={CONTEXT_MAX_LENGTH}
                             label={t("settings.projectContext.label")}
                             placeholder={t("settings.projectContext.placeholder")}
                             description={t("settings.projectContext.hint")}

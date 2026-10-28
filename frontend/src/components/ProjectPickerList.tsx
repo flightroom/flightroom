@@ -1,5 +1,5 @@
+import { EntityPickerList } from "@flightroom/design-system"
 import { useTranslation } from "react-i18next"
-import EntityPickerList from "@/components/EntityPickerList"
 import { Project } from "@/hooks/apiClients/useProjectApi"
 
 interface ProjectPickerListProps {

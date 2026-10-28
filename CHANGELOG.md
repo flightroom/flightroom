@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A Domain Build Skips What Did Not Change**: the build and the build and deploy of a domain no longer tag a repository whose branch is still on the commit of the version its frontends and backends already have, so a change on the backend alone builds only the backend. The skipped ones show as unchanged and keep their version in the deploy
 - **Language And Theme Live In The Profile**: the sidebar no longer holds the language and theme selectors, which move to a Preferences section of the profile page, nor the Contribute link
+- **Status Badges Lead With A Dot**: the badges of builds, dependencies, missions, their repositories and AI changes show a dot in the colour of their status, pulsing while the work is running. They come from the design system, 2.1.0, with the picker of projects and organizations, the page layout and the loading and error states of the pages
+
+### Fixed
+
+- **Text Too Long For The AI Context**: the notes of a design system, its .npmrc and the AI context of a project, frontend, backend, resource, domain or maintenance agent stop at the length the server accepts, with a counter under the field, where a longer text was refused only on save
 
 ---
 

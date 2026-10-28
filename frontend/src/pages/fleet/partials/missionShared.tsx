@@ -1,4 +1,4 @@
-import { Meter } from "@flightroom/design-system"
+import { Meter, StatusBadge } from "@flightroom/design-system"
 import type { TFunction } from "i18next"
 import { useTranslation } from "react-i18next"
 import { JOB_ERROR_CODES, jobErrorMessage } from "@/components/assistant/AssistantJobThread"
@@ -35,7 +35,11 @@ const MISSION_STATUS_VARIANT: Record<AiMissionStatus, IBadgeProps["variant"]> = 
 
 export const MissionStatusBadge: React.FC<{ status: AiMissionStatus }> = ({ status }) => {
     const { t } = useTranslation()
-    return <Badge variant={MISSION_STATUS_VARIANT[status]}>{t(`fleet.status.${status}`)}</Badge>
+    return (
+        <StatusBadge variant={MISSION_STATUS_VARIANT[status]} live={status === "RUNNING"}>
+            {t(`fleet.status.${status}`)}
+        </StatusBadge>
+    )
 }
 
 export const MissionModeBadge: React.FC<{ mode: AiMissionView["mode"] }> = ({ mode }) => {
@@ -77,7 +81,11 @@ const REPOSITORY_STATE_VARIANT: Record<RepositoryState, IBadgeProps["variant"]> 
 
 export const RepositoryStateBadge: React.FC<{ state: RepositoryState }> = ({ state }) => {
     const { t } = useTranslation()
-    return <Badge variant={REPOSITORY_STATE_VARIANT[state]}>{t(`fleet.repository_status.${state}`)}</Badge>
+    return (
+        <StatusBadge variant={REPOSITORY_STATE_VARIANT[state]} live={state === "running" || state === "applying"}>
+            {t(`fleet.repository_status.${state}`)}
+        </StatusBadge>
+    )
 }
 
 const COUNT_KEYS: (keyof AiMissionCounts)[] = ["queued", "running", "proposed", "applying", "applied", "failed", "noChanges"]

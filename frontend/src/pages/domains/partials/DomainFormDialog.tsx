@@ -37,6 +37,7 @@ export const DomainFormFields: React.FC<{ disabled?: boolean }> = ({ disabled })
             <TextareaField name="description" label={t("domains.form.description_label")} placeholder={t("domains.form.description_placeholder")} disabled={disabled} />
             <TextareaField
                 name="context"
+                maxLength={CONTEXT_MAX_LENGTH}
                 label={t("domains.form.context_label")}
                 placeholder={t("domains.form.context_placeholder")}
                 description={t("domains.form.context_hint")}

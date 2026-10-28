@@ -617,6 +617,7 @@ const AddNewFrontendForm: React.FC<AddNewFrontendFormProps> = ({ versions, repos
                                 <CardContent className="pt-3">
                                     <TextareaField
                                         name="context"
+                                        maxLength={CONTEXT_MAX_LENGTH}
                                         label={t("frontend.context.label")}
                                         placeholder={t("frontend.context.placeholder")}
                                         description={t("frontend.context.hint")}
