@@ -3885,8 +3885,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentFrontendCard.tsx": {
-    "mtime": 1793129018.9306114,
-    "ast_hash": "308c8b726119d7a5dd8a2e5d99b4bb5d",
+    "mtime": 1793227472.23656,
+    "ast_hash": "56dbd7c19582630ab08d789ebac83edf",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/AddFrontend.tsx": {
@@ -4750,8 +4750,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentBackendCard.tsx": {
-    "mtime": 1793129018.9310894,
-    "ast_hash": "bac013d22281e335f7c11712145bc674",
+    "mtime": 1793227472.236035,
+    "ast_hash": "d4ce5d2762fb63bc352634c2f943beaa",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendConfigurationSection.tsx": {
@@ -5025,8 +5025,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentResourceCard.tsx": {
-    "mtime": 1793129028.8666747,
-    "ast_hash": "c98134965722e2cc806b5e78f9f13205",
+    "mtime": 1793227486.2794013,
+    "ast_hash": "8fe1bd3310b8d5c84a6858a7407911ed",
     "semantic_hash": ""
   },
   "frontend/src/pages/new-project-wizard/pages/Domains.tsx": {
