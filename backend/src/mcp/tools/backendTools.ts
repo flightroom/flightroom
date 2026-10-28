@@ -4,6 +4,7 @@ import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import { CONTEXT_MAX_LENGTH } from "../../models/ProjectModel"
 import BackendService from "../../service/BackendService"
 import ProjectService from "../../service/ProjectService"
+import { attachedVariableKeys } from "../../service/VariableMapService"
 import BackendDTO from "../../types/BackendDTO"
 import { BACKEND_SLUG, BACKEND_VERSION } from "../../types/BackendStack"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
@@ -63,14 +64,19 @@ export const backendTools = [
     defineTool({
         name: "backend_get",
         title: "Get backend",
-        description: "One backend of the project, with aiContext: what the team wrote for AI agents about it, its domain and the project. Follow it when working on its code.",
+        description:
+            "One backend of the project, with aiContext: what the team wrote for AI agents about it, its domain and the project. Follow it when working on its code. " +
+            "attachedVariables lists the environment variables its attached resources, config maps and secrets set on the container (keys only, never values): its code can read them.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ backendId }),
         run: async (args, context) => {
             const backend = await getExisting(args.backendId, context)
-            const aiContext = await new ProjectService(context.principal).getContext(context.projectId, { backendId: args.backendId })
-            return { ...backend.toObject(), aiContext }
+            const [aiContext, attachedVariables] = await Promise.all([
+                new ProjectService(context.principal).getContext(context.projectId, { backendId: args.backendId }),
+                attachedVariableKeys(backend, context.projectId)
+            ])
+            return { ...backend.toObject(), aiContext, attachedVariables }
         }
     }),
     defineTool({

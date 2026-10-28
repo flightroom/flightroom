@@ -176,6 +176,40 @@ export const resolveAttachedMaps = async <T extends { configMapIds?: unknown; se
     }
 }
 
+/** A variable that reaches the container from what it attaches: its name and where it comes from, never its value */
+export interface AttachedVariable {
+    key: string
+    secret: boolean
+    source: "resource" | VariableMapKind
+    /** The name of the resource or map that sets it */
+    from: string
+    /** A resource only: its type, e.g. database */
+    resourceType?: string
+}
+
+/**
+ * The keys of the variables the resources, config maps and secrets attached to a backend or a DOCKER
+ * frontend set on its container: what its code can read, for a coding agent. Only names are read.
+ */
+export const attachedVariableKeys = async (
+    component: { configMapIds?: unknown[]; secretIds?: unknown[]; resourceIds?: unknown[] },
+    projectId: Schema.Types.ObjectId | string
+): Promise<AttachedVariable[]> => {
+    const ids = (list?: unknown[]) => (list ?? []).map(id => toObjectId(String(id)))
+    const project = toObjectId(projectId)
+    const [configMaps, secrets, resources] = await Promise.all([
+        component.configMapIds?.length ? ConfigMap.find({ _id: { $in: ids(component.configMapIds) }, projectId: project }, keysOnly) : [],
+        component.secretIds?.length ? Secret.find({ _id: { $in: ids(component.secretIds) }, projectId: project }, keysOnly) : [],
+        component.resourceIds?.length ? Resource.find({ _id: { $in: ids(component.resourceIds) }, projectId: project }, resourceNaming) : []
+    ])
+    const ofMaps = (maps: KeyedMap[], source: VariableMapKind, secret: boolean) => maps.flatMap(map => map.entries.map(({ key }) => ({ key, secret, source, from: map.name })))
+    return [
+        ...resources.flatMap(resource => resourceEnvKeys(resource).map(({ key, secret }) => ({ key, secret, source: "resource" as const, from: resource.name, resourceType: resource.type }))),
+        ...ofMaps(configMaps, "configMap", false),
+        ...ofMaps(secrets, "secret", true)
+    ]
+}
+
 /**
  * The maps of this kind a domain-scoped member may see and edit: those attached to at least one backend or
  * DOCKER frontend, all of them in `scope`. A map shared with a component of another domain, or of

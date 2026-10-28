@@ -7,7 +7,7 @@ import Resource from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
-import VariableMapService, { normalizeEntries, resolveAttachedMaps } from "./VariableMapService"
+import VariableMapService, { attachedVariableKeys, normalizeEntries, resolveAttachedMaps } from "./VariableMapService"
 
 withNoMaintenanceAgents()
 
@@ -206,6 +206,39 @@ describe("resolveAttachedMaps with resources", () => {
         expect(await resolve({ resourceIds: [resourceId] }, { resources: false })).toEqual({ resourceIds: [resourceId] })
         expect(resources).not.toHaveBeenCalled()
         expect(ConfigMap.find).not.toHaveBeenCalled()
+    })
+})
+
+describe("attachedVariableKeys", () => {
+    const configMapId = new Types.ObjectId().toString()
+    const secretId = new Types.ObjectId().toString()
+    const resourceId = new Types.ObjectId().toString()
+
+    it("given resources, config maps and secrets attached, when the keys are read, then each variable comes back by name and source, never with a value", async () => {
+        const configMaps = vi.spyOn(ConfigMap, "find").mockResolvedValue([{ name: "logging", entries: [{ key: "LOG_LEVEL" }] }] as never)
+        const secrets = vi.spyOn(Secret, "find").mockResolvedValue([{ name: "tokens", entries: [{ key: "WEBHOOK_TOKEN" }] }] as never)
+        const resources = vi.spyOn(Resource, "find").mockResolvedValue([{ name: "orders", type: "database", variant: "connectionString" }] as never)
+
+        const variables = await attachedVariableKeys({ configMapIds: [configMapId], secretIds: [secretId], resourceIds: [resourceId] }, projectId)
+
+        expect(variables).toEqual([
+            { key: "DB_ORDERS_ENGINE", secret: false, source: "resource", from: "orders", resourceType: "database" },
+            { key: "DB_ORDERS_URL", secret: true, source: "resource", from: "orders", resourceType: "database" },
+            { key: "DB_ORDERS_SCHEMA", secret: false, source: "resource", from: "orders", resourceType: "database" },
+            { key: "LOG_LEVEL", secret: false, source: "configMap", from: "logging" },
+            { key: "WEBHOOK_TOKEN", secret: true, source: "secret", from: "tokens" }
+        ])
+        // Only names are read, scoped to the project
+        expect(configMaps.mock.calls[0]).toEqual([{ _id: { $in: [configMapId] }, projectId }, "name entries.key"])
+        expect(secrets.mock.calls[0][1]).toBe("name entries.key")
+        expect(resources.mock.calls[0][1]).toBe("name type variant envPrefix customFields")
+    })
+
+    it("given nothing attached, when the keys are read, then nothing is read and none come back", async () => {
+        const configMaps = vi.spyOn(ConfigMap, "find")
+
+        expect(await attachedVariableKeys({ configMapIds: [], secretIds: [] }, projectId)).toEqual([])
+        expect(configMaps).not.toHaveBeenCalled()
     })
 })
 

@@ -9,6 +9,7 @@ import ProjectService from "../../service/ProjectService"
 import RepositoryRenameService, { isValidRepositoryName } from "../../service/RepositoryRenameService"
 import StackDetectionService from "../../service/StackDetectionService"
 import { StorageService } from "../../service/StorageService"
+import { attachedVariableKeys } from "../../service/VariableMapService"
 import { BACKEND_HTTP_PATH } from "../../types/BackendStack"
 import { CHART_RESOURCE_DEFAULTS, parseCpu, parseMemory } from "../../types/ContainerResources"
 import { DESIGN_SYSTEM_MAX_LENGTH, NPM_PACKAGE_NAME } from "../../types/DesignSystem"
@@ -218,14 +219,18 @@ export const frontendTools = [
         title: "Get frontend",
         description:
             "One frontend of the project, with aiContext: what the team wrote for AI agents about it, its domain and the project. Follow it when working on its code. " +
-            "aiContext.designSystem is the design system its UI is built with: its own, else the project's, else the organization's; aiContext.designSystemSource says which.",
+            "aiContext.designSystem is the design system its UI is built with: its own, else the project's, else the organization's; aiContext.designSystemSource says which. " +
+            "attachedVariables lists the environment variables the config maps and secrets attached to a DOCKER frontend set on its container (keys only, never values).",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ frontendId }),
         run: async (args, context) => {
             const frontend = await getExisting(args.frontendId, context)
-            const aiContext = await new ProjectService(context.principal).getContext(context.projectId, { frontendId: args.frontendId })
-            return { ...frontend.toObject(), aiContext }
+            const [aiContext, attachedVariables] = await Promise.all([
+                new ProjectService(context.principal).getContext(context.projectId, { frontendId: args.frontendId }),
+                attachedVariableKeys(frontend, context.projectId)
+            ])
+            return { ...frontend.toObject(), aiContext, attachedVariables }
         }
     }),
     defineTool({
