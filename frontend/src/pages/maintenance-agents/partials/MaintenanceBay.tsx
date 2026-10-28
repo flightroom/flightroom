@@ -1,5 +1,5 @@
 import { Play } from "lucide-react"
-import { Fragment, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
+import { Fragment, useId, useLayoutEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useNavigate } from "react-router-dom"
 import { Button } from "@/components/atoms"
@@ -8,7 +8,7 @@ import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import type { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
-import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
+import useIsDark from "@/hooks/useIsDark"
 import { cn } from "@/utils/styleUtils"
 import { DroneGlyph, ShuttleGlyph, STATUS_DOT_CLASS, StatusLight } from "./MaintenanceBadges"
 import { describeCron, type MaintenanceStatus, maintenanceAgentPath, maintenanceStatusOf, useNow } from "./maintenance"
@@ -164,21 +164,6 @@ const COMPACT_WIDTH = 640
 const CANISTER_SLOTS = [22, 40, 154, 172]
 const DIMMED_BAY = 0.38
 const DIMMED_WORLD = 0.28
-
-const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)"
-
-/** The theme the app is shown in, resolving the system one and following it when it changes. */
-const useIsDark = () => {
-    const theme = useThemeStore(state => state.theme)
-    const [systemDark, setSystemDark] = useState(() => window.matchMedia(DARK_SCHEME_QUERY).matches)
-    useEffect(() => {
-        const query = window.matchMedia(DARK_SCHEME_QUERY)
-        const onChange = () => setSystemDark(query.matches)
-        query.addEventListener("change", onChange)
-        return () => query.removeEventListener("change", onChange)
-    }, [])
-    return theme === ThemeEnum.DARK || (theme === ThemeEnum.SYSTEM && systemDark)
-}
 
 const readPrimaryHue = () => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || FALLBACK_PRIMARY
 

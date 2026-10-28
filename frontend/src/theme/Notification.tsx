@@ -1,12 +1,12 @@
 import { useEffect } from "react"
 import { Slide, ToastContainer, toast } from "react-toastify"
 import "react-toastify/dist/ReactToastify.css"
-import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
+import useIsDark from "@/hooks/useIsDark"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 export default function Notification() {
     const { notification } = useToastNotificationStore()
-    const { theme } = useThemeStore()
+    const isDark = useIsDark()
 
     useEffect(() => {
         if (notification?.message) {
@@ -20,7 +20,6 @@ export default function Notification() {
                 pauseOnHover: true,
                 draggable: true,
                 progress: undefined,
-                theme: theme === ThemeEnum.DARK ? "dark" : "light", //TODO non prende system
                 transition: Slide
             }
 
@@ -40,7 +39,7 @@ export default function Notification() {
                     break
             }
         }
-    }, [notification, theme])
+    }, [notification])
 
     return (
         <ToastContainer
@@ -53,7 +52,7 @@ export default function Notification() {
             pauseOnFocusLoss
             draggable
             pauseOnHover
-            theme="light"
+            theme={isDark ? "dark" : "light"}
             transition={Slide}
         />
     )
