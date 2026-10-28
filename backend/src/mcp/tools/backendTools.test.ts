@@ -15,6 +15,7 @@ const buildBackend = vi.fn()
 const getDomain = vi.fn()
 const findCodeRepository = vi.fn()
 const getContext = vi.fn()
+const attachedVariableKeys = vi.fn()
 
 // Hoisted with the mocks below, which build their service classes with it
 const { principals, serviceClass } = vi.hoisted(() => {
@@ -43,6 +44,7 @@ vi.mock("../../service/BackendService", () => ({
 vi.mock("../../service/DomainService", () => ({ default: serviceClass({ getById: (...args: unknown[]) => getDomain(...args) }) }))
 vi.mock("../../service/ProjectService", () => ({ default: serviceClass({ getContext: (...args: unknown[]) => getContext(...args) }) }))
 vi.mock("../../service/CodeRepositoryService", () => ({ default: serviceClass({ findById: (...args: unknown[]) => findCodeRepository(...args) }) }))
+vi.mock("../../service/VariableMapService", () => ({ attachedVariableKeys: (...args: unknown[]) => attachedVariableKeys(...args) }))
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const DOMAIN = "bbbbbbbbbbbbbbbbbbbbbbbb"
@@ -113,7 +115,7 @@ describe("backend tools", () => {
     })
 
     describe("backend_get", () => {
-        it("given a backend of the project, when read, then it comes back with the AI context of the backend, its domain and the project", async () => {
+        it("given a backend of the project, when read, then it comes back with the AI context of the backend, its domain and the project, and the keys of what it attaches", async () => {
             const aiContext = {
                 project: { id: PROJECT, name: "Shop" },
                 domains: [],
@@ -121,10 +123,14 @@ describe("backend tools", () => {
                 backends: [{ id: BACKEND, slug: "orders-api", name: "Orders API", context: "Routes live in src/routes" }]
             }
             getContext.mockResolvedValue(aiContext)
-            getBackend.mockResolvedValue({ ...ordersApi, toObject: () => ordersApi })
+            const attachedVariables = [{ key: "DB_ORDERS_URL", secret: true, source: "resource", from: "orders", resourceType: "database" }]
+            attachedVariableKeys.mockResolvedValue(attachedVariables)
+            const backend = { ...ordersApi, toObject: () => ordersApi }
+            getBackend.mockResolvedValue(backend)
 
-            expect(await run("backend_get", { backendId: BACKEND })).toEqual({ ...ordersApi, aiContext })
+            expect(await run("backend_get", { backendId: BACKEND })).toEqual({ ...ordersApi, aiContext, attachedVariables })
             expect(getContext).toHaveBeenCalledWith(PROJECT, { backendId: BACKEND })
+            expect(attachedVariableKeys).toHaveBeenCalledWith(backend, PROJECT)
         })
 
         it("given a backend that does not exist, when read, then it is not found", async () => {
