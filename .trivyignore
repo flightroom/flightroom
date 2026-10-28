@@ -1,0 +1,8 @@
+# Findings the Trivy gate of docker-build.yml accepts. Each one says why and
+# expires, so that it comes back to be looked at again.
+
+# @azure/msal-node 6.0.1, via @azure/identity (and mssql > tedious): the fix is
+# in 7.1.0, which @azure/identity 4.14.0 does not accept yet (^6.0.0). It is in
+# the authorization code flow, which the backend never runs: it only uses
+# ClientSecretCredential, a client credentials flow.
+CVE-2026-109461 exp:2027-01-31

@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Images Scanned With Trivy**: the CI scans both Docker images, standard and all-in-one, before pushing them, and stops the release on a CRITICAL or HIGH vulnerability that has a fix. A finding to accept goes in `.trivyignore`, with its reason and an expiry
+- **Smaller Standard Image**: the standard image installs only the production dependencies of the backend, from the workspace lockfile, and no longer ships npm, pnpm and the pnpm store: 112 MB, was about 680 MB
+- **Dependencies Updated**: every library to its latest release, among them the Anthropic SDK 1.x, Biome 2.6 and three 0.186
+
+### Fixed
+
+- **Backend Starts With Production Dependencies Only**: `yaml`, read at runtime by the GitOps of config maps and secrets, was a development dependency, so the all-in-one image could not load it
+
 ## [9.3.0] - 2026-10-29
 
 ### Added
