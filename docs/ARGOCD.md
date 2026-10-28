@@ -159,7 +159,13 @@ agent, and only in the environment it was minted for:
 
 The token is in the configuration repository as the other Secrets are, base64 encoded and not encrypted:
 whoever reads that repository can read those logs. The pod logs need the project deployed through Argo
-CD; the builds, a code repository on the target. Deleting the agent revokes its tokens.
+CD; the builds, a code repository on the target.
+
+If a token leaves the configuration repository, revoke it: **Revoke tokens** in the danger zone of
+the agent, `POST /maintenance-agents/<id>/revoke-tokens` (with an optional `environmentId`), or the
+MCP tool `maintenance_agent_tokens_revoke`. It is refused from then on, and the next deploy of each
+environment writes a new one: a container reads it when its pod restarts, a job at its next run.
+Deleting the agent revokes its tokens too.
 
 ## Network
 

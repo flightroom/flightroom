@@ -4034,6 +4034,22 @@
             "summary_one": "Maintenance bay: {{count}} agent docked, maintaining {{worlds}} backends and frontends.",
             "summary_other": "Maintenance bay: {{count}} agents docked, maintaining {{worlds}} backends and frontends."
         },
+        "tokens": {
+            "title": "Container token",
+            "subtitle": "The token the agent reads the logs and builds of its targets with",
+            "action_title": "Revoke the tokens",
+            "action_description": "Revokes the FLIGHTROOM_AGENT_TOKEN of every environment, for instance if it left the configuration repository: from now on the agent no longer reads logs and builds. The next deploy of each environment gives it a new token, which a container reads when its pod restarts and a job at its next run.",
+            "button": "Revoke tokens",
+            "success": "Tokens revoked: {{count}}",
+            "dialog": {
+                "title": "Revoke the tokens of the agent",
+                "warning": "The agent no longer reads logs and builds until the next deploy",
+                "description": "You are about to revoke the tokens of the maintenance agent {{name}} in every environment.",
+                "confirmation": "Type {{name}} to confirm",
+                "confirm": "Revoke",
+                "confirming": "Revoking..."
+            }
+        },
         "dangerZone": {
             "title": "Danger zone",
             "subtitle": "Irreversible actions on this agent",
@@ -4058,7 +4074,8 @@
             "target_invalid": "One of the backends or frontends it maintains no longer exists in this project.",
             "not_deployed": "The agent is not deployed in this environment yet: give it a version and deploy it first.",
             "run_forbidden": "Viewers cannot run maintenance agents.",
-            "argocd_not_configured": "Argo CD is not set up for this project: configure it in the settings to run agents."
+            "argocd_not_configured": "Argo CD is not set up for this project: configure it in the settings to run agents.",
+            "token_forbidden": "A viewer cannot revoke the tokens of a maintenance agent"
         }
     },
     "applicationLogs": {

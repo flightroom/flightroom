@@ -123,6 +123,19 @@ export const maintenanceAgentTools = [
         run: (args, { principal }) => new MaintenanceAgentService(principal).run(args.maintenanceAgentId, args.environmentId)
     }),
     defineTool({
+        name: "maintenance_agent_tokens_revoke",
+        title: "Revoke maintenance agent tokens",
+        description:
+            "Revokes the token the container of a maintenance agent reads the logs and builds of its targets with (FLIGHTROOM_AGENT_TOKEN), in one environment or in all of them: refused from now on, for instance after a leak. The agent cannot read them until the next deploy of the environment writes a new token, which a container reads when its pod restarts and a job at its next run.",
+        scope: MCP_SCOPE_WRITE,
+        annotations: DESTRUCTIVE,
+        inputSchema: z.object({
+            maintenanceAgentId,
+            environmentId: objectId("Id of the environment, from environments_list").optional().describe("The environment whose token is revoked; every environment when omitted")
+        }),
+        run: (args, { principal }) => new MaintenanceAgentService(principal).revokeRuntimeTokens(args.maintenanceAgentId, args.environmentId)
+    }),
+    defineTool({
         name: "maintenance_agent_trigger_build",
         title: "Trigger maintenance agent build",
         description: "Tags the given branch of the maintenance agent's repository with the version, which starts its CI pipeline: it builds the image and registers the version.",

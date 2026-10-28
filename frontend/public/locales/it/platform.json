@@ -4053,6 +4053,22 @@
             "summary_one": "Sala manutenzione: {{count}} agente attraccato, che si occupa di {{worlds}} backend e frontend.",
             "summary_other": "Sala manutenzione: {{count}} agenti attraccati, che si occupano di {{worlds}} backend e frontend."
         },
+        "tokens": {
+            "title": "Token del container",
+            "subtitle": "Il token con cui l'agente legge log e build dei suoi target",
+            "action_title": "Revoca i token",
+            "action_description": "Revoca il token FLIGHTROOM_AGENT_TOKEN di ogni ambiente, ad esempio se è uscito dal repository di configurazione: da subito l'agente non legge più log e build. Il prossimo deploy di ogni ambiente gli dà un token nuovo, che un container legge al riavvio del pod e un job alla prossima esecuzione.",
+            "button": "Revoca token",
+            "success": "Token revocati: {{count}}",
+            "dialog": {
+                "title": "Revoca i token dell'agente",
+                "warning": "L'agente non legge più log e build fino al prossimo deploy",
+                "description": "Stai per revocare i token dell'agente di manutenzione {{name}} in tutti gli ambienti.",
+                "confirmation": "Scrivi {{name}} per confermare",
+                "confirm": "Revoca",
+                "confirming": "Revoca in corso..."
+            }
+        },
         "dangerZone": {
             "title": "Zona pericolosa",
             "subtitle": "Azioni irreversibili su questo agente",
@@ -4077,7 +4093,8 @@
             "target_invalid": "Uno dei backend o frontend di cui si occupa non esiste più in questo progetto.",
             "not_deployed": "L'agente non è ancora rilasciato in questo ambiente: dagli una versione e fai prima il deploy.",
             "run_forbidden": "Chi ha accesso in sola lettura non può eseguire gli agenti di manutenzione.",
-            "argocd_not_configured": "Argo CD non è configurato per questo progetto: configuralo nelle impostazioni per eseguire gli agenti."
+            "argocd_not_configured": "Argo CD non è configurato per questo progetto: configuralo nelle impostazioni per eseguire gli agenti.",
+            "token_forbidden": "Chi ha il ruolo di visualizzatore non può revocare i token di un agente di manutenzione"
         }
     },
     "applicationLogs": {

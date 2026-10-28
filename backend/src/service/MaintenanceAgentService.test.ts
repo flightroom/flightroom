@@ -227,3 +227,48 @@ describe("MaintenanceAgentService.run", () => {
         expect(stored.mock.calls[1][0].userId).toBeUndefined()
     })
 })
+
+describe("MaintenanceAgentService.revokeRuntimeTokens", () => {
+    const agentId = new Types.ObjectId()
+    const production = new Types.ObjectId()
+    const development = new Types.ObjectId()
+    const agent = { _id: agentId, projectId, slug: "cleaner", name: "Cleaner" }
+    const runtimeTokens = [
+        { environmentId: production, token: "fra_production" },
+        { environmentId: development, token: "fra_development" }
+    ]
+
+    let revoke: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+        // Read once as the console reads it, once with the tokens it never answers with
+        vi.spyOn(MaintenanceAgent, "findById").mockImplementation((() => Object.assign(Promise.resolve(agent), { select: () => Promise.resolve({ ...agent, runtimeTokens }) })) as never)
+        revoke = vi.spyOn(MaintenanceAgent, "updateOne").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
+    })
+
+    it("given an environment, when its token is revoked, then only that one goes", async () => {
+        expect(await serviceAs().revokeRuntimeTokens(String(agentId), String(production))).toEqual({ revoked: 1 })
+
+        expect(revoke).toHaveBeenCalledWith({ _id: agentId }, { $pull: { runtimeTokens: { environmentId: String(production) } } })
+    })
+
+    it("given no environment, when the tokens are revoked, then those of every environment go", async () => {
+        expect(await serviceAs().revokeRuntimeTokens(String(agentId))).toEqual({ revoked: 2 })
+
+        expect(revoke).toHaveBeenCalledWith({ _id: agentId }, { $unset: { runtimeTokens: 1 } })
+    })
+
+    it("given an environment the agent holds no token for, when it is revoked, then nothing is written", async () => {
+        expect(await serviceAs().revokeRuntimeTokens(String(agentId), String(new Types.ObjectId()))).toEqual({ revoked: 0 })
+
+        expect(revoke).not.toHaveBeenCalled()
+    })
+
+    it("given a viewer, when the tokens are revoked, then it is refused and nothing is written", async () => {
+        const service = serviceAs()
+        vi.mocked((service as unknown as Internals).ensureNotViewer).mockRejectedValue(createBusinessException({ code: "MAINTENANCE_AGENT_TOKEN_FORBIDDEN", message: "viewer" }))
+
+        expect(await codeOf(service.revokeRuntimeTokens(String(agentId)))).toBe("MAINTENANCE_AGENT_TOKEN_FORBIDDEN")
+        expect(revoke).not.toHaveBeenCalled()
+    })
+})

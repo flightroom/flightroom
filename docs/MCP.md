@@ -32,11 +32,16 @@ layout it is `https://<your console>/api/mcp`.
 Two scopes, chosen on the consent page:
 
 - `mfe:read` — read the project: frontends, backends, functional domains, environments,
-  deployments, canary users, global variables, build status, storages, resources and repository
-  connections (credentials masked), dependency and integration plans.
+  deployments, canary users, global variables, build status and the logs of a failed build
+  (`build_run_logs_get`), storages, resources and repository connections (credentials masked),
+  dependency and integration plans. The pods of a backend, a container frontend or a maintenance
+  agent and their logs (`application_pods_list`, `application_logs_get`) are read through Argo CD,
+  and are refused to a VIEWER of the project and to a VIEWER API key: logs may hold what the
+  configuration hides.
 - `mfe:write` — everything the console does inside a project, **deploy and rollback included**:
   create and edit frontends, backends, domains and environments, trigger builds, import
-  repositories, change global variables, apply dependency alignments and integrations. It also
+  repositories, change global variables, apply dependency alignments and integrations, revoke the
+  tokens a maintenance agent reads logs and builds with (`maintenance_agent_tokens_revoke`). It also
   allows **creating projects** (see below), which the consent page says next to "Allow changes".
 
 The role caps each project separately. `mfe:write` can be granted when at least one picked project
