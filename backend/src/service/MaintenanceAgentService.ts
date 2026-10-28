@@ -1,4 +1,5 @@
 import { isValidObjectId, ObjectId, Schema } from "mongoose"
+import { fastify } from ".."
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import BackendDeployment from "../models/BackendDeploymentModel"
@@ -256,6 +257,29 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
         await BackendDeployment.deleteMany({ backendId: agent._id })
         await MaintenanceRun.deleteMany({ agentId: agent._id })
         return await MaintenanceAgent.findByIdAndDelete(agent._id)
+    }
+
+    /**
+     * Revokes the tokens its container reads the logs and builds of its targets with, in `environmentId` or in every
+     * environment: refused from now on. The next deploy of each environment mints a new one into its Secret, which a
+     * container reads when its pod starts again, a job at its next run.
+     */
+    async revokeRuntimeTokens(id: string | ObjectId, environmentId?: string): Promise<{ revoked: number }> {
+        const agent = await this.getExisting(id)
+        await this.ensureNotViewer(agent.projectId, { code: "MAINTENANCE_AGENT_TOKEN_FORBIDDEN", message: "A viewer cannot revoke the tokens of a maintenance agent" })
+        if (environmentId !== undefined && (typeof environmentId !== "string" || !isValidObjectId(environmentId))) {
+            throw invalid("MAINTENANCE_AGENT_INVALID", "Choose the environment to revoke the token of")
+        }
+        const stored = (await MaintenanceAgent.findById(agent._id).select("+runtimeTokens"))?.runtimeTokens ?? []
+        const revoked = stored.filter(entry => environmentId === undefined || String(entry.environmentId) === environmentId).length
+        if (revoked > 0) {
+            await MaintenanceAgent.updateOne(
+                { _id: agent._id },
+                environmentId === undefined ? { $unset: { runtimeTokens: 1 } } : { $pull: { runtimeTokens: { environmentId: toObjectId(environmentId) } } }
+            )
+        }
+        fastify.log.info({ audit: "maintenance_agent_tokens_revoked", agentId: String(agent._id), environmentId, revoked }, "Maintenance agent tokens revoked")
+        return { revoked }
     }
 
     /** Registered versions, newest first: its CI registers them as a backend's, see registerVersionWithPermissionCheck */

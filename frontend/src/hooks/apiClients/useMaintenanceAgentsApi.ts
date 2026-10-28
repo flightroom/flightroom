@@ -85,6 +85,7 @@ const MAINTENANCE_ERROR_KEYS: Record<string, string> = {
     MAINTENANCE_AGENT_TARGET_INVALID: "maintenance.errors.target_invalid",
     MAINTENANCE_AGENT_NOT_DEPLOYED: "maintenance.errors.not_deployed",
     MAINTENANCE_AGENT_RUN_FORBIDDEN: "maintenance.errors.run_forbidden",
+    MAINTENANCE_AGENT_TOKEN_FORBIDDEN: "maintenance.errors.token_forbidden",
     ARGOCD_NOT_CONFIGURED: "maintenance.errors.argocd_not_configured",
     // Same refusals as a backend build
     BACKEND_BUILD_FORBIDDEN: "backends.build.forbidden",
@@ -155,7 +156,13 @@ const useMaintenanceAgentsApi = () => {
         return response.data
     }
 
-    return { getAll, getSingle, getVersions, getRuns, create, update, deleteSingle, build, run }
+    /** Revokes the tokens its container reads logs and builds with, in every environment: the next deploys mint new ones */
+    const revokeTokens = async (id: string): Promise<{ revoked: number }> => {
+        const response = await apiClient.doRequest<{ revoked: number }>({ url: `/api/maintenance-agents/${id}/revoke-tokens`, method: "POST", data: {}, customErrorMessage })
+        return response.data
+    }
+
+    return { getAll, getSingle, getVersions, getRuns, create, update, deleteSingle, build, run, revokeTokens }
 }
 
 export default useMaintenanceAgentsApi

@@ -50,6 +50,11 @@ export default async function maintenanceAgentController(fastify: FastifyInstanc
         return reply.send(await new MaintenanceAgentService(request.databaseUser).build(request.params.id, request.body?.version, request.body?.branch))
     })
 
+    // Revokes the tokens its container reads the logs and builds of its targets with: the next deploy mints new ones
+    fastify.post<{ Params: { id: string }; Body: { environmentId?: string } }>("/maintenance-agents/:id/revoke-tokens", async (request, reply) => {
+        return reply.send(await new MaintenanceAgentService(request.databaseUser).revokeRuntimeTokens(request.params.id, request.body?.environmentId || undefined))
+    })
+
     // Play: runs it now in one environment, through Argo CD
     fastify.post<{ Params: { id: string }; Body: { environmentId: string } }>("/maintenance-agents/:id/run", async (request, reply) => {
         return reply.send(await new MaintenanceAgentService(request.databaseUser).run(request.params.id, request.body?.environmentId))

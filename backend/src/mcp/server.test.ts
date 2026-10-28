@@ -45,17 +45,25 @@ describe("MCP tool registry", () => {
         "database_delete",
         "code_repository_delete",
         "dependencies_alignment_apply",
-        "integration_apply"
+        "integration_apply",
+        "maintenance_agent_tokens_revoke"
     ])("given %s, when its annotations are read, then it is marked destructive", name => {
         expect(toolNamed(name)?.annotations.destructiveHint).toBe(true)
     })
 
-    it.each(["code_repository_branches", "build_status_get", "dependencies_report", "frontend_trigger_build", "domain_trigger_build", "integration_apply"])(
-        "given %s, which reaches a git provider or npm, when read, then it is open world",
-        name => {
-            expect(toolNamed(name)?.annotations.openWorldHint).toBe(true)
-        }
-    )
+    it.each([
+        "code_repository_branches",
+        "build_status_get",
+        "build_run_logs_get",
+        "application_pods_list",
+        "application_logs_get",
+        "dependencies_report",
+        "frontend_trigger_build",
+        "domain_trigger_build",
+        "integration_apply"
+    ])("given %s, which reaches a git provider or npm, when read, then it is open world", name => {
+        expect(toolNamed(name)?.annotations.openWorldHint).toBe(true)
+    })
 
     it("given user_ai_usage, which reads the tokens of one person and manages no member, when the registry is read, then MCP clients get it read only", () => {
         const tool = toolNamed("user_ai_usage")
