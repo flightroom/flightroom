@@ -541,3 +541,51 @@ describe("advanceDomainReleases", () => {
         expect(writesOf(updateOne).at(-1)!.$set).toMatchObject({ status: DomainReleaseStatus.FAILED, errorCode: "DOMAIN_RELEASE_USER_UNAVAILABLE" })
     })
 })
+
+describe("DomainReleaseService.cancel", () => {
+    let updateOne: ReturnType<typeof vi.spyOn>
+    const releaseId = new Types.ObjectId()
+
+    beforeEach(() => {
+        allowEverything()
+        vi.spyOn(DomainService.prototype, "getById").mockResolvedValue(domain as never)
+        vi.spyOn(DomainRelease, "findById").mockResolvedValue({ _id: releaseId, status: DomainReleaseStatus.FAILED } as never)
+        updateOne = vi.spyOn(DomainRelease, "updateOne").mockResolvedValue({ modifiedCount: 1 } as never)
+    })
+
+    const withRelease = (status: DomainReleaseStatus) => vi.spyOn(DomainRelease, "findOne").mockResolvedValue({ _id: releaseId, domainId, status } as never)
+    const cancel = () => new DomainReleaseService(user as never).cancel(String(domainId), String(releaseId))
+
+    it("given a release waiting for the CI, when it is canceled, then it fails as canceled in that step and is no longer active", async () => {
+        withRelease(DomainReleaseStatus.WAITING_CI)
+
+        await cancel()
+
+        const [canceled] = writesOf(updateOne)
+        expect(updateOne.mock.calls[0][0]).toMatchObject({ _id: releaseId })
+        expect(canceled.$set).toMatchObject({ status: DomainReleaseStatus.FAILED, failedStep: DomainReleaseStatus.WAITING_CI, errorCode: "DOMAIN_RELEASE_CANCELED" })
+        expect(canceled.$unset).toEqual({ active: "" })
+    })
+
+    it("given a release over already, when it is canceled, then it is refused with a conflict and nothing is written", async () => {
+        withRelease(DomainReleaseStatus.DEPLOYED)
+
+        await expect(cancel()).rejects.toMatchObject({ code: "DOMAIN_RELEASE_NOT_RUNNING", statusCode: 409 })
+        expect(updateOne).not.toHaveBeenCalled()
+    })
+
+    it("given a release of another domain, when it is canceled, then it is not found", async () => {
+        vi.spyOn(DomainRelease, "findOne").mockResolvedValue(null)
+
+        await expect(cancel()).rejects.toThrow()
+        expect(updateOne).not.toHaveBeenCalled()
+    })
+
+    it("given a viewer of the project, when the release is canceled, then it is refused before anything is written", async () => {
+        withRelease(DomainReleaseStatus.WAITING_CI)
+        allowEverything().mockRejectedValue(createBusinessException({ code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain", statusCode: 403 }))
+
+        await expect(cancel()).rejects.toMatchObject({ code: "DOMAIN_BUILD_FORBIDDEN", statusCode: 403 })
+        expect(updateOne).not.toHaveBeenCalled()
+    })
+})

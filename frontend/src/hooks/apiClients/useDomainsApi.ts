@@ -121,6 +121,7 @@ const DOMAIN_ERROR_KEYS: Record<string, string> = {
     DOMAIN_BUILD_REF_CONFLICT: "domains.build.errors.ref_conflict",
     DOMAIN_BUILD_FORBIDDEN: "domains.build.errors.forbidden",
     DOMAIN_RELEASE_RUNNING: "domains.release.errors.running",
+    DOMAIN_RELEASE_NOT_RUNNING: "domains.release.errors.not_running",
     DOMAIN_RELEASE_ENVIRONMENT_INVALID: "domains.release.errors.environment_invalid",
     DOMAIN_RELEASE_ENVIRONMENT_NOT_FOUND: "domains.release.errors.environment_not_found"
 }
@@ -210,12 +211,18 @@ const useDomainsApi = () => {
         return response.data || null
     }
 
+    /** Stops the release where it stands: the tags pushed, the CI they started and a deploy already committed stay */
+    const cancelRelease = async (id: string, releaseId: string): Promise<DomainRelease> => {
+        const response = await apiClient.doRequest<DomainRelease>({ url: `/api/domains/${id}/releases/${releaseId}/cancel`, method: "POST", customErrorMessage: errorMessage })
+        return response.data
+    }
+
     const deleteSingle = async (id: string) => {
         const response = await apiClient.doRequest({ url: `/api/domains/${id}`, method: "DELETE" })
         return response.data
     }
 
-    return { getAll, getSingle, create, update, addMembers, removeMembers, build, startRelease, getLatestRelease, deleteSingle, errorMessage }
+    return { getAll, getSingle, create, update, addMembers, removeMembers, build, startRelease, getLatestRelease, cancelRelease, deleteSingle, errorMessage }
 }
 
 export default useDomainsApi
