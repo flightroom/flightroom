@@ -5,7 +5,7 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [9.3.0] - 2026-10-29
 
 ### Added
 
@@ -18,16 +18,21 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Stop A Domain Build And Deploy**: a build and deploy of a domain that is still running can be stopped from its dialog, after a confirmation. It ends where it stands and the console no longer takes it forward; what it did stays: the tags pushed, the CI runs they started, a deploy already committed
 - **Micronaut Backend Template**: `service-micronaut` joins the backend templates, so a project whose backend technology is Micronaut gets one to scaffold from. Java 25 and Maven, port 8080, probes on `/health/liveness` and `/health/readiness`, OpenAPI on `/swagger/openapi.json`
 - **Pipelines By Language**: the pipeline templates repository of a project can hold one pipeline per language, `<type>/<language>/<provider>/` with java, python or javascript, e.g. `service/java/azure_dev_ops/azure-pipelines.yml` for every Java backend. A folder of the template or of its compiler still wins over it
+- **Design A Domain With A Wizard**: a new functional domain can be designed in a wizard, with or without an AI. With one, a short conversation asks what the application is called, what it does and where it is exposed (loaded by a host frontend, an application of its own, or no user interface), and proposes its frontends and backends with the gateway path of each backend; the user reviews the domain and the first request for the agent, then the scaffold dialog creates the components and starts the job. Without one, the same questions come step by step and a frontend and a backend named after the domain are proposed
+- **Variable Keys Through MCP**: `backend_get` and `frontend_get` return `attachedVariables`, the environment variables the attached resources, config maps and secrets set on the container, keys only, so a coding agent knows what its code can read
 
 ### Changed
 
 - **AI Jobs Run Side By Side**: a job clones its repositories into working copies of its own, so jobs on the same frontend or backend start at once instead of waiting for each other with "Waiting for the repository to be free". Their proposals meet only when applied: a file changed on the base branch by a proposal applied first stops the next apply with a conflict, as before. A project runs up to 5 jobs at once, was 3
+- **Deployment Cards Show Only The Name**: the cards of the backends, frontends and resources of a deployment no longer repeat the slug nor list the keys of a resource
 
 ### Fixed
 
 - **Azure DevOps Build Logs Of Another Repository**: the logs of a failed build are read only when the build is one of the repository of the frontend or backend asked about. Azure DevOps numbers builds across the whole Azure DevOps project, so a build number of another repository returned its logs
 - **New Backends And Frontends Never Registered A Version**: the pipelines of the templates registered backend versions at `/services`, gone with the rename to backends, and read the deploy key as `MICROFRONTEND_ORCHESTRATOR_API_KEY` while the console stores it as `FLIGHTROOM_API_KEY`, so nothing built from a template could be deployed. The pipelines of the templates now register at `/backends` and read `FLIGHTROOM_API_KEY`
 - **An Azure DevOps Pipeline Waiting For Permission**: the pipeline the console creates for a new Azure DevOps repository is permitted on the `MFE_ORCHESTRATOR_SECRETS` variable group, where its first run stopped until someone allowed it by hand. A repository created without a template gets its pipeline too, ready for the azure-pipelines.yml the team pushes
+- **One Live Preview Per Conversation**: the AI workspace showed a live preview for every message of a conversation; it shows one
+- **Microsoft Session Refused Before It Expires**: with a Microsoft account, calls failed with 401 between the expiry of the ID token and that of the access token. The ID token is now renewed five minutes ahead, and a session whose refresh token is gone goes back to the login page instead of staying with every call refused
 
 ## [9.2.0] - 2026-10-28
 
