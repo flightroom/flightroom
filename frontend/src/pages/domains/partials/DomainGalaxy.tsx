@@ -16,9 +16,9 @@ import { Domain } from "@/hooks/apiClients/useDomainsApi"
 import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useMaintenanceAgentsApi, { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
+import useIsDark from "@/hooks/useIsDark"
 import { resourcePath, typeLabel, variantLabel } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
-import useThemeStore, { ThemeEnum } from "@/store/useThemeStore"
 
 interface DomainGalaxyProps {
     domains: Domain[]
@@ -623,21 +623,6 @@ const promptExcerpt = (prompt: string) => {
 
 const readPrimaryHue = () => getComputedStyle(document.documentElement).getPropertyValue("--primary").trim() || FALLBACK_PRIMARY
 const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: reduce)").matches
-
-const DARK_SCHEME_QUERY = "(prefers-color-scheme: dark)"
-
-/** The theme the app is shown in, resolving the system one and following it when it changes. */
-const useIsDark = () => {
-    const theme = useThemeStore(state => state.theme)
-    const [systemDark, setSystemDark] = useState(() => window.matchMedia(DARK_SCHEME_QUERY).matches)
-    useEffect(() => {
-        const query = window.matchMedia(DARK_SCHEME_QUERY)
-        const onChange = () => setSystemDark(query.matches)
-        query.addEventListener("change", onChange)
-        return () => query.removeEventListener("change", onChange)
-    }, [])
-    return theme === ThemeEnum.DARK || (theme === ThemeEnum.SYSTEM && systemDark)
-}
 
 /**
  * The whole project as a sky: every domain a galaxy, its frontends and backends the worlds in it,
