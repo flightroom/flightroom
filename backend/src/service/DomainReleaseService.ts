@@ -49,6 +49,8 @@ const ACTIVE_STATUSES = [DomainReleaseStatus.BUILDING, DomainReleaseStatus.WAITI
 
 const FORBIDDEN = { code: "DOMAIN_BUILD_FORBIDDEN", message: "A viewer cannot create a version of a domain" }
 
+const releaseNotRunning = () => createBusinessException({ code: "DOMAIN_RELEASE_NOT_RUNNING", message: "This build and deploy is over already", statusCode: 409 })
+
 const releaseRunning = () => createBusinessException({ code: "DOMAIN_RELEASE_RUNNING", message: "A build and deploy of this domain is already running", statusCode: 409 })
 
 /** The code and the words a failed release keeps: a business exception's own, anything else as a failed step */
@@ -164,6 +166,27 @@ export class DomainReleaseService extends BaseAuthorizedService {
             throw new EntityNotFoundError(String(id))
         }
         return DomainRelease.findOne({ domainId: domain._id }).sort({ createdAt: -1 })
+    }
+
+    /**
+     * Stops the release where it stands: it fails as canceled in the step it was taking, and the tick no longer
+     * moves it on. What is done stays done: the tags pushed and the CI runs they started, a deploy already committed.
+     */
+    async cancel(id: string | ObjectId, releaseId: unknown): Promise<IDomainRelease | null> {
+        const domain = await new DomainService(this.user).getById(id)
+        if (!domain) {
+            throw new EntityNotFoundError(String(id))
+        }
+        await this.ensureNotViewer(domain.projectId, FORBIDDEN)
+        const release = typeof releaseId === "string" && isValidObjectId(releaseId) ? await DomainRelease.findOne({ _id: toObjectId(releaseId), domainId: domain._id }) : null
+        if (!release) {
+            throw new EntityNotFoundError(String(releaseId))
+        }
+        if (!ACTIVE_STATUSES.includes(release.status)) {
+            throw releaseNotRunning()
+        }
+        await failRelease(release, release.status as DomainReleaseStep, createBusinessException({ code: "DOMAIN_RELEASE_CANCELED", message: "The release was stopped from the console" }))
+        return DomainRelease.findById(release._id)
     }
 
     /**

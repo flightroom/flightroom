@@ -12,6 +12,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **SharePoint Resource**: `sharepoint` joins the resource catalog and reaches a SharePoint Online site through Microsoft Graph by an Entra ID app, with a client secret or a certificate, or by the managed identity of the pod, with the site URL and an optional document library. The agent is told to resolve the site and the library through Graph with the variables of the variant
 - **How Long A Job Took**: each AI job shows how long the agent worked, live while it works and not counting the wait in the queue
 - **Delete A Failed Edit With AI Conversation**: a conversation that failed or was discarded, with nothing left to review nor applied, can be deleted from its queue by who started it or an organization administrator. The deletion is logical: its jobs are only marked deleted, and the tokens they spent stay counted in the AI usage
+- **Stop A Domain Build And Deploy**: a build and deploy of a domain that is still running can be stopped from its dialog, after a confirmation. It ends where it stands and the console no longer takes it forward; what it did stays: the tags pushed, the CI runs they started, a deploy already committed
 
 ### Changed
 

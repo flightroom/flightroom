@@ -14,7 +14,7 @@ import {
 } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { AlertTriangle, Check, ChevronDown, Circle, GitBranch, Hammer, Loader2, Rocket, Workflow, X } from "lucide-react"
+import { AlertTriangle, Check, ChevronDown, Circle, GitBranch, Hammer, Loader2, Rocket, Square, Workflow, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -25,6 +25,7 @@ import RolloutApplications from "@/components/deploy-overlay/RolloutApplications
 import TextField from "@/components/input/TextField.rhf"
 import Mascot from "@/components/mascot/Mascot"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
+import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
 import type { RolloutState } from "@/hooks/apiClients/useArgoCdApi"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useBuildsApi, { BUILD_STATUS_QUERY_KEY, type BuildRun, BuildStatus, type ComponentBuildStatus } from "@/hooks/apiClients/useBuildsApi"
@@ -56,12 +57,16 @@ const TRANSLATED_ERRORS = [
     "DOMAIN_RELEASE_CI_FAILED",
     "DOMAIN_RELEASE_CI_NOT_REGISTERED",
     "DOMAIN_RELEASE_INTERRUPTED",
+    "DOMAIN_RELEASE_CANCELED",
     "DOMAIN_RELEASE_USER_UNAVAILABLE",
     "DOMAIN_BUILD_CHECK_FAILED",
     "DOMAIN_RELEASE_ROLLOUT_FAILED",
     "DOMAIN_RELEASE_ROLLOUT_DEGRADED",
     "DOMAIN_RELEASE_ROLLOUT_TIMEOUT"
 ]
+
+/** A release stopped from the console: the user chose it, it is not told as a failure */
+const isCanceled = (release: DomainRelease) => release.status === "failed" && release.errorCode === "DOMAIN_RELEASE_CANCELED"
 
 /** Failures of the rollout name the applications in that state, not the members the CI left behind */
 const ROLLOUT_ERRORS: Record<string, (state: RolloutState) => boolean> = {
@@ -116,6 +121,8 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const [followedId, setFollowedId] = useState<string | undefined>()
     /** The branches picked, by frontend or backend id */
     const [branches, setBranches] = useState<BaseBranches>({})
+    /** The confirmation of the stop of the release is open */
+    const [confirmingCancel, setConfirmingCancel] = useState(false)
 
     // Read here, not from the store: the store has them only once a page under the environments gate was opened
     const environments = useProjectEnvironmentsQuery().data ?? NO_ENVIRONMENTS
@@ -163,6 +170,8 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                 queryClient.invalidateQueries({ queryKey: ["domain-deployments"] }),
                 queryClient.invalidateQueries({ queryKey: ["domain-deployments-matrix"] })
             ])
+        } else if (isCanceled(release)) {
+            notifications.showInfoNotification({ message: t("domains.release.canceled", { domain: domain.name, version: release.version }) })
         } else {
             notifications.showErrorNotification({ message: t("domains.release.failed", { domain: domain.name, version: release.version }) })
         }
@@ -179,6 +188,16 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
             // The check refused the build: its outcome per repository says why, the toast is already shown
             setRefusal(buildCheckOf(error as Error))
             // A release refused, or one already running, is the latest now: the dialog shows it
+            await queryClient.invalidateQueries({ queryKey })
+        }
+    }
+
+    const cancelRelease = async (current: DomainRelease) => {
+        try {
+            queryClient.setQueryData(queryKey, await domainsApi.cancelRelease(domain._id, current._id))
+            setFollowedId(current._id)
+        } catch {
+            // The API client already shows why: the release may have ended meanwhile, the dialog shows it as it is now
             await queryClient.invalidateQueries({ queryKey })
         }
     }
@@ -268,7 +287,7 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                     })}
                 </ol>
                 {failed && (
-                    <Alert variant="destructive" className="mt-3" dataTestId="domain-release-error">
+                    <Alert variant={isCanceled(current) ? "default" : "destructive"} className="mt-3" dataTestId="domain-release-error">
                         <AlertTriangle className="size-4" aria-hidden="true" />
                         <AlertDescription className="whitespace-pre-wrap break-words">{errorOf(current)}</AlertDescription>
                     </Alert>
@@ -394,6 +413,12 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                         <>
                             {progress(shown)}
                             <DialogFooter>
+                                {running && (
+                                    <Button variant="secondary" type="button" onClick={() => setConfirmingCancel(true)} dataTestId="domain-release-cancel">
+                                        <Square />
+                                        {t("domains.release.cancel")}
+                                    </Button>
+                                )}
                                 {!running && (
                                     <Button variant="secondary" type="button" onClick={() => setFollowedId(undefined)} dataTestId="domain-release-new">
                                         {t("domains.release.new")}
@@ -443,6 +468,18 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                     )}
                 </DialogContent>
             </Dialog>
+            {shown && (
+                <DeleteConfirmationDialog
+                    isOpen={confirmingCancel}
+                    onOpenChange={setConfirmingCancel}
+                    title={t("domains.release.cancel_title")}
+                    description={t("domains.release.cancel_description", { version: shown.version })}
+                    deleteLabel={t("domains.release.cancel_confirm")}
+                    deletingLabel={t("domains.release.canceling")}
+                    onDelete={() => cancelRelease(shown)}
+                    dataTestId="domain-release-cancel-confirm"
+                />
+            )}
         </>
     )
 }

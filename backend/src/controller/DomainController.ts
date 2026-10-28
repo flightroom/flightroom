@@ -58,6 +58,11 @@ export default async function domainController(fastify: FastifyInstance) {
         return reply.send(await new DomainReleaseService(request.databaseUser).getLatest(request.params.id))
     })
 
+    // Stops the release: the tick no longer moves it on, what it did already stays
+    fastify.post<{ Params: { id: string; releaseId: string } }>("/domains/:id/releases/:releaseId/cancel", async (request, reply) => {
+        return reply.send(await new DomainReleaseService(request.databaseUser).cancel(request.params.id, request.params.releaseId))
+    })
+
     fastify.delete<{ Params: { id: string } }>("/domains/:id", async (request, reply) => {
         return reply.send(await new DomainService(request.databaseUser).delete(request.params.id))
     })
