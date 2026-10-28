@@ -1,6 +1,7 @@
 import { useAuth0 } from "@auth0/auth0-react"
 import { AccountInfo } from "@azure/msal-browser"
 import { useMsal } from "@azure/msal-react"
+import { useQueryClient } from "@tanstack/react-query"
 import { AxiosError, AxiosResponse } from "axios"
 import { useTranslation } from "react-i18next"
 import { deleteToken, getToken as getTokenFromStorage, IToken, setToken } from "@/authentication/tokenUtils"
@@ -48,6 +49,7 @@ export const useApiClient = (options?: IApiClientOptions) => {
     const auth0Auth = useAuth0()
     const notifications = useToastNotificationStore()
     const projectStore = useProjectStore()
+    const queryClient = useQueryClient()
     const { t } = useTranslation()
 
     const logout = () => {
@@ -177,10 +179,18 @@ export const useApiClient = (options?: IApiClientOptions) => {
             try {
                 //console.log("[getToken] Inizio a prendere il token con MSFT")
                 //console.log("[getToken] Sto prendedo l'access token silent su questo account", activeMsalAccount)
-                const response = await msalAuth.instance.acquireTokenSilent({
+                const request = {
                     scopes: ["openid", "profile", "email", "offline_access"],
                     account: activeMsalAccount || undefined
-                })
+                }
+                let response = await msalAuth.instance.acquireTokenSilent(request)
+                // MSAL serves the cache while the access token is valid, and Entra gives that one
+                // 60 to 90 minutes against the ID token's 60: in between the backend gets an
+                // expired ID token and answers 401. It is renewed here five minutes ahead.
+                const idTokenExpiresAt = ((response.idTokenClaims as { exp?: number })?.exp ?? 0) * 1000
+                if (idTokenExpiresAt - Date.now() < 5 * 60_000) {
+                    response = await msalAuth.instance.acquireTokenSilent({ ...request, forceRefresh: true })
+                }
                 //console.log("[getToken] Ho ottenuto il token", response)
                 return {
                     token: response.idToken,
@@ -188,14 +198,11 @@ export const useApiClient = (options?: IApiClientOptions) => {
                 }
             } catch (error) {
                 if (error instanceof Error && error.name === "InteractionRequiredAuthError") {
-                    const response = await msalAuth.instance.handleRedirectPromise()
-                    if (response) {
-                        msalAuth.instance.setActiveAccount(response.account)
-                    }
-                    return {
-                        token: response?.idToken,
-                        issuer: "msal"
-                    }
+                    // The refresh token is gone (expired, revoked, password changed): no silent way back.
+                    // Forgetting the account and reloading the profile brings up the login page.
+                    await msalAuth.instance.clearCache({ account: activeMsalAccount })
+                    queryClient.invalidateQueries({ queryKey: ["profile"] })
+                    return undefined
                 } else {
                     console.error("[getToken] No authentication method available to get token", { token, authenticatedAuth0: auth0Auth.isAuthenticated, authenticatedMSALAccounts: msalAuth.accounts })
                 }
