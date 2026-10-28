@@ -53,6 +53,7 @@ import type { IBadgeProps } from "@/components/atoms"
 import { Badge, Button } from "@/components/atoms"
 import Mascot from "@/components/mascot/Mascot"
 import RepositoryLink from "@/components/RepositoryLink"
+import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
 import useAiChangesApi, { AI_CHANGE_ACTIVE_STATUSES, AiChangeFile, AiChangeRequest, AiChangeStatus, AiChangeTarget, PromptImage } from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob, AiJobRepository, isAiJobActive } from "@/hooks/apiClients/useAiJobsApi"
 import { effortsOf } from "@/hooks/apiClients/useAiModelsApi"
@@ -931,6 +932,25 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
         changed()
     }
 
+    const [, setSearchParams] = useSearchParams()
+    const [confirmingDelete, setConfirmingDelete] = useState(false)
+    // Logical only: the conversation leaves the queue, which then opens what needs attention first.
+    const deleteMutation = useMutation({
+        mutationFn: () => aiJobsApi.remove(conversationId, { customErrorMessage: error => jobErrorMessage(t, error, "delete") }),
+        onSuccess: () => {
+            notifications.showInfoNotification({ message: t("frontend.aiChange.deleted_success") })
+            setSearchParams(
+                current => {
+                    const next = new URLSearchParams(current)
+                    next.delete("change")
+                    return next
+                },
+                { replace: true }
+            )
+            changed()
+        }
+    })
+
     // Shown stopped at once; a follow-up stopped leaves the proposal it refined open again.
     const onStopped = (stopped?: AiJob) => {
         if (stopped) queryClient.setQueryData<AiJob[]>(chainQueryKey, chain => chain?.map(job => (job._id === stopped._id ? stopped : job)))
@@ -1033,9 +1053,32 @@ const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, conversa
                     <AnswerUsage usage={sumUsage(turns.map(turn => turn.job))} label={t("frontend.aiChange.usage_conversation", { count: turns.length })} hint={t("frontend.aiChange.usage_hint")} />
                 )}
 
-                {/* Nothing left to refine: start over with everything asked so far. */}
+                {/* Nothing left to refine: start over with everything asked so far, or delete it. */}
                 {closed && (
-                    <div className="flex justify-end">
+                    <div className="flex justify-end gap-2">
+                        {latest.job.canAct && (
+                            <>
+                                <Button type="button" variant="secondary" disabled={deleteMutation.isPending} onClick={() => setConfirmingDelete(true)}>
+                                    <Trash2 aria-hidden="true" />
+                                    {t("frontend.aiChange.delete")}
+                                </Button>
+                                <DeleteConfirmationDialog
+                                    isOpen={confirmingDelete}
+                                    onOpenChange={setConfirmingDelete}
+                                    title={t("frontend.aiChange.delete_title")}
+                                    description={t("frontend.aiChange.delete_description")}
+                                    deleteLabel={t("frontend.aiChange.delete")}
+                                    deletingLabel={t("frontend.aiChange.deleting")}
+                                    // The API client already shows the error: the dialog closes either way.
+                                    onDelete={() =>
+                                        deleteMutation.mutateAsync().then(
+                                            () => undefined,
+                                            () => undefined
+                                        )
+                                    }
+                                />
+                            </>
+                        )}
                         <Button
                             type="button"
                             variant="secondary"

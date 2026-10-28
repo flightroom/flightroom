@@ -105,6 +105,12 @@ export default async function aiJobController(fastify: FastifyInstance) {
     // Stops the agent at once: what it did so far is dropped, nothing is pushed.
     fastify.post<{ Params: { id: string } }>("/ai-jobs/:id/stop", { config }, async (request, reply) => reply.send(await service(request).stop(request.params.id)))
 
+    // Logically: the conversation leaves the lists, its jobs and the tokens they spent are kept.
+    fastify.delete<{ Params: { id: string } }>("/ai-jobs/:id", { config }, async (request, reply) => {
+        await service(request).remove(request.params.id)
+        return reply.status(204).send()
+    })
+
     // Answers once every proposal is claimed: the pull requests are opened in the background.
     fastify.post<{ Params: { id: string } }>("/ai-jobs/:id/apply", { config }, async (request, reply) => reply.status(202).send(await service(request).apply(request.params.id)))
 }

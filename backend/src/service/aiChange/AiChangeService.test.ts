@@ -173,7 +173,8 @@ describe("AiChangeService", () => {
 
         const owner = { backendId, jobId: { $nin: hiddenJobIds } }
         expect(AiChangeJob.distinct).toHaveBeenCalledWith("_id", {
-            $or: [{ scope: "domain" }, { missionId: { $exists: true } }],
+            // A conversation deleted by a user leaves the queue with its jobs.
+            $or: [{ scope: "domain" }, { missionId: { $exists: true } }, { deletedAt: { $exists: true } }],
             backendIds: backendId
         })
         expect(aggregate.mock.calls[0][0]).toEqual(expect.arrayContaining([{ $match: owner }, { $limit: 20 }]))

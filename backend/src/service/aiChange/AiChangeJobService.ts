@@ -223,6 +223,8 @@ const notRunning = () => createBusinessException({ code: "AI_JOB_NOT_RUNNING", m
 
 const STOPPED_ERROR = "Stopped by the user before the agent finished"
 
+const notClosed = () => createBusinessException({ code: "AI_JOB_NOT_CLOSED", message: "Only a conversation that failed or was discarded can be deleted", statusCode: 409 })
+
 /**
  * The agents running in this process, by job: a stop aborts the model call under way at once. A job
  * running on another replica stops at its next round instead, when it reads its status.
@@ -1249,6 +1251,7 @@ export class AiChangeJobService extends AiChangeBaseService {
                 projectId: toObjectId(projectId),
                 domainId: toObjectId(domainId),
                 missionId: { $exists: false },
+                deletedAt: { $exists: false },
                 $expr: { $eq: ["$_id", "$rootJobId"] }
             },
             JOB_LISTED
@@ -1268,7 +1271,7 @@ export class AiChangeJobService extends AiChangeBaseService {
      */
     async list(projectId: string, active = false): Promise<AiJobView[]> {
         await this.ensureAccessToProject(toObjectId(projectId))
-        const filter: Record<string, unknown> = { projectId: toObjectId(projectId), userId: this.getUser()!._id }
+        const filter: Record<string, unknown> = { projectId: toObjectId(projectId), userId: this.getUser()!._id, deletedAt: { $exists: false } }
         if (active) {
             const proposed = await AiChangeRequest.distinct("jobId", { ...filter, status: AiChangeStatus.PROPOSED, jobId: { $exists: true } })
             filter.$or = [{ status: { $in: ACTIVE_JOB_STATUSES } }, { _id: { $in: proposed } }]
@@ -1395,6 +1398,22 @@ export class AiChangeJobService extends AiChangeBaseService {
         runningAgents.get(jobId)?.abort()
         fastify.log.info({ audit: "ai_job_stopped", userId: String(this.getUser()!._id), projectId: String(job.projectId), jobId }, "AI job stopped")
         return this.view(stopped, true)
+    }
+
+    /**
+     * Deletes the conversation the job belongs to, every job of its chain, once nothing of it is left to
+     * review or was applied: it failed, or was discarded. Logically only: the jobs and their requests stay,
+     * out of the lists, and the tokens they spent stay counted.
+     */
+    async remove(jobId: string): Promise<void> {
+        const job = await this.getJob(jobId)
+        await this.ensureCanChangeProject(job.projectId)
+        await this.ensureCanAct(job)
+        const chain = await Promise.all((await AiChangeJob.find({ rootJobId: job.rootJobId, projectId: job.projectId }, JOB_LISTED)).map(candidate => this.failIfStale(candidate)))
+        const open = await AiChangeRequest.exists({ jobId: { $in: chain.map(candidate => candidate._id) }, status: { $nin: [AiChangeStatus.FAILED, AiChangeStatus.DISCARDED] } })
+        if (open || chain.some(candidate => ACTIVE_JOB_STATUSES.includes(candidate.status))) throw notClosed()
+        await AiChangeJob.updateMany({ rootJobId: job.rootJobId, projectId: job.projectId, deletedAt: { $exists: false } }, { deletedAt: new Date(), deletedBy: this.getUser()!._id })
+        fastify.log.info({ audit: "ai_job_deleted", userId: String(this.getUser()!._id), projectId: String(job.projectId), jobId: String(job.rootJobId) }, "AI conversation deleted")
     }
 
     private async applyAll(claimed: { request: IAiChangeRequest; files: IAiChangeFile[] }[]) {

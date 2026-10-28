@@ -71,6 +71,12 @@ export interface IAiChangeJob extends Document<ObjectId> {
     usage: IAiChangeUsage
     /** Finished jobs nobody applied are removed by a TTL index on this date, like their proposals. */
     expiresAt?: Date
+    /**
+     * Set on every job of a conversation a user deleted: it leaves the lists, nothing else is removed.
+     * Deleted jobs are kept like the others, and the tokens they spent are counted on AiUsage.
+     */
+    deletedAt?: Date
+    deletedBy?: Schema.Types.ObjectId
     createdAt: Date
     updatedAt: Date
 }
@@ -110,7 +116,9 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
             currency: { type: String, enum: ["USD", "EUR"] },
             costUsd: { type: Number, min: 0 }
         },
-        expiresAt: { type: Date }
+        expiresAt: { type: Date },
+        deletedAt: { type: Date },
+        deletedBy: { type: Schema.Types.ObjectId, ref: "User" }
     },
     { timestamps: true }
 )
