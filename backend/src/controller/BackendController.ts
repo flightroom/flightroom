@@ -55,20 +55,17 @@ export default async function backendController(fastify: FastifyInstance) {
     })
 
     // Called by the release pipeline of the backend with its deploy secret: the API key resolves the project,
-    // and its role is checked by the service (MANAGER only). Also under /services, where backends were before
-    // they were renamed: the repositories scaffolded until then still register their versions there
-    for (const path of ["/backends/by-slug/:backendSlug/versions/:version", "/services/by-slug/:backendSlug/versions/:version"]) {
-        fastify.post<{
-            Params: { backendSlug: string; version: string }
-            Body: unknown
-        }>(path, { config: { authMethod: AuthenticationMethod.API_KEY } }, async (request, reply) => {
-            const projectId = getProjectIdFromRequest(request)
-            if (!projectId) {
-                throw new ProjectHeaderNotFoundError()
-            }
-            return reply.send(await new BackendService().registerVersionWithPermissionCheck(request.params.backendSlug, request.params.version, projectId, request.body, request.apiKeyRole))
-        })
-    }
+    // and its role is checked by the service (MANAGER only)
+    fastify.post<{
+        Params: { backendSlug: string; version: string }
+        Body: unknown
+    }>("/backends/by-slug/:backendSlug/versions/:version", { config: { authMethod: AuthenticationMethod.API_KEY } }, async (request, reply) => {
+        const projectId = getProjectIdFromRequest(request)
+        if (!projectId) {
+            throw new ProjectHeaderNotFoundError()
+        }
+        return reply.send(await new BackendService().registerVersionWithPermissionCheck(request.params.backendSlug, request.params.version, projectId, request.body, request.apiKeyRole))
+    })
 
     // Called by the deploy pipeline of the customer once a version runs in an environment: the orchestrator
     // does not deploy backends, so this is how it learns which version each environment runs (MANAGER only)
