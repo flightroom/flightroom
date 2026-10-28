@@ -5,7 +5,11 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [9.2.0] - 2026-10-28
+
+### Added
+
+- **A Deploy Follows Argo CD Until The Containers Run**: a deploy no longer ends when its GitOps commit is pushed. The deploy overlay stays open and shows, for each backend and container frontend, whether Argo CD is waiting, syncing, progressing or healthy, with the pods while they start. Build and deploy gets a rolling out step that fails when Argo CD cannot apply, when a built member stays degraded past 2 minutes, or after 20 minutes. A redeploy, which commits nothing, is not followed
 
 ### Changed
 
@@ -16,6 +20,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **Text Too Long For The AI Context**: the notes of a design system, its .npmrc and the AI context of a project, frontend, backend, resource, domain or maintenance agent stop at the length the server accepts, with a counter under the field, where a longer text was refused only on save
+- **Notifications In The System Dark Theme**: the notifications went dark only when the dark theme was picked by hand, and stayed light with the system one. Switching theme no longer shows the last notification again
+- **The Environment Dialog Fits The Screen**: the dialog of an environment stays within the viewport
 
 ---
 
