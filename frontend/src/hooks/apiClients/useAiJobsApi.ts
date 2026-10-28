@@ -142,6 +142,43 @@ export interface DomainPlan {
     backends: DomainPlanComponent[]
 }
 
+export interface DomainDraftMessage {
+    role: "user" | "assistant"
+    content: string
+}
+
+export interface DomainDraftDTO {
+    /** The conversation so far, oldest first; the last message is the user's. */
+    messages: DomainDraftMessage[]
+    locale?: string
+    /** The default AI of the project when missing. */
+    aiModelId?: string
+}
+
+/** Loaded by a host frontend of the project, an application of its own, or no user interface at all. */
+export type DomainExposureKind = "remote" | "standalone" | "none"
+
+export interface DomainDraft {
+    name: string
+    description: string
+    /** Markdown for the AI agents: the context of the domain once created. */
+    context: string
+    /** What the agent implements first in the new components. */
+    request: string
+    exposure: { kind: DomainExposureKind; hostId?: string; hostName?: string }
+    frontends: DomainPlanComponent[]
+    /** exposurePath: where it is published on the gateway; null when only the project's applications call it. */
+    backends: (DomainPlanComponent & { exposurePath: string | null })[]
+}
+
+export interface DomainDraftTurn {
+    reply: string
+    /** Short answers the user can pick instead of typing. */
+    options: string[]
+    ready: boolean
+    draft: DomainDraft
+}
+
 /** Project-scoped: the API client sends the `Project-Id` header of the open project. */
 const useAiJobsApi = () => {
     const apiClient = useApiClient()
@@ -248,7 +285,18 @@ const useAiJobsApi = () => {
         return response.data
     }
 
+    const draftDomain = async (data: DomainDraftDTO, metadata?: IClientRequestMetadataExtended): Promise<DomainDraftTurn> => {
+        const response = await apiClient.doRequest<DomainDraftTurn, DomainDraftDTO>({
+            url: "/api/ai-jobs/domain-draft",
+            method: "POST",
+            data,
+            ...metadata
+        })
+        return response.data
+    }
+
     return {
+        draftDomain,
         create,
         planDomain,
         followUp,

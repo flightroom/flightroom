@@ -309,7 +309,7 @@
             "refPlaceholder": "main",
             "refHint": "Left empty, the default branch of the repository.",
             "refInvalid": "Not a branch or tag name: letters, digits, dots, dashes, underscores and slashes, without \"..\", a leading dash, a trailing slash or a trailing .lock.",
-            "layout": "Layout: <type>/<compiler>/<provider>/, where provider is github, gitlab or azure_dev_ops, e.g. service/docker/github/workflows/release.yml. A folder <type>/<compiler>/<templateSlug>/<provider>/ wins for that template only. On GitHub the folder becomes .github/ and replaces the workflows of the template; on GitLab and Azure DevOps .gitlab-ci.yml and azure-pipelines.yml replace the ones at the root. A template the repository has no folder for keeps the pipeline it ships with: the official templates are not used as a fallback.",
+            "layout": "Layout: <type>/<compiler>/<provider>/, where provider is github, gitlab or azure_dev_ops, e.g. service/docker/github/workflows/release.yml. A folder <type>/<compiler>/<templateSlug>/<provider>/ wins for that template only. A folder <type>/<language>/<provider>/, where language is java, python or javascript, serves every template of that language when there is none for the compiler, e.g. service/java/azure_dev_ops/azure-pipelines.yml for every Java backend and remote/javascript/... for every remote. On GitHub the folder becomes .github/ and replaces the workflows of the template; on GitLab and Azure DevOps .gitlab-ci.yml and azure-pipelines.yml replace the ones at the root. A template the repository has no folder for keeps the pipeline it ships with: the official templates are not used as a fallback.",
             "placeholders": "Replaced when the repository is created: %microfrontendSlug% and %serviceSlug% with the slug, %domain% with the URL of this console.",
             "saved": "Pipeline templates saved",
             "errors": {
@@ -2868,7 +2868,14 @@
                     "REPOSITORY_CREATE_FORBIDDEN": "You do not have permission to create code repositories in this project.",
                     "TEMPLATE_NOT_FOUND": "The template no longer exists: pick another one.",
                     "PIPELINE_SOURCE_UNAVAILABLE": "The pipeline templates of the project could not be read: nothing was created. Fix the repository or the branch in Settings, or go back to the official templates, and try again."
-                }
+                },
+                "loaded_by": "Loaded by {{host}}",
+                "field_exposure_path": "Public path",
+                "exposure_path_hint": "Where it is published on the project's gateway, e.g. /api/orders. Leave it empty when only the project's other applications call it.",
+                "exposure_path_invalid": "A path such as /api/orders: no spaces, '?', '#', '//', '.' or '..' segments, and not the root '/' alone.",
+                "create_description": "Review and edit them: each one is created in {{name}} with a new repository generated from its template.",
+                "confirm_create_one": "Create {{count}} component",
+                "confirm_create_other": "Create {{count}} components"
             }
         },
         "workspace": {
@@ -2943,6 +2950,57 @@
                 "confirm_other": "Attach to {{count}} backends",
                 "success_one": "{{resource}} attached to {{count}} backend",
                 "success_other": "{{resource}} attached to {{count}} backends"
+            }
+        },
+        "wizard": {
+            "title": "New domain with AI",
+            "description": "Answer a few questions: the AI proposes the domain, the frontends and backends it needs and where to expose it. You review everything before anything is created.",
+            "greeting": "Hi! What is the application you want to build called?",
+            "placeholder": "E.g. Order management",
+            "reply_placeholder": "Reply…",
+            "input_label": "Your answer",
+            "send": "Send",
+            "loading": "Thinking…",
+            "error": "I could not answer: try again.",
+            "provider_error": "The AI provider did not answer: try again in a moment or pick another AI.",
+            "manual": "Fill in by hand",
+            "continue": "Continue",
+            "back": "Back",
+            "create": "Create domain",
+            "review_title": "Review the domain",
+            "review_description": "Check the name, the description, the context and the first request for the agent. Right after, you review the components to create.",
+            "request_label": "First request for the AI agent",
+            "request_hint": "What the agent implements in the new components once they are created.",
+            "proposal_title": "Proposal",
+            "next_title": "After creation",
+            "exposure_label": "Exposure",
+            "exposure": {
+                "remote": "Inside {{host}}, as a micro-frontend",
+                "standalone": "An application of its own",
+                "none": "No user interface: backends only"
+            },
+            "components_label": "Components",
+            "public_at": "public at {{path}}",
+            "internal": "internal to the project",
+            "forbidden": "You are not allowed to create a domain in this project: ask an owner of the project.",
+            "full": "The conversation has reached its limit: continue to the review, you can correct everything there."
+        },
+        "steps": {
+            "title": "New functional domain",
+            "progress": "Step {{step}} of {{total}}",
+            "application_description": "What the application is called and what it does. The description and the context also help the AI agents that will work on it.",
+            "exposure_description": "Where the application will be exposed. Right after, you review the frontend and the backend to create.",
+            "next": "Next",
+            "host": "Application that loads it",
+            "host_placeholder": "Pick an application",
+            "exposure": {
+                "remote": "Inside an existing application",
+                "remote_hint": "An application of the project loads it as a micro-frontend.",
+                "remote_unavailable": "The project has no application that could load it yet.",
+                "standalone": "An application of its own",
+                "standalone_hint": "It has a frontend of its own; the backend is published on the project's gateway.",
+                "none": "No user interface",
+                "none_hint": "A backend only, called by the other applications of the project."
             }
         }
     },

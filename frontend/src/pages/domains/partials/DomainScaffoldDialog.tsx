@@ -56,12 +56,19 @@ export interface ScaffoldItem {
     template: string
     /** Why the AI proposes it. */
     reason?: string
+    /** A new frontend loaded by a host of the project: the host's id and name. */
+    host?: { id: string; name: string }
+    /** A new backend from the domain wizard: where it is published on the gateway, blank when only the project's applications call it. */
+    exposurePath?: string
 }
 
 type Progress = { status: "creating" | "created" } | { status: "failed"; error: string }
 
 /** Mirror the backend: what a slug and a repository name may be. */
 const SLUG_PATTERN = /^[a-z0-9][a-z0-9-]{1,49}$/
+/** Mirror the backend: a path an HTTPRoute takes, at most 256 characters, never the root, which would take every request of the project. */
+const EXPOSURE_PATH_PATTERN = /^(?!.*%2[fF])(\/(?!\.{1,2}(\/|$))([-A-Za-z0-9._~!$&'()*+,;=:@]|%[0-9a-fA-F]{2})+)+\/?$/
+const isExposurePath = (value: string) => value.length <= 256 && EXPOSURE_PATH_PATTERN.test(value)
 const REPOSITORY_NAME_PATTERN = /^[A-Za-z0-9](?:[A-Za-z0-9._-]{0,98}[A-Za-z0-9_-])?$/
 
 /** The template the backend falls back to for each kind. */
@@ -114,7 +121,7 @@ interface DomainScaffoldDialogProps {
     onOpenChange: (open: boolean) => void
     domainId: string
     domainName: string
-    /** The request the job starts with once everything is created. */
+    /** The request the job starts with once everything is created; empty, the components are only created and no job starts. */
     prompt: string
     /** Attached to the request. */
     images: PromptImage[]
@@ -192,7 +199,8 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
     const invalidFields = (item: ScaffoldItem) => ({
         name: !forMembers && !item.name.trim(),
         slug: !forMembers && !SLUG_PATTERN.test(item.slug),
-        repositoryName: !REPOSITORY_NAME_PATTERN.test(item.repositoryName) || /\.(git|atom)$/i.test(item.repositoryName)
+        repositoryName: !REPOSITORY_NAME_PATTERN.test(item.repositoryName) || /\.(git|atom)$/i.test(item.repositoryName),
+        exposurePath: Boolean(item.exposurePath?.trim()) && !isExposurePath(item.exposurePath!.trim())
     })
     const toCreate = items.filter(item => selected.includes(item.key))
     const invalid = toCreate.some(item => Object.values(invalidFields(item)).some(Boolean))
@@ -217,6 +225,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
             return
         }
         const fields = { name: item.name.trim(), slug: item.slug, domainId }
+        const exposurePath = item.exposurePath === undefined ? {} : { exposurePath: item.exposurePath.trim() || null }
         const codeRepository = {
             enabled: true,
             codeRepositoryId: repository.codeRepositoryId,
@@ -224,12 +233,13 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
             name: repository.repositoryName,
             createData: { name: repository.repositoryName, private: isPrivate, template }
         }
-        if (item.kind === "backend") await backendsApi.create({ ...fields, env: [], codeRepository }, metadata)
-        else await frontendsApi.create({ ...fields, version: "1.0.0", codeRepository }, metadata)
+        if (item.kind === "backend") await backendsApi.create({ ...fields, ...exposurePath, env: [], codeRepository }, metadata)
+        else await frontendsApi.create({ ...fields, version: "1.0.0", codeRepository, ...(item.host ? { parentIds: [item.host.id] } : {}) }, metadata)
     }
 
     const runMutation = useMutation({
-        mutationFn: async (): Promise<AiJob | undefined> => {
+        // undefined when something was not created, null when everything was and no job was asked for
+        mutationFn: async (): Promise<AiJob | null | undefined> => {
             let failed = false
             // One at a time: each one is a repository created at the provider, and the order is the one shown.
             for (const item of toCreate) {
@@ -254,15 +264,16 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                 queryClient.invalidateQueries({ queryKey: ["domains"] })
             ])
             if (failed) return undefined
+            if (!prompt) return null
             return aiJobsApi.create(
                 { prompt, scope: "domain", domainId, effort, aiModelId, images: images.length ? images : undefined },
                 { customErrorMessage: error => jobErrorMessage(t, error, "create") }
             )
         },
         onSuccess: job => {
-            if (!job) return
+            if (job === undefined) return
             onOpenChange(false)
-            onCreated(job)
+            if (job) onCreated(job)
         }
     })
 
@@ -276,7 +287,11 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
             <DialogContent className="max-w-3xl">
                 <DialogHeader>
                     <DialogTitle>{t(forMembers ? "domains.ai.scaffold.repositories_title" : "domains.ai.scaffold.plan_title", { name: domainName })}</DialogTitle>
-                    <DialogDescription>{t(forMembers ? "domains.ai.scaffold.repositories_description" : "domains.ai.scaffold.plan_description", { name: domainName })}</DialogDescription>
+                    <DialogDescription>
+                        {t(forMembers ? "domains.ai.scaffold.repositories_description" : prompt ? "domains.ai.scaffold.plan_description" : "domains.ai.scaffold.create_description", {
+                            name: domainName
+                        })}
+                    </DialogDescription>
                 </DialogHeader>
 
                 <div className="mt-2 flex max-h-[60vh] flex-col gap-4 overflow-y-auto pr-1">
@@ -343,7 +358,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                                     const checked = selected.includes(item.key)
                                     const state = progress[item.key]
                                     const locked = busy || state?.status === "created"
-                                    const errors = checked ? invalidFields(item) : { name: false, slug: false, repositoryName: false }
+                                    const errors = checked ? invalidFields(item) : { name: false, slug: false, repositoryName: false, exposurePath: false }
                                     const ofKind = templatesOfKind(templates, item.kind)
                                     const template = templateOf(item)
                                     return (
@@ -368,6 +383,7 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                                                 {state?.status === "failed" && <Badge variant="destructive">{t("domains.ai.scaffold.status_failed")}</Badge>}
                                             </div>
                                             {item.reason && <p className="mt-1 text-xs text-foreground-secondary">{item.reason}</p>}
+                                            {item.host && <p className="mt-1 text-xs text-foreground-secondary">{t("domains.ai.scaffold.loaded_by", { host: item.host.name })}</p>}
                                             {state?.status === "failed" && (
                                                 <p role="alert" className="mt-1 text-sm text-destructive">
                                                     {state.error}
@@ -431,6 +447,24 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                                                             {t(errors.repositoryName ? "domains.ai.scaffold.repository_invalid" : "domains.ai.scaffold.repository_hint")}
                                                         </span>
                                                     </div>
+                                                    {item.exposurePath !== undefined && (
+                                                        <div className="flex flex-col gap-1">
+                                                            <Label htmlFor={`${rowId}-exposure`}>{t("domains.ai.scaffold.field_exposure_path")}</Label>
+                                                            <Input
+                                                                id={`${rowId}-exposure`}
+                                                                value={item.exposurePath}
+                                                                placeholder="/api/..."
+                                                                disabled={locked}
+                                                                aria-invalid={errors.exposurePath}
+                                                                aria-describedby={`${rowId}-exposure-hint`}
+                                                                onChange={event => update(item.key, { exposurePath: event.target.value })}
+                                                                fullWidth
+                                                            />
+                                                            <span id={`${rowId}-exposure-hint`} className={errors.exposurePath ? "text-xs text-destructive" : "text-xs text-foreground-secondary"}>
+                                                                {t(errors.exposurePath ? "domains.ai.scaffold.exposure_path_invalid" : "domains.ai.scaffold.exposure_path_hint")}
+                                                            </span>
+                                                        </div>
+                                                    )}
                                                     <SelectControl label={t("domains.ai.scaffold.field_template")}>
                                                         <Select value={template?.slug} onValueChange={value => update(item.key, { template: value })} disabled={locked || ofKind.length === 0}>
                                                             <SelectTrigger>
@@ -470,8 +504,8 @@ const DomainScaffoldDialog: React.FC<DomainScaffoldDialogProps> = ({ open, onOpe
                         disabled={busy || !codeRepositoryId || toCreate.length === 0 || invalid || tooMany || loading}
                         dataTestId="domain-ai-scaffold-confirm"
                     >
-                        {!busy && <Sparkles aria-hidden="true" />}
-                        {t(forMembers ? "domains.ai.scaffold.confirm_repositories" : "domains.ai.scaffold.confirm_plan", { count: toCreate.length })}
+                        {!busy && prompt && <Sparkles aria-hidden="true" />}
+                        {t(forMembers ? "domains.ai.scaffold.confirm_repositories" : prompt ? "domains.ai.scaffold.confirm_plan" : "domains.ai.scaffold.confirm_create", { count: toCreate.length })}
                     </Button>
                 </DialogFooter>
             </DialogContent>

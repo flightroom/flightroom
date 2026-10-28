@@ -4,6 +4,7 @@ import { CirclePlus, FolderOpen, LayoutDashboard, LayoutGrid, Orbit, Pencil, Roc
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
+import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
@@ -18,6 +19,13 @@ import DomainBackendLinks from "./partials/DomainBackendLinks"
 import DomainFormDialog from "./partials/DomainFormDialog"
 import DomainGalaxy from "./partials/DomainGalaxy"
 import DomainLinkDialog from "./partials/DomainLinkDialog"
+import DomainScaffoldDialog, { ScaffoldItem } from "./partials/DomainScaffoldDialog"
+import DomainStepsWizardDialog from "./partials/DomainStepsWizardDialog"
+import DomainWizardDialog from "./partials/DomainWizardDialog"
+
+/** Mirrors the backend: a job works on at most this many repositories. */
+const MAX_REPOSITORIES = 10
+const NO_IMAGES: never[] = []
 
 const VIEWS = [
     { value: "galaxy", icon: Orbit, labelKey: "domains.viewGalaxy" },
@@ -40,6 +48,11 @@ const Domains = () => {
     const [view, setView] = useState<View>("galaxy")
     const [searchTerm, setSearchTerm] = useState("")
     const [isFormOpen, setIsFormOpen] = useState(false)
+    const [isWizardOpen, setIsWizardOpen] = useState(false)
+    const [isStepsOpen, setIsStepsOpen] = useState(false)
+    // A domain the wizard just created, with the components it proposed and the first request for the agent
+    const [scaffold, setScaffold] = useState<{ domain: Domain; items: ScaffoldItem[]; request: string } | null>(null)
+    const aiModels = useProjectAiModels()
     const [editedDomain, setEditedDomain] = useState<Domain | undefined>()
     const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null)
     const [linkToCreate, setLinkToCreate] = useState<{ sourceDomainId: string; targetDomainId: string } | null>(null)
@@ -82,6 +95,12 @@ const Domains = () => {
         setEditedDomain(domain)
         setIsFormOpen(true)
     }
+
+    // A new domain is designed with the AI when the project has one, step by step otherwise.
+    const openCreate = () => (aiModels.enabled ? setIsWizardOpen(true) : setIsStepsOpen(true))
+
+    // Without an AI its workspace has nothing to offer: the overview instead.
+    const openDomain = (domainId: string) => navigate(aiModels.enabled ? `/domain/${domainId}/ai` : `/domain/${domainId}/overview`)
 
     const domains = domainsQuery.data ?? []
     const domainNamed = (id: string) => ({ id, name: domains.find(domain => domain._id === id)?.name ?? "" })
@@ -147,7 +166,7 @@ const Domains = () => {
                                     <Rocket />
                                     {t("domains.deployments.open")}
                                 </Button>
-                                <Button variant="primary" onClick={() => openForm()} dataTestId="domain-create">
+                                <Button variant="primary" onClick={openCreate} dataTestId="domain-create">
                                     <CirclePlus />
                                     {t("domains.add_new")}
                                 </Button>
@@ -165,7 +184,7 @@ const Domains = () => {
                                 title={t("domains.empty_title")}
                                 description={t("domains.empty_description")}
                                 actions={
-                                    <Button onClick={() => openForm()}>
+                                    <Button onClick={openCreate}>
                                         <CirclePlus />
                                         {t("domains.add_new")}
                                     </Button>
@@ -260,6 +279,35 @@ const Domains = () => {
                 </SinglePageLayout>
             </Tabs>
             <DomainFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} domain={editedDomain} />
+            <DomainWizardDialog
+                open={isWizardOpen}
+                onOpenChange={setIsWizardOpen}
+                onManual={() => {
+                    setIsWizardOpen(false)
+                    setIsStepsOpen(true)
+                }}
+                onCreated={(domain, items, request) => (items.length > 0 ? setScaffold({ domain, items, request }) : openDomain(domain._id))}
+            />
+            <DomainStepsWizardDialog open={isStepsOpen} onOpenChange={setIsStepsOpen} onCreated={(domain, items) => setScaffold({ domain, items, request: "" })} />
+            {scaffold && (
+                <DomainScaffoldDialog
+                    open
+                    // Closed without starting the agent: the domain exists all the same, and its page can propose the components again
+                    onOpenChange={open => {
+                        if (open) return
+                        setScaffold(null)
+                        openDomain(scaffold.domain._id)
+                    }}
+                    domainId={scaffold.domain._id}
+                    domainName={scaffold.domain.name}
+                    prompt={scaffold.request}
+                    images={NO_IMAGES}
+                    items={scaffold.items}
+                    maxRepositories={MAX_REPOSITORIES}
+                    // Called right after the dialog closes: the job replaces the domain page it opened
+                    onCreated={job => navigate(`/domain/${scaffold.domain._id}/ai?change=${job.rootJobId}`, { replace: true })}
+                />
+            )}
             <DeleteConfirmationDialog
                 isOpen={Boolean(domainToDelete)}
                 onOpenChange={open => !open && setDomainToDelete(null)}
