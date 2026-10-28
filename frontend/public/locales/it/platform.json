@@ -3599,6 +3599,10 @@
                 "label": "Email (SMTP)",
                 "description": "Un server SMTP attraverso cui il backend invia email."
             },
+            "sharepoint": {
+                "label": "SharePoint",
+                "description": "Un sito SharePoint Online e i suoi documenti, tramite Microsoft Graph: con un'app Entra ID, per client secret o certificato, o con managed identity."
+            },
             "generic": {
                 "label": "Generica",
                 "description": "Per quello che il catalogo non ha: definisci tu le variabili, e quali sono segrete."
@@ -3661,6 +3665,11 @@
                 "credentials": "Con autenticazione",
                 "noAuth": "Relay senza autenticazione"
             },
+            "sharepoint": {
+                "azureAad": "App Entra ID, client secret",
+                "azureAadCertificate": "App Entra ID, certificato",
+                "azureManagedIdentity": "Managed identity"
+            },
             "generic": {
                 "custom": "Variabili personalizzate"
             }
@@ -3710,7 +3719,10 @@
             "replicaSet": "Replica set",
             "projectId": "ID del progetto Google Cloud",
             "dataset": "Dataset",
-            "location": "Località"
+            "location": "Località",
+            "siteUrl": "URL del sito",
+            "library": "Raccolta documenti",
+            "certificate": "Certificato (PEM con chiave privata)"
         },
         "retype": {
             "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"

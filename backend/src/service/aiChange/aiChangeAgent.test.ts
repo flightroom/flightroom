@@ -1107,6 +1107,24 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         )
     })
 
+    it("Given a SharePoint site, when it runs, then the agent is told to reach it through Microsoft Graph with the variables of its variant", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+        const sharepoint = agentResource("contracts", "sharepoint", "azureAad", { siteUrl: "https://contoso.sharepoint.com/sites/legal", library: "Contracts" })
+
+        await runAiChangeAgent(client, { ...input(), repositories: [{ baseBranch: "main", workingCopy, backend: { ...configuredBackend(), resources: [sharepoint] } }] }, hooks().hooks)
+
+        expect(firstPromptOf(sent)).toContain(
+            [
+                "- contracts (sharepoint, azureAad)",
+                "  keys: SHAREPOINT_CONTRACTS_SITE_URL, SHAREPOINT_CONTRACTS_LIBRARY, SHAREPOINT_CONTRACTS_TENANT_ID, SHAREPOINT_CONTRACTS_CLIENT_ID, SHAREPOINT_CONTRACTS_CLIENT_SECRET (secret), SHAREPOINT_CONTRACTS_AUTH=azureAad",
+                "  secret: contracts.resource",
+                "  site_url: https://contoso.sharepoint.com/sites/legal",
+                "  library: Contracts",
+                "  usage: call Microsoft Graph (e.g. @microsoft/microsoft-graph-client with @azure/identity, scope https://graph.microsoft.com/.default), resolving the site from SHAREPOINT_CONTRACTS_SITE_URL with GET /sites/{hostname}:/{site path} and its document library by the name in SHAREPOINT_CONTRACTS_LIBRARY when set (the default drive of the site otherwise), authenticating with an Entra ID client secret credential (tenant from SHAREPOINT_CONTRACTS_TENANT_ID, client from SHAREPOINT_CONTRACTS_CLIENT_ID, secret from SHAREPOINT_CONTRACTS_CLIENT_SECRET); never hardcode any of them"
+            ].join("\n")
+        )
+    })
+
     it.each([
         ["basic", {}, "auth: basic — HTTP basic auth, user from API_PAYMENTS_USERNAME and password from API_PAYMENTS_PASSWORD"],
         ["bearer", {}, "auth: bearer — send the header Authorization: Bearer <value of API_PAYMENTS_TOKEN>"],

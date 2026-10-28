@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **SharePoint Resource**: `sharepoint` joins the resource catalog and reaches a SharePoint Online site through Microsoft Graph by an Entra ID app, with a client secret or a certificate, or by the managed identity of the pod, with the site URL and an optional document library. The agent is told to resolve the site and the library through Graph with the variables of the variant
+
 ## [9.2.0] - 2026-10-28
 
 ### Added
