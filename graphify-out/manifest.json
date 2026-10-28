@@ -1305,9 +1305,9 @@
     "semantic_hash": "12b2383296d3ad8968b375feae455839"
   },
   "frontend/src/theme/Notification.tsx": {
-    "mtime": 1792649408.4247699,
-    "ast_hash": "73ce392c58c2f960d77e9bbedd6ad47f",
-    "semantic_hash": "73ce392c58c2f960d77e9bbedd6ad47f"
+    "mtime": 1793170382.3244033,
+    "ast_hash": "0ee5127e6f50a7150f53911df5a1ceb9",
+    "semantic_hash": ""
   },
   "frontend/src/theme/SelectProjectWrapper.tsx": {
     "mtime": 1793135854.2761054,
@@ -3130,8 +3130,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainGalaxy.tsx": {
-    "mtime": 1793005820.631112,
-    "ast_hash": "0f7c0808d840b2a58868d23d62b1851a",
+    "mtime": 1793170376.1245344,
+    "ast_hash": "cab8109097b6eb4fce716c0c6386cea8",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainDeploymentsApi.ts": {
@@ -4440,8 +4440,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceBay.tsx": {
-    "mtime": 1793005820.640192,
-    "ast_hash": "ba15bf6db7143460b7ef9fff645cd68f",
+    "mtime": 1793170397.986421,
+    "ast_hash": "63986187da9c62c4a8d492a85fdcc858",
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceDangerZone.tsx": {
@@ -5097,6 +5097,11 @@
   "frontend/src/components/deploy-overlay/RolloutApplications.tsx": {
     "mtime": 1793143503.5496633,
     "ast_hash": "9cb6335cee8b4fed82c7ed60eaa59bbc",
+    "semantic_hash": ""
+  },
+  "frontend/src/hooks/useIsDark.ts": {
+    "mtime": 1793170376.1011288,
+    "ast_hash": "fcbe8c5e5fa43dc06290eaf921413b03",
     "semantic_hash": ""
   }
 }
