@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793179118.1654513,
-    "ast_hash": "c6de3ff150e58b3b2d0f0a114ef2bdd4",
+    "mtime": 1793216605.512451,
+    "ast_hash": "859597902afa3d3aa684029a1cad29ca",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793179120.9516973,
-    "ast_hash": "13a7ff3cb11902b5c855cd2713ff8252",
+    "mtime": 1793216605.5039845,
+    "ast_hash": "a0047fd8f88930ff060d30fff1594f26",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -920,8 +920,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/useApiClient.tsx": {
-    "mtime": 1793005820.618615,
-    "ast_hash": "b9ff6a37b824a437d21bfd0d0355c657",
+    "mtime": 1793217205.0492282,
+    "ast_hash": "81ddc9a2e67547e65b670f2702c68fd5",
     "semantic_hash": ""
   },
   "frontend/src/hooks/useDragAndDropOrder.ts": {
@@ -1485,8 +1485,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793179143.5890775,
-    "ast_hash": "de79e622afeadb7d0061d579c27a62e7",
+    "mtime": 1793217155.8386428,
+    "ast_hash": "cd31a17630b3aa727dcd12cd85e3d771",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2630,8 +2630,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeService.test.ts": {
-    "mtime": 1793005820.5581312,
-    "ast_hash": "13fa73b127b00fe204674fd89443be4d",
+    "mtime": 1793217079.1802514,
+    "ast_hash": "9409d7655f7f0af2944eea470903e978",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeService.ts": {
@@ -2655,8 +2655,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/workspace/GitWorkingCopy.ts": {
-    "mtime": 1793028197.489953,
-    "ast_hash": "8d7a3c58d74b0713bc2c737c45cb2b28",
+    "mtime": 1793217003.0091138,
+    "ast_hash": "cab5e94772697d9fde0079fe6c352b58",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/RepositoryWorkspaceService.test.ts": {
@@ -2665,8 +2665,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/workspace/RepositoryWorkspaceService.ts": {
-    "mtime": 1793028197.4902275,
-    "ast_hash": "194974b118ccbfbacc8239cda819518d",
+    "mtime": 1793217117.7306783,
+    "ast_hash": "7075c073211007d61de38dff0e00fa65",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/workspaceCleanup.ts": {
@@ -2680,13 +2680,13 @@
     "semantic_hash": ""
   },
   "backend/src/utils/workspacePaths.test.ts": {
-    "mtime": 1793005820.5785477,
-    "ast_hash": "32a3c358dddcbf2d71f1cbf723a2adb5",
+    "mtime": 1793217117.728654,
+    "ast_hash": "e952c03e377680670c7d765b07f5aaa7",
     "semantic_hash": ""
   },
   "backend/src/utils/workspacePaths.ts": {
-    "mtime": 1793005820.5787363,
-    "ast_hash": "169ee4566f667db0220f80e75df72301",
+    "mtime": 1793217003.0080898,
+    "ast_hash": "f0d445ca8cca1e5670f5a9b5299d6d42",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useAiChangesApi.ts": {
@@ -2695,8 +2695,8 @@
     "semantic_hash": ""
   },
   "docs/AI-CODE-CHANGES.md": {
-    "mtime": 1793050504.9098072,
-    "ast_hash": "a03207bb9cb11a6dc9ee9e82fa4c76d6",
+    "mtime": 1793217148.959543,
+    "ast_hash": "d61b3944795de2e44a0052ac20634eb8",
     "semantic_hash": ""
   },
   "backend/src/service/llm/anthropicProvider.ts": {
@@ -2830,8 +2830,8 @@
     "semantic_hash": ""
   },
   "backend/src/models/AiChangeJobModel.ts": {
-    "mtime": 1793097792.2261827,
-    "ast_hash": "c7bb0b593c9526ee6f3e5e2ec4668fc6",
+    "mtime": 1793216576.2239234,
+    "ast_hash": "8bfae053b355feb7daf1c1e14e9d2166",
     "semantic_hash": ""
   },
   "backend/src/models/AssistantConversationModel.ts": {
@@ -2840,18 +2840,18 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.test.ts": {
-    "mtime": 1793032196.250253,
-    "ast_hash": "aa965b6aeec8f95b2fb539641faecccf",
+    "mtime": 1793217117.7548687,
+    "ast_hash": "6b51045f2dd17db2e2623786b3e8d239",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.ts": {
-    "mtime": 1793179092.2564545,
-    "ast_hash": "bdf599271ee1f355ce322e3f033d1a06",
+    "mtime": 1793217016.465974,
+    "ast_hash": "7bc52315f08d19fae4bbb25914c1d321",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeShared.ts": {
-    "mtime": 1793005820.5598502,
-    "ast_hash": "970eb5f8bad658db8e2b917f7d927ab0",
+    "mtime": 1793217016.4649944,
+    "ast_hash": "c8ae350df5b0d15f4ba4e3ac59e41af6",
     "semantic_hash": ""
   },
   "backend/src/service/assistant/conversations.test.ts": {
@@ -2880,8 +2880,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantJobThread.tsx": {
-    "mtime": 1793005820.6076117,
-    "ast_hash": "99f4964a973895a791479b2e6b2e7d61",
+    "mtime": 1793216605.4992692,
+    "ast_hash": "b84bf8e811570669696d8ec24aa13b0d",
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantNewJobDialog.tsx": {
@@ -2895,8 +2895,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useAiJobsApi.ts": {
-    "mtime": 1793098024.8674216,
-    "ast_hash": "cd85fc32c5e32567d5e457901781963c",
+    "mtime": 1793216605.4986985,
+    "ast_hash": "f90adca4700824e67ecc2b3a5130df62",
     "semantic_hash": ""
   },
   "frontend/src/store/useAssistantJobsStore.ts": {
@@ -3210,8 +3210,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/VariableMapService.ts": {
-    "mtime": 1793005820.5560296,
-    "ast_hash": "d5a0675a15f4a19286b7119a20ea82d5",
+    "mtime": 1793184234.372829,
+    "ast_hash": "3a7ac39835ea4b24ca629ab02afbb0b1",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/DomainPlanService.test.ts": {
@@ -3235,8 +3235,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/VariableMapService.test.ts": {
-    "mtime": 1793005820.555811,
-    "ast_hash": "bda2ae54719d29f4cd521097981750de",
+    "mtime": 1793184235.2337854,
+    "ast_hash": "fc49e430e94e2e6e79b6d26e3c075c05",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainScaffoldDialog.tsx": {
@@ -3315,8 +3315,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793127033.6951828,
-    "ast_hash": "a24cc8541e88abf69e6e5577a7a85725",
+    "mtime": 1793217345.7672138,
+    "ast_hash": "cd93340e56e2a12f864e696f1ae184c5",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
@@ -3735,8 +3735,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/deploy-overlay/DeployOverlay.tsx": {
-    "mtime": 1793144265.4819596,
-    "ast_hash": "0230c31f3f81f1a0dc560c5bb3150661",
+    "mtime": 1793216605.4979377,
+    "ast_hash": "1405e333d034e32fb6e29e3b617517cc",
     "semantic_hash": ""
   },
   "docs/assets/banner.png": {
@@ -3790,8 +3790,8 @@
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/frontendTools.ts": {
-    "mtime": 1793120993.2736182,
-    "ast_hash": "5952219c6af2e30b65be95630b42ac16",
+    "mtime": 1793184173.1696033,
+    "ast_hash": "b9883028f677cd2fb0239bef7c852aea",
     "semantic_hash": ""
   },
   "backend/src/models/FrontendModel.test.ts": {
@@ -4080,8 +4080,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiMissionService.test.ts": {
-    "mtime": 1793005820.5583491,
-    "ast_hash": "e8e6581651c99eea29184b2678b8e6ff",
+    "mtime": 1793217067.3340101,
+    "ast_hash": "a111f9ed43a422bbe15859b9e2db8d8d",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiMissionService.ts": {
@@ -4555,13 +4555,13 @@
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/backendTools.test.ts": {
-    "mtime": 1793005820.526576,
-    "ast_hash": "d3ec0f7c2f14baeb74d96f54aaacb6ee",
+    "mtime": 1793184206.4011352,
+    "ast_hash": "f6604df6f0127b2418c8a861041b91d5",
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/backendTools.ts": {
-    "mtime": 1793005820.5267532,
-    "ast_hash": "4a8a56a4c3364c208c43645008fb8d98",
+    "mtime": 1793184171.332468,
+    "ast_hash": "a8ed067c2f2a507852bce7b3492cbada",
     "semantic_hash": ""
   },
   "backend/src/models/BackendDeploymentModel.ts": {
@@ -5092,6 +5092,11 @@
   "frontend/src/hooks/useIsDark.ts": {
     "mtime": 1793170376.1011288,
     "ast_hash": "fcbe8c5e5fa43dc06290eaf921413b03",
+    "semantic_hash": ""
+  },
+  "frontend/src/hooks/useElapsed.ts": {
+    "mtime": 1793216604.5161057,
+    "ast_hash": "e99af66ad87e56b7534e5161a7a55afc",
     "semantic_hash": ""
   }
 }
