@@ -625,8 +625,8 @@
     "semantic_hash": ""
   },
   "frontend/package.json": {
-    "mtime": 1793113650.500447,
-    "ast_hash": "6caef381ede84ffb4925f2762f6463b4",
+    "mtime": 1793173808.5507216,
+    "ast_hash": "c97cf4cbce6e310cc1e63272fab6c53f",
     "semantic_hash": ""
   },
   "frontend/postcss.config.js": {
@@ -635,13 +635,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793144264.9387767,
-    "ast_hash": "29b615e4e2164c5451f37efaa86db414",
+    "mtime": 1793173445.7033112,
+    "ast_hash": "cf246e36ab82658d31adbe9036384331",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793144264.9353905,
-    "ast_hash": "daa04b6792d14d07af5b244b039d7d43",
+    "mtime": 1793173445.7026002,
+    "ast_hash": "95c35a49399dbf4ad6b69945a20e3f49",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -725,8 +725,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ProjectPickerList.tsx": {
-    "mtime": 1792649408.4086041,
-    "ast_hash": "482e04c92fca13e887fa91bde1a3976d",
+    "mtime": 1793173474.1757483,
+    "ast_hash": "fb2861f3a04e4efb41f4ff4aedd741d4",
     "semantic_hash": ""
   },
   "frontend/src/components/RouteWithSuspense.tsx": {
@@ -735,8 +735,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/SinglePageLayout.tsx": {
-    "mtime": 1793005820.6034904,
-    "ast_hash": "94373a1cc81dba97b5f20d611f771342",
+    "mtime": 1793173491.5302675,
+    "ast_hash": "d24a293d365bb4b5a1b586d7d7074204",
     "semantic_hash": ""
   },
   "frontend/src/components/SwitchProjectButton.tsx": {
@@ -775,8 +775,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/input/TextareaField.rhf.tsx": {
-    "mtime": 1793005820.610293,
-    "ast_hash": "b329fb2e27be70dca5d7e8e16fedea84",
+    "mtime": 1793173526.6668673,
+    "ast_hash": "89b6e62f718cb6a602f92a43ddde45e4",
     "semantic_hash": ""
   },
   "frontend/src/components/molecules/EnvironmentSelector.tsx": {
@@ -785,18 +785,13 @@
     "semantic_hash": ""
   },
   "frontend/src/components/organisms/api-status-handler/ApiStatusHandler.tsx": {
-    "mtime": 1793005820.610748,
-    "ast_hash": "e93450d71c9427af74b187927b8e938a",
+    "mtime": 1793173491.529358,
+    "ast_hash": "a4d5a0eab4047b5fb2219a8401101810",
     "semantic_hash": ""
   },
-  "frontend/src/components/organisms/api-status-handler/IApiStatusHandlerProps.ts": {
-    "mtime": 1792649408.409684,
-    "ast_hash": "69d27eb0da4213af1e9ebed34f179112",
-    "semantic_hash": "69d27eb0da4213af1e9ebed34f179112"
-  },
   "frontend/src/components/organisms/api-status-handler/index.ts": {
-    "mtime": 1792649408.4098134,
-    "ast_hash": "55857c9f47a84c33b2d2eb1b2cd928b4",
+    "mtime": 1793173526.6662812,
+    "ast_hash": "218eeed9c497bd840150a2ab29d3fc95",
     "semantic_hash": ""
   },
   "frontend/src/components/organisms/index.ts": {
@@ -1490,8 +1485,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793138073.5535116,
-    "ast_hash": "eb167daef4564525adef0cab1e9a23cd",
+    "mtime": 1793173846.388854,
+    "ast_hash": "86653120554608166df215476ebde5e2",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -1655,8 +1650,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/dependencies/partials/DependencyStatusBadge.tsx": {
-    "mtime": 1792649408.4166589,
-    "ast_hash": "afd9a6ea9629f92e74cfd09524eb3869",
+    "mtime": 1793173474.1767802,
+    "ast_hash": "042a8c8142be466c3810f191d62ed7ed",
     "semantic_hash": ""
   },
   "frontend/src/pages/dependencies/partials/index.ts": {
@@ -1860,8 +1855,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/builds/partials/BuildStatusBadge.tsx": {
-    "mtime": 1792649408.414989,
-    "ast_hash": "f986259b444aea7c9fd48ab4033e05ef",
+    "mtime": 1793173474.1771626,
+    "ast_hash": "a1f32e385ee65e248cba7b1488aae7fb",
     "semantic_hash": ""
   },
   "frontend/src/pages/builds/partials/BuildStatusTable.tsx": {
@@ -2059,14 +2054,9 @@
     "ast_hash": "e5329577aef81d89337a2b8196a97248",
     "semantic_hash": ""
   },
-  "frontend/src/components/EntityPickerList.tsx": {
-    "mtime": 1793005820.6026778,
-    "ast_hash": "96ba96a853d140194468e2b2fcf35a49",
-    "semantic_hash": ""
-  },
   "frontend/src/components/OrganizationPickerList.tsx": {
-    "mtime": 1792649408.408162,
-    "ast_hash": "6c0942c07eb204af4b741efdec031a65",
+    "mtime": 1793173474.176209,
+    "ast_hash": "21d65ec4e5f19ed09218e667af5c5673",
     "semantic_hash": ""
   },
   "frontend/src/components/SwitchOrganizationButton.tsx": {
@@ -2620,8 +2610,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/ProjectContextSection.tsx": {
-    "mtime": 1793005820.649455,
-    "ast_hash": "c1b992c10f81d2e52fdb278eb06b23c8",
+    "mtime": 1793173439.2100616,
+    "ast_hash": "26857f198a8d74cf9c25ea5727e5d208",
     "semantic_hash": ""
   },
   "backend/src/controller/AiChangeController.ts": {
@@ -2885,8 +2875,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantJobTabs.tsx": {
-    "mtime": 1793005820.6073756,
-    "ast_hash": "a16e4f40234174095b90c83989b38259",
+    "mtime": 1793173480.946385,
+    "ast_hash": "84499fa96650102ac0d7a6fdce382a2b",
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantJobThread.tsx": {
@@ -3005,8 +2995,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainFormDialog.tsx": {
-    "mtime": 1793005820.6308258,
-    "ast_hash": "343b8cdb0e6b89bbfe028df55cd0c058",
+    "mtime": 1793173439.2116098,
+    "ast_hash": "8bec34a139539e152b2219ec21b44305",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainSelectField.tsx": {
@@ -3320,8 +3310,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiChangeProgress.tsx": {
-    "mtime": 1793005820.6055696,
-    "ast_hash": "400e186bc4ad79b7eeb56f69f134eb08",
+    "mtime": 1793173491.4867575,
+    "ast_hash": "d7d22adcd9eebee845c29dc3a0fd28a6",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
@@ -3900,8 +3890,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/AddFrontend.tsx": {
-    "mtime": 1793121204.295706,
-    "ast_hash": "a00265b4f890b49300e7d6ff74f2aa72",
+    "mtime": 1793173439.212129,
+    "ast_hash": "f6a3b043d5e3e035a4d18dd29c62d65d",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/FrontendAiWorkspace.tsx": {
@@ -4140,8 +4130,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/fleet/partials/missionShared.tsx": {
-    "mtime": 1793005820.6344028,
-    "ast_hash": "847f2c89261e81ded5335bfd71ee628e",
+    "mtime": 1793173474.1775918,
+    "ast_hash": "3fd0b80e1c10882447ec87b7f23d64be",
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/projectTools.test.ts": {
@@ -4255,8 +4245,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/resources/ResourceForm.tsx": {
-    "mtime": 1793032129.7940056,
-    "ast_hash": "bb09ecfd0b7b3aa8f87fbef99ec47d92",
+    "mtime": 1793173439.2133706,
+    "ast_hash": "72d69d3da1a087faf72321109c9cc86e",
     "semantic_hash": ""
   },
   "frontend/src/pages/resources/Resources.tsx": {
@@ -4340,8 +4330,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/DesignSystemFields.tsx": {
-    "mtime": 1793005820.648892,
-    "ast_hash": "99aefd6ecd63683b9b103ec9bd9b6dcb",
+    "mtime": 1793173439.2142472,
+    "ast_hash": "8abd218ac49bccffeb344b9994b41837",
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/ProjectDesignSystemSection.tsx": {
@@ -4405,8 +4395,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/AddMaintenanceAgent.tsx": {
-    "mtime": 1793121204.292656,
-    "ast_hash": "2eed905dc20a5d1d5383a9fdce76fd1e",
+    "mtime": 1793173480.9467788,
+    "ast_hash": "e53e96615a1ab20d5e3ae486383d8127",
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/MaintenanceAgentDetail.tsx": {
@@ -4435,13 +4425,13 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceBadges.tsx": {
-    "mtime": 1793005820.6399925,
-    "ast_hash": "78e25be75d3dab78415a010c3e607d53",
+    "mtime": 1793173474.1786892,
+    "ast_hash": "58d6eef110529af0d1bd019cfb12d020",
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceBay.tsx": {
-    "mtime": 1793170397.986421,
-    "ast_hash": "63986187da9c62c4a8d492a85fdcc858",
+    "mtime": 1793173491.4815423,
+    "ast_hash": "bd8cba8f691aeec7b45b81215ab5e83c",
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceDangerZone.tsx": {
@@ -4655,8 +4645,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/AddBackend.tsx": {
-    "mtime": 1793121204.2918804,
-    "ast_hash": "e069748fcf3b9525c54f0e40d8ca1797",
+    "mtime": 1793173439.2126946,
+    "ast_hash": "7c3bd366f953ca25c8f26c4f6e6fbc92",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/BackendDetail.tsx": {
