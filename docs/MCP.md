@@ -163,9 +163,9 @@ at most.
   together with a new repository at the provider, from a marketplace template (`templates_list`) and
   through a repository connection of the project (`code_repositories_list`), with its CI pipeline and,
   on GitHub, the deploy secret. Neither the connection's credentials nor that secret are ever part of
-  the input or of the result, and the console assistant asks the user before running them. The slug
-  is also the name of the new repository, so it ends in `-fe` for a frontend and in `-be` for a
-  backend (`checkout-fe`, `orders-be`): there is no separate repository name. Creating a
+  the input or of the result, and the console assistant asks the user before running them. The
+  `repositoryName` they take is also the slug of the new frontend or backend, so it ends in `-fe` for
+  a frontend and in `-be` for a backend (`checkout-fe`, `orders-be`). Creating a
   domain creates no repository: scaffold its members with these tools and its `domainId`.
 - `frontend_create`, `frontend_update`, `backend_create` and `backend_update` take an optional
   `domainId`; `null` takes the item out of its domain. A domain of another project is refused before

@@ -55,8 +55,8 @@ describe("scaffold tools", () => {
 
     it("given their definitions, when read, then MCP clients get them and the console assistant asks before creating a repository", () => {
         expect(scaffoldTools.map(definition => definition.name).sort()).toEqual(["backend_scaffold", "frontend_scaffold"])
-        expect(tool("frontend_scaffold").inputSchema.shape.slug.description).toContain("-fe")
-        expect(tool("backend_scaffold").inputSchema.shape.slug.description).toContain("-be")
+        expect(tool("frontend_scaffold").inputSchema.shape.repositoryName.description).toContain("-fe")
+        expect(tool("backend_scaffold").inputSchema.shape.repositoryName.description).toContain("-be")
         for (const definition of scaffoldTools) {
             expect(definition.consoleOnly, definition.name).toBeFalsy()
             expect(definition.scope, definition.name).toBe("mfe:write")
@@ -66,7 +66,7 @@ describe("scaffold tools", () => {
     })
 
     describe("frontend_scaffold", () => {
-        const input = { name: "Cart", slug: "cart-fe", version: "1.0.0", template: "react-vite", codeRepositoryId: CODE_REPOSITORY, private: true }
+        const input = { name: "Cart", version: "1.0.0", template: "react-vite", codeRepositoryId: CODE_REPOSITORY, repositoryName: "cart-fe", private: true }
 
         it("given a template and a connection of the project, when scaffolded, then the frontend is created with the repository to create", async () => {
             findCodeRepository.mockResolvedValue({ _id: CODE_REPOSITORY })
@@ -109,7 +109,7 @@ describe("scaffold tools", () => {
     })
 
     describe("backend_scaffold", () => {
-        const input = { name: "Orders API", slug: "orders-be", domainId: DOMAIN, template: "node-fastify", codeRepositoryId: CODE_REPOSITORY }
+        const input = { name: "Orders API", domainId: DOMAIN, template: "node-fastify", codeRepositoryId: CODE_REPOSITORY, repositoryName: "orders-be" }
 
         it("given a template, a connection and a domain of the project, when scaffolded, then the backend is created in the domain with the repository to create", async () => {
             findCodeRepository.mockResolvedValue({ _id: CODE_REPOSITORY })
@@ -152,14 +152,26 @@ describe("scaffold tools", () => {
             expect(createBackend).not.toHaveBeenCalled()
         })
 
-        it("given a slug without the suffix of its kind, when parsed, then it is refused: the slug names the repository", () => {
-            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, slug: "orders" }).success).toBe(false)
-            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, slug: "orders-fe" }).success).toBe(false)
-            expect(tool("frontend_scaffold").inputSchema.safeParse({ ...input, version: "1.0.0", slug: "orders-be" }).success).toBe(false)
+        it("given a repository name the providers refuse, when parsed, then it is refused", () => {
+            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, repositoryName: "orders be" }).success).toBe(false)
+            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, repositoryName: "orders-be.git" }).success).toBe(false)
         })
 
-        it("given a separate repository name, when parsed, then it is dropped: the repository is named after the slug", () => {
-            expect(tool("backend_scaffold").inputSchema.parse({ ...input, repositoryName: "other-be" })).not.toHaveProperty("repositoryName")
+        it("given a repository name that is not a slug or lacks the suffix of its kind, when parsed, then it is refused: it is also the slug", () => {
+            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, repositoryName: "Orders-be" }).success).toBe(false)
+            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, repositoryName: "orders" }).success).toBe(false)
+            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, repositoryName: "orders-fe" }).success).toBe(false)
+            expect(tool("frontend_scaffold").inputSchema.safeParse({ ...input, version: "1.0.0", repositoryName: "orders-be" }).success).toBe(false)
+        })
+
+        it("given a slug other than the repository name, when scaffolded, then the slug is the repository name", async () => {
+            findCodeRepository.mockResolvedValue({ _id: CODE_REPOSITORY })
+            getDomain.mockResolvedValue({ _id: DOMAIN })
+            getTemplate.mockResolvedValue({ slug: "node-fastify" })
+
+            await run("backend_scaffold", { ...input, slug: "orders-api" })
+
+            expect(createBackend).toHaveBeenCalledWith(expect.objectContaining({ slug: "orders-be" }), PROJECT)
         })
 
         it("given an existing repository to link instead, when parsed, then it is not taken: backend_create links one", () => {
