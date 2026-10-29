@@ -23,15 +23,6 @@ export interface ProjectGitOps {
     applicationsCodeRepository?: ProjectGitOpsRepository
 }
 
-/** Il repository da cui si copiano le pipeline dei repository creati da un template, al posto dei template-pipelines ufficiali */
-export interface ProjectPipelines {
-    codeRepository: ProjectGitOpsRepository
-    /** Branch o tag letto; assente = il branch di default del repository */
-    ref?: string
-    /** Cartella del repository da cui parte la struttura; assente = la root */
-    path?: string
-}
-
 /** Dove sono esposti gli ambienti: ognuno sul suo sottodominio di `domain` */
 export interface ProjectExposure {
     domain: string
@@ -65,7 +56,6 @@ export interface Project {
     context?: string
     gitOps?: ProjectGitOps
     exposure?: ProjectExposure
-    pipelines?: ProjectPipelines
     /** Dove sono pubblicate le immagini, es. ghcr.io/acme: chi non ha un repository immagine suo viene deployato come <registry>/<slug> */
     containerRegistry?: string
     /** Le tecnologie di default per frontend e servizi: guidano template e agenti AI senza vincolare */
@@ -126,8 +116,6 @@ export interface ProjectUpdateDTO {
         /** Secondo repository opzionale per le applicazioni: null o assente = nessuno */
         applications?: { codeRepositoryId: string; repositoryId?: string; newRepositoryName?: string } | null
     }
-    /** `null` torna ai template-pipelines ufficiali; ref vuoto o null = il branch di default, path vuoto o null = la root */
-    pipelines?: { codeRepositoryId: string; repositoryId: string; ref?: string | null; path?: string | null } | null
 }
 
 interface AddUserToProjectDTO {

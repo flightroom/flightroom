@@ -1,6 +1,6 @@
-import { Card, CardContent, EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
+import { Badge, Card, CardContent, EmptyState, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Edit, PlusCircle, Star, Trash2 } from "lucide-react"
+import { Edit, PlusCircle, Star, Trash2, Workflow } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -8,9 +8,9 @@ import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
-import useCodeRepositoriesApi, { CodeRepositoryProvider } from "@/hooks/apiClients/useCodeRepositoriesApi"
+import useCodeRepositoriesApi, { CodeRepositoryProvider, type ICodeRepository } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import useProjectStore from "@/store/useProjectStore"
-import { AddRepositoryDialog } from "./partials"
+import { AddRepositoryDialog, PipelineTemplatesDialog } from "./partials"
 
 const CodeRepositoryPage = () => {
     const { t } = useTranslation()
@@ -21,6 +21,7 @@ const CodeRepositoryPage = () => {
     const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false)
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
     const [repositoryToDelete, setRepositoryToDelete] = useState<{ id: string; name: string } | null>(null)
+    const [pipelinesConnection, setPipelinesConnection] = useState<ICodeRepository | null>(null)
     const navigate = useNavigate()
 
     // Mock data query - replace with actual API call
@@ -91,6 +92,7 @@ const CodeRepositoryPage = () => {
                                         {repository.provider === CodeRepositoryProvider.GITLAB && <img src="/img/GitLab.svg" alt="GitLab" className="h-8 w-8" />}
                                         {repository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && <img src="/img/AzureDevOps.svg" alt="Azure DevOps" className="h-8 w-8" />}
                                         {repository.name}
+                                        {repository.pipelines?.codeRepository && <Badge variant="accent">{t("codeRepositories.pipelines.customBadge")}</Badge>}
                                     </TableCell>
                                     <TableCell>
                                         <Button variant="ghost" size="icon" disabled={setDefaultMutation.isPending} onClick={() => setDefaultMutation.mutate(repository._id)}>
@@ -99,6 +101,16 @@ const CodeRepositoryPage = () => {
                                     </TableCell>
                                     <TableCell>
                                         <div className="flex gap-1 justify-end">
+                                            <Button
+                                                variant="ghost"
+                                                size="icon"
+                                                aria-label={t("codeRepositories.pipelines.action")}
+                                                title={t("codeRepositories.pipelines.action")}
+                                                dataTestId={`pipelines-${repository._id}`}
+                                                onClick={() => setPipelinesConnection(repository)}
+                                            >
+                                                <Workflow />
+                                            </Button>
                                             <Button
                                                 variant="ghost"
                                                 size="icon"
@@ -140,6 +152,8 @@ const CodeRepositoryPage = () => {
                         setIsCreateDialogOpen(open)
                     }}
                 />
+
+                <PipelineTemplatesDialog connection={pipelinesConnection} onOpenChange={open => !open && setPipelinesConnection(null)} />
 
                 <DeleteConfirmationDialog
                     isOpen={isDeleteDialogOpen}

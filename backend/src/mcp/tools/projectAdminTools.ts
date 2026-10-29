@@ -23,7 +23,7 @@ const ensureMcpEnabled = () => {
 
 /**
  * Console-only tools for what sits around the project rather than in it: deleting it, its GitOps
- * repository, its pipeline templates, its members, its API keys and the MCP clients connected to it.
+ * repository, its members, its API keys and the MCP clients connected to it.
  */
 export const projectAdminTools = [
     defineTool({
@@ -70,36 +70,6 @@ export const projectAdminTools = [
         run: async (args, { principal, projectId }) => {
             const project = await new ProjectService(principal).update(projectId, { gitOps: args })
             return { gitOps: project?.gitOps }
-        }
-    }),
-    defineTool({
-        name: "project_pipelines_set",
-        title: "Set pipeline templates repository",
-        description:
-            "Picks the repository the pipelines of every frontend and backend scaffolded from a template in the project are copied from, in place of the official mfe-orchestrator/template-pipelines. It has the same layout: <type>/<compiler>/<provider>/ (provider github, gitlab or azure_dev_ops), or <type>/<compiler>/<template slug>/<provider>/ for one template, e.g. service/docker/github/workflows/release.yml, starting from its root or from the folder given as path; %microfrontendSlug%, %serviceSlug% and %domain% are replaced. A template it has no folder for keeps the pipeline it ships with. Pass repositoryId null to go back to the official ones. Only an owner of the project (or an administrator of its organization) can do it. The current setting is in project_get (pipelines).",
-        scope: MCP_SCOPE_WRITE,
-        consoleOnly: true,
-        // Every repository scaffolded afterwards runs the pipelines of that repository: confirmed by the user
-        requiresConfirmation: true,
-        annotations: WRITE,
-        inputSchema: z
-            .object({
-                codeRepositoryId: objectId("Id of the code repository connection, from code_repositories_list").optional(),
-                repositoryId: z
-                    .string()
-                    .trim()
-                    .min(1)
-                    .max(255)
-                    .nullable()
-                    .describe('The repositoryId of the repository, from code_repository_importable with target "backend"; null for the official templates'),
-                ref: z.string().trim().max(255).optional().describe("Branch or tag to read; the default branch of the repository when left out"),
-                path: z.string().trim().max(255).optional().describe("Folder of the repository the layout starts from, e.g. ci/templates; its root when left out")
-            })
-            .refine(args => args.repositoryId === null || args.codeRepositoryId, { message: "Pass codeRepositoryId with repositoryId" }),
-        run: async ({ codeRepositoryId, repositoryId, ref, path }, { principal, projectId }) => {
-            const pipelines = repositoryId === null ? null : { codeRepositoryId: codeRepositoryId!, repositoryId, ref, path }
-            const project = await new ProjectService(principal).update(projectId, { pipelines })
-            return { pipelines: project?.pipelines?.codeRepository ? project.pipelines : null }
         }
     }),
     defineTool({

@@ -15,7 +15,6 @@ import { ApiKeyRole } from "../models/ApiKeyModel"
 import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType, ICodeRepository } from "../models/CodeRepositoryModel"
 import { ICodeRepositoryFrontend } from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
-import Project from "../models/ProjectModel"
 import { BackendRuntime, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
 import FrontendDTO from "../types/FrontendDTO"
 import { createSystemDeployKey } from "./ApiKeyService"
@@ -68,7 +67,7 @@ const LANGUAGE_FOLDERS: Record<BackendRuntime, string | undefined> = {
 }
 
 /**
- * The language a template is written in, as a folder of the pipeline templates: what a project's own
+ * The language a template is written in, as a folder of the pipeline templates: what a connection's own
  * repository can hold one pipeline per, for every template of that language. A backend's comes from its
  * framework, every frontend template is javascript.
  */
@@ -80,7 +79,7 @@ const pipelineLanguage = (template: IMarket): string | undefined => {
     return template.type === "host" || template.type === "remote" ? "javascript" : undefined
 }
 
-/** The pipeline templates of one scaffold, on disk: the project's repository, or the official template-pipelines */
+/** The pipeline templates of one scaffold, on disk: the repository picked on the connection, or the official template-pipelines */
 export interface PipelineTemplates {
     /** The folder `<type>/<compiler>/...` is looked up in */
     root: string
@@ -127,7 +126,7 @@ const removeSymlinks = async (dir: string): Promise<void> => {
 const pipelineSourceUnavailable = (repository: string, reason: string, ref?: string) =>
     createBusinessException({
         code: "PIPELINE_SOURCE_UNAVAILABLE",
-        message: `Nothing was created: the pipeline templates could not be read from ${repository}${ref ? ` at ${ref}` : ""} (${reason}). Fix them, or go back to the official ones, in the settings of the project`,
+        message: `Nothing was created: the pipeline templates could not be read from ${repository}${ref ? ` at ${ref}` : ""} (${reason}). Fix them, or go back to the official ones, in the pipeline templates of the code repository connection`,
         statusCode: 502,
         details: { repository, reason }
     })
@@ -651,17 +650,18 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
     }
 
     /**
-     * The pipeline templates a repository scaffolded through `codeRepository` gets: the repository its project
-     * picked, cloned at its ref and read from its folder, or the official template-pipelines. A repository of the project that cannot be
-     * read is refused, never replaced by the official one: the project asked for its own pipelines.
+     * The pipeline templates a repository scaffolded through `codeRepository` gets: the repository picked on that
+     * connection, cloned at its ref and read from its folder, or the official template-pipelines. A repository picked
+     * that cannot be read is refused, never replaced by the official one: the connection asked for its own pipelines.
      */
     async fetchPipelineTemplates(codeRepository: ICodeRepository): Promise<PipelineTemplates> {
-        const project = await Project.findById(codeRepository.projectId, { pipelines: 1 })
-        const link = project?.pipelines?.codeRepository
+        // Read again: the connection handed in may have been loaded without them
+        const pipelines = (await CodeRepository.findById(codeRepository._id, { pipelines: 1 }))?.pipelines
+        const link = pipelines?.codeRepository
         if (!link) return this.officialPipelineTemplates()
 
-        const ref = project.pipelines?.ref || undefined
-        // Through an active connection of the project only: one of another project would lend this one its access token
+        const ref = pipelines.ref || undefined
+        // Through an active connection of the same project only: one of another project would lend this one its access token
         const connection = await CodeRepository.findOne({ _id: link.codeRepositoryId, projectId: codeRepository.projectId, isActive: true })
         const repositoryName = connection ? repositoryNameFor(link, connection) : link.name
         if (!connection) throw pipelineSourceUnavailable(repositoryName, "its connection no longer exists", ref)
@@ -692,8 +692,8 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             await fs.remove(dir).catch(() => undefined)
             throw pipelineSourceUnavailable(repositoryName, toErrorMessage(error), ref)
         }
-        // The layout starts from the folder the project picked, its root when none: a folder missing is refused like a ref missing
-        const folder = project.pipelines?.path || undefined
+        // The layout starts from the folder picked, its root when none: a folder missing is refused like a ref missing
+        const folder = pipelines.path || undefined
         const root = folder ? join(dir, folder) : dir
         if (folder && !((await isInside(dir, root)) && (await fs.lstat(root)).isDirectory())) {
             await fs.remove(dir).catch(() => undefined)
@@ -702,7 +702,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
         return { root, dir, source: `${repositoryName}${ref ? `@${ref}` : ""}${folder ? `:${folder}` : ""}` }
     }
 
-    /** The official template-pipelines, downloaded, refused like the project's ones when they cannot be */
+    /** The official template-pipelines, downloaded, refused like the ones of a connection when they cannot be */
     private async officialPipelineTemplates(): Promise<PipelineTemplates> {
         let dir: string | undefined
         try {

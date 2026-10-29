@@ -1,6 +1,7 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
+import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
 /** The two fields that are a credential for the provider, and not metadata about the connection. */
 export const CODE_REPOSITORY_SECRET_PATHS = ["accessToken", "refreshToken"]
@@ -34,6 +35,19 @@ export interface IGitlabData {
     groupPath: string
 }
 
+/**
+ * Where the pipelines copied into the repositories scaffolded through a connection come from, in place of the
+ * official template-pipelines: a repository with the same layout. Unset, the official ones are used.
+ */
+export interface ICodeRepositoryPipelines {
+    /** Linked like the repository of a frontend, through one of the active connections of the same project */
+    codeRepository: ICodeRepositoryFrontend
+    /** The branch or tag read; the default branch of the repository when left out */
+    ref?: string
+    /** The folder of the repository the layout starts from, e.g. `ci/templates`; its root when left out */
+    path?: string
+}
+
 export interface ICodeRepository extends Document<ObjectId> {
     name: string
     provider: CodeRepositoryProvider
@@ -44,6 +58,7 @@ export interface ICodeRepository extends Document<ObjectId> {
     gitlabData?: IGitlabData
     default?: boolean
     isActive?: boolean
+    pipelines?: ICodeRepositoryPipelines
     projectId: ObjectId
     createdAt: Date
     updatedAt: Date
@@ -144,6 +159,12 @@ const codeRepositorySchema = new Schema<ICodeRepository>(
             type: Boolean,
             default: false,
             required: false
+        },
+        pipelines: {
+            // Written by CodeRepositoryService only, from what the provider answered: never from the request body
+            codeRepository: { type: Schema.Types.Mixed },
+            ref: { type: String, trim: true },
+            path: { type: String, trim: true }
         },
         projectId: {
             type: Schema.Types.ObjectId,

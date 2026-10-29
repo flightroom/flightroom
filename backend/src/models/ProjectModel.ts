@@ -21,19 +21,6 @@ export interface IProjectGitOps {
 }
 
 /**
- * Where the pipelines copied into the repositories scaffolded from a template come from, in place of the
- * official template-pipelines: a repository with the same layout. Unset, the official ones are used.
- */
-export interface IProjectPipelines {
-    /** Linked like the repository of a frontend, through one of the connections of the project */
-    codeRepository: ICodeRepositoryFrontend
-    /** The branch or tag read; the default branch of the repository when left out */
-    ref?: string
-    /** The folder of the repository the layout starts from, e.g. `ci/templates`; its root when left out */
-    path?: string
-}
-
-/**
  * How Argo CD reads one GitOps repository. A GitLab one gets a deploy token the console creates and rotates
  * on every initialization; GitHub and Azure DevOps cannot hand one out through their API, so the token is the
  * one the owner pasted, the same for both repositories.
@@ -122,7 +109,6 @@ export interface IProject extends Document<ObjectId> {
     /** Apart from gitOps: saving the GitOps settings replaces that object whole */
     argoCd?: IProjectArgoCd
     exposure?: IProjectExposure
-    pipelines?: IProjectPipelines
     /**
      * Where the images of the backends and of the DOCKER frontends are pushed, e.g. `ghcr.io/acme`: one with no
      * image repository of its own is deployed as `<containerRegistry>/<slug>`.
@@ -196,12 +182,6 @@ const projectSchema = new Schema<IProject>(
                 { _id: false }
             ),
             required: false
-        },
-        pipelines: {
-            // Written by ProjectService only, from what the provider answered: never from the request body
-            codeRepository: { type: Schema.Types.Mixed },
-            ref: { type: String, trim: true },
-            path: { type: String, trim: true }
         },
         containerRegistry: { type: String, trim: true, match: CONTAINER_REGISTRY },
         // No default: an empty array would turn AI off, where unset means every AI of the organization

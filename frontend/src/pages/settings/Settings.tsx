@@ -18,7 +18,6 @@ import {
     ArgoCdSection,
     DangerZone,
     GitOpsSection,
-    PipelineTemplatesSection,
     ProjectContainerRegistrySection,
     ProjectContextSection,
     ProjectDesignSystemSection,
@@ -28,7 +27,6 @@ import {
     ProjectTechnologiesSection
 } from "./partials"
 import type { GitOpsFormValues } from "./partials/GitOpsSection"
-import type { PipelineTemplatesFormValues } from "./partials/PipelineTemplatesSection"
 import type { ProjectContainerRegistryFormValues } from "./partials/ProjectContainerRegistrySection"
 import type { ProjectContextFormValues } from "./partials/ProjectContextSection"
 import type { ProjectExposureFormValues } from "./partials/ProjectExposureSection"
@@ -177,14 +175,6 @@ export const Settings: React.FC = () => {
         }
     })
 
-    const updatePipelinesMutation = useMutation({
-        mutationFn: (values: PipelineTemplatesFormValues) => projectApi.updateProject(project._id, { pipelines: values }, gitOpsErrorMessage),
-        onSuccess: () => {
-            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
-            notifications.showSuccessNotification({ message: t("settings.pipelines.saved") })
-        }
-    })
-
     const projectData = projectQuery.data?.project
 
     return (
@@ -321,15 +311,6 @@ export const Settings: React.FC = () => {
 
                         {/* Argo CD deploya cio che il GitOps salvato committa: senza repository di configurazione non c'e' niente da consegnargli */}
                         {projectData?.gitOps?.enabled && projectData.gitOps.codeRepository && <ArgoCdSection projectId={projectData._id} />}
-
-                        {projectData && (
-                            <PipelineTemplatesSection
-                                projectId={projectData._id}
-                                pipelines={projectData.pipelines}
-                                onUpdate={values => updatePipelinesMutation.mutate(values)}
-                                isUpdating={updatePipelinesMutation.isPending}
-                            />
-                        )}
                     </TabsContent>
                 </Tabs>
             </SinglePageLayout>

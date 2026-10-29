@@ -1,7 +1,7 @@
 import { FastifyInstance } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import CodeRepositoryImportService from "../service/CodeRepositoryImportService"
-import CodeRepositoryService from "../service/CodeRepositoryService"
+import CodeRepositoryService, { PipelineTemplatesInput } from "../service/CodeRepositoryService"
 import CreateAzureDevOpsRepositoryDTO from "../types/CreateAzureDevOpsRepositoryDTO"
 import CreateGitlabRepositoryDto from "../types/CreateGitlabRepositoryDTO"
 import ImportRepositoriesDTO, { ImportTarget } from "../types/ImportRepositoriesDTO"
@@ -151,6 +151,17 @@ export default async function codeRepositoryController(fastify: FastifyInstance)
         }
     }>("/repositories/:repositoryId/default", async (request, reply) => {
         reply.send(await new CodeRepositoryService(request.databaseUser).makeDefault(request.params.repositoryId))
+    })
+
+    // `null` goes back to the official template-pipelines
+    fastify.put<{
+        Params: {
+            repositoryId: string
+        }
+        Body: PipelineTemplatesInput | null
+    }>("/repositories/:repositoryId/pipelines", async (request, reply) => {
+        const repository = await new CodeRepositoryService(request.databaseUser).setPipelines(request.params.repositoryId, request.body ?? null)
+        return reply.send(repository.toFrontendObject())
     })
 
     fastify.put<{
