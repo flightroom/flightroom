@@ -47,136 +47,139 @@ const CodeRepositoryPage = () => {
     })
 
     return (
-        <ApiStatusHandler queries={[repositoriesQuery]}>
-            <SinglePageLayout
-                title={t("codeRepositories.title")}
-                description={t("codeRepositories.description")}
-                right={
-                    repositoriesQuery.data?.length === 0 ? null : (
-                        <Button onClick={() => setIsCreateDialogOpen(true)}>
-                            <PlusCircle />
-                            {t("codeRepositories.addRepository")}
-                        </Button>
-                    )
-                }
-            >
-                {repositoriesQuery.data?.length === 0 ? (
-                    <Card>
-                        <CardContent>
-                            <EmptyState
-                                size="sm"
-                                description={t("codeRepositories.noRepositoriesFound")}
-                                actions={
-                                    <Button onClick={() => setIsCreateDialogOpen(true)}>
-                                        <PlusCircle />
-                                        {t("codeRepositories.addRepository")}
-                                    </Button>
-                                }
-                            />
-                        </CardContent>
-                    </Card>
-                ) : (
-                    <Table framed>
-                        <TableHeader>
-                            <TableRow>
-                                <TableHead>{t("codeRepositories.columns.name")}</TableHead>
-                                <TableHead>{t("common.default")}</TableHead>
-                                <TableHead />
-                            </TableRow>
-                        </TableHeader>
-                        <TableBody>
-                            {repositoriesQuery.data?.map(repository => (
-                                <TableRow key={repository._id}>
-                                    <TableCell className="font-medium flex items-center gap-4">
-                                        {repository.provider === CodeRepositoryProvider.GITHUB && <img src="/img/GitHub.svg" alt="GitHub" className="h-8 w-8" />}
-                                        {repository.provider === CodeRepositoryProvider.GITLAB && <img src="/img/GitLab.svg" alt="GitLab" className="h-8 w-8" />}
-                                        {repository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && <img src="/img/AzureDevOps.svg" alt="Azure DevOps" className="h-8 w-8" />}
-                                        {repository.name}
-                                        {repository.pipelines?.codeRepository && <Badge variant="accent">{t("codeRepositories.pipelines.customBadge")}</Badge>}
-                                    </TableCell>
-                                    <TableCell>
-                                        <Button variant="ghost" size="icon" disabled={setDefaultMutation.isPending} onClick={() => setDefaultMutation.mutate(repository._id)}>
-                                            <Star className={`${repository.default ? "fill-primary/50" : ""}`} />
-                                        </Button>
-                                    </TableCell>
-                                    <TableCell>
-                                        <div className="flex gap-1 justify-end">
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                aria-label={t("codeRepositories.pipelines.action")}
-                                                title={t("codeRepositories.pipelines.action")}
-                                                dataTestId={`pipelines-${repository._id}`}
-                                                onClick={() => setPipelinesConnection(repository)}
-                                            >
-                                                <Workflow />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                onClick={() => {
-                                                    if (repository.provider === CodeRepositoryProvider.AZURE_DEV_OPS) {
-                                                        navigate(`/code-repositories/azure/${repository._id}`)
-                                                    } else if (repository.provider === CodeRepositoryProvider.GITHUB) {
-                                                        navigate(`/code-repositories/github/${repository._id}`)
-                                                    } else if (repository.provider === CodeRepositoryProvider.GITLAB) {
-                                                        navigate(`/code-repositories/gitlab/${repository._id}`)
-                                                    }
-                                                }}
-                                            >
-                                                <Edit />
-                                            </Button>
-                                            <Button
-                                                variant="ghost"
-                                                size="icon"
-                                                className="text-destructive hover:bg-destructive/15 hover:text-destructive-active"
-                                                disabled={deleteRepositoryMutation.isPending}
-                                                onClick={() => {
-                                                    setRepositoryToDelete({ id: repository._id, name: repository.name })
-                                                    setIsDeleteDialogOpen(true)
-                                                }}
-                                            >
-                                                <Trash2 />
-                                            </Button>
-                                        </div>
-                                    </TableCell>
-                                </TableRow>
-                            ))}
-                        </TableBody>
-                    </Table>
-                )}
-
-                <AddRepositoryDialog
-                    isOpen={isCreateDialogOpen}
-                    onOpenChange={open => {
-                        setIsCreateDialogOpen(open)
-                    }}
-                />
-
-                <PipelineTemplatesDialog connection={pipelinesConnection} onOpenChange={open => !open && setPipelinesConnection(null)} />
-
-                <DeleteConfirmationDialog
-                    isOpen={isDeleteDialogOpen}
-                    onOpenChange={setIsDeleteDialogOpen}
-                    onDelete={async () => {
-                        if (repositoryToDelete) {
-                            await deleteRepositoryMutation.mutateAsync(repositoryToDelete.id)
-                        }
-                    }}
-                    onDeleteSuccess={() => {
-                        setRepositoryToDelete(null)
-                    }}
-                    title={t("codeRepositories.deleteDialog.title")}
-                    description={
-                        repositoryToDelete
-                            ? t("codeRepositories.deleteDialog.description", {
-                                  repositoryName: repositoryToDelete.name
-                              })
-                            : ""
+        <>
+            <ApiStatusHandler queries={[repositoriesQuery]}>
+                <SinglePageLayout
+                    title={t("codeRepositories.title")}
+                    description={t("codeRepositories.description")}
+                    right={
+                        repositoriesQuery.data?.length === 0 ? null : (
+                            <Button onClick={() => setIsCreateDialogOpen(true)}>
+                                <PlusCircle />
+                                {t("codeRepositories.addRepository")}
+                            </Button>
+                        )
                     }
-                />
-            </SinglePageLayout>
-        </ApiStatusHandler>
+                >
+                    {repositoriesQuery.data?.length === 0 ? (
+                        <Card>
+                            <CardContent>
+                                <EmptyState
+                                    size="sm"
+                                    description={t("codeRepositories.noRepositoriesFound")}
+                                    actions={
+                                        <Button onClick={() => setIsCreateDialogOpen(true)}>
+                                            <PlusCircle />
+                                            {t("codeRepositories.addRepository")}
+                                        </Button>
+                                    }
+                                />
+                            </CardContent>
+                        </Card>
+                    ) : (
+                        <Table framed>
+                            <TableHeader>
+                                <TableRow>
+                                    <TableHead>{t("codeRepositories.columns.name")}</TableHead>
+                                    <TableHead>{t("common.default")}</TableHead>
+                                    <TableHead />
+                                </TableRow>
+                            </TableHeader>
+                            <TableBody>
+                                {repositoriesQuery.data?.map(repository => (
+                                    <TableRow key={repository._id}>
+                                        <TableCell className="font-medium flex items-center gap-4">
+                                            {repository.provider === CodeRepositoryProvider.GITHUB && <img src="/img/GitHub.svg" alt="GitHub" className="h-8 w-8" />}
+                                            {repository.provider === CodeRepositoryProvider.GITLAB && <img src="/img/GitLab.svg" alt="GitLab" className="h-8 w-8" />}
+                                            {repository.provider === CodeRepositoryProvider.AZURE_DEV_OPS && <img src="/img/AzureDevOps.svg" alt="Azure DevOps" className="h-8 w-8" />}
+                                            {repository.name}
+                                            {repository.pipelines?.codeRepository && <Badge variant="accent">{t("codeRepositories.pipelines.customBadge")}</Badge>}
+                                        </TableCell>
+                                        <TableCell>
+                                            <Button variant="ghost" size="icon" disabled={setDefaultMutation.isPending} onClick={() => setDefaultMutation.mutate(repository._id)}>
+                                                <Star className={`${repository.default ? "fill-primary/50" : ""}`} />
+                                            </Button>
+                                        </TableCell>
+                                        <TableCell>
+                                            <div className="flex gap-1 justify-end">
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    aria-label={t("codeRepositories.pipelines.action")}
+                                                    title={t("codeRepositories.pipelines.action")}
+                                                    dataTestId={`pipelines-${repository._id}`}
+                                                    onClick={() => setPipelinesConnection(repository)}
+                                                >
+                                                    <Workflow />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    onClick={() => {
+                                                        if (repository.provider === CodeRepositoryProvider.AZURE_DEV_OPS) {
+                                                            navigate(`/code-repositories/azure/${repository._id}`)
+                                                        } else if (repository.provider === CodeRepositoryProvider.GITHUB) {
+                                                            navigate(`/code-repositories/github/${repository._id}`)
+                                                        } else if (repository.provider === CodeRepositoryProvider.GITLAB) {
+                                                            navigate(`/code-repositories/gitlab/${repository._id}`)
+                                                        }
+                                                    }}
+                                                >
+                                                    <Edit />
+                                                </Button>
+                                                <Button
+                                                    variant="ghost"
+                                                    size="icon"
+                                                    className="text-destructive hover:bg-destructive/15 hover:text-destructive-active"
+                                                    disabled={deleteRepositoryMutation.isPending}
+                                                    onClick={() => {
+                                                        setRepositoryToDelete({ id: repository._id, name: repository.name })
+                                                        setIsDeleteDialogOpen(true)
+                                                    }}
+                                                >
+                                                    <Trash2 />
+                                                </Button>
+                                            </div>
+                                        </TableCell>
+                                    </TableRow>
+                                ))}
+                            </TableBody>
+                        </Table>
+                    )}
+
+                    <AddRepositoryDialog
+                        isOpen={isCreateDialogOpen}
+                        onOpenChange={open => {
+                            setIsCreateDialogOpen(open)
+                        }}
+                    />
+
+                    <DeleteConfirmationDialog
+                        isOpen={isDeleteDialogOpen}
+                        onOpenChange={setIsDeleteDialogOpen}
+                        onDelete={async () => {
+                            if (repositoryToDelete) {
+                                await deleteRepositoryMutation.mutateAsync(repositoryToDelete.id)
+                            }
+                        }}
+                        onDeleteSuccess={() => {
+                            setRepositoryToDelete(null)
+                        }}
+                        title={t("codeRepositories.deleteDialog.title")}
+                        description={
+                            repositoryToDelete
+                                ? t("codeRepositories.deleteDialog.description", {
+                                      repositoryName: repositoryToDelete.name
+                                  })
+                                : ""
+                        }
+                    />
+                </SinglePageLayout>
+            </ApiStatusHandler>
+
+            {/* Fuori da ApiStatusHandler: il picker rilegge le connessioni e durante il refetch il loader smonterebbe il dialog */}
+            <PipelineTemplatesDialog connection={pipelinesConnection} onOpenChange={open => !open && setPipelinesConnection(null)} />
+        </>
     )
 }
 
