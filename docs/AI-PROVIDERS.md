@@ -199,3 +199,10 @@ the input is validated, a **VIEWER** cannot change anything, and errors read the
 - Some things stay in the console pages on purpose, because their input or output is a secret that
   would travel to the model provider: storages, repository connections, the user profile and bundle
   upload.
+- **Voice mode**: the microphone button next to the question starts a spoken conversation. The panel
+  listens, sends what the user said when they stop talking, reads the answer aloud (code blocks
+  skipped) and listens again, until the button is pressed again or the conversation leaves the screen.
+  A confirmation card is still answered with a click. Recognition and speech are the browser's own
+  (Web Speech API), in the console language: nothing goes through the Flightroom server, but Chrome
+  and Edge send the audio to their vendor's speech service. The button only shows in browsers that
+  have speech recognition (Chrome, Edge, Safari; not Firefox).

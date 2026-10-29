@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, Textarea } from "@flightroom/design-system"
-import { ArrowUp, GitBranchPlus, History, RotateCcw, Sparkles, Square, X } from "lucide-react"
+import { ArrowUp, GitBranchPlus, History, Mic, RotateCcw, Sparkles, Square, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
@@ -23,8 +23,16 @@ import EffortSelect from "./EffortSelect"
 import useAssistantJobsWatcher from "./useAssistantJobsWatcher"
 import { useEffort } from "./useEffort"
 import useProjectAiModels from "./useProjectAiModels"
+import useVoiceMode, { VoicePhase } from "./useVoiceMode"
 
 const MAX_QUESTION_CHARS = 4_000
+
+/** In voice mode the field says what the assistant is doing: the transcript appears in it as the user speaks. */
+const PLACEHOLDER_BY_VOICE_PHASE: Record<VoicePhase, string> = {
+    idle: "assistant.placeholder",
+    listening: "assistant.voice.listening",
+    speaking: "assistant.voice.speaking"
+}
 
 /** The page that shows the assistant full width, as a chat of its own. */
 export const ASSISTANT_PAGE_PATH = "/assistant"
@@ -126,6 +134,31 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
 
     const isPage = variant === "page"
 
+    const lastMessage = messages[messages.length - 1]
+    const answerOver = !isStreaming && lastMessage?.status !== "streaming"
+    const lastAnswer = answerOver && lastMessage?.role === "assistant" ? lastMessage : undefined
+    const voice = useVoiceMode({
+        canListen: answerOver && !awaitingConfirmation,
+        // Read as the panel shows it: the error under the answer, and the card that waits for a click.
+        answer: lastAnswer && {
+            id: lastAnswer.id,
+            text: [lastAnswer.content, lastAnswer.errorKey && t(`assistant.errors.${lastAnswer.errorKey}`), lastAnswer.confirmation?.status === "pending" && t("assistant.voice.confirm_on_screen")]
+                .filter(Boolean)
+                .join("\n")
+        },
+        onInterim: setDraft,
+        onFinal: question => {
+            setDraft("")
+            send(question)
+        }
+    })
+
+    // The voice mode talks in the project conversation: it ends when that is no longer on screen.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: voice.stop is recreated every render.
+    useEffect(() => {
+        if ((!isOpen && !isPage) || activeTab !== "project" || historyOpen) voice.stop()
+    }, [isOpen, isPage, activeTab, historyOpen])
+
     useAssistantJobsWatcher(projectId, enabled)
 
     useEffect(() => {
@@ -148,6 +181,7 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
     // biome-ignore lint/correctness/useExhaustiveDependencies: only a project change must switch the conversation.
     useEffect(() => {
         if (useAssistantStore.getState().switchProject(projectId)) stop()
+        voice.stop()
         setHistoryOpen(false)
     }, [projectId])
 
@@ -302,7 +336,7 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
                                         rows={isPage ? 3 : 2}
                                         className={cn("min-h-[44px] resize-none", isPage && "rounded-xl")}
                                         disabled={awaitingConfirmation}
-                                        placeholder={t(awaitingConfirmation ? "assistant.placeholder_awaiting_confirmation" : "assistant.placeholder")}
+                                        placeholder={t(awaitingConfirmation ? "assistant.placeholder_awaiting_confirmation" : PLACEHOLDER_BY_VOICE_PHASE[voice.phase])}
                                         aria-label={t("assistant.placeholder")}
                                         dataTestId="assistant-input"
                                         onChange={event => setDraft(event.target.value)}
@@ -314,6 +348,21 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
                                             }
                                         }}
                                     />
+                                    {voice.supported && (
+                                        <Button
+                                            type="button"
+                                            variant={voice.active ? "secondary" : "ghost"}
+                                            size="icon"
+                                            aria-label={t(voice.active ? "assistant.voice.stop" : "assistant.voice.start")}
+                                            aria-pressed={voice.active}
+                                            title={t(voice.active ? "assistant.voice.stop" : "assistant.voice.start")}
+                                            className={cn(voice.phase === "listening" && "animate-pulse text-primary-strong")}
+                                            onClick={voice.active ? voice.stop : voice.start}
+                                            dataTestId="assistant-voice"
+                                        >
+                                            <Mic />
+                                        </Button>
+                                    )}
                                     {isStreaming ? (
                                         <Button type="button" variant="secondary" size="icon" aria-label={t("assistant.stop")} onClick={stop} dataTestId="assistant-stop">
                                             <Square />
@@ -324,6 +373,11 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
                                         </Button>
                                     )}
                                 </div>
+                                {voice.errorKey && (
+                                    <p role="alert" className="text-xs text-destructive" data-testid="assistant-voice-error">
+                                        {t(`assistant.voice.errors.${voice.errorKey}`)}
+                                    </p>
+                                )}
                                 {/* Below the field, not next to it: in the docked panel the question needs the width. */}
                                 <div className="flex items-start gap-2">
                                     <p className="min-w-0 flex-1 text-xs text-foreground-secondary">{t("assistant.disclaimer")}</p>

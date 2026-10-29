@@ -2186,6 +2186,19 @@
         "placeholder_awaiting_confirmation": "Conferma o annulla l'azione qui sopra per continuare…",
         "send": "Invia",
         "stop": "Interrompi",
+        "voice": {
+            "start": "Modalità vocale",
+            "stop": "Esci dalla modalità vocale",
+            "listening": "Ti ascolto…",
+            "speaking": "Sto leggendo la risposta…",
+            "confirm_on_screen": "Conferma o annulla l'azione sullo schermo.",
+            "errors": {
+                "not_allowed": "Il microfono non è autorizzato: consentilo nelle impostazioni del browser.",
+                "audio_capture": "Nessun microfono disponibile.",
+                "network": "Il riconoscimento vocale del browser non è raggiungibile.",
+                "generic": "Il riconoscimento vocale si è interrotto."
+            }
+        },
         "disclaimer": "Le risposte sono generate da un'intelligenza artificiale e possono contenere errori. Vega può modificare il progetto: le azioni che eliminano o rimuovono qualcosa vengono eseguite solo dopo la tua conferma.",
         "empty_title": "Come posso aiutarti?",
         "empty_description": "Posso consultare e modificare frontend, build, deploy, ambienti e variabili di questo progetto e cercare nella documentazione.",
