@@ -88,6 +88,7 @@ const SERVER_INSTRUCTIONS =
     "To change the code of a frontend or a backend: repository_checkout_get, clone and edit locally following aiContext, then code_change_submit opens a pull request. " +
     "A backend container gets the port it is exposed on in the HTTP_PORT environment variable: its server must read the port from HTTP_PORT and listen on it on 0.0.0.0, never on a hardcoded port. " +
     "Repository naming: every repository you create or rename ends in -fe for a frontend (e.g. checkout-fe) and in -be for a backend (e.g. orders-be). " +
+    "The slug of a new frontend or backend is the name of its repository: checkout-fe, orders-be. " +
     "Ids are 24 character hexadecimal strings returned by the list tools. Tools marked destructive change what users are served " +
     "(deploy, rollback) or delete data: confirm with the user before calling them."
 

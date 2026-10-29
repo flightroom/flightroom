@@ -3,7 +3,8 @@ import { createBusinessException } from "../../errors/BusinessException"
 import BackendService from "../../service/BackendService"
 import FrontendService from "../../service/FrontendService"
 import MarketService from "../../service/MarketService"
-import { isValidRepositoryName } from "../../service/RepositoryRenameService"
+import { REPOSITORY_NAME_SUFFIXES } from "../../service/RepositoryCreationService"
+import { RepositoryComponentKind } from "../../service/workspace/repositoryComponent"
 import BackendDTO from "../../types/BackendDTO"
 import FrontendDTO from "../../types/FrontendDTO"
 import { MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
@@ -13,28 +14,31 @@ import { ensureReferencesBelongToProject, createSchema as frontendCreateSchema }
 
 /**
  * Where and how the new repository is created: the connection's credentials are never part of the
- * input. Its name ends in -fe for a frontend and in -be for a backend, as the server
- * instructions tell agents.
+ * input.
  */
-const repositoryToCreate = (example: string) => ({
+const repositoryToCreate = {
     template: z.string().trim().min(1).describe("Slug of the template, from templates_list"),
     codeRepositoryId: objectId("Id of a code repository connection of this project, from code_repositories_list: the new repository is created there"),
-    repositoryName: z
-        .string()
-        .trim()
-        .min(3)
-        .max(100)
-        .refine(isValidRepositoryName, "letters, digits, '.', '_' and '-', starting with a letter or a digit, not ending with '.', '.git' or '.atom'")
-        .optional()
-        .describe(`Name of the new repository, ending in -${example.split("-").pop()} (e.g. ${example}): always pass it, the slug is used as is when omitted`),
     private: z.boolean().optional().describe("Create the repository as private (default false)"),
     gitlab: z
         .object({ groupId: z.number().int().describe("Id of the GitLab group to create the repository in") })
         .optional()
         .describe("GitLab connections only: the group of the new repository, the connection's own group when omitted")
-})
+}
 
-type RepositoryToCreate = z.infer<z.ZodObject<ReturnType<typeof repositoryToCreate>>>
+/**
+ * The slug of the member is also the name of its new repository, so the two never differ: it ends in
+ * -fe for a frontend and in -be for a backend, as the server instructions tell agents. A slug only
+ * takes lowercase letters, digits and dashes, which every provider accepts in a repository name.
+ */
+const slugNamingTheRepository = (slug: z.ZodString, kind: RepositoryComponentKind, example: string) => {
+    const suffix = REPOSITORY_NAME_SUFFIXES[kind]
+    return slug
+        .refine(value => value.endsWith(suffix), `ends in ${suffix}, e.g. ${example}`)
+        .describe(`Slug of the ${kind}, which is also the name of its new repository: it ends in ${suffix}, e.g. ${example}`)
+}
+
+type RepositoryToCreate = z.infer<z.ZodObject<typeof repositoryToCreate>>
 
 /**
  * The member to create with the repository it asks for, once the connection and the domain are
@@ -42,7 +46,7 @@ type RepositoryToCreate = z.infer<z.ZodObject<ReturnType<typeof repositoryToCrea
  * empty repository at the provider.
  */
 const withRepositoryToCreate = async <Fields extends { slug: string; domainId?: string | null }>(
-    { template, codeRepositoryId, repositoryName, private: isPrivate, gitlab, ...fields }: Fields & RepositoryToCreate,
+    { template, codeRepositoryId, private: isPrivate, gitlab, ...fields }: Fields & RepositoryToCreate,
     context: McpToolContext
 ) => {
     const codeRepository = { enabled: true, codeRepositoryId, repositoryId: "", gitlab }
@@ -50,7 +54,7 @@ const withRepositoryToCreate = async <Fields extends { slug: string; domainId?: 
     if (!(await new MarketService(context.principal).getSingle(template))) {
         throw createBusinessException({ code: "TEMPLATE_NOT_FOUND", message: `There is no template "${template}": see templates_list` })
     }
-    return { ...fields, codeRepository: { ...codeRepository, createData: { name: repositoryName ?? fields.slug, private: isPrivate, template } } }
+    return { ...fields, codeRepository: { ...codeRepository, createData: { name: fields.slug, private: isPrivate, template } } }
 }
 
 /**
@@ -68,7 +72,7 @@ export const scaffoldTools = [
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,
-        inputSchema: frontendCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("checkout-fe")),
+        inputSchema: frontendCreateSchema.omit({ codeRepository: true }).extend({ slug: slugNamingTheRepository(frontendCreateSchema.shape.slug, "frontend", "checkout-fe"), ...repositoryToCreate }),
         run: async (args, context) => new FrontendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as FrontendDTO, context.projectId)
     }),
     defineTool({
@@ -79,7 +83,7 @@ export const scaffoldTools = [
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         requiresConfirmation: true,
-        inputSchema: backendCreateSchema.omit({ codeRepository: true }).extend(repositoryToCreate("orders-be")),
+        inputSchema: backendCreateSchema.omit({ codeRepository: true }).extend({ slug: slugNamingTheRepository(backendCreateSchema.shape.slug, "backend", "orders-be"), ...repositoryToCreate }),
         run: async (args, context) => new BackendService(context.principal).create((await withRepositoryToCreate(args, context)) as unknown as BackendDTO, context.projectId)
     })
 ]
