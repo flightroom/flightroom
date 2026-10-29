@@ -2,7 +2,7 @@ import { AxiosError } from "axios"
 import { useTranslation } from "react-i18next"
 import { errorCodeOf } from "../useApiClient"
 
-/** I rifiuti del GitOps arrivano dal salvataggio delle impostazioni, dal deploy, che fa il commit sui repository, e dall'inizializzazione di Argo CD; quelli dei template di pipeline dal loro salvataggio su una connessione */
+/** I rifiuti del GitOps arrivano dal salvataggio delle impostazioni, dal deploy, che fa il commit sui repository, e dall'inizializzazione di Argo CD; quelli dei template di pipeline dal loro salvataggio su una connessione e dall'inizializzazione del loro repository */
 const GITOPS_ERROR_KEYS: Record<string, string> = {
     GITOPS_SETTINGS_INVALID: "settings.gitOps.errors.settings_invalid",
     GITOPS_REPOSITORY_REQUIRED: "settings.gitOps.errors.repository_required",
@@ -25,6 +25,7 @@ const GITOPS_ERROR_KEYS: Record<string, string> = {
     PIPELINES_REPOSITORY_INVALID: "codeRepositories.pipelines.errors.repository_invalid",
     PIPELINES_REF_INVALID: "codeRepositories.pipelines.errors.ref_invalid",
     PIPELINES_PATH_INVALID: "codeRepositories.pipelines.errors.path_invalid",
+    PIPELINES_INITIALIZE_FAILED: "codeRepositories.pipelines.errors.initialize_failed",
     ARGOCD_GITOPS_REQUIRED: "settings.argoCd.errors.gitops_required",
     ARGOCD_URL_INVALID: "settings.argoCd.errors.url_invalid",
     ARGOCD_TOKEN_REQUIRED: "settings.argoCd.errors.token_required",

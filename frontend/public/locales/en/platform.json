@@ -1732,7 +1732,7 @@
             "customBadge": "Custom pipelines",
             "title": "Pipeline templates of {{name}}",
             "subtitle": "The pipeline a new frontend or backend gets when its repository is created through this connection. By default it comes from the official mfe-orchestrator/template-pipelines repository.",
-            "details": "Point this connection at a repository of yours with the same layout to use your own pipelines in the repositories created through it. The other connections keep their own templates, and repositories already created are left as they are.",
+            "details": "The pipelines of the repositories created through this connection come from the repository you pick here. Other connections and repositories already created do not change.",
             "enabled": "Use the pipeline templates of a repository for the repositories created through this connection",
             "repository": "Pipeline templates repository",
             "repositoryPlaceholder": "Pick a repository of this connection",
@@ -1744,15 +1744,25 @@
             "pathPlaceholder": "ci/templates",
             "pathHint": "The folder of the repository the layout starts from. Left empty, the root of the repository.",
             "pathInvalid": "Not a folder: names of letters, digits, dots, dashes and underscores separated by slashes, without \".\" or \"..\".",
-            "layout": "Layout, from the root of the repository or from the folder you set: one folder per template, with no provider folders since the connection has a single provider. Each folder holds what goes at the root of the new repository: .github/ on GitHub, .gitlab-ci.yml on GitLab, azure-pipelines.yml on Azure DevOps. The first found wins among <type>/<compiler>/<templateSlug>/, for that template only, <type>/<compiler>/, e.g. service/docker/azure-pipelines.yml, and <type>/<language>/, where language is java, python or javascript, e.g. service/java/azure-pipelines.yml for every Java backend. On GitHub the .github/ replaces the workflows of the template; on GitLab and Azure DevOps the file replaces the one at the root. A template the repository has no folder for keeps the pipeline it ships with: the official templates are not used as a fallback.",
-            "placeholders": "Replaced when the repository is created: %microfrontendSlug% and %serviceSlug% with the slug, %domain% with the URL of this console.",
+            "file": "Each folder holds {{file}}, as it will be at the root of the new repository.",
+            "foldersTitle": "Folders looked up, from the root or from the folder set below, in order (the first found wins):",
+            "folderTemplate": "<type>/<compiler>/<templateSlug>/: that template only",
+            "folderCompiler": "<type>/<compiler>/: e.g. service/docker/{{file}}",
+            "folderLanguage": "<type>/<language>/ (java, python, javascript, go or dotnet): e.g. service/java/{{file}}",
+            "missing": "No folder found: the template keeps its own pipeline.",
+            "placeholders": "Placeholders: %microfrontendSlug% and %serviceSlug% become the slug, %domain% the URL of this console.",
             "saved": "Pipeline templates saved",
+            "initialize": "Initialize",
+            "initializeHint": "Creates in the repository the folders of every template and language, each with an empty pipeline. Existing files are never overwritten. Until you complete them, empty pipelines are copied as they are into new repositories.",
+            "initialized": "Empty pipelines created: {{count}}",
+            "initializedNothing": "Nothing to create: every folder already has its pipeline",
             "errors": {
                 "owner_required": "Only an owner of the project can change where the pipeline templates of its connections come from",
                 "repository_required": "Pick the repository of the pipeline templates",
                 "repository_invalid": "The connection cannot reach this repository: pick another one",
                 "ref_invalid": "The branch or tag is not a valid name",
-                "path_invalid": "The folder must be a relative path, such as ci/templates, without \".\" or \"..\""
+                "path_invalid": "The folder must be a relative path, such as ci/templates, without \".\" or \"..\"",
+                "initialize_failed": "The repository {{repository}} was not initialized: {{reason}}"
             }
         }
     },

@@ -1751,7 +1751,7 @@
             "customBadge": "Pipeline personalizzate",
             "title": "Template di pipeline di {{name}}",
             "subtitle": "La pipeline che riceve un nuovo frontend o backend quando il suo repository viene creato tramite questa connessione. Di default arriva dal repository ufficiale mfe-orchestrator/template-pipelines.",
-            "details": "Collega a questa connessione un tuo repository con la stessa struttura per usare le tue pipeline nei repository creati tramite essa. Le altre connessioni restano sui loro template, e i repository già creati restano come sono.",
+            "details": "Le pipeline dei repository creati tramite questa connessione arrivano dal repository che scegli qui. Le altre connessioni e i repository già creati non cambiano.",
             "enabled": "Usa i template di pipeline di un repository per i repository creati tramite questa connessione",
             "repository": "Repository dei template di pipeline",
             "repositoryPlaceholder": "Scegli un repository di questa connessione",
@@ -1763,15 +1763,25 @@
             "pathPlaceholder": "ci/templates",
             "pathHint": "La cartella del repository da cui parte la struttura. Se vuota, la root del repository.",
             "pathInvalid": "Non è una cartella: nomi di lettere, cifre, punti, trattini e underscore separati da slash, senza \".\" o \"..\".",
-            "layout": "Struttura, dalla root del repository o dalla cartella indicata: una cartella per template, senza cartelle per provider perché la connessione ne ha uno solo. Ogni cartella contiene quello che va nella root del nuovo repository: .github/ su GitHub, .gitlab-ci.yml su GitLab, azure-pipelines.yml su Azure DevOps. Vince la prima trovata tra <tipo>/<compilatore>/<slugTemplate>/, solo per quel template, <tipo>/<compilatore>/, ad esempio service/docker/azure-pipelines.yml, e <tipo>/<linguaggio>/, dove linguaggio è java, python o javascript, ad esempio service/java/azure-pipelines.yml per ogni backend Java. Su GitHub la .github/ sostituisce i workflow del template; su GitLab e Azure DevOps il file sostituisce quello nella root. Un template per cui il repository non ha una cartella tiene la pipeline che ha già: i template ufficiali non vengono usati al suo posto.",
-            "placeholders": "Sostituiti alla creazione del repository: %microfrontendSlug% e %serviceSlug% con lo slug, %domain% con l'URL di questa console.",
+            "file": "Ogni cartella contiene {{file}}, come andrà nella root del nuovo repository.",
+            "foldersTitle": "Cartelle cercate, dalla root o dalla cartella indicata sotto, in ordine (vince la prima):",
+            "folderTemplate": "<tipo>/<compilatore>/<slugTemplate>/: solo quel template",
+            "folderCompiler": "<tipo>/<compilatore>/: ad esempio service/docker/{{file}}",
+            "folderLanguage": "<tipo>/<linguaggio>/ (java, python, javascript, go o dotnet): ad esempio service/java/{{file}}",
+            "missing": "Nessuna cartella trovata: il template tiene la sua pipeline.",
+            "placeholders": "Segnaposto: %microfrontendSlug% e %serviceSlug% diventano lo slug, %domain% l'URL di questa console.",
             "saved": "Template di pipeline salvati",
+            "initialize": "Inizializza",
+            "initializeHint": "Crea nel repository le cartelle di ogni template e linguaggio, ognuna con una pipeline vuota. Non sovrascrive i file esistenti. Finché non le completi, le pipeline vuote vengono copiate così come sono nei nuovi repository.",
+            "initialized": "Pipeline vuote create: {{count}}",
+            "initializedNothing": "Niente da creare: ogni cartella ha già la sua pipeline",
             "errors": {
                 "owner_required": "Solo un owner del progetto può cambiare da dove arrivano i template di pipeline delle sue connessioni",
                 "repository_required": "Scegli il repository dei template di pipeline",
                 "repository_invalid": "La connessione non raggiunge questo repository: scegline un altro",
                 "ref_invalid": "Il branch o il tag non ha un nome valido",
-                "path_invalid": "La cartella deve essere un percorso relativo, come ci/templates, senza \".\" o \"..\""
+                "path_invalid": "La cartella deve essere un percorso relativo, come ci/templates, senza \".\" o \"..\"",
+                "initialize_failed": "Il repository {{repository}} non è stato inizializzato: {{reason}}"
             }
         }
     },
