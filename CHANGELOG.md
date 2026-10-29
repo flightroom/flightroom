@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Slug Named After The Repository**: a frontend or a backend created with a new repository from Maestro or through `frontend_scaffold` and `backend_scaffold` takes the name of its repository as its slug, `checkout-fe` or `orders-be`. The tools no longer take a separate `repositoryName`, and refuse a slug that does not end in `-fe` for a frontend or in `-be` for a backend
+- **Slug Named After The Repository**: a frontend or a backend created with a new repository from Maestro or through `frontend_scaffold` and `backend_scaffold` takes the name of its repository as its slug, `checkout-fe` or `orders-be`. The tools take the `repositoryName` and no longer a slug of their own, and refuse a name that is not a slug or does not end in `-fe` for a frontend or in `-be` for a backend
 - **Images Scanned With Trivy**: the CI scans both Docker images, standard and all-in-one, before pushing them, and stops the release on a CRITICAL or HIGH vulnerability that has a fix. A finding to accept goes in `.trivyignore`, with its reason and an expiry
 - **Smaller Standard Image**: the standard image installs only the production dependencies of the backend, from the workspace lockfile, and no longer ships npm, pnpm and the pnpm store: 112 MB, was about 680 MB
 - **Dependencies Updated**: every library to its latest release, among them the Anthropic SDK 1.x, Biome 2.6 and three 0.186
