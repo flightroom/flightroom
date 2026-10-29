@@ -127,6 +127,12 @@ export interface CodeRepositoryPipelines {
 /** `null` torna ai template-pipelines ufficiali; ref vuoto o null = il branch di default, path vuoto o null = la root */
 export type PipelineTemplatesDTO = { repositoryId: string; ref?: string | null; path?: string | null } | null
 
+/** I file delle pipeline vuote scritti nel repository dei template; skipped = cartelle che avevano già una pipeline */
+export interface InitializePipelinesResult {
+    created: string[]
+    skipped: number
+}
+
 export interface ICodeRepository {
     _id: string
     name: string
@@ -334,6 +340,21 @@ const useCodeRepositoriesApi = () => {
         return response.data
     }
 
+    /** Scrive le cartelle con le pipeline vuote nel repository indicato, senza salvarlo sulla connessione */
+    const initializePipelines = async (
+        repositoryId: string,
+        data: NonNullable<PipelineTemplatesDTO>,
+        customErrorMessage?: (error: Error) => string | undefined
+    ): Promise<InitializePipelinesResult> => {
+        const response = await apiClient.doRequest<InitializePipelinesResult>({
+            url: `/api/repositories/${repositoryId}/pipelines/initialize`,
+            method: "POST",
+            data,
+            customErrorMessage
+        })
+        return response.data
+    }
+
     const addRepositoryGithub = async (data: AddRepositoryGithubDTO): Promise<ICodeRepository> => {
         const request = await apiClient.doRequest<ICodeRepository>({
             url: `/api/repositories/callback/github`,
@@ -508,6 +529,7 @@ const useCodeRepositoriesApi = () => {
         updateRepositoryGithub,
         setRepositoryAsDefault,
         setPipelines,
+        initializePipelines,
         editRepositoryGitlab,
         getRepositories,
         getImportableRepositories,

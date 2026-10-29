@@ -1,3 +1,6 @@
+import fs from "node:fs/promises"
+import { tmpdir } from "node:os"
+import path from "node:path"
 import { ClientSession, DeleteResult, Types } from "mongoose"
 import { fastify } from ".."
 import AzureDevOpsClient, { AzureDevOpsBranch, RepositoryData } from "../client/AzureDevOpsClient"
@@ -19,6 +22,11 @@ import { ApiKeyService } from "./ApiKeyService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import GitOpsService from "./GitOpsService"
+import MarketService from "./MarketService"
+import { EMPTY_PIPELINES, PipelineProvider, pipelineTemplateFolders } from "./pipelineTemplateLayout"
+import { RepositoryFileService, repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
+import { GitWorkingCopy, isPushRefused, ORCHESTRATOR_COMMITTER } from "./workspace/GitWorkingCopy"
+import RepositoryWorkspaceService, { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
 
 /**
  * The value only if the user actually typed one. The edit screens submit the token field back exactly
@@ -71,6 +79,13 @@ export interface PipelineTemplatesInput {
     ref?: string | null
     /** The folder of the repository the layout starts from; its root when empty */
     path?: string | null
+}
+
+/** The pipelines a connection's repositories are scaffolded with, by its provider */
+const PIPELINE_PROVIDERS: Record<CodeRepositoryProvider, PipelineProvider> = {
+    [CodeRepositoryProvider.GITHUB]: "github",
+    [CodeRepositoryProvider.GITLAB]: "gitlab",
+    [CodeRepositoryProvider.AZURE_DEV_OPS]: "azure_dev_ops"
 }
 
 /** What git takes as a branch or a tag name, without the forms it refuses: `..`, a leading dash, a trailing slash or `.lock` */
@@ -263,6 +278,83 @@ export class CodeRepositoryService extends BaseAuthorizedService {
      * pick. The templates repository is one the connection itself reaches.
      */
     async setPipelines(codeRepositoryId: string, input: PipelineTemplatesInput | null): Promise<ICodeRepository> {
+        const connection = await this.findForPipelines(codeRepositoryId)
+        const pipelines = input === null ? undefined : await this.resolvePipelines(connection, input)
+        const updated = await CodeRepository.findOneAndUpdate({ _id: connection._id }, pipelines ? { pipelines } : { $unset: { pipelines: 1 } }, { new: true })
+        if (!updated) throw new EntityNotFoundError(codeRepositoryId)
+        return updated
+    }
+
+    /**
+     * Writes into the repository `input` names, without saving it on the connection, one empty pipeline of the connection's
+     * provider in every folder a scaffold looks in (`<type>/<compiler>` of the catalog, `<type>/<language>`), under its
+     * folder. A pipeline already there is left as it is: one commit with the rest, pushed onto the ref, never forced.
+     */
+    async initializePipelines(codeRepositoryId: string, input: PipelineTemplatesInput): Promise<{ created: string[]; skipped: number }> {
+        const connection = await this.findForPipelines(codeRepositoryId)
+        const pipelines = await this.resolvePipelines(connection, input)
+        const provider = PIPELINE_PROVIDERS[connection.provider]
+        const { file, existing } = EMPTY_PIPELINES[provider]
+        // The catalog as the templates library shows it: one coming soon cannot be scaffolded yet
+        const templates = (await new MarketService(this.user).getAll()).filter(template => !template.comingSoon)
+        const folders = pipelineTemplateFolders(templates)
+
+        const link = pipelines.codeRepository
+        const repositoryName = repositoryNameFor(link, connection)
+        const target = { component: { codeRepository: link }, codeRepository: connection, repositoryName }
+        const failed = (reason: string) =>
+            createBusinessException({
+                code: "PIPELINES_INITIALIZE_FAILED",
+                message: `Nothing was written to ${repositoryName} (${reason})`,
+                statusCode: 502,
+                details: { repository: repositoryName, reason }
+            })
+
+        // Checked before the clone, as for the scaffolds: isomorphic-git holds the whole packfile in memory
+        const reported = await new RepositoryWorkspaceService(this.user).providerSizeBytes(target)
+        if (reported !== undefined && reported > fastify.config.REPOSITORIES_MAX_SIZE_MB * 1024 * 1024) {
+            throw failed(`it is bigger than ${fastify.config.REPOSITORIES_MAX_SIZE_MB} MB`)
+        }
+
+        const workingCopy = new GitWorkingCopy(await fs.mkdtemp(path.join(tmpdir(), "template-pipelines-")), cloneUrlFor(target), gitCredentialsFor(connection))
+        try {
+            const fileService = new RepositoryFileService(this.user)
+            const branch = pipelines.ref ?? (await fileService.getDefaultBranch(target))
+            // A repository without commits has no branch at all, its default one included: its first commit is this one
+            const onRemote = await workingCopy.hasRemoteBranch(branch)
+            const empty = !onRemote && (!pipelines.ref || !(await workingCopy.hasRemoteBranch(await fileService.getDefaultBranch(target))))
+            // A tag, or a branch not there: nothing is pushed anywhere else than the ref picked
+            if (!onRemote && !empty) throw failed(`${branch} is not one of its branches`)
+            if (!empty) await workingCopy.prepare(branch)
+
+            const files: { path: string; content: string }[] = []
+            let skipped = 0
+            for (const folder of folders) {
+                const root = pipelines.path ? `${pipelines.path}/${folder}` : folder
+                const found = !empty && (await fs.lstat(path.join(workingCopy.dir, root, existing)).catch(() => undefined))
+                if (found) skipped++
+                else files.push({ path: `${root}/${file}`, content: `# Pipeline for ${folder}: to be completed\n` })
+            }
+            if (files.length === 0) return { created: [], skipped }
+
+            const user = this.getUser()
+            // An API key has no person behind it: the orchestrator signs
+            const author = !user || this.user?.apiKeyId ? ORCHESTRATOR_COMMITTER : { name: [user.name, user.surname].filter(Boolean).join(" ") || user.email, email: user.email }
+            const message = "chore: initialize the pipeline templates"
+            if (empty) await workingCopy.initialize({ branch, message, author, files })
+            else await workingCopy.commitAndPush({ branch: "flightroom-pipelines", pushTo: branch, message, author, files: files.map(created => ({ ...created, action: "create" as const })) })
+            return { created: files.map(created => created.path), skipped }
+        } catch (error) {
+            if (error instanceof BusinessException) throw error
+            fastify.log.error({ error: toErrorMessage(error), repository: repositoryName }, "Pipeline templates initialization failed")
+            throw failed(isPushRefused(error) ? `the push was refused: ${toErrorMessage(error)}` : toErrorMessage(error))
+        } finally {
+            await fs.rm(workingCopy.dir, { recursive: true, force: true })
+        }
+    }
+
+    /** A connection whose pipeline templates are about to change: owners only, as for GitOps, since every repository scaffolded through it runs them */
+    private async findForPipelines(codeRepositoryId: string): Promise<ICodeRepository> {
         const connection = await this.findForWrite(codeRepositoryId)
         if (!connection) throw new EntityNotFoundError(codeRepositoryId)
         const project = await Project.findById(connection.projectId, { organizationId: 1 })
@@ -271,11 +363,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
             code: "PIPELINES_OWNER_REQUIRED",
             message: "Only an owner of the project can change where the pipeline templates of its connections come from"
         })
-
-        const pipelines = input === null ? undefined : await this.resolvePipelines(connection, input)
-        const updated = await CodeRepository.findOneAndUpdate({ _id: connection._id }, pipelines ? { pipelines } : { $unset: { pipelines: 1 } }, { new: true })
-        if (!updated) throw new EntityNotFoundError(codeRepositoryId)
-        return updated
+        return connection
     }
 
     /** The pipeline templates to store from what the screen sent */

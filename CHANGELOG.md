@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Initialize The Pipeline Templates Repository**: the Initialize button in the pipeline templates of a connection writes into the repository picked, on its ref and under its folder, one folder per `<type>/<compiler>` of the templates library and per `<type>/<language>` (every backend language, `javascript` for the frontends), each with an empty pipeline of the connection's provider: `.github/workflows/build.yml`, `.gitlab-ci.yml` or `azure-pipelines.yml`. One commit, pushed without forcing and signed by the user; a folder that already has a pipeline is left as it is, and the setting is not saved. Until completed, an empty pipeline is copied as it is into the repositories scaffolded through the connection
+
 ### Changed
 
 - **No Provider Folders In The Pipeline Templates Of A Connection**: a connection serves one provider, so the pipeline templates repository picked on it no longer holds one folder per provider: each folder, `<type>/<compiler>/<template slug>`, `<type>/<compiler>` or `<type>/<language>`, holds what goes at the root of the new repository, `.github/`, `.gitlab-ci.yml` or `azure-pipelines.yml`, e.g. `service/docker/azure-pipelines.yml`. A repository still laid out as `<type>/<compiler>/<provider>/` is no longer read. The official `template-pipelines` keep their layout

@@ -1,3 +1,6 @@
+import fs from "node:fs/promises"
+import path from "node:path"
+import * as git from "isomorphic-git"
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
@@ -32,6 +35,10 @@ import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedSer
 import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService from "./GitOpsService"
+import MarketService from "./MarketService"
+import { RepositoryFileService } from "./RepositoryFileService"
+import { GitWorkingCopy } from "./workspace/GitWorkingCopy"
+import RepositoryWorkspaceService from "./workspace/RepositoryWorkspaceService"
 
 type Guards = { ensureAccessToProject: () => Promise<void>; ensureWholeProject: () => Promise<void> }
 const guards = BaseAuthorizedService.prototype as unknown as Guards
@@ -240,5 +247,147 @@ describe("pipeline templates of a connection", () => {
 
         await expect(set(null)).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN" })
         expect(written).toBeUndefined()
+    })
+})
+
+describe("pipeline templates initialized in the repository of a connection", () => {
+    const catalog = [
+        { slug: "docker-service", type: "service", compiler: "docker" },
+        { slug: "spring-service", type: "service", compiler: "docker" },
+        { slug: "react-host", type: "host", compiler: "vite" },
+        { slug: "angular-remote", type: "remote", compiler: "webpack", comingSoon: true },
+        { slug: "evil", type: "..", compiler: "vite" }
+    ]
+    /** What a scaffold of the catalog looks in, slugs aside: the remote is coming soon, `..` is no folder */
+    const folders = ["host/javascript", "host/vite", "service/docker", "service/dotnet", "service/go", "service/java", "service/javascript", "service/python"]
+    /** The files the remote branch already holds, written in the clone */
+    let onRemote: string[]
+    let branches: string[]
+    let pushed: { pushTo?: string; message: string; files: { path: string; content?: string; action: string }[] }[]
+    let initialized: { branch: string; files: { path: string; content: string }[] }[]
+
+    const reachable = (cloneUrlHttps: string) => vi.spyOn(CodeRepositoryImportService.prototype, "fetchRepositories").mockResolvedValue([{ repositoryId: "7", name: "acme-pipelines", cloneUrlHttps }])
+
+    beforeEach(() => {
+        onRemote = []
+        branches = ["main"]
+        pushed = []
+        initialized = []
+        vi.spyOn(CodeRepository, "findOneAndUpdate")
+        vi.spyOn(Project, "findById").mockResolvedValue({ _id: stored.projectId, organizationId: new Types.ObjectId() } as never)
+        vi.spyOn(UserProject, "findOne").mockResolvedValue({ role: "OWNER" } as never)
+        reachable("https://gitlab.acme.dev/acme/acme-pipelines.git")
+        vi.spyOn(MarketService.prototype, "getAll").mockResolvedValue(catalog as never)
+        vi.spyOn(RepositoryWorkspaceService.prototype, "providerSizeBytes").mockResolvedValue(undefined)
+        vi.spyOn(RepositoryFileService.prototype, "getDefaultBranch").mockResolvedValue("main")
+        vi.spyOn(GitWorkingCopy.prototype, "hasRemoteBranch").mockImplementation(async branch => branches.includes(branch))
+        vi.spyOn(GitWorkingCopy.prototype, "prepare").mockImplementation(async function (this: GitWorkingCopy) {
+            for (const file of onRemote) {
+                await fs.mkdir(path.dirname(path.join(this.dir, file)), { recursive: true })
+                await fs.writeFile(path.join(this.dir, file), "steps: []\n")
+            }
+            return "head"
+        })
+        vi.spyOn(GitWorkingCopy.prototype, "commitAndPush").mockImplementation(async options => {
+            pushed.push(options)
+            return "commit"
+        })
+        vi.spyOn(GitWorkingCopy.prototype, "initialize").mockImplementation(async options => {
+            initialized.push(options)
+            return "commit"
+        })
+    })
+
+    const initialize = (input: unknown) => service().initializePipelines(connectionId, input as never)
+
+    it("Given a GitLab connection, when its repository is initialized, then one empty .gitlab-ci.yml per folder is pushed onto the default branch and nothing is saved", async () => {
+        const result = await initialize({ repositoryId: "7" })
+
+        expect(result).toEqual({ created: folders.map(folder => `${folder}/.gitlab-ci.yml`), skipped: 0 })
+        expect(pushed).toEqual([
+            expect.objectContaining({
+                pushTo: "main",
+                message: "chore: initialize the pipeline templates",
+                files: folders.map(folder => ({ path: `${folder}/.gitlab-ci.yml`, content: `# Pipeline for ${folder}: to be completed\n`, action: "create" }))
+            })
+        ])
+        expect(CodeRepository.findOneAndUpdate).not.toHaveBeenCalled()
+    })
+
+    it("Given an Azure DevOps connection, when its repository is initialized, then the empty pipelines are azure-pipelines.yml", async () => {
+        stored = connection({ provider: CodeRepositoryProvider.AZURE_DEV_OPS, azureData: { organization: "acme", projectId: "p1" } })
+        reachable("https://dev.azure.com/acme/p1/_git/acme-pipelines")
+
+        const result = await initialize({ repositoryId: "7" })
+
+        expect(result.created).toEqual(folders.map(folder => `${folder}/azure-pipelines.yml`))
+        expect(pushed[0].pushTo).toBe("main")
+    })
+
+    it("Given a GitHub connection, when its repository is initialized, then each folder gets a workflow, except one that already has any", async () => {
+        stored = connection({ provider: CodeRepositoryProvider.GITHUB, githubData: { organizationId: "acme" } })
+        reachable("https://github.com/acme/acme-pipelines.git")
+        onRemote = ["service/docker/.github/workflows/release.yml"]
+
+        const result = await initialize({ repositoryId: "7" })
+
+        expect(result).toEqual({ created: folders.filter(folder => folder !== "service/docker").map(folder => `${folder}/.github/workflows/build.yml`), skipped: 1 })
+    })
+
+    it("Given a folder and pipelines already there, when the repository is initialized, then only the missing ones are written under that folder", async () => {
+        onRemote = ["ci/templates/service/docker/.gitlab-ci.yml", "service/go/.gitlab-ci.yml"]
+        branches = ["main", "release"]
+
+        const result = await initialize({ repositoryId: "7", ref: "release", path: "/ci/templates/" })
+
+        expect(result.skipped).toBe(1)
+        expect(result.created).toEqual(folders.filter(folder => folder !== "service/docker").map(folder => `ci/templates/${folder}/.gitlab-ci.yml`))
+        expect(pushed[0]).toMatchObject({ pushTo: "release" })
+        expect(pushed[0].files[0].content).toBe("# Pipeline for host/javascript: to be completed\n")
+    })
+
+    it("Given every pipeline already there, when the repository is initialized, then nothing is committed nor pushed", async () => {
+        onRemote = folders.map(folder => `${folder}/.gitlab-ci.yml`)
+
+        expect(await initialize({ repositoryId: "7" })).toEqual({ created: [], skipped: folders.length })
+        expect(pushed).toEqual([])
+        expect(initialized).toEqual([])
+    })
+
+    it("Given a repository without commits, when it is initialized, then its first commit holds the empty pipelines", async () => {
+        branches = []
+
+        const result = await initialize({ repositoryId: "7" })
+
+        expect(GitWorkingCopy.prototype.prepare).not.toHaveBeenCalled()
+        expect(initialized).toEqual([expect.objectContaining({ branch: "main", message: "chore: initialize the pipeline templates" })])
+        expect(initialized[0].files.map(file => file.path)).toEqual(result.created)
+        expect(pushed).toEqual([])
+    })
+
+    it("Given a ref that is not a branch, when the repository is initialized, then it is refused with a 502 and nothing is pushed", async () => {
+        await expect(initialize({ repositoryId: "7", ref: "v1.0.0" })).rejects.toMatchObject({ code: "PIPELINES_INITIALIZE_FAILED", statusCode: 502 })
+        expect(pushed).toEqual([])
+        expect(initialized).toEqual([])
+    })
+
+    it("Given a push the remote refuses, when the repository is initialized, then it fails with the reason", async () => {
+        vi.mocked(GitWorkingCopy.prototype.commitAndPush).mockRejectedValue(new git.Errors.PushRejectedError("not-fast-forward"))
+
+        await expect(initialize({ repositoryId: "7" })).rejects.toMatchObject({ code: "PIPELINES_INITIALIZE_FAILED", statusCode: 502, details: { reason: expect.stringContaining("refused") } })
+    })
+
+    it("Given a member who is not an owner, when the repository is initialized, then it is refused and nothing is cloned", async () => {
+        vi.mocked(UserProject.findOne).mockResolvedValue({ role: "MEMBER" } as never)
+        vi.spyOn(GitOpsService.prototype as unknown as { isOrganizationAdmin: () => Promise<boolean> }, "isOrganizationAdmin").mockResolvedValue(false)
+
+        await expect(initialize({ repositoryId: "7" })).rejects.toMatchObject({ code: "PIPELINES_OWNER_REQUIRED", statusCode: 403 })
+        expect(GitWorkingCopy.prototype.prepare).not.toHaveBeenCalled()
+        expect(pushed).toEqual([])
+    })
+
+    it("Given an invalid folder, when the repository is initialized, then it is refused as when it is set", async () => {
+        await expect(initialize({ repositoryId: "7", path: "../x" })).rejects.toMatchObject({ code: "PIPELINES_PATH_INVALID", statusCode: 400 })
+        expect(pushed).toEqual([])
     })
 })

@@ -164,6 +164,16 @@ export default async function codeRepositoryController(fastify: FastifyInstance)
         return reply.send(repository.toFrontendObject())
     })
 
+    // Writes the empty pipelines into the repository named, without saving it on the connection
+    fastify.post<{
+        Params: {
+            repositoryId: string
+        }
+        Body: PipelineTemplatesInput
+    }>("/repositories/:repositoryId/pipelines/initialize", async (request, reply) => {
+        return reply.send(await new CodeRepositoryService(request.databaseUser).initializePipelines(request.params.repositoryId, request.body))
+    })
+
     fastify.put<{
         Params: {
             repositoryId: string

@@ -15,13 +15,14 @@ import { ApiKeyRole } from "../models/ApiKeyModel"
 import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType, ICodeRepository } from "../models/CodeRepositoryModel"
 import { ICodeRepositoryFrontend } from "../models/FrontendModel"
 import { IMarket } from "../models/MarketModel"
-import { BackendRuntime, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
+import { isBackendTemplateType, parseRuntime } from "../types/BackendStack"
 import FrontendDTO from "../types/FrontendDTO"
 import { createSystemDeployKey } from "./ApiKeyService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeManagementService from "./CodeManagementService"
 import { azureDevOpsVariableGroupName, deployKeyExpiry, deploySecretName } from "./CodeRepositoryService"
 import { federationName } from "./FederationConfigService"
+import { isFolderName, LANGUAGE_FOLDERS, PipelineProvider, ROOT_PIPELINE_FILES } from "./pipelineTemplateLayout"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 import { isRepositoryNameTakenError } from "./RepositoryRenameService"
 import RepositoryWorkspaceService, { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
@@ -49,22 +50,6 @@ export class TagLookupError extends BusinessException {
 }
 
 const pipelinesUrl = "https://github.com/mfe-orchestrator/template-pipelines/archive/refs/heads/main.zip"
-
-/** The folder of each provider in a pipeline templates repository */
-export type PipelineProvider = "github" | "gitlab" | "azure_dev_ops"
-
-/** The pipeline file a provider reads at the root of the repository; GitHub reads the whole `.github` folder instead */
-const ROOT_PIPELINE_FILES: Record<Exclude<PipelineProvider, "github">, string> = { gitlab: ".gitlab-ci.yml", azure_dev_ops: "azure-pipelines.yml" }
-
-/** The language folder of a backend runtime in a pipeline templates repository; none for one the console cannot name */
-const LANGUAGE_FOLDERS: Record<BackendRuntime, string | undefined> = {
-    [BackendRuntime.NODE]: "javascript",
-    [BackendRuntime.PYTHON]: "python",
-    [BackendRuntime.JAVA]: "java",
-    [BackendRuntime.GO]: "go",
-    [BackendRuntime.DOTNET]: "dotnet",
-    [BackendRuntime.OTHER]: undefined
-}
 
 /**
  * The language a template is written in, as a folder of the pipeline templates: what a connection's own
@@ -94,9 +79,6 @@ export interface PipelineTemplates {
      */
     byProvider: boolean
 }
-
-/** One folder name, neither `.` nor `..`: what a template's type, compiler and slug must be to be looked up as folders */
-const isFolderName = (name: string | undefined): name is string => !!name && name !== "." && name !== ".." && !name.includes("\\") && path.basename(name) === name
 
 /** Whether `target` really is inside `root`, symlinks followed; false when it does not exist */
 const isInside = async (root: string, target: string): Promise<boolean> => {
