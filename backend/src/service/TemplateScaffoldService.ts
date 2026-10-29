@@ -652,7 +652,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
 
     /**
      * The pipeline templates a repository scaffolded through `codeRepository` gets: the repository its project
-     * picked, cloned at its ref, or the official template-pipelines. A repository of the project that cannot be
+     * picked, cloned at its ref and read from its folder, or the official template-pipelines. A repository of the project that cannot be
      * read is refused, never replaced by the official one: the project asked for its own pipelines.
      */
     async fetchPipelineTemplates(codeRepository: ICodeRepository): Promise<PipelineTemplates> {
@@ -692,7 +692,14 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             await fs.remove(dir).catch(() => undefined)
             throw pipelineSourceUnavailable(repositoryName, toErrorMessage(error), ref)
         }
-        return { root: dir, dir, source: `${repositoryName}${ref ? `@${ref}` : ""}` }
+        // The layout starts from the folder the project picked, its root when none: a folder missing is refused like a ref missing
+        const folder = project.pipelines?.path || undefined
+        const root = folder ? join(dir, folder) : dir
+        if (folder && !((await isInside(dir, root)) && (await fs.lstat(root)).isDirectory())) {
+            await fs.remove(dir).catch(() => undefined)
+            throw pipelineSourceUnavailable(repositoryName, `it has no folder ${folder}`, ref)
+        }
+        return { root, dir, source: `${repositoryName}${ref ? `@${ref}` : ""}${folder ? `:${folder}` : ""}` }
     }
 
     /** The official template-pipelines, downloaded, refused like the project's ones when they cannot be */

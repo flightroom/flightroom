@@ -29,6 +29,8 @@ export interface IProjectPipelines {
     codeRepository: ICodeRepositoryFrontend
     /** The branch or tag read; the default branch of the repository when left out */
     ref?: string
+    /** The folder of the repository the layout starts from, e.g. `ci/templates`; its root when left out */
+    path?: string
 }
 
 /**
@@ -198,7 +200,8 @@ const projectSchema = new Schema<IProject>(
         pipelines: {
             // Written by ProjectService only, from what the provider answered: never from the request body
             codeRepository: { type: Schema.Types.Mixed },
-            ref: { type: String, trim: true }
+            ref: { type: String, trim: true },
+            path: { type: String, trim: true }
         },
         containerRegistry: { type: String, trim: true, match: CONTAINER_REGISTRY },
         // No default: an empty array would turn AI off, where unset means every AI of the organization

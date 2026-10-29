@@ -693,6 +693,30 @@ describe("TemplateScaffoldService, pipeline templates", () => {
             expect(await fs.pathExists(clone.dir)).toBe(false)
         })
 
+        it("given a repository of the project with a folder, when a backend is scaffolded, then the layout is read from that folder and not from the root", async () => {
+            vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, pipelines: { codeRepository: link, ref: "v2", path: "ci/templates" } } as never)
+            remotePipelines = {
+                "service/docker/github/workflows/root.yml": "from: root",
+                "ci/templates/service/docker/github/workflows/build.yml": "from: folder %serviceSlug%"
+            }
+
+            await scaffold()
+
+            expect(committed[".github/workflows/build.yml"]).toBe("from: folder orders-api")
+            expect(committed[".github/workflows/root.yml"]).toBeUndefined()
+        })
+
+        it.each([
+            ["missing", "ci/missing"],
+            ["a file", "ci/file.yml"]
+        ])("given a folder of the repository of the project that is %s, when it is scaffolded, then it is refused before the repository is created at the provider", async (_case, path) => {
+            vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, pipelines: { codeRepository: link, path } } as never)
+            remotePipelines = { "ci/file.yml": "not: a folder", "service/docker/github/workflows/build.yml": "from: root" }
+
+            await expect(scaffold()).rejects.toMatchObject({ code: "PIPELINE_SOURCE_UNAVAILABLE", details: { repository: "acme-pipelines", reason: `it has no folder ${path}` } })
+            expect(createAtGithub).not.toHaveBeenCalled()
+        })
+
         it("given a repository of the project without the folder of the template, when it is scaffolded, then the template keeps its own pipeline rather than the official one", async () => {
             remotePipelines = { "remote/vite/github/workflows/build.yml": "from: project" }
 

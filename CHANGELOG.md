@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Pipeline Templates From A Folder**: the pipeline templates repository of a project can be read from a folder, such as `ci/templates`, set in the settings of the project or through `project_pipelines_set`: the layout `<type>/<compiler>/<provider>` starts there, and from the root when it is left empty. A folder the repository does not have stops the scaffold before anything is created, as a missing ref does
+
 ### Changed
 
 - **Images Scanned With Trivy**: the CI scans both Docker images, standard and all-in-one, before pushing them, and stops the release on a CRITICAL or HIGH vulnerability that has a fix. A finding to accept goes in `.trivyignore`, with its reason and an expiry

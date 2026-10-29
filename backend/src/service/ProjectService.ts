@@ -78,10 +78,15 @@ export interface PipelineTemplatesInput {
     repositoryId: string
     /** A branch or a tag; the default branch of the repository when empty */
     ref?: string | null
+    /** The folder of the repository the layout starts from; its root when empty */
+    path?: string | null
 }
 
 /** What git takes as a branch or a tag name, without the forms it refuses: `..`, a leading dash, a trailing slash or `.lock` */
 const GIT_REF = /^(?!-)(?!.*\.\.)(?!.*\/$)(?!.*\.lock$)[A-Za-z0-9._/-]{1,255}$/
+
+/** A relative folder, slashes between names: no `.` nor `..`, nothing that could step out of the clone */
+const PIPELINES_PATH = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/
 
 /** The exposure to store, trimmed and in lowercase: refused with a 400 rather than by the model with a 500 */
 const exposureOf = (input: unknown): { domain: string; certificateIssuer?: string; httpPort?: number; httpsPort?: number } => {
@@ -606,6 +611,11 @@ export class ProjectService extends BaseAuthorizedService {
         if ((input.ref != null && typeof input.ref !== "string") || (ref && !GIT_REF.test(ref))) {
             throw createBusinessException({ code: "PIPELINES_REF_INVALID", message: "The ref of the pipeline templates must be the name of a branch or a tag" })
         }
+        // `/ci/templates/` and `ci/templates` are the same folder
+        const path = typeof input.path === "string" ? input.path.trim().replace(/^\/+|\/+$/g, "") : ""
+        if ((input.path != null && typeof input.path !== "string") || path.length > 255 || (path && !PIPELINES_PATH.test(path))) {
+            throw createBusinessException({ code: "PIPELINES_PATH_INVALID", message: "The folder of the pipeline templates must be a relative path, such as ci/templates, without . or .." })
+        }
 
         const codeRepository = await CodeRepository.findOne({ _id: toObjectId(input.codeRepositoryId), projectId: projectIdObj, isActive: true })
         if (!codeRepository) {
@@ -616,7 +626,7 @@ export class ProjectService extends BaseAuthorizedService {
         if (!repository) {
             throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: `The connection "${codeRepository.name}" cannot reach the repository ${input.repositoryId}` })
         }
-        return { codeRepository: importService.buildFrontendCodeRepository(codeRepository, repository), ...(ref ? { ref } : {}) }
+        return { codeRepository: importService.buildFrontendCodeRepository(codeRepository, repository), ...(ref ? { ref } : {}), ...(path ? { path } : {}) }
     }
 
     async delete(projectId: string): Promise<DeleteResult> {

@@ -310,14 +310,19 @@
             "refPlaceholder": "main",
             "refHint": "Se vuoto, il branch di default del repository.",
             "refInvalid": "Non è un nome di branch o di tag: lettere, cifre, punti, trattini, underscore e slash, senza \"..\", trattino iniziale, slash finale o .lock finale.",
-            "layout": "Struttura: <tipo>/<compilatore>/<provider>/, dove provider è github, gitlab o azure_dev_ops, ad esempio service/docker/github/workflows/release.yml. Una cartella <tipo>/<compilatore>/<slugTemplate>/<provider>/ vince solo per quel template. Una cartella <tipo>/<linguaggio>/<provider>/, dove linguaggio è java, python o javascript, vale per tutti i template di quel linguaggio quando non ce n'è una per il compilatore, ad esempio service/java/azure_dev_ops/azure-pipelines.yml per ogni backend Java e remote/javascript/... per ogni remote. Su GitHub la cartella diventa .github/ e sostituisce i workflow del template; su GitLab e Azure DevOps .gitlab-ci.yml e azure-pipelines.yml sostituiscono quelli nella root. Un template per cui il repository non ha una cartella tiene la pipeline che ha già: i template ufficiali non vengono usati al suo posto.",
+            "path": "Cartella",
+            "pathPlaceholder": "ci/templates",
+            "pathHint": "La cartella del repository da cui parte la struttura. Se vuota, la root del repository.",
+            "pathInvalid": "Non è una cartella: nomi di lettere, cifre, punti, trattini e underscore separati da slash, senza \".\" o \"..\".",
+            "layout": "Struttura, dalla root del repository o dalla cartella indicata: <tipo>/<compilatore>/<provider>/, dove provider è github, gitlab o azure_dev_ops, ad esempio service/docker/github/workflows/release.yml. Una cartella <tipo>/<compilatore>/<slugTemplate>/<provider>/ vince solo per quel template. Una cartella <tipo>/<linguaggio>/<provider>/, dove linguaggio è java, python o javascript, vale per tutti i template di quel linguaggio quando non ce n'è una per il compilatore, ad esempio service/java/azure_dev_ops/azure-pipelines.yml per ogni backend Java e remote/javascript/... per ogni remote. Su GitHub la cartella diventa .github/ e sostituisce i workflow del template; su GitLab e Azure DevOps .gitlab-ci.yml e azure-pipelines.yml sostituiscono quelli nella root. Un template per cui il repository non ha una cartella tiene la pipeline che ha già: i template ufficiali non vengono usati al suo posto.",
             "placeholders": "Sostituiti alla creazione del repository: %microfrontendSlug% e %serviceSlug% con lo slug, %domain% con l'URL di questa console.",
             "saved": "Template di pipeline salvati",
             "errors": {
                 "owner_required": "Solo un owner del progetto può cambiare da dove arrivano i suoi template di pipeline",
                 "repository_required": "Scegli la connessione e il repository dei template di pipeline",
                 "repository_invalid": "La connessione non raggiunge questo repository, o non è del progetto: scegline un altro",
-                "ref_invalid": "Il branch o il tag non ha un nome valido"
+                "ref_invalid": "Il branch o il tag non ha un nome valido",
+                "path_invalid": "La cartella deve essere un percorso relativo, come ci/templates, senza \".\" o \"..\""
             }
         },
         "argoCd": {
