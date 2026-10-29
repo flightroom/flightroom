@@ -5,16 +5,22 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **No Provider Folders In The Pipeline Templates Of A Connection**: a connection serves one provider, so the pipeline templates repository picked on it no longer holds one folder per provider: each folder, `<type>/<compiler>/<template slug>`, `<type>/<compiler>` or `<type>/<language>`, holds what goes at the root of the new repository, `.github/`, `.gitlab-ci.yml` or `azure-pipelines.yml`, e.g. `service/docker/azure-pipelines.yml`. A repository still laid out as `<type>/<compiler>/<provider>/` is no longer read. The official `template-pipelines` keep their layout
+
 ## [10.0.0] - 2026-10-29
 
 ### Added
 
 - **Voice Mode For Vega**: the microphone button next to the question talks with the assistant: what the user says is sent when they stop talking, the answer, asked short and spoken, without lists, code or ids, is read aloud and the microphone opens again. It uses the browser's speech recognition and synthesis, so it shows in Chrome, Edge and Safari, and Chrome and Edge send the audio to their vendor's speech service
-- **Pipeline Templates From A Folder**: the pipeline templates repository of a code repository connection can be read from a folder, such as `ci/templates`, set in the pipeline templates of the connection or through `code_repository_pipelines_set`: the layout `<type>/<compiler>` starts there, and from the root when it is left empty. A folder the repository does not have stops the scaffold before anything is created, as a missing ref does
+- **Pipeline Templates From A Folder**: the pipeline templates repository of a code repository connection can be read from a folder, such as `ci/templates`, set in the pipeline templates of the connection or through `code_repository_pipelines_set`: the layout `<type>/<compiler>/<provider>` starts there, and from the root when it is left empty. A folder the repository does not have stops the scaffold before anything is created, as a missing ref does
 
 ### Changed
 
-- **Pipeline Templates Per Connection**: the repository the pipelines of a scaffolded frontend or backend are copied from is set on each code repository connection, from its row in Code repositories, instead of once for the project: a repository created through a connection gets the pipeline templates of a repository that connection reaches, and a connection without any uses the official `template-pipelines`. A connection serves one provider, so its repository has no provider folders: each folder, `<type>/<compiler>/<template slug>`, `<type>/<compiler>` or `<type>/<language>`, holds what goes at the root of the new repository, `.github/`, `.gitlab-ci.yml` or `azure-pipelines.yml`. `project_pipelines_set` is replaced by `code_repository_pipelines_set`, which takes the connection to configure
+- **Pipeline Templates Per Connection**: the repository the pipelines of a scaffolded frontend or backend are copied from is set on each code repository connection, from its row in Code repositories, instead of once for the project: a repository created through a connection gets the pipeline templates of a repository that connection reaches, and a connection without any uses the official `template-pipelines`. `project_pipelines_set` is replaced by `code_repository_pipelines_set`, which takes the connection to configure
 - **Slug Named After The Repository**: a frontend or a backend created with a new repository from Maestro or through `frontend_scaffold` and `backend_scaffold` takes the name of its repository as its slug, `checkout-fe` or `orders-be`. The tools take the `repositoryName` and no longer a slug of their own, and refuse a name that is not a slug or does not end in `-fe` for a frontend or in `-be` for a backend
 - **Images Scanned With Trivy**: the CI scans both Docker images, standard and all-in-one, before pushing them, and stops the release on a CRITICAL or HIGH vulnerability that has a fix. A finding to accept goes in `.trivyignore`, with its reason and an expiry
 - **Smaller Standard Image**: the standard image installs only the production dependencies of the backend, from the workspace lockfile, and no longer ships npm, pnpm and the pnpm store: 112 MB, was about 680 MB
