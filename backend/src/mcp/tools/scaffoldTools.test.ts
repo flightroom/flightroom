@@ -55,8 +55,8 @@ describe("scaffold tools", () => {
 
     it("given their definitions, when read, then MCP clients get them and the console assistant asks before creating a repository", () => {
         expect(scaffoldTools.map(definition => definition.name).sort()).toEqual(["backend_scaffold", "frontend_scaffold"])
-        expect(tool("frontend_scaffold").inputSchema.shape.repositoryName.description).toContain("-fe")
-        expect(tool("backend_scaffold").inputSchema.shape.repositoryName.description).toContain("-be")
+        expect(tool("frontend_scaffold").inputSchema.shape.slug.description).toContain("-fe")
+        expect(tool("backend_scaffold").inputSchema.shape.slug.description).toContain("-be")
         for (const definition of scaffoldTools) {
             expect(definition.consoleOnly, definition.name).toBeFalsy()
             expect(definition.scope, definition.name).toBe("mfe:write")
@@ -66,26 +66,26 @@ describe("scaffold tools", () => {
     })
 
     describe("frontend_scaffold", () => {
-        const input = { name: "Cart", slug: "cart", version: "1.0.0", template: "react-vite", codeRepositoryId: CODE_REPOSITORY, private: true }
+        const input = { name: "Cart", slug: "cart-fe", version: "1.0.0", template: "react-vite", codeRepositoryId: CODE_REPOSITORY, private: true }
 
         it("given a template and a connection of the project, when scaffolded, then the frontend is created with the repository to create", async () => {
             findCodeRepository.mockResolvedValue({ _id: CODE_REPOSITORY })
             getTemplate.mockResolvedValue({ slug: "react-vite" })
-            createFrontend.mockResolvedValue({ _id: FRONTEND, slug: "cart" })
+            createFrontend.mockResolvedValue({ _id: FRONTEND, slug: "cart-fe" })
 
-            expect(await run("frontend_scaffold", input)).toEqual({ _id: FRONTEND, slug: "cart" })
+            expect(await run("frontend_scaffold", input)).toEqual({ _id: FRONTEND, slug: "cart-fe" })
             expect(findCodeRepository).toHaveBeenCalledWith(CODE_REPOSITORY)
             expect(createFrontend).toHaveBeenCalledWith(
                 {
                     name: "Cart",
-                    slug: "cart",
+                    slug: "cart-fe",
                     version: "1.0.0",
                     codeRepository: {
                         enabled: true,
                         codeRepositoryId: CODE_REPOSITORY,
                         repositoryId: "",
                         gitlab: undefined,
-                        createData: { name: "cart", private: true, template: "react-vite" }
+                        createData: { name: "cart-fe", private: true, template: "react-vite" }
                     }
                 },
                 PROJECT
@@ -109,19 +109,19 @@ describe("scaffold tools", () => {
     })
 
     describe("backend_scaffold", () => {
-        const input = { name: "Orders API", slug: "orders-api", domainId: DOMAIN, template: "node-fastify", codeRepositoryId: CODE_REPOSITORY, repositoryName: "orders-be" }
+        const input = { name: "Orders API", slug: "orders-be", domainId: DOMAIN, template: "node-fastify", codeRepositoryId: CODE_REPOSITORY }
 
         it("given a template, a connection and a domain of the project, when scaffolded, then the backend is created in the domain with the repository to create", async () => {
             findCodeRepository.mockResolvedValue({ _id: CODE_REPOSITORY })
             getDomain.mockResolvedValue({ _id: DOMAIN })
             getTemplate.mockResolvedValue({ slug: "node-fastify" })
-            createBackend.mockResolvedValue({ _id: BACKEND, slug: "orders-api" })
+            createBackend.mockResolvedValue({ _id: BACKEND, slug: "orders-be" })
 
-            expect(await run("backend_scaffold", input)).toEqual({ _id: BACKEND, slug: "orders-api" })
+            expect(await run("backend_scaffold", input)).toEqual({ _id: BACKEND, slug: "orders-be" })
             expect(createBackend).toHaveBeenCalledWith(
                 {
                     name: "Orders API",
-                    slug: "orders-api",
+                    slug: "orders-be",
                     domainId: DOMAIN,
                     codeRepository: {
                         enabled: true,
@@ -152,9 +152,14 @@ describe("scaffold tools", () => {
             expect(createBackend).not.toHaveBeenCalled()
         })
 
-        it("given a repository name the providers refuse, when parsed, then it is refused", () => {
-            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, repositoryName: "orders be" }).success).toBe(false)
-            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, repositoryName: "orders-be.git" }).success).toBe(false)
+        it("given a slug without the suffix of its kind, when parsed, then it is refused: the slug names the repository", () => {
+            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, slug: "orders" }).success).toBe(false)
+            expect(tool("backend_scaffold").inputSchema.safeParse({ ...input, slug: "orders-fe" }).success).toBe(false)
+            expect(tool("frontend_scaffold").inputSchema.safeParse({ ...input, version: "1.0.0", slug: "orders-be" }).success).toBe(false)
+        })
+
+        it("given a separate repository name, when parsed, then it is dropped: the repository is named after the slug", () => {
+            expect(tool("backend_scaffold").inputSchema.parse({ ...input, repositoryName: "other-be" })).not.toHaveProperty("repositoryName")
         })
 
         it("given an existing repository to link instead, when parsed, then it is not taken: backend_create links one", () => {
