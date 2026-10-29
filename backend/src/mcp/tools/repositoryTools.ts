@@ -76,7 +76,7 @@ export const repositoryTools = [
         name: "code_repository_pipelines_set",
         title: "Set pipeline templates repository",
         description:
-            "Picks the repository the pipelines of every frontend and backend scaffolded from a template through the connection codeRepositoryId are copied from, in place of the official mfe-orchestrator/template-pipelines; a connection without one uses the official ones. It has the same layout: <type>/<compiler>/<provider>/ (provider github, gitlab or azure_dev_ops), or <type>/<compiler>/<template slug>/<provider>/ for one template, e.g. service/docker/github/workflows/release.yml, starting from its root or from the folder given as path; %microfrontendSlug%, %serviceSlug% and %domain% are replaced. A template it has no folder for keeps the pipeline it ships with. The repository is reached through templatesCodeRepositoryId, any active connection of the project, the same connection when left out. Pass repositoryId null to go back to the official ones. Only an owner of the project (or an administrator of its organization) can do it. The current setting is in code_repository_get (pipelines).",
+            "Picks the repository the pipelines of every frontend and backend scaffolded from a template through the connection codeRepositoryId are copied from, in place of the official mfe-orchestrator/template-pipelines; a connection without one uses the official ones. It has the same layout: <type>/<compiler>/<provider>/ (provider github, gitlab or azure_dev_ops), or <type>/<compiler>/<template slug>/<provider>/ for one template, e.g. service/docker/github/workflows/release.yml, starting from its root or from the folder given as path; %microfrontendSlug%, %serviceSlug% and %domain% are replaced. A template it has no folder for keeps the pipeline it ships with. The repository is one the connection itself reaches. Pass repositoryId null to go back to the official ones. Only an owner of the project (or an administrator of its organization) can do it. The current setting is in code_repository_get (pipelines).",
         scope: MCP_SCOPE_WRITE,
         consoleOnly: true,
         // Every repository scaffolded afterwards through the connection runs the pipelines of that repository: confirmed by the user
@@ -84,19 +84,18 @@ export const repositoryTools = [
         annotations: WRITE,
         inputSchema: z.object({
             codeRepositoryId: objectId("Id of the code repository connection whose scaffolded repositories get the pipelines, from code_repositories_list"),
-            templatesCodeRepositoryId: objectId("Id of the connection the templates repository is reached through, from code_repositories_list; codeRepositoryId when left out").optional(),
             repositoryId: z
                 .string()
                 .trim()
                 .min(1)
                 .max(255)
                 .nullable()
-                .describe('The repositoryId of the repository, from code_repository_importable with target "backend" on the templates connection; null for the official templates'),
+                .describe('The repositoryId of the repository, from code_repository_importable with target "backend" on the same connection; null for the official templates'),
             ref: z.string().trim().max(255).optional().describe("Branch or tag to read; the default branch of the repository when left out"),
             path: z.string().trim().max(255).optional().describe("Folder of the repository the layout starts from, e.g. ci/templates; its root when left out")
         }),
-        run: async ({ codeRepositoryId: id, templatesCodeRepositoryId, repositoryId, ref, path }, { principal }) => {
-            const pipelines = repositoryId === null ? null : { codeRepositoryId: templatesCodeRepositoryId ?? id, repositoryId, ref, path }
+        run: async ({ codeRepositoryId: id, repositoryId, ref, path }, { principal }) => {
+            const pipelines = repositoryId === null ? null : { repositoryId, ref, path }
             const repository = await new CodeRepositoryService(principal).setPipelines(id, pipelines)
             return { pipelines: repository.pipelines?.codeRepository ? repository.pipelines : null }
         }

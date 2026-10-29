@@ -1732,9 +1732,10 @@
             "customBadge": "Custom pipelines",
             "title": "Pipeline templates of {{name}}",
             "subtitle": "The pipeline a new frontend or backend gets when its repository is created through this connection. By default it comes from the official mfe-orchestrator/template-pipelines repository.",
-            "details": "Point this connection at a repository of yours with the same layout to use your own pipelines in the repositories created through it. The repository can be reached through this connection or another active connection of the project. The other connections keep their own templates, and repositories already created are left as they are.",
+            "details": "Point this connection at a repository of yours with the same layout to use your own pipelines in the repositories created through it. The other connections keep their own templates, and repositories already created are left as they are.",
             "enabled": "Use the pipeline templates of a repository for the repositories created through this connection",
             "repository": "Pipeline templates repository",
+            "repositoryPlaceholder": "Pick a repository of this connection",
             "ref": "Branch or tag",
             "refPlaceholder": "main",
             "refHint": "Left empty, the default branch of the repository.",
@@ -1748,8 +1749,8 @@
             "saved": "Pipeline templates saved",
             "errors": {
                 "owner_required": "Only an owner of the project can change where the pipeline templates of its connections come from",
-                "repository_required": "Pick the connection and the repository of the pipeline templates",
-                "repository_invalid": "The connection cannot reach this repository, or is not one of this project: pick another one",
+                "repository_required": "Pick the repository of the pipeline templates",
+                "repository_invalid": "The connection cannot reach this repository: pick another one",
                 "ref_invalid": "The branch or tag is not a valid name",
                 "path_invalid": "The folder must be a relative path, such as ci/templates, without \".\" or \"..\""
             }

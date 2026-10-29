@@ -1751,9 +1751,10 @@
             "customBadge": "Pipeline personalizzate",
             "title": "Template di pipeline di {{name}}",
             "subtitle": "La pipeline che riceve un nuovo frontend o backend quando il suo repository viene creato tramite questa connessione. Di default arriva dal repository ufficiale mfe-orchestrator/template-pipelines.",
-            "details": "Collega a questa connessione un tuo repository con la stessa struttura per usare le tue pipeline nei repository creati tramite essa. Il repository può essere raggiunto tramite questa connessione o un'altra connessione attiva del progetto. Le altre connessioni restano sui loro template, e i repository già creati restano come sono.",
+            "details": "Collega a questa connessione un tuo repository con la stessa struttura per usare le tue pipeline nei repository creati tramite essa. Le altre connessioni restano sui loro template, e i repository già creati restano come sono.",
             "enabled": "Usa i template di pipeline di un repository per i repository creati tramite questa connessione",
             "repository": "Repository dei template di pipeline",
+            "repositoryPlaceholder": "Scegli un repository di questa connessione",
             "ref": "Branch o tag",
             "refPlaceholder": "main",
             "refHint": "Se vuoto, il branch di default del repository.",
@@ -1767,8 +1768,8 @@
             "saved": "Template di pipeline salvati",
             "errors": {
                 "owner_required": "Solo un owner del progetto può cambiare da dove arrivano i template di pipeline delle sue connessioni",
-                "repository_required": "Scegli la connessione e il repository dei template di pipeline",
-                "repository_invalid": "La connessione non raggiunge questo repository, o non è del progetto: scegline un altro",
+                "repository_required": "Scegli il repository dei template di pipeline",
+                "repository_invalid": "La connessione non raggiunge questo repository: scegline un altro",
                 "ref_invalid": "Il branch o il tag non ha un nome valido",
                 "path_invalid": "La cartella deve essere un percorso relativo, come ci/templates, senza \".\" o \"..\""
             }
