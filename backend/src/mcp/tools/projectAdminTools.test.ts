@@ -162,9 +162,9 @@ describe("project admin tools", () => {
             const pipelines = { codeRepository: { codeRepositoryId: GRANT, repositoryId: "7", name: "acme-pipelines" }, ref: "v2" }
             updateProject.mockResolvedValue({ _id: PROJECT, pipelines })
 
-            const result = await run("project_pipelines_set", { codeRepositoryId: GRANT, repositoryId: "7", ref: "v2" })
+            const result = await run("project_pipelines_set", { codeRepositoryId: GRANT, repositoryId: "7", ref: "v2", path: "ci/templates" })
 
-            expect(updateProject).toHaveBeenCalledWith(PROJECT, { pipelines: { codeRepositoryId: GRANT, repositoryId: "7", ref: "v2" } })
+            expect(updateProject).toHaveBeenCalledWith(PROJECT, { pipelines: { codeRepositoryId: GRANT, repositoryId: "7", ref: "v2", path: "ci/templates" } })
             expect(result).toEqual({ pipelines })
         })
 

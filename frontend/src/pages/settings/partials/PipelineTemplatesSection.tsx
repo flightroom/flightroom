@@ -11,6 +11,12 @@ export type PipelineTemplatesFormValues = ProjectUpdateDTO["pipelines"]
 /** Stessa regola del backend: un nome di branch o di tag, senza "..", trattino iniziale, slash finale o ".lock" */
 const GIT_REF_PATTERN = /^(?!-)(?!.*\.\.)(?!.*\/$)(?!.*\.lock$)[A-Za-z0-9._/-]{1,255}$/
 
+/** Stessa regola del backend: una cartella relativa, nomi separati da slash, senza "." né ".." */
+const PIPELINES_PATH_PATTERN = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/
+
+/** `/ci/templates/` e `ci/templates` sono la stessa cartella, come per il backend */
+const normalizePath = (path: string) => path.trim().replace(/^\/+|\/+$/g, "")
+
 interface PipelineTemplatesSectionProps {
     projectId: string
     pipelines?: ProjectPipelines
@@ -24,18 +30,22 @@ export const PipelineTemplatesSection: React.FC<PipelineTemplatesSectionProps> =
     const [enabled, setEnabled] = useState(false)
     const [choice, setChoice] = useState<RepositoryChoice>({ newName: "" })
     const [ref, setRef] = useState("")
+    const [path, setPath] = useState("")
 
     // Cambiare progetto lascia questa pagina montata, quindi lo stato deve seguire il nuovo progetto
     useEffect(() => {
         setEnabled(Boolean(pipelines?.codeRepository))
         setChoice(choiceFrom(pipelines?.codeRepository))
         setRef(pipelines?.ref ?? "")
+        setPath(pipelines?.path ?? "")
     }, [pipelines])
 
     const refInvalid = ref.trim() !== "" && !GIT_REF_PATTERN.test(ref.trim())
-    const canSave = !enabled || (isChoiceValid(choice) && !refInvalid)
+    const pathInvalid = normalizePath(path) !== "" && (normalizePath(path).length > 255 || !PIPELINES_PATH_PATTERN.test(normalizePath(path)))
+    const canSave = !enabled || (isChoiceValid(choice) && !refInvalid && !pathInvalid)
 
-    const buildValues = (): PipelineTemplatesFormValues => (enabled ? { codeRepositoryId: choice.codeRepositoryId!, repositoryId: choice.repositoryId!, ref: ref.trim() || null } : null)
+    const buildValues = (): PipelineTemplatesFormValues =>
+        enabled ? { codeRepositoryId: choice.codeRepositoryId!, repositoryId: choice.repositoryId!, ref: ref.trim() || null, path: normalizePath(path) || null } : null
 
     return (
         <Card className="pt-4">
@@ -83,6 +93,23 @@ export const PipelineTemplatesSection: React.FC<PipelineTemplatesSectionProps> =
                             />
                             <span id="pipelines-ref-hint" className={refInvalid ? "text-xs text-destructive" : "text-xs text-foreground-secondary"}>
                                 {t(refInvalid ? "settings.pipelines.refInvalid" : "settings.pipelines.refHint")}
+                            </span>
+                        </div>
+
+                        <div className="flex flex-col gap-1">
+                            <Label htmlFor="pipelines-path">{t("settings.pipelines.path")}</Label>
+                            <Input
+                                id="pipelines-path"
+                                value={path}
+                                placeholder={t("settings.pipelines.pathPlaceholder")}
+                                disabled={isUpdating}
+                                aria-invalid={pathInvalid}
+                                aria-describedby="pipelines-path-hint"
+                                onChange={event => setPath(event.target.value)}
+                                fullWidth
+                            />
+                            <span id="pipelines-path-hint" className={pathInvalid ? "text-xs text-destructive" : "text-xs text-foreground-secondary"}>
+                                {t(pathInvalid ? "settings.pipelines.pathInvalid" : "settings.pipelines.pathHint")}
                             </span>
                         </div>
                     </>

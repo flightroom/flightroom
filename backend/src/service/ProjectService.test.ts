@@ -395,6 +395,30 @@ describe("update of the pipeline templates", () => {
         expect(written).toEqual({ pipelines: expect.not.objectContaining({ ref: expect.anything() }) })
     })
 
+    it("Given a folder with slashes around it, when the project is updated, then it is stored without them", async () => {
+        await update({ codeRepositoryId: String(connectionId), repositoryId: "7", path: " /ci/templates/ " })
+
+        expect(written).toEqual({ pipelines: expect.objectContaining({ path: "ci/templates" }) })
+    })
+
+    it("Given no folder, when the project is updated, then none is stored: the root is read", async () => {
+        await update({ codeRepositoryId: String(connectionId), repositoryId: "7", path: "/" })
+
+        expect(written).toEqual({ pipelines: expect.not.objectContaining({ path: expect.anything() }) })
+    })
+
+    it.each([
+        ["stepping out", "ci/../.."],
+        ["made of ..", ".."],
+        ["with a .", "ci/./templates"],
+        ["with a backslash", "ci\\templates"],
+        ["with a space", "ci templates"],
+        ["with an empty segment", "ci//templates"]
+    ])("Given a folder %s, when the project is updated, then it is refused with a 400 and nothing is written", async (_case, path) => {
+        await expect(update({ codeRepositoryId: String(connectionId), repositoryId: "7", path })).rejects.toMatchObject({ code: "PIPELINES_PATH_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
+    })
+
     it("Given null, when the project is updated, then the official pipeline templates are used again", async () => {
         await update(null)
 

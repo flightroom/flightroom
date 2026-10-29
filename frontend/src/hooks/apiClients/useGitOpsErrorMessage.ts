@@ -24,6 +24,7 @@ const GITOPS_ERROR_KEYS: Record<string, string> = {
     PIPELINES_REPOSITORY_REQUIRED: "settings.pipelines.errors.repository_required",
     PIPELINES_REPOSITORY_INVALID: "settings.pipelines.errors.repository_invalid",
     PIPELINES_REF_INVALID: "settings.pipelines.errors.ref_invalid",
+    PIPELINES_PATH_INVALID: "settings.pipelines.errors.path_invalid",
     ARGOCD_GITOPS_REQUIRED: "settings.argoCd.errors.gitops_required",
     ARGOCD_URL_INVALID: "settings.argoCd.errors.url_invalid",
     ARGOCD_TOKEN_REQUIRED: "settings.argoCd.errors.token_required",

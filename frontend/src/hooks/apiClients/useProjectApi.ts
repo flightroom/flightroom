@@ -28,6 +28,8 @@ export interface ProjectPipelines {
     codeRepository: ProjectGitOpsRepository
     /** Branch o tag letto; assente = il branch di default del repository */
     ref?: string
+    /** Cartella del repository da cui parte la struttura; assente = la root */
+    path?: string
 }
 
 /** Dove sono esposti gli ambienti: ognuno sul suo sottodominio di `domain` */
@@ -124,8 +126,8 @@ export interface ProjectUpdateDTO {
         /** Secondo repository opzionale per le applicazioni: null o assente = nessuno */
         applications?: { codeRepositoryId: string; repositoryId?: string; newRepositoryName?: string } | null
     }
-    /** `null` torna ai template-pipelines ufficiali; ref vuoto o null = il branch di default */
-    pipelines?: { codeRepositoryId: string; repositoryId: string; ref?: string | null } | null
+    /** `null` torna ai template-pipelines ufficiali; ref vuoto o null = il branch di default, path vuoto o null = la root */
+    pipelines?: { codeRepositoryId: string; repositoryId: string; ref?: string | null; path?: string | null } | null
 }
 
 interface AddUserToProjectDTO {
