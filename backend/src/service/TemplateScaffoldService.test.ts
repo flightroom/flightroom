@@ -43,7 +43,7 @@ const snapshot = async (dir: string, base = ""): Promise<Record<string, string>>
     return result
 }
 
-/** What a clone of the project's pipeline templates repository brings, relative path to content */
+/** What a clone of the pipeline templates repository of a connection brings, relative path to content */
 let remotePipelines: Record<string, string> = {}
 /** The symlinks it checks out, relative path to target, as isomorphic-git does for a mode 120000 entry */
 let remoteSymlinks: Record<string, string> = {}
@@ -362,7 +362,7 @@ describe("TemplateScaffoldService, pipelines of template-pipelines", () => {
 
 /**
  * Where the copied pipeline comes from: the first of `<type>/<compiler>/<template slug>/<provider>` and
- * `<type>/<compiler>/<provider>` found, in the official template-pipelines or in the repository the project
+ * `<type>/<compiler>/<provider>` found, in the official template-pipelines or in the repository the connection
  * picked, which wins over the official one and never falls back to it.
  */
 describe("TemplateScaffoldService, pipeline templates", () => {
@@ -641,7 +641,7 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         })
     })
 
-    describe("of the project", () => {
+    describe("of the connection", () => {
         const projectId = new Types.ObjectId()
         const connectionId = new Types.ObjectId()
         const connection = { _id: connectionId, projectId, provider: CodeRepositoryProvider.GITHUB, accessToken: "token", githubData: { userName: "acme" } }
@@ -667,7 +667,7 @@ describe("TemplateScaffoldService, pipeline templates", () => {
 
         beforeEach(() => {
             providerSize = vi.spyOn(RepositoryWorkspaceService.prototype, "providerSizeBytes").mockResolvedValue(1024)
-            vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, pipelines: { codeRepository: link, ref: "v2" } } as never)
+            vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, pipelines: { codeRepository: link, ref: "v2" } } as never)
             findConnection = vi.spyOn(CodeRepository, "findOne").mockResolvedValue(connection as never)
             createAtGithub = vi.spyOn(GithubClient.prototype, "createRepository").mockResolvedValue({
                 id: 1,
@@ -678,7 +678,7 @@ describe("TemplateScaffoldService, pipeline templates", () => {
             vi.spyOn(GithubClient.prototype, "checkRepositorySecretExists").mockResolvedValue(true)
         })
 
-        it("given a repository of the project, when a backend is scaffolded, then its pipeline is copied in place of the official one, read at the ref through the connection", async () => {
+        it("given a repository picked on the connection, when a backend is scaffolded, then its pipeline is copied in place of the official one, read at the ref through the connection", async () => {
             remotePipelines = { "service/docker/github/workflows/build.yml": "from: project %serviceSlug%" }
 
             await scaffold({ "service/docker/github/workflows/build.yml": "from: official" })
@@ -693,8 +693,8 @@ describe("TemplateScaffoldService, pipeline templates", () => {
             expect(await fs.pathExists(clone.dir)).toBe(false)
         })
 
-        it("given a repository of the project with a folder, when a backend is scaffolded, then the layout is read from that folder and not from the root", async () => {
-            vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, pipelines: { codeRepository: link, ref: "v2", path: "ci/templates" } } as never)
+        it("given a repository picked on the connection with a folder, when a backend is scaffolded, then the layout is read from that folder and not from the root", async () => {
+            vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, pipelines: { codeRepository: link, ref: "v2", path: "ci/templates" } } as never)
             remotePipelines = {
                 "service/docker/github/workflows/root.yml": "from: root",
                 "ci/templates/service/docker/github/workflows/build.yml": "from: folder %serviceSlug%"
@@ -709,15 +709,15 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         it.each([
             ["missing", "ci/missing"],
             ["a file", "ci/file.yml"]
-        ])("given a folder of the repository of the project that is %s, when it is scaffolded, then it is refused before the repository is created at the provider", async (_case, path) => {
-            vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, pipelines: { codeRepository: link, path } } as never)
+        ])("given a folder of the repository picked on the connection that is %s, when it is scaffolded, then it is refused before the repository is created at the provider", async (_case, path) => {
+            vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, pipelines: { codeRepository: link, path } } as never)
             remotePipelines = { "ci/file.yml": "not: a folder", "service/docker/github/workflows/build.yml": "from: root" }
 
             await expect(scaffold()).rejects.toMatchObject({ code: "PIPELINE_SOURCE_UNAVAILABLE", details: { repository: "acme-pipelines", reason: `it has no folder ${path}` } })
             expect(createAtGithub).not.toHaveBeenCalled()
         })
 
-        it("given a repository of the project without the folder of the template, when it is scaffolded, then the template keeps its own pipeline rather than the official one", async () => {
+        it("given a repository picked on the connection without the folder of the template, when it is scaffolded, then the template keeps its own pipeline rather than the official one", async () => {
             remotePipelines = { "remote/vite/github/workflows/build.yml": "from: project" }
 
             await scaffold({ "service/docker/github/workflows/build.yml": "from: official" })
@@ -726,14 +726,14 @@ describe("TemplateScaffoldService, pipeline templates", () => {
             expect(committed[".github/workflows/build.yml"]).toBeUndefined()
         })
 
-        it("given a repository of the project that cannot be cloned, when it is scaffolded, then it is refused before the repository is created at the provider", async () => {
+        it("given a repository picked on the connection that cannot be cloned, when it is scaffolded, then it is refused before the repository is created at the provider", async () => {
             vi.mocked(git.clone).mockRejectedValueOnce(new Error("Could not find v2."))
 
             await expect(scaffold()).rejects.toMatchObject({ code: "PIPELINE_SOURCE_UNAVAILABLE", statusCode: 502, details: { repository: "acme-pipelines", reason: "Could not find v2." } })
             expect(createAtGithub).not.toHaveBeenCalled()
         })
 
-        it("given a repository of the project holding symlinks, when it is fetched, then every one of them is gone before anything is copied", async () => {
+        it("given a repository picked on the connection holding symlinks, when it is fetched, then every one of them is gone before anything is copied", async () => {
             remotePipelines = { "service/docker/github/workflows/build.yml": "from: project" }
             remoteSymlinks = { "service/docker/gitlab/.gitlab-ci.yml": "/etc/hosts", "service/docker/other": "/etc" }
 
@@ -748,7 +748,7 @@ describe("TemplateScaffoldService, pipeline templates", () => {
             }
         })
 
-        it("given a repository of the project bigger than the limit, when it is scaffolded, then it is refused before it is cloned", async () => {
+        it("given a repository picked on the connection bigger than the limit, when it is scaffolded, then it is refused before it is cloned", async () => {
             providerSize.mockResolvedValue(51 * 1024 * 1024)
             vi.mocked(git.clone).mockClear()
 
@@ -785,7 +785,8 @@ describe("TemplateScaffoldService, pipeline of an Azure DevOps repository", () =
         const files = await templateZip({ "azure-pipelines.yml": "own: azure" })
         const pipelines = await pipelinesZip({})
         vi.spyOn(TemplateScaffoldService.prototype, "downloadZip").mockImplementation(async prefix => (prefix === "template" ? files : pipelines))
-        vi.spyOn(Project, "findById").mockResolvedValue({ _id: new Types.ObjectId() } as never)
+        // No pipeline templates of its own: the official ones
+        vi.spyOn(CodeRepository, "findById").mockResolvedValue({} as never)
         vi.spyOn(AzureDevOpsClient.prototype, "createRepository").mockResolvedValue({ id: "r1", name: "orders-api", remoteUrl: "https://dev.azure.com/acme/p/_git/orders-api", sshUrl: "" } as never)
         vi.spyOn(AzureDevOpsClient.prototype, "getRepository").mockResolvedValue({ id: "r1" } as never)
         createPipeline = vi
@@ -1011,8 +1012,6 @@ describe("TemplateScaffoldService, single-spa and micro-lc templates through Fro
         vi.spyOn(TemplateScaffoldService.prototype, "downloadZip").mockImplementation(async prefix => (prefix === "template" ? template : pipelines))
         vi.spyOn(MarketService.prototype, "getSingle").mockResolvedValue(marketEntry as IMarket)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId, provider: testCase.provider, accessToken: "token", ...testCase.connection } as never)
-        // No pipeline templates of its own: the official ones
-        vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId } as never)
         testCase.stub()
         // The slug is free: checked before any repository is created
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)

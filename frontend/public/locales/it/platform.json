@@ -300,31 +300,6 @@
                 "environment_ip_allowlist_too_long": "Un ambiente consente al massimo {{value}} indirizzi e range"
             }
         },
-        "pipelines": {
-            "title": "Template di pipeline",
-            "subtitle": "La pipeline che riceve un nuovo frontend o backend quando viene creato il suo repository. Di default arriva dal repository ufficiale mfe-orchestrator/template-pipelines.",
-            "details": "Collega al progetto un tuo repository con la stessa struttura per usare invece le tue pipeline. I repository già creati restano come sono.",
-            "enabled": "Usa i template di pipeline di un repository del progetto",
-            "repository": "Repository dei template di pipeline",
-            "ref": "Branch o tag",
-            "refPlaceholder": "main",
-            "refHint": "Se vuoto, il branch di default del repository.",
-            "refInvalid": "Non è un nome di branch o di tag: lettere, cifre, punti, trattini, underscore e slash, senza \"..\", trattino iniziale, slash finale o .lock finale.",
-            "path": "Cartella",
-            "pathPlaceholder": "ci/templates",
-            "pathHint": "La cartella del repository da cui parte la struttura. Se vuota, la root del repository.",
-            "pathInvalid": "Non è una cartella: nomi di lettere, cifre, punti, trattini e underscore separati da slash, senza \".\" o \"..\".",
-            "layout": "Struttura, dalla root del repository o dalla cartella indicata: <tipo>/<compilatore>/<provider>/, dove provider è github, gitlab o azure_dev_ops, ad esempio service/docker/github/workflows/release.yml. Una cartella <tipo>/<compilatore>/<slugTemplate>/<provider>/ vince solo per quel template. Una cartella <tipo>/<linguaggio>/<provider>/, dove linguaggio è java, python o javascript, vale per tutti i template di quel linguaggio quando non ce n'è una per il compilatore, ad esempio service/java/azure_dev_ops/azure-pipelines.yml per ogni backend Java e remote/javascript/... per ogni remote. Su GitHub la cartella diventa .github/ e sostituisce i workflow del template; su GitLab e Azure DevOps .gitlab-ci.yml e azure-pipelines.yml sostituiscono quelli nella root. Un template per cui il repository non ha una cartella tiene la pipeline che ha già: i template ufficiali non vengono usati al suo posto.",
-            "placeholders": "Sostituiti alla creazione del repository: %microfrontendSlug% e %serviceSlug% con lo slug, %domain% con l'URL di questa console.",
-            "saved": "Template di pipeline salvati",
-            "errors": {
-                "owner_required": "Solo un owner del progetto può cambiare da dove arrivano i suoi template di pipeline",
-                "repository_required": "Scegli la connessione e il repository dei template di pipeline",
-                "repository_invalid": "La connessione non raggiunge questo repository, o non è del progetto: scegline un altro",
-                "ref_invalid": "Il branch o il tag non ha un nome valido",
-                "path_invalid": "La cartella deve essere un percorso relativo, come ci/templates, senza \".\" o \"..\""
-            }
-        },
         "argoCd": {
             "title": "Argo CD",
             "subtitle": "Argo CD deploya gli ambienti dai repository GitOps. Gira su un altro cluster: la console lo configura dalla sua API.",
@@ -1770,6 +1745,33 @@
                 "tryAgain": "Riprova",
                 "backToRepositories": "Torna ai repository"
             }
+        },
+        "pipelines": {
+            "action": "Template di pipeline",
+            "customBadge": "Pipeline personalizzate",
+            "title": "Template di pipeline di {{name}}",
+            "subtitle": "La pipeline che riceve un nuovo frontend o backend quando il suo repository viene creato tramite questa connessione. Di default arriva dal repository ufficiale mfe-orchestrator/template-pipelines.",
+            "details": "Collega a questa connessione un tuo repository con la stessa struttura per usare le tue pipeline nei repository creati tramite essa. Il repository può essere raggiunto tramite questa connessione o un'altra connessione attiva del progetto. Le altre connessioni restano sui loro template, e i repository già creati restano come sono.",
+            "enabled": "Usa i template di pipeline di un repository per i repository creati tramite questa connessione",
+            "repository": "Repository dei template di pipeline",
+            "ref": "Branch o tag",
+            "refPlaceholder": "main",
+            "refHint": "Se vuoto, il branch di default del repository.",
+            "refInvalid": "Non è un nome di branch o di tag: lettere, cifre, punti, trattini, underscore e slash, senza \"..\", trattino iniziale, slash finale o .lock finale.",
+            "path": "Cartella",
+            "pathPlaceholder": "ci/templates",
+            "pathHint": "La cartella del repository da cui parte la struttura. Se vuota, la root del repository.",
+            "pathInvalid": "Non è una cartella: nomi di lettere, cifre, punti, trattini e underscore separati da slash, senza \".\" o \"..\".",
+            "layout": "Struttura, dalla root del repository o dalla cartella indicata: <tipo>/<compilatore>/<provider>/, dove provider è github, gitlab o azure_dev_ops, ad esempio service/docker/github/workflows/release.yml. Una cartella <tipo>/<compilatore>/<slugTemplate>/<provider>/ vince solo per quel template. Una cartella <tipo>/<linguaggio>/<provider>/, dove linguaggio è java, python o javascript, vale per tutti i template di quel linguaggio quando non ce n'è una per il compilatore, ad esempio service/java/azure_dev_ops/azure-pipelines.yml per ogni backend Java e remote/javascript/... per ogni remote. Su GitHub la cartella diventa .github/ e sostituisce i workflow del template; su GitLab e Azure DevOps .gitlab-ci.yml e azure-pipelines.yml sostituiscono quelli nella root. Un template per cui il repository non ha una cartella tiene la pipeline che ha già: i template ufficiali non vengono usati al suo posto.",
+            "placeholders": "Sostituiti alla creazione del repository: %microfrontendSlug% e %serviceSlug% con lo slug, %domain% con l'URL di questa console.",
+            "saved": "Template di pipeline salvati",
+            "errors": {
+                "owner_required": "Solo un owner del progetto può cambiare da dove arrivano i template di pipeline delle sue connessioni",
+                "repository_required": "Scegli la connessione e il repository dei template di pipeline",
+                "repository_invalid": "La connessione non raggiunge questo repository, o non è del progetto: scegline un altro",
+                "ref_invalid": "Il branch o il tag non ha un nome valido",
+                "path_invalid": "La cartella deve essere un percorso relativo, come ci/templates, senza \".\" o \"..\""
+            }
         }
     },
     "market": {
@@ -2904,7 +2906,7 @@
                     "REPOSITORY_NAME_TAKEN": "Il repository esiste già presso il provider, forse lasciato da un tentativo fallito: scegli un altro nome oppure eliminalo presso il provider e riprova.",
                     "REPOSITORY_CREATE_FORBIDDEN": "Non hai i permessi per creare repository di codice in questo progetto.",
                     "TEMPLATE_NOT_FOUND": "Il template non esiste più: scegline un altro.",
-                    "PIPELINE_SOURCE_UNAVAILABLE": "Non è stato possibile leggere i template di pipeline del progetto: non è stato creato nulla. Correggi il repository o il branch nelle Impostazioni, oppure torna ai template ufficiali, e riprova."
+                    "PIPELINE_SOURCE_UNAVAILABLE": "Non è stato possibile leggere i template di pipeline della connessione: non è stato creato nulla. Correggi il repository o il branch nei template di pipeline della connessione, in Repository di codice, oppure torna ai template ufficiali, e riprova."
                 },
                 "loaded_by": "Caricato da {{host}}",
                 "field_exposure_path": "Percorso pubblico",

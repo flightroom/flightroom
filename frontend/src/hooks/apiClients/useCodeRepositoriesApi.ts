@@ -1,4 +1,5 @@
 import useApiClient, { IClientRequestDataExtended, IClientRequestMetadataExtended } from "../useApiClient"
+import type { ProjectGitOpsRepository } from "./useProjectApi"
 
 export interface AddRepositoryGithubDTO {
     code: string
@@ -114,6 +115,18 @@ export enum CodeRepositoryType {
     ORGANIZATION = "ORGANIZATION"
 }
 
+/** Il repository da cui si copiano le pipeline dei repository creati tramite la connessione, al posto dei template-pipelines ufficiali */
+export interface CodeRepositoryPipelines {
+    codeRepository: ProjectGitOpsRepository
+    /** Branch o tag letto; assente = il branch di default del repository */
+    ref?: string
+    /** Cartella del repository da cui parte la struttura; assente = la root */
+    path?: string
+}
+
+/** `null` torna ai template-pipelines ufficiali; ref vuoto o null = il branch di default, path vuoto o null = la root */
+export type PipelineTemplatesDTO = { codeRepositoryId: string; repositoryId: string; ref?: string | null; path?: string | null } | null
+
 export interface ICodeRepository {
     _id: string
     name: string
@@ -136,6 +149,7 @@ export interface ICodeRepository {
         groupId: number
     }
     isActive: boolean
+    pipelines?: CodeRepositoryPipelines
     projectId: string
     createdAt: Date
     updatedAt: Date
@@ -306,6 +320,16 @@ const useCodeRepositoriesApi = () => {
         const response = await apiClient.doRequest<ICodeRepository>({
             url: `/api/repositories/${repositoryId}/default`,
             method: "PUT"
+        })
+        return response.data
+    }
+
+    const setPipelines = async (repositoryId: string, data: PipelineTemplatesDTO, customErrorMessage?: (error: Error) => string | undefined): Promise<ICodeRepository> => {
+        const response = await apiClient.doRequest<ICodeRepository>({
+            url: `/api/repositories/${repositoryId}/pipelines`,
+            method: "PUT",
+            data,
+            customErrorMessage
         })
         return response.data
     }
@@ -483,6 +507,7 @@ const useCodeRepositoriesApi = () => {
         getGitlabGroupPaths,
         updateRepositoryGithub,
         setRepositoryAsDefault,
+        setPipelines,
         editRepositoryGitlab,
         getRepositories,
         getImportableRepositories,

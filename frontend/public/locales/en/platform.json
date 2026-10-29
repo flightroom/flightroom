@@ -299,31 +299,6 @@
                 "environment_ip_allowlist_too_long": "An environment allows at most {{value}} addresses and ranges"
             }
         },
-        "pipelines": {
-            "title": "Pipeline templates",
-            "subtitle": "The pipeline a new frontend or backend gets when its repository is created. By default it comes from the official mfe-orchestrator/template-pipelines repository.",
-            "details": "Point the project at a repository of yours with the same layout to use your own pipelines instead. Repositories already created are left as they are.",
-            "enabled": "Use the pipeline templates of a repository of the project",
-            "repository": "Pipeline templates repository",
-            "ref": "Branch or tag",
-            "refPlaceholder": "main",
-            "refHint": "Left empty, the default branch of the repository.",
-            "refInvalid": "Not a branch or tag name: letters, digits, dots, dashes, underscores and slashes, without \"..\", a leading dash, a trailing slash or a trailing .lock.",
-            "path": "Folder",
-            "pathPlaceholder": "ci/templates",
-            "pathHint": "The folder of the repository the layout starts from. Left empty, the root of the repository.",
-            "pathInvalid": "Not a folder: names of letters, digits, dots, dashes and underscores separated by slashes, without \".\" or \"..\".",
-            "layout": "Layout, from the root of the repository or from the folder you set: <type>/<compiler>/<provider>/, where provider is github, gitlab or azure_dev_ops, e.g. service/docker/github/workflows/release.yml. A folder <type>/<compiler>/<templateSlug>/<provider>/ wins for that template only. A folder <type>/<language>/<provider>/, where language is java, python or javascript, serves every template of that language when there is none for the compiler, e.g. service/java/azure_dev_ops/azure-pipelines.yml for every Java backend and remote/javascript/... for every remote. On GitHub the folder becomes .github/ and replaces the workflows of the template; on GitLab and Azure DevOps .gitlab-ci.yml and azure-pipelines.yml replace the ones at the root. A template the repository has no folder for keeps the pipeline it ships with: the official templates are not used as a fallback.",
-            "placeholders": "Replaced when the repository is created: %microfrontendSlug% and %serviceSlug% with the slug, %domain% with the URL of this console.",
-            "saved": "Pipeline templates saved",
-            "errors": {
-                "owner_required": "Only an owner of the project can change where its pipeline templates come from",
-                "repository_required": "Pick the connection and the repository of the pipeline templates",
-                "repository_invalid": "The connection cannot reach this repository, or is not one of this project: pick another one",
-                "ref_invalid": "The branch or tag is not a valid name",
-                "path_invalid": "The folder must be a relative path, such as ci/templates, without \".\" or \"..\""
-            }
-        },
         "argoCd": {
             "title": "Argo CD",
             "subtitle": "Argo CD deploys the environments from the GitOps repositories. It runs on another cluster: the console sets it up through its API.",
@@ -1751,6 +1726,33 @@
                 "tryAgain": "Try Again",
                 "backToRepositories": "Back to Repositories"
             }
+        },
+        "pipelines": {
+            "action": "Pipeline templates",
+            "customBadge": "Custom pipelines",
+            "title": "Pipeline templates of {{name}}",
+            "subtitle": "The pipeline a new frontend or backend gets when its repository is created through this connection. By default it comes from the official mfe-orchestrator/template-pipelines repository.",
+            "details": "Point this connection at a repository of yours with the same layout to use your own pipelines in the repositories created through it. The repository can be reached through this connection or another active connection of the project. The other connections keep their own templates, and repositories already created are left as they are.",
+            "enabled": "Use the pipeline templates of a repository for the repositories created through this connection",
+            "repository": "Pipeline templates repository",
+            "ref": "Branch or tag",
+            "refPlaceholder": "main",
+            "refHint": "Left empty, the default branch of the repository.",
+            "refInvalid": "Not a branch or tag name: letters, digits, dots, dashes, underscores and slashes, without \"..\", a leading dash, a trailing slash or a trailing .lock.",
+            "path": "Folder",
+            "pathPlaceholder": "ci/templates",
+            "pathHint": "The folder of the repository the layout starts from. Left empty, the root of the repository.",
+            "pathInvalid": "Not a folder: names of letters, digits, dots, dashes and underscores separated by slashes, without \".\" or \"..\".",
+            "layout": "Layout, from the root of the repository or from the folder you set: <type>/<compiler>/<provider>/, where provider is github, gitlab or azure_dev_ops, e.g. service/docker/github/workflows/release.yml. A folder <type>/<compiler>/<templateSlug>/<provider>/ wins for that template only. A folder <type>/<language>/<provider>/, where language is java, python or javascript, serves every template of that language when there is none for the compiler, e.g. service/java/azure_dev_ops/azure-pipelines.yml for every Java backend and remote/javascript/... for every remote. On GitHub the folder becomes .github/ and replaces the workflows of the template; on GitLab and Azure DevOps .gitlab-ci.yml and azure-pipelines.yml replace the ones at the root. A template the repository has no folder for keeps the pipeline it ships with: the official templates are not used as a fallback.",
+            "placeholders": "Replaced when the repository is created: %microfrontendSlug% and %serviceSlug% with the slug, %domain% with the URL of this console.",
+            "saved": "Pipeline templates saved",
+            "errors": {
+                "owner_required": "Only an owner of the project can change where the pipeline templates of its connections come from",
+                "repository_required": "Pick the connection and the repository of the pipeline templates",
+                "repository_invalid": "The connection cannot reach this repository, or is not one of this project: pick another one",
+                "ref_invalid": "The branch or tag is not a valid name",
+                "path_invalid": "The folder must be a relative path, such as ci/templates, without \".\" or \"..\""
+            }
         }
     },
     "market": {
@@ -2885,7 +2887,7 @@
                     "REPOSITORY_NAME_TAKEN": "The repository already exists at the provider, maybe left there by an attempt that failed: pick another name or delete it at the provider and try again.",
                     "REPOSITORY_CREATE_FORBIDDEN": "You do not have permission to create code repositories in this project.",
                     "TEMPLATE_NOT_FOUND": "The template no longer exists: pick another one.",
-                    "PIPELINE_SOURCE_UNAVAILABLE": "The pipeline templates of the project could not be read: nothing was created. Fix the repository or the branch in Settings, or go back to the official templates, and try again."
+                    "PIPELINE_SOURCE_UNAVAILABLE": "The pipeline templates of the connection could not be read: nothing was created. Fix the repository or the branch in the pipeline templates of the connection, under Code repositories, or go back to the official templates, and try again."
                 },
                 "loaded_by": "Loaded by {{host}}",
                 "field_exposure_path": "Public path",

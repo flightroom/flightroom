@@ -5,8 +5,10 @@ import GithubClient, { GithubBranch } from "../client/GithubClient"
 import GitLabClient, { GitLabBranch } from "../client/GitlabClient"
 import { BusinessException, createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
-import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType, ICodeRepository } from "../models/CodeRepositoryModel"
+import CodeRepository, { CodeRepositoryProvider, CodeRepositoryType, ICodeRepository, ICodeRepositoryPipelines } from "../models/CodeRepositoryModel"
+import Project from "../models/ProjectModel"
 import CreateAzureDevOpsRepositoryDTO from "../types/CreateAzureDevOpsRepositoryDTO"
 import CreateGitlabRepositoryDto from "../types/CreateGitlabRepositoryDTO"
 import UpdateGithubDTO from "../types/UpdateGithubDTO"
@@ -15,6 +17,8 @@ import { runInTransaction } from "../utils/runInTransaction"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import { ApiKeyService } from "./ApiKeyService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
+import CodeRepositoryImportService from "./CodeRepositoryImportService"
+import GitOpsService from "./GitOpsService"
 
 /**
  * The value only if the user actually typed one. The edit screens submit the token field back exactly
@@ -59,6 +63,23 @@ export interface CodeRepositoryUpdateInput {
     refreshToken?: string
     isActive?: boolean
 }
+
+/** The repository of the pipeline templates as the screen names it: by the provider id, the backend resolves the rest */
+export interface PipelineTemplatesInput {
+    /** The connection the templates repository is reached through: any active one of the same project */
+    codeRepositoryId: string
+    repositoryId: string
+    /** A branch or a tag; the default branch of the repository when empty */
+    ref?: string | null
+    /** The folder of the repository the layout starts from; its root when empty */
+    path?: string | null
+}
+
+/** What git takes as a branch or a tag name, without the forms it refuses: `..`, a leading dash, a trailing slash or `.lock` */
+const GIT_REF = /^(?!-)(?!.*\.\.)(?!.*\/$)(?!.*\.lock$)[A-Za-z0-9._/-]{1,255}$/
+
+/** A relative folder, slashes between names: no `.` nor `..`, nothing that could step out of the clone */
+const PIPELINES_PATH = /^(?!.*(?:^|\/)\.{1,2}(?:\/|$))[A-Za-z0-9._-]+(?:\/[A-Za-z0-9._-]+)*$/
 
 export interface UnifiedBranch {
     default?: boolean
@@ -236,6 +257,55 @@ export class CodeRepositoryService extends BaseAuthorizedService {
         // Scoped to the project: unscoped, making one repository the default cleared the flag on
         // every other project's repositories too, a write reaching outside the caller's project.
         await CodeRepository.updateMany({ _id: { $ne: toObjectId(repositoryId) }, projectId: repository.projectId }, { default: false })
+    }
+
+    /**
+     * Where the pipelines of the repositories scaffolded through the connection come from: `null` goes back to the
+     * official template-pipelines. Owners only, as for GitOps: every repository scaffolded through it runs what they
+     * pick. The templates repository must be reachable through an active connection of the same project: one of
+     * another project would lend this one its access token.
+     */
+    async setPipelines(codeRepositoryId: string, input: PipelineTemplatesInput | null): Promise<ICodeRepository> {
+        const connection = await this.findForWrite(codeRepositoryId)
+        if (!connection) throw new EntityNotFoundError(codeRepositoryId)
+        const project = await Project.findById(connection.projectId, { organizationId: 1 })
+        if (!project) throw new ProjectNotFoundError(String(connection.projectId))
+        await new GitOpsService(this.user).ensureOwner(connection.projectId, project.organizationId, {
+            code: "PIPELINES_OWNER_REQUIRED",
+            message: "Only an owner of the project can change where the pipeline templates of its connections come from"
+        })
+
+        const pipelines = input === null ? undefined : await this.resolvePipelines(connection, input)
+        const updated = await CodeRepository.findOneAndUpdate({ _id: connection._id }, pipelines ? { pipelines } : { $unset: { pipelines: 1 } }, { new: true })
+        if (!updated) throw new EntityNotFoundError(codeRepositoryId)
+        return updated
+    }
+
+    /** The pipeline templates to store from what the screen sent */
+    private async resolvePipelines(connection: ICodeRepository, input: PipelineTemplatesInput): Promise<ICodeRepositoryPipelines> {
+        if (!Types.ObjectId.isValid(input?.codeRepositoryId) || typeof input.repositoryId !== "string" || !input.repositoryId) {
+            throw createBusinessException({ code: "PIPELINES_REPOSITORY_REQUIRED", message: "Pick the connection and the repository of the pipeline templates" })
+        }
+        const ref = typeof input.ref === "string" ? input.ref.trim() : ""
+        if ((input.ref != null && typeof input.ref !== "string") || (ref && !GIT_REF.test(ref))) {
+            throw createBusinessException({ code: "PIPELINES_REF_INVALID", message: "The ref of the pipeline templates must be the name of a branch or a tag" })
+        }
+        // `/ci/templates/` and `ci/templates` are the same folder
+        const path = typeof input.path === "string" ? input.path.trim().replace(/^\/+|\/+$/g, "") : ""
+        if ((input.path != null && typeof input.path !== "string") || path.length > 255 || (path && !PIPELINES_PATH.test(path))) {
+            throw createBusinessException({ code: "PIPELINES_PATH_INVALID", message: "The folder of the pipeline templates must be a relative path, such as ci/templates, without . or .." })
+        }
+
+        const templates = await CodeRepository.findOne({ _id: toObjectId(input.codeRepositoryId), projectId: connection.projectId, isActive: true })
+        if (!templates) {
+            throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: "The code repository connection is not one of this project" })
+        }
+        const importService = new CodeRepositoryImportService(this.user)
+        const repository = (await importService.fetchRepositories(this, templates)).find(candidate => candidate.repositoryId === input.repositoryId)
+        if (!repository) {
+            throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: `The connection "${templates.name}" cannot reach the repository ${input.repositoryId}` })
+        }
+        return { codeRepository: importService.buildFrontendCodeRepository(templates, repository), ...(ref ? { ref } : {}), ...(path ? { path } : {}) }
     }
 
     async injectSecretsToDeployOnGitlabRaw(repository: ICodeRepository, session?: ClientSession) {
