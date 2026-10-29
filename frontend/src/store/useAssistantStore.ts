@@ -101,6 +101,9 @@ interface AssistantState {
      * to send it. Kept here rather than sent directly so that only the panel talks to the API.
      */
     pendingQuestion?: string
+    /** The voice mode is on: questions ask for answers short enough to be read aloud. */
+    voiceMode: boolean
+    setVoiceMode: (voiceMode: boolean) => void
     open: () => void
     close: () => void
     toggle: () => void
@@ -178,6 +181,8 @@ const useAssistantStore = create<AssistantState>()(
             messages: [],
             conversations: {},
             conversationIds: {},
+            voiceMode: false,
+            setVoiceMode: (voiceMode: boolean) => set({ voiceMode }),
             open: () => set({ isOpen: true }),
             close: () => set({ isOpen: false }),
             toggle: () => set({ isOpen: !get().isOpen }),

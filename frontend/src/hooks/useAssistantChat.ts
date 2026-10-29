@@ -160,7 +160,13 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
                 headers,
                 signal: abortController.signal,
                 cache: "no-store",
-                body: JSON.stringify({ ...body, effort, aiModelId, context: { page: location.pathname, environmentId: projectStore.environment?._id, locale: i18n.language } })
+                body: JSON.stringify({
+                    ...body,
+                    effort,
+                    aiModelId,
+                    // In voice mode the answer is read aloud: the server asks the model for a short, spoken one.
+                    context: { page: location.pathname, environmentId: projectStore.environment?._id, locale: i18n.language, voice: useAssistantStore.getState().voiceMode || undefined }
+                })
             })
 
             if (!response.ok || !response.body) {

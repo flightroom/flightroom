@@ -26,6 +26,8 @@ export interface AssistantChatRequestDTO {
         page?: string
         environmentId?: string
         locale?: string
+        /** The voice mode of the panel is on: the answer is read aloud, so it is asked short and spoken. */
+        voice?: boolean
     }
 }
 
