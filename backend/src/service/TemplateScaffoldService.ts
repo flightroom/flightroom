@@ -87,6 +87,12 @@ export interface PipelineTemplates {
     dir: string
     /** Where they come from, for the log */
     source: string
+    /**
+     * True for the official ones, which hold one folder per provider under each `<type>/<compiler>`. The repository
+     * of a connection serves that connection's provider only, so each of its folders is the root of the new repository:
+     * `.github/`, `.gitlab-ci.yml` or `azure-pipelines.yml`.
+     */
+    byProvider: boolean
 }
 
 /** One folder name, neither `.` nor `..`: what a template's type, compiler and slug must be to be looked up as folders */
@@ -699,7 +705,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             await fs.remove(dir).catch(() => undefined)
             throw pipelineSourceUnavailable(repositoryName, `it has no folder ${folder}`, ref)
         }
-        return { root, dir, source: `${repositoryName}${ref ? `@${ref}` : ""}${folder ? `:${folder}` : ""}` }
+        return { root, dir, source: `${repositoryName}${ref ? `@${ref}` : ""}${folder ? `:${folder}` : ""}`, byProvider: false }
     }
 
     /** The official template-pipelines, downloaded, refused like the ones of a connection when they cannot be */
@@ -708,7 +714,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
         try {
             dir = await this.downloadZip("template-pipelines", pipelinesUrl)
             await removeSymlinks(dir)
-            return { root: join(dir, "template-pipelines-main"), dir, source: "template-pipelines" }
+            return { root: join(dir, "template-pipelines-main"), dir, source: "template-pipelines", byProvider: true }
         } catch (error) {
             if (dir) await fs.remove(dir).catch(() => undefined)
             throw pipelineSourceUnavailable("template-pipelines", toErrorMessage(error))
@@ -718,9 +724,9 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
     /**
      * Copies the pipeline of `provider` from `pipelines` into the template in `tempDir`, then replaces the
      * placeholders of a pipeline in what it copied. The first folder found wins:
-     * `<type>/<compiler>/<template slug>/<provider>`, then `<type>/<compiler>/<provider>`, then
-     * `<type>/<language>/<provider>` (e.g. `service/java/azure_dev_ops`, one pipeline for every Java backend).
-     * When the source has none, the template keeps the pipeline it ships with; a GitHub folder counts only with a file under
+     * `<type>/<compiler>/<template slug>`, then `<type>/<compiler>`, then `<type>/<language>` (e.g. `service/java`,
+     * one pipeline for every Java backend), each followed by `/<provider>` in the official ones only: the repository
+     * of a connection holds there what goes at the root of the new repository. When the source has none, the template keeps the pipeline it ships with; a GitHub folder counts only with a file under
      * `workflows/`. On GitHub the template's own workflows go first, so that two release workflows named
      * differently never run side by side; the rest of its `.github` stays. Nothing outside the source is ever
      * copied, whatever symlink it holds. Left out, `pipelines` are the official ones, downloaded here.
@@ -734,15 +740,14 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
         try {
             const base = join(source.root, template.type, template.compiler)
             const language = pipelineLanguage(template)
-            const folders = [
-                ...(isFolderName(template.slug) ? [join(base, template.slug, provider)] : []),
-                join(base, provider),
-                ...(language ? [join(source.root, template.type, language, provider)] : [])
-            ]
+            const leaf = (folder: string) => (source.byProvider ? join(folder, provider) : folder)
+            const folders = [...(isFolderName(template.slug) ? [leaf(join(base, template.slug))] : []), leaf(base), ...(language ? [leaf(join(source.root, template.type, language))] : [])]
             const file = provider === "github" ? undefined : ROOT_PIPELINE_FILES[provider]
+            // What becomes `.github` of the new repository: the provider folder itself in the official ones
+            const githubOf = (folder: string) => (source.byProvider ? folder : join(folder, ".github"))
             const isUsable = async (folder: string) => {
                 if (!(await isInside(source.root, folder))) return false
-                if (!file) return hasRegularFile(join(folder, "workflows"))
+                if (!file) return (await isInside(source.root, githubOf(folder))) && hasRegularFile(join(githubOf(folder), "workflows"))
                 const isFile = (await fs.lstat(join(folder, file)).catch(() => undefined))?.isFile() === true
                 return isFile && (await isInside(source.root, join(folder, file)))
             }
@@ -766,7 +771,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             } else {
                 const githubDir = join(tempDir, ".github")
                 await fs.remove(join(githubDir, "workflows"))
-                await fs.copy(found, githubDir, { overwrite: true, filter: async item => !(await fs.lstat(item)).isSymbolicLink() })
+                await fs.copy(githubOf(found), githubDir, { overwrite: true, filter: async item => !(await fs.lstat(item)).isSymbolicLink() })
                 await this.replacePlaceholdersInDirectory(githubDir, pipelinePlaceholders(slug))
             }
             fastify.log.info(`✅ Pipeline files copied from ${path.relative(source.root, found)} of ${source.source}`)

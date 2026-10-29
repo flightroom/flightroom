@@ -578,6 +578,66 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         expect(await fs.pathExists(pipelines)).toBe(false)
     })
 
+    describe("of a repository of a connection, one folder per template with no provider in it", () => {
+        /** Pipelines handed in as fetched from a connection */
+        const ownSource = async (files: Record<string, string>): Promise<PipelineTemplates> => {
+            const dir = await fs.mkdtemp(join(workDir, "own-"))
+            for (const [relative, content] of Object.entries(files)) await fs.outputFile(join(dir, relative), content)
+            return { root: dir, dir, source: "acme-pipelines", byProvider: false }
+        }
+
+        it("given GitLab, when a backend is scaffolded, then the .gitlab-ci.yml of its folder is copied", async () => {
+            const source = await ownSource({ "service/docker/.gitlab-ci.yml": "from: own %serviceSlug%" })
+            const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({}))
+
+            await service.injectTemplateGitlab("orders-api", "token", "https://gitlab.com", "orders-api", "acme", providersConnection.gitlab, "gitlab", backendTemplate, undefined, source)
+
+            expect(committed[".gitlab-ci.yml"]).toBe("from: own orders-api")
+        })
+
+        it("given Azure DevOps, when a backend is scaffolded, then the folder of its language counts too", async () => {
+            const source = await ownSource({ "service/javascript/azure-pipelines.yml": "from: language" })
+            const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({}))
+
+            await service.injectTemplateAzureDevOps(
+                "orders-api",
+                "token",
+                "orders-api",
+                { provider: CodeRepositoryProvider.AZURE_DEV_OPS, azureData: { organization: "acme", projectId: "p" } } as unknown as ICodeRepository,
+                "azure_dev_ops",
+                backendTemplate,
+                undefined,
+                source
+            )
+
+            expect(committed["azure-pipelines.yml"]).toBe("from: language")
+        })
+
+        it("given GitHub, when a backend is scaffolded, then the .github of the folder of the template wins and the folders of the other templates are not copied", async () => {
+            const source = await ownSource({
+                "service/docker/.github/workflows/build.yml": "from: generic",
+                "service/docker/service-node-fastify/.github/workflows/build.yml": "from: template",
+                "service/docker/service-other/.github/workflows/build.yml": "from: other"
+            })
+            const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({}))
+
+            await service.injectTemplateGithub("orders-api", "token", "https://github.com/acme/orders-api.git", "github", backendTemplate, undefined, source)
+
+            expect(committed[".github/workflows/build.yml"]).toBe("from: template")
+            expect(Object.keys(committed).filter(file => file.includes("service-other"))).toEqual([])
+            expect(committed[".github/dependabot.yml"]).toBe("version: 2")
+        })
+
+        it("given a folder per provider as in the official ones, when it is scaffolded, then it is not read and the template keeps its own", async () => {
+            const source = await ownSource({ "service/docker/gitlab/.gitlab-ci.yml": "from: provider folder" })
+            const service = scaffoldWith(await templateZip(backendFiles), await pipelinesZip({}))
+
+            await service.injectTemplateGitlab("orders-api", "token", "https://gitlab.com", "orders-api", "acme", providersConnection.gitlab, "gitlab", backendTemplate, undefined, source)
+
+            expect(committed[".gitlab-ci.yml"]).toBe("own: gitlab")
+        })
+    })
+
     describe("holding symlinks", () => {
         let outside: string
         let source: PipelineTemplates
@@ -590,7 +650,7 @@ describe("TemplateScaffoldService, pipeline templates", () => {
                 await fs.ensureDir(join(dir, relative, ".."))
                 await fs.symlink(target, join(dir, relative))
             }
-            return { root: dir, dir, source: "test" }
+            return { root: dir, dir, source: "test", byProvider: true }
         }
 
         beforeEach(async () => {
@@ -679,7 +739,7 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         })
 
         it("given a repository picked on the connection, when a backend is scaffolded, then its pipeline is copied in place of the official one, read at the ref through the connection", async () => {
-            remotePipelines = { "service/docker/github/workflows/build.yml": "from: project %serviceSlug%" }
+            remotePipelines = { "service/docker/.github/workflows/build.yml": "from: project %serviceSlug%" }
 
             await scaffold({ "service/docker/github/workflows/build.yml": "from: official" })
 
@@ -696,8 +756,8 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         it("given a repository picked on the connection with a folder, when a backend is scaffolded, then the layout is read from that folder and not from the root", async () => {
             vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, pipelines: { codeRepository: link, ref: "v2", path: "ci/templates" } } as never)
             remotePipelines = {
-                "service/docker/github/workflows/root.yml": "from: root",
-                "ci/templates/service/docker/github/workflows/build.yml": "from: folder %serviceSlug%"
+                "service/docker/.github/workflows/root.yml": "from: root",
+                "ci/templates/service/docker/.github/workflows/build.yml": "from: folder %serviceSlug%"
             }
 
             await scaffold()
@@ -711,14 +771,14 @@ describe("TemplateScaffoldService, pipeline templates", () => {
             ["a file", "ci/file.yml"]
         ])("given a folder of the repository picked on the connection that is %s, when it is scaffolded, then it is refused before the repository is created at the provider", async (_case, path) => {
             vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, pipelines: { codeRepository: link, path } } as never)
-            remotePipelines = { "ci/file.yml": "not: a folder", "service/docker/github/workflows/build.yml": "from: root" }
+            remotePipelines = { "ci/file.yml": "not: a folder", "service/docker/.github/workflows/build.yml": "from: root" }
 
             await expect(scaffold()).rejects.toMatchObject({ code: "PIPELINE_SOURCE_UNAVAILABLE", details: { repository: "acme-pipelines", reason: `it has no folder ${path}` } })
             expect(createAtGithub).not.toHaveBeenCalled()
         })
 
         it("given a repository picked on the connection without the folder of the template, when it is scaffolded, then the template keeps its own pipeline rather than the official one", async () => {
-            remotePipelines = { "remote/vite/github/workflows/build.yml": "from: project" }
+            remotePipelines = { "remote/vite/.github/workflows/build.yml": "from: project" }
 
             await scaffold({ "service/docker/github/workflows/build.yml": "from: official" })
 
@@ -734,13 +794,13 @@ describe("TemplateScaffoldService, pipeline templates", () => {
         })
 
         it("given a repository picked on the connection holding symlinks, when it is fetched, then every one of them is gone before anything is copied", async () => {
-            remotePipelines = { "service/docker/github/workflows/build.yml": "from: project" }
+            remotePipelines = { "service/docker/.github/workflows/build.yml": "from: project" }
             remoteSymlinks = { "service/docker/gitlab/.gitlab-ci.yml": "/etc/hosts", "service/docker/other": "/etc" }
 
             const fetched = await new TemplateScaffoldService().fetchPipelineTemplates(connection as unknown as ICodeRepository)
 
             try {
-                expect(await fs.pathExists(join(fetched.root, "service/docker/github/workflows/build.yml"))).toBe(true)
+                expect(await fs.pathExists(join(fetched.root, "service/docker/.github/workflows/build.yml"))).toBe(true)
                 await expect(fs.lstat(join(fetched.root, "service/docker/gitlab/.gitlab-ci.yml"))).rejects.toMatchObject({ code: "ENOENT" })
                 await expect(fs.lstat(join(fetched.root, "service/docker/other"))).rejects.toMatchObject({ code: "ENOENT" })
             } finally {
