@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import useAssistantStore from "@/store/useAssistantStore"
 
 /** What the panel needs of the Web Speech API recognition: lib.dom does not declare it yet. */
 interface SpeechRecognitionLike {
@@ -66,7 +67,9 @@ interface VoiceModeOptions {
  */
 const useVoiceMode = ({ canListen, answer, onInterim, onFinal }: VoiceModeOptions) => {
     const { i18n } = useTranslation()
-    const [active, setActive] = useState(false)
+    // In the store: the questions read it, to ask for answers made to be heard.
+    const active = useAssistantStore(state => state.voiceMode)
+    const setActive = useAssistantStore(state => state.setVoiceMode)
     const [phase, setPhase] = useState<VoicePhase>("idle")
     const [errorKey, setErrorKey] = useState<string>()
     const recognitionRef = useRef<SpeechRecognitionLike | null>(null)
@@ -161,13 +164,15 @@ const useVoiceMode = ({ canListen, answer, onInterim, onFinal }: VoiceModeOption
         setPhase("idle")
     }, [canListen, phase])
 
-    // Closing the panel or leaving the page silences it.
+    // Closing the panel or leaving the page silences it, and ends it: the store outlives the panel.
+    // biome-ignore lint/correctness/useExhaustiveDependencies: on unmount only; setActive is a stable store action.
     useEffect(
         () => () => {
             const recognition = recognitionRef.current
             recognitionRef.current = null
             recognition?.abort()
             window.speechSynthesis?.cancel()
+            setActive(false)
         },
         []
     )

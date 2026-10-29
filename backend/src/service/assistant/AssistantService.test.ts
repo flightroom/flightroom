@@ -219,6 +219,19 @@ describe("AssistantService", () => {
         expect(outcome.effort).toBe("medium")
     })
 
+    it("Given the voice mode on, when a question is answered, then the console context tells the model that the answer is read aloud", async () => {
+        stream.mockReturnValue(fakeStream({ stop_reason: "end_turn", content: [{ type: "text", text: "Hi." }] }))
+        const service = new AssistantService(user, { ANTHROPIC_API_KEY: "test-key" })
+
+        await service.chat(PROJECT, { messages: [{ role: "user", content: "Hi" }], context: { voice: true } }, recordingHandlers().handlers)
+        await service.chat(PROJECT, { messages: [{ role: "user", content: "Hi" }] }, recordingHandlers().handlers)
+
+        expect(stream.mock.calls[0][0].messages[0].content).toContain("answer_mode: voice")
+        expect(stream.mock.calls[1][0].messages[0].content).not.toContain("answer_mode")
+        // The instructions are in the system prompt either way: its cached prefix is the same with and without voice.
+        expect(stream.mock.calls[0][0].system).toEqual(stream.mock.calls[1][0].system)
+    })
+
     it("Given an installation capped at high, when max is asked for, then the answer is given at high, with the room of high", async () => {
         stream.mockReturnValueOnce(fakeStream({ stop_reason: "end_turn", content: [{ type: "text", text: "Hi." }] }))
 

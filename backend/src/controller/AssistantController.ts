@@ -47,7 +47,8 @@ const chatBodySchema = {
             properties: {
                 page: { type: "string", maxLength: 500 },
                 environmentId: { type: "string", maxLength: 100 },
-                locale: { type: "string", maxLength: 20 }
+                locale: { type: "string", maxLength: 20 },
+                voice: { type: "boolean" }
             }
         },
         confirmation: {
