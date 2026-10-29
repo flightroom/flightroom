@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Voice Mode For Vega**: the microphone button next to the question talks with the assistant: what the user says is sent when they stop talking, the answer is read aloud and the microphone opens again. It uses the browser's speech recognition and synthesis, so it shows in Chrome, Edge and Safari, and Chrome and Edge send the audio to their vendor's speech service
 - **Pipeline Templates From A Folder**: the pipeline templates repository of a project can be read from a folder, such as `ci/templates`, set in the settings of the project or through `project_pipelines_set`: the layout `<type>/<compiler>/<provider>` starts there, and from the root when it is left empty. A folder the repository does not have stops the scaffold before anything is created, as a missing ref does
 
 ### Changed
