@@ -1,11 +1,26 @@
-import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle, Input, Label, Switch } from "@flightroom/design-system"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import {
+    Dialog,
+    DialogContent,
+    DialogDescription,
+    DialogFooter,
+    DialogHeader,
+    DialogTitle,
+    Input,
+    Label,
+    Select,
+    SelectContent,
+    SelectControl,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
+    Switch
+} from "@flightroom/design-system"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import useCodeRepositoriesApi, { type ICodeRepository, type PipelineTemplatesDTO } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import useGitOpsErrorMessage from "@/hooks/apiClients/useGitOpsErrorMessage"
-import { choiceFrom, isChoiceValid, type RepositoryChoice, RepositoryPicker } from "@/pages/settings/partials/GitOpsSection"
 import { SettingsDetails } from "@/pages/settings/partials/SettingsDetails"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
@@ -32,19 +47,26 @@ export const PipelineTemplatesDialog: React.FC<PipelineTemplatesDialogProps> = (
     const notifications = useToastNotificationStore()
 
     const [enabled, setEnabled] = useState(false)
-    const [choice, setChoice] = useState<RepositoryChoice>({ newName: "" })
+    const [repositoryId, setRepositoryId] = useState<string | undefined>()
     const [ref, setRef] = useState("")
     const [path, setPath] = useState("")
 
     const pipelines = connection?.pipelines?.codeRepository ? connection.pipelines : undefined
 
-    // Ogni apertura riparte da quanto salvato sulla connessione; senza niente di salvato si propone la connessione stessa
+    // Ogni apertura riparte da quanto salvato sulla connessione
     useEffect(() => {
         setEnabled(Boolean(pipelines))
-        setChoice(pipelines ? choiceFrom(pipelines.codeRepository) : { codeRepositoryId: connection?._id, newName: "" })
+        setRepositoryId(pipelines?.codeRepository.repositoryId)
         setRef(pipelines?.ref ?? "")
         setPath(pipelines?.path ?? "")
     }, [connection?._id, pipelines])
+
+    // Il repository dei template si legge sempre tramite questa connessione: solo quelli che raggiunge davvero
+    const repositoriesQuery = useQuery({
+        queryKey: ["importable-repositories", connection?._id, "backend"],
+        queryFn: () => codeRepositoriesApi.getImportableRepositories(connection!._id, undefined, "backend"),
+        enabled: !!connection && enabled
+    })
 
     const saveMutation = useMutation({
         mutationFn: (values: PipelineTemplatesDTO) => codeRepositoriesApi.setPipelines(connection!._id, values, gitOpsErrorMessage),
@@ -56,12 +78,14 @@ export const PipelineTemplatesDialog: React.FC<PipelineTemplatesDialogProps> = (
     })
 
     const isUpdating = saveMutation.isPending
+    const repositories = repositoriesQuery.data ?? []
+    const selectedRepositoryName =
+        repositories.find(repository => repository.repositoryId === repositoryId)?.name ?? (repositoryId === pipelines?.codeRepository.repositoryId ? pipelines?.codeRepository.name : undefined)
     const refInvalid = ref.trim() !== "" && !GIT_REF_PATTERN.test(ref.trim())
     const pathInvalid = normalizePath(path) !== "" && (normalizePath(path).length > 255 || !PIPELINES_PATH_PATTERN.test(normalizePath(path)))
-    const canSave = !enabled || (isChoiceValid(choice) && !refInvalid && !pathInvalid)
+    const canSave = !enabled || (!!repositoryId && !refInvalid && !pathInvalid)
 
-    const buildValues = (): PipelineTemplatesDTO =>
-        enabled ? { codeRepositoryId: choice.codeRepositoryId!, repositoryId: choice.repositoryId!, ref: ref.trim() || null, path: normalizePath(path) || null } : null
+    const buildValues = (): PipelineTemplatesDTO => (enabled ? { repositoryId: repositoryId!, ref: ref.trim() || null, path: normalizePath(path) || null } : null)
 
     return (
         <Dialog open={!!connection} onOpenChange={onOpenChange}>
@@ -83,19 +107,22 @@ export const PipelineTemplatesDialog: React.FC<PipelineTemplatesDialogProps> = (
                         <Label htmlFor="pipelines-enabled">{t("codeRepositories.pipelines.enabled")}</Label>
                     </div>
 
-                    {enabled && connection && (
+                    {enabled && (
                         <>
-                            <RepositoryPicker
-                                id="pipelines"
-                                label={t("codeRepositories.pipelines.repository")}
-                                projectId={connection.projectId}
-                                defaultName=""
-                                choice={choice}
-                                onChange={setChoice}
-                                saved={pipelines?.codeRepository}
-                                disabled={isUpdating}
-                                allowCreate={false}
-                            />
+                            <SelectControl label={t("codeRepositories.pipelines.repository")}>
+                                <Select value={repositoryId} onValueChange={setRepositoryId} disabled={isUpdating || repositoriesQuery.isLoading}>
+                                    <SelectTrigger dataTestId="pipelines-repository">
+                                        <SelectValue placeholder={t("codeRepositories.pipelines.repositoryPlaceholder")}>{selectedRepositoryName}</SelectValue>
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                        {repositories.map(repository => (
+                                            <SelectItem key={repository.repositoryId} value={repository.repositoryId}>
+                                                {repository.name}
+                                            </SelectItem>
+                                        ))}
+                                    </SelectContent>
+                                </Select>
+                            </SelectControl>
 
                             <div className="flex flex-col gap-1">
                                 <Label htmlFor="pipelines-ref">{t("codeRepositories.pipelines.ref")}</Label>

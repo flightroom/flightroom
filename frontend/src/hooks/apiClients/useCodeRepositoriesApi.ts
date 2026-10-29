@@ -125,7 +125,7 @@ export interface CodeRepositoryPipelines {
 }
 
 /** `null` torna ai template-pipelines ufficiali; ref vuoto o null = il branch di default, path vuoto o null = la root */
-export type PipelineTemplatesDTO = { codeRepositoryId: string; repositoryId: string; ref?: string | null; path?: string | null } | null
+export type PipelineTemplatesDTO = { repositoryId: string; ref?: string | null; path?: string | null } | null
 
 export interface ICodeRepository {
     _id: string

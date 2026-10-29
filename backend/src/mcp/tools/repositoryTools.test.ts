@@ -12,7 +12,6 @@ vi.mock("../../service/CodeRepositoryService", () => ({
 
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const CONNECTION = "dddddddddddddddddddddddd"
-const TEMPLATES_CONNECTION = "eeeeeeeeeeeeeeeeeeeeeeee"
 
 const tool = (name: string) => repositoryTools.find(candidate => candidate.name === name)!
 
@@ -34,27 +33,13 @@ describe("code_repository_pipelines_set", () => {
     })
 
     it("given a repository, when set, then the connection is updated with it and the setting comes back", async () => {
-        const pipelines = { codeRepository: { codeRepositoryId: TEMPLATES_CONNECTION, repositoryId: "7", name: "acme-pipelines" }, ref: "v2" }
+        const pipelines = { codeRepository: { codeRepositoryId: CONNECTION, repositoryId: "7", name: "acme-pipelines" }, ref: "v2" }
         setPipelines.mockResolvedValue({ _id: CONNECTION, pipelines })
 
-        const result = await run("code_repository_pipelines_set", {
-            codeRepositoryId: CONNECTION,
-            templatesCodeRepositoryId: TEMPLATES_CONNECTION,
-            repositoryId: "7",
-            ref: "v2",
-            path: "ci/templates"
-        })
+        const result = await run("code_repository_pipelines_set", { codeRepositoryId: CONNECTION, repositoryId: "7", ref: "v2", path: "ci/templates" })
 
-        expect(setPipelines).toHaveBeenCalledWith(CONNECTION, { codeRepositoryId: TEMPLATES_CONNECTION, repositoryId: "7", ref: "v2", path: "ci/templates" })
+        expect(setPipelines).toHaveBeenCalledWith(CONNECTION, { repositoryId: "7", ref: "v2", path: "ci/templates" })
         expect(result).toEqual({ pipelines })
-    })
-
-    it("given no templates connection, when set, then the repository is reached through the connection itself", async () => {
-        setPipelines.mockResolvedValue({ _id: CONNECTION, pipelines: {} })
-
-        await run("code_repository_pipelines_set", { codeRepositoryId: CONNECTION, repositoryId: "7" })
-
-        expect(setPipelines).toHaveBeenCalledWith(CONNECTION, { codeRepositoryId: CONNECTION, repositoryId: "7", ref: undefined, path: undefined })
     })
 
     it("given a null repository, when set, then the official templates are used again", async () => {

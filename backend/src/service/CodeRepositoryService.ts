@@ -64,10 +64,8 @@ export interface CodeRepositoryUpdateInput {
     isActive?: boolean
 }
 
-/** The repository of the pipeline templates as the screen names it: by the provider id, the backend resolves the rest */
+/** The repository of the pipeline templates as the screen names it: by the provider id, reached through the connection itself */
 export interface PipelineTemplatesInput {
-    /** The connection the templates repository is reached through: any active one of the same project */
-    codeRepositoryId: string
     repositoryId: string
     /** A branch or a tag; the default branch of the repository when empty */
     ref?: string | null
@@ -262,8 +260,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
     /**
      * Where the pipelines of the repositories scaffolded through the connection come from: `null` goes back to the
      * official template-pipelines. Owners only, as for GitOps: every repository scaffolded through it runs what they
-     * pick. The templates repository must be reachable through an active connection of the same project: one of
-     * another project would lend this one its access token.
+     * pick. The templates repository is one the connection itself reaches.
      */
     async setPipelines(codeRepositoryId: string, input: PipelineTemplatesInput | null): Promise<ICodeRepository> {
         const connection = await this.findForWrite(codeRepositoryId)
@@ -283,8 +280,8 @@ export class CodeRepositoryService extends BaseAuthorizedService {
 
     /** The pipeline templates to store from what the screen sent */
     private async resolvePipelines(connection: ICodeRepository, input: PipelineTemplatesInput): Promise<ICodeRepositoryPipelines> {
-        if (!Types.ObjectId.isValid(input?.codeRepositoryId) || typeof input.repositoryId !== "string" || !input.repositoryId) {
-            throw createBusinessException({ code: "PIPELINES_REPOSITORY_REQUIRED", message: "Pick the connection and the repository of the pipeline templates" })
+        if (typeof input?.repositoryId !== "string" || !input.repositoryId) {
+            throw createBusinessException({ code: "PIPELINES_REPOSITORY_REQUIRED", message: "Pick the repository of the pipeline templates" })
         }
         const ref = typeof input.ref === "string" ? input.ref.trim() : ""
         if ((input.ref != null && typeof input.ref !== "string") || (ref && !GIT_REF.test(ref))) {
@@ -296,16 +293,12 @@ export class CodeRepositoryService extends BaseAuthorizedService {
             throw createBusinessException({ code: "PIPELINES_PATH_INVALID", message: "The folder of the pipeline templates must be a relative path, such as ci/templates, without . or .." })
         }
 
-        const templates = await CodeRepository.findOne({ _id: toObjectId(input.codeRepositoryId), projectId: connection.projectId, isActive: true })
-        if (!templates) {
-            throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: "The code repository connection is not one of this project" })
-        }
         const importService = new CodeRepositoryImportService(this.user)
-        const repository = (await importService.fetchRepositories(this, templates)).find(candidate => candidate.repositoryId === input.repositoryId)
+        const repository = (await importService.fetchRepositories(this, connection)).find(candidate => candidate.repositoryId === input.repositoryId)
         if (!repository) {
-            throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: `The connection "${templates.name}" cannot reach the repository ${input.repositoryId}` })
+            throw createBusinessException({ code: "PIPELINES_REPOSITORY_INVALID", message: `The connection "${connection.name}" cannot reach the repository ${input.repositoryId}` })
         }
-        return { codeRepository: importService.buildFrontendCodeRepository(templates, repository), ...(ref ? { ref } : {}), ...(path ? { path } : {}) }
+        return { codeRepository: importService.buildFrontendCodeRepository(connection, repository), ...(ref ? { ref } : {}), ...(path ? { path } : {}) }
     }
 
     async injectSecretsToDeployOnGitlabRaw(repository: ICodeRepository, session?: ClientSession) {
