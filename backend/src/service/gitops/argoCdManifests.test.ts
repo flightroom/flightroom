@@ -16,7 +16,8 @@ import {
     environmentsApplicationSetName,
     IN_CLUSTER_SERVER,
     MANAGED_BY_LABEL,
-    PROJECT_ID_LABEL
+    PROJECT_ID_LABEL,
+    unprefixedProjectName
 } from "./argoCdManifests"
 
 const development = { slug: "development", namespace: "development" }
@@ -36,17 +37,33 @@ const PROJECT_NAME = appProjectName(projectId, "shop")
 const DNS_NAME = /^[a-z0-9]([a-z0-9-]*[a-z0-9])?(\.[a-z0-9]([a-z0-9-]*[a-z0-9])?)*$/
 
 describe("names", () => {
-    it("given a project, when its AppProject is named, then it is the slug and a hash of the id", () => {
-        expect(PROJECT_NAME).toMatch(/^shop-[0-9a-f]{6}$/)
+    it("given a project, when its AppProject is named, then it is fr-, the slug and a hash of the id", () => {
+        expect(PROJECT_NAME).toMatch(/^fr-shop-[0-9a-f]{6}$/)
     })
 
-    it("given an environment, when its objects are named, then they are the project slug, the parts and the hash of the project", () => {
+    it("given an environment, when its objects are named, then they are fr-, the project slug, the parts and the hash of the project", () => {
         const hash = PROJECT_NAME.slice(-6)
 
-        expect(environmentApplicationName(projectId, "shop", "production")).toBe(`shop-production-${hash}`)
-        expect(environmentsApplicationSetName(projectId, "shop")).toBe(`shop-environments-${hash}`)
-        expect(applicationSetName(projectId, "shop", "orders")).toBe(`shop-orders-${hash}`)
-        expect(applicationName(projectId, "shop", "orders", "production")).toBe(`shop-orders-production-${hash}`)
+        expect(environmentApplicationName(projectId, "shop", "production")).toBe(`fr-shop-production-${hash}`)
+        expect(environmentsApplicationSetName(projectId, "shop")).toBe(`fr-shop-environments-${hash}`)
+        expect(applicationSetName(projectId, "shop", "orders")).toBe(`fr-shop-orders-${hash}`)
+        expect(applicationName(projectId, "shop", "orders", "production")).toBe(`fr-shop-orders-production-${hash}`)
+    })
+
+    it("given a project, when the name without the prefix is asked, then it is the AppProject of 10.x: the slug and the same hash", () => {
+        expect(unprefixedProjectName(projectId, "shop")).toBe(PROJECT_NAME.replace(/^fr-/, ""))
+    })
+
+    it("given slugs that fill the 63 characters, when they are named, then they fit 63 with the prefix and the hash, and the slug is what is cut", () => {
+        const hash = PROJECT_NAME.slice(-6)
+        const names = [appProjectName(projectId, "s".repeat(80)), applicationName(projectId, "shop", "o".repeat(40), "p".repeat(40))]
+
+        for (const name of names) {
+            expect(name.length).toBeLessThanOrEqual(63)
+            expect(name).toMatch(new RegExp(`^fr-[a-z-]+-[0-9a-f]{6}-${hash}$`))
+        }
+        // 63 exactly, uncut
+        expect(appProjectName(projectId, "s".repeat(53))).toBe(`fr-${"s".repeat(53)}-${hash}`)
     })
 
     it("given two projects whose slug and environment join the same way, when they are named, then the names differ", () => {

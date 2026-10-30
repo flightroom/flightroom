@@ -1,5 +1,5 @@
 import { stringify } from "yaml"
-import { appProjectName, MANAGED_BY, MANAGED_BY_LABEL } from "./argoCdManifests"
+import { MANAGED_BY, MANAGED_BY_LABEL, unprefixedProjectName } from "./argoCdManifests"
 
 /**
  * How an environment is exposed, through the Gateway API as Traefik implements it: the configuration
@@ -41,7 +41,8 @@ export interface EnvironmentGateway {
     ipAllowList?: string[]
 }
 
-export const gatewayName = (projectId: string, projectSlug: string) => appProjectName(projectId, projectSlug)
+/** `<project slug>-<hash>`, as before the Argo CD objects took a prefix: a new name would leave the routes of every application on a Gateway gone until each is deployed again */
+export const gatewayName = (projectId: string, projectSlug: string) => unprefixedProjectName(projectId, projectSlug)
 
 /** The listener the HTTPRoutes of the applications attach to: the HTTP one only when there is no HTTPS */
 export const applicationListener = (gateway: Pick<EnvironmentGateway, "certificateIssuer">) => (gateway.certificateIssuer ? HTTPS_LISTENER : HTTP_LISTENER)

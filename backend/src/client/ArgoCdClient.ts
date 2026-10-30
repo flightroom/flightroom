@@ -201,6 +201,11 @@ class ArgoCdClient {
         await this.call(`save the AppProject ${project.metadata.name}`, () => this.api.post("/projects", { project, upsert: true }))
     }
 
+    /** One already gone is not an error. Argo CD refuses it while an Application still belongs to it */
+    async deleteProject(name: string): Promise<void> {
+        await this.find(`delete the AppProject ${name}`, () => this.api.delete(`/projects/${encodeURIComponent(name)}`))
+    }
+
     /** The Applications of `project` with the labels of `selector` */
     async listApplications(selector: string, project: string): Promise<ArgoCdResource[]> {
         const list = await this.call("list the Applications", () => this.api.get<{ items?: ArgoCdResource[] | null }>("/applications", { params: { selector, projects: project } }))

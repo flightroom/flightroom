@@ -230,11 +230,11 @@ expose:
 
 # An HTTPRoute on the Gateway of the environment, which owns the host: the prefix is stripped
 # route:
-#   gateway: mfe-shop-1a2b3c
+#   gateway: shop-1a2b3c
 #   listener: https
 #   path: /api/orders
 #   hsts: true
-#   ipAllowList: mfe-shop-1a2b3c-ip-allowlist   # the Traefik Middleware of the environment, when it allows some addresses only
+#   ipAllowList: shop-1a2b3c-ip-allowlist   # the Traefik Middleware of the environment, when it allows some addresses only
 `
 
 const DEPLOYMENT_TEMPLATE = `apiVersion: apps/v1
