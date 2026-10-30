@@ -17,6 +17,8 @@ export interface RolloutApplication {
     kind: "frontend" | "backend"
     name: string
     slug: string
+    /** The deploy changed its version or its image: the others are only applied again */
+    updated?: boolean
     state: RolloutState
     /** As Argo CD has them, for whoever wants the detail */
     health?: string
