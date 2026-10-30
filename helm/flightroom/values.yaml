@@ -362,5 +362,10 @@ extraVolumes: []
 extraVolumeMounts: []
 # - name: extra-config
 #   mountPath: /etc/extra
+# An installation theme (docs/THEMES.md): a ConfigMap with the key theme.css,
+# listed under extraVolumes like extra-config above, mounted over the empty one
+# - name: theme
+#   mountPath: /var/www/frontend/theme.css
+#   subPath: theme.css
 extraInitContainers: []
 extraContainers: []
