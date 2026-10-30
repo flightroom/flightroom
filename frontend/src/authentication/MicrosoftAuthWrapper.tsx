@@ -1,4 +1,4 @@
-import { EventMessage, EventType, PublicClientApplication } from "@azure/msal-browser"
+import type { EventMessage, PublicClientApplication } from "@azure/msal-browser"
 import { MsalProvider } from "@azure/msal-react"
 import React, { useEffect, useState } from "react"
 import { useGlobalParameters } from "@/contexts/GlobalParameterProvider"
@@ -19,43 +19,55 @@ const MicrosoftAuthWrapper: React.FC<MicrosoftAuthWrapperProps> = ({ children })
             return
         }
 
-        const instance = new PublicClientApplication({
-            auth: {
-                clientId: azureParameters.clientId,
-                authority: `https://login.microsoftonline.com/${azureParameters.tenantId}`,
-                redirectUri: window.location.origin
-            },
-            cache: {
-                cacheLocation: "localStorage"
+        let cancelled = false
+        let instance: PublicClientApplication | undefined
+        let callbackId: string | null = null
+
+        const createInstance = async () => {
+            // MSAL is downloaded only where Microsoft login is configured: it is the heaviest of the login SDKs
+            const { EventType, PublicClientApplication } = await import("./msalBrowser")
+            if (cancelled) return
+
+            instance = new PublicClientApplication({
+                auth: {
+                    clientId: azureParameters.clientId,
+                    authority: `https://login.microsoftonline.com/${azureParameters.tenantId}`,
+                    redirectUri: window.location.origin
+                },
+                cache: {
+                    cacheLocation: "localStorage"
+                }
+            })
+
+            const eventCallback = (event: EventMessage) => {
+                console.log("MSAL Event:", event.eventType)
+
+                if (event.eventType === EventType.INITIALIZE_END) {
+                    console.log("MSAL initialization complete")
+                    setIsInitialized(true)
+                }
             }
-        })
 
-        const eventCallback = (event: EventMessage) => {
-            console.log("MSAL Event:", event.eventType)
+            callbackId = instance.addEventCallback(eventCallback)
+            setMsalInstance(instance)
 
-            if (event.eventType === EventType.INITIALIZE_END) {
-                console.log("MSAL initialization complete")
-                setIsInitialized(true)
+            // Inizializza MSAL
+            try {
+                await instance.initialize()
+                console.log("MSAL initialize completed")
+            } catch (error) {
+                console.error("MSAL initialize failed:", error)
             }
         }
 
-        const callbackId = instance.addEventCallback(eventCallback)
-
-        // Inizializza MSAL
-        instance
-            .initialize()
-            .then(() => {
-                console.log("MSAL initialize completed")
-            })
-            .catch(error => {
-                console.error("MSAL initialize failed:", error)
-            })
-
-        setMsalInstance(instance)
+        createInstance().catch(error => {
+            console.error("MSAL could not be loaded:", error)
+        })
 
         // Cleanup
         return () => {
-            if (callbackId) {
+            cancelled = true
+            if (instance && callbackId) {
                 instance.removeEventCallback(callbackId)
             }
         }
