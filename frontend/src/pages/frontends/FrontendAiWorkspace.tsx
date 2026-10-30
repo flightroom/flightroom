@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, Spinner } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
-import { Navigate, useParams, useSearchParams } from "react-router-dom"
+import { Navigate, useParams } from "react-router-dom"
 import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
@@ -12,7 +12,6 @@ import { FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/fron
 const FrontendAiWorkspacePage: React.FC = () => {
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
-    const [searchParams] = useSearchParams()
     const aiModels = useProjectAiModels()
     const frontendsApi = useFrontendsApi()
 
@@ -20,10 +19,6 @@ const FrontendAiWorkspacePage: React.FC = () => {
         queryKey: ["mfe", id],
         queryFn: () => frontendsApi.getSingle(id)
     })
-
-    // Links made when every section was a tab of this page: `?tab=hosting` and the like now belong to the details screen.
-    const legacyTab = searchParams.get("tab")
-    if (legacyTab && legacyTab !== "aiChange") return <Navigate to={`/frontend/${id}/settings?tab=${encodeURIComponent(legacyTab)}`} replace />
 
     // Not an ApiStatusHandler: it unmounts its children on every background refetch, and the workspace holds a draft prompt.
     // The project's AIs decide where the page goes: it waits for them as for the frontend.

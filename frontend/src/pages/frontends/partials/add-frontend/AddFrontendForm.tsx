@@ -4,7 +4,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query"
 import { useEffect, useMemo } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
-import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom"
+import { useNavigate, useParams, useSearchParams } from "react-router-dom"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Button } from "@/components/atoms"
 import SinglePageLayout from "@/components/SinglePageLayout"
@@ -117,7 +117,7 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
         if (!isEdit) form.setValue("version", isDocker ? "" : "1.0.0")
     }, [isDocker, isEdit, form])
 
-    const { linkedTab, shownTab, selectTab, tabHasErrors, onInvalid } = useFrontendFormTabs({ form, isEdit, isDocker })
+    const { shownTab, selectTab, tabHasErrors, onInvalid } = useFrontendFormTabs({ form, isEdit, isDocker })
 
     const onSubmit = async (data: FormValues) => {
         const dataToSend = toFrontendPayload(data, { isEdit, template, isVersionDirty: () => Boolean(form.formState.dirtyFields.version) })
@@ -144,12 +144,6 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
     }
 
     const aiAvailable = isEdit && isAiEditAvailable(frontend, assistantEnabled)
-
-    // Edit with AI used to be a tab of this page: old links to it open the AI workspace.
-    if (isEdit && linkedTab === "aiChange") {
-        const change = searchParams.get("change")
-        return <Navigate to={`/frontend/${id}${change ? `?change=${encodeURIComponent(change)}` : ""}`} replace />
-    }
 
     const content = (
         <FormProvider {...form}>

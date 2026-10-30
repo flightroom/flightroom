@@ -1,6 +1,6 @@
 import { useEffect, useState } from "react"
 import type { FieldErrors, UseFormReturn } from "react-hook-form"
-import { useLocation, useNavigate, useSearchParams } from "react-router-dom"
+import { useLocation, useNavigate } from "react-router-dom"
 import type { FormInput, FormValues } from "./frontendFormSchema"
 
 /** Tabs that own validated fields, in the order they are shown: the first one with an error is the one we jump to. */
@@ -9,13 +9,6 @@ const FORM_TABS = ["general", "context", "hosting", "runtime"] as const
 export type FormTab = (typeof FORM_TABS)[number] | "danger"
 
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
-
-/** Tabs merged into another one: old links to them open the tab that now holds their fields. */
-const MERGED_TABS = new Map<string, FormTab>([
-    ["container", "runtime"],
-    ["variables", "runtime"],
-    ["repository", "general"]
-])
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["name", "slug", "description", "domainId", "kind", "version", "customVersion", "canary", "codeRepository"],
@@ -49,13 +42,10 @@ interface FrontendFormTabsInput {
 
 /** The open tab of the form: from the link, kept in the hash, flagged when its fields fail, jumped to on an invalid submit. */
 export const useFrontendFormTabs = ({ form, isEdit, isDocker }: FrontendFormTabsInput) => {
-    const [searchParams] = useSearchParams()
     const location = useLocation()
     const navigate = useNavigate()
-    // `#hosting` (or the older `?tab=hosting`) opens a tab straight away.
-    const hashTab = location.hash.slice(1)
-    const requestedTab = isFormTab(hashTab) || MERGED_TABS.has(hashTab) ? hashTab : searchParams.get("tab")
-    const linkedTab = MERGED_TABS.get(requestedTab ?? "") ?? requestedTab
+    // `#hosting` opens a tab straight away.
+    const linkedTab = location.hash.slice(1)
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
 
     // The open tab is written in the hash, so a reload or a copied link lands on it
@@ -86,5 +76,5 @@ export const useFrontendFormTabs = ({ form, isEdit, isDocker }: FrontendFormTabs
         if (firstTabWithErrors) selectTab(firstTabWithErrors)
     }
 
-    return { linkedTab, shownTab, selectTab, tabHasErrors, onInvalid }
+    return { shownTab, selectTab, tabHasErrors, onInvalid }
 }
