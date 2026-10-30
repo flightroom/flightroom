@@ -57,6 +57,7 @@ export class VegaScene {
     private drag?: { x: number; y: number; azimuth: number; elevation: number; moved: boolean }
     /** The view the camera was last framed for: framed again only once the camera turns, zooms, or the room or the box changes */
     private framed?: CameraView
+    private disposed = false
 
     constructor(
         private readonly container: HTMLElement,
@@ -122,6 +123,9 @@ export class VegaScene {
     }
 
     dispose() {
+        // A second call would lose a context already lost
+        if (this.disposed) return
+        this.disposed = true
         cancelAnimationFrame(this.frame)
         this.resizeObserver.disconnect()
         this.intersectionObserver.disconnect()
@@ -162,6 +166,8 @@ export class VegaScene {
             this.walls = room.walls
             this.trolley = room.trolley
             this.animations = room.animations
+            // New walls: frame the camera again and set which of them stand
+            this.framed = undefined
         }
         this.vegas.forEach((vega, index) => {
             const column = index % columns
@@ -196,7 +202,8 @@ export class VegaScene {
             roomSize: this.roomSize
         }
         if (this.framed && sameView(this.framed, view)) return
-        this.framed = view
+        // A copy of the room size: a size changed in place still frames the camera again
+        this.framed = { ...view, roomSize: { ...view.roomSize } }
         frameRoom(this.camera, this.walls, view)
     }
 
