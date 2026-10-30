@@ -1,10 +1,10 @@
 import { Readable } from "stream"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
-type FakeBlob = { url: string; upload: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn>; download: ReturnType<typeof vi.fn> }
+type FakeBlob = { url: string; upload: ReturnType<typeof vi.fn>; uploadStream: ReturnType<typeof vi.fn>; delete: ReturnType<typeof vi.fn>; download: ReturnType<typeof vi.fn> }
 
 const sdk = vi.hoisted(() => {
-    const blob = { url: "", upload: vi.fn(), delete: vi.fn(), download: vi.fn() }
+    const blob = { url: "", upload: vi.fn(), uploadStream: vi.fn(), delete: vi.fn(), download: vi.fn() }
     const container = { getBlockBlobClient: vi.fn() }
     /** A BlobServiceClient answering at `url`, whose blobs are all the one fake blob above */
     const serviceAt = (url: string) => ({ url, getContainerClient: vi.fn(() => container) })
@@ -72,6 +72,7 @@ beforeEach(() => {
         return blob
     })
     blob.upload.mockReset()
+    blob.uploadStream.mockReset()
     blob.delete.mockReset()
     blob.download.mockReset()
     vi.spyOn(console, "error").mockImplementation(() => undefined)
@@ -156,6 +157,34 @@ describe("AzureStorageClient.uploadFile", () => {
         await new AzureStorageClient(SHARED_KEY).uploadFile("site/it.json", '{"ciao":"è"}', "application/json")
 
         expect(blob.upload.mock.calls[0][1]).toBe(13)
+    })
+
+    it("given a stream, whose length is not known up front, when it is uploaded, then it is streamed to the blob with the content type header", async () => {
+        blob.uploadStream.mockResolvedValue({})
+        const body = Readable.from([Buffer.from("console."), Buffer.from("log(1)")])
+
+        const url = await new AzureStorageClient(SHARED_KEY).uploadFile("site/app.js", body, "text/javascript")
+
+        expect(blob.uploadStream).toHaveBeenCalledWith(body, undefined, undefined, { blobHTTPHeaders: { blobContentType: "text/javascript" } })
+        expect(blob.upload).not.toHaveBeenCalled()
+        expect(url).toBe("https://flightroomassets.blob.core.windows.net/bundles/site/app.js")
+    })
+
+    it("given a buffer, when it is uploaded, then it is sent in one request and not streamed", async () => {
+        blob.upload.mockResolvedValue({})
+
+        await new AzureStorageClient(SHARED_KEY).uploadFile("site/app.js", Buffer.from("x"))
+
+        expect(blob.uploadStream).not.toHaveBeenCalled()
+    })
+
+    it("given Azure rejects a streamed upload, when a stream is uploaded, then the caller gets an upload error with the Azure error as its cause", async () => {
+        const denied = restError("This request is not authorized to perform this operation using this permission.", 403, "AuthorizationPermissionMismatch")
+        blob.uploadStream.mockRejectedValue(denied)
+
+        const error = await new AzureStorageClient(AAD).uploadFile("site/app.js", Readable.from(["x"])).catch((thrown: unknown) => thrown)
+
+        expect(error).toMatchObject({ message: "Failed to upload file to Azure: This request is not authorized to perform this operation using this permission.", cause: denied })
     })
 
     it("given no content type, when a file is uploaded, then it is stored as application/octet-stream", async () => {
