@@ -805,7 +805,6 @@
             "badge_bundle": "Bundle",
             "badge_docker": "Docker",
             "no_parents_hint": "A frontend served by Docker cannot have parents",
-            "version_from_pipeline": "The latest tag of the image: the pipeline sets it when it registers a newer one, or set it here. It is not deployed by itself: each environment runs the version set for it below.",
             "template_pipeline_hint": "The pipeline of this template uploads a bundle to Flightroom, which a frontend served by its Docker container does not accept. Change it to build the Docker image and register its version."
         },
         "errors": {
@@ -2453,6 +2452,24 @@
         },
         "runtime_settings": "Runtime and image",
         "runtime_settings_description": "Port, Kubernetes probes, API documentation and Docker image repository",
+        "runtime_groups": {
+            "image": {
+                "title": "Image and port",
+                "description": "The Docker image to deploy and the port the container answers on"
+            },
+            "probes": {
+                "title": "Kubernetes probes",
+                "description": "The paths Kubernetes checks to know the container is alive and ready for traffic"
+            },
+            "docs": {
+                "title": "API documentation",
+                "description": "Optional: where the container publishes the documentation and the specification of its API"
+            },
+            "resources": {
+                "title": "CPU and memory",
+                "description": "What Kubernetes reserves for the container and the most it may use"
+            }
+        },
         "port": "Port",
         "port_hint": "The port the container listens on, on 0.0.0.0. It also gets it in the HTTP_PORT environment variable",
         "liveness_path": "Liveness probe path",
@@ -2492,12 +2509,10 @@
         "image_repository_hint_name": "{{image}} is deployed, from the container registry of the project. For another registry write the full path, e.g. ghcr.io/acme/orders-api.",
         "image_repository_missing": "No image repository here and no container registry in the project settings: GitOps does not deploy this version.",
         "version": "Version",
-        "version_hint": "The latest tag of the image: the pipeline sets it when it registers a newer one, or set it here. It is not deployed by itself: each environment runs the version set for it below.",
         "version_invalid": "Letters, digits, dots, dashes and underscores only, at most 128",
         "version_by_environment": {
             "title": "Version per environment",
-            "description": "The version each environment runs, e.g. the latest in development and an older one in production. An environment without one does not get it: its deploys leave it out. The next deploy of the environment writes it.",
-            "set": "Set version",
+            "description": "The version each environment runs, e.g. the latest in development and an older one in production. Leave it empty and the environment does not get it: its deploys leave it out. The next deploy of the environment applies it.",
             "not_deployed": "not deployed"
         },
         "urls": {

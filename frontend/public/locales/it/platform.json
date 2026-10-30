@@ -919,7 +919,6 @@
             "badge_bundle": "Bundle",
             "badge_docker": "Docker",
             "no_parents_hint": "Un frontend servito da Docker non può avere parent",
-            "version_from_pipeline": "L'ultimo tag dell'immagine: lo imposta la pipeline quando ne registra uno più recente, oppure puoi impostarlo qui. Non viene deployato da solo: ogni ambiente usa la versione impostata qui sotto.",
             "template_pipeline_hint": "La pipeline di questo template carica un bundle su Flightroom, che un frontend servito dal suo container Docker non accetta. Modificala perché costruisca l'immagine Docker e ne registri la versione."
         },
         "errors": {
@@ -2472,6 +2471,24 @@
         },
         "runtime_settings": "Runtime e immagine",
         "runtime_settings_description": "Porta, probe Kubernetes, documentazione API e repository dell'immagine Docker",
+        "runtime_groups": {
+            "image": {
+                "title": "Immagine e porta",
+                "description": "L'immagine Docker da deployare e la porta su cui il container risponde"
+            },
+            "probes": {
+                "title": "Probe Kubernetes",
+                "description": "I percorsi con cui Kubernetes controlla che il container sia vivo e pronto a ricevere traffico"
+            },
+            "docs": {
+                "title": "Documentazione API",
+                "description": "Facoltativa: dove il container pubblica la documentazione e la specifica delle sue API"
+            },
+            "resources": {
+                "title": "CPU e memoria",
+                "description": "Le risorse che Kubernetes riserva al container e il massimo che può usare"
+            }
+        },
         "port": "Porta",
         "port_hint": "La porta su cui il container è in ascolto, su 0.0.0.0. La riceve anche nella variabile d'ambiente HTTP_PORT",
         "liveness_path": "Percorso liveness probe",
@@ -2511,12 +2528,10 @@
         "image_repository_hint_name": "Viene deployata {{image}}, dal container registry del progetto. Per un altro registry scrivi il percorso completo, es. ghcr.io/acme/orders-api.",
         "image_repository_missing": "Nessun repository immagine qui e nessun container registry nelle impostazioni del progetto: GitOps non deploya questa versione.",
         "version": "Versione",
-        "version_hint": "L'ultimo tag dell'immagine: lo imposta la pipeline quando ne registra uno più recente, oppure puoi impostarlo qui. Non viene deployato da solo: ogni ambiente usa la versione impostata qui sotto.",
         "version_invalid": "Solo lettere, numeri, punti, trattini e underscore, al massimo 128",
         "version_by_environment": {
             "title": "Versione per ambiente",
-            "description": "La versione che usa ogni ambiente, ad esempio l'ultima in sviluppo e una precedente in produzione. Un ambiente senza versione non lo riceve: i suoi deploy lo lasciano fuori. La scrive il prossimo deploy dell'ambiente.",
-            "set": "Imposta versione",
+            "description": "La versione che usa ogni ambiente, ad esempio l'ultima in sviluppo e una precedente in produzione. Lasciala vuota e l'ambiente non lo riceve: i suoi deploy lo lasciano fuori. La applica il prossimo deploy dell'ambiente.",
             "not_deployed": "non deployato"
         },
         "urls": {
