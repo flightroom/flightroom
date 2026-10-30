@@ -20,33 +20,33 @@
     "semantic_hash": ""
   },
   "backend/src/client/AzureDevOpsClient.ts": {
-    "mtime": 1793229302.4586756,
-    "ast_hash": "55e70128ffcd87bef72324be51082b6f",
+    "mtime": 1793364419.9735365,
+    "ast_hash": "728aaf4a7d5fc03a88047dc3a4790fb0",
     "semantic_hash": ""
   },
   "backend/src/client/AzureStorageAccount.ts": {
-    "mtime": 1793354886.1360064,
-    "ast_hash": "3792cfff6e1f4126cbd21840e62ffc3e",
+    "mtime": 1793364419.9739642,
+    "ast_hash": "de7d05fa372300ba22ffcb94ee6711ad",
     "semantic_hash": ""
   },
   "backend/src/client/GithubClient.ts": {
-    "mtime": 1793137715.9675744,
-    "ast_hash": "c63f81433d3336924781544f6ae15553",
+    "mtime": 1793364419.9745932,
+    "ast_hash": "8a64a906cc7d4c9febca3453c63eece3",
     "semantic_hash": ""
   },
   "backend/src/client/GitlabClient.ts": {
-    "mtime": 1793137716.9115076,
-    "ast_hash": "d44b473ba07c3e00e21a12b1487529b9",
+    "mtime": 1793364419.9749544,
+    "ast_hash": "eff0a69d303f2cfee39bec3a6ea162c6",
     "semantic_hash": ""
   },
   "backend/src/client/GoogleStorageAccount.ts": {
-    "mtime": 1792649408.3560643,
-    "ast_hash": "08bd5bbb025e356f0a9ea2909f679976",
+    "mtime": 1793364419.9753509,
+    "ast_hash": "8dbc2bdf02c16bc46c7e4f8abdc75e07",
     "semantic_hash": ""
   },
   "backend/src/client/S3Buckets.ts": {
-    "mtime": 1793005820.517921,
-    "ast_hash": "d5c460cb3692c467984b24648968fabd",
+    "mtime": 1793364419.9761062,
+    "ast_hash": "84a12fe9b09a2680f9f5f1c5b6e536b3",
     "semantic_hash": ""
   },
   "backend/src/controller/ApiKeyController.ts": {
@@ -160,13 +160,13 @@
     "semantic_hash": "d120a51030a724de077536d2556a4477"
   },
   "backend/src/errors/CustomError.ts": {
-    "mtime": 1792649408.359492,
-    "ast_hash": "70920694c02613fa931336485567d95a",
-    "semantic_hash": "70920694c02613fa931336485567d95a"
+    "mtime": 1793364419.9765637,
+    "ast_hash": "131e2d49e56c5047e52075076b162a9b",
+    "semantic_hash": ""
   },
   "backend/src/errors/EntityNotFoundError.ts": {
-    "mtime": 1792649408.3595545,
-    "ast_hash": "8516994748701181b4a68ba7feab8334",
+    "mtime": 1793364419.976703,
+    "ast_hash": "4faa7ac405a754a01e36cd20e904b239",
     "semantic_hash": ""
   },
   "backend/src/errors/EnvironmentHeaderNotFoundError.ts": {
@@ -1565,8 +1565,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/NpmRegistryClient.ts": {
-    "mtime": 1793354892.2887592,
-    "ast_hash": "6f452a3edf03d53e31e74d74d13de7be",
+    "mtime": 1793364419.9756901,
+    "ast_hash": "693e533b67a544b7ce8d7658498e6c1e",
     "semantic_hash": ""
   },
   "backend/src/utils/semverUtils.ts": {
@@ -2860,8 +2860,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/AzureDevOpsClient.test.ts": {
-    "mtime": 1793362364.7556663,
-    "ast_hash": "d26b390eec3c5183a5b64c1a53d04b4a",
+    "mtime": 1793364419.973375,
+    "ast_hash": "533b9da70281e7337eead1b986a38a0e",
     "semantic_hash": ""
   },
   "backend/src/models/AiChangeRequestModel.test.ts": {
@@ -2870,13 +2870,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/TemplateScaffoldService.test.ts": {
-    "mtime": 1793290803.3633673,
-    "ast_hash": "2ac2cc8f0532672a4f1af17c87ed3c33",
+    "mtime": 1793364419.9773636,
+    "ast_hash": "d2fbafd3261c43d9f74f9b6a9b99782d",
     "semantic_hash": ""
   },
   "backend/src/service/TemplateScaffoldService.ts": {
-    "mtime": 1793359270.7409825,
-    "ast_hash": "60dc49bcf5fd44d66f01deb89eac3584",
+    "mtime": 1793364419.9776614,
+    "ast_hash": "1e95e4ceeebaf84913975274617b4ca3",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/repositoryComponent.ts": {
@@ -3545,8 +3545,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.ts": {
-    "mtime": 1793350513.914588,
-    "ast_hash": "e8bc102246e943e1a550771717e9c95f",
+    "mtime": 1793364419.9731681,
+    "ast_hash": "14da949e2fa75163258fdc478610c96d",
     "semantic_hash": ""
   },
   "backend/src/controller/ArgoCdController.ts": {
@@ -3555,8 +3555,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/ArgoCdService.test.ts": {
-    "mtime": 1793352159.945208,
-    "ast_hash": "46f609b4c665faa2c08e51270f0a3134",
+    "mtime": 1793364419.9769292,
+    "ast_hash": "ca053efb847c1bf19b8270724aee4c8c",
     "semantic_hash": ""
   },
   "backend/src/service/ArgoCdService.ts": {
@@ -3690,8 +3690,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/GithubClient.test.ts": {
-    "mtime": 1793362364.7561963,
-    "ast_hash": "32cb0df405e8d15d89c0e1fdb709695a",
+    "mtime": 1793364419.9741447,
+    "ast_hash": "b4fde1c34d7afe5cdc72ad62de8ca3bb",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainBuildDialog.tsx": {
@@ -3700,8 +3700,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/GitlabClient.test.ts": {
-    "mtime": 1793362364.7564836,
-    "ast_hash": "e23020ef605a05bd5a8f884c9d370d64",
+    "mtime": 1793364419.9747632,
+    "ast_hash": "7d23852b3b079b46fe82e03ff6805c3d",
     "semantic_hash": ""
   },
   "backend/src/controller/DomainController.test.ts": {
@@ -4735,8 +4735,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.test.ts": {
-    "mtime": 1793362364.7553668,
-    "ast_hash": "030d0e9d4c5330b3aa0e62b4b302fe48",
+    "mtime": 1793364419.972845,
+    "ast_hash": "f8416324f42d5ee140b657ab6e8f71de",
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/aiUsageTools.test.ts": {
@@ -5335,8 +5335,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/argoCd/argoCdInitialization.ts": {
-    "mtime": 1793359270.7433596,
-    "ast_hash": "cd1fc779736c4a88ed487fb95dc3bcc4",
+    "mtime": 1793364419.9780285,
+    "ast_hash": "48c48e57505ec0a47151831dbaec97a7",
     "semantic_hash": ""
   },
   "backend/src/service/argoCd/argoCdLease.ts": {
@@ -5610,23 +5610,28 @@
     "semantic_hash": ""
   },
   "backend/src/client/AzureStorageAccount.test.ts": {
-    "mtime": 1793362364.755807,
-    "ast_hash": "ff395fee5ad2d90b280ca537e807e309",
+    "mtime": 1793364419.9736922,
+    "ast_hash": "80e6f13c6533e74754b4b7ec2386d202",
     "semantic_hash": ""
   },
   "backend/src/client/GoogleStorageAccount.test.ts": {
-    "mtime": 1793362364.7566195,
-    "ast_hash": "927b6dd888120f9761847b822dee39da",
+    "mtime": 1793364419.9750824,
+    "ast_hash": "ed4e141da2ee944b13ec7ff9c00bc1fc",
     "semantic_hash": ""
   },
   "backend/src/client/NpmRegistryClient.test.ts": {
-    "mtime": 1793362364.7567294,
-    "ast_hash": "824af278e883f4a515b30969b39da8ce",
+    "mtime": 1793364419.9755251,
+    "ast_hash": "364d9f93fdd377c34143f62c24b1cec4",
     "semantic_hash": ""
   },
   "backend/src/client/S3Buckets.test.ts": {
-    "mtime": 1793362364.7568383,
-    "ast_hash": "9af4d5d8219b1e3d6c02021174b605f7",
+    "mtime": 1793364419.975873,
+    "ast_hash": "42810b1018c091fd076085a142c2a4ba",
+    "semantic_hash": ""
+  },
+  "backend/src/controller/ServeController.test.ts": {
+    "mtime": 1793364419.9762282,
+    "ast_hash": "14b1379c5677e0b066d643c5508ceb0c",
     "semantic_hash": ""
   }
 }
