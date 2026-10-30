@@ -1,5 +1,7 @@
 import { FastifyInstance, FastifyReply, FastifyRequest } from "fastify"
-import ServeService, { isRedirectToVersion, VERSION_PATH_SEGMENT } from "../service/ServeService"
+import ServeService from "../service/ServeService"
+import { isRedirectToVersion } from "../service/serve/serveTypes"
+import { VERSION_PATH_SEGMENT } from "../service/serve/serveUrls"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 
 export default async function serveController(fastify: FastifyInstance) {

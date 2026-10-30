@@ -17,11 +17,14 @@ vi.mock("./MarketService", () => ({
 const createRepository = vi.fn()
 const createTag = vi.fn()
 vi.mock("./TemplateScaffoldService", () => ({
-    placeholderDomain: () => "https://console.example.com",
     default: class {
         createRepository = createRepository
         createTag = createTag
     }
+}))
+vi.mock("./templateScaffold/pipelineTemplates", async importOriginal => ({
+    ...(await importOriginal<typeof import("./templateScaffold/pipelineTemplates")>()),
+    placeholderDomain: () => "https://console.example.com"
 }))
 
 const forgetBackends = vi.fn()

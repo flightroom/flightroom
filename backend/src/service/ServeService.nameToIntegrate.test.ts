@@ -10,7 +10,7 @@ import Environment from "../models/EnvironmentModel"
 import { HostedOn } from "../models/FrontendModel"
 import { federationName } from "./FederationConfigService"
 import ServeService from "./ServeService"
-import { replaceFederationName } from "./TemplateScaffoldService"
+import { replaceFederationName } from "./templateScaffold/templateFiles"
 
 afterEach(() => {
     vi.restoreAllMocks()

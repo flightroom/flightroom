@@ -8,7 +8,6 @@ vi.mock("..", () => ({
 vi.mock("./MarketService", () => ({ default: class {} }))
 
 vi.mock("./TemplateScaffoldService", () => ({
-    placeholderDomain: () => "https://console.example.com",
     default: class {}
 }))
 

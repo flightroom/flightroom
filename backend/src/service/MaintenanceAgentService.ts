@@ -22,7 +22,8 @@ import { resolveDomainId } from "./DomainService"
 import { isDeployable } from "./gitops/applicationManifests"
 import MarketService from "./MarketService"
 import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
-import TemplateScaffoldService, { placeholderDomain } from "./TemplateScaffoldService"
+import TemplateScaffoldService from "./TemplateScaffoldService"
+import { placeholderDomain } from "./templateScaffold/pipelineTemplates"
 import { ensureAttachableMaps } from "./VariableMapService"
 
 /** The runs a maintenance agent keeps the history of */

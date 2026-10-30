@@ -22,14 +22,7 @@ import { toErrorMessage } from "./RepositoryFileService"
 import { isRepositoryNameTakenError } from "./RepositoryRenameService"
 import { copyPipeline, fetchPipelineTemplates, PipelineTemplates } from "./templateScaffold/pipelineTemplates"
 import { downloadAndExtractZip, flattenTemplate, replaceFederationNameInConfigs, replacePlaceholdersInDirectory } from "./templateScaffold/templateFiles"
-import { explainMissingCommit, findCommit, pushTag, TagTarget, tagCommit, tagExists } from "./templateScaffold/templateTags"
-
-// The scaffolder's surface stays importable from here: its callers and tests (and the mocks of this module) use this path.
-export type { PipelineTemplates } from "./templateScaffold/pipelineTemplates"
-export { placeholderDomain } from "./templateScaffold/pipelineTemplates"
-export { replaceFederationName } from "./templateScaffold/templateFiles"
-export type { TagTarget } from "./templateScaffold/templateTags"
-export { TagLookupError } from "./templateScaffold/templateTags"
+import { explainMissingCommit, findCommit, pushTag, TagTarget } from "./templateScaffold/templateTags"
 
 /** The repository part of a frontend or backend DTO, filled in once the repository exists */
 export type CodeRepositoryTarget = FrontendDTO["codeRepository"]
@@ -470,14 +463,6 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
     }
 
     /**
-     * Replaces each placeholder with its value in every text file under `directory`. The `.git`
-     * folder is never entered, and binary files (any NUL byte) are left alone.
-     */
-    async replacePlaceholdersInDirectory(directory: string, placeholders: Record<string, string>): Promise<void> {
-        return replacePlaceholdersInDirectory(directory, placeholders)
-    }
-
-    /**
      * Tags `ref` (main by default) of the linked repository with `version`: the tag is what starts
      * the release pipeline. Nothing happens when no repository is linked. The connection must belong
      * to `projectId`, the project of what is built: one of another project would lend it its token.
@@ -485,7 +470,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
     async createTag(link: ICodeRepositoryFrontend | undefined, projectId: unknown, version: string, ref?: string): Promise<void> {
         const target = await this.resolveTagTarget(link, projectId, ref)
         if (target) {
-            await this.pushTag(target, version)
+            await pushTag(target, version)
         }
     }
 
@@ -514,21 +499,6 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
             throw await explainMissingCommit(error, codeRepository, link, branchName)
         }
         return commit === undefined ? undefined : { codeRepository, link, ref: branchName, commit }
-    }
-
-    /** Whether the repository of `target` already has the tag `version`: creating it again would fail at the provider */
-    async tagExists(target: TagTarget, version: string): Promise<boolean> {
-        return tagExists(target, version)
-    }
-
-    /** The commit the tag `version` points to in the repository of `target`, undefined without the tag */
-    async tagCommit(target: TagTarget, version: string): Promise<string | undefined> {
-        return tagCommit(target, version)
-    }
-
-    /** Creates the tag `version` on the commit {@link resolveTagTarget} found */
-    async pushTag(target: TagTarget, version: string): Promise<void> {
-        return pushTag(target, version)
     }
 }
 

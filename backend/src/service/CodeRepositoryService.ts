@@ -21,9 +21,6 @@ import { injectAzureDevOpsDeploySecret, injectGithubDeploySecret, injectGitlabDe
 import { invalidProvider, listBranches, listRepositories, UnifiedBranch } from "./codeRepository/providerListings"
 import GitOpsService from "./GitOpsService"
 
-// The connections' surface stays importable from here: its callers use this path.
-export type { PipelineTemplatesInput } from "./codeRepository/connectionPipelines"
-
 /**
  * The value only if the user actually typed one. The edit screens submit the token field back exactly
  * as it was handed to them, and what they were handed is the placeholder, never the token.
@@ -203,14 +200,6 @@ export class CodeRepositoryService extends BaseAuthorizedService {
         return injectGitlabDeploySecret(this.user, repository, session)
     }
 
-    async injectSecretsToDeployOnGithubRaw(repository: ICodeRepository, session?: ClientSession) {
-        return injectGithubDeploySecret(this.user, repository, session)
-    }
-
-    async injectSecretsToDeployOnAzureDevOpsRaw(repository: ICodeRepository, session?: ClientSession) {
-        return injectAzureDevOpsDeploySecret(this.user, repository, session)
-    }
-
     async update(repositoryId: string, repositoryData: CodeRepositoryUpdateInput): Promise<ICodeRepository | null> {
         await this.findForWrite(repositoryId)
 
@@ -262,7 +251,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
 
         const repositoryFromDb = await repository.save({ session })
 
-        await this.injectSecretsToDeployOnGithubRaw(repositoryFromDb, session)
+        await injectGithubDeploySecret(this.user, repositoryFromDb, session)
 
         return repositoryFromDb
     }
@@ -366,7 +355,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
         })
 
         const out = await repository.save({ session })
-        await this.injectSecretsToDeployOnAzureDevOpsRaw(out, session)
+        await injectAzureDevOpsDeploySecret(this.user, out, session)
         return out
     }
 
@@ -393,7 +382,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
             projectName: body.projectName
         }
         const out = await repository.save({ session })
-        await this.injectSecretsToDeployOnAzureDevOpsRaw(out, session)
+        await injectAzureDevOpsDeploySecret(this.user, out, session)
         return out
     }
 

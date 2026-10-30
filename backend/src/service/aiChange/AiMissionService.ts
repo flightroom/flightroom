@@ -13,8 +13,9 @@ import { domainScopeForbidden, isInDomainScope } from "../BaseAuthorizedService"
 import { LlmConfiguration, LlmEffort, LlmUsage } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
 import { componentIdOf, componentsOfJob, findComponents, RepositoryComponent, RepositoryComponentKind, RepositoryComponentRef } from "../workspace/repositoryComponent"
-import AiChangeJobService, { ACTIVE_JOB_STATUSES } from "./AiChangeJobService"
+import AiChangeJobService from "./AiChangeJobService"
 import { AiChangeBaseService, loggable, onAiJobEnded, onBeforeAiCapCheck, PROPOSAL_TTL_MS, STALE_AFTER_MS, staleOutcome } from "./aiChangeShared"
+import { ACTIVE_JOB_STATUSES } from "./aiJobRecords"
 
 /** Repositories of a batch: as many as one job may work on, so a `global` batch is one job. */
 export const MISSION_BATCH_SIZE = 10

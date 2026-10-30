@@ -8,7 +8,11 @@ import { BackendTechnology } from "../../types/ProjectTechnology"
 import { resourceEnvKeys } from "../../types/ResourceCatalog"
 import { LlmClient, LlmProvider, LlmTurnRequest, LlmTurnResult } from "../llm"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
-import { AI_CHANGE_LIMITS, AiChangeAgentResource, AiChangeToolbox, agentLimitsFor, describeLayout, REPOSITORY_MAP_PATH, runAiChangeAgent } from "./aiChangeAgent"
+import { runAiChangeAgent } from "./aiChangeAgent"
+import { AiChangeAgentResource } from "./aiChangeAgentTypes"
+import { describeLayout } from "./aiChangeFiles"
+import { AI_CHANGE_LIMITS, agentLimitsFor, REPOSITORY_MAP_PATH } from "./aiChangeLimits"
+import { AiChangeToolbox } from "./aiChangeToolbox"
 
 const hasGit = spawnSync("git", ["--version"]).status === 0
 
