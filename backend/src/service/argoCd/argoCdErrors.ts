@@ -18,7 +18,7 @@ export const nameClash = (name: string) =>
 export const reinitializeRequired = () =>
     createBusinessException({
         code: "ARGOCD_REINITIALIZE_REQUIRED",
-        message: "Argo CD was initialized with other repositories, or by an earlier version of the console: initialize it again to deploy the applications through it",
+        message: "Argo CD was initialized with other repositories, or its AppProject is not there: initialize it again to deploy the applications through it",
         statusCode: 409
     })
 

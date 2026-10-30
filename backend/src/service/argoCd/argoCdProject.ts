@@ -79,13 +79,6 @@ export const deployableSlugs = async (projectId: Schema.Types.ObjectId, containe
 export const environmentsOf = async (projectId: Schema.Types.ObjectId) =>
     (await Environment.find({ projectId }, { slug: 1, namespace: 1 })).map(environment => ({ slug: environmentSlug(environment), namespace: environmentNamespace(environment) }))
 
-/** What any of `selectors` lists, each object once: the labels of now, and those of before the rename */
-export const listUnder = async (selectors: string[], list: (selector: string) => Promise<ArgoCdResource[]>): Promise<ArgoCdResource[]> => {
-    const found = new Map<string, ArgoCdResource>()
-    for (const resources of await allInOrder(selectors.map(list))) for (const resource of resources) if (!found.has(resource.metadata.name)) found.set(resource.metadata.name, resource)
-    return [...found.values()]
-}
-
 /** The AppProject an Application, or the applications of an ApplicationSet, belong to */
 export const projectOf = (resource: ArgoCdResource): unknown => {
     const spec = resource.spec as { project?: unknown; template?: { spec?: { project?: unknown } } } | undefined

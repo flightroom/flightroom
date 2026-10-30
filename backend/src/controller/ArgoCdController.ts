@@ -1,5 +1,6 @@
 import { FastifyInstance } from "fastify"
-import ArgoCdService, { ArgoCdInitializeInput, ArgoCdLogsInput } from "../service/ArgoCdService"
+import ArgoCdService from "../service/ArgoCdService"
+import { ArgoCdInitializeInput, ArgoCdLogsInput } from "../service/argoCd/argoCdTypes"
 
 export default async function argoCdController(fastify: FastifyInstance) {
     // Where the project is deployed from, never the credentials

@@ -7,9 +7,9 @@ import { IProject } from "../../models/ProjectModel"
 import { allInOrder } from "../../utils/allInOrder"
 import { environmentSlug } from "../GitOpsService"
 import { isDeployable } from "../gitops/applicationManifests"
-import { applicationName, appProjectName, ENVIRONMENT_LABEL, PROJECT_ID_LABEL, selectorsOf } from "../gitops/argoCdManifests"
+import { applicationName, appProjectName, ENVIRONMENT_LABEL, PROJECT_ID_LABEL } from "../gitops/argoCdManifests"
 import { RolloutDTO, rolloutStateOf } from "../gitops/rollout"
-import { clientOf, listUnder, projectOf } from "./argoCdProject"
+import { clientOf, projectOf } from "./argoCdProject"
 
 /** What a deployment is read for by the rollout: its commit, and the version and image of each application it shipped */
 export const DEPLOYED_VERSIONS = "environmentId applicationsRevision backends._id backends.version backends.image frontends._id frontends.version frontends.image"
@@ -55,7 +55,7 @@ export const followRollout = async (
     const client = clientOf(argoCd)
     const projectName = appProjectName(String(projectId), project.slug)
     const slug = environmentSlug(environment)
-    const listed = await listUnder(selectorsOf(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL}=${slug}`), labels => client.listApplications(labels, projectName))
+    const listed = await client.listApplications(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL}=${slug}`, projectName)
     const byName = new Map(listed.filter(application => projectOf(application) === projectName).map(application => [application.metadata.name, application]))
     const applications = await Promise.all(
         members.map(async ({ kind, application }) => {

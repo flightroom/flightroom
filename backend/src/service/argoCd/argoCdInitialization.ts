@@ -4,11 +4,11 @@ import ArgoCdClient, { ArgoCdResource } from "../../client/ArgoCdClient"
 import { BusinessException } from "../../errors/BusinessException"
 import { IProjectArgoCd, IProjectGitOps } from "../../models/ProjectModel"
 import GitOpsService from "../GitOpsService"
-import { buildArgoCdState, COMPONENT_LABEL, PROJECT_ID_LABEL, projectIdOf, selectorsOf, unprefixedProjectName } from "../gitops/argoCdManifests"
+import { buildArgoCdState, PROJECT_ID_LABEL, projectIdOf, unprefixedProjectName } from "../gitops/argoCdManifests"
 import { toErrorMessage } from "../RepositoryFileService"
 import { holderOf } from "./argoCdCredentials"
 import { nameConflict, repositoryConflict } from "./argoCdErrors"
-import { linksOf, listUnder, projectOf, repoUrlOf } from "./argoCdProject"
+import { linksOf, projectOf, repoUrlOf } from "./argoCdProject"
 import { ArgoCdRepositoryKind, RepositoryTarget } from "./argoCdTypes"
 
 /** The GitOps repositories Argo CD is handed, configuration first: the configuration one for the AppProject `projectName` only */
@@ -42,7 +42,7 @@ export const ensureNamesFree = async (client: ArgoCdClient, state: ReturnType<ty
 }
 
 /**
- * The AppProject an earlier version named otherwise, the one of the last initialization or 10.x's without the prefix: what the
+ * The AppProject the project had under another name, the one of the last initialization or 10.x's without the prefix: what the
  * project has in it moves to the one of now. Only guessed from the name, one the account may not read is none of its own
  */
 export const earlierAppProjects = async (
@@ -91,19 +91,12 @@ export const sharedRepositories = async (
 
 /**
  * What the console created for an environment that is gone, or a repository no longer linked. The
- * applications an ApplicationSet generated are left to it: they carry the label of the project too.
- * The console makes no Application itself any more: those an earlier initialization made per
- * environment go, the ApplicationSet of the environments makes them again
+ * applications an ApplicationSet generated are left to it: they carry the label of the project too
  */
 export const deleteLeftovers = async (client: ArgoCdClient, projectId: Schema.Types.ObjectId, projectName: string, movedFrom: string[], kept: Set<string>) => {
-    // Under the labels of before the rename too: what an earlier version made carries those until it is saved again.
-    // In the AppProject of an earlier name all of it goes, the ApplicationSets of now taking over its workloads
-    const selector = `${PROJECT_ID_LABEL}=${projectId}`
+    // In the AppProject of another name all of it goes, the ApplicationSets of now taking over its workloads
     for (const appProject of [projectName, ...movedFrom]) {
-        for (const application of await listUnder(selectorsOf(`${selector},${COMPONENT_LABEL}=configuration`), labels => client.listApplications(labels, appProject))) {
-            if (projectOf(application) === appProject) await client.deleteApplication(application.metadata.name, appProject)
-        }
-        for (const applicationSet of await listUnder(selectorsOf(selector), labels => client.listApplicationSets(labels, appProject))) {
+        for (const applicationSet of await client.listApplicationSets(`${PROJECT_ID_LABEL}=${projectId}`, appProject)) {
             if (!kept.has(applicationSet.metadata.name) && projectOf({ ...applicationSet, kind: "ApplicationSet" }) === appProject) await client.deleteApplicationSet(applicationSet.metadata.name)
         }
     }
