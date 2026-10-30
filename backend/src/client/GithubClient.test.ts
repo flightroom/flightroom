@@ -413,6 +413,31 @@ describe("GithubClient.getBranches", () => {
         await expect(new GithubClient().getBranches(token, "cart-fe", undefined, "octocat")).resolves.toEqual([])
         expect(sent(request)).toMatchObject({ url: `${api}/repos/octocat/cart-fe/branches` })
     })
+
+    const branches = (size: number, from = 0) => Array.from({ length: size }, (_, index) => ({ name: `branch-${from + index}`, commit: { sha: "a", url: "u" } }))
+
+    it("given several pages, when the branches are listed, then every page is walked in order and joined", async () => {
+        const request = stubRequest()
+            .mockResolvedValueOnce({ data: branches(100) })
+            .mockResolvedValueOnce({ data: branches(100, 100) })
+            .mockResolvedValueOnce({ data: branches(5, 200) })
+
+        await expect(new GithubClient().getBranches(token, "cart-fe", "acme")).resolves.toEqual(branches(205))
+        expect(request.mock.calls.map(([config]) => config.params)).toEqual([
+            { per_page: 100, page: 1 },
+            { per_page: 100, page: 2 },
+            { per_page: 100, page: 3 }
+        ])
+        expect(request.mock.calls.every(([config]) => config.url === `${api}/repos/acme/cart-fe/branches`)).toBe(true)
+    })
+
+    /** A cursor that never ends would otherwise loop forever */
+    it("given every page comes back full, when the branches are listed, then the walk stops after 50 pages", async () => {
+        const request = stubRequest().mockResolvedValue({ data: branches(100) })
+
+        await expect(new GithubClient().getBranches(token, "cart-fe", "acme")).resolves.toHaveLength(5000)
+        expect(request).toHaveBeenCalledTimes(50)
+    })
 })
 
 describe("GithubClient.getRepositories", () => {
