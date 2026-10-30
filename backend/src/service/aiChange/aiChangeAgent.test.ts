@@ -314,6 +314,33 @@ describe.skipIf(!hasGit)("AiChangeToolbox", () => {
         expect(found.at(-1)).toMatch(/stopped before the end/)
     })
 
+    it("Given matches further apart than the files a search reads ahead, when it is searched, then they come back in the order of the files", async () => {
+        for (let index = 0; index < 40; index++) {
+            const name = String(index).padStart(2, "0")
+            fs.mkdirSync(path.join(dir, "src/many"), { recursive: true })
+            fs.writeFileSync(path.join(dir, `src/many/file-${name}.ts`), [1, 17, 33].includes(index) ? `export const needle${name} = 1\n` : "export const hay = 1\n")
+        }
+        commitAll(dir)
+
+        expect(await toolbox.run("search", { text: "needle", prefix: "src/many" })).toBe(
+            "src/many/file-01.ts:1: export const needle01 = 1\nsrc/many/file-17.ts:1: export const needle17 = 1\nsrc/many/file-33.ts:1: export const needle33 = 1"
+        )
+    })
+
+    it("Given an unreadable file past the match limit, when it is searched, then the search stops before it and succeeds", async () => {
+        fs.writeFileSync(path.join(dir, "src/hits.ts"), "hit\n".repeat(AI_CHANGE_LIMITS.maxSearchMatches))
+        fs.writeFileSync(path.join(dir, "src/later.ts"), "hit\n")
+        commitAll(dir)
+        // Read ahead with the files before it, but never reached: its failure must not fail the search.
+        fs.chmodSync(path.join(dir, "src/later.ts"), 0o000)
+
+        const found = (await toolbox.run("search", { text: "hit", prefix: "src" })).split("\n")
+
+        expect(found).toHaveLength(AI_CHANGE_LIMITS.maxSearchMatches + 1)
+        expect(found.at(-2)).toBe(`src/hits.ts:${AI_CHANGE_LIMITS.maxSearchMatches}: hit`)
+        expect(found.at(-1)).toMatch(/stopped before the end/)
+    })
+
     it("Given a context on many matches, when it is searched, then no more lines than the limit come back", async () => {
         fs.writeFileSync(path.join(dir, "src/spread.ts"), "hit\nx\nx\nx\nx\nx\nx\nx\nx\nx\nx\n".repeat(60))
         commitAll(dir)

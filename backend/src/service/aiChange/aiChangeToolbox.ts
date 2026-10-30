@@ -246,7 +246,8 @@ export class AiChangeToolbox {
         for (const { repository, folder } of this.scope(prefix)) {
             const files = (await repository.workingCopy.listFiles()).filter(file => underPrefix(file, folder))
             // Started a few files ahead, looked into in order: a read that fails throws only once the search reaches its file.
-            const reads: Promise<Buffer | undefined>[] = []
+            // Each one dropped once searched: a search finding nothing must not keep every file of the repository in memory.
+            const reads: (Promise<Buffer | undefined> | undefined)[] = []
             for (let index = 0; index < files.length; index++) {
                 if (matches >= AI_CHANGE_LIMITS.maxSearchMatches) break
                 for (let next = reads.length; next < Math.min(index + SEARCH_READ_AHEAD, files.length); next++) {
@@ -256,6 +257,7 @@ export class AiChangeToolbox {
                     reads.push(read)
                 }
                 const buffer = await reads[index]
+                reads[index] = undefined
                 if (!buffer) continue
                 const found = matchingLines(this.shown(repository, files[index]), linesOf(buffer.toString("utf8")), needle, context, AI_CHANGE_LIMITS.maxSearchMatches - matches)
                 if (context > 0 && output.length && found.output.length) output.push("--")
