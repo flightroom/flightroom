@@ -73,6 +73,9 @@ const DeployScreen: React.FC<DeployScreenProps> = ({ phase, startedAt, endedAt, 
     const messages = t("deployments.overlay.messages", { returnObjects: true }) as string[]
     const [messageIndex, setMessageIndex] = useState(() => Math.floor(Math.random() * messages.length))
     const ended = ENDED.includes(phase)
+    // Those the deploy changed: the others are only applied again. A deploy that changed no version, of config maps only, shows them all
+    const updated = rollout?.applications.filter(application => application.updated) ?? []
+    const applications = updated.length > 0 ? updated : (rollout?.applications ?? [])
 
     useEffect(() => {
         const interval = setInterval(() => setMessageIndex(index => index + 1), MESSAGE_INTERVAL)
@@ -111,7 +114,7 @@ const DeployScreen: React.FC<DeployScreenProps> = ({ phase, startedAt, endedAt, 
             role="dialog"
             aria-modal="true"
             aria-labelledby="deploy-overlay-title"
-            className="pointer-events-auto fixed inset-0 z-[60] flex flex-col items-center justify-center gap-6 overflow-y-auto bg-background/95 p-4 backdrop-blur-sm"
+            className="pointer-events-auto fixed inset-0 z-[60] flex flex-col items-center justify-center-safe gap-6 overflow-y-auto bg-background/95 p-4 backdrop-blur-sm"
             data-testid={`deploy-overlay-${phase}`}
         >
             <div className="flex flex-col items-center gap-2 text-center">
@@ -128,8 +131,9 @@ const DeployScreen: React.FC<DeployScreenProps> = ({ phase, startedAt, endedAt, 
                 )}
             </div>
             {rollout?.tracked && (
-                <div className="w-full max-w-2xl" aria-live="polite">
-                    <RolloutApplications applications={rollout.applications} />
+                // Scrolls on its own: the game below stays in sight however many applications the deploy ships
+                <div className="max-h-[30vh] w-full max-w-2xl shrink-0 overflow-y-auto" aria-live="polite">
+                    <RolloutApplications applications={applications} />
                 </div>
             )}
             {readError && !ended && <p className="text-xs text-foreground-secondary">{t("deployments.overlay.read_error")}</p>}

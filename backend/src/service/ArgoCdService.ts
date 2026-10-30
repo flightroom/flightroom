@@ -62,6 +62,9 @@ const MAX_LOG_LINES = 5000
 /** A week: the kubelet rotates the logs well before */
 const MAX_LOG_SECONDS = 7 * 24 * 60 * 60
 const MAX_FILTER_LENGTH = 200
+
+/** What a deployment is read for by the rollout: its commit, and the version and image of each application it shipped */
+const DEPLOYED_VERSIONS = "environmentId applicationsRevision backends._id backends.version backends.image frontends._id frontends.version frontends.image"
 /** The characters of the name of a pod, a DNS subdomain: Argo CD checks the pod is one of the Application */
 const POD_NAME = /^[a-z0-9][-a-z0-9.]{0,252}$/
 
@@ -374,7 +377,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         if (!isValidObjectId(deploymentId)) throw new EntityNotFoundError(String(deploymentId))
         if (domainId !== undefined && !isValidObjectId(domainId)) throw new EntityNotFoundError(String(domainId))
         if (domainId) await this.ensureInDomainScope(projectIdObj, domainId)
-        const deployment = await Deployment.findById(toObjectId(deploymentId), { environmentId: 1, applicationsRevision: 1 })
+        const deployment = await Deployment.findById(toObjectId(deploymentId), DEPLOYED_VERSIONS)
         const [project, environment] = await Promise.all([
             Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 }),
             deployment ? Environment.findOne({ _id: deployment.environmentId, projectId: projectIdObj }, { slug: 1, namespace: 1 }) : null
@@ -391,6 +394,15 @@ export class ArgoCdService extends BaseAuthorizedService {
             ? await Deployment.find({ environmentId: deployment.environmentId, _id: { $gt: deployment._id }, applicationsRevision: { $exists: true } }, { applicationsRevision: 1 })
             : []
         const revisions = new Set([deployment.applicationsRevision, ...later.map(newer => newer.applicationsRevision)].filter((revision): revision is string => Boolean(revision)))
+
+        // What the deploy changed: a version or an image the deploy before it in the environment did not serve
+        const before = await Deployment.findOne({ environmentId: deployment.environmentId, _id: { $lt: deployment._id } }, DEPLOYED_VERSIONS, { sort: { _id: -1 } })
+        const versionsOf = (recorded?: { _id: unknown; version?: string; image?: unknown }[]) =>
+            new Map((recorded ?? []).map(application => [String(application._id), JSON.stringify([application.version, application.image])]))
+        const shipped = versionsOf([...(deployment.backends ?? []), ...(deployment.frontends ?? [])])
+        const served = versionsOf([...(before?.backends ?? []), ...(before?.frontends ?? [])])
+        // Without a deploy before, or without what it recorded, everything counts as updated
+        const updated = (id: string) => !before || !shipped.has(id) || shipped.get(id) !== served.get(id)
 
         const scope = { projectId: projectIdObj, ...(domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectIdObj)) }
         const fields = { slug: 1, name: 1, version: 1, image: 1 }
@@ -410,7 +422,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                 const state = rolloutStateOf(byName.get(name), revisions)
                 // Which container is still starting, or crashing: a failure to read them leaves the rest as it is
                 const pods = state.state === "progressing" || state.state === "degraded" ? await client.listPods(name, projectName).catch(() => undefined) : undefined
-                return { _id: String(application._id), kind, name: application.name, slug: application.slug, ...state, ...(pods ? { pods } : {}) }
+                return { _id: String(application._id), kind, name: application.name, slug: application.slug, updated: updated(String(application._id)), ...state, ...(pods ? { pods } : {}) }
             })
         )
         return {

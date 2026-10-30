@@ -861,11 +861,16 @@ describe("ArgoCdService.rollout", () => {
     const deployed = (slug: string, status: ArgoCdResource["status"]): ArgoCdResource => ({ ...resource(applicationName(String(projectId), "shop", slug, "development")), status })
     const synced = (health: string, revision = PUSHED): ArgoCdResource["status"] => ({ sync: { status: "Synced", revision }, health: { status: health } })
     let later: Array<{ applicationsRevision: string }>
+    let shipped: Record<string, unknown>
+    let before: Record<string, unknown> | null
 
     beforeEach(() => {
         later = []
-        vi.spyOn(Deployment, "findById").mockResolvedValue({ _id: deploymentId, environmentId, applicationsRevision: PUSHED } as never)
+        shipped = {}
+        before = null
+        vi.spyOn(Deployment, "findById").mockImplementation((async () => ({ _id: deploymentId, environmentId, applicationsRevision: PUSHED, ...shipped })) as never)
         vi.spyOn(Deployment, "find").mockImplementation((async () => later) as never)
+        vi.spyOn(Deployment, "findOne").mockImplementation((async () => before) as never)
         vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, slug: "development", projectId } as never)
         vi.spyOn(ArgoCdService.prototype as unknown as { getDomainScope: () => Promise<undefined> }, "getDomainScope").mockResolvedValue(undefined)
         vi.spyOn(ArgoCdClient.prototype, "listPods").mockResolvedValue([{ name: "checkout-7d9-abc", namespace: "development", health: "Progressing", containers: "0/1" }])
@@ -894,6 +899,27 @@ describe("ArgoCdService.rollout", () => {
         expect(result.applications[1].pods).toEqual([expect.objectContaining({ containers: "0/1" })])
         expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledTimes(1)
         expect(vi.mocked(ArgoCdClient.prototype.listApplications).mock.calls[0][0]).toBe(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL}=development`)
+    })
+
+    it("given a deploy that changed the version of one application only, when the rollout is read, then only that one is updated", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        applications = [deployed("orders", synced("Healthy")), deployed("checkout", synced("Progressing"))]
+        const [orders, checkout] = [new Types.ObjectId(), new Types.ObjectId()]
+        vi.mocked(Backend.find).mockResolvedValue([{ _id: orders, slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([{ _id: checkout, slug: "checkout", version: "2.1.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
+        shipped = { backends: [{ _id: orders, version: "1.0.0" }], frontends: [{ _id: checkout, version: "2.1.0" }] }
+        // Without a deploy before it, everything is updated
+        const result = await rollout()
+        before = { backends: [{ _id: orders, version: "1.0.0" }], frontends: [{ _id: checkout, version: "2.0.0" }] }
+
+        const updated = await rollout()
+
+        expect(result.applications.every(application => application.updated)).toBe(true)
+        expect(updated.applications.map(application => [application.slug, application.updated])).toEqual([
+            ["orders", false],
+            ["checkout", true]
+        ])
+        expect(vi.mocked(Deployment.findOne).mock.calls[0]).toEqual([{ environmentId, _id: { $lt: deploymentId } }, expect.anything(), { sort: { _id: -1 } }])
     })
 
     it("given Argo CD still on the revision before the deploy, when the rollout is read, then nothing counts as done", async () => {

@@ -75,6 +75,8 @@ export interface RolloutApplication {
     kind: "frontend" | "backend"
     name: string
     slug: string
+    /** Il deploy ne ha cambiato versione o immagine: le altre vengono solo riapplicate */
+    updated?: boolean
     state: RolloutState
     health?: string
     sync?: string
