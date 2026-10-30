@@ -6,12 +6,6 @@
     ],
     "editor.defaultFormatter": "biomejs.biome",
     "editor.formatOnSave": true,
-    "[typescriptreact]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
-    "[typescript]": {
-        "editor.defaultFormatter": "esbenp.prettier-vscode"
-    },
     "editor.codeActionsOnSave": {
         "source.addMissingImports": "explicit"
     }
