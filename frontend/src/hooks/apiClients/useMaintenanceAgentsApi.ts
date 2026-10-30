@@ -94,7 +94,8 @@ const MAINTENANCE_ERROR_KEYS: Record<string, string> = {
     // Same refusals as a backend build
     BACKEND_BUILD_FORBIDDEN: "backends.build.forbidden",
     BUILD_REF_NOT_FOUND: "backends.build.ref_not_found",
-    BUILD_REPOSITORY_NOT_FOUND: "backends.build.repository_not_found"
+    BUILD_REPOSITORY_NOT_FOUND: "backends.build.repository_not_found",
+    BUILD_TAG_EXISTS: "backends.build.tag_exists"
 }
 
 /** Said in the user's language from the code, the other Argo CD refusals as the settings say them, anything else as the backend tells it */

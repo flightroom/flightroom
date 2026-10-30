@@ -22,7 +22,7 @@ import { toErrorMessage } from "./RepositoryFileService"
 import { isRepositoryNameTakenError } from "./RepositoryRenameService"
 import { copyPipeline, fetchPipelineTemplates, PipelineTemplates } from "./templateScaffold/pipelineTemplates"
 import { downloadAndExtractZip, flattenTemplate, replaceFederationNameInConfigs, replacePlaceholdersInDirectory } from "./templateScaffold/templateFiles"
-import { explainMissingCommit, findCommit, pushTag, TagTarget } from "./templateScaffold/templateTags"
+import { explainMissingCommit, findCommit, pushTag, TagTarget, tagExists } from "./templateScaffold/templateTags"
 
 /** The repository part of a frontend or backend DTO, filled in once the repository exists */
 export type CodeRepositoryTarget = FrontendDTO["codeRepository"]
@@ -469,9 +469,16 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
      */
     async createTag(link: ICodeRepositoryFrontend | undefined, projectId: unknown, version: string, ref?: string): Promise<void> {
         const target = await this.resolveTagTarget(link, projectId, ref)
-        if (target) {
-            await pushTag(target, version)
+        if (!target) return
+        // A retry of a version a former attempt already tagged: the providers refuse it in their own words (Azure DevOps says staleOldObjectId)
+        if (await tagExists(target, version)) {
+            throw createBusinessException({
+                code: "BUILD_TAG_EXISTS",
+                message: `The tag ${version} already exists in the repository ${target.link.name}: build a new version`,
+                statusCode: 409
+            })
         }
+        await pushTag(target, version)
     }
 
     /**

@@ -949,7 +949,8 @@
             "version_registration_not_allowed": "Solo un frontend servito dal suo container Docker registra versioni di immagine: un frontend carica il suo bundle",
             "build_forbidden": "Chi ha il ruolo di viewer non può creare una versione di un frontend",
             "build_ref_not_found": "Il branch non esiste nel repository",
-            "build_repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
+            "build_repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo",
+            "build_tag_exists": "Questa versione esiste già nel repository: scegline una nuova"
         },
         "validation": {
             "version_required": "La versione è obbligatoria",
@@ -2639,7 +2640,8 @@
             "success": "Versione avviata per {{name}}",
             "forbidden": "Chi ha il ruolo di viewer non può creare una versione di un backend",
             "ref_not_found": "Il branch non esiste nel repository",
-            "repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo"
+            "repository_not_found": "Il repository non è stato trovato, oppure il token della connessione non può raggiungerlo",
+            "tag_exists": "Questa versione esiste già nel repository: scegline una nuova"
         },
         "versions": {
             "title": "Versioni",

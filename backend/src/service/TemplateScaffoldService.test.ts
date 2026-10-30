@@ -1122,6 +1122,7 @@ describe("TemplateScaffoldService.createTag", () => {
     beforeEach(() => {
         getBranchCommitSha = vi.spyOn(GithubClient.prototype, "getBranchCommitSha").mockResolvedValue("abc123" as never)
         createTag = vi.spyOn(GithubClient.prototype, "createTag").mockResolvedValue(undefined)
+        vi.spyOn(GithubClient.prototype, "tagExists").mockResolvedValue(false)
     })
 
     it("given a connection of the same project, when a tag is created, then the provider tags the branch", async () => {
@@ -1130,6 +1131,15 @@ describe("TemplateScaffoldService.createTag", () => {
         await new TemplateScaffoldService().createTag(link as never, projectId, "1.2.0", "main")
 
         expect(createTag).toHaveBeenCalledWith("token", "orders-api", "1.2.0", "abc123", undefined, "acme")
+    })
+
+    /** A retry of a version a canceled run already tagged: the provider would refuse it in its own words */
+    it("given a version already tagged, when a tag is created, then it is refused as BUILD_TAG_EXISTS and the provider is never asked to tag", async () => {
+        connectionOf(projectId)
+        vi.spyOn(GithubClient.prototype, "tagExists").mockResolvedValue(true)
+
+        await expect(new TemplateScaffoldService().createTag(link as never, projectId, "1.2.0", "release/dev")).rejects.toMatchObject({ code: "BUILD_TAG_EXISTS", statusCode: 409 })
+        expect(createTag).not.toHaveBeenCalled()
     })
 
     /** The connection holds the access token: one of another project must not be usable through a link */
