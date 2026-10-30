@@ -68,7 +68,6 @@ const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, c
         setSearchParams(
             current => {
                 const next = new URLSearchParams(current)
-                next.delete("tab")
                 next.set("change", id)
                 return next
             },
