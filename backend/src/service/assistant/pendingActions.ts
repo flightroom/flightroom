@@ -24,8 +24,7 @@ export interface PendingAssistantAction {
     /**
      * What the model said and got back in this turn after the user's last message, as the provider
      * returned it (thinking blocks and thought signatures included) and with this call's result as a
-     * placeholder: the turn resumes from it. Missing on actions parked by an older version, or when
-     * the turn was too large to keep.
+     * placeholder: the turn resumes from it. Missing when the turn was too large to keep.
      */
     turn?: LlmMessage[]
     createdAt: number
