@@ -6,6 +6,9 @@ import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../ty
 export const AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED = "AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED"
 export const AZURE_DEVOPS_TAG_REFUSED = "AZURE_DEVOPS_TAG_REFUSED"
 
+/** Safety net so a continuation token that never ends cannot turn a listing into an endless loop */
+const maxContinuationPages = 50
+
 /** One ref of an update of the refs, e.g. `updateStatus: "createTagPermissionRequired"` when `success` is false */
 interface AzureDevOpsRefUpdateResult {
     name: string
@@ -241,6 +244,29 @@ class AzureDevOpsClient {
         return response
     }
 
+    /**
+     * Every page of a listing: Azure DevOps cuts some listings into pages, the projects at 100 each, and tells
+     * that more follow with the `x-ms-continuationtoken` header, to be sent back as `continuationToken`.
+     */
+    private async listAllPages<T>(
+        config: AxiosRequestConfig,
+        send: (config: AxiosRequestConfig) => Promise<AxiosResponse<{ value?: T[] }>> = pageConfig => this.request(pageConfig)
+    ): Promise<{ count: number; value: T[] }> {
+        const value: T[] = []
+        let continuationToken: string | undefined
+
+        for (let page = 1; page <= maxContinuationPages; page++) {
+            const response = await send(continuationToken ? { ...config, params: { ...config.params, continuationToken } } : config)
+            value.push(...(response.data?.value ?? []))
+
+            const next = response.headers?.["x-ms-continuationtoken"]
+            if (!next) break
+            continuationToken = String(next)
+        }
+
+        return { count: value.length, value }
+    }
+
     // Ottieni l'ID utente dal profilo
     async getUserId(token: string) {
         const response = await this.request<{ id: string }>({
@@ -270,14 +296,13 @@ class AzureDevOpsClient {
 
     async getProjects(token: string, organization: string): Promise<AzureDevOpsProjectsResponse> {
         const url = `https://dev.azure.com/${organization}/_apis/projects?api-version=7.1-preview.4`
-        const response = await this.request<AzureDevOpsProjectsResponse>({
+        return this.listAllPages<AzureDevOpsProject>({
             url,
             headers: {
                 Authorization: `Bearer ${token}`,
                 "Content-Type": "application/json"
             }
         })
-        return response.data
     }
 
     async getRepositories(token: string, organization: string, project: string): Promise<GetRepositoryDTO> {
@@ -492,14 +517,16 @@ class AzureDevOpsClient {
      */
     async getVariableGroups(token: string, organization: string, projectId: string): Promise<AzureVariableGroupsResponse> {
         const url = `https://dev.azure.com/${organization}/${projectId}/_apis/distributedtask/variablegroups?api-version=7.1-preview.2`
-        const response = await this.variableGroupsRequest<AzureVariableGroupsResponse>({
-            url,
-            headers: {
-                Authorization: `Bearer ${token}`,
-                "Content-Type": "application/json"
-            }
-        })
-        return response.data
+        return this.listAllPages<AzureVariableGroup>(
+            {
+                url,
+                headers: {
+                    Authorization: `Bearer ${token}`,
+                    "Content-Type": "application/json"
+                }
+            },
+            pageConfig => this.variableGroupsRequest(pageConfig)
+        )
     }
 
     /**

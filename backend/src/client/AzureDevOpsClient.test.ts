@@ -73,6 +73,25 @@ describe("AzureDevOpsClient variable groups", () => {
         })
     })
 
+    it("given Azure sends a continuation token, when the variable groups are read, then the next page is read too", async () => {
+        const request = vi
+            .spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { count: 1, value: [{ id: 9, name: "OTHER", variables: {} }] }, headers: { "x-ms-continuationtoken": "9" } })
+            .mockResolvedValueOnce({ data: { count: 1, value: [{ id: 3, name: "GROUP", variables: { SECRET: {} } }] }, headers: {} })
+
+        await expect(new AzureDevOpsClient().checkOrganizationSecretExists(params)).resolves.toBe(true)
+        expect(request).toHaveBeenCalledTimes(2)
+        expect(request.mock.calls[1][0]).toMatchObject({ params: { continuationToken: "9" } })
+    })
+
+    it("given the token cannot read a later page of the variable groups, when they are read, then the missing scope is named", async () => {
+        vi.spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { count: 1, value: [] }, headers: { "x-ms-continuationtoken": "9" } })
+            .mockRejectedValueOnce(answered(401))
+
+        await expect(new AzureDevOpsClient().getVariableGroups("pat", "org", "project")).rejects.toMatchObject({ code: AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED })
+    })
+
     it("given the connection fails, when the variable groups are read, then the network error is passed on unchanged", async () => {
         const failure = unreachable()
         vi.spyOn(axios, "request").mockRejectedValue(failure)
@@ -547,6 +566,39 @@ describe("AzureDevOpsClient.getProjects", () => {
     it("given Azure cannot be reached, when the projects are listed, then the network error is passed on unchanged", async () => {
         const failure = unreachable()
         vi.spyOn(axios, "request").mockRejectedValue(failure)
+
+        await expect(new AzureDevOpsClient().getProjects("pat", "org")).rejects.toBe(failure)
+    })
+
+    const projectsFrom = (from: number, count: number) => Array.from({ length: count }, (_, index) => ({ id: `p${from + index}`, name: `Project ${from + index}` }))
+
+    it("given more projects than a page, when they are listed, then the continuation token is followed until Azure stops sending it", async () => {
+        const request = vi
+            .spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { count: 100, value: projectsFrom(1, 100) }, headers: { "x-ms-continuationtoken": "100" } })
+            .mockResolvedValueOnce({ data: { count: 2, value: projectsFrom(101, 2) }, headers: {} })
+
+        const listed = await new AzureDevOpsClient().getProjects("pat", "org")
+
+        expect(listed.value.map(project => project.id)).toEqual(projectsFrom(1, 102).map(project => project.id))
+        expect(listed.count).toBe(102)
+        expect(request).toHaveBeenCalledTimes(2)
+        expect(request.mock.calls[0][0]).not.toHaveProperty("params.continuationToken")
+        expect(request.mock.calls[1][0]).toMatchObject({ params: { continuationToken: "100" } })
+    })
+
+    it("given a continuation token that never ends, when the projects are listed, then the walk stops after 50 pages", async () => {
+        const request = vi.spyOn(axios, "request").mockResolvedValue({ data: { count: 1, value: projectsFrom(1, 1) }, headers: { "x-ms-continuationtoken": "again" } })
+
+        await expect(new AzureDevOpsClient().getProjects("pat", "org")).resolves.toMatchObject({ count: 50 })
+        expect(request).toHaveBeenCalledTimes(50)
+    })
+
+    it("given a page that fails, when the projects are listed, then the failure is passed on, not a partial list", async () => {
+        const failure = answered(500)
+        vi.spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { count: 100, value: projectsFrom(1, 100) }, headers: { "x-ms-continuationtoken": "100" } })
+            .mockRejectedValueOnce(failure)
 
         await expect(new AzureDevOpsClient().getProjects("pat", "org")).rejects.toBe(failure)
     })
