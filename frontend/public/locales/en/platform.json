@@ -509,6 +509,28 @@
         "select_color": "Select a color"
     },
     "deployments": {
+        "promotion": {
+            "action": "Promote versions",
+            "title": "Promote versions",
+            "description": "Bring to an environment the versions the applications run in another, e.g. from development to UAT or from UAT to production. Saved only, the next deploy of the environment applies them.",
+            "from": "From",
+            "to": "To",
+            "same_environment": "Pick two different environments.",
+            "empty": "No backend, container frontend or maintenance agent to promote.",
+            "aligned": "Already at the same version",
+            "not_in_source": "Not deployed in {{environment}}: left as it is",
+            "none": "not deployed",
+            "save": "Save",
+            "save_and_deploy": "Save and deploy {{environment}}",
+            "saving": "Saving…",
+            "saved_one": "{{count}} version brought from {{from}} to {{to}}",
+            "saved_other": "{{count}} versions brought from {{from}} to {{to}}",
+            "kinds": {
+                "backend": "Backend",
+                "frontend": "Frontend",
+                "maintenanceAgent": "Maintenance agent"
+            }
+        },
         "title": "Deployments",
         "subtitle": "Manage your project deployments",
         "environment_select": "Environment",

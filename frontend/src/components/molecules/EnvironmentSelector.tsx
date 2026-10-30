@@ -7,13 +7,15 @@ interface EnvironmentSelectorProps {
     selectedEnvironment: EnvironmentDTO
     environments: EnvironmentDTO[]
     onEnvironmentChange: (value: EnvironmentDTO) => void
+    /** The label over the select: "Ambiente" when none is given */
+    label?: string
 }
 
-const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({ selectedEnvironment, environments, onEnvironmentChange }) => {
+const EnvironmentSelector: React.FC<EnvironmentSelectorProps> = ({ selectedEnvironment, environments, onEnvironmentChange, label }) => {
     const { t } = useTranslation()
 
     return (
-        <SelectControl label={t("deployments.environment_select")} className="w-full max-w-40 flex-shrink-0">
+        <SelectControl label={label ?? t("deployments.environment_select")} className="w-full max-w-40 flex-shrink-0">
             <Select
                 value={selectedEnvironment?._id}
                 onValueChange={value => {

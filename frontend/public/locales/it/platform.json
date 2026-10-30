@@ -406,6 +406,28 @@
         "toggle_theme": "Cambia tema"
     },
     "deployments": {
+        "promotion": {
+            "action": "Promuovi versioni",
+            "title": "Promuovi versioni",
+            "description": "Porta in un ambiente le versioni che le applicazioni usano in un altro, ad esempio da sviluppo a UAT o da UAT a produzione. Salvate e basta, le applica il prossimo deploy dell'ambiente.",
+            "from": "Da",
+            "to": "A",
+            "same_environment": "Scegli due ambienti diversi.",
+            "empty": "Nessun backend, frontend container o agente di manutenzione da promuovere.",
+            "aligned": "Già alla stessa versione",
+            "not_in_source": "Non deployato in {{environment}}: resta com'è",
+            "none": "non deployato",
+            "save": "Salva",
+            "save_and_deploy": "Salva e deploya {{environment}}",
+            "saving": "Salvataggio in corso…",
+            "saved_one": "{{count}} versione portata da {{from}} a {{to}}",
+            "saved_other": "{{count}} versioni portate da {{from}} a {{to}}",
+            "kinds": {
+                "backend": "Backend",
+                "frontend": "Frontend",
+                "maintenanceAgent": "Agente di manutenzione"
+            }
+        },
         "title": "Deployment",
         "subtitle": "Gestisci i deployment del tuo progetto",
         "environment_select": "Ambiente",

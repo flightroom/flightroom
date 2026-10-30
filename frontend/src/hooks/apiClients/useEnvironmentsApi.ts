@@ -31,6 +31,19 @@ export interface CreateEnvironmentDTO {
     ipAllowList?: string[]
 }
 
+/** Un'applicazione con la versione che usa nell'ambiente di origine e in quello di destinazione di una promozione */
+export interface PromotionRow {
+    kind: "backend" | "frontend" | "maintenanceAgent"
+    _id: string
+    name: string
+    slug: string
+    from?: string
+    to?: string
+}
+
+/** Se la promozione la cambia: un'applicazione che non gira nell'origine tiene quello che usa nella destinazione */
+export const promotes = (row: PromotionRow) => Boolean(row.from) && row.from !== row.to
+
 const useEnvironmentsApi = () => {
     const apiClient = useApiClient()
     // Creare, rinominare o eliminare un ambiente riallinea il repository GitOps, quando e' attivo
@@ -94,12 +107,32 @@ const useEnvironmentsApi = () => {
         return response.data
     }
 
+    /** Le versioni di `fromId` accanto a quelle di `toId`: cosa cambierebbe una promozione */
+    const getPromotion = async (toId: string, fromId: string) => {
+        const response = await apiClient.doRequest<PromotionRow[]>({
+            url: `/api/environments/${toId}/promotion?from=${encodeURIComponent(fromId)}`
+        })
+        return response.data
+    }
+
+    /** Porta in `toId` le versioni che le applicazioni scelte usano in `fromId`: le applica il prossimo deploy di `toId` */
+    const promote = async (toId: string, fromId: string, applications: Pick<PromotionRow, "kind" | "_id">[]) => {
+        const response = await apiClient.doRequest<PromotionRow[]>({
+            url: `/api/environments/${toId}/promotion`,
+            method: "POST",
+            data: { from: fromId, applications }
+        })
+        return response.data
+    }
+
     return {
         createEnvironment,
         createEnvironmentsBulk,
         deleteEnvironment,
         editEnvironment,
         getEnvironment,
+        getPromotion,
+        promote,
         updateEnvironmentsOrder
     }
 }
