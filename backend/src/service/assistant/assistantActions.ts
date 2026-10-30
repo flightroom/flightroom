@@ -131,7 +131,7 @@ const needsConfirmation = (tool: McpToolDefinition) => {
 }
 
 /** Input fields an audit line may carry: ids and short identifying values, never secrets or free text. */
-const AUDITED_FIELDS = new Set(["email", "role", "name", "key", "originalKey", "slug", "enabled", "scope", "expiresAt", "version", "isProduction", "active"])
+const AUDITED_FIELDS = new Set(["email", "role", "name", "key", "originalKey", "slug", "enabled", "scope", "expiresAt", "version", "branch", "ref", "isProduction", "active"])
 const MAX_AUDITED_CHARS = 200
 const MAX_AUDITED_ITEMS = 50
 

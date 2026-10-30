@@ -162,7 +162,8 @@ const FRONTEND_ERROR_KEYS: Record<string, string> = {
     BUNDLE_VERSION_REGISTRATION_NOT_ALLOWED: "frontend.errors.version_registration_not_allowed",
     FRONTEND_BUILD_FORBIDDEN: "frontend.errors.build_forbidden",
     BUILD_REF_NOT_FOUND: "frontend.errors.build_ref_not_found",
-    BUILD_REPOSITORY_NOT_FOUND: "frontend.errors.build_repository_not_found"
+    BUILD_REPOSITORY_NOT_FOUND: "frontend.errors.build_repository_not_found",
+    BUILD_TAG_EXISTS: "frontend.errors.build_tag_exists"
 }
 
 /** A new repository, scaffolded from a template, for a frontend or a backend that has none. */

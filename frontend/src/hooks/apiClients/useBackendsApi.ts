@@ -113,7 +113,8 @@ export interface BuiltBackend {
 const BACKEND_BUILD_ERROR_KEYS: Record<string, string> = {
     BACKEND_BUILD_FORBIDDEN: "backends.build.forbidden",
     BUILD_REF_NOT_FOUND: "backends.build.ref_not_found",
-    BUILD_REPOSITORY_NOT_FOUND: "backends.build.repository_not_found"
+    BUILD_REPOSITORY_NOT_FOUND: "backends.build.repository_not_found",
+    BUILD_TAG_EXISTS: "backends.build.tag_exists"
 }
 
 const useBackendsApi = () => {
