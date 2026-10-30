@@ -812,6 +812,15 @@ describe("GithubClient.getFileContent", () => {
         expect(sent(request).url).toBe(`${api}/repos/acme/cart-fe/contents/apps/web%20app/package.json`)
     })
 
+    /** Left as they are, # would cut the path into a fragment and ? into a query */
+    it("given a path with a hash and a question mark, when the file is read, then each segment is encoded and the slashes stay", async () => {
+        const request = stubRequest().mockResolvedValue({ data: { type: "file", encoding: "base64", content: base64("x"), sha: "s" } })
+
+        await new GithubClient().getFileContent({ ...file, path: "docs/a b#c?.md" })
+
+        expect(sent(request).url).toBe(`${api}/repos/acme/cart-fe/contents/docs/a%20b%23c%3F.md`)
+    })
+
     it("given an answer without encoding, when the file is read, then the content is read as base64", async () => {
         stubRequest().mockResolvedValue({ data: { type: "file", content: base64("plain"), sha: "s" } })
 
@@ -929,6 +938,14 @@ describe("GithubClient.updateFileContent", () => {
         await new GithubClient().updateFileContent(update)
 
         expect(sentBody(request).sha).toBeUndefined()
+    })
+
+    it("given a path with a hash and a question mark, when the file is written, then each segment is encoded and the slashes stay", async () => {
+        const request = stubRequest().mockResolvedValue({ data: {} })
+
+        await new GithubClient().updateFileContent({ ...update, path: "docs/a b#c?.md" })
+
+        expect(sent(request).url).toBe(`${api}/repos/acme/cart-fe/contents/docs/a%20b%23c%3F.md`)
     })
 
     /** GitHub answers 409 when the sha is no longer the head of the branch */
