@@ -18,7 +18,7 @@ export const EnvironmentVersionFields: React.FC<{ className?: string }> = ({ cla
     const { control } = useFormContext()
     const { fields, append, remove } = useFieldArray({ control, name: "environmentVersions" })
     const version: string | undefined = useWatch({ control, name: "version" })
-    const environments = useProjectEnvironmentsQuery().data ?? []
+    const environments = useProjectEnvironmentsQuery({ inForm: true }).data ?? []
     const entries = fields as unknown as (EnvironmentVersionFormValues & { id: string })[]
     const setApart = new Set(entries.map(entry => entry.environmentId))
     const available = environments.filter(environment => environment._id && !setApart.has(environment._id))
