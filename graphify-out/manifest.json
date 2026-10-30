@@ -1730,8 +1730,8 @@
     "semantic_hash": ""
   },
   "backend/vitest.config.mts": {
-    "mtime": 1793005820.5788586,
-    "ast_hash": "c50b7bebeb8772685a01cec5c1f74626",
+    "mtime": 1793362370.4355063,
+    "ast_hash": "09fd7d9000a265b55bc7deab9dd4e45d",
     "semantic_hash": ""
   },
   "backend/src/models/UserAvatarModel.ts": {
@@ -2860,8 +2860,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/AzureDevOpsClient.test.ts": {
-    "mtime": 1793229302.4586039,
-    "ast_hash": "a7c46866e1ad2d65fe8bd9308d72b2c4",
+    "mtime": 1793362364.7556663,
+    "ast_hash": "d26b390eec3c5183a5b64c1a53d04b4a",
     "semantic_hash": ""
   },
   "backend/src/models/AiChangeRequestModel.test.ts": {
@@ -3305,8 +3305,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/SqlDatabaseClient.test.ts": {
-    "mtime": 1793005820.5180118,
-    "ast_hash": "1b072795d6a0f6e76a4837301fc38f22",
+    "mtime": 1793362364.7570744,
+    "ast_hash": "9884f978009f3b714dee209b965fdc77",
     "semantic_hash": ""
   },
   "backend/src/utils/connectionTest.test.ts": {
@@ -3690,8 +3690,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/GithubClient.test.ts": {
-    "mtime": 1793005820.517063,
-    "ast_hash": "b1fb37f72fb1b34d6db73074db375042",
+    "mtime": 1793362364.7561963,
+    "ast_hash": "32cb0df405e8d15d89c0e1fdb709695a",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainBuildDialog.tsx": {
@@ -3700,8 +3700,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/GitlabClient.test.ts": {
-    "mtime": 1793005820.5174117,
-    "ast_hash": "ba2b545a5f559c8538ac3ad36f7de24c",
+    "mtime": 1793362364.7564836,
+    "ast_hash": "e23020ef605a05bd5a8f884c9d370d64",
     "semantic_hash": ""
   },
   "backend/src/controller/DomainController.test.ts": {
@@ -4735,8 +4735,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.test.ts": {
-    "mtime": 1793086612.458851,
-    "ast_hash": "3a9a2b511c77ea8de0cb5683476e5908",
+    "mtime": 1793362364.7553668,
+    "ast_hash": "030d0e9d4c5330b3aa0e62b4b302fe48",
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/aiUsageTools.test.ts": {
@@ -5607,6 +5607,26 @@
   "frontend/src/theme/sentryLazyIntegrations.ts": {
     "mtime": 1793359270.7656875,
     "ast_hash": "ff78161b0fb495996234b8eb71acc7b1",
+    "semantic_hash": ""
+  },
+  "backend/src/client/AzureStorageAccount.test.ts": {
+    "mtime": 1793362364.755807,
+    "ast_hash": "ff395fee5ad2d90b280ca537e807e309",
+    "semantic_hash": ""
+  },
+  "backend/src/client/GoogleStorageAccount.test.ts": {
+    "mtime": 1793362364.7566195,
+    "ast_hash": "927b6dd888120f9761847b822dee39da",
+    "semantic_hash": ""
+  },
+  "backend/src/client/NpmRegistryClient.test.ts": {
+    "mtime": 1793362364.7567294,
+    "ast_hash": "824af278e883f4a515b30969b39da8ce",
+    "semantic_hash": ""
+  },
+  "backend/src/client/S3Buckets.test.ts": {
+    "mtime": 1793362364.7568383,
+    "ast_hash": "9af4d5d8219b1e3d6c02021174b605f7",
     "semantic_hash": ""
   }
 }
