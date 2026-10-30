@@ -161,6 +161,12 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
 
     useAssistantJobsWatcher(projectId, enabled)
 
+    // The Markdown renderer downloads once the page is up, so the first answer rarely shows as plain text
+    // first and the scroll to the bottom measures the formatted text. A failure leaves that plain text.
+    useEffect(() => {
+        if (enabled) import("./AssistantMarkdown").catch(() => undefined)
+    }, [enabled])
+
     useEffect(() => {
         // The page cannot be closed: the shortcut is only for the panel.
         if (!enabled || isPage) return
