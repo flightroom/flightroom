@@ -793,19 +793,26 @@ class GithubClient {
      * given ref, so callers can treat a missing package.json as "nothing to analyse".
      */
     async getFileContent({ accessToken, orgName, userName, repositoryName, path, ref }: GithubFileDTO): Promise<GithubFileContent | null> {
+        const url = `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`
+        const params = ref ? { ref } : undefined
+        const headers = {
+            Authorization: `Bearer ${accessToken}`,
+            Accept: "application/vnd.github.v3+json",
+            "User-Agent": "Flightroom"
+        }
+
         try {
-            const response = await axios.request<GithubContentsResponse>({
-                url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`,
-                params: ref ? { ref } : undefined,
-                headers: {
-                    Authorization: `Bearer ${accessToken}`,
-                    Accept: "application/vnd.github.v3+json",
-                    "User-Agent": "Flightroom"
-                }
-            })
+            const response = await axios.request<GithubContentsResponse>({ url, params, headers })
 
             if (Array.isArray(response.data) || response.data.type !== "file" || response.data.content === undefined) {
                 return null
+            }
+
+            // Over 1 MB the JSON answer leaves the content out (encoding "none"): the raw media type still serves it.
+            // Returning null here would read as a missing file, and a write after it would try to create it again.
+            if (response.data.encoding === "none") {
+                const raw = await axios.request<string>({ url, params, headers: { ...headers, Accept: "application/vnd.github.raw+json" }, responseType: "text" })
+                return { content: raw.data, sha: response.data.sha }
             }
 
             return {
