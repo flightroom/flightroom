@@ -27,7 +27,6 @@ export type AzureStorageConfig = AuthConfig & {
 export class AzureStorageClient {
     private readonly blobServiceClient: BlobServiceClient
     private readonly containerName: string
-    private readonly accountName: string
 
     constructor(config: AzureStorageConfig) {
         this.containerName = config.containerName
@@ -35,21 +34,16 @@ export class AzureStorageClient {
         switch (config.authType) {
             case "connectionString": {
                 this.blobServiceClient = BlobServiceClient.fromConnectionString(config.connectionString)
-                // Extract account name from connection string
-                const accountMatch = config.connectionString.match(/AccountName=([^;]+)/)
-                this.accountName = accountMatch ? accountMatch[1] : ""
                 break
             }
 
             case "sharedKey": {
-                this.accountName = config.accountName
                 const sharedKeyCredential = new StorageSharedKeyCredential(config.accountName, config.accountKey)
                 this.blobServiceClient = new BlobServiceClient(`https://${config.accountName}.blob.core.windows.net`, sharedKeyCredential)
                 break
             }
 
             case "aad": {
-                this.accountName = config.accountName
                 const credential = new ClientSecretCredential(config.tenantId, config.clientId, config.clientSecret)
                 this.blobServiceClient = new BlobServiceClient(`https://${config.accountName}.blob.core.windows.net`, credential)
                 break

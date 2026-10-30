@@ -26,8 +26,6 @@ interface CacheEntry {
 
 const cache = new Map<string, CacheEntry>()
 
-export const clearNpmRegistryCache = () => cache.clear()
-
 class NpmRegistryClient {
     private readonly registryUrl: string
 

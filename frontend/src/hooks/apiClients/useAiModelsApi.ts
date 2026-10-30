@@ -19,9 +19,6 @@ export interface AiTokenCosts {
     currency?: AiCurrency
 }
 
-/** The id of the AI the backend builds from its environment variables: every organization sees it, nobody edits it. */
-export const SYSTEM_AI_MODEL_ID = "system"
-
 /** What every member of the organization, and every user of a project, sees of an AI. */
 export interface AiModelSummary {
     id: string
