@@ -19,12 +19,34 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **BREAKING — Argo CD Objects Start With `fr-` Again**: since 10.0.0 the AppProject, ApplicationSets and Applications were named `<project slug>-<parts>-<hash>`, which the `mfe-*` rules of the documented `argocd-rbac-cm` no longer matched. They are now `fr-<project slug>-<parts>-<hash>`, and the documented policy and the setup snippet in Settings grant `fr-*` and `fr-*/*`. The next initialization of a project moves its 10.x objects to the new names: the old ApplicationSets are deleted without cascade, so the workloads stay, and the old AppProject is deleted after them. Before upgrading, add the `fr-*` rules to `argocd-rbac-cm` and keep the current ones until every project has been initialized again; until then alignment asks for an initialization. The Gateway keeps its name, and so do the Helm releases. See `docs/ARGOCD.md`
 - **Docs Brought In Line With The Code**: the README, the Helm chart README, the docs under `docs/`, the workflows and e2e READMEs, the agent instruction files and `SECURITY.md` no longer describe defaults, routes, tools, limits and versions that had changed. `pnpm format` works again: turbo had no `format` task
+- **The Deploy Overlay Lists What The Deploy Updated**: the rollout marks each application whose version or image the deploy changed, and the overlay lists those only, all of them when no version changed. The list scrolls on its own
+- **A Lighter Console To Load**: the Auth0 SDK and MSAL are downloaded only where their login is configured, and both start as soon as the configuration names them; the Markdown renderer of the assistant, the project wizard, and the replay and feedback of Sentry left the initial payload; React and the router sit in a vendor chunk that a release does not change. The container forms re-render only the field that reads a value
+- **npm Registry Answers Cached By Outcome**: a package found is cached for an hour, a 404 for five minutes, and a registry out of reach (timeout, network error, 5xx) for a minute, so a firewalled registry no longer costs 10 s per package on every dependency report; a 401 or 403 is not cached. Lookups of the same package at once share one request
+
+### Removed
+
+- **Redirects Of Old URLs**: `/services`, `/service/*`, `/organization-users`, the older `?tab=` of the frontend and backend forms and of the AI workspace, and the tabs merged into another one no longer redirect. A form tab opens from its hash only
+- **Boot Migrations Every Installation Has Run**: the moves to the Frontend and Backend names, of the projects to organizations, of the legacy canary types and of the inline variables of the backends to maps, the expiry index of the assistant conversations and the conversation backfill of the AI change requests no longer run at boot. The encryption of the credentials stored in the clear stays, since `SECRETS_ENCRYPTION_KEY` can be turned on later
+- **Argo CD Objects Of Versions Before 10.1**: the objects labelled `mfe-orchestrator`, the ApplicationSets per environment and the configuration Applications made by the console are no longer recognised, except an AppProject still labelled `mfe-orchestrator`, which the move to the `fr-` names reads
+
+### Fixed
+
+- **Settings Reloading In A Loop**: the settings of a container, the version per environment and the environments gate no longer refetch and remount forever
+- **GitHub**: the branch picker lists every branch, not the first 100; files over 1 MB are read, from the blob of the sha first answered; a path holding `#` or `?` reads and writes the right file; the repository secrets of an organization are addressed under `/repos`; the logs of a failed run that downloaded are kept when another fails, and each one left out is logged
+- **GitLab**: the branch picker pages through every branch; the job logs that downloaded are kept when another fails, and each one left out is logged
+- **Azure DevOps**: every project is listed, following the continuation token, and the variable groups too; a token refused with the sign-in page (203 or HTML) is a 401, where tags, pushes and file reads took it for a success; the build logs that downloaded are kept when another fails
+- **Argo CD Cleanup During An Initialization**: an Application or ApplicationSet already gone when deleted is no longer a failure, an Application is deleted in its AppProject, so Argo CD answers 404 rather than 403, and a repository with an empty AppProject is deleted as the global one it is
+- **Storage-Hosted Frontend Files**: a file missing from its storage answers 404 instead of 500, while a missing bucket or container stays a 500 that alerts; a stream is uploaded to Azure Blob Storage in blocks, where it threw
+- **Scaffolding Temp Folders**: a template scaffold that fails before its commit removes its temporary folder
+- **npm Packages With No Concurrency**: a dependency report resolves its packages with at least one worker whatever the concurrency configured
 
 ### Security
 
 - **Registration Closed When `REGISTRATION_ALLOWED` Is Off**: the flag only hid the Register link; `POST /api/users/registration` now answers `403 REGISTRATION_NOT_ALLOWED` unless both `REGISTRATION_ALLOWED` and `ALLOW_EMBEDDED_LOGIN` are on. Invitations, the first SSO login and the first-startup registration are unaffected
 - **`GOOGLE_AUTH_HOSTED_DOMAIN` Enforced**: the variable was served to the console and applied nowhere. When set, a Google login whose account has no `hd` claim, or another one, is refused, and the console passes the domain to Google as a hint
 - **AI Model Keys Encrypted At Boot**: the boot migration that encrypts the credentials stored before `SECRETS_ENCRYPTION_KEY` was set now covers the `apiKey` and `secretAccessKey` of the AI models too
+- **One GitHub Deploy Key Per Repository**: the check of the deploy secret went to `/repos/undefined/<repo>`, so every call minted a new system deploy key and replaced the secret, leaving the previous keys valid. It now checks the repository the secret is written to
+- **Storage Details Out Of Serve Errors**: a file missing from a storage answered anonymous callers of the serve URLs with the provider message, which for Google Cloud Storage names the bucket and the path of the object: it now says `File not found`. A Google service account key that is not JSON no longer quotes part of its private key in the error
 
 ## [10.1.0] - 2026-10-29
 
