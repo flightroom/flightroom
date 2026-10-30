@@ -1,7 +1,6 @@
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger, DescriptionItem, DescriptionList, EmptyState, SectionHeader } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { BadgeCheck, History, LayoutDashboard, PackageOpen, RefreshCw, UsersRound } from "lucide-react"
-import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/atoms"
@@ -170,7 +169,6 @@ interface DeploymentListProps {
 export const DeploymentList: React.FC<DeploymentListProps> = ({ environmentId }) => {
     const { t } = useTranslation()
     const { getDeployments, redeploy } = useDeploymentsApi()
-    const [selectedDeploymentId, _setSelectedDeploymentId] = useState<string | null>(null)
 
     const dataQuery = useQuery({
         queryKey: ["deployments", environmentId],
@@ -188,8 +186,6 @@ export const DeploymentList: React.FC<DeploymentListProps> = ({ environmentId })
     }
 
     const deployments = dataQuery.data || []
-
-    const _selectedDeployment = deployments.find(deployment => deployment._id === selectedDeploymentId)
 
     return (
         <ApiStatusHandler queries={[dataQuery]}>
