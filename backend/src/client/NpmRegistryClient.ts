@@ -106,7 +106,9 @@ class NpmRegistryClient {
             }
         }
 
-        await Promise.all(Array.from({ length: Math.min(concurrency, uniqueNames.length) }, worker))
+        // At least one worker, or a concurrency of 0, below or NaN would resolve nothing and answer an empty map
+        const workers = Math.min(Math.max(Math.floor(concurrency) || 1, 1), uniqueNames.length)
+        await Promise.all(Array.from({ length: workers }, worker))
 
         return result
     }

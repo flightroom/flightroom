@@ -294,6 +294,37 @@ describe("NpmRegistryClient.getPackagesInfo", () => {
         expect(request).toHaveBeenCalledTimes(5)
     })
 
+    it.each([0, -1, Number.NaN])("given a concurrency of %s, when names are resolved, then they are all resolved one at a time", async concurrency => {
+        const Client = await loadClient()
+        const { request, answerNext } = heldRegistry()
+
+        const resolving = new Client().getPackagesInfo(["a", "b", "c"], concurrency)
+        await settle()
+        expect(request).toHaveBeenCalledTimes(1)
+
+        for (let answered = 0; answered < 3; answered++) {
+            answerNext()
+            await settle()
+        }
+
+        expect([...(await resolving).keys()].sort()).toEqual(["a", "b", "c"])
+        expect(request).toHaveBeenCalledTimes(3)
+    })
+
+    it("given a concurrency above the number of names, when they are resolved, then one request per name is in flight", async () => {
+        const Client = await loadClient()
+        const { request, answerNext } = heldRegistry()
+
+        const resolving = new Client().getPackagesInfo(["a", "b"], 50)
+        await settle()
+        expect(request).toHaveBeenCalledTimes(2)
+
+        answerNext()
+        answerNext()
+
+        expect((await resolving).size).toBe(2)
+    })
+
     it("given no concurrency, when many names are resolved, then eight requests at most are in flight", async () => {
         const Client = await loadClient()
         const { request, answerNext } = heldRegistry()
