@@ -405,6 +405,7 @@ class AzureDevOpsClient {
      * A build id is unique across the whole Azure DevOps project, not per repository: the build is read
      * first, and one of another repository is refused, or any number would read the builds of the others.
      * Azure keeps one log per timeline record: the timeline says which records failed and which log each one wrote.
+     * The logs come back in task order; only when every log failed is the failure of the first task passed on.
      */
     async getFailedJobLogs(token: string, organization: string, project: string, repositoryId: string, buildId: string): Promise<BuildJobLogDTO[]> {
         const headers = { Authorization: `Bearer ${token}` }
@@ -421,7 +422,8 @@ class AzureDevOpsClient {
         })
         const failedRecords = (timeline.data?.records || []).filter(record => record.type === "Task" && record.result === "failed" && record.log?.id !== undefined).slice(0, MAX_FAILED_JOBS)
 
-        return Promise.all(
+        // A log that cannot be read, or is too large, is left out rather than losing the others
+        const results = await Promise.allSettled(
             failedRecords.map(async record => {
                 const log = await this.request<string>({
                     url: `${baseUrl}/logs/${record.log?.id}?api-version=7.1`,
@@ -432,6 +434,11 @@ class AzureDevOpsClient {
                 return { name: record.name, log: log.data }
             })
         )
+
+        const logs = results.flatMap(result => (result.status === "fulfilled" ? [result.value] : []))
+        const firstFailure = results.find(result => result.status === "rejected")
+        if (logs.length === 0 && firstFailure) throw firstFailure.reason
+        return logs
     }
 
     async getBranchCommitId(token: string, organization: string, project: string, repositoryName: string, branchName: string): Promise<string> {

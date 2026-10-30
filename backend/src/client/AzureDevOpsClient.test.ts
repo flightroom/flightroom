@@ -517,6 +517,47 @@ describe("AzureDevOpsClient failed job logs", () => {
 
         await expect(new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")).resolves.toEqual([])
     })
+
+    const threeFailedTasks = {
+        data: {
+            records: [
+                { name: "Build", type: "Task", result: "failed", log: { id: 1 } },
+                { name: "Test", type: "Task", result: "failed", log: { id: 2 } },
+                { name: "Lint", type: "Task", result: "failed", log: { id: 3 } }
+            ]
+        }
+    }
+
+    it("given one log that fails or is too large, when the logs are read, then the others come back in task order", async () => {
+        const tooLarge = new AxiosError("maxContentLength size of 1048576 exceeded", "ERR_BAD_RESPONSE")
+        vi.spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { repository: { id: "orders-repository" } } })
+            .mockResolvedValueOnce(threeFailedTasks)
+            .mockImplementation(config => (String(config.url).includes("/logs/2?") ? Promise.reject(tooLarge) : Promise.resolve({ data: `log of ${config.url}` })))
+
+        const logs = await new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")
+
+        expect(logs.map(log => log.name)).toEqual(["Build", "Lint"])
+    })
+
+    it("given every log fails, when the logs are read, then the failure of the first task is passed on", async () => {
+        const first = answered(500)
+        vi.spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { repository: { id: "orders-repository" } } })
+            .mockResolvedValueOnce(threeFailedTasks)
+            .mockImplementation(config => Promise.reject(String(config.url).includes("/logs/1?") ? first : answered(404)))
+
+        await expect(new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")).rejects.toBe(first)
+    })
+
+    it("given the timeline cannot be read, when the logs are read, then the failure is passed on", async () => {
+        const failure = answered(404)
+        vi.spyOn(axios, "request")
+            .mockResolvedValueOnce({ data: { repository: { id: "orders-repository" } } })
+            .mockRejectedValueOnce(failure)
+
+        await expect(new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")).rejects.toBe(failure)
+    })
 })
 
 describe("AzureDevOpsClient profile and organizations", () => {
