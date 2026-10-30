@@ -1,23 +1,40 @@
 import { isValidObjectId, Schema } from "mongoose"
 import { fastify } from ".."
-import ArgoCdClient, { ArgoCdLogLine, ArgoCdPod, ArgoCdResource } from "../client/ArgoCdClient"
-import GitlabClient from "../client/GitlabClient"
-import { BusinessException, createBusinessException } from "../errors/BusinessException"
+import ArgoCdClient, { ArgoCdLogLine, ArgoCdPod } from "../client/ArgoCdClient"
+import { BusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import Backend from "../models/BackendModel"
-import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
+import CodeRepository, { CodeRepositoryProvider } from "../models/CodeRepositoryModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
+import Frontend, { FrontendKind } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import Project, { IArgoCdError, IArgoCdRepositoryCredential, IArgoCdRepositoryRegistration, IProjectArgoCd, IProjectGitOps } from "../models/ProjectModel"
+import Project, { IArgoCdRepositoryCredential, IArgoCdRepositoryRegistration, IProjectArgoCd, IProjectGitOps } from "../models/ProjectModel"
+import { allInOrder } from "../utils/allInOrder"
 import { toObjectId } from "../utils/mongooseUtils"
-import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
+import { deleteRegistration, newCredential, retire, revoke, storedRepositoryToken } from "./argoCd/argoCdCredentials"
+import {
+    branchesFailed,
+    environmentsWithoutBranch,
+    errorOf,
+    gitOpsRequired,
+    nameClash,
+    nameConflict,
+    namespacesNotInProject,
+    notConfigured,
+    reinitializeRequired,
+    tokenRequired
+} from "./argoCd/argoCdErrors"
+import { deleteLeftovers, earlierAppProjects, ensureNamesFree, repositoryTargets, sharedRepositories } from "./argoCd/argoCdInitialization"
+import { acquire, LEASE_MS, Lease, release, save } from "./argoCd/argoCdLease"
+import { podLogsQuery, podOf } from "./argoCd/argoCdLogs"
+import { argoCdInUse, clientOf, deployableSlugs, environmentsOf, linksOf, listUnder, normalizeUrl, projectOf, repoUrlOf, retyped } from "./argoCd/argoCdProject"
+import { DEPLOYED_VERSIONS, followRollout } from "./argoCd/argoCdRollout"
+import { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdRepositories, ArgoCdStatusDTO, PendingDeployToken, RepositoryTarget } from "./argoCd/argoCdTypes"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
-import { GitOpsApplication, isDeployable } from "./gitops/applicationManifests"
 import {
     APPLICATION_LABEL,
     ArgoCdEnvironment,
@@ -32,276 +49,12 @@ import {
     legacyLabel,
     PROJECT_ID_LABEL,
     projectIdOf,
-    selectorsOf,
-    unprefixedProjectName
+    selectorsOf
 } from "./gitops/argoCdManifests"
-import { RolloutDTO, rolloutStateOf } from "./gitops/rollout"
+import { RolloutDTO } from "./gitops/rollout"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
-import { cloneUrlFor, gitCredentialsFor } from "./workspace/RepositoryWorkspaceService"
 
-/** The token and the repository token come back as the placeholder, or not at all, when they are not retyped */
-export interface ArgoCdInitializeInput {
-    url: string
-    token?: string
-    /** Read-only token of GitHub or Azure DevOps, for the repositories GitLab does not hold */
-    repositoryToken?: string
-    /** Accepts the certificate of Argo CD without verifying it: for a self-signed one */
-    insecure?: boolean
-}
-
-/** What the screen of logs asks for, as the query string brings it */
-export interface ArgoCdLogsInput {
-    pod?: string
-    tailLines?: string | number
-    sinceSeconds?: string | number
-    previous?: string | boolean
-    filter?: string
-}
-
-const DEFAULT_LOG_LINES = 500
-const MAX_LOG_LINES = 5000
-/** A week: the kubelet rotates the logs well before */
-const MAX_LOG_SECONDS = 7 * 24 * 60 * 60
-const MAX_FILTER_LENGTH = 200
-
-/** What a deployment is read for by the rollout: its commit, and the version and image of each application it shipped */
-const DEPLOYED_VERSIONS = "environmentId applicationsRevision backends._id backends.version backends.image frontends._id frontends.version frontends.image"
-/** The characters of the name of a pod, a DNS subdomain: Argo CD checks the pod is one of the Application */
-const POD_NAME = /^[a-z0-9][-a-z0-9.]{0,252}$/
-
-/** A whole number within the bounds, clamped to them; undefined when none is given */
-const boundedInteger = (value: unknown, min: number, max: number): number | undefined => {
-    const number = Math.trunc(Number(value))
-    if (value === undefined || value === "" || !Number.isFinite(number)) return undefined
-    return Math.min(Math.max(number, min), max)
-}
-
-type ArgoCdRepositoryKind = "configuration" | "applications"
-
-type ArgoCdRepositories = NonNullable<IProjectArgoCd["repositories"]>
-
-/** What the settings screen shows of Argo CD: never a credential */
-export interface ArgoCdStatusDTO {
-    url?: string
-    /** A URL and a token are stored: the token may be left out of the next initialization to the same URL */
-    configured: boolean
-    /** The certificate of Argo CD is not verified */
-    insecure: boolean
-    initializedAt?: Date
-    lastError?: IArgoCdError
-    /** Why the last deploy did not align the ApplicationSets of the applications */
-    alignError?: IArgoCdError
-    repositories: Partial<Record<ArgoCdRepositoryKind, { source: IArgoCdRepositoryCredential["source"] }>>
-    /** Some repository is not on GitLab: Argo CD reads it with the token the owner pastes */
-    needsRepositoryToken: boolean
-    /** The providers that token is for, so the screen can say how to create it */
-    repositoryTokenProviders: CodeRepositoryProvider[]
-    /** A pasted token is stored for the stored URL: it may be left out of the next initialization to it */
-    repositoryTokenStored: boolean
-    /** The user is an owner of the project or an administrator of its organization */
-    canInitialize: boolean
-}
-
-/** Every initialization creates one per GitLab repository, under this name */
-const DEPLOY_TOKEN_NAME = "flightroom-argocd"
-
-/** What any of `selectors` lists, each object once: the labels of now, and those of before the rename */
-const listUnder = async (selectors: string[], list: (selector: string) => Promise<ArgoCdResource[]>): Promise<ArgoCdResource[]> => {
-    const found = new Map<string, ArgoCdResource>()
-    for (const selector of selectors) for (const resource of await list(selector)) if (!found.has(resource.metadata.name)) found.set(resource.metadata.name, resource)
-    return [...found.values()]
-}
-
-/** An initialization that has not ended after this long is taken for one that died: the next one may start */
-const LEASE_MS = 5 * 60 * 1000
-
-/** The lease of a run: the time it was last renewed, which every save of the run matches on */
-interface Lease {
-    at: Date
-}
-
-/** A deploy token created for this initialization, revoked when Argo CD never got it */
-interface PendingDeployToken {
-    gitlab: GitlabClient
-    gitlabProjectId: number
-    id: number
-}
-
-interface RepositoryTarget {
-    kind: ArgoCdRepositoryKind
-    link: ICodeRepositoryFrontend
-    connection: ICodeRepository
-    repoUrl: string
-    /** The AppProject the credentials are scoped to; global when unset */
-    argoProject?: string
-}
-
-const retyped = (value: unknown): string | undefined => (typeof value === "string" && value.trim() && value !== SECRET_PLACEHOLDER ? value.trim() : undefined)
-
-/** The base URL of Argo CD as it is stored: https, or http where the installation allows it; no credentials, no trailing slash */
-const normalizeUrl = (value: unknown): string => {
-    const invalid = createBusinessException({ code: "ARGOCD_URL_INVALID", message: "The URL of Argo CD must be an https address, such as https://argocd.example.com" })
-    let url: URL
-    try {
-        url = new URL(String(value ?? "").trim())
-    } catch {
-        throw invalid
-    }
-    if (!["http:", "https:"].includes(url.protocol) || url.username || url.password) throw invalid
-    if (url.protocol === "http:" && !fastify.config.ARGOCD_ALLOW_INSECURE_HTTP) {
-        throw createBusinessException({
-            code: "ARGOCD_URL_INSECURE",
-            message:
-                "The URL of Argo CD must be https: the token and the repository credentials would cross the network in the clear. ARGOCD_ALLOW_INSECURE_HTTP=true allows http, for a local cluster only"
-        })
-    }
-    return `${url.origin}${url.pathname}`.replace(/\/+$/, "")
-}
-
-/** The GitOps repositories of the project, configuration first; none while GitOps is off */
-const linksOf = (gitOps?: IProjectGitOps): Array<[ArgoCdRepositoryKind, ICodeRepositoryFrontend]> => {
-    if (!gitOps?.enabled) return []
-    const links: Array<[ArgoCdRepositoryKind, ICodeRepositoryFrontend | undefined]> = [
-        ["configuration", gitOps.codeRepository],
-        ["applications", gitOps.applicationsCodeRepository]
-    ]
-    return links.filter((entry): entry is [ArgoCdRepositoryKind, ICodeRepositoryFrontend] => Boolean(entry[1]))
-}
-
-/** GitLab takes the numeric id or the full path of a project, never a bare name */
-const gitlabAddressOf = (link: ICodeRepositoryFrontend, codeRepository: ICodeRepository): string => {
-    const groupPath = codeRepository.gitlabData?.groupPath
-    return encodeURIComponent(link.repositoryId || link.gitlab?.path || (groupPath ? `${groupPath}/${link.name}` : link.name))
-}
-
-/**
- * The token pasted for GitHub and Azure DevOps is one: whichever repository stored it, the other may use it.
- * Only for the Argo CD it was handed to: another URL may be another server, and it is asked for again.
- */
-const storedRepositoryToken = (argoCd: IProjectArgoCd | undefined, url: string | undefined): string | undefined =>
-    Object.values(argoCd?.repositories ?? {}).find(credential => credential?.source === "manual" && credential.password && url && credential.argoCdUrl === url)?.password
-
-const REPOSITORY_KINDS: ArgoCdRepositoryKind[] = ["configuration", "applications"]
-
-/** A project whose credentials hold `registration` on Argo CD, or that reads through them: `shared` for the second */
-const registeredIn = (registration: IArgoCdRepositoryRegistration, extra: Record<string, unknown> = {}) => ({
-    $or: REPOSITORY_KINDS.map(kind => ({
-        [`argoCd.repositories.${kind}.argoCdUrl`]: registration.argoCdUrl,
-        [`argoCd.repositories.${kind}.repoUrl`]: registration.repoUrl,
-        ...Object.fromEntries(Object.entries(extra).map(([field, value]) => [`argoCd.repositories.${kind}.${field}`, value]))
-    }))
-})
-
-/**
- * The project of the same organization that registered `repoUrl` globally on the Argo CD at `argoCdUrl` with credentials of
- * its own: a project linking the same repository reads it through that registration rather than fight over it. Argo CD
- * holds one registration per URL, and taking it over would leave the other project with credentials it does not know of.
- */
-const holderOf = async (projectId: Schema.Types.ObjectId, organizationId: Schema.Types.ObjectId, argoCdUrl: string, repoUrl: string) => {
-    const candidates = await Project.find({ _id: { $ne: projectId }, organizationId, ...registeredIn({ argoCdUrl, repoUrl }) }, { slug: 1, argoCd: 1 })
-    return candidates.find(candidate =>
-        Object.values(candidate.argoCd?.repositories ?? {}).some(
-            credential => credential?.argoCdUrl === argoCdUrl && credential.repoUrl === repoUrl && !credential.argoProject && credential.source !== "shared"
-        )
-    )
-}
-
-/** Whether another project reads the repository through `registration`: deleting it would cut that project off */
-const sharedByOthers = async (projectId: Schema.Types.ObjectId, registration: IArgoCdRepositoryRegistration) =>
-    Boolean(await Project.exists({ _id: { $ne: projectId }, ...registeredIn(registration, { source: "shared" }) }))
-
-/** The AppProject an Application, or the applications of an ApplicationSet, belong to */
-const projectOf = (resource: ArgoCdResource): unknown => {
-    const spec = resource.spec as { project?: unknown; template?: { spec?: { project?: unknown } } } | undefined
-    return resource.kind === "ApplicationSet" || spec?.template ? spec?.template?.spec?.project : spec?.project
-}
-
-/** What is stored of a failure: the code and the details translate on the screen, the message is for the rest */
-const errorOf = (error: unknown): IArgoCdError =>
-    error instanceof BusinessException ? { code: error.code, message: error.message, ...(error.details ? { details: error.details } : {}) } : { message: toErrorMessage(error) }
-
-const nameClash = (name: string) =>
-    createBusinessException({
-        code: "ARGOCD_NAME_CLASH",
-        message: `Two objects of this project would both be named ${name} in Argo CD: rename the backend, frontend or environment whose slugs join into it, then initialize again`,
-        statusCode: 409,
-        details: { name }
-    })
-
-/** The backends, frontends and maintenance agents a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
-const deployableSlugs = async (projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<string[]> => {
-    const fields = { slug: 1, version: 1, image: 1 }
-    const applications: GitOpsApplication[] = [
-        ...(await Backend.find({ projectId }, fields)),
-        ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields)),
-        ...(await MaintenanceAgent.find({ projectId }, fields))
-    ]
-    return applications.filter(application => isDeployable(application, containerRegistry)).map(application => application.slug)
-}
-
-const environmentsOf = async (projectId: Schema.Types.ObjectId) =>
-    (await Environment.find({ projectId }, { slug: 1, namespace: 1 })).map(environment => ({ slug: environmentSlug(environment), namespace: environmentNamespace(environment) }))
-
-const reinitializeRequired = () =>
-    createBusinessException({
-        code: "ARGOCD_REINITIALIZE_REQUIRED",
-        message: "Argo CD was initialized with other repositories, or by an earlier version of the console: initialize it again to deploy the applications through it",
-        statusCode: 409
-    })
-
-/** Environments a deploy committed to whose branch the applications repository does not list: Argo CD would read nothing there */
-const environmentsWithoutBranch = (environments: ArgoCdEnvironment[], repository: string, branches: string[]) =>
-    createBusinessException({
-        code: "ARGOCD_ENVIRONMENTS_WITHOUT_BRANCH",
-        message: `${repository} lists no branch for ${environments.map(environment => environment.slug).join(", ")}, so Argo CD gets no Application there; the branches read are ${branches.join(", ") || "none"}`,
-        statusCode: 409,
-        details: { slug: environments.map(environment => environment.slug).join(", "), repository, name: branches.join(", ") }
-    })
-
-/** Environments added, or given another namespace, since the initialization: the AppProject does not let Argo CD write there yet */
-const namespacesNotInProject = (environments: ArgoCdEnvironment[]) =>
-    createBusinessException({
-        code: "ARGOCD_NAMESPACES_NOT_IN_PROJECT",
-        message: `The namespaces of ${environments.map(environment => `${environment.slug} (${environment.namespace})`).join(", ")} are not in the AppProject yet: initialize Argo CD again to deploy those environments through it`,
-        statusCode: 409,
-        details: { slug: environments.map(environment => environment.slug).join(", ") }
-    })
-
-const nameConflict = (kind: string, name: string) =>
-    createBusinessException({
-        code: "ARGOCD_NAME_CONFLICT",
-        message: `Argo CD already has an ${kind} named ${name} that this project did not create, or one the account of the token may not read: rename or delete it in Argo CD, then initialize again`,
-        statusCode: 409,
-        details: { name }
-    })
-
-const repositoryConflict = (repository: string) =>
-    createBusinessException({
-        code: "ARGOCD_REPOSITORY_CONFLICT",
-        message: `Argo CD already has the repository ${repository} registered, by hand or by a project of another organization: remove that registration in Argo CD, then initialize again. One made by a project of this organization is shared on its own`,
-        statusCode: 409,
-        details: { repository }
-    })
-
-const gitOpsRequired = () =>
-    createBusinessException({
-        code: "ARGOCD_GITOPS_REQUIRED",
-        message: "Turn GitOps on and save its configuration repository before initializing Argo CD: that is what Argo CD deploys",
-        statusCode: 422
-    })
-
-const notConfigured = () =>
-    createBusinessException({
-        code: "ARGOCD_NOT_CONFIGURED",
-        message: "The project deploys through no Argo CD: turn GitOps on with an applications repository and initialize Argo CD, then deploy the agent",
-        statusCode: 422
-    })
-
-const tokenRequired = () =>
-    createBusinessException({
-        code: "ARGOCD_TOKEN_REQUIRED",
-        message: "Paste the API token of the Argo CD account: it is asked again whenever the URL changes, so the stored one never goes to another server"
-    })
+export type { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdStatusDTO } from "./argoCd/argoCdTypes"
 
 /**
  * Hands the GitOps repositories of a project to an Argo CD instance that runs on another cluster, through its
@@ -317,7 +70,7 @@ const tokenRequired = () =>
  * is registered for the AppProject of the project only; the applications one, which holds Helm values, is
  * registered globally, as the git generator of an ApplicationSet reads it outside of any AppProject.
  */
-export class ArgoCdService extends BaseAuthorizedService {
+class ArgoCdService extends BaseAuthorizedService {
     /**
      * Starts the CronJob of the application `slug` in `environment` now, through the Application the ApplicationSet
      * of `slug` generated there. The CronJob is named after the Helm release, which is the slug. Whoever calls it
@@ -351,19 +104,9 @@ export class ArgoCdService extends BaseAuthorizedService {
 
     /** As {@link getLogs}, for an application of the project in `environment`. Whoever calls it checks who may. */
     async logsOf(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }, query: ArgoCdLogsInput): Promise<ArgoCdLogLine[]> {
-        const pod = String(query.pod ?? "")
-        if (!POD_NAME.test(pod)) throw createBusinessException({ code: "ARGOCD_LOGS_INVALID", message: "Choose the pod to read the logs of" })
+        const pod = podOf(query)
         const { client, application, appProject } = await this.deployedApplication(projectId, slug, environment)
-        const namespace = environmentNamespace(environment)
-        const filter = String(query.filter ?? "").trim()
-        return client.getPodLogs(application, appProject, {
-            namespace,
-            podName: pod,
-            tailLines: boundedInteger(query.tailLines, 1, MAX_LOG_LINES) ?? DEFAULT_LOG_LINES,
-            sinceSeconds: boundedInteger(query.sinceSeconds, 1, MAX_LOG_SECONDS),
-            previous: query.previous === true || query.previous === "true",
-            ...(filter ? { filter: filter.slice(0, MAX_FILTER_LENGTH) } : {})
-        })
+        return client.getPodLogs(application, appProject, podLogsQuery(query, pod, environmentNamespace(environment)))
     }
 
     /**
@@ -385,53 +128,10 @@ export class ArgoCdService extends BaseAuthorizedService {
         ])
         if (!project) throw new ProjectNotFoundError(String(projectId))
         if (!deployment || !environment) throw new EntityNotFoundError(String(deploymentId))
-        const argoCd = project.argoCd
-        if (!project.gitOps?.enabled || !project.gitOps.applicationsCodeRepository || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) {
-            return { tracked: false, applications: [], done: true, failed: false }
-        }
-
-        // The commit of the deploy, and those deploys pushed after it on the same branch: they hold it. By creation, as a redeploy moves deployedAt
-        const later = deployment.applicationsRevision
-            ? await Deployment.find({ environmentId: deployment.environmentId, _id: { $gt: deployment._id }, applicationsRevision: { $exists: true } }, { applicationsRevision: 1 })
-            : []
-        const revisions = new Set([deployment.applicationsRevision, ...later.map(newer => newer.applicationsRevision)].filter((revision): revision is string => Boolean(revision)))
-
-        // What the deploy changed: a version or an image the deploy before it in the environment did not serve
-        const before = await Deployment.findOne({ environmentId: deployment.environmentId, _id: { $lt: deployment._id } }, DEPLOYED_VERSIONS, { sort: { _id: -1 } })
-        const versionsOf = (recorded?: { _id: unknown; version?: string; image?: unknown }[]) =>
-            new Map((recorded ?? []).map(application => [String(application._id), JSON.stringify([application.version, application.image])]))
-        const shipped = versionsOf([...(deployment.backends ?? []), ...(deployment.frontends ?? [])])
-        const served = versionsOf([...(before?.backends ?? []), ...(before?.frontends ?? [])])
-        // Without a deploy before, or without what it recorded, everything counts as updated
-        const updated = (id: string) => !before || !shipped.has(id) || shipped.get(id) !== served.get(id)
-
-        const scope = { projectId: projectIdObj, ...(domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectIdObj)) }
-        const fields = { slug: 1, name: 1, version: 1, image: 1 }
-        const members = [
-            ...(await Backend.find(scope, fields)).map(application => ({ kind: "backend" as const, application })),
-            ...(await Frontend.find({ ...scope, kind: FrontendKind.DOCKER }, fields)).map(application => ({ kind: "frontend" as const, application }))
-        ].filter(({ application }) => isDeployable(application, project.containerRegistry))
-
-        const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
-        const projectName = appProjectName(String(projectIdObj), project.slug)
-        const slug = environmentSlug(environment)
-        const listed = await listUnder(selectorsOf(`${PROJECT_ID_LABEL}=${projectIdObj},${ENVIRONMENT_LABEL}=${slug}`), labels => client.listApplications(labels, projectName))
-        const byName = new Map(listed.filter(application => projectOf(application) === projectName).map(application => [application.metadata.name, application]))
-        const applications = await Promise.all(
-            members.map(async ({ kind, application }) => {
-                const name = applicationName(String(projectIdObj), project.slug, application.slug, slug)
-                const state = rolloutStateOf(byName.get(name), revisions)
-                // Which container is still starting, or crashing: a failure to read them leaves the rest as it is
-                const pods = state.state === "progressing" || state.state === "degraded" ? await client.listPods(name, projectName).catch(() => undefined) : undefined
-                return { _id: String(application._id), kind, name: application.name, slug: application.slug, updated: updated(String(application._id)), ...state, ...(pods ? { pods } : {}) }
-            })
-        )
-        return {
-            tracked: true,
-            applications,
-            done: applications.every(application => application.state === "healthy"),
-            failed: applications.some(application => application.state === "failed")
-        }
+        const argoCd = argoCdInUse(project)
+        if (!argoCd) return { tracked: false, applications: [], done: true, failed: false }
+        const domainScope = () => (domainId ? Promise.resolve({ domainId: toObjectId(domainId) }) : this.domainScopeFilter(projectIdObj))
+        return followRollout(projectIdObj, project, argoCd, deployment, environment, domainScope)
     }
 
     /**
@@ -457,10 +157,10 @@ export class ArgoCdService extends BaseAuthorizedService {
     /** The client of the Argo CD the project deploys through, and the names of the Application of `slug` in the environment there */
     private async deployedApplication(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }) {
         const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1 })
-        const argoCd = project?.argoCd
-        if (!project || !project.gitOps?.enabled || !project.gitOps.applicationsCodeRepository || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) throw notConfigured()
+        const argoCd = argoCdInUse(project)
+        if (!project || !argoCd) throw notConfigured()
         return {
-            client: new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure }),
+            client: clientOf(argoCd),
             application: applicationName(String(projectId), project.slug, slug, environmentSlug(environment)),
             appProject: appProjectName(String(projectId), project.slug)
         }
@@ -505,7 +205,7 @@ export class ArgoCdService extends BaseAuthorizedService {
         const environments = await environmentsOf(projectIdObj)
 
         const lease: Lease = { at: new Date() }
-        await this.acquire(projectIdObj, lease)
+        await acquire(projectIdObj, lease)
         try {
             // Read again under the lease: a run that ended meanwhile may have rotated the tokens read above
             const current = await Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 })
@@ -523,176 +223,90 @@ export class ArgoCdService extends BaseAuthorizedService {
             let deletions = (previous?.pendingRepositoryDeletions ?? []).filter(registration => registration.argoCdUrl === url)
             let pending: PendingDeployToken | undefined
             let verified = false
-            const save = (argoCd: IProjectArgoCd) => this.save(projectIdObj, { ...argoCd, pendingRepositoryDeletions: deletions }, lease)
+            const saveRun = (argoCd: IProjectArgoCd) => save(projectIdObj, { ...argoCd, pendingRepositoryDeletions: deletions }, lease)
             try {
                 await client.getUserInfo()
                 verified = true
 
                 const projectName = appProjectName(String(projectIdObj), current.slug)
-                const targets: RepositoryTarget[] = []
-                for (const [kind, link] of linksOf(gitOps)) {
-                    const connection = await gitOpsService.connectionOf(link, projectIdObj)
-                    const repoUrl = cloneUrlFor({ component: { codeRepository: link }, codeRepository: connection, repositoryName: repositoryNameFor(link, connection) })
-                    targets.push({ kind, link, connection, repoUrl, argoProject: kind === "configuration" ? projectName : undefined })
-                }
-                const repoUrlOf = (kind: ArgoCdRepositoryKind) => targets.find(target => target.kind === kind)?.repoUrl
+                const targets = await repositoryTargets(gitOpsService, gitOps, projectIdObj, projectName)
                 const applicationsTarget = targets.find(target => target.kind === "applications")
+                const [applications, applicationBranches] = applicationsTarget ? await allInOrder([deployableSlugs(projectIdObj, current.containerRegistry), this.branchesOf(applicationsTarget)]) : []
                 const state = buildArgoCdState({
                     projectId: String(projectIdObj),
                     projectSlug: current.slug,
-                    configurationRepoUrl: repoUrlOf("configuration"),
-                    applicationsRepoUrl: repoUrlOf("applications"),
+                    configurationRepoUrl: targets.find(target => target.kind === "configuration")?.repoUrl,
+                    applicationsRepoUrl: applicationsTarget?.repoUrl,
                     environments,
-                    ...(applicationsTarget ? { applications: await deployableSlugs(projectIdObj, current.containerRegistry), applicationBranches: await this.branchesOf(applicationsTarget) } : {})
+                    ...(applicationsTarget ? { applications, applicationBranches } : {})
                 })
                 const clash = clashingName(state)
                 if (clash) throw nameClash(clash)
 
-                // Every name is checked before the first write: one taken by something else stops the run with nothing changed.
-                // An object the account may not read is taken too, by something it cannot see
-                const isOurs = (resource: ArgoCdResource | null) => !resource || projectIdOf(resource) === String(projectIdObj)
-                const probe = <T>(request: Promise<T>, conflict: () => BusinessException) =>
-                    request.catch(error => Promise.reject(error instanceof BusinessException && error.code === "ARGOCD_FORBIDDEN" ? conflict() : error))
-                if (!isOurs(await probe(client.getProject(projectName), () => nameConflict("AppProject", projectName)))) throw nameConflict("AppProject", projectName)
-                // Argo CD makes the Applications of the environments: one of the same name already there would not be its own
-                for (const name of state.environmentApplications) {
-                    const conflict = () => nameConflict("Application", name)
-                    if (!isOurs(await probe(client.getApplication(name, projectName), conflict))) throw conflict()
-                }
-                for (const { metadata } of state.applicationSets) {
-                    const conflict = () => nameConflict("ApplicationSet", metadata.name)
-                    if (!isOurs(await probe(client.getApplicationSet(metadata.name), conflict))) throw conflict()
-                }
-                // The AppProject an earlier version named otherwise, the one of the last initialization or 10.x's without the prefix: what the
-                // project has in it moves to the one of now. Only guessed from the name, one the account may not read is none of its own
-                const recorded = previous?.repositories?.configuration?.argoCdUrl === url ? previous.repositories.configuration.argoProject : undefined
-                const movedFrom: string[] = []
-                for (const name of new Set([recorded, unprefixedProjectName(String(projectIdObj), current.slug)])) {
-                    if (!name || name === projectName) continue
-                    const earlier = await client
-                        .getProject(name)
-                        .catch(error => (error instanceof BusinessException && error.code === "ARGOCD_FORBIDDEN" && name !== recorded ? null : Promise.reject(error)))
-                    if (projectIdOf(earlier) === String(projectIdObj)) movedFrom.push(name)
-                }
-                // A repository another project of the organization registered globally is read through its registration.
-                // Only a global one: a registration scoped to another AppProject is of no use to this one
-                const shared = new Set<ArgoCdRepositoryKind>()
-                for (const target of targets) {
-                    if (!target.argoProject && (await holderOf(projectIdObj, project.organizationId, url, target.repoUrl))) {
-                        shared.add(target.kind)
-                        continue
-                    }
-                    const before = previous?.repositories?.[target.kind]
-                    const ours = before?.argoCdUrl === url && before.repoUrl === target.repoUrl && (before.argoProject === target.argoProject || movedFrom.includes(before.argoProject ?? ""))
-                    if (!ours && (await client.getRepository(target.repoUrl))) throw repositoryConflict(target.repoUrl)
-                }
+                await ensureNamesFree(client, state, projectName, projectIdObj)
+                const movedFrom = await earlierAppProjects(client, previous, url, projectIdObj, current.slug, projectName)
+                const shared = await sharedRepositories(client, targets, previous, url, { _id: projectIdObj, organizationId: project.organizationId }, movedFrom)
 
                 await client.upsertProject(state.appProject)
 
                 const undeleted: IArgoCdRepositoryRegistration[] = []
                 for (const target of targets) {
-                    const { kind, link, connection, repoUrl, argoProject } = target
+                    const { kind, connection, repoUrl, argoProject } = target
                     const before = previous?.repositories?.[kind]
                     const common = { argoCdUrl: url, repoUrl, argoProject, codeRepositoryId: String(connection._id) }
                     if (shared.has(kind)) {
                         // No token of its own: the registration and its credentials stay those of the project that made them
                         const credential: IArgoCdRepositoryCredential = { source: "shared", username: "", password: "", ...common }
                         repositories[kind] = credential
-                        await save({ ...previous, url, token, insecure, repositories })
-                        if (before) undeleted.push(...(await this.retire(client, url, projectIdObj, before, credential)))
+                        await saveRun({ ...previous, url, token, insecure, repositories })
+                        if (before) undeleted.push(...(await retire(client, url, projectIdObj, before, credential)))
                         continue
                     }
-                    let credential: IArgoCdRepositoryCredential
-                    if (connection.provider === CodeRepositoryProvider.GITLAB) {
-                        const gitlab = new GitlabClient(connection.gitlabData?.url ?? "", connection.accessToken)
-                        const deployTokenFailed = (error: unknown) =>
-                            createBusinessException({
-                                code: "ARGOCD_DEPLOY_TOKEN_FAILED",
-                                message: `GitLab did not create the deploy token of ${link.name} (${toErrorMessage(error)}): the token of the connection needs the Maintainer role on the project and the api scope`,
-                                statusCode: 502,
-                                details: { repository: link.name, reason: toErrorMessage(error) }
-                            })
-                        const gitlabProject = await gitlab.getProject(gitlabAddressOf(link, connection)).catch(error => Promise.reject(deployTokenFailed(error)))
-                        const deployToken = await gitlab
-                            .createDeployToken(gitlabProject.id, { name: DEPLOY_TOKEN_NAME, scopes: ["read_repository"] })
-                            .catch(error => Promise.reject(deployTokenFailed(error)))
-                        pending = { gitlab, gitlabProjectId: gitlabProject.id, id: deployToken.id }
-                        credential = { source: "deployToken", username: deployToken.username, password: deployToken.token, deployTokenId: deployToken.id, gitlabProjectId: gitlabProject.id, ...common }
-                    } else {
-                        const password = retyped(input?.repositoryToken) ?? storedRepositoryToken(previous, url)
-                        if (!password) {
-                            throw createBusinessException({
-                                code: "ARGOCD_REPOSITORY_TOKEN_REQUIRED",
-                                message: `Paste a read-only token Argo CD can clone ${link.name} with: ${connection.provider} cannot create one for it`,
-                                details: { repository: link.name, provider: connection.provider }
-                            })
-                        }
-                        credential = { source: "manual", username: gitCredentialsFor(connection).username, password, ...common }
-                    }
+                    const created = await newCredential(target, common, retyped(input?.repositoryToken), previous)
+                    if (created.pending) pending = created.pending
+                    const { credential } = created
 
                     await client.upsertRepository({ repo: repoUrl, username: credential.username, password: credential.password, project: argoProject })
                     repositories[kind] = credential
                     // Stored at once: whatever fails next, the console knows which token Argo CD holds. Until it is
                     // stored the new deploy token stays pending, revoked should the save fail
-                    await save({ ...previous, url, token, insecure, repositories })
+                    await saveRun({ ...previous, url, token, insecure, repositories })
                     pending = undefined
-                    if (before) undeleted.push(...(await this.retire(client, url, projectIdObj, before, credential)))
+                    if (before) undeleted.push(...(await retire(client, url, projectIdObj, before, credential)))
                 }
                 for (const kind of ["configuration", "applications"] as const) {
                     const before = previous?.repositories?.[kind]
                     if (!before || targets.some(target => target.kind === kind)) continue
-                    undeleted.push(...(await this.retire(client, url, projectIdObj, before)))
+                    undeleted.push(...(await retire(client, url, projectIdObj, before)))
                     delete repositories[kind]
                 }
                 // The deletions an earlier run could not make, unless the repository is registered there again now
                 const retried: IArgoCdRepositoryRegistration[] = []
                 for (const registration of deletions) {
                     if (targets.some(target => target.repoUrl === registration.repoUrl && target.argoProject === registration.argoProject)) continue
-                    if (!(await this.deleteRegistration(client, projectIdObj, registration))) retried.push(registration)
+                    if (!(await deleteRegistration(client, projectIdObj, registration))) retried.push(registration)
                 }
                 deletions = [...retried, ...undeleted]
-                await save({ ...previous, url, token, insecure, repositories })
+                await saveRun({ ...previous, url, token, insecure, repositories })
 
                 for (const applicationSet of state.applicationSets) await client.upsertApplicationSet(applicationSet)
 
-                // What the console created for an environment that is gone, or a repository no longer linked. The
-                // applications an ApplicationSet generated are left to it: they carry the label of the project too.
-                // The console makes no Application itself any more: those an earlier initialization made per
-                // environment go, the ApplicationSet of the environments makes them again
-                const kept = new Set(state.applicationSets.map(resource => resource.metadata.name))
-                // Under the labels of before the rename too: what an earlier version made carries those until it is saved again.
-                // In the AppProject of an earlier name all of it goes, the ApplicationSets of now taking over its workloads
-                const selector = `${PROJECT_ID_LABEL}=${projectIdObj}`
-                for (const appProject of [projectName, ...movedFrom]) {
-                    for (const application of await listUnder(selectorsOf(`${selector},${COMPONENT_LABEL}=configuration`), labels => client.listApplications(labels, appProject))) {
-                        if (projectOf(application) === appProject) await client.deleteApplication(application.metadata.name)
-                    }
-                    for (const applicationSet of await listUnder(selectorsOf(selector), labels => client.listApplicationSets(labels, appProject))) {
-                        if (!kept.has(applicationSet.metadata.name) && projectOf({ ...applicationSet, kind: "ApplicationSet" }) === appProject)
-                            await client.deleteApplicationSet(applicationSet.metadata.name)
-                    }
-                }
-                // Refused while the Applications of its ApplicationSets are still being deleted: the next initialization tries again
-                for (const name of movedFrom) {
-                    await client
-                        .deleteProject(name)
-                        .catch(error => fastify.log.warn({ error: toErrorMessage(error), appProject: name }, "Argo CD AppProject of an earlier name not deleted, retried next time"))
-                }
+                await deleteLeftovers(client, projectIdObj, projectName, movedFrom, new Set(state.applicationSets.map(resource => resource.metadata.name)))
 
                 const argoCd: IProjectArgoCd = { url, token, insecure, repositories, initializedAt: new Date() }
-                await save(argoCd)
+                await saveRun(argoCd)
                 return this.status(projectIdObj, gitOps, { ...argoCd, pendingRepositoryDeletions: deletions }, true)
             } catch (error) {
-                if (pending) await this.revoke(pending)
+                if (pending) await revoke(pending)
                 const lastError = errorOf(error)
                 // Once the token is known to be good it is kept, and so are the credentials Argo CD already holds
-                await save(verified ? { ...previous, url, token, insecure, repositories, lastError } : { ...previous, lastError }).catch(saveError =>
+                await saveRun(verified ? { ...previous, url, token, insecure, repositories, lastError } : { ...previous, lastError }).catch(saveError =>
                     fastify.log.error({ error: toErrorMessage(saveError) }, "Argo CD initialization failure not stored")
                 )
                 throw error
             }
         } finally {
-            await this.release(projectIdObj, lease)
+            await release(projectIdObj, lease)
         }
     }
 
@@ -709,33 +323,35 @@ export class ArgoCdService extends BaseAuthorizedService {
         const idle = { _id: projectId, "argoCd.initializingAt": { $exists: false } }
         try {
             const project = await Project.findById(projectId, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 })
-            const argoCd = project?.argoCd
-            const link = project?.gitOps?.enabled ? project.gitOps.applicationsCodeRepository : undefined
-            if (!project || !link || !argoCd?.initializedAt || !argoCd.url || !argoCd.token) return
+            const argoCd = argoCdInUse(project)
+            const link = project?.gitOps?.applicationsCodeRepository
+            if (!project || !argoCd || !link) return
             // An initialization running read the applications already: its cleanup would delete what this creates
             if (argoCd.initializingAt && new Date(argoCd.initializingAt).getTime() > Date.now() - LEASE_MS) return
 
             const registered = argoCd.repositories?.applications
             const connection = await new GitOpsService(this.user).connectionOf(link, projectId)
-            const repoUrl = cloneUrlFor({ component: { codeRepository: link }, codeRepository: connection, repositoryName: repositoryNameFor(link, connection) })
+            const repoUrl = repoUrlOf(link, connection)
             // Argo CD was handed another repository, or none: only an initialization registers this one
             if (registered?.argoCdUrl !== argoCd.url || registered.repoUrl !== repoUrl) throw reinitializeRequired()
 
-            const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
+            const client = clientOf(argoCd)
             const projectName = appProjectName(String(projectId), project.slug)
             // The ApplicationSets of an earlier version, per environment, generate the same workloads: an initialization replaces them
             const earlier = await listUnder(selectorsOf(`${PROJECT_ID_LABEL}=${projectId},${COMPONENT_LABEL}=applications`), labels => client.listApplicationSets(labels, projectName))
             if (earlier.some(({ metadata }) => !metadata.labels?.[APPLICATION_LABEL] && !metadata.labels?.[legacyLabel(APPLICATION_LABEL)])) throw reinitializeRequired()
 
+            const environments = await environmentsOf(projectId)
+            const [applications, applicationBranches] = await allInOrder([deployableSlugs(projectId, project.containerRegistry), this.branchesOf({ link, connection })])
             const target = {
                 projectId: String(projectId),
                 projectSlug: project.slug,
                 // Only for the names its objects take, which no application may take too
                 configurationRepoUrl: argoCd.repositories?.configuration?.repoUrl,
                 applicationsRepoUrl: repoUrl,
-                environments: await environmentsOf(projectId),
-                applications: await deployableSlugs(projectId, project.containerRegistry),
-                applicationBranches: await this.branchesOf({ link, connection })
+                environments,
+                applications,
+                applicationBranches
             }
             const clash = clashingName(buildArgoCdState(target))
             const appProject = await client.getProject(projectName)
@@ -798,16 +414,9 @@ export class ArgoCdService extends BaseAuthorizedService {
 
     /** The branches of the applications repository: Argo CD fails an ApplicationSet listing a revision that does not exist */
     private async branchesOf({ link, connection }: Pick<RepositoryTarget, "link" | "connection">): Promise<string[]> {
-        const branches = await new CodeRepositoryService(this.user).getBranches(String(connection._id), repositoryNameFor(link, connection)).catch(error =>
-            Promise.reject(
-                createBusinessException({
-                    code: "ARGOCD_BRANCHES_FAILED",
-                    message: `The branches of ${link.name} could not be read (${toErrorMessage(error)}): the connection must reach the repository`,
-                    statusCode: 502,
-                    details: { repository: link.name, reason: toErrorMessage(error) }
-                })
-            )
-        )
+        const branches = await new CodeRepositoryService(this.user)
+            .getBranches(String(connection._id), repositoryNameFor(link, connection))
+            .catch(error => Promise.reject(branchesFailed(link.name, error)))
         return branches.map(branch => branch.branch)
     }
 
@@ -833,96 +442,6 @@ export class ArgoCdService extends BaseAuthorizedService {
             repositoryTokenStored: Boolean(storedRepositoryToken(argoCd, argoCd?.url)),
             canInitialize
         }
-    }
-
-    /**
-     * Withdraws the credentials Argo CD read a repository with until now, once the next ones are in, or once
-     * the repository is no longer linked. The registration goes from the Argo CD it was made on when that is
-     * still the one initialized, and is not the one just made; one on an Argo CD the project moved away from is
-     * left there, as the console no longer trusts that instance. A deploy token is revoked on GitLab in any
-     * case, through the connection it was created with.
-     */
-    private async retire(
-        client: ArgoCdClient,
-        url: string,
-        projectId: Schema.Types.ObjectId,
-        before: IArgoCdRepositoryCredential,
-        next?: IArgoCdRepositoryCredential
-    ): Promise<IArgoCdRepositoryRegistration[]> {
-        const undeleted: IArgoCdRepositoryRegistration[] = []
-        const sameRegistration = next && next.argoCdUrl === before.argoCdUrl && next.repoUrl === before.repoUrl && next.argoProject === before.argoProject
-        // A shared registration is the other project's to delete, and so are its credentials
-        if (before.argoCdUrl === url && !sameRegistration && before.source !== "shared") {
-            const registration = { argoCdUrl: before.argoCdUrl, repoUrl: before.repoUrl, argoProject: before.argoProject }
-            if (!(await this.deleteRegistration(client, projectId, registration))) undeleted.push(registration)
-        }
-        if (before.source !== "deployToken" || before.deployTokenId === undefined || before.gitlabProjectId === undefined) return undeleted
-        const connection = await CodeRepository.findOne({ _id: toObjectId(before.codeRepositoryId), projectId })
-        if (connection?.provider !== CodeRepositoryProvider.GITLAB || !connection.gitlabData?.url) {
-            fastify.log.warn({ gitlabProjectId: before.gitlabProjectId, deployTokenId: before.deployTokenId }, "Argo CD deploy token left in place: its GitLab connection is gone")
-            return undeleted
-        }
-        await this.revoke({ gitlab: new GitlabClient(connection.gitlabData.url, connection.accessToken), gitlabProjectId: before.gitlabProjectId, id: before.deployTokenId })
-        return undeleted
-    }
-
-    /**
-     * Whether the registration is gone from Argo CD, one already gone included: when not, the next run tries again. One another
-     * project reads through is left in place, and done with for this one: its credentials stop being rotated, nothing else.
-     */
-    private async deleteRegistration(client: ArgoCdClient, projectId: Schema.Types.ObjectId, registration: IArgoCdRepositoryRegistration): Promise<boolean> {
-        if (await sharedByOthers(projectId, registration)) {
-            fastify.log.warn({ repository: registration.repoUrl }, "Argo CD registration of a repository no longer used left in place: another project reads through it")
-            return true
-        }
-        return client.deleteRepository(registration.repoUrl, registration.argoProject).then(
-            () => true,
-            error => {
-                fastify.log.error({ error: toErrorMessage(error), repository: registration.repoUrl }, "Argo CD registration of a repository no longer used not deleted, retried next time")
-                return false
-            }
-        )
-    }
-
-    /** Best effort: a token that cannot be revoked now is still read-only, and the initialization is not undone for it */
-    private async revoke({ gitlab, gitlabProjectId, id }: PendingDeployToken) {
-        await gitlab.revokeDeployToken(gitlabProjectId, id).catch(error => fastify.log.error({ error: toErrorMessage(error), gitlabProjectId, deployTokenId: id }, "Argo CD deploy token not revoked"))
-    }
-
-    /** One initialization of a project at a time: two would rotate the deploy tokens under each other */
-    private async acquire(projectId: Schema.Types.ObjectId, lease: Lease) {
-        const leased = await Project.findOneAndUpdate(
-            { _id: projectId, "argoCd.initializingAt": { $not: { $gt: new Date(lease.at.getTime() - LEASE_MS) } } },
-            { $set: { "argoCd.initializingAt": lease.at } },
-            { projection: { _id: 1 } }
-        )
-        if (!leased) {
-            throw createBusinessException({ code: "ARGOCD_BUSY", message: "Argo CD is being initialized for this project already: try again in a moment", statusCode: 409 })
-        }
-    }
-
-    private async release(projectId: Schema.Types.ObjectId, lease: Lease) {
-        await Project.updateOne({ _id: projectId, "argoCd.initializingAt": lease.at }, { $unset: { "argoCd.initializingAt": 1 } }).catch(error =>
-            fastify.log.error({ error: toErrorMessage(error) }, "Argo CD initialization lease not released")
-        )
-    }
-
-    /**
-     * Saves only while the run still holds its lease, and renews it. A run that took longer than the lease lets
-     * another one start, and must not overwrite what that one stores: it stops instead. A copy goes to the
-     * update, as the plugin encrypts the credentials in place.
-     */
-    private async save(projectId: Schema.Types.ObjectId, argoCd: IProjectArgoCd, lease: Lease) {
-        const renewed = new Date()
-        const { matchedCount } = await Project.updateOne({ _id: projectId, "argoCd.initializingAt": lease.at }, { $set: { argoCd: structuredClone({ ...argoCd, initializingAt: renewed }) } })
-        if (matchedCount === 0) {
-            throw createBusinessException({
-                code: "ARGOCD_LEASE_LOST",
-                message: "Another initialization of Argo CD took over this project while this one ran: check its outcome, and initialize again if needed",
-                statusCode: 409
-            })
-        }
-        lease.at = renewed
     }
 }
 
