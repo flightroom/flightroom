@@ -510,34 +510,6 @@ describe("ArgoCdClient.refreshApplication", () => {
     })
 })
 
-describe("ArgoCdClient.deleteApplication", () => {
-    /** Without its AppProject Argo CD answers 403, not 404, for an Application that is not there: it does not tell which exist */
-    it("given the Application, when it is deleted, then its encoded name is deleted without cascade in its AppProject", async () => {
-        const remove = vi.fn().mockResolvedValue({ data: {} })
-
-        await expect(clientWith({ delete: remove }).deleteApplication("orders/dev", "acme")).resolves.toBeUndefined()
-        expect(remove).toHaveBeenCalledWith("/applications/orders%2Fdev", { params: { cascade: false, project: "acme" } })
-    })
-
-    it("given the Application went between the listing and the delete, when it is deleted, then it is not an error", async () => {
-        await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(404)) }).deleteApplication("orders", "acme")).resolves.toBeUndefined()
-    })
-
-    it("given Argo CD fails the delete, when the Application is deleted, then the failure names the delete", async () => {
-        await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(500, { message: "boom" })) }).deleteApplication("orders", "acme")).rejects.toMatchObject({
-            code: "ARGOCD_REQUEST_FAILED",
-            message: "Argo CD did not delete the Application orders (500 boom)"
-        })
-    })
-
-    it("given the account may not delete it, when the Application is deleted, then the refusal names the delete", async () => {
-        await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(403)) }).deleteApplication("orders", "acme")).rejects.toMatchObject({
-            code: "ARGOCD_FORBIDDEN",
-            details: { reason: "delete the Application orders" }
-        })
-    })
-})
-
 describe("ArgoCdClient.upsertApplicationSet", () => {
     it("given an ApplicationSet, when it is saved, then it is posted as it is with upsert", async () => {
         const post = vi.fn().mockResolvedValue({ data: {} })

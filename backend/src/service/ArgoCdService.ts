@@ -29,32 +29,26 @@ import {
 import { deleteLeftovers, earlierAppProjects, ensureNamesFree, repositoryTargets, sharedRepositories } from "./argoCd/argoCdInitialization"
 import { acquire, LEASE_MS, Lease, release, save } from "./argoCd/argoCdLease"
 import { podLogsQuery, podOf } from "./argoCd/argoCdLogs"
-import { argoCdInUse, clientOf, deployableSlugs, environmentsOf, linksOf, listUnder, normalizeUrl, projectOf, repoUrlOf, retyped } from "./argoCd/argoCdProject"
+import { argoCdInUse, clientOf, deployableSlugs, environmentsOf, linksOf, normalizeUrl, projectOf, repoUrlOf, retyped } from "./argoCd/argoCdProject"
 import { DEPLOYED_VERSIONS, followRollout } from "./argoCd/argoCdRollout"
 import { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdRepositories, ArgoCdStatusDTO, PendingDeployToken, RepositoryTarget } from "./argoCd/argoCdTypes"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
 import {
-    APPLICATION_LABEL,
     ArgoCdEnvironment,
     applicationName,
     appProjectName,
     branchOf,
     buildApplicationSets,
     buildArgoCdState,
-    COMPONENT_LABEL,
     clashingName,
     ENVIRONMENT_LABEL,
-    legacyLabel,
     PROJECT_ID_LABEL,
-    projectIdOf,
-    selectorsOf
+    projectIdOf
 } from "./gitops/argoCdManifests"
 import { RolloutDTO } from "./gitops/rollout"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
-
-export type { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdStatusDTO } from "./argoCd/argoCdTypes"
 
 /**
  * Hands the GitOps repositories of a project to an Argo CD instance that runs on another cluster, through its
@@ -337,10 +331,6 @@ class ArgoCdService extends BaseAuthorizedService {
 
             const client = clientOf(argoCd)
             const projectName = appProjectName(String(projectId), project.slug)
-            // The ApplicationSets of an earlier version, per environment, generate the same workloads: an initialization replaces them
-            const earlier = await listUnder(selectorsOf(`${PROJECT_ID_LABEL}=${projectId},${COMPONENT_LABEL}=applications`), labels => client.listApplicationSets(labels, projectName))
-            if (earlier.some(({ metadata }) => !metadata.labels?.[APPLICATION_LABEL] && !metadata.labels?.[legacyLabel(APPLICATION_LABEL)])) throw reinitializeRequired()
-
             const environments = await environmentsOf(projectId)
             const [applications, applicationBranches] = await allInOrder([deployableSlugs(projectId, project.containerRegistry), this.branchesOf({ link, connection })])
             const target = {
@@ -355,7 +345,7 @@ class ArgoCdService extends BaseAuthorizedService {
             }
             const clash = clashingName(buildArgoCdState(target))
             const appProject = await client.getProject(projectName)
-            // Initialized by a version that named the AppProject otherwise: only an initialization moves the project to this one
+            // Initialized under another name of the AppProject, as 10.x named it: only an initialization moves the project to this one
             if (!appProject) throw reinitializeRequired()
             // An environment added since the initialization has no namespace in the AppProject yet: its Applications would only fail
             const destinations = (appProject.spec?.destinations ?? []) as Array<{ namespace?: string }>
@@ -403,7 +393,7 @@ class ArgoCdService extends BaseAuthorizedService {
             const client = new ArgoCdClient(argoCd.url, argoCd.token, { insecure: argoCd.insecure })
             const projectName = appProjectName(String(projectId), project.slug)
             const selector = `${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (${environmentSlugs.join(",")})`
-            const applications = (await listUnder(selectorsOf(selector), labels => client.listApplications(labels, projectName))).filter(application => projectOf(application) === projectName)
+            const applications = (await client.listApplications(selector, projectName)).filter(application => projectOf(application) === projectName)
             const refreshes = await Promise.allSettled(applications.map(application => client.refreshApplication(application.metadata.name, projectName)))
             const failed = refreshes.flatMap((refresh, index) => (refresh.status === "rejected" ? [{ application: applications[index].metadata.name, error: toErrorMessage(refresh.reason) }] : []))
             if (failed.length > 0) fastify.log.warn({ projectId: String(projectId), failed }, "Argo CD Applications not refreshed after a deploy: they sync at the next poll")

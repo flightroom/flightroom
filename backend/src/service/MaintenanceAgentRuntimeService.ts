@@ -10,7 +10,8 @@ import MaintenanceAgent, { IMaintenanceAgent } from "../models/MaintenanceAgentM
 import { BuildJobLogDTO, BuildRunDTO } from "../types/BuildStatusDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import { decryptSecret, encryptSecret, isEncryptedSecret, isSecretEncryptionEnabled } from "../utils/secretCrypto"
-import ArgoCdService, { ArgoCdLogsInput } from "./ArgoCdService"
+import ArgoCdService from "./ArgoCdService"
+import { ArgoCdLogsInput } from "./argoCd/argoCdTypes"
 import BuildStatusService, { BuildableComponent } from "./BuildStatusService"
 
 /** What the ciphertext of a token is bound to: one pasted into another field does not decrypt */

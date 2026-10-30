@@ -150,9 +150,6 @@ beforeEach(() => {
     })
     vi.spyOn(ArgoCdClient.prototype, "listApplications").mockImplementation(async () => applications)
     vi.spyOn(ArgoCdClient.prototype, "listApplicationSets").mockImplementation(async () => applicationSets)
-    vi.spyOn(ArgoCdClient.prototype, "deleteApplication").mockImplementation(async (name, project) => {
-        calls.push(`argo:deleteApplication:${name}:${project}`)
-    })
     vi.spyOn(ArgoCdClient.prototype, "deleteApplicationSet").mockImplementation(async name => {
         calls.push(`argo:deleteApplicationSet:${name}`)
     })
@@ -340,19 +337,8 @@ describe("ArgoCdService.initialize", () => {
         await initialize()
 
         expect(calls.filter(call => call.startsWith("argo:delete"))).toEqual([`argo:deleteApplicationSet:${applicationSetNameOf("deleted")}`])
-        expect(ArgoCdClient.prototype.listApplicationSets).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId}`, PROJECT_NAME)
-    })
-
-    it("given the objects a version of before the rename made, labelled mfe-orchestrator, when it is initialized again, then they are its own: no conflict, and those left over are found and deleted", async () => {
-        const legacy = (name: string) => ({ metadata: { name, labels: { "mfe-orchestrator/project-id": String(projectId) } }, spec: { template: { spec: { project: PROJECT_NAME } } } })
-        vi.mocked(ArgoCdClient.prototype.getProject).mockImplementation(async name => (name === PROJECT_NAME ? legacy(PROJECT_NAME) : null))
-        vi.mocked(ArgoCdClient.prototype.getApplicationSet).mockImplementation(async name => legacy(name))
-        vi.mocked(ArgoCdClient.prototype.listApplicationSets).mockImplementation(async selector => (selector.startsWith("mfe-orchestrator/") ? [legacy(applicationSetNameOf("deleted"))] : []))
-
-        await initialize()
-
-        expect(calls.filter(call => call.startsWith("argo:delete"))).toEqual([`argo:deleteApplicationSet:${applicationSetNameOf("deleted")}`])
-        expect(ArgoCdClient.prototype.listApplicationSets).toHaveBeenCalledWith(`mfe-orchestrator/project-id=${projectId}`, PROJECT_NAME)
+        expect(vi.mocked(ArgoCdClient.prototype.listApplicationSets).mock.calls).toEqual([[`${PROJECT_ID_LABEL}=${projectId}`, PROJECT_NAME]])
+        expect(ArgoCdClient.prototype.listApplications).not.toHaveBeenCalled()
     })
 
     describe("given a project initialized by 10.x, its AppProject named without the prefix", () => {
@@ -378,6 +364,10 @@ describe("ArgoCdService.initialize", () => {
                 `argo:deleteProject:${EARLIER}`
             ])
             expect(calls.indexOf(deleted[0])).toBeGreaterThan(calls.indexOf(`argo:upsertApplicationSet:${applicationSetNameOf("checkout")}`))
+            expect(vi.mocked(ArgoCdClient.prototype.listApplicationSets).mock.calls).toEqual([
+                [`${PROJECT_ID_LABEL}=${projectId}`, PROJECT_NAME],
+                [`${PROJECT_ID_LABEL}=${projectId}`, EARLIER]
+            ])
         })
 
         it("when it is initialized again, then its configuration repository is no conflict: registered for the new AppProject, the old registration deleted", async () => {
@@ -417,38 +407,23 @@ describe("ArgoCdService.initialize", () => {
         expect(ArgoCdClient.prototype.listApplicationSets).not.toHaveBeenCalledWith(expect.anything(), unprefixedProjectName(String(projectId), "shop"))
     })
 
-    it("given the configuration Applications an earlier initialization made per environment, when it is initialized again, then they are deleted", async () => {
-        applications = [resource(`${environmentName("development")}.config`), resource(`${environmentName("staging")}.config`)]
-
-        await initialize()
-
-        expect(calls.filter(call => call.startsWith("argo:deleteApplication:"))).toEqual([
-            `argo:deleteApplication:${environmentName("development")}.config:${PROJECT_NAME}`,
-            `argo:deleteApplication:${environmentName("staging")}.config:${PROJECT_NAME}`
-        ])
-        expect(ArgoCdClient.prototype.listApplications).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},flightroom/component=configuration`, PROJECT_NAME)
-    })
-
     it("given leftovers gone between the listing and the delete, when it is initialized, then the 404 of Argo CD does not fail it", async () => {
-        applications = [resource(`${environmentName("staging")}.config`)]
         applicationSets = [resource(applicationSetNameOf("deleted"), { template: { spec: { project: PROJECT_NAME } } })]
-        vi.mocked(ArgoCdClient.prototype.deleteApplication).mockRestore()
         vi.mocked(ArgoCdClient.prototype.deleteApplicationSet).mockRestore()
         const remove = vi.fn().mockRejectedValue(Object.assign(new AxiosError("Request failed with status code 404"), { response: { status: 404 } }))
         vi.spyOn(axios, "create").mockReturnValue({ delete: remove } as never)
 
         await expect(initialize()).resolves.toBeDefined()
 
-        expect(remove).toHaveBeenCalledWith(`/applications/${encodeURIComponent(`${environmentName("staging")}.config`)}`, { params: { cascade: false, project: PROJECT_NAME } })
         expect(remove).toHaveBeenCalledWith(`/applicationsets/${encodeURIComponent(applicationSetNameOf("deleted"))}`)
     })
 
-    it("given a labelled Application of another AppProject, when it is initialized, then it is not deleted", async () => {
-        applications = [resource(`${environmentName("staging")}.config`, { project: "someone-else" })]
+    it("given a labelled ApplicationSet of another AppProject, when it is initialized, then it is not deleted", async () => {
+        applicationSets = [resource(applicationSetNameOf("deleted"), { template: { spec: { project: "someone-else" } } })]
 
         await initialize()
 
-        expect(calls.some(call => call.startsWith("argo:deleteApplication"))).toBe(false)
+        expect(calls.some(call => call.startsWith("argo:deleteApplicationSet"))).toBe(false)
     })
 
     it("given an applications repository no longer linked, when it is initialized again, then its registration is deleted and its credentials forgotten", async () => {
@@ -499,13 +474,12 @@ describe("ArgoCdService.initialize", () => {
         expect(calls).toContain(`argo:upsertProject:${PROJECT_NAME}`)
     })
 
-    it("given the per-environment ApplicationSets of an earlier version, when it is initialized again, then they are deleted once those of the applications are in", async () => {
-        const earlier = `${environmentName("production")}.applications`
-        applicationSets = [resource(earlier, { template: { spec: { project: PROJECT_NAME } } })]
+    it("given an ApplicationSet of the project no longer made, when it is initialized again, then it is deleted once those of the applications are in", async () => {
+        applicationSets = [resource(applicationSetNameOf("deleted"), { template: { spec: { project: PROJECT_NAME } } })]
 
         await initialize()
 
-        expect(calls.indexOf(`argo:deleteApplicationSet:${earlier}`)).toBeGreaterThan(calls.indexOf(`argo:upsertApplicationSet:${applicationSetNameOf("checkout")}`))
+        expect(calls.indexOf(`argo:deleteApplicationSet:${applicationSetNameOf("deleted")}`)).toBeGreaterThan(calls.indexOf(`argo:upsertApplicationSet:${applicationSetNameOf("checkout")}`))
     })
 
     it("given an environment without a branch yet, when it is initialized, then the ApplicationSets of the applications leave it out", async () => {
@@ -743,17 +717,6 @@ describe("ArgoCdService.alignApplications", () => {
         expect(storedError()?.update.$set?.["argoCd.alignError"]).toMatchObject({ code: "ARGOCD_REINITIALIZE_REQUIRED" })
     })
 
-    it("given the per-environment ApplicationSets of an earlier version, when a deploy aligns it, then the new ones are not made next to them and an initialization is asked for", async () => {
-        previous = initialized()
-        applicationSets = [resource(`${environmentName("production")}.applications`, { template: { spec: { project: PROJECT_NAME } } }, { "mfe-orchestrator/component": "applications" })]
-
-        await align()
-
-        expect(ArgoCdClient.prototype.listApplicationSets).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},flightroom/component=applications`, PROJECT_NAME)
-        expect(calls.some(call => call.startsWith("argo:upsert"))).toBe(false)
-        expect(storedError()?.update.$set?.["argoCd.alignError"]).toMatchObject({ code: "ARGOCD_REINITIALIZE_REQUIRED" })
-    })
-
     it("given the AppProject of now not there, initialized by 10.x under the one without the prefix, when a deploy aligns it, then nothing is upserted and an initialization is asked for", async () => {
         previous = initialized()
         vi.mocked(ArgoCdClient.prototype.getProject).mockResolvedValue(null)
@@ -815,7 +778,7 @@ describe("ArgoCdService.refreshApplications", () => {
 
         await refresh(["development", "production"])
 
-        expect(ArgoCdClient.prototype.listApplications).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (development,production)`, PROJECT_NAME)
+        expect(vi.mocked(ArgoCdClient.prototype.listApplications).mock.calls).toEqual([[`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (development,production)`, PROJECT_NAME]])
         expect(refreshed()).toEqual([
             [environmentName("production"), PROJECT_NAME],
             [orders, PROJECT_NAME]
@@ -997,7 +960,7 @@ describe("ArgoCdService.rollout", () => {
         ])
         expect(result.applications[1].pods).toEqual([expect.objectContaining({ containers: "0/1" })])
         expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledTimes(1)
-        expect(vi.mocked(ArgoCdClient.prototype.listApplications).mock.calls[0][0]).toBe(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL}=development`)
+        expect(vi.mocked(ArgoCdClient.prototype.listApplications).mock.calls).toEqual([[`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL}=development`, PROJECT_NAME]])
     })
 
     it("given a deploy that changed the version of one application only, when the rollout is read, then only that one is updated", async () => {

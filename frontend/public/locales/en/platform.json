@@ -340,7 +340,7 @@
                 "request_failed": "Argo CD refused the request ({{reason}})",
                 "name_conflict": "Argo CD already has an object {{name}} this project did not create, or one the account of the token may not read: rename or delete it, then try again",
                 "name_clash": "Two objects of this project would both be named {{name}} in Argo CD: rename the backend, frontend or environment whose slugs join into it, then try again",
-                "reinitialize_required": "Argo CD was initialized with other repositories, or by an earlier version of the console: initialize it again",
+                "reinitialize_required": "Argo CD was initialized with other repositories, or its AppProject is not there: initialize it again",
                 "namespaces_not_in_project": "The namespace of the environments {{slug}} is not in the AppProject yet: initialize Argo CD again to deploy them through it",
                 "environments_without_branch": "{{repository}} has no branch for the environments {{slug}}: Argo CD creates no applications there. The branches read are: {{name}}",
                 "branches_failed": "The branches of {{repository}} could not be read ({{reason}}): check that the connection reaches the repository",
@@ -358,7 +358,7 @@
                 "rbac": "2. Its permissions, in argocd-rbac-cm",
                 "permissions": {
                     "projects": "creates and updates the AppProject of the project, which confines its applications to the GitOps repositories and the namespaces of the environments",
-                    "applications": "reads the Applications of the project and deletes those made by earlier versions of the console",
+                    "applications": "reads and refreshes the Applications of the project, and starts the jobs of the maintenance agents",
                     "applicationsets": "creates, updates and deletes the ApplicationSets of the environments and of the applications, on every deploy too",
                     "repositories": "registers and withdraws the read-only credentials of the repositories. It cannot be narrowed to mfe-: the applications repository is registered globally, and the rule applies to its URL"
                 },

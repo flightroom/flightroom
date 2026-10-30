@@ -1,5 +1,5 @@
 import { FastifyInstance, FastifyRequest } from "fastify"
-import { ArgoCdLogsInput } from "../service/ArgoCdService"
+import { ArgoCdLogsInput } from "../service/argoCd/argoCdTypes"
 import MaintenanceAgentRuntimeService from "../service/MaintenanceAgentRuntimeService"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 

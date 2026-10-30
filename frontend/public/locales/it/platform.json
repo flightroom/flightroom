@@ -341,7 +341,7 @@
                 "request_failed": "Argo CD ha rifiutato la richiesta ({{reason}})",
                 "name_conflict": "Su Argo CD esiste già un oggetto {{name}} che non è stato creato da questo progetto, o che l'account del token non può leggere: rinominalo o eliminalo, poi riprova",
                 "name_clash": "Due oggetti di questo progetto avrebbero lo stesso nome {{name}} su Argo CD: rinomina il backend, il frontend o l'ambiente i cui slug lo compongono, poi riprova",
-                "reinitialize_required": "Argo CD è stato inizializzato con altri repository, o da una versione precedente della console: inizializzalo di nuovo",
+                "reinitialize_required": "Argo CD è stato inizializzato con altri repository, o il suo AppProject non c'è: inizializzalo di nuovo",
                 "namespaces_not_in_project": "Il namespace degli ambienti {{slug}} non è ancora nell'AppProject: inizializza di nuovo Argo CD per deployarli attraverso di esso",
                 "environments_without_branch": "{{repository}} non ha un branch per gli ambienti {{slug}}: Argo CD non vi crea applicazioni. I branch letti sono: {{name}}",
                 "branches_failed": "Impossibile leggere i branch di {{repository}} ({{reason}}): verifica che la connessione raggiunga il repository",
@@ -359,7 +359,7 @@
                 "rbac": "2. I suoi permessi, in argocd-rbac-cm",
                 "permissions": {
                     "projects": "crea e aggiorna l'AppProject del progetto, che limita le sue applicazioni ai repository GitOps e ai namespace degli ambienti",
-                    "applications": "legge le Application del progetto ed elimina quelle create da versioni precedenti della console",
+                    "applications": "legge e aggiorna le Application del progetto, e avvia i job degli agenti di manutenzione",
                     "applicationsets": "crea, aggiorna ed elimina gli ApplicationSet degli ambienti e delle applicazioni, anche a ogni deploy",
                     "repositories": "registra e ritira le credenziali in sola lettura dei repository. Non si può restringere a mfe-: il repository delle applicazioni è registrato globalmente e la regola si applica al suo URL"
                 },

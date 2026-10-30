@@ -21,9 +21,7 @@ environment is deployed to the cluster Argo CD runs in (`https://kubernetes.defa
 ## What it creates
 
 All of it is labelled `app.kubernetes.io/managed-by: flightroom` and
-`flightroom/project-id: <project id>`. Versions before the rename wrote `mfe-orchestrator` and
-`mfe-orchestrator/<label>`: the console still recognizes those objects as its own, and relabels them the
-next time it saves them. Every name below starts with `fr-` and ends with `<hash>`, a hash of the
+`flightroom/project-id: <project id>`. Every name below starts with `fr-` and ends with `<hash>`, a hash of the
 project id, so two projects with the same slug, in two organizations, never meet. `<slug>` is the project slug.
 
 | Object | Name | What it does |
@@ -86,7 +84,7 @@ refresh that fails is only logged: the Applications sync at the next poll anyway
 A deploy that cannot align Argo CD still goes through, and why shows in the
 settings, apart from the errors of the initialization; the next deploy that aligns it clears it. A deploy
 does not align while an initialization runs, nor when Argo CD was handed another applications repository
-or ApplicationSets per environment by an earlier version: it asks for an initialization instead. A new
+or its AppProject is not there: it asks for an initialization instead. A new
 environment waits for an initialization too: its namespace joins the AppProject only then, and until
 then the deploys leave it out of the ApplicationSets. One
 initialization of a project runs at a time. One that has not saved anything for five minutes is taken
@@ -102,13 +100,6 @@ second stored.
 - The ApplicationSet of a backend or frontend that no longer exists is deleted, and with it, through their
   owner references, the Applications it generated; their workloads stay, as the generated Applications
   carry no finalizer.
-- The ApplicationSets an earlier version of the console made per environment,
-  `<project>.<environment>.applications`, are deleted the same way once those of the backends are in. Only
-  an initialization does it: until then, a deploy leaves Argo CD as it is. Their
-  workloads stay, and the new Applications take them over: the Helm release and the namespace are the same.
-- The Applications an earlier version of the console made itself per environment,
-  `<project>.<environment>.config`, are deleted without cascade: the Applications of
-  `fr-<slug>-environments-<hash>` take their place.
 - What 10.0 and 10.1 made, named without the `fr-` prefix in the AppProject `<slug>-<hash>`, moves to the
   names of now: the ApplicationSets there are deleted once the new ones are in, their Applications with them
   and without cascade, so the workloads stay and the new Applications take them over; the configuration
@@ -273,5 +264,5 @@ it says to check:
 | Name taken | An AppProject, Application or ApplicationSet of that name not created by this project. |
 | Repository already registered | A registration of the repository made by hand, or by another project. |
 | Deploy token not created | The role and the scopes of the GitLab connection. |
-| Initialized with other repositories, or by an earlier version | Nothing: initialize again. |
+| Initialized with other repositories, or AppProject not there | Nothing: initialize again. |
 | Already running | Another initialization of the project: wait for it to end. |
