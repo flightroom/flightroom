@@ -356,16 +356,13 @@ class GithubClient {
         return response.data
     }
 
-    private getRepositoryBaseUrl(repositoryName: string, orgName?: string, userName?: string) {
-        return orgName ? `https://api.github.com/orgs/${orgName}/repos/${repositoryName}` : `https://api.github.com/repos/${userName}/${repositoryName}`
-    }
-
+    /** Every repository endpoint, its secrets included, lives under /repos/{owner}: the organization when there is one, the user otherwise */
     private getRepositoryBaseUrlBase(repositoryName: string, orgName?: string, userName?: string) {
         return `https://api.github.com/repos/${orgName || userName}/${repositoryName}`
     }
 
     async getRepositoryPublicKey({ accessToken, orgName, userName, repositoryName }: GithubRepositoryBaseDTO): Promise<GithubPublicKey> {
-        const url = `${this.getRepositoryBaseUrl(repositoryName, orgName, userName)}/actions/secrets/public-key`
+        const url = `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/actions/secrets/public-key`
 
         const response = await axios.request<GithubPublicKey>({
             url,
@@ -406,7 +403,7 @@ class GithubClient {
             repositoryName
         })
 
-        const url = `${this.getRepositoryBaseUrl(repositoryName, orgName, userName)}/actions/secrets/${encodeURIComponent(secretName)}`
+        const url = `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/actions/secrets/${encodeURIComponent(secretName)}`
 
         await axios.request<void>({
             method: "PUT",
@@ -425,7 +422,7 @@ class GithubClient {
 
     async checkRepositorySecretExists({ accessToken, orgName, userName, repositoryName, secretName }: Omit<GithubUpsertSecretDTO, "value">): Promise<boolean> {
         try {
-            const url = `${this.getRepositoryBaseUrl(repositoryName, orgName, userName)}/actions/secrets/${encodeURIComponent(secretName)}`
+            const url = `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/actions/secrets/${encodeURIComponent(secretName)}`
 
             await axios.request({
                 method: "GET",
