@@ -15,7 +15,8 @@ dotenv.config()
  * How long a plugin is given to come up.
  *
  * Above Fastify's 10s default: the boot was measured at 12s with no database at all, and the database
- * plugin is only ready once a remote MongoDB has answered. Exceeding the limit does not degrade
+ * plugin is only ready once a remote MongoDB has answered and the data migrations have run, the
+ * encryption of every credential stored in the clear included. Exceeding the limit does not degrade
  * anything: it makes `build()` throw, so the process never starts listening and the whole console is down.
  */
 const PLUGIN_TIMEOUT_MS = 60_000

@@ -1,11 +1,12 @@
 import { FastifyBaseLogger, FastifyInstance } from "fastify"
 import fastifyPlugin from "fastify-plugin"
 import mongoose from "mongoose"
+import { runMigrations } from "../utils/migrations"
 
 export let noSQLClient: mongoose.Mongoose
 export let isReplicaSet: boolean = false
 
-/** Tells whether the database is a replica set */
+/** Tells whether the database is a replica set, before the data migrations run */
 const checkReplicaSet = async (log: FastifyBaseLogger): Promise<void> => {
     noSQLClient = mongoose
     const admin = noSQLClient.connection.db?.admin()
@@ -24,12 +25,23 @@ const checkReplicaSet = async (log: FastifyBaseLogger): Promise<void> => {
     }
 }
 
-/** Once connected: the replica set check, whose failure is only logged, then the plugin is done */
+/**
+ * Once connected: the replica set check, whose failure is only logged, then the migrations, whose failure
+ * fails the boot. runMigrations swallows the failures the console can run with, so whatever it lets
+ * through is one it cannot.
+ */
 export const onConnected = async (log: FastifyBaseLogger, done: (error?: Error) => void): Promise<void> => {
     try {
         await checkReplicaSet(log)
     } catch (e) {
         log.error({ error: e }, "Error while checking replica set status:")
+    }
+    try {
+        await runMigrations(log)
+    } catch (error) {
+        log.error({ error }, "A data migration failed: the application does not start")
+        done(error instanceof Error ? error : new Error(String(error)))
+        return
     }
     done()
 }
