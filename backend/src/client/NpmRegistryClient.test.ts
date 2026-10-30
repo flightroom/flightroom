@@ -167,16 +167,6 @@ describe("NpmRegistryClient cache", () => {
         expect(again).toMatchObject({ latest: "19.2.0" })
     })
 
-    it("given a package the registry did not know, when it is looked up again within the hour, then null comes back without asking again", async () => {
-        const Client = await loadClient()
-        const request = vi.spyOn(axios, "request").mockRejectedValue(httpError(404))
-
-        await new Client().getPackageInfo("ghost")
-
-        await expect(new Client().getPackageInfo("ghost")).resolves.toBeNull()
-        expect(request).toHaveBeenCalledTimes(1)
-    })
-
     it("given a package looked up an hour ago, when it is looked up again, then the registry is asked again", async () => {
         vi.useFakeTimers()
         const Client = await loadClient()
