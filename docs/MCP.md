@@ -24,7 +24,7 @@ It is off by default.
 | `MCP_RESOURCE_URL`   | issuer + `/mcp`             | Only when the MCP endpoint is published somewhere else.                                    |
 | `TRUST_PROXY`        | `127.0.0.1` in the images   | Proxies whose `X-Forwarded-For` is trusted, so per-IP rate limits see the real client.     |
 
-The URL to give to MCP clients is shown in the console (Settings → MCP clients). With the default
+The URL to give to MCP clients is shown in the console (Settings → Access → AI assistants). With the default
 layout it is `https://<your console>/api/mcp`.
 
 ## What the client can do
@@ -57,13 +57,17 @@ its result (a new API key, say) away from the model while the user still sees it
 get the whole result. The annotations MCP clients see (`destructiveHint`...) stay truthful: whether
 the assistant asks the user before running a tool is `requiresConfirmation`, which defaults to
 `destructiveHint` and is set to true on writes that hand out access or cannot be undone (invitations,
-API key creation, discarding an AI change, canary users).
+API key creation, discarding an AI change, canary users, scaffolding a frontend or a backend from a
+template, renaming a frontend's repository, `code_change_submit`, opening the pull request of an AI change,
+setting the project's GitOps repository or the pipeline templates repository of a connection). Of these, MCP
+clients get `frontend_scaffold`, `backend_scaffold`, `frontend_repository_rename`, `code_change_submit` and
+`canary_users_set`.
 
 ## Project context
 
 Every project, functional domain, frontend and backend can carry a **context**: free markdown
 the team writes for AI agents (domain, conventions, rules). The project one is edited in Settings →
-Project AI context, the domain one in the domain form, the frontend and backend ones in their
+AI context, the domain one in the domain form, the frontend and backend ones in their
 "AI context" tab. Each is limited to 20,000 characters.
 
 An agent always gets the contexts of what it works on, the project one included:
@@ -142,7 +146,8 @@ at most.
 - `domain_trigger_build` (`mfe:write`) releases a whole domain: it tags the repository of every
   frontend and backend in it with the same version, on the same branch (`main` when left out),
   and each tag starts the pipeline of its repository. A repository linked to two members is tagged
-  once. Every repository is checked before any tag is made (the connection belongs to the project,
+  once. A repository whose branch is still on the commit of its current version is skipped, with status
+  `unchanged`. The REST route also takes `refs`, one branch per member (by its id), over the branch of the whole build. Every repository is checked before any tag is made (the connection belongs to the project,
   the domain scope, the repository and the branch exist, the tag does not): when one fails nothing is
   tagged and the error lists each failure. A VIEWER of the project cannot run it, nor the build of a
   single frontend or backend. The result tells, per repository, whether it was tagged. The console offers
@@ -235,14 +240,15 @@ projects: there is no user to own them.
   organization, project).
 
 Left out on purpose: API keys, creating or editing
-storages and repository connections and the credentials of a resource (their input is a secret), deleting projects, organizations,
-members, invitations, the user profile, bundle upload and the canvas layout.
+storages, databases and repository connections, creating or updating the value of a secret, the credentials of a resource (their input is a secret), deleting projects, organizations,
+members, invitations, the user profile, bundle upload, the canvas layout, bulk deletes and AI code changes (the `ai_*` tools
+are console only: a client uses `repository_checkout_get` and `code_change_submit` instead).
 
 ## Fallback: a project API key
 
 OAuth is the way to connect: the user consents in the browser and can revoke the client from the
 console. For a client that cannot do OAuth (a script, a CI job, a client without browser login),
-`/mcp` also accepts a **project API key** (Settings → API keys), either as
+`/mcp` also accepts a **project API key** (Settings → Access → API Keys), either as
 `Authorization: Bearer <key>` or as an `api-key: <key>` header.
 
 - The key reaches its own project and nothing else (`projectId` can always be left out);
@@ -293,7 +299,7 @@ claude mcp add --transport http flightroom https://<your console>/api/mcp \
 
 ## Revoking access
 
-Settings → MCP clients lists the clients that include the current project, with the other shared
+Settings → Access → AI assistants lists the clients that include the current project, with the other shared
 projects the viewer can see. A project OWNER (or an organization admin) sees and can revoke everyone's
 grants that include their project; other members see and revoke their own. A revocation removes the
 whole grant, all its projects, and takes effect on the client's next request. A grant also ends by

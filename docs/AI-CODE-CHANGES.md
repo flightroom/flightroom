@@ -1,7 +1,7 @@
-# Editing a frontend with AI
+# Editing a frontend or a backend with AI
 
-From **Edit with AI**, the screen a frontend opens on, a user describes a change ("add a 404 page"). An
-AI agent works on a local clone of the frontend's repository and proposes the change as a diff.
+From **Edit with AI**, the screen a frontend or a backend opens on, a user describes a change ("add a 404 page"). An
+AI agent works on a local clone of its repository and proposes the change as a diff.
 Under the prompt, the console shows the repository it works on, linked to its page on the provider, and the
 branch it starts from: the repository's default branch unless another one is picked from its branches.
 Once the agent is done, the console commits the proposal on a feature branch of its own and pushes it:
@@ -22,7 +22,11 @@ starts from the base branch. The commit and the pull request are named after the
 request description quotes every message of the conversation. Once a proposal is applied, the whole conversation is kept, not removed
 with the proposals.
 
-It is available when an [AI provider](AI-PROVIDERS.md) is configured and the frontend has a
+A request and its follow-ups can carry up to five images (PNG, JPEG, WebP or GIF), pasted, dropped or
+attached. The console scales them down to 1568 px on the long edge and refuses one still over 2 MB. They are
+saved on the job, never in its transcript, and expire with it. The assistant and MCP stay text only.
+
+It is available when an [AI provider](AI-PROVIDERS.md) is configured and the frontend or backend has a
 code repository connected (GitHub, GitLab or Azure DevOps).
 
 ## How it works
@@ -140,6 +144,7 @@ whoever's visit to the Fleet page moves it on, so its commits are authored by th
 
 ```
 $REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<frontend-slug>/
+$REPOSITORIES_FOLDER/<organization-slug>-<id>/<project-slug>-<id>/<backend-slug>.service/
 ```
 
 | Variable                        | Default                                              | What it does                                         |
@@ -175,7 +180,8 @@ handed to each network call.
   resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
   `specUrl` from the backend with no access to private addresses, and answers with an index of the
   operations or one operation in full.
-- At most 20 files and 500 KB written per request, 40 model rounds.
+- At most 20 files and 500 KB written per repository (2 MB per job), 40 model rounds plus 20 per extra
+  repository (120 at most).
 - It never pushes. The console pushes its proposal on a feature branch only, never on the base branch:
   only the user's **Apply** writes there.
 
@@ -226,9 +232,10 @@ are the repository's code, and the console holds the repository tokens, the data
   (20 per repository) brings nothing back, and the agent is told why. Deleted files are not seen. What
   comes back does not count towards the 500 KB the agent may write; in a follow-up the parent's files
   do, whole, as for anything the agent wrote, except lockfiles.
-- **What goes out.** By default the sandbox may reach `registry.npmjs.org` on 443, only through
-  `/usr/local/bin/node`, and nothing else. A private registry (Azure Artifacts, GitHub Packages...) is
-  reached through the `.npmrc` of the frontend's [design system](MCP.md#project-context), credentials
+- **What goes out.** By default the sandbox may reach the package registries of `OPENSHELL_REGISTRY_HOSTS`
+  (npm, Maven, PyPI, Go, NuGet, Azure Artifacts, GitHub Packages) on 443, only through the runtimes of
+  `OPENSHELL_NETWORK_BINARY`, and nothing else. A private registry (Azure Artifacts, GitHub Packages...) is
+  reached through the `.npmrc` of the frontend's [design system](MCP.md#design-system), credentials
   included: it is written into the sandbox, outside the copy of the repository, and the install and the
   scripts read it as their user configuration (`npm_config_userconfig`: npm, pnpm and yarn 1; yarn 2+ does
   not read an `.npmrc`). It never reaches the working copy nor the proposal, and the model only sees it
@@ -252,9 +259,9 @@ are the repository's code, and the console holds the repository tokens, the data
   only until the sandbox is swept after the conversation is
   idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
   the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
-  otherwise. The **View live preview** button in frontend and domain workspaces opens the frontend
-  URL recorded by the latest relevant AI conversation's OpenShell shell, not a deployed environment
-  URL; it is available after that job has started the development server. Frontends that call a
+  otherwise. The **View live preview** button in frontend and domain workspaces starts its own preview from the
+  default branch, without an AI job (see [How it works](#how-it-works)); its URL is the sandbox's, not a
+  deployed environment URL. Frontends that call a
   backend should use their normal local development proxy to the backend's configured port.
 
 On Kubernetes, OpenShell needs the [Agent Sandbox](https://agent-sandbox.sigs.k8s.io) controller and a CNI
@@ -295,4 +302,4 @@ discard one; organization administrators can. A request, a job and its follow-up
 started them: only they, or an organization administrator, can apply, discard, stop or follow them up, or
 open their pull request. Other members see them read only (`AI_JOB_NOT_OWNER`). Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
 per user, like the assistant. The token usage of each request is stored and shown in the console;
-when its AI has configured token rates, the estimated USD cost is shown alongside it.
+when its AI has configured token rates, the estimated cost, in the currency of the AI (USD or EUR), is shown alongside it.

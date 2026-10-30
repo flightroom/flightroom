@@ -31,7 +31,8 @@ env:
   NODE_ENV: prod
   # Port the backend listens on, behind the in-container nginx. default: 3000
   PORT: 3000
-  # Public URL of the frontend. default: http://localhost:3000
+  # Public URL of the frontend. No default: set it, or the links in emails and
+  # the derived BACKEND_URL break.
   FRONTEND_URL: ""
   # Public URL of the API. default: <FRONTEND_URL>/api
   BACKEND_URL: ""
@@ -43,7 +44,10 @@ env:
   # Folder the uploaded frontend bundles are served from. Kept in sync with
   # persistence.mountPath below. default: /upload-microfrontends
   MICROFRONTEND_HOST_FOLDER: /upload-microfrontends
-  # Allow new users to sign up. default: true
+  # If false, closes self-registration: the console hides the Register link and
+  # POST /api/users/registration answers 403 (same when ALLOW_EMBEDDED_LOGIN is
+  # false). Invitations, first SSO logins and first startup are not affected.
+  # default: true
   REGISTRATION_ALLOWED: false
   # Enable the built-in email/password login. default: true
   ALLOW_EMBEDDED_LOGIN: true
@@ -148,7 +152,8 @@ env:
   GOOGLE_CLIENT_ID: ""
   GOOGLE_REDIRECT_URI: ""
   GOOGLE_API_AUDIENCE: ""
-  # Restrict the login to a single Google Workspace domain.
+  # Restrict the login to a single Google Workspace domain: the backend refuses
+  # accounts of other domains and personal accounts.
   GOOGLE_AUTH_HOSTED_DOMAIN: ""
   # default: https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile
   GOOGLE_AUTH_SCOPE: ""
@@ -240,7 +245,7 @@ persistence:
 ## point existingClaim at a PVC to keep the clones across restarts.
 repositories:
   mountPath: /repositories
-  # Upper bound of the emptyDir. Also see env.REPOSITORIES_MAX_SIZE_MB, the cap per repository.
+  # Upper bound of the emptyDir. The cap per repository is env.REPOSITORIES_MAX_SIZE_MB, which is not shipped: set it yourself.
   sizeLimit: 10Gi
   existingClaim: ""
 

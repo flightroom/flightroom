@@ -339,7 +339,7 @@ export default fastifyPlugin(
                     type: "string",
                     enum: ["low", "medium", "high", "xhigh", "max"]
                 },
-                // Assistant questions per IP per minute. Each one is a paid model call, so
+                // Assistant questions per user per minute (per IP when there is no user). Each one is a paid model call, so
                 // the ceiling is separate from, and lower than, RATE_LIMIT_MAX.
                 ASSISTANT_RATE_LIMIT_MAX: {
                     type: "number",

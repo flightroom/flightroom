@@ -87,7 +87,8 @@ Flightroom writes `source-*.tf` and `partition-*.tf`. It scaffolds the other fil
 repository is set, and never overwrites them afterwards: they belong to whoever operates the pipeline.
 
 The contract between a partition file and Flightroom is one sensitive output per resource of the
-partition. A SQL partition therefore has two outputs:
+partition. A SQL partition therefore has two outputs, one per user; a MongoDB partition has one, as in
+this example, where the secret field is the connection string:
 
 ```hcl
 output "flightroom_partition_<resourceId>" {
@@ -100,14 +101,16 @@ output "flightroom_partition_<resourceId>" {
 ```
 
 The pipeline sends `fields` as they are. Flightroom accepts only the secret fields of the variant
-recorded on the partition, so a compromised pipeline can overwrite the credential of a partition, but
-cannot repoint its address.
+recorded on the partition, so a compromised pipeline can overwrite the credential of a partition. Where
+the address is a separate plain field, as with SQL credentials, it cannot repoint it. Where the
+variant is a connection string (MongoDB, or an Azure storage), the address travels in the secret and
+the pipeline controls it as well.
 
 ### What the operator of the pipeline sets up
 
 - The state backend, with the state kept private. **The state holds every generated password.**
 - The secrets of the pipeline:
-  - `FLIGHTROOM_URL` and `FLIGHTROOM_API_KEY`: a key of the project, of a member;
+  - `FLIGHTROOM_URL` and `FLIGHTROOM_API_KEY`: a `MANAGER` API key of the project;
   - `ARM_*` for the `azurerm` provider;
   - for each source, the variables its `source-*.tf` declares (e.g. `TF_VAR_<source>_admin_password`).
 - Network reach from the pipeline agent to each server, for the providers that connect to it:
@@ -139,7 +142,7 @@ The resource is deleted when the commit is pushed. Its credential stops working 
 - **Connect a source**, or turn partitions on for it: a member of the project (not a viewer), as for
   databases today. An organization administrator may do it in any project.
 - **Create and delete partitions:** owners and members of the project. Viewers see them.
-- **Callback:** an API key of the project, of a member or an owner.
+- **Callback:** a `MANAGER` API key of the project.
 - No quotas in the first version.
 
 ## Model

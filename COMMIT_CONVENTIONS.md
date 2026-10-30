@@ -4,7 +4,7 @@ This project follows the [Conventional Commits](https://www.conventionalcommits.
 
 ## Why Conventional Commits?
 
-- 📝 Automatically generate CHANGELOGs
+- 📝 Make the history readable when writing the hand-curated CHANGELOG
 - 🔄 Automatically determine semantic version bumps
 - 💬 Communicate changes clearly to team members and stakeholders
 - 🚀 Trigger build and publish processes
@@ -76,8 +76,8 @@ This project follows the [Conventional Commits](https://www.conventionalcommits.
 
 - **`style`**: Code style changes (formatting, missing semicolons, etc.)
   ```
-  style: apply Prettier formatting
-  style(frontend): fix ESLint warnings
+  style: apply Biome formatting
+  style(frontend): fix Biome lint warnings
   ```
 
 - **`test`**: Adding or updating tests
@@ -283,10 +283,13 @@ Here's a template you can use:
 ## Tools & Automation
 
 This project uses Conventional Commits to:
-- Generate CHANGELOGs automatically
 - Determine semantic versioning
 - Categorize changes for releases
-- Automate release notes
+- Keep the history easy to read when the changelog is written
+
+`CHANGELOG.md` is curated by hand, not generated from commits. A release tag is refused by the
+Docker Build workflow unless `CHANGELOG.md` has a `## [x.y.z]` section for it, and the GitHub release
+takes its notes from that section.
 
 ## Resources
 
@@ -307,7 +310,10 @@ test:          Adding tests
 chore:         Maintenance
 build:         Build system or dependency changes
 ci:            CI configuration changes
+revert:        Revert a previous commit
 ```
+
+**Header**: the whole first line (`type(scope): subject`) is limited to 100 characters (commitlint `header-max-length`)
 
 **Breaking changes**: Add `!` after type/scope or use `BREAKING CHANGE:` footer
 

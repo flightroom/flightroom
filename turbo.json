@@ -11,6 +11,9 @@
             "cache": false,
             "persistent": true
         },
+        "format": {
+            "cache": false
+        },
         "lint": {
             "dependsOn": ["^lint"]
         },

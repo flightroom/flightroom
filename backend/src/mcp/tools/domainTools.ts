@@ -156,7 +156,7 @@ export const domainTools = [
         name: "domain_trigger_build",
         title: "Trigger domain build",
         description:
-            "Tags the repository of every frontend and backend of the domain with the same version, on the same branch, which starts the CI pipeline of each. A repository shared by members is tagged once. Every repository is checked first (connection, branch, a tag of that version): when one fails, none is tagged and the error lists each. The result tells, per repository, whether it was tagged.",
+            "Tags the repository of every frontend and backend of the domain with the same version, on the same branch, which starts the CI pipeline of each. A repository shared by members is tagged once, and one whose branch is still on the commit of its current version is skipped (unchanged). Every repository is checked first (connection, branch, a tag of that version): when one fails, none is tagged and the error lists each. The result tells, per repository, whether it was tagged.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         inputSchema: z.object({

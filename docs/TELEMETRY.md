@@ -46,7 +46,7 @@ This is a real, complete ping. There is no other field, no nested object, no fre
 | `users`               | How many user accounts exist. A count, never an email or a name.                                                     |
 | `deploymentsLastWeek` | Deployments performed in the last 7 days. This is what tells us the installation is alive and not just installed.    |
 
-The payload is defined in one file, [`backend/src/types/TelemetryDTO.ts`](../backend/src/types/TelemetryDTO.ts), and built in one function, `collect()` in [`backend/src/service/TelemetryService.ts`](../backend/src/service/TelemetryService.ts). Both are short on purpose: you can read them in a minute and see there is nothing else.
+The payload is defined in one file, [`backend/src/types/TelemetryDTO.ts`](../backend/src/types/TelemetryDTO.ts), and built in one function, `collect()` in [`backend/src/service/TelemetryService.ts`](../backend/src/service/TelemetryService.ts); the plugin that schedules it is [`backend/src/plugins/telemetry.ts`](../backend/src/plugins/telemetry.ts). Both are short on purpose: you can read them in a minute and see there is nothing else.
 
 ## What we never send
 
