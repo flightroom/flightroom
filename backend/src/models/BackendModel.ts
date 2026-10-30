@@ -1,8 +1,19 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { BackendPaths, BackendRuntime } from "../types/BackendStack"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
+import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendStackSource } from "../types/FrontendStack"
-import { backendEnvVariableSchema, CONTAINER_DEFAULTS, environmentResourcesField, exposurePath, IBackendEnvVariable, optionalPath, probePath, resourceFields } from "./ContainerFields"
+import {
+    backendEnvVariableSchema,
+    CONTAINER_DEFAULTS,
+    environmentResourcesField,
+    environmentVersionsField,
+    exposurePath,
+    IBackendEnvVariable,
+    optionalPath,
+    probePath,
+    resourceFields
+} from "./ContainerFields"
 import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
@@ -16,7 +27,7 @@ export interface IBackendStack {
     detectedAt?: Date
 }
 
-export interface IBackend extends Document<ObjectId>, BackendPaths, ContainerResourcesByEnvironment {
+export interface IBackend extends Document<ObjectId>, BackendPaths, ContainerResourcesByEnvironment, VersionByEnvironment {
     projectId: Schema.Types.ObjectId
     /** The functional domain it belongs to, if any */
     domainId?: Schema.Types.ObjectId | null
@@ -139,6 +150,7 @@ const backendSchema = new Schema<IBackend>(
         exposurePath,
         ...resourceFields,
         environmentResources: environmentResourcesField,
+        environmentVersions: environmentVersionsField,
         env: {
             type: [backendEnvVariableSchema],
             default: []

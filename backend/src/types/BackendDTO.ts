@@ -16,6 +16,11 @@ export interface EnvironmentResourcesDTO {
     memoryLimit?: string | null
 }
 
+export interface EnvironmentVersionDTO {
+    environmentId: string
+    version?: string | null
+}
+
 interface BackendDTO {
     id?: string
     name: string
@@ -54,6 +59,11 @@ interface BackendDTO {
      * one above. An environment appears once at most, and must be of the project
      */
     environmentResources?: EnvironmentResourcesDTO[] | null
+    /**
+     * The environments that run a version of their own, e.g. production held on an older one, replaced as a whole: one
+     * left blank runs the version above. An environment appears once at most, and must be of the project
+     */
+    environmentVersions?: EnvironmentVersionDTO[] | null
     env?: BackendEnvVariableDTO[]
     /** Config maps of the project to attach; replaced as a whole, and no key may be set by two attached maps */
     configMapIds?: string[]

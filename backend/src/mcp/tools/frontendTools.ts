@@ -10,7 +10,7 @@ import RepositoryRenameService, { isValidRepositoryName } from "../../service/Re
 import StackDetectionService from "../../service/StackDetectionService"
 import { StorageService } from "../../service/StorageService"
 import { attachedVariableKeys } from "../../service/VariableMapService"
-import { BACKEND_HTTP_PATH } from "../../types/BackendStack"
+import { BACKEND_HTTP_PATH, BACKEND_VERSION } from "../../types/BackendStack"
 import { CHART_RESOURCE_DEFAULTS, parseCpu, parseMemory } from "../../types/ContainerResources"
 import { DESIGN_SYSTEM_MAX_LENGTH, NPM_PACKAGE_NAME } from "../../types/DesignSystem"
 import { isExposurePath } from "../../types/Exposure"
@@ -68,6 +68,24 @@ export const containerFields = {
         .optional()
         .describe(
             "CPU and memory set apart in some environments, e.g. more in production: each value left out or null is the one of the container above. Replaced as a whole; null or [] sets none apart. One entry per environment"
+        ),
+    environmentVersions: z
+        .array(
+            z.object({
+                environmentId: objectId("Id of an environment of the project, from environments_list"),
+                version: z
+                    .string()
+                    .regex(BACKEND_VERSION, "letters, digits, dots, dashes and underscores, at most 128")
+                    .nullable()
+                    .optional()
+                    .describe("Tag of the image deployed there, e.g. 1.3.2; null or omitted runs the version of the container")
+            })
+        )
+        .max(50)
+        .nullable()
+        .optional()
+        .describe(
+            "Versions some environments run apart, e.g. production held on an older one while the others take the latest the CI registers. Replaced as a whole; null or [] sets none apart. One entry per environment; the next deploy of an environment writes its version"
         ),
     exposurePath: z
         .string()

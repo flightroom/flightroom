@@ -38,6 +38,7 @@ export const maintenanceApplications = async (agents: IMaintenanceAgent[]): Prom
             memoryRequest: agent.memoryRequest,
             memoryLimit: agent.memoryLimit,
             environmentResources: agent.environmentResources,
+            environmentVersions: agent.environmentVersions,
             configMapIds: agent.configMapIds,
             secretIds: agent.secretIds,
             resourceIds: agent.resourceIds,

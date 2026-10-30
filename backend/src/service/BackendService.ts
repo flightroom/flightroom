@@ -103,19 +103,51 @@ export const withNormalizedEnvironmentResources = async <T extends Pick<BackendD
 }
 
 /**
+ * The versions some environments run apart, as stored: trimmed, an environment left blank left out. Refused: an
+ * environment that is not of the project, one listed twice, a version that is no tag of an image.
+ */
+export const withNormalizedEnvironmentVersions = async <T extends Pick<BackendDTO, "environmentVersions">>(dto: T, projectId: Schema.Types.ObjectId, code = "BACKEND_INVALID"): Promise<T> => {
+    if (dto.environmentVersions === undefined) return dto
+    if (dto.environmentVersions !== null && !Array.isArray(dto.environmentVersions)) {
+        throw createBusinessException({ code, message: "environmentVersions must be a list of { environmentId, version }" })
+    }
+    const entries = (dto.environmentVersions ?? [])
+        .map(entry => {
+            const version = entry?.version
+            if (version != null && (typeof version !== "string" || (version.trim() && !BACKEND_VERSION.test(version.trim())))) {
+                throw createBusinessException({
+                    code: "BACKEND_VERSION_INVALID",
+                    message: `The version of environment ${entry.environmentId} may hold only letters, digits, dots, dashes and underscores (at most 128)`
+                })
+            }
+            return { environmentId: String(entry?.environmentId ?? ""), version: version?.trim() ?? "" }
+        })
+        .filter(entry => entry.version)
+    const ids = entries.map(entry => entry.environmentId)
+    const twice = ids.find((id, index) => ids.indexOf(id) !== index)
+    if (twice) throw createBusinessException({ code, message: `Environment ${twice} is listed twice in environmentVersions` })
+    if (ids.length > 0) {
+        const known = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
+        const unknown = ids.find(id => !known.has(id))
+        if (unknown) throw createBusinessException({ code, message: `${unknown} is not an environment of this project` })
+    }
+    return { ...dto, environmentVersions: entries }
+}
+
+/**
  * The maps `dto` attaches, checked: a caller that leaves them out (an MCP update of the name, say)
  * changes none of them and costs no query. A DOCKER frontend goes through it too, since it has the
  * same container fields, but without `resources`: only a backend attaches resources. The CPU and memory
- * set apart per environment are normalized here too, as every one of them has them.
+ * set apart per environment, and the versions, are normalized here too, as every one of them has them.
  */
-export const withNormalizedReferences = async <T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds" | "environmentResources">>(
+export const withNormalizedReferences = async <T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds" | "environmentResources" | "environmentVersions">>(
     dto: T,
     projectId: Schema.Types.ObjectId,
     existing?: Partial<Pick<IBackend, "name" | "configMapIds" | "secretIds" | "resourceIds">>,
     options: { resources?: boolean } = {}
 ): Promise<T> => {
     ensurePlainFields(dto)
-    const normalized = await withNormalizedEnvironmentResources(dto, projectId)
+    const normalized = await withNormalizedEnvironmentVersions(await withNormalizedEnvironmentResources(dto, projectId), projectId)
     // Only the name and the attached ids of what is stored are read
     return resolveAttachedMaps(normalized, projectId, existing as IBackend | undefined, options)
 }

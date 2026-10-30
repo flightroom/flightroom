@@ -9,12 +9,26 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { exposedOrigin } from "./backendVariables"
 import { EnvironmentResourcesValue, RESOURCE_LABELS, ResourceValue } from "./ContainerResourceFields"
 import { RESOURCE_FIELDS } from "./containerResources"
+import { EnvironmentVersionsValue } from "./EnvironmentVersionFields"
 
 /** What a container declares: a backend, or a frontend served by its own container */
 export type ContainerConfiguration = Partial<
     Pick<
         Backend,
-        "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "image" | "env" | "cpuRequest" | "cpuLimit" | "memoryRequest" | "memoryLimit" | "environmentResources"
+        | "port"
+        | "livenessPath"
+        | "readinessPath"
+        | "docsPath"
+        | "openApiPath"
+        | "exposurePath"
+        | "image"
+        | "env"
+        | "cpuRequest"
+        | "cpuLimit"
+        | "memoryRequest"
+        | "memoryLimit"
+        | "environmentResources"
+        | "environmentVersions"
     >
 >
 
@@ -136,6 +150,9 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
                     ))}
                     <DescriptionItem label={t("backends.compute.by_environment.title")}>
                         <EnvironmentResourcesValue entries={backend.environmentResources} environments={environments} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.version_by_environment.title")}>
+                        <EnvironmentVersionsValue entries={backend.environmentVersions} environments={environments} />
                     </DescriptionItem>
                 </DescriptionList>
                 <BackendUrls backend={backend} environments={environments} />

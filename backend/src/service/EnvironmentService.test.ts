@@ -108,13 +108,13 @@ describe("EnvironmentService cascade on delete", () => {
         expect(scoped("DeploymentToCanaryUsers")).toEqual({ deploymentId: { $in: deploymentIds } })
     })
 
-    it("given an environment is deleted, then the backends, frontends and maintenance agents lose the CPU and memory they set apart for it", async () => {
+    it("given an environment is deleted, then the backends, frontends and maintenance agents lose the CPU, the memory and the version they set apart for it", async () => {
         await backend().deleteSingle(environmentId)
 
         expect(pulls.map(pull => pull.model)).toEqual(["Backend", "Frontend", "MaintenanceAgent"])
         for (const pull of pulls) {
-            expect(pull.filter).toEqual({ "environmentResources.environmentId": { $in: [environmentId] } })
-            expect(pull.update).toEqual({ $pull: { environmentResources: { environmentId: { $in: [environmentId] } } } })
+            expect(pull.filter).toEqual({ $or: [{ "environmentResources.environmentId": { $in: [environmentId] } }, { "environmentVersions.environmentId": { $in: [environmentId] } }] })
+            expect(pull.update).toEqual({ $pull: { environmentResources: { environmentId: { $in: [environmentId] } }, environmentVersions: { environmentId: { $in: [environmentId] } } } })
         }
     })
 

@@ -1,15 +1,16 @@
 import { ClientSession, Schema } from "mongoose"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { EnvironmentNotFoundError } from "../errors/EnvironmentNotFoundError"
-import Backend from "../models/BackendModel"
+import Backend, { IBackend } from "../models/BackendModel"
 import Deployment, { IDeployedBackend, IDeployedVariableMap, IDeployment } from "../models/DeploymentModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend, { IFrontend } from "../models/FrontendModel"
+import Frontend, { FrontendKind, IFrontend } from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import Resource from "../models/ResourceModel"
 import Storage from "../models/StorageModel"
 import { ConfigMap, IVariableMap, Secret } from "../models/VariableMapModel"
+import { versionIn } from "../types/EnvironmentVersions"
 import { resourceEnvironmentValues } from "../types/ResourceCatalog"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -171,11 +172,16 @@ class DeploymentService extends BaseAuthorizedService {
 
         const scope = await this.deployScope(environment.projectId, domainId, session)
         const inScope = { projectId: environment.projectId, ...(scope && { domainId: { $in: scope.map(id => toObjectId(id)) } }) }
-        const frontend = await Frontend.find(inScope).session(session || null)
+        // A container is recorded at the version its environment runs apart, the one GitOps writes there
+        const frontend = (await Frontend.find(inScope).session(session || null)).map(item =>
+            item.kind === FrontendKind.DOCKER ? { ...item.toObject(), version: versionIn(item, environment._id) ?? item.version } : item
+        )
         // With GitOps on, the deploy commits the values of these backends at this version
-        const backend: IDeployedBackend[] = await Backend.find(inScope, { slug: 1, name: 1, domainId: 1, version: 1, image: 1, exposurePath: 1 })
-            .session(session || null)
-            .lean<IDeployedBackend[]>()
+        const backend: IDeployedBackend[] = (
+            await Backend.find(inScope, { slug: 1, name: 1, domainId: 1, version: 1, environmentVersions: 1, image: 1, exposurePath: 1 })
+                .session(session || null)
+                .lean<(IDeployedBackend & Pick<IBackend, "environmentVersions">)[]>()
+        ).map(({ environmentVersions, ...item }) => ({ ...item, version: versionIn({ version: item.version, environmentVersions }, environment._id) }))
         let variables: unknown[] = await GlobalVariable.find({ environmentId: environmentIdObj }).session(session || null)
         // Plain objects, not the documents themselves: the snapshot re-encrypts the credentials it
         // copies, and doing that through a live Storage document would encrypt the one the caller is

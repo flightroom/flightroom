@@ -1,8 +1,9 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
+import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { DEFAULT_RUN_PATH, MaintenanceAgentKind } from "../types/MaintenanceAgent"
 import { IBackendStack } from "./BackendModel"
-import { backendEnvVariableSchema, CONTAINER_DEFAULTS, environmentResourcesField, IBackendEnvVariable, probePath, resourceFields } from "./ContainerFields"
+import { backendEnvVariableSchema, CONTAINER_DEFAULTS, environmentResourcesField, environmentVersionsField, IBackendEnvVariable, probePath, resourceFields } from "./ContainerFields"
 import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
@@ -30,7 +31,7 @@ export interface IMaintenanceAgentRuntimeToken {
  * serving requests. Its slug names its values file in the GitOps repository, next to those of the backends and
  * the frontends: no two of them share one.
  */
-export interface IMaintenanceAgent extends Document<ObjectId>, ContainerResourcesByEnvironment {
+export interface IMaintenanceAgent extends Document<ObjectId>, ContainerResourcesByEnvironment, VersionByEnvironment {
     projectId: Schema.Types.ObjectId
     domainId?: Schema.Types.ObjectId | null
     slug: string
@@ -101,6 +102,7 @@ const maintenanceAgentSchema = new Schema<IMaintenanceAgent>(
         readinessPath: probePath(CONTAINER_DEFAULTS.readinessPath),
         ...resourceFields,
         environmentResources: environmentResourcesField,
+        environmentVersions: environmentVersionsField,
         env: { type: [backendEnvVariableSchema], default: [] },
         configMapIds: { type: [{ type: Schema.Types.ObjectId, ref: "ConfigMap" }], default: [] },
         secretIds: { type: [{ type: Schema.Types.ObjectId, ref: "Secret" }], default: [] },

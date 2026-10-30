@@ -32,6 +32,7 @@ import BackendVariableMapsFields from "../backends/partials/BackendVariableMapsF
 import { isBackendTemplate } from "../backends/partials/backendTemplates"
 import { BACKEND_HTTP_PATH, BACKEND_VERSION } from "../backends/partials/backendVariables"
 import { createResourceShape, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "../backends/partials/containerResources"
+import { createEnvironmentVersionsShape, environmentVersionFormValues } from "../backends/partials/environmentVersions"
 import DomainSelectField from "../domains/partials/DomainSelectField"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import MaintenanceAgentHeader from "./partials/MaintenanceAgentHeader"
@@ -73,6 +74,8 @@ const createFormSchema = (messages: FormMessages) =>
                 .trim()
                 .refine(value => value === "" || BACKEND_VERSION.test(value), messages.version)
                 .optional(),
+            // Blank: the version above
+            environmentVersions: createEnvironmentVersionsShape(messages.version),
             image: z.object({ repository: z.string().optional() }).optional(),
             // A container's only: a job has neither a port nor probes, so they are checked below
             port: z.string(),
@@ -137,7 +140,7 @@ const isFormTab = (value: string | null): value is FormTab => Boolean(value && (
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["template", "name", "slug", "description", "domainId", "context", "kind"],
     schedule: ["scheduleMode", "schedule", "timeZone", "backendIds", "frontendIds"],
-    runtime: ["port", "image", "version", "runPath", "livenessPath", "readinessPath", "cpuRequest", "cpuLimit", "memoryRequest", "memoryLimit", "environmentResources"],
+    runtime: ["port", "image", "version", "environmentVersions", "runPath", "livenessPath", "readinessPath", "cpuRequest", "cpuLimit", "memoryRequest", "memoryLimit", "environmentResources"],
     variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     repository: ["codeRepository"],
     danger: []
@@ -203,6 +206,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   description: agent.description ?? "",
                   context: agent.context ?? "",
                   version: agent.version ?? "",
+                  environmentVersions: environmentVersionFormValues(agent),
                   domainId: agent.domainId ?? "",
                   scheduleMode: scheduleModeOf(agent.schedule),
                   schedule: agent.schedule ?? "",
@@ -233,6 +237,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   schedule: SCHEDULE_PRESETS.daily,
                   timeZone: "",
                   version: "",
+                  environmentVersions: [],
                   port: "8080",
                   runPath: "/run",
                   livenessPath: "/health/live",

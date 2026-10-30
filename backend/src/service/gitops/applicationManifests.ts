@@ -1,5 +1,6 @@
 import { stringify } from "yaml"
 import { CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
+import { EnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 
 /**
@@ -19,6 +20,8 @@ export interface GitOpsApplication extends ContainerResourcesByEnvironment {
     slug: string
     /** The latest version the CI registered, or the one set by hand: the tag of the image */
     version?: string
+    /** The versions some environments run instead */
+    environmentVersions?: EnvironmentVersion[] | null
     image?: { repository?: string }
     port?: number
     /** The path it is exposed at on the host of every environment */
@@ -149,7 +152,7 @@ export interface ApplicationGateway {
  * name: the configuration repository holds them, as manifests in the namespace of the environment. A
  * resource is a Secret, so it goes with the secrets, after them: the chart needs no change for it. With a Gateway in
  * the environment, an application with an exposure path gets a route on it. Its CPU and memory are those of the
- * environment where it sets some apart. Without an image repository of
+ * environment where it sets some apart, and so is its version. Without an image repository of
  * its own, the image is the one in the container registry of the project.
  */
 export const renderApplicationValues = (
@@ -169,7 +172,8 @@ export const renderApplicationValues = (
             : undefined
     const values = {
         replicas: 1,
-        image: { ...splitImage(repository), tag: application.version },
+        // The version the environment runs apart, else the application's
+        image: { ...splitImage(repository), tag: versionIn(application, environment._id) },
         containerPort: application.port ?? 8080,
         // What the environment sets apart, else what the application sets
         ...resourceValues(resourcesIn(application, environment._id)),

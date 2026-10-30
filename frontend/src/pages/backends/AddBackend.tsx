@@ -37,6 +37,7 @@ import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
 import { type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
+import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
 
 /** Same rule as the backend (BACKEND_SLUG): the slug names the workspace folder and the CI registration URL */
 const BACKEND_SLUG = /^[a-z0-9][a-z0-9-]{1,49}$/
@@ -76,6 +77,8 @@ const createFormSchema = (messages: FormMessages) =>
                 .trim()
                 .refine(value => value === "" || BACKEND_VERSION.test(value), messages.version)
                 .optional(),
+            // Blank: the version above
+            environmentVersions: createEnvironmentVersionsShape(messages.version),
             ...createBackendRuntimeShape(messages),
             // Here and not in the runtime shape, which frontends share: a frontend never attaches a resource
             resourceIds: z.array(z.string()),
@@ -109,7 +112,7 @@ type FormTab = (typeof FORM_TABS)[number] | "danger"
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["template", "name", "slug", "version", "description", "domainId", "codeRepository"],
+    general: ["template", "name", "slug", "version", "environmentVersions", "description", "domainId", "codeRepository"],
     context: ["context"],
     runtime: [
         "port",
@@ -199,6 +202,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
             ? {
                   ...backend,
                   version: backend.version ?? "",
+                  environmentVersions: environmentVersionFormValues(backend),
                   domainId: backend.domainId ?? "",
                   port: String(backend.port),
                   docsPath: backend.docsPath ?? "",
@@ -220,6 +224,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   context: "",
                   template: initialTemplate,
                   version: "",
+                  environmentVersions: [],
                   port: "8080",
                   livenessPath: "/health/live",
                   readinessPath: "/health/ready",

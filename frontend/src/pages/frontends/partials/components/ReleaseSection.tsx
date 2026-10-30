@@ -3,6 +3,7 @@ import { useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 import { CanaryDeploymentType, CanaryType } from "@/hooks/apiClients/useFrontendsApi"
+import EnvironmentVersionFields from "@/pages/backends/partials/EnvironmentVersionFields"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_DESCRIPTION_KEYS, CANARY_TYPE_LABEL_KEYS } from "../labels"
 
 const WATCHED_FIELDS = ["canary.enabled", "canary.deploymentType", "canary.type", "version"] as const
@@ -75,6 +76,7 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
                         <TextField name="version" label={t("frontend.version")} placeholder={t("frontend.version_placeholder")} required containerClassName="flex-[1_1_240px]" />
                     )}
                 </div>
+                {isDocker && <EnvironmentVersionFields className="border-t border-border pt-4" />}
 
                 {!isDocker && (
                     <div className="border-t border-border pt-4">

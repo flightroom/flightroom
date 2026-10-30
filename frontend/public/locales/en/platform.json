@@ -2494,6 +2494,13 @@
         "version": "Version",
         "version_hint": "The tag of the image deployed. Set it here, or the pipeline sets it when it registers a newer image.",
         "version_invalid": "Letters, digits, dots, dashes and underscores only, at most 128",
+        "version_by_environment": {
+            "title": "Version per environment",
+            "description": "A different version in some environments, e.g. production held on an older one while the others take the latest. Left empty, the environment runs the version above, shown as placeholder. The next deploy of the environment writes it.",
+            "add": "Add {{environment}}",
+            "none": "The same in every environment",
+            "no_version": "No version yet"
+        },
         "urls": {
             "title": "Endpoint",
             "description": "Whether it is reachable from outside, and at which path: the same on the host of every environment. The docs and OpenAPI paths are relative to it.",

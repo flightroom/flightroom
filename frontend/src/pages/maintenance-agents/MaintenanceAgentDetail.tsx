@@ -18,6 +18,7 @@ import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import { EnvironmentResourcesValue, RESOURCE_LABELS, ResourceValue } from "@/pages/backends/partials/ContainerResourceFields"
 import { RESOURCE_FIELDS } from "@/pages/backends/partials/containerResources"
+import { EnvironmentVersionsValue } from "@/pages/backends/partials/EnvironmentVersionFields"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
@@ -86,6 +87,9 @@ const ConfigurationSection: React.FC<{ agent: MaintenanceAgent; environments: En
                     ))}
                     <DescriptionItem label={t("backends.compute.by_environment.title")}>
                         <EnvironmentResourcesValue entries={agent.environmentResources} environments={environments} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.version_by_environment.title")}>
+                        <EnvironmentVersionsValue entries={agent.environmentVersions} environments={environments} />
                     </DescriptionItem>
                 </DescriptionList>
                 <div>
