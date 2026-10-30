@@ -831,3 +831,60 @@ describe("AzureDevOpsClient.pushFileEdit", () => {
         await expect(new AzureDevOpsClient().pushFileEdit("pat", "org", "project-id", "repo-id", edit)).rejects.toBe(failure)
     })
 })
+
+describe("AzureDevOpsClient sign-in page", () => {
+    /** How Azure DevOps answers a token it does not take: 203 and the HTML of its sign-in page, not 401 */
+    const signInPage = (status = 203) => ({ status, statusText: "Non-Authoritative Information", headers: { "content-type": "text/html; charset=utf-8" }, data: "<html>Sign in</html>" })
+
+    /** The 401 a refused token gets, so that the callers handle the sign-in page as one */
+    const refusedToken = { isAxiosError: true, response: { status: 401 } }
+
+    it("given Azure answers its sign-in page, when a tag is created, then the token is refused rather than the tag taken as created", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue(signInPage())
+
+        await expect(new AzureDevOpsClient().createTag("pat", "org", "project", "repo", "1.2.0", "abc")).rejects.toMatchObject(refusedToken)
+    })
+
+    it("given Azure answers its sign-in page, when a file is read, then the token is refused rather than the file taken as missing", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue(signInPage())
+
+        await expect(new AzureDevOpsClient().getFileContent("pat", "org", "project-id", "repo-id", "src/index.ts", "main")).rejects.toMatchObject(refusedToken)
+    })
+
+    it("given Azure answers its sign-in page, when a secret is checked, then it is refused like a 401 of the variable groups", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue(signInPage())
+
+        await expect(new AzureDevOpsClient().checkOrganizationSecretExists(params)).rejects.toMatchObject({ code: AZURE_DEVOPS_VARIABLE_GROUPS_UNAUTHORIZED })
+    })
+
+    it("given Azure answers its sign-in page, when a file is pushed, then the token is refused rather than the push taken as done", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue(signInPage())
+
+        const edit = { branchName: "main", baseCommitId: "base", filePath: "a.txt", content: "a", comment: "c" }
+        await expect(new AzureDevOpsClient().pushFileEdit("pat", "org", "project-id", "repo-id", edit)).rejects.toMatchObject(refusedToken)
+    })
+
+    it("given Azure answers 200 with an HTML page where JSON was asked for, when the repositories are listed, then the token is refused", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue(signInPage(200))
+
+        await expect(new AzureDevOpsClient().getRepositories("pat", "org", "project")).rejects.toMatchObject(refusedToken)
+    })
+
+    it("given Azure answers its sign-in page, when the token is refused, then the HTML is not passed on as the reason", async () => {
+        vi.spyOn(axios, "request").mockResolvedValue(signInPage())
+
+        const error = await new AzureDevOpsClient().getRepositories("pat", "org", "project").catch(failure => failure)
+
+        expect(error).toBeInstanceOf(AxiosError)
+        expect(JSON.stringify(error.response.data)).not.toContain("<html>")
+    })
+
+    it("given a log Azure answers as plain text, when the logs are read, then it comes back", async () => {
+        vi.spyOn(axios, "request")
+            .mockResolvedValueOnce({ status: 200, headers: { "content-type": "application/json" }, data: { repository: { id: "orders-repository" } } })
+            .mockResolvedValueOnce({ status: 200, headers: { "content-type": "application/json" }, data: { records: [{ name: "Build", type: "Task", result: "failed", log: { id: 7 } }] } })
+            .mockResolvedValueOnce({ status: 200, headers: { "content-type": "text/plain; charset=utf-8" }, data: "error TS2322" })
+
+        await expect(new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")).resolves.toEqual([{ name: "Build", log: "error TS2322" }])
+    })
+})

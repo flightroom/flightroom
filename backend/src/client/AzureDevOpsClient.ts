@@ -1,4 +1,4 @@
-import axios, { AxiosRequestConfig } from "axios"
+import axios, { AxiosError, AxiosRequestConfig, AxiosResponse } from "axios"
 import { createBusinessException } from "../errors/BusinessException"
 import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../types/BuildStatusDTO"
 
@@ -224,9 +224,26 @@ export interface AzureDevOpsBuildsResponse {
 }
 
 class AzureDevOpsClient {
+    /**
+     * Every request of the client. Azure DevOps answers a token it does not take, expired or short of a scope,
+     * with 203 and the HTML of its sign-in page rather than with 401, and axios takes any 2xx for a success:
+     * a 203, or an HTML page where an API answer was expected, is turned into the 401 a refused token gets,
+     * so that the callers handle both alike. A plain-text answer, such as a log, is not HTML and passes.
+     */
+    private async request<T = unknown>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
+        const response = await axios.request<T>(config)
+        const contentType = String(response.headers?.["content-type"] ?? "")
+        if (response.status === 203 || contentType.includes("text/html")) {
+            const message = "Azure DevOps answered with its sign-in page: the token is invalid, expired or lacks a scope"
+            // The sign-in page is left out: callers pass the data of the answer on as the reason
+            throw new AxiosError(message, AxiosError.ERR_BAD_RESPONSE, response.config, response.request, { ...response, status: 401, statusText: "Unauthorized", data: { message } })
+        }
+        return response
+    }
+
     // Ottieni l'ID utente dal profilo
     async getUserId(token: string) {
-        const response = await axios.request({
+        const response = await this.request<{ id: string }>({
             url: "https://app.vssps.visualstudio.com/_apis/profile/profiles/me?api-version=7.1-preview.3",
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -241,7 +258,7 @@ class AzureDevOpsClient {
         const userId = await this.getUserId(token)
         const url = `https://app.vssps.visualstudio.com/_apis/accounts?memberId=${userId}&api-version=7.1-preview.1`
 
-        const response = await axios.request({
+        const response = await this.request<{ value: AzureOrganization[] }>({
             url,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -253,7 +270,7 @@ class AzureDevOpsClient {
 
     async getProjects(token: string, organization: string): Promise<AzureDevOpsProjectsResponse> {
         const url = `https://dev.azure.com/${organization}/_apis/projects?api-version=7.1-preview.4`
-        const response = await axios.request<AzureDevOpsProjectsResponse>({
+        const response = await this.request<AzureDevOpsProjectsResponse>({
             url,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -265,7 +282,7 @@ class AzureDevOpsClient {
 
     async getRepositories(token: string, organization: string, project: string): Promise<GetRepositoryDTO> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories?api-version=7.1-preview.1`
-        const response = await axios.request({
+        const response = await this.request<GetRepositoryDTO>({
             url,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -284,7 +301,7 @@ class AzureDevOpsClient {
             }
         }
 
-        const response = await axios.request<RepositoryData>({
+        const response = await this.request<RepositoryData>({
             method: "POST",
             url,
             headers: {
@@ -299,7 +316,7 @@ class AzureDevOpsClient {
 
     async getRepository(token: string, organization: string, project: string, repositoryName: string) {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryName}?api-version=7.1-preview.1`
-        const response = await axios.request({
+        const response = await this.request<RepositoryData>({
             url,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -312,7 +329,7 @@ class AzureDevOpsClient {
 
     async renameRepository(token: string, organization: string, project: string, repositoryId: string, newName: string): Promise<RepositoryData> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}?api-version=7.1-preview.1`
-        const response = await axios.request<RepositoryData>({
+        const response = await this.request<RepositoryData>({
             method: "PATCH",
             url,
             headers: {
@@ -327,7 +344,7 @@ class AzureDevOpsClient {
 
     async getBranches(token: string, organization: string, project: string, repositoryName: string): Promise<AzureDevOpsBranchDTO> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryName}/refs?filter=heads/&api-version=7.1-preview.1`
-        const response = await axios.request<AzureDevOpsBranchDTO>({
+        const response = await this.request<AzureDevOpsBranchDTO>({
             url,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -346,7 +363,7 @@ class AzureDevOpsClient {
      */
     async getBuilds(token: string, organization: string, project: string, repositoryId: string, top: number): Promise<AzureDevOpsBuild[]> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/build/builds?repositoryId=${encodeURIComponent(repositoryId)}&repositoryType=TfsGit&queryOrder=queueTimeDescending&$top=${top}&api-version=7.1`
-        const response = await axios.request<AzureDevOpsBuildsResponse>({
+        const response = await this.request<AzureDevOpsBuildsResponse>({
             url,
             headers: {
                 Authorization: `Bearer ${token}`,
@@ -368,12 +385,12 @@ class AzureDevOpsClient {
         const headers = { Authorization: `Bearer ${token}` }
         const baseUrl = `https://dev.azure.com/${organization}/${project}/_apis/build/builds/${encodeURIComponent(buildId)}`
 
-        const build = await axios.request<{ repository?: { id?: string } }>({ url: `${baseUrl}?api-version=7.1`, headers })
+        const build = await this.request<{ repository?: { id?: string } }>({ url: `${baseUrl}?api-version=7.1`, headers })
         if (build.data?.repository?.id !== repositoryId) {
             throw new Error(`Build ${buildId} is not a build of this repository`)
         }
 
-        const timeline = await axios.request<{ records?: { name: string; type: string; result?: string; log?: { id: number } }[] }>({
+        const timeline = await this.request<{ records?: { name: string; type: string; result?: string; log?: { id: number } }[] }>({
             url: `${baseUrl}/timeline?api-version=7.1`,
             headers
         })
@@ -381,7 +398,7 @@ class AzureDevOpsClient {
 
         return Promise.all(
             failedRecords.map(async record => {
-                const log = await axios.request<string>({
+                const log = await this.request<string>({
                     url: `${baseUrl}/logs/${record.log?.id}?api-version=7.1`,
                     headers: { ...headers, Accept: "text/plain" },
                     responseType: "text",
@@ -393,7 +410,7 @@ class AzureDevOpsClient {
     }
 
     async getBranchCommitId(token: string, organization: string, project: string, repositoryName: string, branchName: string): Promise<string> {
-        const response = await axios.request<AzureDevOpsBranchDTO>({
+        const response = await this.request<AzureDevOpsBranchDTO>({
             url: `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryName}/refs`,
             params: { filter: `heads/${branchName}`, "api-version": "7.1-preview.1" },
             headers: {
@@ -435,7 +452,7 @@ class AzureDevOpsClient {
             }
         }
 
-        const response = await axios.request<AzureDevOpsPipeline>({
+        const response = await this.request<AzureDevOpsPipeline>({
             method: "POST",
             url,
             headers: {
@@ -458,7 +475,7 @@ class AzureDevOpsClient {
         const variableGroup = groups.value.find(g => g.name === variableGroupName)
         if (!variableGroup) return false
 
-        await axios.request({
+        await this.request({
             method: "PATCH",
             url: `https://dev.azure.com/${organization}/${projectId}/_apis/pipelines/pipelinePermissions/variablegroup/${variableGroup.id}?api-version=7.1-preview.1`,
             headers: {
@@ -491,7 +508,7 @@ class AzureDevOpsClient {
      */
     private async variableGroupsRequest<T>(config: AxiosRequestConfig) {
         try {
-            return await axios.request<T>(config)
+            return await this.request<T>(config)
         } catch (error) {
             if (axios.isAxiosError(error) && (error.response?.status === 401 || error.response?.status === 403)) {
                 throw createBusinessException({
@@ -607,7 +624,7 @@ class AzureDevOpsClient {
 
     /** Whether the repository has the tag. The filter matches every ref that starts with it: only the exact name counts */
     async tagExists(token: string, organization: string, project: string, repositoryId: string, tagName: string): Promise<boolean> {
-        const response = await axios.request<AzureDevOpsBranchDTO>({
+        const response = await this.request<AzureDevOpsBranchDTO>({
             url: `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/refs`,
             params: { filter: `tags/${tagName}`, "api-version": "7.1-preview.1" },
             headers: {
@@ -620,7 +637,7 @@ class AzureDevOpsClient {
 
     /** The commit the tag points to, undefined without the tag: an annotated tag is peeled to its commit */
     async getTagCommitId(token: string, organization: string, project: string, repositoryId: string, tagName: string): Promise<string | undefined> {
-        const response = await axios.request<{ value?: { name: string; objectId: string; peeledObjectId?: string }[] }>({
+        const response = await this.request<{ value?: { name: string; objectId: string; peeledObjectId?: string }[] }>({
             url: `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/refs`,
             params: { filter: `tags/${tagName}`, peelTags: true, "api-version": "7.1-preview.1" },
             headers: {
@@ -636,7 +653,7 @@ class AzureDevOpsClient {
     async createTag(token: string, organization: string, project: string, repositoryId: string, tagName: string, objectId: string): Promise<void> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/refs?api-version=7.1-preview.1`
 
-        const response = await axios.request<{ value?: AzureDevOpsRefUpdateResult[] }>({
+        const response = await this.request<{ value?: AzureDevOpsRefUpdateResult[] }>({
             method: "POST",
             url,
             headers: {
@@ -668,7 +685,7 @@ class AzureDevOpsClient {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/items?api-version=7.1-preview.1`
 
         try {
-            const response = await axios.request<AzureDevOpsItem>({
+            const response = await this.request<AzureDevOpsItem>({
                 url,
                 params: {
                     path: filePath.startsWith("/") ? filePath : `/${filePath}`,
@@ -700,7 +717,7 @@ class AzureDevOpsClient {
         repositoryId: string,
         request: { sourceBranch: string; targetBranch: string; title: string; description: string }
     ): Promise<string> {
-        const response = await axios.request<{ pullRequestId: number; repository: { name: string; project: { name: string } } }>({
+        const response = await this.request<{ pullRequestId: number; repository: { name: string; project: { name: string } } }>({
             method: "POST",
             url: `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/pullrequests?api-version=7.1`,
             headers: {
@@ -727,7 +744,7 @@ class AzureDevOpsClient {
     async pushFileEdit(token: string, organization: string, project: string, repositoryId: string, request: AzurePushFileEditRequest): Promise<void> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/pushes?api-version=7.1-preview.2`
 
-        await axios.request({
+        await this.request({
             method: "POST",
             url,
             headers: {
