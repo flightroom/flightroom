@@ -150,8 +150,8 @@ beforeEach(() => {
     })
     vi.spyOn(ArgoCdClient.prototype, "listApplications").mockImplementation(async () => applications)
     vi.spyOn(ArgoCdClient.prototype, "listApplicationSets").mockImplementation(async () => applicationSets)
-    vi.spyOn(ArgoCdClient.prototype, "deleteApplication").mockImplementation(async name => {
-        calls.push(`argo:deleteApplication:${name}`)
+    vi.spyOn(ArgoCdClient.prototype, "deleteApplication").mockImplementation(async (name, project) => {
+        calls.push(`argo:deleteApplication:${name}:${project}`)
     })
     vi.spyOn(ArgoCdClient.prototype, "deleteApplicationSet").mockImplementation(async name => {
         calls.push(`argo:deleteApplicationSet:${name}`)
@@ -423,8 +423,8 @@ describe("ArgoCdService.initialize", () => {
         await initialize()
 
         expect(calls.filter(call => call.startsWith("argo:deleteApplication:"))).toEqual([
-            `argo:deleteApplication:${environmentName("development")}.config`,
-            `argo:deleteApplication:${environmentName("staging")}.config`
+            `argo:deleteApplication:${environmentName("development")}.config:${PROJECT_NAME}`,
+            `argo:deleteApplication:${environmentName("staging")}.config:${PROJECT_NAME}`
         ])
         expect(ArgoCdClient.prototype.listApplications).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},flightroom/component=configuration`, PROJECT_NAME)
     })
@@ -439,7 +439,7 @@ describe("ArgoCdService.initialize", () => {
 
         await expect(initialize()).resolves.toBeDefined()
 
-        expect(remove).toHaveBeenCalledWith(`/applications/${encodeURIComponent(`${environmentName("staging")}.config`)}`, { params: { cascade: false } })
+        expect(remove).toHaveBeenCalledWith(`/applications/${encodeURIComponent(`${environmentName("staging")}.config`)}`, { params: { cascade: false, project: PROJECT_NAME } })
         expect(remove).toHaveBeenCalledWith(`/applicationsets/${encodeURIComponent(applicationSetNameOf("deleted"))}`)
     })
 

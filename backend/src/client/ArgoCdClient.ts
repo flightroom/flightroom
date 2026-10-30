@@ -218,9 +218,12 @@ class ArgoCdClient {
         await this.find(`refresh the Application ${name}`, () => this.api.get<ArgoCdResource>(`/applications/${encodeURIComponent(name)}`, { params: { project, refresh: "normal" } }))
     }
 
-    /** Without cascade: what the application deployed stays in the cluster. One already gone is not an error */
-    async deleteApplication(name: string): Promise<void> {
-        await this.find(`delete the Application ${name}`, () => this.api.delete(`/applications/${encodeURIComponent(name)}`, { params: { cascade: false } }))
+    /**
+     * Without cascade: what the application deployed stays in the cluster. One already gone is not an error: asked in
+     * its AppProject, as without one Argo CD answers 403 and not 404 for an Application that is not there
+     */
+    async deleteApplication(name: string, project: string): Promise<void> {
+        await this.find(`delete the Application ${name}`, () => this.api.delete(`/applications/${encodeURIComponent(name)}`, { params: { cascade: false, project } }))
     }
 
     async upsertApplicationSet(applicationSet: ArgoCdResource): Promise<void> {
