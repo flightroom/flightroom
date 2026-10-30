@@ -62,6 +62,7 @@ export const PipelineTemplatesDialog: React.FC<PipelineTemplatesDialogProps> = (
     const pipelineFile = connection ? PIPELINE_FILES[connection.provider] : ""
 
     // Ogni apertura riparte da quanto salvato sulla connessione
+    // biome-ignore lint/correctness/useExhaustiveDependencies: l'id segna ogni apertura, anche tra due connessioni senza pipeline, dove pipelines resta undefined
     useEffect(() => {
         setEnabled(Boolean(pipelines))
         setRepositoryId(pipelines?.codeRepository.repositoryId)
