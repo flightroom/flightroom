@@ -123,7 +123,12 @@
         "create_account": "Crea Account",
         "or_continue_with": "Oppure continua con",
         "recover": "Recuperala",
-        "microsoft_login_failed": "Accesso con Microsoft non riuscito. Riprova."
+        "microsoft_login_failed": "Accesso con Microsoft non riuscito. Riprova.",
+        "provider_load_error": {
+            "title": "Impossibile caricare l'accesso con {{provider}}",
+            "description": "Controlla la connessione e ricarica la pagina.",
+            "reload": "Ricarica la pagina"
+        }
     },
     "project": {
         "first_project": {

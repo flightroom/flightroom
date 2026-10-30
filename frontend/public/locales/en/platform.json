@@ -123,7 +123,12 @@
         "create_account": "Create Account",
         "or_continue_with": "Or continue with",
         "recover": "Recover it",
-        "microsoft_login_failed": "Microsoft sign-in failed. Please try again."
+        "microsoft_login_failed": "Microsoft sign-in failed. Please try again.",
+        "provider_load_error": {
+            "title": "{{provider}} sign-in could not be loaded",
+            "description": "Check your connection and reload the page.",
+            "reload": "Reload page"
+        }
     },
     "project": {
         "first_project": {

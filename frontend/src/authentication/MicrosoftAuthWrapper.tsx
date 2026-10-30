@@ -3,6 +3,7 @@ import { MsalProvider } from "@azure/msal-react"
 import React, { useEffect, useState } from "react"
 import { useGlobalParameters } from "@/contexts/GlobalParameterProvider"
 import { AzureProviderConfig } from "@/types/ConfigResponseDTO"
+import AuthProviderLoadError from "./components/AuthProviderLoadError"
 
 interface MicrosoftAuthWrapperProps {
     children: React.ReactNode
@@ -13,6 +14,7 @@ const MicrosoftAuthWrapper: React.FC<MicrosoftAuthWrapperProps> = ({ children })
     const azureParameters = parameters.getParameter("providers.azure") as unknown as AzureProviderConfig
     const [msalInstance, setMsalInstance] = useState<PublicClientApplication | null>(null)
     const [isInitialized, setIsInitialized] = useState(false)
+    const [loadFailed, setLoadFailed] = useState(false)
 
     useEffect(() => {
         if (!azureParameters?.clientId || !azureParameters?.tenantId) {
@@ -62,6 +64,7 @@ const MicrosoftAuthWrapper: React.FC<MicrosoftAuthWrapperProps> = ({ children })
 
         createInstance().catch(error => {
             console.error("MSAL could not be loaded:", error)
+            if (!cancelled) setLoadFailed(true)
         })
 
         // Cleanup
@@ -75,6 +78,10 @@ const MicrosoftAuthWrapper: React.FC<MicrosoftAuthWrapperProps> = ({ children })
 
     if (!azureParameters?.clientId || !azureParameters?.tenantId) {
         return <>{children}</>
+    }
+
+    if (loadFailed) {
+        return <AuthProviderLoadError provider="Microsoft" />
     }
 
     if (!msalInstance || !isInitialized) {
