@@ -2,7 +2,7 @@ import axios, { AxiosError, AxiosHeaders } from "axios"
 import sodium from "libsodium-wrappers"
 import { afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import { MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../types/BuildStatusDTO"
-import GithubClient from "./GithubClient"
+import GithubClient, { MAX_FILE_CONTENT_BYTES } from "./GithubClient"
 
 const answered = (status: number, headers: Record<string, string> = {}) =>
     new AxiosError("Request failed", String(status), undefined, undefined, {
@@ -846,19 +846,27 @@ describe("GithubClient.getFileContent", () => {
     })
 
     /** Over 1 MB GitHub leaves the content out of the JSON answer: encoding "none" and an empty content */
-    it("given a file over 1 MB, when it is read, then its raw content is downloaded and the sha of the first answer comes back", async () => {
+    it("given a file over 1 MB, when it is read, then the raw blob of the sha of the first answer is downloaded, so content and sha cannot disagree", async () => {
         const request = stubRequest()
-            .mockResolvedValueOnce({ data: { type: "file", encoding: "none", content: "", sha: "big-sha" } })
+            .mockResolvedValueOnce({ data: { type: "file", encoding: "none", content: "", sha: "big-sha", size: 2 * 1024 * 1024 } })
             .mockResolvedValueOnce({ data: '{"name":"big"}' })
 
         await expect(new GithubClient().getFileContent({ ...file, ref: "main" })).resolves.toEqual({ content: '{"name":"big"}', sha: "big-sha" })
         expect(request).toHaveBeenCalledTimes(2)
         expect(sent(request, 1)).toEqual({
-            url: `${api}/repos/acme/cart-fe/contents/package.json`,
-            params: { ref: "main" },
+            url: `${api}/repos/acme/cart-fe/git/blobs/big-sha`,
             headers: { ...githubHeaders, Accept: "application/vnd.github.raw+json" },
-            responseType: "text"
+            responseType: "text",
+            maxContentLength: MAX_FILE_CONTENT_BYTES
         })
+    })
+
+    /** A file that exists must not read as missing: a write after a null would try to create it again */
+    it("given a file over the size cap, when it is read, then it is refused with an error naming the file, without downloading it", async () => {
+        const request = stubRequest().mockResolvedValueOnce({ data: { type: "file", encoding: "none", content: "", sha: "huge-sha", size: MAX_FILE_CONTENT_BYTES + 1 } })
+
+        await expect(new GithubClient().getFileContent(file)).rejects.toThrow(`package.json is larger than ${MAX_FILE_CONTENT_BYTES} bytes`)
+        expect(request).toHaveBeenCalledTimes(1)
     })
 
     it("given an answer without encoding, when the file is read, then the content is read as base64", async () => {

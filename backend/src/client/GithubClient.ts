@@ -6,6 +6,9 @@ import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../ty
 /** Safety net so a misbehaving pagination cursor cannot turn a repository or branch listing into an endless loop. */
 const maxRepositoryPages = 50
 
+/** Callers read manifests and config files: a file larger than this is refused rather than downloaded. */
+export const MAX_FILE_CONTENT_BYTES = 10 * 1024 * 1024
+
 export interface GithubAccessTokenResponse {
     access_token: string
     scope: string
@@ -271,6 +274,7 @@ interface GithubContentsResponse {
     type?: string
     encoding?: string
     content?: string
+    size?: number
     sha: string
 }
 
@@ -815,10 +819,19 @@ class GithubClient {
                 return null
             }
 
-            // Over 1 MB the JSON answer leaves the content out (encoding "none"): the raw media type still serves it.
-            // Returning null here would read as a missing file, and a write after it would try to create it again.
+            // Over 1 MB the JSON answer leaves the content out (encoding "none"): the blob of its sha still serves it raw,
+            // so the content cannot come from a newer commit than the sha. Neither case may return null: that reads as
+            // a missing file, and a write after it would try to create it again.
             if (response.data.encoding === "none") {
-                const raw = await axios.request<string>({ url, params, headers: { ...headers, Accept: "application/vnd.github.raw+json" }, responseType: "text" })
+                if ((response.data.size ?? 0) > MAX_FILE_CONTENT_BYTES) {
+                    throw new Error(`${path} is larger than ${MAX_FILE_CONTENT_BYTES} bytes`)
+                }
+                const raw = await axios.request<string>({
+                    url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/git/blobs/${response.data.sha}`,
+                    headers: { ...headers, Accept: "application/vnd.github.raw+json" },
+                    responseType: "text",
+                    maxContentLength: MAX_FILE_CONTENT_BYTES
+                })
                 return { content: raw.data, sha: response.data.sha }
             }
 
