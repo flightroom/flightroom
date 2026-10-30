@@ -12,7 +12,7 @@ export default async function serveController(fastify: FastifyInstance) {
             deploymentId: string
         }
     }>("/serve/code", async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getCodeIntegration(request.query))
+        return reply.send(await new ServeService(request).getCodeIntegration(request.query))
     })
 
     fastify.get<{
@@ -20,7 +20,7 @@ export default async function serveController(fastify: FastifyInstance) {
             environmentId: string
         }
     }>("/serve/all/:environmentId", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getAllByEnvironmentId(request.params.environmentId))
+        return reply.send(await new ServeService(request).getAllByEnvironmentId(request.params.environmentId))
     })
 
     // Registered before /serve/all/:projectId/:environmentSlug on purpose: `auto` is a static segment and
@@ -31,7 +31,7 @@ export default async function serveController(fastify: FastifyInstance) {
             projectId: string
         }
     }>("/serve/all/auto/:projectId", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getAllByProjectIdAndReferer(request.params.projectId, getReferer(request)))
+        return reply.send(await new ServeService(request).getAllByProjectIdAndReferer(request.params.projectId, getReferer(request)))
     })
 
     fastify.get<{
@@ -40,7 +40,7 @@ export default async function serveController(fastify: FastifyInstance) {
             environmentSlug: string
         }
     }>("/serve/all/:projectId/:environmentSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getAllByProjectIdAndEnvironmentSlug(request.params.projectId, request.params.environmentSlug))
+        return reply.send(await new ServeService(request).getAllByProjectIdAndEnvironmentSlug(request.params.projectId, request.params.environmentSlug))
     })
 
     fastify.get<{
@@ -48,7 +48,7 @@ export default async function serveController(fastify: FastifyInstance) {
             environmentId: string
         }
     }>("/serve/global-variables/:environmentId", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getGlobalVariablesByEnvironmentId(request.params.environmentId))
+        return reply.send(await new ServeService(request).getGlobalVariablesByEnvironmentId(request.params.environmentId))
     })
 
     fastify.get<{
@@ -57,7 +57,7 @@ export default async function serveController(fastify: FastifyInstance) {
         }
     }>("/serve/global-variables/:environmentId/index.js", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
         reply.header("Content-Type", "application/javascript")
-        return reply.send(await new ServeService(request, reply).getGlobalVariablesByEnvironmentIdFile(request.params.environmentId))
+        return reply.send(await new ServeService(request).getGlobalVariablesByEnvironmentIdFile(request.params.environmentId))
     })
 
     fastify.get<{
@@ -65,7 +65,7 @@ export default async function serveController(fastify: FastifyInstance) {
             projectId: string
         }
     }>("/serve/global-variables/auto/:projectId", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getGlobalVariablesByProjectIdAndReferer(request.params.projectId, getReferer(request)))
+        return reply.send(await new ServeService(request).getGlobalVariablesByProjectIdAndReferer(request.params.projectId, getReferer(request)))
     })
 
     fastify.get<{
@@ -74,7 +74,7 @@ export default async function serveController(fastify: FastifyInstance) {
         }
     }>("/serve/global-variables/auto/:projectId/index.js", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
         reply.header("Content-Type", "application/javascript")
-        return reply.send(await new ServeService(request, reply).getGlobalVariablesByProjectIdAndRefererFile(request.params.projectId, getReferer(request)))
+        return reply.send(await new ServeService(request).getGlobalVariablesByProjectIdAndRefererFile(request.params.projectId, getReferer(request)))
     })
 
     fastify.get<{
@@ -83,7 +83,7 @@ export default async function serveController(fastify: FastifyInstance) {
             environmentSlug: string
         }
     }>("/serve/global-variables/:projectId/:environmentSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getGlobalVariablesByProjectIdAndEnvironmentSlug(request.params.projectId, request.params.environmentSlug))
+        return reply.send(await new ServeService(request).getGlobalVariablesByProjectIdAndEnvironmentSlug(request.params.projectId, request.params.environmentSlug))
     })
 
     fastify.get<{
@@ -95,7 +95,7 @@ export default async function serveController(fastify: FastifyInstance) {
         if (!referer) {
             throw new Error("Referer not found")
         }
-        return reply.send(await new ServeService(request, reply).getFrontendConfigurationByFrontendId(request.params.mfeId, referer))
+        return reply.send(await new ServeService(request).getFrontendConfigurationByFrontendId(request.params.mfeId, referer))
     })
 
     fastify.get<{
@@ -104,7 +104,7 @@ export default async function serveController(fastify: FastifyInstance) {
             mfeSlug: string
         }
     }>("/serve/mfe/config/auto/:projectId/:mfeSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getFrontendConfigurationByProjectIdRefererAndMfeSlug(request.params.projectId, request.params.mfeSlug, getReferer(request)))
+        return reply.send(await new ServeService(request).getFrontendConfigurationByProjectIdRefererAndMfeSlug(request.params.projectId, request.params.mfeSlug, getReferer(request)))
     })
 
     fastify.get<{
@@ -115,7 +115,7 @@ export default async function serveController(fastify: FastifyInstance) {
         }
     }>("/serve/mfe/config/:projectId/:environmentSlug/:mfeSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
         return reply.send(
-            await new ServeService(request, reply).getFrontendConfigurationByProjectIdEnvironmentSlugAndMfeSlug(request.params.projectId, request.params.environmentSlug, request.params.mfeSlug)
+            await new ServeService(request).getFrontendConfigurationByProjectIdEnvironmentSlugAndMfeSlug(request.params.projectId, request.params.environmentSlug, request.params.mfeSlug)
         )
     })
 
@@ -125,7 +125,7 @@ export default async function serveController(fastify: FastifyInstance) {
             mfeSlug: string
         }
     }>("/serve/mfe/config/:environmentId/:mfeSlug", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
-        return reply.send(await new ServeService(request, reply).getFrontendConfigurationByEnvironmentIdAndMfeSlug(request.params.environmentId, request.params.mfeSlug))
+        return reply.send(await new ServeService(request).getFrontendConfigurationByEnvironmentIdAndMfeSlug(request.params.environmentId, request.params.mfeSlug))
     })
 
     fastify.get<{
@@ -191,7 +191,7 @@ export default async function serveController(fastify: FastifyInstance) {
     async function serveByEnvironmentSlug(request: FastifyRequest<{ Params: { projectId: string; environmentSlug: string; mfeSlug: string; version?: string; "*": string } }>, reply: FastifyReply) {
         const { projectId, environmentSlug, mfeSlug, version } = request.params
         const filePath = request.params["*"] || ""
-        const data = await new ServeService(request, reply).getByEnvironmentSlugAndProjectIdAndFrontendSlug(environmentSlug, projectId, mfeSlug, filePath, version)
+        const data = await new ServeService(request).getByEnvironmentSlugAndProjectIdAndFrontendSlug(environmentSlug, projectId, mfeSlug, filePath, version)
 
         if (isRedirectToVersion(data)) {
             addHeaders(data.headers, reply)
@@ -212,7 +212,7 @@ export default async function serveController(fastify: FastifyInstance) {
         }
         const { mfeId, version } = request.params
         const filePath = request.params["*"] || ""
-        const data = await new ServeService(request, reply).getFrontendFilesByFrontendId(mfeId, filePath, referer, version)
+        const data = await new ServeService(request).getFrontendFilesByFrontendId(mfeId, filePath, referer, version)
 
         if (isRedirectToVersion(data)) {
             addHeaders(data.headers, reply)
@@ -230,7 +230,7 @@ export default async function serveController(fastify: FastifyInstance) {
         const referer = getReferer(request)
         const { projectId, mfeSlug, version } = request.params
         const filePath = request.params["*"] || ""
-        const data = await new ServeService(request, reply).getFrontendFilesByProjectIdAndFrontendSlug(projectId, mfeSlug, filePath, referer, version)
+        const data = await new ServeService(request).getFrontendFilesByProjectIdAndFrontendSlug(projectId, mfeSlug, filePath, referer, version)
 
         if (isRedirectToVersion(data)) {
             addHeaders(data.headers, reply)
