@@ -1,12 +1,14 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, SwitchField as Switch } from "@flightroom/design-system"
 import { ExternalLink } from "lucide-react"
-import { useFormContext } from "react-hook-form"
+import { useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { exposedOrigin } from "./backendVariables"
+
+const WATCHED_FIELDS = ["exposed", "exposurePath"] as const
 
 interface BackendEndpointFieldsProps {
     environments: EnvironmentDTO[]
@@ -16,10 +18,11 @@ interface BackendEndpointFieldsProps {
 /** Whether a container is exposed, and at which path: the same on the host of every environment, previewed per environment. */
 export const BackendEndpointFields: React.FC<BackendEndpointFieldsProps> = ({ environments, placeholder = "/api/orders" }) => {
     const { t } = useTranslation()
-    const { watch } = useFormContext()
     const exposure = useProjectStore(state => state.project?.exposure)
-    const exposed = Boolean(watch("exposed"))
-    const path = (watch("exposurePath") as string | undefined)?.trim() ?? ""
+    // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
+    const [watchedExposed, exposurePath] = useWatch({ name: WATCHED_FIELDS }) as [boolean | undefined, string | undefined]
+    const exposed = Boolean(watchedExposed)
+    const path = exposurePath?.trim() ?? ""
 
     return (
         <Card>

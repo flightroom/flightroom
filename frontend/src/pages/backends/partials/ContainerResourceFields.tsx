@@ -22,7 +22,7 @@ const EnvironmentResourceFields: React.FC = () => {
     const { t } = useTranslation()
     const { control } = useFormContext()
     const { fields, append, remove } = useFieldArray({ control, name: "environmentResources" })
-    const container: (string | undefined)[] = useWatch({ control, name: [...RESOURCE_FIELDS] })
+    const container: (string | undefined)[] = useWatch({ control, name: RESOURCE_FIELDS })
     const environments = useProjectEnvironmentsQuery().data ?? []
     const entries = fields as unknown as (EnvironmentResourcesFormValues & { id: string })[]
     const setApart = new Set(entries.map(entry => entry.environmentId))

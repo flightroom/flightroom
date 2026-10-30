@@ -1,24 +1,27 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
-import { useFormContext } from "react-hook-form"
+import { useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 import useProjectStore from "@/store/useProjectStore"
 import ContainerResourceFields from "./ContainerResourceFields"
 
+const WATCHED_FIELDS = ["image.repository", "version", "slug"] as const
+
 /** The port, the probes, the docs paths, the image repository, the CPU and the memory of a container: a backend's, or a frontend's served by its own. */
 export const BackendRuntimeFields: React.FC = () => {
     const { t } = useTranslation()
-    const { watch } = useFormContext()
+    // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
+    const [repository, version, slug] = useWatch({ name: WATCHED_FIELDS }) as (string | undefined)[]
     const containerRegistry = useProjectStore(state => state.project?.containerRegistry)
 
     // Left empty, the deploy takes the image from the registry of the project: say which one, or that a version would not be deployed
     // A bare name, with no "/", is an image of that registry too
-    const image = watch("image.repository")?.trim()
-    const hasVersion = Boolean(watch("version")?.trim())
+    const image = repository?.trim()
+    const hasVersion = Boolean(version?.trim())
     const imageHint = image?.includes("/")
         ? t("backends.image_repository_hint")
         : containerRegistry
-          ? t(image ? "backends.image_repository_hint_name" : "backends.image_repository_hint_registry", { image: `${containerRegistry}/${image || watch("slug") || "<slug>"}` })
+          ? t(image ? "backends.image_repository_hint_name" : "backends.image_repository_hint_registry", { image: `${containerRegistry}/${image || slug || "<slug>"}` })
           : !image && hasVersion
             ? t("backends.image_repository_missing")
             : t("backends.image_repository_hint")
