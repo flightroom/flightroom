@@ -25,6 +25,7 @@ export type {
 export { describeLayout } from "./aiChangeFiles"
 export { AI_CHANGE_DEFAULT_EFFORT, AI_CHANGE_LIMITS, agentLimitsFor, REPOSITORY_MAP_PATH } from "./aiChangeLimits"
 export { AiChangeToolbox, type AiChangeToolboxRepository } from "./aiChangeToolbox"
+export { describeToolCall } from "./aiChangeTools"
 
 /**
  * Runs the agent on prepared working copies until it calls finish, answers without calling a tool,
