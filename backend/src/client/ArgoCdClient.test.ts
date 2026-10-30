@@ -310,6 +310,27 @@ describe("ArgoCdClient.deleteRepository", () => {
         expect(remove).toHaveBeenCalledWith(encoded, { params: { appProject: undefined } })
     })
 
+    it.each([
+        ["an empty project", ""],
+        ["no project", undefined]
+    ])("given the repository registered globally, when it is deleted with an empty AppProject, then it is deleted globally (%s registered)", async (_, registeredProject) => {
+        const get = vi.fn().mockResolvedValue({ data: { items: [{ repo, project: registeredProject }] } })
+        const remove = vi.fn().mockResolvedValue({ data: {} })
+
+        await clientWith({ get, delete: remove }).deleteRepository(repo, "")
+
+        expect(remove).toHaveBeenCalledWith(encoded, { params: { appProject: undefined } })
+    })
+
+    it("given the repository registered in an AppProject only, when it is deleted with an empty AppProject, then that registration is left alone", async () => {
+        const remove = vi.fn()
+        const get = vi.fn().mockResolvedValue({ data: { items: [{ repo, project: "acme" }] } })
+
+        await clientWith({ get, delete: remove }).deleteRepository(repo, "")
+
+        expect(remove).not.toHaveBeenCalled()
+    })
+
     it("given the repository is not registered, when it is deleted, then nothing is deleted", async () => {
         const remove = vi.fn()
 

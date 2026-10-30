@@ -171,11 +171,12 @@ class ArgoCdClient {
         return (await this.listRepositories()).find(registered => sameRepoUrl(registered.repo, repo)) ?? null
     }
 
-    /** One already gone is not an error: looked for in the list first, as Argo CD answers 403 for it */
+    /** One already gone is not an error: looked for in the list first, as Argo CD answers 403 for it. An empty `project` is no project, as Argo CD answers a global one */
     async deleteRepository(repo: string, project?: string): Promise<void> {
+        const appProject = project || undefined
         const registered = await this.listRepositories()
-        if (!registered.some(registration => sameRepoUrl(registration.repo, repo) && (registration.project || undefined) === project)) return
-        await this.find(`delete the repository ${repo}`, () => this.api.delete(`/repositories/${encodeURIComponent(repo)}`, { params: { appProject: project } }))
+        if (!registered.some(registration => sameRepoUrl(registration.repo, repo) && (registration.project || undefined) === appProject)) return
+        await this.find(`delete the repository ${repo}`, () => this.api.delete(`/repositories/${encodeURIComponent(repo)}`, { params: { appProject } }))
     }
 
     private async listRepositories(): Promise<ArgoCdRegisteredRepository[]> {
