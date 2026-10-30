@@ -101,7 +101,7 @@ export const deleteLeftovers = async (client: ArgoCdClient, projectId: Schema.Ty
     const selector = `${PROJECT_ID_LABEL}=${projectId}`
     for (const appProject of [projectName, ...movedFrom]) {
         for (const application of await listUnder(selectorsOf(`${selector},${COMPONENT_LABEL}=configuration`), labels => client.listApplications(labels, appProject))) {
-            if (projectOf(application) === appProject) await client.deleteApplication(application.metadata.name)
+            if (projectOf(application) === appProject) await client.deleteApplication(application.metadata.name, appProject)
         }
         for (const applicationSet of await listUnder(selectorsOf(selector), labels => client.listApplicationSets(labels, appProject))) {
             if (!kept.has(applicationSet.metadata.name) && projectOf({ ...applicationSet, kind: "ApplicationSet" }) === appProject) await client.deleteApplicationSet(applicationSet.metadata.name)
