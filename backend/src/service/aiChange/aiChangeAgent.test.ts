@@ -1156,6 +1156,42 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         )
     })
 
+    it("Given an Azure Service Bus, when it runs, then the agent is told to reach it with the Service Bus SDK and the variables of its variant", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+        const bus = agentResource("orders", "serviceBus", "azureAad", { namespace: "shop.servicebus.windows.net", queue: "orders-created" })
+
+        await runAiChangeAgent(client, { ...input(), repositories: [{ baseBranch: "main", workingCopy, backend: { ...configuredBackend(), resources: [bus] } }] }, hooks().hooks)
+
+        expect(firstPromptOf(sent)).toContain(
+            [
+                "- orders (serviceBus, azureAad)",
+                "  keys: SERVICEBUS_ORDERS_NAMESPACE, SERVICEBUS_ORDERS_QUEUE, SERVICEBUS_ORDERS_TOPIC, SERVICEBUS_ORDERS_SUBSCRIPTION, SERVICEBUS_ORDERS_TENANT_ID, SERVICEBUS_ORDERS_CLIENT_ID, SERVICEBUS_ORDERS_CLIENT_SECRET (secret), SERVICEBUS_ORDERS_AUTH=azureAad",
+                "  secret: orders.resource",
+                "  namespace: shop.servicebus.windows.net",
+                "  queue: orders-created",
+                "  usage: use the official Azure Service Bus SDK (e.g. @azure/service-bus, with @azure/identity for Entra ID), queue from SERVICEBUS_ORDERS_QUEUE, topic from SERVICEBUS_ORDERS_TOPIC and subscription from SERVICEBUS_ORDERS_SUBSCRIPTION when set, authenticating with an Entra ID client secret credential (tenant from SERVICEBUS_ORDERS_TENANT_ID, client from SERVICEBUS_ORDERS_CLIENT_ID, secret from SERVICEBUS_ORDERS_CLIENT_SECRET) on the namespace from SERVICEBUS_ORDERS_NAMESPACE; close senders, receivers and the client on shutdown; never hardcode any of them"
+            ].join("\n")
+        )
+    })
+
+    it("Given an Azure AI Speech resource, when it runs, then the agent is told to reach it with the Speech SDK by its key and region", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+        const speech = agentResource("voice", "speech", "apiKey", { region: "westeurope", language: "it-IT" })
+
+        await runAiChangeAgent(client, { ...input(), repositories: [{ baseBranch: "main", workingCopy, backend: { ...configuredBackend(), resources: [speech] } }] }, hooks().hooks)
+
+        expect(firstPromptOf(sent)).toContain(
+            [
+                "- voice (speech, apiKey)",
+                "  keys: SPEECH_VOICE_REGION, SPEECH_VOICE_LANGUAGE, SPEECH_VOICE_KEY (secret), SPEECH_VOICE_AUTH=apiKey",
+                "  secret: voice.resource",
+                "  region: westeurope",
+                "  language: it-IT",
+                "  usage: use the official Azure AI Speech SDK (e.g. microsoft-cognitiveservices-speech-sdk, with @azure/identity for Entra ID, scope https://cognitiveservices.azure.com/.default), recognition and synthesis language from SPEECH_VOICE_LANGUAGE when set, authenticating with the key from SPEECH_VOICE_KEY and the region from SPEECH_VOICE_REGION (SpeechConfig.fromSubscription); never hardcode any of them"
+            ].join("\n")
+        )
+    })
+
     it.each([
         ["basic", {}, "auth: basic — HTTP basic auth, user from API_PAYMENTS_USERNAME and password from API_PAYMENTS_PASSWORD"],
         ["bearer", {}, "auth: bearer — send the header Authorization: Bearer <value of API_PAYMENTS_TOKEN>"],

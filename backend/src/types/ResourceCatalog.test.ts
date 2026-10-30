@@ -87,6 +87,26 @@ describe("resourceEnvKeys", () => {
         ])
     })
 
+    it("given an Azure AI Speech resource reached by managed identity, when its variables are derived, then region and endpoint are required, language and client id optional and the variant the AUTH one", () => {
+        expect(resourceEnvKeys({ name: "voice", type: "speech", variant: "azureManagedIdentity" })).toEqual([
+            { key: "SPEECH_VOICE_REGION", field: "region", secret: false, required: true },
+            { key: "SPEECH_VOICE_LANGUAGE", field: "language", secret: false, required: false },
+            { key: "SPEECH_VOICE_ENDPOINT", field: "endpoint", secret: false, required: true },
+            { key: "SPEECH_VOICE_CLIENT_ID", field: "clientId", secret: false, required: false },
+            { key: "SPEECH_VOICE_AUTH", secret: false, required: true, value: "azureManagedIdentity" }
+        ])
+    })
+
+    it("given an Azure Service Bus reached by connection string, when its variables are derived, then the connection string is the one credential, the entities optional and the variant the AUTH one", () => {
+        expect(resourceEnvKeys({ name: "orders", type: "serviceBus", variant: "connectionString" })).toEqual([
+            { key: "SERVICEBUS_ORDERS_CONNECTION_STRING", field: "connectionString", secret: true, required: true },
+            { key: "SERVICEBUS_ORDERS_QUEUE", field: "queue", secret: false, required: false },
+            { key: "SERVICEBUS_ORDERS_TOPIC", field: "topic", secret: false, required: false },
+            { key: "SERVICEBUS_ORDERS_SUBSCRIPTION", field: "subscription", secret: false, required: false },
+            { key: "SERVICEBUS_ORDERS_AUTH", secret: false, required: true, value: "connectionString" }
+        ])
+    })
+
     it("given a storage on AWS, when its variables are derived, then the provider is among them with its fixed value", () => {
         expect(resourceEnvKeys({ name: "media", type: "storage", variant: "aws" })).toContainEqual({ key: "STORAGE_MEDIA_PROVIDER", secret: false, required: true, value: "AWS" })
     })

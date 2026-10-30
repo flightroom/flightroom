@@ -3745,6 +3745,14 @@
                 "label": "SharePoint",
                 "description": "A SharePoint Online site and its documents, through Microsoft Graph: by Entra ID app, with client secret or certificate, or by managed identity."
             },
+            "speech": {
+                "label": "Azure AI Speech",
+                "description": "An Azure AI Speech resource, for speech to text and text to speech: by key or by Entra ID app or managed identity."
+            },
+            "serviceBus": {
+                "label": "Azure Service Bus",
+                "description": "An Azure Service Bus namespace, with its queue or topic and subscription: by connection string, Entra ID app or managed identity."
+            },
             "generic": {
                 "label": "Generic",
                 "description": "For whatever the catalog lacks: you define the variables, and which ones are secret."
@@ -3812,6 +3820,16 @@
                 "azureAadCertificate": "Entra ID app, certificate",
                 "azureManagedIdentity": "Managed identity"
             },
+            "speech": {
+                "apiKey": "Key and region",
+                "azureAad": "Entra ID app",
+                "azureManagedIdentity": "Managed identity"
+            },
+            "serviceBus": {
+                "connectionString": "Connection string",
+                "azureAad": "Entra ID app",
+                "azureManagedIdentity": "Managed identity"
+            },
             "generic": {
                 "custom": "Custom variables"
             }
@@ -3864,7 +3882,12 @@
             "location": "Location",
             "siteUrl": "Site URL",
             "library": "Document library",
-            "certificate": "Certificate (PEM with private key)"
+            "certificate": "Certificate (PEM with private key)",
+            "language": "Language",
+            "namespace": "Namespace (e.g. orders.servicebus.windows.net)",
+            "queue": "Queue",
+            "topic": "Topic",
+            "subscription": "Subscription"
         },
         "retype": {
             "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"
