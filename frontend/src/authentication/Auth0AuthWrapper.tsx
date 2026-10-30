@@ -1,7 +1,9 @@
-import { Auth0Provider } from "@auth0/auth0-react"
-import { useMemo } from "react"
+import { Spinner } from "@flightroom/design-system"
+import { lazy, Suspense, useMemo } from "react"
 import { useGlobalParameters } from "@/contexts/GlobalParameterProvider"
 import { Auth0ProviderConfig } from "@/types/ConfigResponseDTO"
+
+const Auth0SdkProvider = lazy(() => import("./Auth0SdkProvider"))
 
 interface Auth0AuthWrapperProps {
     children: React.ReactNode
@@ -19,18 +21,9 @@ const Auth0AuthWrapper = ({ children }: Auth0AuthWrapperProps) => {
     }
 
     return (
-        <Auth0Provider
-            domain={auth0Config.domain}
-            clientId={auth0Config.clientId}
-            authorizationParams={{
-                redirect_uri: window.location.origin,
-                audience: auth0Config.apiAudience
-            }}
-            cacheLocation="localstorage"
-            useRefreshTokens={true}
-        >
-            <>{children}</>
-        </Auth0Provider>
+        <Suspense fallback={<Spinner />}>
+            <Auth0SdkProvider config={auth0Config}>{children}</Auth0SdkProvider>
+        </Suspense>
     )
 }
 

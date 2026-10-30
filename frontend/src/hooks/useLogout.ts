@@ -1,6 +1,6 @@
-import { useAuth0 } from "@auth0/auth0-react"
 import { useMsal } from "@azure/msal-react"
 import { useQueryClient } from "@tanstack/react-query"
+import { useAuth0 } from "@/authentication/auth0Context"
 import { deleteToken } from "@/authentication/tokenUtils"
 import useAssistantJobsStore from "@/store/useAssistantJobsStore"
 import useAssistantStore from "@/store/useAssistantStore"
