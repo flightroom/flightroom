@@ -1,7 +1,7 @@
 import axios, { AxiosInstance } from "axios"
 import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../types/BuildStatusDTO"
 
-/** Safety net so a misbehaving pagination cursor cannot turn a repository listing into an endless loop. */
+/** Safety net so a misbehaving pagination cursor cannot turn a repository or branch listing into an endless loop. */
 const maxRepositoryPages = 50
 
 interface GitLabGroup {
@@ -225,8 +225,21 @@ class GitLabClient {
     }
 
     async getBranches(projectId: string | number): Promise<GitLabBranch[]> {
-        const res = await this.api.get<GitLabBranch[]>(`/projects/${projectId}/repository/branches`, { params: { per_page: 100 } })
-        return res.data
+        const perPage = 100
+        const branches: GitLabBranch[] = []
+
+        // A page holds 100 branches at most: every page is walked, or the branch picker misses the rest.
+        for (let page = 1; page <= maxRepositoryPages; page++) {
+            const res = await this.api.get<GitLabBranch[]>(`/projects/${projectId}/repository/branches`, {
+                params: { per_page: perPage, page }
+            })
+
+            branches.push(...res.data)
+
+            if (res.data.length < perPage) break
+        }
+
+        return branches
     }
 
     async getBranchCommitSha(projectId: string | number, branchName: string): Promise<string> {

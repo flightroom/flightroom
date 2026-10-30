@@ -328,6 +328,41 @@ describe("GitlabClient.getBranches", () => {
         await expect(clientAnswering(get).getBranches("acme%2Forders-be")).resolves.toEqual(branches)
         expect(get).toHaveBeenCalledWith("/projects/acme%2Forders-be/repository/branches", expect.objectContaining({ params: expect.objectContaining({ per_page: 100 }) }))
     })
+
+    const branchesFrom = (from: number, count: number) => Array.from({ length: count }, (_, index) => ({ name: `branch-${from + index}` }))
+
+    it("given more branches than a page, when they are read, then every page is walked until a short one and the pages come back in order", async () => {
+        const get = vi
+            .fn()
+            .mockResolvedValueOnce({ data: branchesFrom(1, 100) })
+            .mockResolvedValueOnce({ data: branchesFrom(101, 100) })
+            .mockResolvedValueOnce({ data: branchesFrom(201, 5) })
+
+        const listed = await clientAnswering(get).getBranches(42)
+
+        expect(listed.map(branch => branch.name)).toEqual(branchesFrom(1, 205).map(branch => branch.name))
+        expect(get).toHaveBeenCalledTimes(3)
+        expect(get).toHaveBeenNthCalledWith(1, "/projects/42/repository/branches", { params: { per_page: 100, page: 1 } })
+        expect(get).toHaveBeenNthCalledWith(2, "/projects/42/repository/branches", { params: { per_page: 100, page: 2 } })
+        expect(get).toHaveBeenNthCalledWith(3, "/projects/42/repository/branches", { params: { per_page: 100, page: 3 } })
+    })
+
+    it("given a cursor that never ends, when the branches are read, then the walk stops after 50 pages", async () => {
+        const get = vi.fn().mockImplementation((_url: string, config: { params: { page: number } }) => Promise.resolve({ data: branchesFrom(config.params.page * 1000, 100) }))
+
+        await expect(clientAnswering(get).getBranches(42)).resolves.toHaveLength(5000)
+        expect(get).toHaveBeenCalledTimes(50)
+    })
+
+    it("given a page that fails, when the branches are read, then the failure is passed on, not a partial list", async () => {
+        const failure = answered(500)
+        const get = vi
+            .fn()
+            .mockResolvedValueOnce({ data: branchesFrom(1, 100) })
+            .mockRejectedValueOnce(failure)
+
+        await expect(clientAnswering(get).getBranches(42)).rejects.toBe(failure)
+    })
 })
 
 describe("GitlabClient.getTagCommitSha", () => {
