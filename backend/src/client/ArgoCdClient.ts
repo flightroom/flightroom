@@ -217,9 +217,9 @@ class ArgoCdClient {
         await this.find(`refresh the Application ${name}`, () => this.api.get<ArgoCdResource>(`/applications/${encodeURIComponent(name)}`, { params: { project, refresh: "normal" } }))
     }
 
-    /** Without cascade: what the application deployed stays in the cluster */
+    /** Without cascade: what the application deployed stays in the cluster. One already gone is not an error */
     async deleteApplication(name: string): Promise<void> {
-        await this.call(`delete the Application ${name}`, () => this.api.delete(`/applications/${encodeURIComponent(name)}`, { params: { cascade: false } }))
+        await this.find(`delete the Application ${name}`, () => this.api.delete(`/applications/${encodeURIComponent(name)}`, { params: { cascade: false } }))
     }
 
     async upsertApplicationSet(applicationSet: ArgoCdResource): Promise<void> {
@@ -232,8 +232,9 @@ class ArgoCdClient {
         return list?.items ?? []
     }
 
+    /** One already gone is not an error */
     async deleteApplicationSet(name: string): Promise<void> {
-        await this.call(`delete the ApplicationSet ${name}`, () => this.api.delete(`/applicationsets/${encodeURIComponent(name)}`))
+        await this.find(`delete the ApplicationSet ${name}`, () => this.api.delete(`/applicationsets/${encodeURIComponent(name)}`))
     }
 
     /**
