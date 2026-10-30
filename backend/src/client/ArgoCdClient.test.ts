@@ -497,6 +497,17 @@ describe("ArgoCdClient.deleteApplication", () => {
         expect(remove).toHaveBeenCalledWith("/applications/orders%2Fdev", { params: { cascade: false } })
     })
 
+    it("given the Application went between the listing and the delete, when it is deleted, then it is not an error", async () => {
+        await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(404)) }).deleteApplication("orders")).resolves.toBeUndefined()
+    })
+
+    it("given Argo CD fails the delete, when the Application is deleted, then the failure names the delete", async () => {
+        await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(500, { message: "boom" })) }).deleteApplication("orders")).rejects.toMatchObject({
+            code: "ARGOCD_REQUEST_FAILED",
+            message: "Argo CD did not delete the Application orders (500 boom)"
+        })
+    })
+
     it("given the account may not delete it, when the Application is deleted, then the refusal names the delete", async () => {
         await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(403)) }).deleteApplication("orders")).rejects.toMatchObject({
             code: "ARGOCD_FORBIDDEN",
@@ -549,6 +560,17 @@ describe("ArgoCdClient.deleteApplicationSet", () => {
 
         await expect(clientWith({ delete: remove }).deleteApplicationSet("acme envs")).resolves.toBeUndefined()
         expect(remove).toHaveBeenCalledWith("/applicationsets/acme%20envs")
+    })
+
+    it("given the ApplicationSet went between the listing and the delete, when it is deleted, then it is not an error", async () => {
+        await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(404)) }).deleteApplicationSet("acme-envs")).resolves.toBeUndefined()
+    })
+
+    it("given Argo CD fails the delete, when the ApplicationSet is deleted, then the failure names the delete", async () => {
+        await expect(clientWith({ delete: vi.fn().mockRejectedValue(answered(500, { message: "boom" })) }).deleteApplicationSet("acme-envs")).rejects.toMatchObject({
+            code: "ARGOCD_REQUEST_FAILED",
+            message: "Argo CD did not delete the ApplicationSet acme-envs (500 boom)"
+        })
     })
 
     it("given the account may not delete it, when the ApplicationSet is deleted, then the refusal names the delete", async () => {

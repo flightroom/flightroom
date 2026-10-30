@@ -1,3 +1,4 @@
+import axios, { AxiosError } from "axios"
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { parse } from "yaml"
@@ -426,6 +427,20 @@ describe("ArgoCdService.initialize", () => {
             `argo:deleteApplication:${environmentName("staging")}.config`
         ])
         expect(ArgoCdClient.prototype.listApplications).toHaveBeenCalledWith(`${PROJECT_ID_LABEL}=${projectId},flightroom/component=configuration`, PROJECT_NAME)
+    })
+
+    it("given leftovers gone between the listing and the delete, when it is initialized, then the 404 of Argo CD does not fail it", async () => {
+        applications = [resource(`${environmentName("staging")}.config`)]
+        applicationSets = [resource(applicationSetNameOf("deleted"), { template: { spec: { project: PROJECT_NAME } } })]
+        vi.mocked(ArgoCdClient.prototype.deleteApplication).mockRestore()
+        vi.mocked(ArgoCdClient.prototype.deleteApplicationSet).mockRestore()
+        const remove = vi.fn().mockRejectedValue(Object.assign(new AxiosError("Request failed with status code 404"), { response: { status: 404 } }))
+        vi.spyOn(axios, "create").mockReturnValue({ delete: remove } as never)
+
+        await expect(initialize()).resolves.toBeDefined()
+
+        expect(remove).toHaveBeenCalledWith(`/applications/${encodeURIComponent(`${environmentName("staging")}.config`)}`, { params: { cascade: false } })
+        expect(remove).toHaveBeenCalledWith(`/applicationsets/${encodeURIComponent(applicationSetNameOf("deleted"))}`)
     })
 
     it("given a labelled Application of another AppProject, when it is initialized, then it is not deleted", async () => {
