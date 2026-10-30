@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793372583.3269427,
-    "ast_hash": "c719c779f207ab881dc1daa7629a2d3d",
+    "mtime": 1793373957.103815,
+    "ast_hash": "8117013b7d6f98ed015fb42cf4b1be9b",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793372583.328578,
-    "ast_hash": "9bec0e821104714aed17cfb3c97cb61b",
+    "mtime": 1793373957.093803,
+    "ast_hash": "576c1779fb698bb46647eb1288717b05",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -3890,8 +3890,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/ReleaseSection.tsx": {
-    "mtime": 1793371273.444124,
-    "ast_hash": "1f0268964471c7959d375c64cb5ad422",
+    "mtime": 1793373895.7685678,
+    "ast_hash": "da8ee58cb9a3946edf61a70587a2da2d",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/RenameRepositoryDialog.tsx": {
@@ -4365,8 +4365,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceFormFields.tsx": {
-    "mtime": 1793371304.6065583,
-    "ast_hash": "e26981dfe4a6ff9a627529be0dfeccd8",
+    "mtime": 1793373885.5332947,
+    "ast_hash": "7afb12928b56add61a655dfcf48d3b32",
     "semantic_hash": ""
   },
   "frontend/src/pages/maintenance-agents/partials/MaintenanceRunDialog.tsx": {
@@ -4615,8 +4615,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendRuntimeFields.tsx": {
-    "mtime": 1793370705.8228595,
-    "ast_hash": "70db99bba89e9decad8379a19220a563",
+    "mtime": 1793373957.0926645,
+    "ast_hash": "12b6dacd269713575f59cc61bd91b3d0",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendVariableMapsFields.tsx": {
@@ -5620,8 +5620,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/EnvironmentVersionFields.tsx": {
-    "mtime": 1793372561.236186,
-    "ast_hash": "4075dae5328725d80c1cd6526aba8098",
+    "mtime": 1793373895.7689986,
+    "ast_hash": "781d84a7f3a53180012a5bc29b7a2911",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/environmentVersions.ts": {
