@@ -26,9 +26,9 @@ const checkReplicaSet = async (log: FastifyBaseLogger): Promise<void> => {
 }
 
 /**
- * Once connected: the replica set check, whose failure is only logged, then the migrations, whose failure
- * fails the boot. runMigrations swallows the failures the console can run with, so whatever it lets
- * through is one it cannot.
+ * Once connected: the replica set check, whose failure is only logged, then the migrations. runMigrations
+ * logs and swallows the failure of every step it runs today, so the boot only fails here on one it lets
+ * through, which none does.
  */
 export const onConnected = async (log: FastifyBaseLogger, done: (error?: Error) => void): Promise<void> => {
     try {
