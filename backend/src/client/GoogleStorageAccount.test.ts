@@ -319,6 +319,8 @@ describe("GoogleStorageClient.downloadFileStream", () => {
 
         expect(error).toBeInstanceOf(EntityNotFoundError)
         expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file: No such object: assets-bucket/site/missing.html", cause: missing })
+        // Set the way new Error(message, { cause }) sets it: kept, but not an own enumerable key logged or serialized with the error
+        expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({ enumerable: false })
     })
 
     it("given GCS denies the read, when the file is downloaded, then the stream fails with the GCS error itself", async () => {

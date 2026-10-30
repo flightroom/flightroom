@@ -129,7 +129,7 @@ export class AzureStorageClient {
             // A missing blob is a 404 to whoever asked for the file, not a server error
             const { statusCode, code } = (error ?? {}) as { statusCode?: number; code?: string }
             if (statusCode === 404 || code === "BlobNotFound") {
-                throw Object.assign(new EntityNotFoundError(filePath, message), { cause: error })
+                throw new EntityNotFoundError(filePath, message, { cause: error })
             }
             throw new Error(message, { cause: error })
         }

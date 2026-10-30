@@ -150,7 +150,7 @@ export class GoogleStorageClient {
         const stream = new PassThrough()
         source.on("error", (error: Error & { code?: unknown }) => {
             if (error.code === 404) {
-                stream.destroy(Object.assign(new EntityNotFoundError(filePath, `Failed to download file: ${error.message}`), { cause: error }))
+                stream.destroy(new EntityNotFoundError(filePath, `Failed to download file: ${error.message}`, { cause: error }))
             } else {
                 stream.destroy(error)
             }
