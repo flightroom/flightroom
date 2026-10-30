@@ -206,13 +206,17 @@ class GitLabClient {
         return res.data || []
     }
 
-    /** Plain-text traces of the failed jobs of a pipeline. */
+    /**
+     * Plain-text traces of the failed jobs of a pipeline, in job order.
+     * A trace that cannot be read, or is too large, is left out rather than losing the others: only when
+     * every trace failed is the failure of the first job passed on.
+     */
     async getFailedJobLogs(projectId: string | number, pipelineId: string): Promise<BuildJobLogDTO[]> {
         const jobs = await this.api.get<{ id: number; name: string }[]>(`/projects/${projectId}/pipelines/${encodeURIComponent(pipelineId)}/jobs`, {
             params: { "scope[]": "failed", per_page: 100 }
         })
 
-        return Promise.all(
+        const results = await Promise.allSettled(
             (jobs.data || []).slice(0, MAX_FAILED_JOBS).map(async job => {
                 const trace = await this.api.get<string>(`/projects/${projectId}/jobs/${job.id}/trace`, {
                     maxContentLength: MAX_FAILED_JOB_LOG_BYTES,
@@ -222,6 +226,11 @@ class GitLabClient {
                 return { name: job.name, log: trace.data }
             })
         )
+
+        const logs = results.flatMap(result => (result.status === "fulfilled" ? [result.value] : []))
+        const firstFailure = results.find(result => result.status === "rejected")
+        if (logs.length === 0 && firstFailure) throw firstFailure.reason
+        return logs
     }
 
     async getBranches(projectId: string | number): Promise<GitLabBranch[]> {

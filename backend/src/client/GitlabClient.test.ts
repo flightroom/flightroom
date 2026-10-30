@@ -318,6 +318,37 @@ describe("GitlabClient.getFailedJobLogs", () => {
 
         await expect(clientAnswering(vi.fn().mockRejectedValue(failure)).getFailedJobLogs(42, "7")).rejects.toBe(failure)
     })
+
+    const threeJobs = {
+        data: [
+            { id: 1, name: "build" },
+            { id: 2, name: "test" },
+            { id: 3, name: "lint" }
+        ]
+    }
+
+    it("given one trace that fails or is too large, when the logs are read, then the others come back in job order", async () => {
+        const tooLarge = new AxiosError("maxContentLength size of 1048576 exceeded", "ERR_BAD_RESPONSE")
+        const get = vi
+            .fn()
+            .mockResolvedValueOnce(threeJobs)
+            .mockImplementation((url: string) => (url.includes("/jobs/2/") ? Promise.reject(tooLarge) : Promise.resolve({ data: `trace of ${url}` })))
+
+        await expect(clientAnswering(get).getFailedJobLogs(42, "7")).resolves.toEqual([
+            { name: "build", log: "trace of /projects/42/jobs/1/trace" },
+            { name: "lint", log: "trace of /projects/42/jobs/3/trace" }
+        ])
+    })
+
+    it("given every trace fails, when the logs are read, then the failure of the first job is passed on", async () => {
+        const first = answered(500)
+        const get = vi
+            .fn()
+            .mockResolvedValueOnce(threeJobs)
+            .mockImplementation((url: string) => Promise.reject(url.includes("/jobs/1/") ? first : answered(403)))
+
+        await expect(clientAnswering(get).getFailedJobLogs(42, "7")).rejects.toBe(first)
+    })
 })
 
 describe("GitlabClient.getBranches", () => {
