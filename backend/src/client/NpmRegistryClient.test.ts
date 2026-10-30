@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import type NpmRegistryClient from "./NpmRegistryClient"
 
 /**
- * The client caches every answer in a map of its module for an hour: each test loads the module afresh,
+ * The client caches the answers of the registry in a map of its module: each test loads the module afresh,
  * so no answer of one test is served to another. TypeScript types the dynamic import of a CommonJS build,
  * where the class would sit one `default` deeper; vitest loads the source, where it does not.
  */
@@ -182,6 +182,43 @@ describe("NpmRegistryClient cache", () => {
         request.mockResolvedValue({ data: { name: "react", "dist-tags": { latest: "19.3.0" } } })
 
         expect(await client.getPackageInfo("react")).toMatchObject({ latest: "19.3.0" })
+        expect(request).toHaveBeenCalledTimes(2)
+    })
+
+    it.each([
+        ["a registry failing (500)", httpError(500)],
+        ["a private package without a token (401)", httpError(401)],
+        ["no network", Object.assign(new axios.AxiosError("getaddrinfo ENOTFOUND registry.npmjs.org"), { code: "ENOTFOUND" })],
+        ["a request that times out", Object.assign(new axios.AxiosError("timeout of 10000ms exceeded"), { code: "ECONNABORTED" })],
+        ["a failure that is not of axios", new TypeError("boom")]
+    ])("given %s, when the package is looked up again, then the registry is asked again and its answer comes back", async (_case, error) => {
+        const Client = await loadClient()
+        const request = vi
+            .spyOn(axios, "request")
+            .mockRejectedValueOnce(error)
+            .mockResolvedValue({ data: { name: "react", "dist-tags": { latest: "19.2.0" } } })
+        const client = new Client()
+
+        expect(await client.getPackageInfo("react")).toBeNull()
+        expect(await client.getPackageInfo("react")).toMatchObject({ latest: "19.2.0" })
+        expect(request).toHaveBeenCalledTimes(2)
+    })
+
+    it("given a package the registry does not know (404), when it is looked up again within five minutes, then the registry is not asked twice", async () => {
+        vi.useFakeTimers()
+        const Client = await loadClient()
+        const request = vi.spyOn(axios, "request").mockRejectedValue(httpError(404))
+        const client = new Client()
+
+        await client.getPackageInfo("@acme/private")
+        vi.advanceTimersByTime(5 * 60 * 1000 - 1)
+        expect(await client.getPackageInfo("@acme/private")).toBeNull()
+        expect(request).toHaveBeenCalledTimes(1)
+
+        vi.advanceTimersByTime(1)
+        request.mockResolvedValue({ data: { name: "@acme/private", "dist-tags": { latest: "1.0.0" } } })
+
+        expect(await client.getPackageInfo("@acme/private")).toMatchObject({ latest: "1.0.0" })
         expect(request).toHaveBeenCalledTimes(2)
     })
 

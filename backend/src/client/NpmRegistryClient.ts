@@ -16,6 +16,12 @@ interface NpmAbbreviatedPackument {
 
 const DEFAULT_REGISTRY_URL = "https://registry.npmjs.org"
 const CACHE_TTL_MS = 1000 * 60 * 60
+/**
+ * A package the registry answered 404 for, private packages first of all: remembered briefly, so a report
+ * of many dependencies does not ask again for each of them every time it is loaded. Any other failure is
+ * not remembered, a registry blip must not hide what it knows
+ */
+const NOT_FOUND_TTL_MS = 1000 * 60 * 5
 const REQUEST_TIMEOUT_MS = 10_000
 const DEFAULT_CONCURRENCY = 8
 
@@ -51,8 +57,6 @@ class NpmRegistryClient {
             return cached.value
         }
 
-        let value: NpmPackageInfo | null = null
-
         try {
             const response = await axios.request<NpmAbbreviatedPackument>({
                 url: this.buildUrl(packageName),
@@ -66,19 +70,21 @@ class NpmRegistryClient {
 
             const latest = response.data["dist-tags"]?.latest
 
-            value = {
+            const value = {
                 name: response.data.name || packageName,
                 latest,
                 deprecated: Boolean(latest && response.data.versions?.[latest]?.deprecated),
                 modifiedAt: response.data.modified
             }
-        } catch {
+            cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, value })
+            return value
+        } catch (error) {
             // A missing or unreachable package must not break the whole analysis
-            value = null
+            if (axios.isAxiosError(error) && error.response?.status === 404) {
+                cache.set(cacheKey, { expiresAt: Date.now() + NOT_FOUND_TTL_MS, value: null })
+            }
+            return null
         }
-
-        cache.set(cacheKey, { expiresAt: Date.now() + CACHE_TTL_MS, value })
-        return value
     }
 
     /**
