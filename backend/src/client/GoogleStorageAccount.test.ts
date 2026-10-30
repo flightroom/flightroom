@@ -311,14 +311,15 @@ describe("GoogleStorageClient.downloadFileStream", () => {
         expect(Buffer.concat(chunks).toString("utf8")).toBe("<html></html>")
     })
 
-    it("given the object does not exist, when the file is downloaded, then the stream fails with a not-found error answering 404, with the GCS error as its cause", async () => {
+    it("given the object does not exist, when the file is downloaded, then the stream fails with a not-found error answering 404 with a fixed message, the GCS error as its cause", async () => {
         const missing = apiError("No such object: assets-bucket/site/missing.html", 404)
         sdk.file.createReadStream.mockReturnValue(failingRead(missing))
 
         const error = await failureOf(new GoogleStorageClient(CONFIG).downloadFileStream("site/missing.html"))
 
         expect(error).toBeInstanceOf(EntityNotFoundError)
-        expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file: No such object: assets-bucket/site/missing.html", cause: missing })
+        // The message reaches anonymous callers of the serve URLs: GCS names the bucket and the object path in its own
+        expect(error).toMatchObject({ statusCode: 404, message: "File not found", cause: missing })
         // Set the way new Error(message, { cause }) sets it: kept, but not an own enumerable key logged or serialized with the error
         expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({ enumerable: false })
     })

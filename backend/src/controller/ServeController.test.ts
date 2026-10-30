@@ -148,7 +148,10 @@ describe("ServeController, files of a frontend uploaded to a storage", () => {
         const response = await app.inject({ method: "GET", url: `/serve/mfe/files/${projectId}/DEV/cart/missing.js` })
 
         expect(response.statusCode).toBe(404)
-        expect(response.json().code).toBe("ENTITY_NOT_FOUND")
+        // Anyone can call these URLs: the body says what is missing, not where the storage keeps it
+        expect(response.json()).toEqual({ statusCode: 404, code: "ENTITY_NOT_FOUND", error: "Not Found", message: "File not found" })
+        expect(response.body).not.toContain("assets-bucket")
+        expect(response.body).not.toContain(`acme-${projectId}`)
     })
 
     it.each([StorageType.AWS, StorageType.AZURE, StorageType.GOOGLE])("given the %s storage denies the read, when a file is asked for, then the answer is a 500 and not a 404", async type => {

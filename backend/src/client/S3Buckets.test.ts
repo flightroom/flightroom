@@ -239,12 +239,6 @@ describe("S3BucketClient.downloadFileStream", () => {
         await expect(new S3BucketClient(CONFIG).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from S3: No body in S3 response")
     })
 
-    it("given the key does not exist, when the file is downloaded, then the caller gets a download error carrying the S3 message", async () => {
-        sdk.send.mockRejectedValue(s3Error("NoSuchKey", "The specified key does not exist.", 404))
-
-        await expect(new S3BucketClient(CONFIG).downloadFileStream("site/missing.html")).rejects.toThrow("Failed to download file from S3: The specified key does not exist.")
-    })
-
     it("given S3 denies the read, when the file is downloaded, then the caller gets a download error carrying the S3 message", async () => {
         sdk.send.mockRejectedValue(s3Error("AccessDenied", "Access Denied", 403))
 
@@ -257,14 +251,15 @@ describe("S3BucketClient.downloadFileStream", () => {
         await expect(new S3BucketClient(CONFIG).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from S3: ECONNRESET")
     })
 
-    it("given the key does not exist, when the file is downloaded, then the error is a not-found one answering 404, with the S3 error as its cause", async () => {
+    it("given the key does not exist, when the file is downloaded, then the error is a not-found one answering 404 with a fixed message, the S3 error as its cause", async () => {
         const missing = s3Error("NoSuchKey", "The specified key does not exist.", 404)
         sdk.send.mockRejectedValue(missing)
 
         const error = await new S3BucketClient(CONFIG).downloadFileStream("site/missing.html").catch((thrown: unknown) => thrown)
 
         expect(error).toBeInstanceOf(EntityNotFoundError)
-        expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file from S3: The specified key does not exist.", cause: missing })
+        // The message reaches anonymous callers of the serve URLs: no bucket, no storage key, no provider wording
+        expect(error).toMatchObject({ statusCode: 404, message: "File not found", cause: missing })
         // Set the way new Error(message, { cause }) sets it: kept, but not an own enumerable key logged or serialized with the error
         expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({ enumerable: false })
     })

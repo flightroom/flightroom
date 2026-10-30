@@ -149,10 +149,13 @@ export class GoogleStorageClient {
         const source = this.bucket.file(filePath).createReadStream()
         const stream = new PassThrough()
         source.on("error", (error: Error & { code?: unknown }) => {
+            console.error("Error downloading file from Google Cloud Storage:", error)
             // GCS answers 404 for a missing bucket too, a broken storage that fails every file: only a
             // missing object, "No such object: <bucket>/<path>", is a missing file
             if (error.code === 404 && error.message.startsWith("No such object")) {
-                stream.destroy(new EntityNotFoundError(filePath, `Failed to download file: ${error.message}`, { cause: error }))
+                // Its message reaches anonymous callers of the serve URLs: the GCS one, naming the bucket and the path,
+                // stays in the cause and the log
+                stream.destroy(new EntityNotFoundError(filePath, "File not found", { cause: error }))
             } else {
                 stream.destroy(error)
             }

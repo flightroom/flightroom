@@ -281,12 +281,6 @@ describe("AzureStorageClient.downloadFileStream", () => {
         await expect(new AzureStorageClient(SHARED_KEY).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from Azure: No readable stream in download response")
     })
 
-    it("given the blob does not exist, when the file is downloaded, then the caller gets a download error carrying the Azure message", async () => {
-        blob.download.mockRejectedValue(restError("The specified blob does not exist.", 404, "BlobNotFound"))
-
-        await expect(new AzureStorageClient(SHARED_KEY).downloadFileStream("site/missing.html")).rejects.toThrow("Failed to download file from Azure: The specified blob does not exist.")
-    })
-
     it("given Azure denies the read, when the file is downloaded, then the caller gets a download error carrying the Azure message", async () => {
         blob.download.mockRejectedValue(restError("This request is not authorized to perform this operation.", 403, "AuthorizationFailure"))
 
@@ -299,14 +293,15 @@ describe("AzureStorageClient.downloadFileStream", () => {
         await expect(new AzureStorageClient(SHARED_KEY).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from Azure: ECONNRESET")
     })
 
-    it("given the blob does not exist, when the file is downloaded, then the error is a not-found one answering 404, with the Azure error as its cause", async () => {
+    it("given the blob does not exist, when the file is downloaded, then the error is a not-found one answering 404 with a fixed message, the Azure error as its cause", async () => {
         const missing = restError("The specified blob does not exist.", 404, "BlobNotFound")
         blob.download.mockRejectedValue(missing)
 
         const error = await new AzureStorageClient(SHARED_KEY).downloadFileStream("site/missing.html").catch((thrown: unknown) => thrown)
 
         expect(error).toBeInstanceOf(EntityNotFoundError)
-        expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file from Azure: The specified blob does not exist.", cause: missing })
+        // The message reaches anonymous callers of the serve URLs: no container, no blob path, no provider wording
+        expect(error).toMatchObject({ statusCode: 404, message: "File not found", cause: missing })
         // Set the way new Error(message, { cause }) sets it: kept, but not an own enumerable key logged or serialized with the error
         expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({ enumerable: false })
     })
