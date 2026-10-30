@@ -60,8 +60,8 @@ interface BackendDTO {
      */
     environmentResources?: EnvironmentResourcesDTO[] | null
     /**
-     * The environments that run a version of their own, e.g. production held on an older one, replaced as a whole: one
-     * left blank runs the version above. An environment appears once at most, and must be of the project
+     * The version each environment runs, replaced as a whole: an environment with none does not get it, whatever the
+     * version above. An environment appears once at most, and must be of the project
      */
     environmentVersions?: EnvironmentVersionDTO[] | null
     env?: BackendEnvVariableDTO[]

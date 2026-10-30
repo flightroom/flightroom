@@ -41,20 +41,34 @@ describe("applicationImageRepository", () => {
 })
 
 describe("isDeployable", () => {
+    const environmentId = new Types.ObjectId()
+    const inEnvironment = { environmentVersions: [{ environmentId, version: "1.0.0" }] }
+
     it("given a version and an image, when it is checked, then the application can be deployed", () => {
-        expect(isDeployable({ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } })).toBe(true)
+        expect(isDeployable({ slug: "orders", ...inEnvironment, image: { repository: "ghcr.io/acme/orders" } })).toBe(true)
+    })
+
+    it("given a version in another environment only, when it is checked for this one, then the application is left out", () => {
+        const application = { slug: "orders", ...inEnvironment, image: { repository: "ghcr.io/acme/orders" } }
+
+        expect(isDeployable(application, undefined, environmentId)).toBe(true)
+        expect(isDeployable(application, undefined, new Types.ObjectId())).toBe(false)
+    })
+
+    it("given only the version the CI registered, when it is checked, then the application is left out", () => {
+        expect(isDeployable({ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } })).toBe(false)
     })
 
     it.each([
         ["no version", { slug: "orders", image: { repository: "ghcr.io/acme/orders" } }],
-        ["no image", { slug: "orders", version: "1.0.0" }],
-        ["an empty repository", { slug: "orders", version: "1.0.0", image: { repository: "" } }]
+        ["no image", { slug: "orders", ...inEnvironment }],
+        ["an empty repository", { slug: "orders", ...inEnvironment, image: { repository: "" } }]
     ])("given %s, when it is checked, then the application is left out", (_case, application) => {
         expect(isDeployable(application)).toBe(false)
     })
 
     it("given a version and no image, when the project has a container registry, then the application can be deployed", () => {
-        expect(isDeployable({ slug: "orders", version: "1.0.0" }, "ghcr.io/acme")).toBe(true)
+        expect(isDeployable({ slug: "orders", ...inEnvironment }, "ghcr.io/acme")).toBe(true)
     })
 
     it("given no version, when the project has a container registry, then the application is still left out", () => {
@@ -70,6 +84,7 @@ describe("renderApplicationValues", () => {
     const application = {
         slug: "orders",
         version: "1.2.3",
+        environmentVersions: [{ environmentId: environment._id, version: "1.2.3" }],
         image: { repository: "ghcr.io/acme/orders" },
         port: 3000,
         livenessPath: "/live",
@@ -156,12 +171,16 @@ describe("renderApplicationValues", () => {
         expect(values.resources).toEqual({ requests: { cpu: "250m" } })
     })
 
+    it("given this environment runs a version of its own, when its values are rendered, then the image is tagged with it", () => {
+        expect(parse(render({ environmentVersions: [{ environmentId: environment._id, version: "1.1.0" }] })).image.tag).toBe("1.1.0")
+    })
+
     it.each([
-        ["this environment runs a version of its own", [{ environmentId: environment._id, version: "1.1.0" }], "1.1.0"],
-        ["another environment runs a version of its own", [{ environmentId: new Types.ObjectId(), version: "1.1.0" }], application.version],
-        ["this environment leaves its version blank", [{ environmentId: environment._id, version: " " }], application.version]
-    ])("given %s, when its values are rendered, then the image is tagged with the version it runs there", (_case, environmentVersions, tag) => {
-        expect(parse(render({ environmentVersions })).image.tag).toBe(tag)
+        ["only another environment runs a version", [{ environmentId: new Types.ObjectId(), version: "1.1.0" }]],
+        ["this environment leaves its version blank", [{ environmentId: environment._id, version: " " }]],
+        ["no environment runs a version", []]
+    ])("given %s, when its values are rendered, then it is refused whatever version the CI registered", (_case, environmentVersions) => {
+        expect(() => render({ environmentVersions })).toThrow()
     })
 })
 
@@ -172,7 +191,12 @@ describe("renderApplicationValues, maintenance agent", () => {
     const agent = (maintenance: Partial<{ kind: MaintenanceAgentKind; schedule: string | null; timeZone: string | null; runPath: string }>) =>
         parse(
             renderApplicationValues(
-                { slug: "cleaner", version: "1.0.0", image: { repository: "ghcr.io/acme/cleaner" }, maintenance: { kind: MaintenanceAgentKind.JOB, runPath: "/run", targets, ...maintenance } },
+                {
+                    slug: "cleaner",
+                    environmentVersions: [{ environmentId: environment._id, version: "1.0.0" }],
+                    image: { repository: "ghcr.io/acme/cleaner" },
+                    maintenance: { kind: MaintenanceAgentKind.JOB, runPath: "/run", targets, ...maintenance }
+                },
                 environment,
                 mapNames
             )
@@ -204,7 +228,13 @@ describe("renderApplicationValues, maintenance agent", () => {
     it("given an agent, when its values are rendered, then its container reads the Secret with the URL of the console and its token, after its own secrets", () => {
         const values = parse(
             renderApplicationValues(
-                { slug: "cleaner", version: "1.0.0", image: { repository: "ghcr.io/acme/cleaner" }, secretIds: ["s1"], maintenance: { kind: MaintenanceAgentKind.JOB, runPath: "/run", targets } },
+                {
+                    slug: "cleaner",
+                    environmentVersions: [{ environmentId: environment._id, version: "1.0.0" }],
+                    image: { repository: "ghcr.io/acme/cleaner" },
+                    secretIds: ["s1"],
+                    maintenance: { kind: MaintenanceAgentKind.JOB, runPath: "/run", targets }
+                },
                 environment,
                 { ...mapNames, secrets: new Map([["s1", "smtp"]]) }
             )
@@ -214,7 +244,13 @@ describe("renderApplicationValues, maintenance agent", () => {
     })
 
     it("given a backend, when its values are rendered, then there is no CronJob", () => {
-        const values = parse(renderApplicationValues({ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, environment, mapNames))
+        const values = parse(
+            renderApplicationValues(
+                { slug: "orders", environmentVersions: [{ environmentId: environment._id, version: "1.0.0" }], image: { repository: "ghcr.io/acme/orders" } },
+                environment,
+                mapNames
+            )
+        )
 
         expect(values.maintenance).toBeUndefined()
         expect(values.env).toBeUndefined()

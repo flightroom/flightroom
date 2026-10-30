@@ -4,7 +4,7 @@ import { BACKEND_VERSION } from "./backendVariables"
 
 export type { EnvironmentVersion }
 
-/** The form values of one environment that runs a version of its own: empty, the container's */
+/** The form values of the version one environment runs: empty, it does not get the container */
 export type EnvironmentVersionFormValues = { environmentId: string; version: string }
 
 /** Same rule as the version of the container: the tag of the image */

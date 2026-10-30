@@ -103,7 +103,7 @@ export const withNormalizedEnvironmentResources = async <T extends Pick<BackendD
 }
 
 /**
- * The versions some environments run apart, as stored: trimmed, an environment left blank left out. Refused: an
+ * The version each environment runs, as stored: trimmed, an environment left blank left out. Refused: an
  * environment that is not of the project, one listed twice, a version that is no tag of an image.
  */
 export const withNormalizedEnvironmentVersions = async <T extends Pick<BackendDTO, "environmentVersions">>(dto: T, projectId: Schema.Types.ObjectId, code = "BACKEND_INVALID"): Promise<T> => {

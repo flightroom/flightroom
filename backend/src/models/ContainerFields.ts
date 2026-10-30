@@ -105,7 +105,7 @@ const environmentResourcesSchema = new Schema<IEnvironmentResources>({ environme
 /** The environments that run the container with CPU and memory of their own; that each one belongs to the project is checked by the services */
 export const environmentResourcesField = { type: [environmentResourcesSchema], default: undefined }
 
-/** The version one environment runs apart from the application's: the tag of the image the deploy writes there */
+/** The version one environment runs: the tag of the image the deploy writes there */
 export interface IEnvironmentVersion {
     environmentId: Schema.Types.ObjectId
     version: string
@@ -116,5 +116,9 @@ const environmentVersionSchema = new Schema<IEnvironmentVersion>(
     { _id: false }
 )
 
-/** The environments that run a version of their own; as for the resources, that each one belongs to the project is checked by the services */
-export const environmentVersionsField = { type: [environmentVersionSchema], default: undefined }
+/**
+ * The version each environment runs: one with none does not get the application. As for the resources, that each one
+ * belongs to the project is checked by the services. Empty on a new one: a document without it is one made before, which
+ * seedEnvironmentVersions gives the versions its environments run.
+ */
+export const environmentVersionsField = { type: [environmentVersionSchema], default: () => [] }

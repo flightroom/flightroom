@@ -10,7 +10,7 @@ import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
 import DomainRelease, { DomainReleaseStatus, IDomainRelease } from "../models/DomainReleaseModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend from "../models/FrontendModel"
+import Frontend, { FrontendKind } from "../models/FrontendModel"
 import User, { UserStatus } from "../models/UserModel"
 import { BuildStatus } from "../types/BuildStatusDTO"
 import ArgoCdService from "./ArgoCdService"
@@ -356,15 +356,32 @@ describe("advanceDomainReleases", () => {
     })
 
     /** The release decides the version: a CI registration would move it only to a newer one */
-    it("given members holding any version, when the versions are set, then every built frontend, BUNDLE or DOCKER, and backend gets the tag unconditionally", async () => {
+    it("given members holding any version, when the versions are set, then a BUNDLE frontend gets the tag and a DOCKER frontend and a backend get it in the environment of the release", async () => {
         withReleases(release())
         registered([cart, search], [ordersApi])
 
         await advanceDomainReleases()
 
-        expect(updateFrontends).toHaveBeenCalledWith({ _id: { $in: [cart._id, search._id] }, projectId, domainId }, { $set: { version: "1.4.0" } })
+        const inDomain = { projectId, domainId }
+        // The update of a container: the version, and the entry of the environment of the release replaced
+        const inEnvironment = [
+            {
+                $set: {
+                    version: "1.4.0",
+                    environmentVersions: {
+                        $concatArrays: [
+                            { $filter: { input: { $ifNull: ["$environmentVersions", []] }, cond: { $ne: ["$$this.environmentId", environmentId] } } },
+                            [{ environmentId, version: "1.4.0" }]
+                        ]
+                    }
+                }
+            }
+        ]
+        expect(updateFrontends).toHaveBeenCalledTimes(2)
+        expect(updateFrontends).toHaveBeenCalledWith({ _id: { $in: [cart._id, search._id] }, ...inDomain, kind: { $ne: FrontendKind.DOCKER } }, { $set: { version: "1.4.0" } })
+        expect(updateFrontends).toHaveBeenCalledWith({ _id: { $in: [cart._id, search._id] }, ...inDomain, kind: FrontendKind.DOCKER }, inEnvironment)
         // The member without a repository keeps its version
-        expect(updateBackends).toHaveBeenCalledWith({ _id: { $in: [ordersApi._id] }, projectId, domainId }, { $set: { version: "1.4.0" } })
+        expect(updateBackends).toHaveBeenCalledWith({ _id: { $in: [ordersApi._id] }, ...inDomain }, inEnvironment)
         expect(updateFrontends.mock.invocationCallOrder[0]).toBeLessThan(deploy.mock.invocationCallOrder[0])
     })
 

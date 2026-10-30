@@ -78,14 +78,14 @@ export const containerFields = {
                     .regex(BACKEND_VERSION, "letters, digits, dots, dashes and underscores, at most 128")
                     .nullable()
                     .optional()
-                    .describe("Tag of the image deployed there, e.g. 1.3.2; null or omitted runs the version of the container")
+                    .describe("Tag of the image deployed there, e.g. 1.3.2; null or omitted: the environment does not get it")
             })
         )
         .max(50)
         .nullable()
         .optional()
         .describe(
-            "Versions some environments run apart, e.g. production held on an older one while the others take the latest the CI registers. Replaced as a whole; null or [] sets none apart. One entry per environment; the next deploy of an environment writes its version"
+            "The version each environment runs, e.g. 1.4.0 in DEV and 1.3.2 in PROD. Required to deploy: an environment with none does not get it, whatever the version above, which is only the latest the CI registered or one set by hand. Replaced as a whole; null or [] deploys it nowhere. One entry per environment; the next deploy of an environment writes its version"
         ),
     exposurePath: z
         .string()

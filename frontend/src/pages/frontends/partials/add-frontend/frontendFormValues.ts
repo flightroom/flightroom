@@ -155,7 +155,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   memoryLimit: memoryLimit?.trim(),
                   // Empty: the container's, as above
                   environmentResources,
-                  // Blank: the version above
+                  // Blank: not deployed in that environment
                   environmentVersions: environmentVersions?.map(entry => ({ ...entry, version: entry.version.trim() })),
                   // Null: not exposed on the host of the environments
                   exposurePath: exposed ? exposurePath?.trim() : null,

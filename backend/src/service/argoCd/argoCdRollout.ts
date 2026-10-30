@@ -47,10 +47,10 @@ export const followRollout = async (
     const updated = (id: string) => !before || !shipped.has(id) || shipped.get(id) !== served.get(id)
 
     const scope = { projectId, ...scopeFilter }
-    const fields = { slug: 1, name: 1, version: 1, image: 1 }
+    const fields = { slug: 1, name: 1, environmentVersions: 1, image: 1 }
     const [backends, frontends] = await allInOrder([Backend.find(scope, fields), Frontend.find({ ...scope, kind: FrontendKind.DOCKER }, fields)])
     const followed = [...backends.map(application => ({ kind: "backend" as const, application })), ...frontends.map(application => ({ kind: "frontend" as const, application }))]
-    const members = followed.filter(({ application }) => isDeployable(application, project.containerRegistry))
+    const members = followed.filter(({ application }) => isDeployable(application, project.containerRegistry, deployment.environmentId))
 
     const client = clientOf(argoCd)
     const projectName = appProjectName(String(projectId), project.slug)

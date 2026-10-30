@@ -549,7 +549,7 @@ describe("deployment of a domain-scoped member", () => {
     const own = { _id: newId(), slug: "cart", version: "2.0.0" }
     const othersServed = { _id: newId(), slug: "catalog", version: "1.0.0" }
     const ownServed = { _id: own._id, slug: "cart", version: "1.0.0" }
-    const ownBackend = { _id: newId(), slug: "cart-be", version: "3.0.0", domainId: OWN_DOMAIN }
+    const ownBackend = { _id: newId(), slug: "cart-be", version: "3.0.0", environmentVersions: [{ environmentId, version: "3.0.0" }], domainId: OWN_DOMAIN }
     let saved: Record<string, unknown> | undefined
     let readFrontends: Record<string, unknown> | undefined
     let readBackends: Record<string, unknown> | undefined
@@ -639,7 +639,9 @@ describe("deployment of a domain-scoped member", () => {
 
         expect(readFrontends).toEqual({ projectId: PROJECT_ID })
         expect(served()).toEqual(["cart@2.0.0"])
-        expect(saved?.backends).toEqual([ownBackend])
+        // The snapshot keeps the version of the environment, not the list of them
+        const { environmentVersions: _, ...recorded } = ownBackend
+        expect(saved?.backends).toEqual([recorded])
         expect(saved?.variables).toEqual([{ key: "API_URL", value: "unreleased" }])
     })
 

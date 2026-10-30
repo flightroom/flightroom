@@ -1,6 +1,6 @@
 import { stringify } from "yaml"
 import { CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
-import { EnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
+import { EnvironmentVersion, hasEnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 
 /**
@@ -18,9 +18,9 @@ export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: flightroom
 /** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
 export interface GitOpsApplication extends ContainerResourcesByEnvironment {
     slug: string
-    /** The latest version the CI registered, or the one set by hand: the tag of the image */
+    /** The latest version the CI registered, or the one set by hand: deployed only where an environment sets it */
     version?: string
-    /** The versions some environments run instead */
+    /** The version each environment runs, the tag of the image there: an environment with none does not get the application */
     environmentVersions?: EnvironmentVersion[] | null
     image?: { repository?: string }
     port?: number
@@ -126,9 +126,12 @@ export const applicationImageRepository = (application: Pick<GitOpsApplication, 
     return containerRegistry ? `${containerRegistry}/${own || application.slug}` : own || undefined
 }
 
-/** Only what has an image and a version can be installed: the others are left out of the deploy */
-export const isDeployable = (application: GitOpsApplication, containerRegistry?: string): application is GitOpsApplication & { version: string } =>
-    Boolean(application.version && applicationImageRepository(application, containerRegistry))
+/**
+ * Only what has an image and a version in the environment can be installed there: the others are left out of its deploy.
+ * Without an environment, whether it can be installed in some.
+ */
+export const isDeployable = (application: GitOpsApplication, containerRegistry?: string, environmentId?: unknown): boolean =>
+    Boolean((environmentId === undefined ? hasEnvironmentVersion(application) : versionIn(application, environmentId)) && applicationImageRepository(application, containerRegistry))
 
 /** `ghcr.io/acme/orders-api` as the chart takes it: the registry, then the rest. An image of Docker Hub has no registry in front */
 export const splitImage = (repository: string): { host: string; name: string } => {
@@ -152,19 +155,21 @@ export interface ApplicationGateway {
  * name: the configuration repository holds them, as manifests in the namespace of the environment. A
  * resource is a Secret, so it goes with the secrets, after them: the chart needs no change for it. With a Gateway in
  * the environment, an application with an exposure path gets a route on it. Its CPU and memory are those of the
- * environment where it sets some apart, and so is its version. Without an image repository of
+ * environment where it sets some apart. Its version is the one of the environment. Without an image repository of
  * its own, the image is the one in the container registry of the project.
  */
 export const renderApplicationValues = (
-    application: GitOpsApplication & { version: string },
+    application: GitOpsApplication,
     environment: { _id: unknown; slug: string },
     mapNames: { configMaps: Map<string, string>; secrets: Map<string, string>; resources?: Map<string, string> },
     gateway?: ApplicationGateway,
     containerRegistry?: string
 ): string => {
     const repository = applicationImageRepository(application, containerRegistry)
-    // isDeployable lets through only what has one: values without an image would be a Deployment that never starts
+    const version = versionIn(application, environment._id)
+    // isDeployable lets through only what has both: values without them would be a Deployment that never starts
     if (!repository) throw new Error(`${application.slug} has no image repository and the project no container registry`)
+    if (!version) throw new Error(`${application.slug} has no version in ${environment.slug}`)
     const names = (ids: unknown[] | undefined, byId: Map<string, string>) => (ids ?? []).map(id => byId.get(String(id))).filter((name): name is string => Boolean(name))
     const route =
         gateway && application.exposurePath
@@ -172,8 +177,7 @@ export const renderApplicationValues = (
             : undefined
     const values = {
         replicas: 1,
-        // The version the environment runs apart, else the application's
-        image: { ...splitImage(repository), tag: versionIn(application, environment._id) },
+        image: { ...splitImage(repository), tag: version },
         containerPort: application.port ?? 8080,
         // What the environment sets apart, else what the application sets
         ...resourceValues(resourcesIn(application, environment._id)),

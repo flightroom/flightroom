@@ -169,7 +169,15 @@ describe("MaintenanceAgentService.update", () => {
 describe("MaintenanceAgentService.run", () => {
     const agentId = new Types.ObjectId()
     const environment = { _id: new Types.ObjectId(), slug: "dev", projectId }
-    const agent = { _id: agentId, projectId, slug: "cleaner", name: "Cleaner", version: "1.0.0", image: { repository: "ghcr.io/acme/cleaner" } }
+    const agent = {
+        _id: agentId,
+        projectId,
+        slug: "cleaner",
+        name: "Cleaner",
+        version: "1.0.0",
+        environmentVersions: [{ environmentId: environment._id, version: "1.0.0" }],
+        image: { repository: "ghcr.io/acme/cleaner" }
+    }
 
     let stored: ReturnType<typeof vi.fn>
     let lastRun: ReturnType<typeof vi.fn>
@@ -206,8 +214,8 @@ describe("MaintenanceAgentService.run", () => {
         expect(stored).not.toHaveBeenCalled()
     })
 
-    it("given an agent with no version yet, when it is run, then it is refused before Argo CD is asked", async () => {
-        vi.spyOn(MaintenanceAgent, "findById").mockResolvedValue({ ...agent, version: undefined } as never)
+    it("given an agent with no version in the environment, when it is run, then it is refused before Argo CD is asked", async () => {
+        vi.spyOn(MaintenanceAgent, "findById").mockResolvedValue({ ...agent, environmentVersions: [] } as never)
 
         expect(await codeOf(serviceAs().run(String(agentId), String(environment._id)))).toBe("MAINTENANCE_AGENT_NOT_DEPLOYED")
         expect(createJobFromCronJob).not.toHaveBeenCalled()

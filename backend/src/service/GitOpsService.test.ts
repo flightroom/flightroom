@@ -631,8 +631,8 @@ describe("GitOpsService.deploy", () => {
             exposedOn(exposure, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
             subdomains("dev", "app")
             vi.spyOn(Backend, "find").mockResolvedValue([
-                { slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" },
-                { slug: "billing-api", version: "1.0.0", image: { repository: "ghcr.io/acme/billing-api" } }
+                { slug: "orders-api", environmentVersions: [{ environmentId: production, version: "1.4.0" }], image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" },
+                { slug: "billing-api", environmentVersions: [{ environmentId: production, version: "1.0.0" }], image: { repository: "ghcr.io/acme/billing-api" } }
             ] as never)
 
             await deployOf(production)()
@@ -649,7 +649,9 @@ describe("GitOpsService.deploy", () => {
                 { _id: development, slug: "development", subdomain: "dev", projectId },
                 { _id: production, slug: "production", subdomain: "app", isProduction: true, ipAllowList: ["203.0.113.0/24"], projectId }
             ] as never)
-            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([
+                { slug: "orders-api", environmentVersions: [{ environmentId: production, version: "1.4.0" }], image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }
+            ] as never)
 
             await deployOf(production)()
 
@@ -666,7 +668,9 @@ describe("GitOpsService.deploy", () => {
                 { _id: development, slug: "development", subdomain: "dev", projectId },
                 { _id: production, slug: "production", subdomain: "app", isProduction: true, ipAllowList: [], projectId }
             ] as never)
-            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([
+                { slug: "orders-api", environmentVersions: [{ environmentId: production, version: "1.4.0" }], image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }
+            ] as never)
 
             await deployOf(production)()
 
@@ -678,7 +682,9 @@ describe("GitOpsService.deploy", () => {
         it("given an environment that never had an IP allow list, when it is deployed, then the routes go through no Middleware", async () => {
             exposedOn({ domain: "example.com" }, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
             subdomains("dev", "app")
-            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.4.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([
+                { slug: "orders-api", environmentVersions: [{ environmentId: production, version: "1.4.0" }], image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api/orders" }
+            ] as never)
 
             await deployOf(production)()
 
@@ -696,8 +702,12 @@ describe("GitOpsService.deploy", () => {
                 exposure: { domain: "example.com" }
             } as never)
             vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production, slug: "production", projectId }] as never)
-            vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders-api", version: "1.0.0", image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api" }] as never)
-            vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "shell", version: "2.0.0", image: { repository: "ghcr.io/acme/shell" }, exposurePath: "/api/" }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([
+                { slug: "orders-api", environmentVersions: [{ environmentId: production, version: "1.0.0" }], image: { repository: "ghcr.io/acme/orders-api" }, exposurePath: "/api" }
+            ] as never)
+            vi.spyOn(Frontend, "find").mockResolvedValue([
+                { slug: "shell", environmentVersions: [{ environmentId: production, version: "2.0.0" }], image: { repository: "ghcr.io/acme/shell" }, exposurePath: "/api/" }
+            ] as never)
             const run = vi.fn()
 
             await expect(deployOf(production)(run)).rejects.toMatchObject({ code: "GITOPS_EXPOSURE_PATH_TAKEN" })
@@ -710,7 +720,7 @@ describe("GitOpsService.deploy", () => {
         const orders = {
             _id: ordersId,
             slug: "orders-api",
-            version: "1.4.0",
+            environmentVersions: [{ environmentId: production, version: "1.4.0" }],
             image: { repository: "ghcr.io/acme/orders-api" },
             configMapIds: [logging._id],
             secretIds: [database._id]
@@ -752,7 +762,7 @@ describe("GitOpsService.deploy", () => {
                 gitOps: { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink },
                 containerRegistry: "azimutmarketplace.azurecr.io"
             } as never)
-            vi.spyOn(Backend, "find").mockResolvedValue([orders, { ...notBuilt, version: "0.3.0" }] as never)
+            vi.spyOn(Backend, "find").mockResolvedValue([orders, { ...notBuilt, environmentVersions: [{ environmentId: production, version: "0.3.0" }] }] as never)
 
             await deployOf(production)()
 

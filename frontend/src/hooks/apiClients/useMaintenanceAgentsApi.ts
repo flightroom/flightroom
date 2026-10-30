@@ -50,7 +50,7 @@ export interface MaintenanceAgent {
     memoryLimit?: string | null
     /** As for a backend: the environments that run it with CPU and memory of their own */
     environmentResources?: EnvironmentResources[] | null
-    /** As for a backend: the environments that run a version of their own */
+    /** As for a backend: the version each environment runs */
     environmentVersions?: EnvironmentVersion[] | null
     env: BackendEnvVariable[]
     configMapIds: string[]

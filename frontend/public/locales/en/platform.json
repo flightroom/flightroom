@@ -805,7 +805,7 @@
             "badge_bundle": "Bundle",
             "badge_docker": "Docker",
             "no_parents_hint": "A frontend served by Docker cannot have parents",
-            "version_from_pipeline": "The tag of the image deployed. Set it here, or the pipeline sets it when it registers a newer image.",
+            "version_from_pipeline": "The latest tag of the image: the pipeline sets it when it registers a newer one, or set it here. It is not deployed by itself: each environment runs the version set for it below.",
             "template_pipeline_hint": "The pipeline of this template uploads a bundle to Flightroom, which a frontend served by its Docker container does not accept. Change it to build the Docker image and register its version."
         },
         "errors": {
@@ -2492,14 +2492,13 @@
         "image_repository_hint_name": "{{image}} is deployed, from the container registry of the project. For another registry write the full path, e.g. ghcr.io/acme/orders-api.",
         "image_repository_missing": "No image repository here and no container registry in the project settings: GitOps does not deploy this version.",
         "version": "Version",
-        "version_hint": "The tag of the image deployed. Set it here, or the pipeline sets it when it registers a newer image.",
+        "version_hint": "The latest tag of the image: the pipeline sets it when it registers a newer one, or set it here. It is not deployed by itself: each environment runs the version set for it below.",
         "version_invalid": "Letters, digits, dots, dashes and underscores only, at most 128",
         "version_by_environment": {
             "title": "Version per environment",
-            "description": "A different version in some environments, e.g. production held on an older one while the others take the latest. Left empty, the environment runs the version above, shown as placeholder. The next deploy of the environment writes it.",
-            "add": "Add {{environment}}",
-            "none": "The same in every environment",
-            "no_version": "No version yet"
+            "description": "The version each environment runs, e.g. the latest in development and an older one in production. An environment without one does not get it: its deploys leave it out. The next deploy of the environment writes it.",
+            "set": "Set version",
+            "not_deployed": "not deployed"
         },
         "urls": {
             "title": "Endpoint",

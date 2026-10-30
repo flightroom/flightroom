@@ -919,7 +919,7 @@
             "badge_bundle": "Bundle",
             "badge_docker": "Docker",
             "no_parents_hint": "Un frontend servito da Docker non può avere parent",
-            "version_from_pipeline": "Il tag dell'immagine deployata. Puoi impostarla qui, oppure la imposta la pipeline quando registra un'immagine più recente.",
+            "version_from_pipeline": "L'ultimo tag dell'immagine: lo imposta la pipeline quando ne registra uno più recente, oppure puoi impostarlo qui. Non viene deployato da solo: ogni ambiente usa la versione impostata qui sotto.",
             "template_pipeline_hint": "La pipeline di questo template carica un bundle su Flightroom, che un frontend servito dal suo container Docker non accetta. Modificala perché costruisca l'immagine Docker e ne registri la versione."
         },
         "errors": {
@@ -2511,14 +2511,13 @@
         "image_repository_hint_name": "Viene deployata {{image}}, dal container registry del progetto. Per un altro registry scrivi il percorso completo, es. ghcr.io/acme/orders-api.",
         "image_repository_missing": "Nessun repository immagine qui e nessun container registry nelle impostazioni del progetto: GitOps non deploya questa versione.",
         "version": "Versione",
-        "version_hint": "Il tag dell'immagine deployata. Puoi impostarla qui, oppure la imposta la pipeline quando registra un'immagine più recente.",
+        "version_hint": "L'ultimo tag dell'immagine: lo imposta la pipeline quando ne registra uno più recente, oppure puoi impostarlo qui. Non viene deployato da solo: ogni ambiente usa la versione impostata qui sotto.",
         "version_invalid": "Solo lettere, numeri, punti, trattini e underscore, al massimo 128",
         "version_by_environment": {
             "title": "Versione per ambiente",
-            "description": "Una versione diversa in alcuni ambienti, ad esempio produzione ferma a una precedente mentre gli altri prendono l'ultima. Se vuota, l'ambiente usa la versione qui sopra, mostrata come placeholder. La scrive il prossimo deploy dell'ambiente.",
-            "add": "Aggiungi {{environment}}",
-            "none": "La stessa in tutti gli ambienti",
-            "no_version": "Ancora nessuna versione"
+            "description": "La versione che usa ogni ambiente, ad esempio l'ultima in sviluppo e una precedente in produzione. Un ambiente senza versione non lo riceve: i suoi deploy lo lasciano fuori. La scrive il prossimo deploy dell'ambiente.",
+            "set": "Imposta versione",
+            "not_deployed": "non deployato"
         },
         "urls": {
             "title": "Endpoint",
