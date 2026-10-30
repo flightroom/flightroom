@@ -2,7 +2,7 @@ import { AiJobScope, AiJobStatus, IAiChangeJob } from "../../models/AiChangeJobM
 import { AiChangeFileAction, AiChangeStatus, IAiChangeEvent, IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import { LlmEffort, LlmUsage } from "../llm"
 import { componentIdOf, componentsOfJob, RepositoryComponent, RepositoryComponentKind } from "../workspace/repositoryComponent"
-import { AI_CHANGE_DEFAULT_EFFORT } from "./aiChangeAgent"
+import { AI_CHANGE_DEFAULT_EFFORT } from "./aiChangeLimits"
 import { staleOutcome } from "./aiChangeShared"
 
 /** File contents stay out of every view: the diff is read from the request of each repository. */

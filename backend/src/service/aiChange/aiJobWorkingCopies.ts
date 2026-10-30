@@ -6,7 +6,7 @@ import { isUnproposablePath, resolveInsideWorkingCopy } from "../../utils/worksp
 import { toErrorMessage } from "../RepositoryFileService"
 import { OpenedWorkspace } from "../workspace/RepositoryWorkspaceService"
 import { RepositoryComponent } from "../workspace/repositoryComponent"
-import { AI_CHANGE_LIMITS } from "./aiChangeAgent"
+import { AI_CHANGE_LIMITS } from "./aiChangeLimits"
 import { authorOf, branchName, commitMessage, conversationPrompts, firstLine, loggable, storable, toCommitFiles } from "./aiChangeShared"
 
 /** A repository of a running job: its request and its prepared working copy. */

@@ -85,7 +85,10 @@ import BackendService from "./BackendService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import FrontendService from "./FrontendService"
 import MarketService from "./MarketService"
-import TemplateScaffoldService, { PipelineTemplates, placeholderDomain, replaceFederationName, TagLookupError } from "./TemplateScaffoldService"
+import TemplateScaffoldService from "./TemplateScaffoldService"
+import { PipelineTemplates, placeholderDomain } from "./templateScaffold/pipelineTemplates"
+import { replaceFederationName, replacePlaceholdersInDirectory } from "./templateScaffold/templateFiles"
+import { TagLookupError } from "./templateScaffold/templateTags"
 import RepositoryWorkspaceService from "./workspace/RepositoryWorkspaceService"
 
 withNoMaintenanceAgents()
@@ -178,9 +181,8 @@ describe("TemplateScaffoldService, backend templates", () => {
 
     it("given a binary file, when the placeholders are replaced, then it is left byte for byte", async () => {
         const template = await templateZip(backendFiles)
-        const service = scaffoldWith(template, await pipelinesZip({}))
 
-        await service.replacePlaceholdersInDirectory(join(template, "template-main"), backendPlaceholders)
+        await replacePlaceholdersInDirectory(join(template, "template-main"), backendPlaceholders)
 
         expect(await fs.readFile(join(template, "template-main", "assets", "logo.bin"))).toEqual(backendFiles["assets/logo.bin"])
     })

@@ -17,7 +17,8 @@ import { slugify } from "../utils/slugUtils"
 import BaseAuthorizedService, { DOMAIN_SCOPE_FORBIDDEN } from "./BaseAuthorizedService"
 import { deleteLinksOfDomain } from "./DomainLinkService"
 import { repositoryKeys } from "./repositoryLinks"
-import TemplateScaffoldService, { TagLookupError, TagTarget } from "./TemplateScaffoldService"
+import TemplateScaffoldService from "./TemplateScaffoldService"
+import { pushTag, TagLookupError, TagTarget, tagCommit, tagExists } from "./templateScaffold/templateTags"
 
 /**
  * The domain a frontend or a backend is put in, as it is stored: null when it is taken out of
@@ -213,10 +214,10 @@ const branchesOf = (repositories: BuildRepository[], branch: string, refs?: Buil
  * Whether the branch of the repository is still on the commit every member's version was tagged on: a new tag
  * would only build the same code again. A member without a version, or a tag that cannot be read, is a change.
  */
-const isUnchanged = async (scaffold: TemplateScaffoldService, repository: BuildRepository, target: TagTarget): Promise<boolean> => {
+const isUnchanged = async (repository: BuildRepository, target: TagTarget): Promise<boolean> => {
     if (repository.versions.some(version => !version)) return false
     try {
-        const commits = await Promise.all([...new Set(repository.versions as string[])].map(version => scaffold.tagCommit(target, version)))
+        const commits = await Promise.all([...new Set(repository.versions as string[])].map(version => tagCommit(target, version)))
         return commits.every(commit => commit === target.commit)
     } catch {
         return false
@@ -408,10 +409,10 @@ export class DomainService extends BaseAuthorizedService {
                 if (!target) {
                     return { repository, failure: { reason: "PROVIDER_ERROR" as const, message: "The provider of the connection cannot be tagged" } }
                 }
-                if (await scaffold.tagExists(target, version)) {
+                if (await tagExists(target, version)) {
                     return { repository, failure: { reason: "TAG_EXISTS" as const, message: `The tag ${version} already exists in the repository` } }
                 }
-                return { repository, target, unchanged: await isUnchanged(scaffold, repository, target) }
+                return { repository, target, unchanged: await isUnchanged(repository, target) }
             } catch (error) {
                 return { repository, failure: toBuildFailure(error) }
             }
@@ -437,7 +438,7 @@ export class DomainService extends BaseAuthorizedService {
                 continue
             }
             try {
-                await scaffold.pushTag(target as TagTarget, version)
+                await pushTag(target as TagTarget, version)
                 outcomes.push(toOutcome(repository, branches.get(repository.id)!, { status: "tagged" }))
             } catch (error) {
                 outcomes.push(toOutcome(repository, branches.get(repository.id)!, { status: "failed", ...toBuildFailure(error) }))

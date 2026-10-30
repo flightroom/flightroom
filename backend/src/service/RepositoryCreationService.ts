@@ -14,7 +14,8 @@ import BaseAuthorizedService from "./BaseAuthorizedService"
 import { DEFAULT_ENTRY_POINT, withEntryPoint } from "./FrontendService"
 import MarketService from "./MarketService"
 import { isValidRepositoryName } from "./RepositoryRenameService"
-import TemplateScaffoldService, { CodeRepositoryTarget, placeholderDomain } from "./TemplateScaffoldService"
+import TemplateScaffoldService, { CodeRepositoryTarget } from "./TemplateScaffoldService"
+import { placeholderDomain } from "./templateScaffold/pipelineTemplates"
 import { RepositoryComponentKind } from "./workspace/repositoryComponent"
 
 export interface CreateRepositoryInput {

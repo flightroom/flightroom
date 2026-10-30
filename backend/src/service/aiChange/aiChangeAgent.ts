@@ -8,25 +8,6 @@ import { AiChangeToolbox, buildFirst } from "./aiChangeToolbox"
 import { describeToolCall } from "./aiChangeTools"
 import { ApiSpecReader } from "./apiSpecReader"
 
-// The agent's surface stays importable from here: its callers and tests (and the mock of this module) use this path.
-export type {
-    AiChangeAgentBackend,
-    AiChangeAgentDomain,
-    AiChangeAgentFrontend,
-    AiChangeAgentHooks,
-    AiChangeAgentInput,
-    AiChangeAgentRepository,
-    AiChangeAgentResource,
-    AiChangeAgentResourceKey,
-    AiChangeAgentResult,
-    AiChangeRepositoryMap,
-    AiChangeToolboxChange
-} from "./aiChangeAgentTypes"
-export { describeLayout } from "./aiChangeFiles"
-export { AI_CHANGE_DEFAULT_EFFORT, AI_CHANGE_LIMITS, agentLimitsFor, REPOSITORY_MAP_PATH } from "./aiChangeLimits"
-export { AiChangeToolbox, type AiChangeToolboxRepository } from "./aiChangeToolbox"
-export { describeToolCall } from "./aiChangeTools"
-
 /**
  * Runs the agent on prepared working copies until it calls finish, answers without calling a tool,
  * or runs out of rounds. It only ever touches files inside those working copies; reading the

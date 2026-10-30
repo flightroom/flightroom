@@ -17,8 +17,7 @@ const { createRepository } = vi.hoisted(() => ({
         Object.assign(target, { repositoryId: "42", name: (target.createData as { name: string }).name, cloneUrlHttps: "https://example.com/repo.git" })
     })
 }))
-vi.mock("./TemplateScaffoldService", async importOriginal => ({
-    ...(await importOriginal<typeof import("./TemplateScaffoldService")>()),
+vi.mock("./TemplateScaffoldService", () => ({
     default: class {
         createRepository = createRepository
     }

@@ -16,17 +16,15 @@ import { toErrorMessage } from "../RepositoryFileService"
 import { resourceIdsInScope } from "../ResourceService"
 import RepositoryWorkspaceService from "../workspace/RepositoryWorkspaceService"
 import { componentIdOf, componentOf, componentsOfJob, findComponents, ownerFields, RepositoryComponent, RepositoryComponentRef } from "../workspace/repositoryComponent"
-import { AI_CHANGE_DEFAULT_EFFORT, runAiChangeAgent } from "./aiChangeAgent"
+import { runAiChangeAgent } from "./aiChangeAgent"
 import { AiChangeJobQueryService, noRepositories, sameComponent } from "./aiChangeJobQueries"
+import { AI_CHANGE_DEFAULT_EFFORT } from "./aiChangeLimits"
 import { aiJobEnded, beforeAiCapCheck, branchName, branchTopic, ensureNotBeingRefined, followUpRunning, loggable } from "./aiChangeShared"
 import { agentInputOf } from "./aiJobAgentInput"
 import { notifyAiJobEnded } from "./aiJobNotices"
 import { ACTIVE_JOB_STATUSES, addJobUsage, event, expiry, failJob, fresh, logJobEvent, saveProposals, UNFINISHED_REQUEST_STATUSES } from "./aiJobRecords"
 import { AiJobView, JOB_LISTED, WITHOUT_CONTENTS } from "./aiJobViews"
 import { changedFiles, JobProposal, PushedProposal, pushProposal, RunningRepository, restorePrevious, sameFiles } from "./aiJobWorkingCopies"
-
-export { ACTIVE_JOB_STATUSES } from "./aiJobRecords"
-export type { AiJobRepositoryView, AiJobView, AiWorkingJobView } from "./aiJobViews"
 
 /** Repositories one job may work on: each is a clone and a share of the model's context. */
 const MAX_REPOSITORIES_PER_JOB = 10

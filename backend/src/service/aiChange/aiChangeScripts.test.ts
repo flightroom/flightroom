@@ -6,8 +6,8 @@ import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CommandSandbox, SandboxExecOptions } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
-import { AiChangeToolbox } from "./aiChangeAgent"
 import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, commandFor, previewPlanFor, ScriptRepository } from "./aiChangeScripts"
+import { AiChangeToolbox } from "./aiChangeToolbox"
 
 const hasTools = ["git", "tar", "npm"].every(tool => spawnSync(tool, ["--version"]).status === 0)
 

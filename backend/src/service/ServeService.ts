@@ -1,6 +1,5 @@
 import { FastifyRequest } from "fastify"
 import { ObjectId, Schema } from "mongoose"
-import Stream from "stream"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { EnvironmentNotFoundError } from "../errors/EnvironmentNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
@@ -19,10 +18,6 @@ import FrontendVersionResolver, { isVersionCanary } from "./serve/FrontendVersio
 import { getFrontendStreamCustomUrl, getFrontendStreamLocal, getFrontendStreamStorage } from "./serve/frontendStreams"
 import { CodeIntegrationRequestDTO, CodeIntegrationResponseDTO, FrontendAdaptedToServe, GetAllDataDTO, GetRemotesRequestDTO, GetRemotesResponseDTO, ServeFileResult } from "./serve/serveTypes"
 import { escapeRegExp, isDocker, refererMatchCandidates } from "./serve/serveUrls"
-
-export type { FrontendAdaptedToServe, GetAllDataDTO, GetRemotesResponseDTO, RedirectToVersion, ServeFileResult, StreamWithHeader } from "./serve/serveTypes"
-export { isRedirectToVersion } from "./serve/serveTypes"
-export { VERSION_PATH_SEGMENT } from "./serve/serveUrls"
 
 //NOTE: Here we need speed so please do not use any third party service
 
@@ -386,15 +381,6 @@ export default class ServeService {
     }
 
     /**
-     * Draws the canary. Called from the two places where a version gets decided — the manifest and the
-     * redirect of a versionless entrypoint — and nowhere else: every other file of the frontend
-     * reads its version off the URL, so one page load runs one build.
-     */
-    getFrontendVersion(deployedFrontend: IFrontend, deploymentId?: string | ObjectId | Schema.Types.ObjectId): Promise<string> {
-        return this.versions.getFrontendVersion(deployedFrontend, deploymentId)
-    }
-
-    /**
      * Serve a single file of a frontend.
      * @param version Version to serve, taken from the URL. When missing and the frontend needs a
      * pinned version, the caller is redirected to the same file under the drawn version.
@@ -414,7 +400,7 @@ export default class ServeService {
         if (!version && isEntryPoint && isVersionCanary(frontend)) {
             return {
                 headers: HEADERS_NO_CACHE,
-                redirectToVersion: await this.getFrontendVersion(frontend, deployment._id)
+                redirectToVersion: await this.versions.getFrontendVersion(frontend, deployment._id)
             }
         }
 
@@ -429,7 +415,7 @@ export default class ServeService {
                 }
                 return {
                     headers,
-                    stream: await this.getFrontendStreamStorage(project, frontendSlug, versionToServe, filePath, storage)
+                    stream: await getFrontendStreamStorage(project, frontendSlug, versionToServe, filePath, storage)
                 }
             }
             case HostedOn.CUSTOM_URL:
@@ -438,12 +424,12 @@ export default class ServeService {
                 }
                 return {
                     headers,
-                    stream: await this.getFrontendStreamCustomUrl(project, frontendSlug, versionToServe, filePath, frontend.host.url)
+                    stream: await getFrontendStreamCustomUrl(project, frontendSlug, versionToServe, filePath, frontend.host.url)
                 }
             case HostedOn.MFE_ORCHESTRATOR_HUB:
                 return {
                     headers,
-                    stream: await this.getFrontendStreamLocal(project, frontendSlug, versionToServe, filePath)
+                    stream: await getFrontendStreamLocal(project, frontendSlug, versionToServe, filePath)
                 }
         }
     }
@@ -472,18 +458,6 @@ export default class ServeService {
         const deployedMFE = deployedFrontend(deployment, mfe => mfe._id.toString() === mfeId, mfeId)
 
         return this.getFrontendByDeployment(project, deployment, deployedMFE.slug, filePath, version)
-    }
-
-    getFrontendStreamLocal(project: IProject, frontendSlug: string, version: string, filePath: string): Stream {
-        return getFrontendStreamLocal(project, frontendSlug, version, filePath)
-    }
-
-    getFrontendStreamCustomUrl(project: IProject, frontendSlug: string, version: string, filePath: string, baseUrl: string): Promise<Stream> {
-        return getFrontendStreamCustomUrl(project, frontendSlug, version, filePath, baseUrl)
-    }
-
-    getFrontendStreamStorage(project: IProject, frontendSlug: string, version: string, filePath: string, storage: IStorage): Promise<Stream> {
-        return getFrontendStreamStorage(project, frontendSlug, version, filePath, storage)
     }
 
     getEnvironmentFomRefererAndProjectId(referer: string, projectId: string | Schema.Types.ObjectId) {

@@ -18,7 +18,8 @@ import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryL
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
 import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
-import TemplateScaffoldService, { placeholderDomain } from "./TemplateScaffoldService"
+import TemplateScaffoldService from "./TemplateScaffoldService"
+import { placeholderDomain } from "./templateScaffold/pipelineTemplates"
 import { ensureAttachableMaps, resolveAttachedMaps } from "./VariableMapService"
 import { forgetBackends } from "./workspace/workspaceCleanup"
 

@@ -14,7 +14,6 @@ vi.mock("./MarketService", () => ({
 
 const createRepository = vi.fn()
 vi.mock("./TemplateScaffoldService", () => ({
-    placeholderDomain: () => "https://console.example.com",
     default: class {
         createRepository = createRepository
     }
