@@ -14,7 +14,12 @@ export default defineConfig({
             exclude: ["src/**/*.test.ts", "src/**/__fixtures__/**"],
             reporter: ["text-summary", "html", "json-summary"],
             // CI publishes the summary even when a test fails
-            reportOnFailure: true
+            reportOnFailure: true,
+            // Each client in src/client talks to an outside service and is tested on its own:
+            // a client added or grown without tests fails the coverage run in CI.
+            thresholds: {
+                "src/client/**/*.ts": { perFile: true, statements: 95, branches: 90, functions: 95, lines: 95 }
+            }
         }
     }
 })
