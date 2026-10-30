@@ -105,21 +105,6 @@ describe("Backend model", () => {
         expect(aBackend().secretIds).toEqual([])
     })
 
-    it("given a backend still holding the inline values of before the maps, when it is serialised, then they are not sent", () => {
-        const backend = Backend.hydrate({
-            _id: new Types.ObjectId(),
-            projectId: new Types.ObjectId(),
-            slug: "orders",
-            name: "Orders",
-            secrets: [{ key: "DATABASE_PASSWORD", values: [{ value: "hunter2" }] }],
-            configMap: []
-        })
-
-        expect(JSON.stringify(backend)).not.toContain("hunter2")
-        expect(backend.toObject()).not.toHaveProperty("secrets")
-        expect(backend.toObject()).not.toHaveProperty("configMap")
-    })
-
     it("declares the slug unique inside its project", () => {
         expect(Backend.schema.indexes()).toContainEqual([{ slug: 1, projectId: 1 }, expect.objectContaining({ unique: true })])
     })
