@@ -17,7 +17,12 @@ const direction = new THREE.Vector3()
 const corner = new THREE.Vector3()
 
 export const sameView = (one: CameraView, other: CameraView) =>
-    one.azimuth === other.azimuth && one.elevation === other.elevation && one.zoom === other.zoom && one.aspect === other.aspect && one.roomSize === other.roomSize
+    one.azimuth === other.azimuth &&
+    one.elevation === other.elevation &&
+    one.zoom === other.zoom &&
+    one.aspect === other.aspect &&
+    one.roomSize.width === other.roomSize.width &&
+    one.roomSize.depth === other.roomSize.depth
 
 /** The orthographic frame around the whole room, walls and hull included, whatever way the camera turned */
 export const frameRoom = (camera: THREE.OrthographicCamera, walls: Wall[], { azimuth, elevation, zoom, aspect, roomSize }: CameraView) => {
