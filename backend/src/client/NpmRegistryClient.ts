@@ -18,10 +18,15 @@ const DEFAULT_REGISTRY_URL = "https://registry.npmjs.org"
 const CACHE_TTL_MS = 1000 * 60 * 60
 /**
  * A package the registry answered 404 for, private packages first of all: remembered briefly, so a report
- * of many dependencies does not ask again for each of them every time it is loaded. Any other failure is
- * not remembered, a registry blip must not hide what it knows
+ * of many dependencies does not ask again for each of them every time it is loaded
  */
 const NOT_FOUND_TTL_MS = 1000 * 60 * 5
+/**
+ * A registry that failed (5xx) or did not answer (timeout, network): remembered for a minute only, a blip must
+ * not hide what it knows, but a registry out of reach must not cost every report a timeout per package.
+ * A refusal (401, 403) is not remembered: a token fixed takes effect at once
+ */
+const UNAVAILABLE_TTL_MS = 1000 * 60
 const REQUEST_TIMEOUT_MS = 10_000
 const DEFAULT_CONCURRENCY = 8
 
@@ -31,6 +36,8 @@ interface CacheEntry {
 }
 
 const cache = new Map<string, CacheEntry>()
+/** The lookups under way, by cache key: lookups of the same package at once share one request */
+const inFlight = new Map<string, Promise<NpmPackageInfo | null>>()
 
 class NpmRegistryClient {
     private readonly registryUrl: string
@@ -57,6 +64,14 @@ class NpmRegistryClient {
             return cached.value
         }
 
+        const pending = inFlight.get(cacheKey)
+        if (pending) return pending
+        const lookup = this.fetchPackageInfo(packageName, cacheKey).finally(() => inFlight.delete(cacheKey))
+        inFlight.set(cacheKey, lookup)
+        return lookup
+    }
+
+    private async fetchPackageInfo(packageName: string, cacheKey: string): Promise<NpmPackageInfo | null> {
         try {
             const response = await axios.request<NpmAbbreviatedPackument>({
                 url: this.buildUrl(packageName),
@@ -80,8 +95,11 @@ class NpmRegistryClient {
             return value
         } catch (error) {
             // A missing or unreachable package must not break the whole analysis
-            if (axios.isAxiosError(error) && error.response?.status === 404) {
-                cache.set(cacheKey, { expiresAt: Date.now() + NOT_FOUND_TTL_MS, value: null })
+            if (axios.isAxiosError(error)) {
+                // No status: no answer at all, a timeout or the network
+                const status = error.response?.status
+                if (status === 404) cache.set(cacheKey, { expiresAt: Date.now() + NOT_FOUND_TTL_MS, value: null })
+                else if (status === undefined || status >= 500) cache.set(cacheKey, { expiresAt: Date.now() + UNAVAILABLE_TTL_MS, value: null })
             }
             return null
         }
