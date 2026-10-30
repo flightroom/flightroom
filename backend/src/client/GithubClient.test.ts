@@ -178,6 +178,15 @@ describe("GithubClient.getRepositoryPublicKey", () => {
         await expect(new GithubClient().getRepositoryPublicKey({ accessToken: token, userName: "octocat", repositoryName: "cart-fe" })).resolves.toEqual({ key_id: "kid", key: publicKey })
         expect(sent(request)).toEqual({ url: `${api}/repos/octocat/cart-fe/actions/secrets/public-key`, headers: githubHeaders })
     })
+
+    /** Repository secrets live under /repos/{owner}: GitHub has no /orgs/{org}/repos/{repo}/actions endpoint */
+    it("given an organization repository, when its public key is read, then the repository is read under the organization as its owner", async () => {
+        const request = stubRequest().mockResolvedValue({ data: { key_id: "kid", key: publicKey } })
+
+        await new GithubClient().getRepositoryPublicKey({ accessToken: token, orgName: "acme", userName: "octocat", repositoryName: "cart-fe" })
+
+        expect(sent(request).url).toBe(`${api}/repos/acme/cart-fe/actions/secrets/public-key`)
+    })
 })
 
 describe("GithubClient.getOrganizationPublicKey", () => {
@@ -218,6 +227,17 @@ describe("GithubClient.upsertRepositorySecret", () => {
         expect(opened(String(sentBody(request, 1).encrypted_value))).toBe("api-key-value")
     })
 
+    it("given an organization repository, when the secret is stored, then the key and the secret are both under the organization as the owner", async () => {
+        const request = stubRequest()
+            .mockResolvedValueOnce({ data: { key_id: "kid", key: publicKey } })
+            .mockResolvedValueOnce({ status: 201, data: "" })
+
+        await new GithubClient().upsertRepositorySecret({ ...secret, orgName: "acme" })
+
+        expect(sent(request, 0).url).toBe(`${api}/repos/acme/cart-fe/actions/secrets/public-key`)
+        expect(sent(request, 1).url).toBe(`${api}/repos/acme/cart-fe/actions/secrets/DEPLOY%2FKEY`)
+    })
+
     it("given the public key cannot be read, when the secret is stored, then nothing is written and the failure is passed on", async () => {
         const failure = answered(403)
         const request = stubRequest().mockRejectedValue(failure)
@@ -235,6 +255,14 @@ describe("GithubClient.checkRepositorySecretExists", () => {
 
         await expect(new GithubClient().checkRepositorySecretExists(secret)).resolves.toBe(true)
         expect(sent(request)).toEqual({ method: "GET", url: `${api}/repos/octocat/cart-fe/actions/secrets/DEPLOY%20KEY`, headers: githubHeaders })
+    })
+
+    it("given an organization repository, when the secret is checked, then it is read under the organization as the owner", async () => {
+        const request = stubRequest().mockResolvedValue({ data: { name: "DEPLOY KEY" } })
+
+        await new GithubClient().checkRepositorySecretExists({ ...secret, orgName: "acme" })
+
+        expect(sent(request).url).toBe(`${api}/repos/acme/cart-fe/actions/secrets/DEPLOY%20KEY`)
     })
 
     it("given GitHub answers 404, when the secret is checked, then it does not exist", async () => {
