@@ -53,17 +53,30 @@ const dnsPart = (value: string) =>
 /** `value`, or when it is longer than `max` its start and a hash of the whole, so two names cut at the same place stay apart */
 const bounded = (value: string, max: number) => (value.length <= max ? value : `${value.slice(0, max - HASH_LENGTH - 1).replace(/[-.]+$/, "")}-${hashOf(value)}`)
 
+/** Every name the console gives in Argo CD starts with it: the policy of its account matches its objects only, `fr-*` */
+export const NAME_PREFIX = "fr-"
+
+/** `<prefix><project slug>-<parts>-<hash of the project id>` in 63 characters: the slug and the parts are what is cut */
+const projectScoped = (prefix: string, projectId: string, projectSlug: string, parts: string[]) =>
+    `${prefix}${bounded(dnsPart([projectSlug, ...parts].join("-")), NAME_MAX_LENGTH - prefix.length - HASH_LENGTH - 1)}-${hashOf(projectId)}`
+
 /**
- * Every name is `<project slug>-<parts>-<hash of the project id>`, the AppProject `<project slug>-<hash>`: the hash keeps the projects apart, `shop-eu`
- * and `shop` never meet. The Application of an environment is `<project slug>-<environment>-<hash>`, the
- * ApplicationSet of a backend or frontend `<project slug>-<slug>-<hash>`, and what it generates
- * `<project slug>-<slug>-<environment>-<hash>`. Two objects of the same project that would meet are refused by
+ * Every name is `fr-<project slug>-<parts>-<hash of the project id>`, the AppProject `fr-<project slug>-<hash>`: the hash keeps the projects apart, `shop-eu`
+ * and `shop` never meet. The Application of an environment is `fr-<project slug>-<environment>-<hash>`, the
+ * ApplicationSet of a backend or frontend `fr-<project slug>-<slug>-<hash>`, and what it generates
+ * `fr-<project slug>-<slug>-<environment>-<hash>`. Two objects of the same project that would meet are refused by
  * clashingName. Every name fits 63 characters, as Argo CD tracks resources with the name in a label value.
  */
-const scopedName = (projectId: string, projectSlug: string, ...parts: string[]) => `${bounded(dnsPart([projectSlug, ...parts].join("-")), NAME_MAX_LENGTH - HASH_LENGTH - 1)}-${hashOf(projectId)}`
+const scopedName = (projectId: string, projectSlug: string, ...parts: string[]) => projectScoped(NAME_PREFIX, projectId, projectSlug, parts)
 
-/** The AppProject, and the Gateway of every environment: `<project slug>-<hash>` */
+/** The AppProject: `fr-<project slug>-<hash>` */
 export const appProjectName = (projectId: string, projectSlug: string) => scopedName(projectId, projectSlug)
+
+/**
+ * `<project slug>-<hash>`, without the prefix: the AppProject as 10.0 and 10.1 named it, which an initialization moves
+ * the objects of the project out of, and the Gateway of every environment, which keeps that name
+ */
+export const unprefixedProjectName = (projectId: string, projectSlug: string) => projectScoped("", projectId, projectSlug, [])
 
 export const environmentApplicationName = (projectId: string, projectSlug: string, environmentSlug: string) => scopedName(projectId, projectSlug, environmentSlug)
 

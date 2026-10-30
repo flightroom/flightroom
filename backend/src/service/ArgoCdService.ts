@@ -32,7 +32,8 @@ import {
     legacyLabel,
     PROJECT_ID_LABEL,
     projectIdOf,
-    selectorsOf
+    selectorsOf,
+    unprefixedProjectName
 } from "./gitops/argoCdManifests"
 import { RolloutDTO, rolloutStateOf } from "./gitops/rollout"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
@@ -562,6 +563,17 @@ export class ArgoCdService extends BaseAuthorizedService {
                     const conflict = () => nameConflict("ApplicationSet", metadata.name)
                     if (!isOurs(await probe(client.getApplicationSet(metadata.name), conflict))) throw conflict()
                 }
+                // The AppProject an earlier version named otherwise, the one of the last initialization or 10.x's without the prefix: what the
+                // project has in it moves to the one of now. Only guessed from the name, one the account may not read is none of its own
+                const recorded = previous?.repositories?.configuration?.argoCdUrl === url ? previous.repositories.configuration.argoProject : undefined
+                const movedFrom: string[] = []
+                for (const name of new Set([recorded, unprefixedProjectName(String(projectIdObj), current.slug)])) {
+                    if (!name || name === projectName) continue
+                    const earlier = await client
+                        .getProject(name)
+                        .catch(error => (error instanceof BusinessException && error.code === "ARGOCD_FORBIDDEN" && name !== recorded ? null : Promise.reject(error)))
+                    if (projectIdOf(earlier) === String(projectIdObj)) movedFrom.push(name)
+                }
                 // A repository another project of the organization registered globally is read through its registration.
                 // Only a global one: a registration scoped to another AppProject is of no use to this one
                 const shared = new Set<ArgoCdRepositoryKind>()
@@ -571,7 +583,7 @@ export class ArgoCdService extends BaseAuthorizedService {
                         continue
                     }
                     const before = previous?.repositories?.[target.kind]
-                    const ours = before?.argoCdUrl === url && before.repoUrl === target.repoUrl && before.argoProject === target.argoProject
+                    const ours = before?.argoCdUrl === url && before.repoUrl === target.repoUrl && (before.argoProject === target.argoProject || movedFrom.includes(before.argoProject ?? ""))
                     if (!ours && (await client.getRepository(target.repoUrl))) throw repositoryConflict(target.repoUrl)
                 }
 
@@ -648,14 +660,23 @@ export class ArgoCdService extends BaseAuthorizedService {
                 // The console makes no Application itself any more: those an earlier initialization made per
                 // environment go, the ApplicationSet of the environments makes them again
                 const kept = new Set(state.applicationSets.map(resource => resource.metadata.name))
-                // Under the labels of before the rename too: what an earlier version made carries those until it is saved again
+                // Under the labels of before the rename too: what an earlier version made carries those until it is saved again.
+                // In the AppProject of an earlier name all of it goes, the ApplicationSets of now taking over its workloads
                 const selector = `${PROJECT_ID_LABEL}=${projectIdObj}`
-                for (const application of await listUnder(selectorsOf(`${selector},${COMPONENT_LABEL}=configuration`), labels => client.listApplications(labels, projectName))) {
-                    if (projectOf(application) === projectName) await client.deleteApplication(application.metadata.name)
+                for (const appProject of [projectName, ...movedFrom]) {
+                    for (const application of await listUnder(selectorsOf(`${selector},${COMPONENT_LABEL}=configuration`), labels => client.listApplications(labels, appProject))) {
+                        if (projectOf(application) === appProject) await client.deleteApplication(application.metadata.name)
+                    }
+                    for (const applicationSet of await listUnder(selectorsOf(selector), labels => client.listApplicationSets(labels, appProject))) {
+                        if (!kept.has(applicationSet.metadata.name) && projectOf({ ...applicationSet, kind: "ApplicationSet" }) === appProject)
+                            await client.deleteApplicationSet(applicationSet.metadata.name)
+                    }
                 }
-                for (const applicationSet of await listUnder(selectorsOf(selector), labels => client.listApplicationSets(labels, projectName))) {
-                    if (!kept.has(applicationSet.metadata.name) && projectOf({ ...applicationSet, kind: "ApplicationSet" }) === projectName)
-                        await client.deleteApplicationSet(applicationSet.metadata.name)
+                // Refused while the Applications of its ApplicationSets are still being deleted: the next initialization tries again
+                for (const name of movedFrom) {
+                    await client
+                        .deleteProject(name)
+                        .catch(error => fastify.log.warn({ error: toErrorMessage(error), appProject: name }, "Argo CD AppProject of an earlier name not deleted, retried next time"))
                 }
 
                 const argoCd: IProjectArgoCd = { url, token, insecure, repositories, initializedAt: new Date() }
@@ -717,8 +738,11 @@ export class ArgoCdService extends BaseAuthorizedService {
                 applicationBranches: await this.branchesOf({ link, connection })
             }
             const clash = clashingName(buildArgoCdState(target))
+            const appProject = await client.getProject(projectName)
+            // Initialized by a version that named the AppProject otherwise: only an initialization moves the project to this one
+            if (!appProject) throw reinitializeRequired()
             // An environment added since the initialization has no namespace in the AppProject yet: its Applications would only fail
-            const destinations = ((await client.getProject(projectName))?.spec?.destinations ?? []) as Array<{ namespace?: string }>
+            const destinations = (appProject.spec?.destinations ?? []) as Array<{ namespace?: string }>
             const inProject = (environment: ArgoCdEnvironment) => destinations.some(destination => destination.namespace === environment.namespace)
             const outside = target.environments.filter(environment => !inProject(environment))
             target.environments = target.environments.filter(inProject)

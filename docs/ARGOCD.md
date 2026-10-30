@@ -23,22 +23,22 @@ environment is deployed to the cluster Argo CD runs in (`https://kubernetes.defa
 All of it is labelled `app.kubernetes.io/managed-by: flightroom` and
 `flightroom/project-id: <project id>`. Versions before the rename wrote `mfe-orchestrator` and
 `mfe-orchestrator/<label>`: the console still recognizes those objects as its own, and relabels them the
-next time it saves them. `<project>` below is `mfe-<project slug>-<hash of the
-project id>`, so two projects with the same slug, in two organizations, never meet.
+next time it saves them. Every name below starts with `fr-` and ends with `<hash>`, a hash of the
+project id, so two projects with the same slug, in two organizations, never meet. `<slug>` is the project slug.
 
 | Object | Name | What it does |
 | --- | --- | --- |
-| AppProject | `<project>` | Lets the applications of the project read its two repositories only, and write only to the namespaces of its environments. Namespace is the one cluster-wide kind it may create. |
+| AppProject | `fr-<slug>-<hash>` | Lets the applications of the project read its two repositories only, and write only to the namespaces of its environments. Namespace is the one cluster-wide kind it may create. |
 | Repository credentials | one per repository | Read-only, over HTTPS. Those of the configuration repository, which holds the secrets in plaintext, are scoped to the AppProject. Those of the applications repository, which holds Helm values only, are global: the git generator of an ApplicationSet reads the repository outside of any AppProject. |
-| ApplicationSet | `<project>.environments` | Lists the environments of the project. Argo CD makes from it an Application per environment, `<project>.<environment>`, syncing the folder `<environment>/` (its `namespace.yaml`, `configMaps/*.yaml` and `secrets/*.yaml`) from the default branch of the configuration repository into the namespace of the environment. Automated, with prune and self-heal. The environments are listed rather than found in the repository: a git generator would read the configuration repository outside of the AppProject, and it holds the secrets. |
-| ApplicationSet | `<project>.<application>` | Only with an applications repository, one per backend and per frontend that runs as a container, once it has a version and an image: its own, or `<containerRegistry>/<application>` when the project has a container registry. An image of its own that is a bare name, with no `/`, is taken in that registry too: `<containerRegistry>/<name>`. Makes an Application per environment, `<project>.<application>-<environment>`, for every environment whose branch holds `<application>.yaml`, installed with `microservice-chart/` of that branch and `../<application>.yaml` as values file. An environment whose branch does not exist yet is left out of the list: Argo CD fails an ApplicationSet that names a revision it cannot find. Labelled `flightroom/application: <application>`. |
+| ApplicationSet | `fr-<slug>-environments-<hash>` | Lists the environments of the project. Argo CD makes from it an Application per environment, `fr-<slug>-<environment>-<hash>`, syncing the folder `<environment>/` (its `namespace.yaml`, `configMaps/*.yaml` and `secrets/*.yaml`) from the default branch of the configuration repository into the namespace of the environment. Automated, with prune and self-heal. The environments are listed rather than found in the repository: a git generator would read the configuration repository outside of the AppProject, and it holds the secrets. |
+| ApplicationSet | `fr-<slug>-<application>-<hash>` | Only with an applications repository, one per backend and per frontend that runs as a container, once it has a version and an image: its own, or `<containerRegistry>/<application>` when the project has a container registry. An image of its own that is a bare name, with no `/`, is taken in that registry too: `<containerRegistry>/<name>`. Makes an Application per environment, `fr-<slug>-<application>-<environment>-<hash>`, for every environment whose branch holds `<application>.yaml`, installed with `microservice-chart/` of that branch and `../<application>.yaml` as values file. An environment whose branch does not exist yet is left out of the list: Argo CD fails an ApplicationSet that names a revision it cannot find. Labelled `flightroom/application: <application>`. |
 
 > **Never put a secret in the Helm values.** The applications repository is registered globally, so
 > every AppProject of the Argo CD instance may read it. Secrets belong in the secrets of the project,
 > committed to the configuration repository.
 
-Every name fits 63 characters, as Argo CD tracks resources with it in a label: a part that would not fit
-is cut and ends with a hash. The Helm release of an application is its slug, and Helm refuses a release
+Every name fits 63 characters, as Argo CD tracks resources with it in a label: a name that would not fit
+is cut and ends with a hash. For example, the Application of `orders-api` in `dev`, in the project `shop`, is `fr-shop-orders-api-dev-1a2b3c`. The Helm release of an application is its slug, and Helm refuses a release
 name longer than **53 characters**: an application with a longer slug fails to sync, with that error in
 Argo CD. Keep the slugs of backends and frontends shorter.
 
@@ -47,7 +47,7 @@ own, and that no repository it registers is already registered in Argo CD by som
 the account of the token may not read counts as taken. Anything taken stops the initialization with
 nothing changed: rename or remove it in Argo CD, then initialize again. Two objects of the project
 that would take the same name stop it too: `orders-api` in `dev` and `orders` in `api-dev` are both
-`<project>.orders-api-dev`, and a backend named `environments` would take the ApplicationSet of the
+`fr-<slug>-orders-api-dev-<hash>`, and a backend named `environments` would take the ApplicationSet of the
 environments. Rename one of them.
 
 ### The Namespace is never pruned
@@ -93,10 +93,10 @@ initialization of a project runs at a time. One that has not saved anything for 
 for dead and the next may start; should the first come back, it stops instead of overwriting what the
 second stored.
 
-- The new environments join the list of `<project>.environments` and of the ApplicationSet of every
+- The new environments join the list of `fr-<slug>-environments-<hash>` and of the ApplicationSet of every
   backend and frontend, once their branch exists.
 - Those of the environments that no longer exist leave the lists, and Argo CD deletes the Application of
-  each: `<project>.environments` has `preserveResourcesOnDeletion`, so what it deployed stays in the
+  each: `fr-<slug>-environments-<hash>` has `preserveResourcesOnDeletion`, so what it deployed stays in the
   cluster until you remove it; the Applications of the backends were never deleted by their ApplicationSet
   and are left, to delete by hand.
 - The ApplicationSet of a backend or frontend that no longer exists is deleted, and with it, through their
@@ -108,7 +108,15 @@ second stored.
   workloads stay, and the new Applications take them over: the Helm release and the namespace are the same.
 - The Applications an earlier version of the console made itself per environment,
   `<project>.<environment>.config`, are deleted without cascade: the Applications of
-  `<project>.environments` take their place.
+  `fr-<slug>-environments-<hash>` take their place.
+- What 10.0 and 10.1 made, named without the `fr-` prefix in the AppProject `<slug>-<hash>`, moves to the
+  names of now: the ApplicationSets there are deleted once the new ones are in, their Applications with them
+  and without cascade, so the workloads stay and the new Applications take them over; the configuration
+  repository is registered for the new AppProject, and the old AppProject is deleted. Argo CD refuses that
+  last deletion while Applications still belong to it: the next initialization tries again. Until a project
+  is initialized again, its deploys still sync through the old Applications, but they no longer align its
+  ApplicationSets (the settings ask for an initialization), and the console finds neither the pods, the
+  logs nor the rollout of its applications. The Gateway of each environment keeps its name, `<slug>-<hash>`.
 - The credentials of a repository no longer linked, or linked at another URL, are deleted from Argo CD,
   and its GitLab deploy token is revoked through the connection that created it. A deletion Argo CD
   refuses is remembered, without the credentials, and tried again by the next initialization.
@@ -135,8 +143,8 @@ as the team changed it.
 
 Without a schedule the CronJob is suspended. Play in the console asks Argo CD to run the `create-job`
 action on it, which creates a Job right away, for both kinds and whatever the schedule. The rule
-`applications, *, mfe-*/*` below already allows it. An account given narrower rules needs
-`applications, action/batch/CronJob/create-job, mfe-*/*`.
+`applications, *, fr-*/*` below already allows it. An account given narrower rules needs
+`applications, action/batch/CronJob/create-job, fr-*/*`.
 
 The backends and frontends the agent maintains reach its container as JSON in `MAINTAINED_TARGETS`, with
 the URL inside the namespace of those that run as a container. A backend keeps `"kind": "service"` in that
@@ -197,7 +205,7 @@ data:
   accounts.orchestrator: apiKey
 ```
 
-Give it only what it needs, in `argocd-rbac-cm`. Everything the console creates starts with `mfe-`, so
+Give it only what it needs, in `argocd-rbac-cm`. Everything the console creates starts with `fr-`, so
 the AppProjects, the Applications and the ApplicationSets it may touch are only its own:
 
 ```yaml
@@ -208,13 +216,17 @@ metadata:
   namespace: argocd
 data:
   policy.csv: |
-    p, role:orchestrator, projects, *, mfe-*, allow
-    p, role:orchestrator, applications, *, mfe-*/*, allow
-    p, role:orchestrator, applicationsets, *, mfe-*/*, allow
-    p, role:orchestrator, logs, get, mfe-*/*, allow
+    p, role:orchestrator, projects, *, fr-*, allow
+    p, role:orchestrator, applications, *, fr-*/*, allow
+    p, role:orchestrator, applicationsets, *, fr-*/*, allow
+    p, role:orchestrator, logs, get, fr-*/*, allow
     p, role:orchestrator, repositories, *, *, allow
     g, orchestrator, role:orchestrator
 ```
+
+Upgrading from 10.0 or 10.1, whose objects have no prefix: add the `fr-*` lines and keep the rules the
+account had until every project is initialized again, as that initialization reads and deletes the objects
+of the old names. A project whose old AppProject the account can no longer read stops with "Not allowed".
 
 The `logs` line lets the console show the logs of the pods on the pages of the backends and frontends.
 An installation set up before it answers those with a permission error until the line is added.
@@ -261,4 +273,5 @@ it says to check:
 | Name taken | An AppProject, Application or ApplicationSet of that name not created by this project. |
 | Repository already registered | A registration of the repository made by hand, or by another project. |
 | Deploy token not created | The role and the scopes of the GitLab connection. |
+| Initialized with other repositories, or by an earlier version | Nothing: initialize again. |
 | Already running | Another initialization of the project: wait for it to end. |

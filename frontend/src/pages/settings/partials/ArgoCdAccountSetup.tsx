@@ -11,7 +11,7 @@ metadata:
 data:
   accounts.orchestrator: apiKey`
 
-/** Tutto quello che la console crea inizia con mfe-: le regole non toccano gli oggetti degli altri */
+/** Tutto quello che la console crea inizia con fr-: le regole non toccano gli oggetti degli altri */
 const RBAC_CONFIG = `apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -19,10 +19,10 @@ metadata:
   namespace: argocd
 data:
   policy.csv: |
-    p, role:orchestrator, projects, *, mfe-*, allow
-    p, role:orchestrator, applications, *, mfe-*/*, allow
-    p, role:orchestrator, applicationsets, *, mfe-*/*, allow
-    p, role:orchestrator, logs, get, mfe-*/*, allow
+    p, role:orchestrator, projects, *, fr-*, allow
+    p, role:orchestrator, applications, *, fr-*/*, allow
+    p, role:orchestrator, applicationsets, *, fr-*/*, allow
+    p, role:orchestrator, logs, get, fr-*/*, allow
     p, role:orchestrator, repositories, *, *, allow
     g, orchestrator, role:orchestrator`
 
