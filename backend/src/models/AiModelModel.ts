@@ -50,6 +50,8 @@ export interface IAiModel extends Document<ObjectId> {
 
 export const AI_MODEL_NAME_MAX_LENGTH = 100
 
+export const AI_MODEL_SECRET_PATHS = AI_MODEL_SECRET_KEYS.map(key => `config.${key}`)
+
 const aiModelSchema = new Schema<IAiModel>(
     {
         organizationId: { type: Schema.Types.ObjectId, ref: "Organization", required: true, index: true },
@@ -69,7 +71,7 @@ aiModelSchema.index({ organizationId: 1, name: 1 }, { unique: true, collation: {
 // At most one default per organization, even when two administrators mark one at the same time.
 aiModelSchema.index({ organizationId: 1, isDefault: 1 }, { unique: true, partialFilterExpression: { isDefault: true } })
 
-aiModelSchema.plugin(encryptedFields, { model: "AiModel", paths: AI_MODEL_SECRET_KEYS.map(key => `config.${key}`) })
+aiModelSchema.plugin(encryptedFields, { model: "AiModel", paths: AI_MODEL_SECRET_PATHS })
 
 const AiModel = mongoose.model<IAiModel>("AiModel", aiModelSchema)
 export default AiModel
