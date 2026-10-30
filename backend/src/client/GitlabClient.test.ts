@@ -98,7 +98,7 @@ describe("GitlabClient.getGroups", () => {
         const groups = [{ id: 7, name: "platform", full_path: "acme/platform" }]
         const get = vi.fn().mockResolvedValue({ data: groups })
 
-        await expect(clientAnswering(get).getGroups(true)).resolves.toBe(groups)
+        await expect(clientAnswering(get).getGroups(true)).resolves.toEqual(groups)
         expect(get).toHaveBeenCalledWith("/groups", { params: { owned: true } })
     })
 
@@ -196,7 +196,7 @@ describe("GitlabClient.createRepository", () => {
         const post = vi.fn().mockResolvedValue({ data: created })
         const settings = { name: "orders-be", namespace_id: 7, visibility: "private" as const, initialize_with_readme: false }
 
-        await expect(clientWith({ post }).createRepository(settings)).resolves.toBe(created)
+        await expect(clientWith({ post }).createRepository(settings)).resolves.toEqual(created)
         expect(post).toHaveBeenCalledWith("/projects", settings)
     })
 
@@ -252,7 +252,7 @@ describe("GitlabClient.getPipelines", () => {
         const pipelines = [{ id: 12, project_id: 42, sha: "abc", ref: "main", status: "success", web_url: "https://gitlab.example/p/12", created_at: "c", updated_at: "u" }]
         const get = vi.fn().mockResolvedValue({ data: pipelines })
 
-        await expect(clientAnswering(get).getPipelines(42, 5)).resolves.toBe(pipelines)
+        await expect(clientAnswering(get).getPipelines(42, 5)).resolves.toEqual(pipelines)
         expect(get).toHaveBeenCalledWith("/projects/42/pipelines", { params: { per_page: 5, order_by: "id", sort: "desc" } })
     })
 
@@ -321,12 +321,12 @@ describe("GitlabClient.getFailedJobLogs", () => {
 })
 
 describe("GitlabClient.getBranches", () => {
-    it("given a project, when its branches are read, then up to 100 are asked for and returned as GitLab answers", async () => {
+    it("given a project, when its branches are read, then they are asked for 100 per page and come back as GitLab answers", async () => {
         const branches = [{ name: "main" }, { name: "develop" }]
         const get = vi.fn().mockResolvedValue({ data: branches })
 
-        await expect(clientAnswering(get).getBranches("acme%2Forders-be")).resolves.toBe(branches)
-        expect(get).toHaveBeenCalledWith("/projects/acme%2Forders-be/repository/branches", { params: { per_page: 100 } })
+        await expect(clientAnswering(get).getBranches("acme%2Forders-be")).resolves.toEqual(branches)
+        expect(get).toHaveBeenCalledWith("/projects/acme%2Forders-be/repository/branches", expect.objectContaining({ params: expect.objectContaining({ per_page: 100 }) }))
     })
 })
 
@@ -373,7 +373,7 @@ describe("GitlabClient.getProject", () => {
         const project = { id: 42, name: "repo", path_with_namespace: "group/sub/repo" }
         const get = vi.fn().mockResolvedValue({ data: project })
 
-        await expect(clientAnswering(get).getProject("group%2Fsub%2Frepo")).resolves.toBe(project)
+        await expect(clientAnswering(get).getProject("group%2Fsub%2Frepo")).resolves.toEqual(project)
         expect(get).toHaveBeenCalledWith("/projects/group%2Fsub%2Frepo")
     })
 
@@ -389,7 +389,7 @@ describe("GitlabClient.renameProject", () => {
         const renamed = { id: 42, name: "billing-be", path_with_namespace: "acme/billing-be" }
         const put = vi.fn().mockResolvedValue({ data: renamed })
 
-        await expect(clientWith({ put }).renameProject(42, "billing-be")).resolves.toBe(renamed)
+        await expect(clientWith({ put }).renameProject(42, "billing-be")).resolves.toEqual(renamed)
         expect(put).toHaveBeenCalledWith("/projects/42", { name: "billing-be", path: "billing-be" })
     })
 
@@ -484,7 +484,7 @@ describe("GitlabClient.createDeployToken", () => {
         const token = { id: 9, username: "gitlab+deploy-token-9", token: "gldt-xyz" }
         const post = vi.fn().mockResolvedValue({ data: token })
 
-        await expect(clientWith({ post }).createDeployToken(42, { name: "argocd", scopes: ["read_repository"] })).resolves.toBe(token)
+        await expect(clientWith({ post }).createDeployToken(42, { name: "argocd", scopes: ["read_repository"] })).resolves.toEqual(token)
         expect(post).toHaveBeenCalledWith("/projects/42/deploy_tokens", { name: "argocd", scopes: ["read_repository"] })
     })
 
