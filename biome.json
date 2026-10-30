@@ -287,7 +287,17 @@
                         "useHookAtTopLevel": "error"
                     },
                     "complexity": { "noArguments": "error" },
-                    "style": { "useConst": "error" },
+                    "style": {
+                        "useConst": "error",
+                        "noRestrictedImports": {
+                            "level": "error",
+                            "options": {
+                                "paths": {
+                                    "@auth0/auth0-react": "Use useAuth0 from authentication/auth0Context: the SDK is loaded only by authentication/Auth0SdkProvider.tsx, and its own useAuth0 reads a context nobody fills, so it would always say signed out."
+                                }
+                            }
+                        }
+                    },
                     "suspicious": {
                         "noClassAssign": "off",
                         "noDuplicateClassMembers": "off",
@@ -303,6 +313,10 @@
                     }
                 }
             }
+        },
+        {
+            "includes": ["frontend/src/authentication/Auth0SdkProvider.tsx", "frontend/src/authentication/auth0Context.ts"],
+            "linter": { "rules": { "style": { "noRestrictedImports": "off" } } }
         }
     ],
     "assist": {
