@@ -42,6 +42,13 @@ export const ensureNamesFree = async (client: ArgoCdClient, state: ReturnType<ty
 }
 
 /**
+ * The project id label of before the rename to Flightroom. The upsert of an AppProject keeps the labels it was created with, so an
+ * AppProject first made before the rename still carries only this one. Kept until the fr- names (d132d933) are released and every
+ * installation has initialized again on them: by then no AppProject of another name is left to move
+ */
+const LEGACY_PROJECT_ID_LABEL = "mfe-orchestrator/project-id"
+
+/**
  * The AppProject the project had under another name, the one of the last initialization or 10.x's without the prefix: what the
  * project has in it moves to the one of now. Only guessed from the name, one the account may not read is none of its own
  */
@@ -58,7 +65,7 @@ export const earlierAppProjects = async (
     for (const name of new Set([recorded, unprefixedProjectName(String(projectId), projectSlug)])) {
         if (!name || name === projectName) continue
         const earlier = await client.getProject(name).catch(error => (error instanceof BusinessException && error.code === "ARGOCD_FORBIDDEN" && name !== recorded ? null : Promise.reject(error)))
-        if (projectIdOf(earlier) === String(projectId)) movedFrom.push(name)
+        if ((projectIdOf(earlier) ?? earlier?.metadata?.labels?.[LEGACY_PROJECT_ID_LABEL]) === String(projectId)) movedFrom.push(name)
     }
     return movedFrom
 }
