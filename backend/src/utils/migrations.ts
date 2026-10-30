@@ -3,6 +3,7 @@ import { Model, mongo, ObjectId, QueryFilter } from "mongoose"
 import AiChangeJob from "../models/AiChangeJobModel"
 import AiChangeRequest from "../models/AiChangeRequestModel"
 import AiMission from "../models/AiMissionModel"
+import AiModel, { AI_MODEL_SECRET_PATHS } from "../models/AiModelModel"
 import AiUsage from "../models/AiUsageModel"
 import AssistantConversation from "../models/AssistantConversationModel"
 import BackendDeployment from "../models/BackendDeploymentModel"
@@ -355,6 +356,8 @@ const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<void> =>
         ["code repository", CodeRepository as unknown as SecretHolder, anyPlaintextIn(CODE_REPOSITORY_SECRET_PATHS) as SecretFilter],
         ["database", Database as unknown as SecretHolder, anyPlaintextIn(DATABASE_SECRET_PATHS) as SecretFilter],
         ["project", Project as unknown as SecretHolder, anyPlaintextIn(PROJECT_SECRET_PATHS) as SecretFilter],
+        // `config` is Mixed and a provider without a secret access key has no such field: $exists in NOT_ENCRYPTED skips it
+        ["AI model", AiModel as unknown as SecretHolder, anyPlaintextIn(AI_MODEL_SECRET_PATHS) as SecretFilter],
         // $elemMatch so both halves of the criterion have to be met by the same storage of the
         // snapshot: spelled out as a dotted path, a snapshot holding one already encrypted credential
         // beside a plaintext one would satisfy neither half on the element that still needs rewriting.
