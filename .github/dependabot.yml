@@ -21,8 +21,6 @@ updates:
         patterns:
           - "@biomejs/*"
           - "@commitlint/*"
-          - "eslint*"
-          - "typescript-eslint"
           - "turbo"
           - "lefthook"
       minor-and-patch:

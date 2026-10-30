@@ -37,7 +37,6 @@ export const getUTMFields = (): IUTMFields | undefined => {
         console.warn("Failed to parse UTM fields from session storage:", e)
     }
     if (!URLSearchParams) {
-        // eslint-disable-next-line no-console
         console.warn("Browser does not support URLSearchParams")
         return undefined
     }
