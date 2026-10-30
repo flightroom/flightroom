@@ -76,7 +76,12 @@ export class AzureStorageClient {
         }
 
         try {
-            await blockBlobClient.upload(fileContent, Buffer.byteLength(fileContent as Buffer), options)
+            // upload needs the length up front, which a stream does not have: it goes up in blocks instead
+            if (fileContent instanceof Readable) {
+                await blockBlobClient.uploadStream(fileContent, undefined, undefined, options)
+            } else {
+                await blockBlobClient.upload(fileContent, Buffer.byteLength(fileContent), options)
+            }
             return blockBlobClient.url
         } catch (error: unknown) {
             console.error("Error uploading file to Azure Blob Storage:", error)
