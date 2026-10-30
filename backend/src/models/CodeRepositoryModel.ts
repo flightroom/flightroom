@@ -4,7 +4,7 @@ import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
 /** The two fields that are a credential for the provider, and not metadata about the connection. */
-export const CODE_REPOSITORY_SECRET_PATHS = ["accessToken", "refreshToken"]
+const CODE_REPOSITORY_SECRET_PATHS = ["accessToken", "refreshToken"]
 
 export enum CodeRepositoryProvider {
     GITHUB = "GITHUB",

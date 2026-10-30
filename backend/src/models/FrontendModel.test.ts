@@ -11,12 +11,10 @@ describe("canary type", () => {
     })
 
     /**
-     * The values written by the previous model — ON_SESSIONS and COOKIE_BASED — are rewritten to
-     * ON_SESSION by migrateLegacyCanaryTypes at boot, so nothing may accept them any more: leaving one
-     * in the enum would let a document keep a value no strategy answers to, and that frontend
-     * would quietly serve the stable version to everybody.
+     * Nothing else may be accepted: a value no strategy answers to would let that frontend quietly serve
+     * the stable version to everybody.
      */
-    it("no longer accepts the values written by the previous model", () => {
+    it("accepts no other value", () => {
         expect(canaryTypePath().options.enum).toEqual([CanaryType.RANDOM, CanaryType.ON_SESSION, CanaryType.ON_USER])
     })
 

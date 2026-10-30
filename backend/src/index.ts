@@ -14,10 +14,9 @@ dotenv.config()
 /**
  * How long a plugin is given to come up.
  *
- * Above Fastify's 10s default because the database plugin waits for the data migrations before
- * declaring itself ready, and a migration that touches every project of an installation can take
- * longer than that on a remote database. Exceeding the limit does not degrade anything: it makes
- * `build()` throw, so the process never starts listening and the whole console is down.
+ * Above Fastify's 10s default: the boot was measured at 12s with no database at all, and the database
+ * plugin is only ready once a remote MongoDB has answered. Exceeding the limit does not degrade
+ * anything: it makes `build()` throw, so the process never starts listening and the whole console is down.
  */
 const PLUGIN_TIMEOUT_MS = 60_000
 

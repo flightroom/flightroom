@@ -50,7 +50,7 @@ export interface IAiModel extends Document<ObjectId> {
 
 export const AI_MODEL_NAME_MAX_LENGTH = 100
 
-export const AI_MODEL_SECRET_PATHS = AI_MODEL_SECRET_KEYS.map(key => `config.${key}`)
+const AI_MODEL_SECRET_PATHS = AI_MODEL_SECRET_KEYS.map(key => `config.${key}`)
 
 const aiModelSchema = new Schema<IAiModel>(
     {
