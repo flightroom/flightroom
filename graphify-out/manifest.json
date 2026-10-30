@@ -10,8 +10,8 @@
     "semantic_hash": ""
   },
   "backend/package.json": {
-    "mtime": 1793231301.74859,
-    "ast_hash": "0ef9758056023053fd664561149208a8",
+    "mtime": 1793355502.7275434,
+    "ast_hash": "e89815d9e488b0f6dc4c5c7d403c83ef",
     "semantic_hash": ""
   },
   "backend/postbuild.js": {
@@ -560,8 +560,8 @@
     "semantic_hash": ""
   },
   "biome.json": {
-    "mtime": 1793230934.0809748,
-    "ast_hash": "b370df3befe2061b2306dc296d868cce",
+    "mtime": 1793355516.8652813,
+    "ast_hash": "f024a7703f0b0967a0c9f067cd5856de",
     "semantic_hash": ""
   },
   "commitlint.config.js": {
@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "frontend/package.json": {
-    "mtime": 1793230788.1018956,
-    "ast_hash": "d950c20425572da315edaaef3307ec13",
+    "mtime": 1793355777.4989188,
+    "ast_hash": "13dea58cc22a8cd82f93771dd4b68799",
     "semantic_hash": ""
   },
   "frontend/postcss.config.js": {
@@ -635,8 +635,8 @@
     "semantic_hash": ""
   },
   "frontend/src/api/apiClient.ts": {
-    "mtime": 1792649408.4069805,
-    "ast_hash": "6e7550b64ad9a252b2c92afc5643747f",
+    "mtime": 1793355726.8984292,
+    "ast_hash": "87af734d1c1fa778def152e9a4425b10",
     "semantic_hash": ""
   },
   "frontend/src/authentication/Auth0AuthWrapper.tsx": {
@@ -1340,8 +1340,8 @@
     "semantic_hash": ""
   },
   "package.json": {
-    "mtime": 1793230788.1019614,
-    "ast_hash": "af95bab621afec4d771eb74710ba3426",
+    "mtime": 1793355502.727579,
+    "ast_hash": "f8996bc6df3323bf7b64aa99dd4ad9d4",
     "semantic_hash": ""
   },
   "start.sh": {
@@ -1400,8 +1400,8 @@
     "semantic_hash": ""
   },
   ".github/dependabot.yml": {
-    "mtime": 1792649408.344712,
-    "ast_hash": "c31a2c355326f488bd1782beffa52464",
+    "mtime": 1793355726.042096,
+    "ast_hash": "3b71e64ca0d192605a6cb0149c6edee5",
     "semantic_hash": ""
   },
   ".github/workflows/README.md": {
@@ -2590,13 +2590,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeAgent.test.ts": {
-    "mtime": 1793179139.6974924,
-    "ast_hash": "22ae74e60a65bd49437ac53a2e2176b4",
+    "mtime": 1793357121.8473868,
+    "ast_hash": "39a186331615d29c58eebb04dc5b9351",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeAgent.ts": {
-    "mtime": 1793179093.1572824,
-    "ast_hash": "0a35ba8fc9149fa828d966f2a1505240",
+    "mtime": 1793357121.847892,
+    "ast_hash": "c666cd46ea5e22aa975fcf3c9ce6cc9d",
     "semantic_hash": ""
   },
   "backend/src/service/workspace/GitWorkingCopy.test.ts": {
@@ -2795,8 +2795,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/AiChangeJobService.ts": {
-    "mtime": 1793217866.9940672,
-    "ast_hash": "b9c31511f8ab403f8f8ca9beaa14ec28",
+    "mtime": 1793357121.8468175,
+    "ast_hash": "4239bb126e4feb2c0daf1da7be2ca6e5",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeShared.ts": {
@@ -3070,8 +3070,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainGalaxy.tsx": {
-    "mtime": 1793170376.1245344,
-    "ast_hash": "cab8109097b6eb4fce716c0c6386cea8",
+    "mtime": 1793357121.8518698,
+    "ast_hash": "73983830b07b8aeb2e14709ed08548dc",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainDeploymentsApi.ts": {
@@ -3265,8 +3265,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793217964.8394632,
-    "ast_hash": "144a1519b181e2c64497ec33f486b21f",
+    "mtime": 1793357121.8499012,
+    "ast_hash": "ca08d2c0808e071000e8c36a747b1e8d",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
@@ -5122,6 +5122,206 @@
   "backend/src/controller/UserController.test.ts": {
     "mtime": 1793350433.6706328,
     "ast_hash": "252fae8e584be66049f146aea19f14f8",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangeAgentTypes.ts": {
+    "mtime": 1793357121.8480017,
+    "ast_hash": "0158894c90726919d2c386845502292d",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangeFacts.ts": {
+    "mtime": 1793357121.848111,
+    "ast_hash": "361dd4170292310fea55ebdc6a22bf20",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangeFiles.ts": {
+    "mtime": 1793357121.8482232,
+    "ast_hash": "608edc40b482a5d691a92b5e7cbfff8e",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangeJobQueries.ts": {
+    "mtime": 1793357121.8483377,
+    "ast_hash": "0839f02a6f6881969a75ee3b4c39f2f2",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangeLimits.ts": {
+    "mtime": 1793357121.8484375,
+    "ast_hash": "8bda98bddd6f5e938a1948e31e67ea24",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangePrompt.ts": {
+    "mtime": 1793357121.848561,
+    "ast_hash": "f3540cfe3194e088314ee688d618c5c8",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangeToolbox.ts": {
+    "mtime": 1793357121.8486896,
+    "ast_hash": "ccb4322ae9d6f95dac6a5abc0d8d6116",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiChangeTools.ts": {
+    "mtime": 1793357121.8487937,
+    "ast_hash": "d7a19c7c30ff6de05911cdd350d56a3d",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiJobAgentInput.ts": {
+    "mtime": 1793357121.8488884,
+    "ast_hash": "87bdeadab04237a53bb72256ad2fcce6",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiJobRecords.ts": {
+    "mtime": 1793357121.8489957,
+    "ast_hash": "410a52f48c09a5f1228e6a77d614d01f",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiJobViews.ts": {
+    "mtime": 1793357121.8491237,
+    "ast_hash": "2b77de03e08ff98b1abaccbe4e0ffefd",
+    "semantic_hash": ""
+  },
+  "backend/src/service/aiChange/aiJobWorkingCopies.ts": {
+    "mtime": 1793357121.8492534,
+    "ast_hash": "a16f487bcad2135d39e3e051aa41601a",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/AiChangeParts.tsx": {
+    "mtime": 1793357121.8493817,
+    "ast_hash": "624a925c358c002f5ac88d81016b9fb8",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/Composer.tsx": {
+    "mtime": 1793357121.8501153,
+    "ast_hash": "5ec18d620d76dbaec071ba00c970c8a7",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/ConversationThread.tsx": {
+    "mtime": 1793357121.8502367,
+    "ast_hash": "cccc51690bafb7874b90b6a6fba8564a",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/FollowUpForm.tsx": {
+    "mtime": 1793357121.8504462,
+    "ast_hash": "068e62d83bde21eca897d85a8661d906",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/Proposal.tsx": {
+    "mtime": 1793357121.8505888,
+    "ast_hash": "396eb7c8fc2d8bd7d1ae39689a3b2a2d",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/QueueSection.tsx": {
+    "mtime": 1793357121.850699,
+    "ast_hash": "dafa7d3a58bf7d2a822397633f161f3e",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/RequestSelection.tsx": {
+    "mtime": 1793357121.8508048,
+    "ast_hash": "a3fa197a4f6d6b1ff1ce02726ba55918",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/TurnView.tsx": {
+    "mtime": 1793357121.850905,
+    "ast_hash": "0e093939d4025caf8ca579e33564e19c",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/WorkspaceView.tsx": {
+    "mtime": 1793357121.851015,
+    "ast_hash": "62915b5ad3e91a1ae8bb2b66073f3c1d",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/aiWorkspaceUtils.ts": {
+    "mtime": 1793357121.8511653,
+    "ast_hash": "e2137ba80257813a6ca47baaff202277",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/queueEntries.tsx": {
+    "mtime": 1793357121.851269,
+    "ast_hash": "c3ad0156cf8aa990df368c1ce2aede4d",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/useConversation.ts": {
+    "mtime": 1793357121.8513606,
+    "ast_hash": "2abcea0f7614dfbc03425045cbd968fc",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/ai-workspace/useWorkspaceQueue.ts": {
+    "mtime": 1793357121.8514435,
+    "ast_hash": "360ad63581850cfa61907cec6d7558a8",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/GalaxyBodyLists.tsx": {
+    "mtime": 1793357121.8521035,
+    "ast_hash": "0a45c4187de69c9c9c694cb467531275",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/GalaxyLegend.tsx": {
+    "mtime": 1793357121.852209,
+    "ast_hash": "89bab1ad8b5b378cf59fb9ad936760cb",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/GalaxyTooltip.tsx": {
+    "mtime": 1793357121.8523045,
+    "ast_hash": "3bbb889d964e38dd8b416f0f24b190cf",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/constants.ts": {
+    "mtime": 1793357121.8523967,
+    "ast_hash": "ea186718ad546f2ff3f55ec8a21d0f88",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/hitTest.ts": {
+    "mtime": 1793357121.8524811,
+    "ast_hash": "11d7202dcbe447efcfb4ee70ae2aaf09",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/layout.ts": {
+    "mtime": 1793357121.852589,
+    "ast_hash": "7050c7de4a9d4c7a126581c5b0ec411f",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/paintBodies.ts": {
+    "mtime": 1793357121.8526776,
+    "ast_hash": "be9af9144948cf74acf198ca1e7fa7a9",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/paintSky.ts": {
+    "mtime": 1793357121.8527758,
+    "ast_hash": "320e7f47f7df24e3d7944552859d3774",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/paintWorld.ts": {
+    "mtime": 1793357121.852864,
+    "ast_hash": "ad5c5876cdfd0028022336c6f44fe76c",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/resourcePaths.ts": {
+    "mtime": 1793357121.8529525,
+    "ast_hash": "3446b74ebd12393dc15c4d80cc8c0481",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/sky.ts": {
+    "mtime": 1793357121.8530545,
+    "ast_hash": "a8165fbd8ffb2b4ccfbc03b6c49f7344",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/types.ts": {
+    "mtime": 1793357121.8531792,
+    "ast_hash": "eb5abee6e1651a6c48f7a6365e3daaab",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/useGalaxyForces.ts": {
+    "mtime": 1793357121.853265,
+    "ast_hash": "cffc9f1f6386e9a9afda318fa6a6362a",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/useGalaxyScene.ts": {
+    "mtime": 1793357121.853356,
+    "ast_hash": "096e24fd3ddb3797bb2e50a2df7e556c",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/useMotionThrottle.ts": {
+    "mtime": 1793357121.8534367,
+    "ast_hash": "ca37d36728e81129968efc179f96ae4e",
     "semantic_hash": ""
   }
 }
