@@ -3,7 +3,7 @@ import sodium from "libsodium-wrappers"
 import { CodeRepositoryType } from "../models/CodeRepositoryModel"
 import { BuildJobLogDTO, MAX_FAILED_JOB_LOG_BYTES, MAX_FAILED_JOBS } from "../types/BuildStatusDTO"
 
-/** Safety net so a misbehaving pagination cursor cannot turn a repository listing into an endless loop. */
+/** Safety net so a misbehaving pagination cursor cannot turn a repository or branch listing into an endless loop. */
 const maxRepositoryPages = 50
 
 export interface GithubAccessTokenResponse {
@@ -560,17 +560,27 @@ class GithubClient {
     }
 
     async getBranches(accessToken: string, repositoryName: string, orgName?: string, userName?: string): Promise<GithubBranch[]> {
-        const response = await axios.request<GithubBranch[]>({
-            url: `https://api.github.com/repos/${orgName || userName}/${repositoryName}/branches`,
-            params: { per_page: 100 },
-            headers: {
-                Authorization: `Bearer ${accessToken}`,
-                Accept: "application/vnd.github.v3+json",
-                "User-Agent": "Flightroom"
-            }
-        })
+        const perPage = 100
+        const branches: GithubBranch[] = []
 
-        return response.data
+        // GitHub paginates this endpoint, so every page is walked: the branch picker needs every branch.
+        for (let page = 1; page <= maxRepositoryPages; page++) {
+            const response = await axios.request<GithubBranch[]>({
+                url: `https://api.github.com/repos/${orgName || userName}/${repositoryName}/branches`,
+                params: { per_page: perPage, page },
+                headers: {
+                    Authorization: `Bearer ${accessToken}`,
+                    Accept: "application/vnd.github.v3+json",
+                    "User-Agent": "Flightroom"
+                }
+            })
+
+            branches.push(...response.data)
+
+            if (response.data.length < perPage) break
+        }
+
+        return branches
     }
 
     async getRepositories(accessToken: string, orgName?: string): Promise<GithubRepository[]> {
