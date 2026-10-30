@@ -2,7 +2,7 @@ import { ObjectId, Types } from "mongoose"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 
 // The service reaches the application instance for its logger; importing the real one would boot
-// Fastify, connect to the configured database and run the migrations.
+// Fastify and connect to the configured database.
 vi.mock("..", () => ({
     fastify: { log: { info: vi.fn(), warn: vi.fn(), error: vi.fn(), debug: vi.fn() }, config: {} }
 }))

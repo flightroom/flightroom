@@ -34,7 +34,7 @@ export type DatabaseConnection =
  */
 export const DATABASE_SECRET_KEYS = ["password", "connectionString"] as const
 
-export const DATABASE_SECRET_PATHS = DATABASE_SECRET_KEYS.map(key => `connection.${key}`)
+const DATABASE_SECRET_PATHS = DATABASE_SECRET_KEYS.map(key => `connection.${key}`)
 
 export interface IDatabase extends Document<ObjectId> {
     projectId: ObjectId
