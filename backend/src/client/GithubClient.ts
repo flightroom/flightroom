@@ -795,7 +795,7 @@ class GithubClient {
     async getFileContent({ accessToken, orgName, userName, repositoryName, path, ref }: GithubFileDTO): Promise<GithubFileContent | null> {
         try {
             const response = await axios.request<GithubContentsResponse>({
-                url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/contents/${encodeURI(path)}`,
+                url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`,
                 params: ref ? { ref } : undefined,
                 headers: {
                     Authorization: `Bearer ${accessToken}`,
@@ -884,7 +884,7 @@ class GithubClient {
     async updateFileContent({ accessToken, orgName, userName, repositoryName, path, content, message, branch, sha }: GithubUpdateFileDTO): Promise<void> {
         await axios.request({
             method: "PUT",
-            url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/contents/${encodeURI(path)}`,
+            url: `${this.getRepositoryBaseUrlBase(repositoryName, orgName, userName)}/contents/${path.split("/").map(encodeURIComponent).join("/")}`,
             headers: {
                 Authorization: `Bearer ${accessToken}`,
                 Accept: "application/vnd.github.v3+json",
