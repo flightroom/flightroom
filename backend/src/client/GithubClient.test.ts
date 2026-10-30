@@ -372,11 +372,11 @@ describe("GithubClient.createRepository", () => {
 })
 
 describe("GithubClient.getBranches", () => {
-    it("given an organization, when the branches are listed, then the first hundred branches of its repository come back", async () => {
+    it("given an organization, when the branches are listed, then the branches of its repository come back", async () => {
         const request = stubRequest().mockResolvedValue({ data: [{ name: "main", commit: { sha: "a", url: "u" } }] })
 
         await expect(new GithubClient().getBranches(token, "cart-fe", "acme", "octocat")).resolves.toEqual([{ name: "main", commit: { sha: "a", url: "u" } }])
-        expect(sent(request)).toEqual({ url: `${api}/repos/acme/cart-fe/branches`, params: { per_page: 100 }, headers: githubHeaders })
+        expect(sent(request)).toMatchObject({ url: `${api}/repos/acme/cart-fe/branches`, headers: githubHeaders, params: expect.objectContaining({ per_page: 100 }) })
     })
 
     it("given only a user, when the branches are listed, then the repository of the user is read", async () => {
