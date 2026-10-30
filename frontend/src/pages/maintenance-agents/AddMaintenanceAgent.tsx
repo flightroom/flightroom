@@ -74,7 +74,7 @@ const createFormSchema = (messages: FormMessages) =>
                 .trim()
                 .refine(value => value === "" || BACKEND_VERSION.test(value), messages.version)
                 .optional(),
-            // Blank: the version above
+            // Blank: not deployed in that environment
             environmentVersions: createEnvironmentVersionsShape(messages.version),
             image: z.object({ repository: z.string().optional() }).optional(),
             // A container's only: a job has neither a port nor probes, so they are checked below

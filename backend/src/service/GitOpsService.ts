@@ -604,8 +604,9 @@ export class GitOpsService extends BaseAuthorizedService {
                 const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER, ipAllowList: ipAllowListMiddleware(gateway) } : undefined
                 const files: GitOpsFile[] = [
                     ...CHART_FILES.map(file => ({ ...file, action: "update" as const, ifMissing: true })),
+                    // Those with no version in the environment keep the values they have there, if any
                     ...applications
-                        .filter(application => isDeployable(application, containerRegistry))
+                        .filter(application => isDeployable(application, containerRegistry, environment._id))
                         .map(application => ({
                             path: applicationValuesPath(application),
                             action: "update" as const,
@@ -625,7 +626,7 @@ export class GitOpsService extends BaseAuthorizedService {
      * reach of a domain-scoped member too: their values are on the branches already.
      */
     private async ensureDistinctExposurePaths(projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<void> {
-        const fields = { slug: 1, version: 1, image: 1, exposurePath: 1 }
+        const fields = { slug: 1, environmentVersions: 1, image: 1, exposurePath: 1 }
         const applications: GitOpsApplication[] = [
             ...(await Backend.find({ projectId, exposurePath: { $ne: null } }, fields)),
             ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, exposurePath: { $ne: null } }, fields))

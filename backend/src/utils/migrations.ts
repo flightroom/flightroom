@@ -1,9 +1,13 @@
 import { FastifyBaseLogger } from "fastify"
 import { Model, QueryFilter } from "mongoose"
 import AiModel, { AI_MODEL_SECRET_PATHS } from "../models/AiModelModel"
+import Backend from "../models/BackendModel"
 import CodeRepository, { CODE_REPOSITORY_SECRET_PATHS } from "../models/CodeRepositoryModel"
 import Database, { DATABASE_SECRET_PATHS } from "../models/DatabaseModel"
 import Deployment from "../models/DeploymentModel"
+import Environment from "../models/EnvironmentModel"
+import Frontend, { FrontendKind } from "../models/FrontendModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
@@ -72,6 +76,55 @@ export const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<v
 }
 
 /**
+ * Gives the backends, the DOCKER frontends and the maintenance agents made before a version was set per environment the
+ * one each environment runs: what its current deployment recorded, else the version of the application, which every
+ * deploy wrote before. Without it, an environment would no longer get them. A document is seeded once: those made since
+ * hold the field, empty or not.
+ */
+export const seedEnvironmentVersions = async (logger: FastifyBaseLogger): Promise<void> => {
+    const unseeded = { environmentVersions: { $exists: false } }
+    const fields = { projectId: 1, version: 1 }
+    type Unseeded = { _id: unknown; projectId: unknown; version?: string }
+    const kinds = [
+        { label: "backend", model: Backend, snapshot: "backends" as const, documents: await Backend.find(unseeded, fields).lean<Unseeded[]>() },
+        { label: "frontend", model: Frontend, snapshot: "frontends" as const, documents: await Frontend.find({ ...unseeded, kind: FrontendKind.DOCKER }, fields).lean<Unseeded[]>() },
+        // Not recorded by a deployment: every deploy wrote its version
+        { label: "maintenance agent", model: MaintenanceAgent, snapshot: undefined, documents: await MaintenanceAgent.find(unseeded, fields).lean<Unseeded[]>() }
+    ]
+    if (kinds.every(kind => kind.documents.length === 0)) return
+
+    // The current deployment of each environment of a project, read once per project
+    type Recorded = { _id: unknown; version?: string }
+    type Current = { _id: unknown; backends: Recorded[]; frontends: Recorded[] }
+    const currentByProject = new Map<string, Current[]>()
+    const currentOf = async (projectId: unknown): Promise<Current[]> => {
+        const known = currentByProject.get(String(projectId))
+        if (known) return known
+        const current: Current[] = []
+        for (const environment of await Environment.find({ projectId: projectId as never }, { _id: 1 })) {
+            const deployment = await Deployment.findOne({ environmentId: environment._id }, { "backends._id": 1, "backends.version": 1, "frontends._id": 1, "frontends.version": 1 })
+                .sort({ active: -1, deployedAt: -1 })
+                .lean<{ backends?: Recorded[]; frontends?: Recorded[] }>()
+            current.push({ _id: environment._id, backends: deployment?.backends ?? [], frontends: deployment?.frontends ?? [] })
+        }
+        currentByProject.set(String(projectId), current)
+        return current
+    }
+
+    for (const { label, model, snapshot, documents } of kinds) {
+        for (const document of documents) {
+            const environmentVersions = (await currentOf(document.projectId)).flatMap(environment => {
+                const recorded = snapshot ? environment[snapshot].find(application => String(application._id) === String(document._id))?.version : undefined
+                const version = recorded?.trim() || document.version?.trim()
+                return version ? [{ environmentId: environment._id, version }] : []
+            })
+            await (model as unknown as Model<Record<string, unknown>>).updateOne({ _id: document._id, ...unseeded }, { $set: { environmentVersions } })
+        }
+        if (documents.length > 0) logger.info(`Set the version each environment runs on ${documents.length} ${label}(s)`)
+    }
+}
+
+/**
  * Every data migration the application still needs, run once the database connection is up.
  *
  * A failure is logged and swallowed: none of these is required for the process to serve traffic, and
@@ -82,5 +135,11 @@ export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> =>
         await encryptStoredSecrets(logger)
     } catch (error) {
         logger.error({ error }, "Error while running data migrations")
+    }
+    // Apart: the deploys of the applications made before depend on it, whatever happens to the credentials
+    try {
+        await seedEnvironmentVersions(logger)
+    } catch (error) {
+        logger.error({ error }, "Error while setting the version each environment runs")
     }
 }

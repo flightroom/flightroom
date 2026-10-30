@@ -64,9 +64,13 @@ export const linksOf = (gitOps?: IProjectGitOps): Array<[ArgoCdRepositoryKind, I
 export const repoUrlOf = (link: ICodeRepositoryFrontend, connection: ICodeRepository): string =>
     cloneUrlFor({ component: { codeRepository: link }, codeRepository: connection, repositoryName: repositoryNameFor(link, connection) })
 
-/** The backends, frontends and maintenance agents a deploy writes the values of: those with an image, their own or one in the registry of the project, and a version */
+/**
+ * The backends, frontends and maintenance agents a deploy writes the values of: those with an image, their own or one in
+ * the registry of the project, and a version in some environment. The ApplicationSet of each one generates an
+ * Application only on the branches that hold its values file.
+ */
 export const deployableSlugs = async (projectId: Schema.Types.ObjectId, containerRegistry?: string): Promise<string[]> => {
-    const fields = { slug: 1, version: 1, image: 1 }
+    const fields = { slug: 1, environmentVersions: 1, image: 1 }
     const [backends, frontends, agents] = await allInOrder([
         Backend.find({ projectId }, fields),
         Frontend.find({ projectId, kind: FrontendKind.DOCKER }, fields),

@@ -172,16 +172,16 @@ class DeploymentService extends BaseAuthorizedService {
 
         const scope = await this.deployScope(environment.projectId, domainId, session)
         const inScope = { projectId: environment.projectId, ...(scope && { domainId: { $in: scope.map(id => toObjectId(id)) } }) }
-        // A container is recorded at the version its environment runs apart, the one GitOps writes there
+        // A container is recorded at the version of the environment, the one GitOps writes there: none when it sets none
         const frontend = (await Frontend.find(inScope).session(session || null)).map(item =>
-            item.kind === FrontendKind.DOCKER ? { ...item.toObject(), version: versionIn(item, environment._id) ?? item.version } : item
+            item.kind === FrontendKind.DOCKER ? { ...item.toObject(), version: versionIn(item, environment._id) } : item
         )
         // With GitOps on, the deploy commits the values of these backends at this version
         const backend: IDeployedBackend[] = (
             await Backend.find(inScope, { slug: 1, name: 1, domainId: 1, version: 1, environmentVersions: 1, image: 1, exposurePath: 1 })
                 .session(session || null)
                 .lean<(IDeployedBackend & Pick<IBackend, "environmentVersions">)[]>()
-        ).map(({ environmentVersions, ...item }) => ({ ...item, version: versionIn({ version: item.version, environmentVersions }, environment._id) }))
+        ).map(({ environmentVersions, ...item }) => ({ ...item, version: versionIn({ environmentVersions }, environment._id) }))
         let variables: unknown[] = await GlobalVariable.find({ environmentId: environmentIdObj }).session(session || null)
         // Plain objects, not the documents themselves: the snapshot re-encrypts the credentials it
         // copies, and doing that through a live Storage document would encrypt the one the caller is

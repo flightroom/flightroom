@@ -77,7 +77,7 @@ const createFormSchema = (messages: FormMessages) =>
                 .trim()
                 .refine(value => value === "" || BACKEND_VERSION.test(value), messages.version)
                 .optional(),
-            // Blank: the version above
+            // Blank: not deployed in that environment
             environmentVersions: createEnvironmentVersionsShape(messages.version),
             ...createBackendRuntimeShape(messages),
             // Here and not in the runtime shape, which frontends share: a frontend never attaches a resource

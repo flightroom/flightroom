@@ -45,6 +45,8 @@ const gitlabConnection = {
 const githubConnection = { _id: githubConnectionId, name: "GitHub", provider: "GITHUB", accessToken: "ghp-connection", githubData: { organizationId: "acme" } }
 const configurationLink = { enabled: true, codeRepositoryId: gitlabConnectionId, repositoryId: "101", name: "shop-config", repositoryData: {}, gitlab: { path: "acme/shop-config" } }
 const applicationsLink = { enabled: true, codeRepositoryId: githubConnectionId, repositoryId: "202", name: "shop-apps", repositoryData: {} }
+/** A version held in some environment, which is what makes an application deployable */
+const versionInAnEnvironment = (version: string) => [{ environmentId: new Types.ObjectId(), version }]
 const ARGO_URL = "https://argocd.example.com"
 const CONFIG_REPO = "https://gitlab.example.com/acme/shop-config.git"
 const APPS_REPO = "https://github.com/acme/shop-apps.git"
@@ -121,8 +123,8 @@ beforeEach(() => {
     vi.spyOn(CodeRepository, "findOne").mockImplementation(((filter: { _id: unknown }) =>
         Promise.resolve(String(filter._id) === String(gitlabConnectionId) ? gitlabConnection : githubConnection)) as never)
     vi.spyOn(CodeRepository, "find").mockResolvedValue([gitlabConnection, githubConnection] as never)
-    vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }, { slug: "draft" }] as never)
-    vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "checkout", version: "2.0.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
+    vi.spyOn(Backend, "find").mockResolvedValue([{ slug: "orders", environmentVersions: versionInAnEnvironment("1.0.0"), image: { repository: "ghcr.io/acme/orders" } }, { slug: "draft" }] as never)
+    vi.spyOn(Frontend, "find").mockResolvedValue([{ slug: "checkout", environmentVersions: versionInAnEnvironment("2.0.0"), image: { repository: "ghcr.io/acme/checkout" } }] as never)
     vi.spyOn(CodeRepositoryService.prototype, "getBranches").mockImplementation(async () => {
         calls.push("branches")
         return [{ branch: "main" }, { branch: "development" }] as never
@@ -511,8 +513,8 @@ describe("ArgoCdService.initialize", () => {
             { slug: "development", projectId },
             { slug: "checkout-development", projectId }
         ] as never)
-        vi.mocked(Backend.find).mockResolvedValue([{ slug: "orders-checkout", version: "1", image: { repository: "orders" } }] as never)
-        vi.mocked(Frontend.find).mockResolvedValue([{ slug: "orders", version: "1", image: { repository: "orders" } }] as never)
+        vi.mocked(Backend.find).mockResolvedValue([{ slug: "orders-checkout", environmentVersions: versionInAnEnvironment("1"), image: { repository: "orders" } }] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([{ slug: "orders", environmentVersions: versionInAnEnvironment("1"), image: { repository: "orders" } }] as never)
         vi.mocked(CodeRepositoryService.prototype.getBranches).mockResolvedValue([{ branch: "development" }, { branch: "checkout-development" }] as never)
 
         await expect(initialize()).rejects.toMatchObject({ code: "ARGOCD_NAME_CLASH" })
@@ -649,7 +651,7 @@ describe("ArgoCdService.alignApplications", () => {
     it("given a container registry in the project, when a deploy aligns it, then a backend with a version and no image gets its ApplicationSet too", async () => {
         previous = initialized()
         vi.mocked(Project.findById).mockImplementation(() => ({ _id: projectId, slug: "shop", gitOps, argoCd: previous, containerRegistry: "ghcr.io/acme" }) as never)
-        vi.mocked(Backend.find).mockResolvedValue([{ slug: "draft", version: "0.1.0" }] as never)
+        vi.mocked(Backend.find).mockResolvedValue([{ slug: "draft", environmentVersions: versionInAnEnvironment("0.1.0") }] as never)
 
         await align()
 
@@ -751,7 +753,7 @@ describe("ArgoCdService.alignApplications", () => {
 
     it("given a backend named after the ApplicationSet of the environments, when a deploy aligns it, then that one is not overwritten", async () => {
         previous = initialized()
-        vi.mocked(Backend.find).mockResolvedValue([{ slug: "environments", version: "1", image: { repository: "environments" } }] as never)
+        vi.mocked(Backend.find).mockResolvedValue([{ slug: "environments", environmentVersions: versionInAnEnvironment("1"), image: { repository: "environments" } }] as never)
 
         await align()
 
@@ -945,6 +947,11 @@ describe("ArgoCdService.rollout", () => {
         vi.spyOn(Deployment, "findById").mockImplementation((async () => ({ _id: deploymentId, environmentId, applicationsRevision: PUSHED, ...shipped })) as never)
         vi.spyOn(Deployment, "find").mockImplementation((async () => later) as never)
         vi.spyOn(Deployment, "findOne").mockImplementation((async () => before) as never)
+        vi.mocked(Backend.find).mockResolvedValue([
+            { slug: "orders", environmentVersions: [{ environmentId, version: "1.0.0" }], image: { repository: "ghcr.io/acme/orders" } },
+            { slug: "draft" }
+        ] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([{ slug: "checkout", environmentVersions: [{ environmentId, version: "2.0.0" }], image: { repository: "ghcr.io/acme/checkout" } }] as never)
         vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, slug: "development", projectId } as never)
         vi.spyOn(ArgoCdService.prototype as unknown as { getDomainScope: () => Promise<undefined> }, "getDomainScope").mockResolvedValue(undefined)
         vi.spyOn(ArgoCdClient.prototype, "listPods").mockResolvedValue([{ name: "checkout-7d9-abc", namespace: "development", health: "Progressing", containers: "0/1" }])
@@ -979,8 +986,10 @@ describe("ArgoCdService.rollout", () => {
         previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
         applications = [deployed("orders", synced("Healthy")), deployed("checkout", synced("Progressing"))]
         const [orders, checkout] = [new Types.ObjectId(), new Types.ObjectId()]
-        vi.mocked(Backend.find).mockResolvedValue([{ _id: orders, slug: "orders", version: "1.0.0", image: { repository: "ghcr.io/acme/orders" } }] as never)
-        vi.mocked(Frontend.find).mockResolvedValue([{ _id: checkout, slug: "checkout", version: "2.1.0", image: { repository: "ghcr.io/acme/checkout" } }] as never)
+        vi.mocked(Backend.find).mockResolvedValue([{ _id: orders, slug: "orders", environmentVersions: [{ environmentId, version: "1.0.0" }], image: { repository: "ghcr.io/acme/orders" } }] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([
+            { _id: checkout, slug: "checkout", environmentVersions: [{ environmentId, version: "2.1.0" }], image: { repository: "ghcr.io/acme/checkout" } }
+        ] as never)
         shipped = { backends: [{ _id: orders, version: "1.0.0" }], frontends: [{ _id: checkout, version: "2.1.0" }] }
         // Without a deploy before it, everything is updated
         const result = await rollout()

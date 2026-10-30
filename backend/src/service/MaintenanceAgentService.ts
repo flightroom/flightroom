@@ -321,8 +321,8 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
             throw new EntityNotFoundError(environmentId)
         }
         const project = await Project.findById(agent.projectId, { containerRegistry: 1 })
-        if (!isDeployable(agent, project?.containerRegistry)) {
-            throw invalid("MAINTENANCE_AGENT_NOT_DEPLOYED", `"${agent.name}" has no version to run yet: build one, then deploy ${environment.slug}`, 409)
+        if (!isDeployable(agent, project?.containerRegistry, environment._id)) {
+            throw invalid("MAINTENANCE_AGENT_NOT_DEPLOYED", `"${agent.name}" has no version in ${environment.slug}: set one for it, then deploy ${environment.slug}`, 409)
         }
 
         let error: string | undefined

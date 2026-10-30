@@ -93,7 +93,14 @@ describe.skipIf(!hasGit)("GitOpsService against a local smart HTTP remote", () =
         fs.rmSync(tmp, { recursive: true, force: true })
     })
 
-    const orders = (version: string) => ({ _id: new Types.ObjectId(), slug: "orders-api", version, image: { repository: "ghcr.io/acme/orders-api" }, configMapIds: [], secretIds: [] })
+    const orders = (version: string) => ({
+        _id: new Types.ObjectId(),
+        slug: "orders-api",
+        environmentVersions: [{ environmentId: production, version }],
+        image: { repository: "ghcr.io/acme/orders-api" },
+        configMapIds: [],
+        secretIds: []
+    })
     let gitOps: object
 
     beforeEach(() => {
