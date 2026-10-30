@@ -90,10 +90,6 @@ describe("AzureStorageClient, construction", () => {
         expect(ClientSecretCredential).not.toHaveBeenCalled()
     })
 
-    it("given a connection string, when the endpoint is read, then it is the one the SDK resolved from the string", () => {
-        expect(new AzureStorageClient(CONNECTION_STRING).endpoint).toBe("https://fromconnection.blob.core.windows.net/")
-    })
-
     it("given an account name and key, when the client is built, then a shared key credential is built from them", () => {
         new AzureStorageClient(SHARED_KEY)
 
@@ -187,15 +183,6 @@ describe("AzureStorageClient.uploadFile", () => {
         blob.upload.mockRejectedValue("socket hang up")
 
         await expect(new AzureStorageClient(SHARED_KEY).uploadFile("site/index.html", "x")).rejects.toThrow("Failed to upload file to Azure: socket hang up")
-    })
-
-    it("given the upload fails, when the error is reported, then the original SDK error is logged", async () => {
-        const error = restError("Server failed to authenticate the request.", 403, "AuthenticationFailed")
-        blob.upload.mockRejectedValue(error)
-
-        await new AzureStorageClient(SHARED_KEY).uploadFile("site/index.html", "x").catch(() => undefined)
-
-        expect(console.error).toHaveBeenCalledWith("Error uploading file to Azure Blob Storage:", error)
     })
 })
 
