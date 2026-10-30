@@ -36,6 +36,23 @@ export default defineConfig(({ mode }) => ({
             }
         }
     },
+    build: {
+        rolldownOptions: {
+            output: {
+                codeSplitting: {
+                    groups: [
+                        {
+                            // React and the router change only with a dependency bump: out of the entry chunk,
+                            // which changes at every release, the browser keeps them cached across releases.
+                            // Only libraries every page loads: a group pulls its modules out of the lazy chunks too.
+                            name: "react-vendor",
+                            test: /node_modules[\\/](react|react-dom|scheduler|react-router|react-router-dom)[\\/]/
+                        }
+                    ]
+                }
+            }
+        }
+    },
     plugins: [react()].filter(Boolean),
     resolve: {
         alias: {
