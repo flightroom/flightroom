@@ -70,10 +70,19 @@ export const exposedOrigin = (exposure: ProjectExposure, environment: Pick<Envir
     return `${exposure.certificateIssuer ? "https" : "http"}://${subdomain ? `${subdomain}.${exposure.domain}` : exposure.domain}`
 }
 
-/** The environments of the current project, in their order: the rows of the endpoint, the config maps and the secrets */
-export const useProjectEnvironmentsQuery = () => {
+/**
+ * The environments of the current project, in their order: the rows of the endpoint, the config maps and the secrets.
+ * `inForm`: read by a field of a form whose page waits for this same query in an ApiStatusHandler. Refetching on mount
+ * would make the page show its spinner, unmount the form and mount it again, forever: the cached list is used.
+ */
+export const useProjectEnvironmentsQuery = ({ inForm = false }: { inForm?: boolean } = {}) => {
     const projectId = useProjectStore(state => state.project?._id)
     const projectApi = useProjectApi()
 
-    return useQuery({ queryKey: ["environments", projectId], queryFn: () => projectApi.getEnvironmentsByProjectId(projectId!), enabled: !!projectId })
+    return useQuery({
+        queryKey: ["environments", projectId],
+        queryFn: () => projectApi.getEnvironmentsByProjectId(projectId!),
+        enabled: !!projectId,
+        refetchOnMount: !inForm
+    })
 }
