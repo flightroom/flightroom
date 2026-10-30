@@ -674,7 +674,7 @@ class GithubClient {
         })
         const failedJobs = (jobsResponse.data?.jobs || []).filter(job => job.conclusion === "failure" || job.conclusion === "timed_out").slice(0, MAX_FAILED_JOBS)
 
-        return Promise.all(
+        const downloads = await Promise.allSettled(
             failedJobs.map(async job => {
                 const logResponse = await axios.request<string>({
                     url: `${baseUrl}/actions/jobs/${job.id}/logs`,
@@ -685,6 +685,13 @@ class GithubClient {
                 return { name: job.name, log: logResponse.data }
             })
         )
+
+        // One log that cannot be downloaded (gone, or over the size cap) must not hide the others: only when none came back is it an error
+        const logs = downloads.flatMap(download => (download.status === "fulfilled" ? [download.value] : []))
+        const firstFailure = downloads.find(download => download.status === "rejected")
+        if (logs.length === 0 && firstFailure) throw firstFailure.reason
+
+        return logs
     }
 
     /** The branch is one path segment, encoded as Octokit does: release/1.4 is read as release%2F1.4 */

@@ -616,6 +616,30 @@ describe("GithubClient.getFailedJobLogs", () => {
 
         await expect(new GithubClient().getFailedJobLogs(token, "cart-fe", "41", "acme")).rejects.toBe(failure)
     })
+
+    /** A log over MAX_FAILED_JOB_LOG_BYTES makes axios throw: it must not take the other logs with it */
+    it("given some log downloads fail, when the logs are read, then the logs that came back are kept in job order", async () => {
+        stubRequest()
+            .mockResolvedValueOnce({ data: { jobs: [job(1, "failure"), job(2, "failure"), job(3, "failure")] } })
+            .mockResolvedValueOnce({ data: "first log" })
+            .mockRejectedValueOnce(new AxiosError("maxContentLength size of 1048576 exceeded", AxiosError.ERR_BAD_RESPONSE))
+            .mockResolvedValueOnce({ data: "third log" })
+
+        await expect(new GithubClient().getFailedJobLogs(token, "cart-fe", "41", "acme")).resolves.toEqual([
+            { name: "job-1", log: "first log" },
+            { name: "job-3", log: "third log" }
+        ])
+    })
+
+    it("given every log download fails, when the logs are read, then the failure of the first job is passed on", async () => {
+        const first = answered(410)
+        stubRequest()
+            .mockResolvedValueOnce({ data: { jobs: [job(1, "failure"), job(2, "timed_out")] } })
+            .mockRejectedValueOnce(first)
+            .mockRejectedValueOnce(answered(500))
+
+        await expect(new GithubClient().getFailedJobLogs(token, "cart-fe", "41", "acme")).rejects.toBe(first)
+    })
 })
 
 describe("GithubClient.tagExists", () => {
