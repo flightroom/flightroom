@@ -130,7 +130,8 @@ export class AzureStorageClient {
             // 404 from Azure too but a broken storage, which fails every file: it stays a server error
             const { code } = (error ?? {}) as { code?: string }
             if (code === "BlobNotFound") {
-                throw new EntityNotFoundError(filePath, message, { cause: error })
+                // Its message reaches anonymous callers of the serve URLs: the Azure one stays in the cause and the log
+                throw new EntityNotFoundError(filePath, "File not found", { cause: error })
             }
             throw new Error(message, { cause: error })
         }

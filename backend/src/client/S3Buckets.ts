@@ -116,7 +116,8 @@ export class S3BucketClient {
             // S3 too but a broken storage, which fails every file: it stays a server error
             const { name, $metadata } = (error ?? {}) as { name?: string; $metadata?: { httpStatusCode?: number } }
             if (name === "NoSuchKey" || (name === "NotFound" && $metadata?.httpStatusCode === 404)) {
-                throw new EntityNotFoundError(filePath, message, { cause: error })
+                // Its message reaches anonymous callers of the serve URLs: the S3 one stays in the cause and the log
+                throw new EntityNotFoundError(filePath, "File not found", { cause: error })
             }
             throw new Error(message, { cause: error })
         }
