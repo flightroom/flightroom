@@ -115,7 +115,7 @@ export class S3BucketClient {
             // A missing key is a 404 to whoever asked for the file, not a server error
             const { name, $metadata } = (error ?? {}) as { name?: string; $metadata?: { httpStatusCode?: number } }
             if (name === "NoSuchKey" || $metadata?.httpStatusCode === 404) {
-                throw Object.assign(new EntityNotFoundError(filePath, message), { cause: error })
+                throw new EntityNotFoundError(filePath, message, { cause: error })
             }
             throw new Error(message, { cause: error })
         }

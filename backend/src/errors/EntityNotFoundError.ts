@@ -16,9 +16,10 @@ export class EntityNotFoundError extends CustomError {
     /**
      * @param message Overrides the default wording. Subclasses use it to say which kind of entity is
      * missing and, where it helps, what was looked up.
+     * @param options The error this one stands for, as `cause`: kept the way Error keeps it, not enumerable.
      */
-    constructor(entityId: string, message?: string) {
-        super(message ?? `Entity not found with id ${entityId}`)
+    constructor(entityId: string, message?: string, options?: ErrorOptions) {
+        super(message ?? `Entity not found with id ${entityId}`, options)
         this.name = "EntityNotFoundError"
         this.entityId = entityId
         Object.setPrototypeOf(this, EntityNotFoundError.prototype)

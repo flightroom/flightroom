@@ -307,6 +307,8 @@ describe("AzureStorageClient.downloadFileStream", () => {
 
         expect(error).toBeInstanceOf(EntityNotFoundError)
         expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file from Azure: The specified blob does not exist.", cause: missing })
+        // Set the way new Error(message, { cause }) sets it: kept, but not an own enumerable key logged or serialized with the error
+        expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({ enumerable: false })
     })
 
     it("given Azure names the missing blob without a status, when the file is downloaded, then the error is still a not-found one", async () => {
