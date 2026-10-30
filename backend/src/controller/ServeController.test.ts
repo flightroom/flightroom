@@ -63,6 +63,41 @@ const deploymentOn = (type: StorageType) => ({
     storages: [{ _id: storageId, type, authConfig: STORAGES[type] }]
 })
 
+/** Makes the SDK of the storage fail the read of the object with the given error, the way that SDK fails it */
+const readFails = (type: StorageType, error: Error) => {
+    switch (type) {
+        case StorageType.AWS:
+            sdk.s3Send.mockRejectedValue(error)
+            break
+        case StorageType.AZURE:
+            sdk.azureDownload.mockRejectedValue(error)
+            break
+        case StorageType.GOOGLE:
+            sdk.gcsCreateReadStream.mockReturnValue(
+                new Readable({
+                    read() {
+                        this.destroy(error)
+                    }
+                })
+            )
+            break
+    }
+}
+
+/** What each SDK answers when the bucket or the container itself is not there */
+const MISSING_BUCKET = {
+    [StorageType.AWS]: Object.assign(new Error("The specified bucket does not exist"), { name: "NoSuchBucket", $metadata: { httpStatusCode: 404 } }),
+    [StorageType.AZURE]: Object.assign(new Error("The specified container does not exist."), { name: "RestError", statusCode: 404, code: "ContainerNotFound" }),
+    [StorageType.GOOGLE]: Object.assign(new Error("The specified bucket does not exist."), { name: "ApiError", code: 404 })
+}
+
+/** What each SDK answers when the credentials may not read the object */
+const DENIED = {
+    [StorageType.AWS]: Object.assign(new Error("Access Denied"), { name: "AccessDenied", $metadata: { httpStatusCode: 403 } }),
+    [StorageType.AZURE]: Object.assign(new Error("This request is not authorized to perform this operation."), { name: "RestError", statusCode: 403, code: "AuthorizationFailure" }),
+    [StorageType.GOOGLE]: Object.assign(new Error("uploader@acme.iam.gserviceaccount.com does not have storage.objects.get access"), { name: "ApiError", code: 403 })
+}
+
 /** What each SDK answers when the object is not in the storage */
 const objectMissingFrom = (type: StorageType) => {
     switch (type) {
@@ -116,14 +151,27 @@ describe("ServeController, files of a frontend uploaded to a storage", () => {
         expect(response.json().code).toBe("ENTITY_NOT_FOUND")
     })
 
-    it("given the storage denies the read, when a file is asked for, then the answer is not a 404", async () => {
-        vi.spyOn(Deployment, "findOne").mockReturnValue({ sort: () => Promise.resolve(deploymentOn(StorageType.AWS)) } as never)
-        sdk.s3Send.mockRejectedValue(Object.assign(new Error("Access Denied"), { name: "AccessDenied", $metadata: { httpStatusCode: 403 } }))
+    it.each([StorageType.AWS, StorageType.AZURE, StorageType.GOOGLE])("given the %s storage denies the read, when a file is asked for, then the answer is a 500 and not a 404", async type => {
+        vi.spyOn(Deployment, "findOne").mockReturnValue({ sort: () => Promise.resolve(deploymentOn(type)) } as never)
+        readFails(type, DENIED[type])
 
         const response = await app.inject({ method: "GET", url: `/serve/mfe/files/${projectId}/DEV/cart/app.js` })
 
         expect(response.statusCode).toBe(500)
     })
+
+    // A broken storage configuration fails every file: answered 404, it would look like missing files and alert nobody
+    it.each([StorageType.AWS, StorageType.AZURE, StorageType.GOOGLE])(
+        "given the bucket of the %s storage does not exist, when a file is asked for, then the answer is a 500 and not a 404",
+        async type => {
+            vi.spyOn(Deployment, "findOne").mockReturnValue({ sort: () => Promise.resolve(deploymentOn(type)) } as never)
+            readFails(type, MISSING_BUCKET[type])
+
+            const response = await app.inject({ method: "GET", url: `/serve/mfe/files/${projectId}/DEV/cart/app.js` })
+
+            expect(response.statusCode).toBe(500)
+        }
+    )
 
     it("given the file is in the storage, when it is asked for, then its content is served", async () => {
         vi.spyOn(Deployment, "findOne").mockReturnValue({ sort: () => Promise.resolve(deploymentOn(StorageType.GOOGLE)) } as never)

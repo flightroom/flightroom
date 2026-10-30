@@ -126,9 +126,10 @@ export class AzureStorageClient {
             console.error("Error downloading file from Azure Blob Storage:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
             const message = `Failed to download file from Azure: ${errorMessage}`
-            // A missing blob is a 404 to whoever asked for the file, not a server error
-            const { statusCode, code } = (error ?? {}) as { statusCode?: number; code?: string }
-            if (statusCode === 404 || code === "BlobNotFound") {
+            // A missing blob is a 404 to whoever asked for the file. A missing container, ContainerNotFound, is a
+            // 404 from Azure too but a broken storage, which fails every file: it stays a server error
+            const { code } = (error ?? {}) as { code?: string }
+            if (code === "BlobNotFound") {
                 throw new EntityNotFoundError(filePath, message, { cause: error })
             }
             throw new Error(message, { cause: error })

@@ -282,6 +282,16 @@ describe("S3BucketClient.downloadFileStream", () => {
         await expect(new S3BucketClient(CONFIG).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from S3: undefined")
     })
 
+    it("given the bucket does not exist, when the file is downloaded, then the error is not a not-found one: the storage is misconfigured, the file is not missing", async () => {
+        const noBucket = s3Error("NoSuchBucket", "The specified bucket does not exist", 404)
+        sdk.send.mockRejectedValue(noBucket)
+
+        const error = await new S3BucketClient(CONFIG).downloadFileStream("site/index.html").catch((thrown: unknown) => thrown)
+
+        expect(error).not.toBeInstanceOf(EntityNotFoundError)
+        expect(error).toMatchObject({ message: "Failed to download file from S3: The specified bucket does not exist", cause: noBucket })
+    })
+
     it("given S3 denies the read, when the file is downloaded, then the error is not a not-found one and the S3 error is its cause", async () => {
         const denied = s3Error("AccessDenied", "Access Denied", 403)
         sdk.send.mockRejectedValue(denied)

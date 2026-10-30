@@ -112,9 +112,10 @@ export class S3BucketClient {
             console.error("Error downloading file from S3:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
             const message = `Failed to download file from S3: ${errorMessage}`
-            // A missing key is a 404 to whoever asked for the file, not a server error
+            // A missing key is a 404 to whoever asked for the file. A missing bucket, NoSuchBucket, is a 404 from
+            // S3 too but a broken storage, which fails every file: it stays a server error
             const { name, $metadata } = (error ?? {}) as { name?: string; $metadata?: { httpStatusCode?: number } }
-            if (name === "NoSuchKey" || $metadata?.httpStatusCode === 404) {
+            if (name === "NoSuchKey" || (name === "NotFound" && $metadata?.httpStatusCode === 404)) {
                 throw new EntityNotFoundError(filePath, message, { cause: error })
             }
             throw new Error(message, { cause: error })
