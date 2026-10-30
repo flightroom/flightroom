@@ -178,6 +178,17 @@ describe("AzureStorageClient.uploadFile", () => {
         expect(blob.uploadStream).not.toHaveBeenCalled()
     })
 
+    it("given a stream that is not a Node core Readable, when it is uploaded, then it is still streamed to the blob", async () => {
+        blob.uploadStream.mockResolvedValue({})
+        // What a stream from another copy of the readable-stream package, or another realm, looks like: readable, but no instanceof Readable
+        const body = { readable: true, on: vi.fn(), pipe: vi.fn(), read: vi.fn() } as unknown as Readable
+
+        await new AzureStorageClient(SHARED_KEY).uploadFile("site/app.js", body, "text/javascript")
+
+        expect(blob.uploadStream).toHaveBeenCalledWith(body, undefined, undefined, { blobHTTPHeaders: { blobContentType: "text/javascript" } })
+        expect(blob.upload).not.toHaveBeenCalled()
+    })
+
     it("given Azure rejects a streamed upload, when a stream is uploaded, then the caller gets an upload error with the Azure error as its cause", async () => {
         const denied = restError("This request is not authorized to perform this operation using this permission.", 403, "AuthorizationPermissionMismatch")
         blob.uploadStream.mockRejectedValue(denied)

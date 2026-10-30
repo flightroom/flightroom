@@ -76,11 +76,13 @@ export class AzureStorageClient {
         }
 
         try {
-            // upload needs the length up front, which a stream does not have: it goes up in blocks instead
-            if (fileContent instanceof Readable) {
-                await blockBlobClient.uploadStream(fileContent, undefined, undefined, options)
-            } else {
+            // upload needs the length up front, which a stream does not have: it goes up in blocks instead.
+            // Anything but a buffer or a string is a stream, not only a core Readable, which instanceof would require
+            if (Buffer.isBuffer(fileContent) || typeof fileContent === "string") {
                 await blockBlobClient.upload(fileContent, Buffer.byteLength(fileContent), options)
+            } else {
+                // The SDK defaults: blocks of 8 MiB, 5 in flight, so up to 40 MiB buffered per upload
+                await blockBlobClient.uploadStream(fileContent, undefined, undefined, options)
             }
             return blockBlobClient.url
         } catch (error: unknown) {
