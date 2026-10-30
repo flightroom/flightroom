@@ -49,8 +49,9 @@ export const addJobUsage = async (job: IAiChangeJob, project: IProject, client: 
     if (cost) usageIncrement["usage.cost"] = cost.amount
     const increment = { $inc: usageIncrement }
     const currency = cost ? { $set: { "usage.currency": cost.currency } } : {}
-    // Written side by side: once per round of the model, the job and its requests do not wait on each other.
-    await Promise.all([AiChangeJob.updateOne({ _id: job._id }, { ...increment, ...currency }), AiChangeRequest.updateMany({ jobId: job._id }, { ...increment, ...currency })])
+    // One after the other: a failed job write leaves the requests and the ledger untouched, so the totals stay in step.
+    await AiChangeJob.updateOne({ _id: job._id }, { ...increment, ...currency })
+    await AiChangeRequest.updateMany({ jobId: job._id }, { ...increment, ...currency })
     try {
         await recordAiUsage({
             organizationId: project.organizationId,
