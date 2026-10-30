@@ -11,6 +11,16 @@ interface IGlobalParametersContext {
 
 const GlobalParameterContext = createContext<IGlobalParametersContext | undefined>(undefined)
 
+/**
+ * Starts downloading the SDKs of the configured login providers as soon as the configuration says which they
+ * are: the auth wrappers are nested (Google, then Microsoft, then Auth0) and would otherwise fetch them one
+ * after the other. Fire-and-forget: the wrappers import the same chunks and show the error if they fail.
+ */
+const prefetchLoginSdks = (config: GlobalConfigDTO | undefined) => {
+    if (config?.providers?.auth0) import("@/authentication/Auth0SdkProvider").catch(() => undefined)
+    if (config?.providers?.azure) import("@/authentication/msalBrowser").catch(() => undefined)
+}
+
 export const GlobalParameterProvider: React.FC<React.PropsWithChildren> = ({ children }) => {
     const api = useApiClient()
 
@@ -22,7 +32,10 @@ export const GlobalParameterProvider: React.FC<React.PropsWithChildren> = ({ chi
                     authenticated: AuthenticationType.NONE,
                     url: "/api/configuration"
                 })
-                .then(r => r.data)
+                .then(r => {
+                    prefetchLoginSdks(r.data)
+                    return r.data
+                })
         }
     })
 
