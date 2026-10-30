@@ -216,8 +216,9 @@ class GitLabClient {
             params: { "scope[]": "failed", per_page: 100 }
         })
 
+        const failedJobs = (jobs.data || []).slice(0, MAX_FAILED_JOBS)
         const results = await Promise.allSettled(
-            (jobs.data || []).slice(0, MAX_FAILED_JOBS).map(async job => {
+            failedJobs.map(async job => {
                 const trace = await this.api.get<string>(`/projects/${projectId}/jobs/${job.id}/trace`, {
                     maxContentLength: MAX_FAILED_JOB_LOG_BYTES,
                     // The trace is raw text: keep it as is, axios would try to parse JSON otherwise
@@ -226,6 +227,12 @@ class GitLabClient {
                 return { name: job.name, log: trace.data }
             })
         )
+
+        results.forEach((result, index) => {
+            // The name and the message only: the error carries the request, token included
+            if (result.status === "rejected")
+                console.warn(`Could not download the log of the failed job ${failedJobs[index].name}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`)
+        })
 
         const logs = results.flatMap(result => (result.status === "fulfilled" ? [result.value] : []))
         const firstFailure = results.find(result => result.status === "rejected")

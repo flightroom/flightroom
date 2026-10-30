@@ -333,11 +333,14 @@ describe("GitlabClient.getFailedJobLogs", () => {
             .fn()
             .mockResolvedValueOnce(threeJobs)
             .mockImplementation((url: string) => (url.includes("/jobs/2/") ? Promise.reject(tooLarge) : Promise.resolve({ data: `trace of ${url}` })))
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
 
         await expect(clientAnswering(get).getFailedJobLogs(42, "7")).resolves.toEqual([
             { name: "build", log: "trace of /projects/42/jobs/1/trace" },
             { name: "lint", log: "trace of /projects/42/jobs/3/trace" }
         ])
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn).toHaveBeenCalledWith("Could not download the log of the failed job test: maxContentLength size of 1048576 exceeded")
     })
 
     it("given every trace fails, when the logs are read, then the failure of the first job is passed on", async () => {
@@ -345,9 +348,12 @@ describe("GitlabClient.getFailedJobLogs", () => {
         const get = vi
             .fn()
             .mockResolvedValueOnce(threeJobs)
-            .mockImplementation((url: string) => Promise.reject(url.includes("/jobs/1/") ? first : answered(403)))
+            .mockImplementation((url: string) => Promise.reject(url.includes("/jobs/1/") ? first : "socket hang up"))
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
 
         await expect(clientAnswering(get).getFailedJobLogs(42, "7")).rejects.toBe(first)
+        expect(warn).toHaveBeenCalledWith("Could not download the log of the failed job build: Request failed")
+        expect(warn).toHaveBeenCalledWith("Could not download the log of the failed job lint: socket hang up")
     })
 })
 

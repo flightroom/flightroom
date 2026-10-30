@@ -232,6 +232,10 @@ class AzureDevOpsClient {
      * with 203 and the HTML of its sign-in page rather than with 401, and axios takes any 2xx for a success:
      * a 203, or an HTML page where an API answer was expected, is turned into the 401 a refused token gets,
      * so that the callers handle both alike. A plain-text answer, such as a log, is not HTML and passes.
+     *
+     * Any `text/html` answer is taken for the sign-in page, whatever the endpoint: a method that downloads the
+     * raw content of an item, an HTML file of a repository say, must ask for `$format=json` (as getFileContent
+     * does) or an Accept that is not HTML, or call axios on its own, or that file reads as a refused token.
      */
     private async request<T = unknown>(config: AxiosRequestConfig): Promise<AxiosResponse<T>> {
         const response = await axios.request<T>(config)
@@ -434,6 +438,12 @@ class AzureDevOpsClient {
                 return { name: record.name, log: log.data }
             })
         )
+
+        results.forEach((result, index) => {
+            // The name and the message only: the error carries the request, token included
+            if (result.status === "rejected")
+                console.warn(`Could not download the log of the failed task ${failedRecords[index].name}: ${result.reason instanceof Error ? result.reason.message : String(result.reason)}`)
+        })
 
         const logs = results.flatMap(result => (result.status === "fulfilled" ? [result.value] : []))
         const firstFailure = results.find(result => result.status === "rejected")
