@@ -32,7 +32,7 @@ export function StartupController(fastify: FastifyInstance) {
         //
         // REGISTRATION_ALLOWED deliberately does not gate this one: with registration turned off
         // and no users, an installation could never be set up at all. It gates the ordinary
-        // registration route instead - or rather it is supposed to, which is a separate matter.
+        // registration route instead.
         //
         // This is a check followed by a write, so two calls racing on a genuinely empty
         // installation could both get through. That window is the first setup itself, and it is

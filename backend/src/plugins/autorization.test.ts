@@ -47,7 +47,7 @@ import { ApiKeyStatus } from "../models/ApiKeyModel"
 import { getSecret, ISSUER } from "../models/UserModel"
 import { signMcpAccessToken } from "../service/OAuthTokenService"
 import { getOAuthConfig } from "../utils/oauthConfig"
-import { checkApiKey, ensureGoogleAudience, getFederatedAuthenticationMoment, resolveAuthentication } from "./autorization"
+import { checkApiKey, ensureGoogleAudience, ensureGoogleHostedDomain, getFederatedAuthenticationMoment, resolveAuthentication } from "./autorization"
 
 const ENTRA_TENANT_ID = "11111111-2222-3333-4444-555555555555"
 const entraIssuer = (tenantId: string) => `https://login.microsoftonline.com/${tenantId}/v2.0`
@@ -227,6 +227,68 @@ describe("ensureGoogleAudience", () => {
         const withoutGoogle = { config: {} } as unknown as FastifyInstance
 
         expect(() => ensureGoogleAudience(withoutGoogle, { audience: GOOGLE_CLIENT_ID })).toThrow(/not issued to this application/)
+    })
+})
+
+describe("Google hosted domain", () => {
+    const GOOGLE_TOKEN = "ya29.an-opaque-google-access-token"
+    const restrictedTo = (domain: string) => ({ config: { GOOGLE_CLIENT_ID, GOOGLE_AUTH_HOSTED_DOMAIN: domain } }) as unknown as FastifyInstance
+
+    /** tokeninfo never states `hd` for an access token: only userinfo does, and only for a Workspace account. */
+    const googleAnswers = (hd?: string) =>
+        userinfo.get.mockImplementation(async (url: string) =>
+            url.includes("tokeninfo") ? { data: { audience: GOOGLE_CLIENT_ID, email: "member@example.com" } } : { data: { email: "member@example.com", ...(hd && { hd }) } }
+        )
+
+    beforeEach(() => {
+        cache.entries.clear()
+        userinfo.get.mockReset()
+    })
+
+    it("given an installation without a domain, when any account is checked, then it passes", () => {
+        expect(() => ensureGoogleHostedDomain(anInstallation(), {})).not.toThrow()
+    })
+
+    it("given a domain, when the account belongs to it in another case, then it passes", () => {
+        expect(() => ensureGoogleHostedDomain(restrictedTo("example.com"), { hd: "Example.com" })).not.toThrow()
+    })
+
+    it("given a domain, when the account belongs to another Workspace domain, then it is rejected", () => {
+        expect(() => ensureGoogleHostedDomain(restrictedTo("example.com"), { hd: "elsewhere.com" })).toThrow(/does not belong to the example.com domain/)
+    })
+
+    it("given a domain, when the account is personal and states no hd, then it is rejected", () => {
+        expect(() => ensureGoogleHostedDomain(restrictedTo("example.com"), { email: "member@example.com" })).toThrow(/does not belong/)
+    })
+
+    it("given a domain, when a token of the domain is resolved, then hd is read from userinfo and cached with the profile", async () => {
+        googleAnswers("example.com")
+
+        const resolved = await resolveAuthentication(restrictedTo("example.com"), GOOGLE_TOKEN, "google")
+
+        expect(resolved).toEqual({ user: expect.objectContaining({ email: "member@example.com", hd: "example.com" }), isFederated: true })
+        expect(JSON.parse(cache.entries.get(GOOGLE_TOKEN) ?? "{}")).toMatchObject({ hd: "example.com" })
+    })
+
+    it("given a domain, when a personal account's token is resolved, then it is rejected and never cached", async () => {
+        googleAnswers()
+
+        await expect(resolveAuthentication(restrictedTo("example.com"), GOOGLE_TOKEN, "google")).rejects.toThrow(/does not belong/)
+        expect(cache.entries.has(GOOGLE_TOKEN)).toBe(false)
+    })
+
+    it("given a domain, when a profile cached without hd is presented, then it is rejected", async () => {
+        cache.entries.set(GOOGLE_TOKEN, JSON.stringify({ audience: GOOGLE_CLIENT_ID, email: "member@example.com" }))
+
+        await expect(resolveAuthentication(restrictedTo("example.com"), GOOGLE_TOKEN, "google")).rejects.toThrow(/does not belong/)
+    })
+
+    it("given no domain, when a token is resolved, then userinfo is not called", async () => {
+        googleAnswers()
+
+        await resolveAuthentication(anInstallation(), GOOGLE_TOKEN, "google")
+
+        expect(userinfo.get).toHaveBeenCalledTimes(1)
     })
 })
 

@@ -18,6 +18,18 @@ export async function UserController(fastify: FastifyInstance) {
     fastify.post<{
         Body: UserRegistrationDTO
     }>("/users/registration", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (req, res) => {
+        // Same condition the console reads as `canRegister`: hiding the link was all it did,
+        // so with registration turned off anyone could still sign up by calling the API.
+        // Nothing else needs this route: invitations and federated first logins create the
+        // user through the service, and first startup has its own route.
+        if (!fastify.config.REGISTRATION_ALLOWED || !fastify.config.ALLOW_EMBEDDED_LOGIN) {
+            throw createBusinessException({
+                code: "REGISTRATION_NOT_ALLOWED",
+                message: "Registration is not allowed on this installation",
+                statusCode: 403
+            })
+        }
+
         // The body is forwarded field by field and never spread: the route is public
         // and Fastify does not strip what the schema does not declare, so anything
         // extra that arrives here would otherwise reach the user document.

@@ -68,12 +68,33 @@ export const ensureGoogleAudience = (fastify: FastifyInstance, tokenInfo: Record
     }
 }
 
+/**
+ * Rejects a Google account outside the Workspace domain set in GOOGLE_AUTH_HOSTED_DOMAIN.
+ *
+ * `hd` is Google's own statement of the Workspace domain that manages the account; the email is
+ * no proof, a personal Google account can be registered on any address. A personal account has
+ * no `hd` at all, so it is refused too. Without a configured domain every account passes.
+ */
+export const ensureGoogleHostedDomain = (fastify: FastifyInstance, profile: Record<string, unknown>): void => {
+    const expected = fastify.config.GOOGLE_AUTH_HOSTED_DOMAIN?.trim().toLowerCase()
+    if (!expected) {
+        return
+    }
+    const hostedDomain = typeof profile.hd === "string" ? profile.hd.toLowerCase() : undefined
+    if (hostedDomain !== expected) {
+        throw new AuthenticationError(`Google account does not belong to the ${expected} domain`)
+    }
+}
+
 const getDataFromGoogle = async (fastify: FastifyInstance, authToken: string): Promise<AuthUserDTO> => {
     if (redisClient) {
         const userFromCache = await redisClient.get(authToken)
         if (userFromCache) {
             const cached = JSON.parse(userFromCache)
             ensureGoogleAudience(fastify, cached)
+            // An entry cached before the domain was configured has no `hd` and is refused:
+            // closed, until the user signs in again with a new token
+            ensureGoogleHostedDomain(fastify, cached)
             return cached
         }
     }
@@ -85,12 +106,23 @@ const getDataFromGoogle = async (fastify: FastifyInstance, authToken: string): P
     })
     // Checked before caching, so a foreign token never lands in the cache either
     ensureGoogleAudience(fastify, response.data)
+    let data = response.data
+    if (fastify.config.GOOGLE_AUTH_HOSTED_DOMAIN?.trim()) {
+        // tokeninfo does not state `hd` for an access token, userinfo does
+        const userinfo = await axios.get(`https://openidconnect.googleapis.com/v1/userinfo`, {
+            headers: {
+                Authorization: `Bearer ${authToken}`
+            }
+        })
+        data = { ...data, hd: userinfo.data.hd }
+        ensureGoogleHostedDomain(fastify, data)
+    }
     if (redisClient) {
-        await redisClient.set(authToken, JSON.stringify(response.data), {
+        await redisClient.set(authToken, JSON.stringify(data), {
             EX: TOKEN_EXPIRATION
         })
     }
-    return response.data
+    return data
 }
 
 /**
