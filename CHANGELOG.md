@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Installation Theme**: the console loads `/theme.css` in its `<head>`, empty in Flightroom. Mount a stylesheet of your own over `/var/www/frontend/theme.css` to restyle the console: it overrides the CSS variables of the design system, colours for the light and the dark mode, corner radius and font, before the first paint. nginx serves it to be revalidated at every load. See `docs/THEMES.md`
+
 ## [10.1.0] - 2026-10-29
 
 ### Added

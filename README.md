@@ -213,6 +213,7 @@ Project reference:
 - **[Argo CD](docs/ARGOCD.md)** - Handing the GitOps repositories of a project to an Argo CD on another cluster: the account, its RBAC and the read-only repository tokens
 - **[Exposure](docs/EXPOSURE.md)** - Exposing environments through the Gateway API, with TLS from cert-manager
 - **[Secrets](docs/SECRETS.md)** - Encrypting the credentials stored for a project
+- **[Installation theme](docs/THEMES.md)** - Restyling the console with a stylesheet of your own
 - **[Remote MCP server](docs/MCP.md)** - Letting AI clients use the console through OAuth, on the projects the user picks
 - **[Anonymous telemetry](docs/TELEMETRY.md)** - What the daily ping contains and how to turn it off
 - **[Commit Conventions](COMMIT_CONVENTIONS.md)** - Conventional Commits specification
