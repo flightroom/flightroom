@@ -323,6 +323,16 @@ describe("AzureStorageClient.downloadFileStream", () => {
         await expect(new AzureStorageClient(SHARED_KEY).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from Azure: undefined")
     })
 
+    it("given the container does not exist, when the file is downloaded, then the error is not a not-found one: the storage is misconfigured, the file is not missing", async () => {
+        const noContainer = restError("The specified container does not exist.", 404, "ContainerNotFound")
+        blob.download.mockRejectedValue(noContainer)
+
+        const error = await new AzureStorageClient(SHARED_KEY).downloadFileStream("site/index.html").catch((thrown: unknown) => thrown)
+
+        expect(error).not.toBeInstanceOf(EntityNotFoundError)
+        expect(error).toMatchObject({ message: "Failed to download file from Azure: The specified container does not exist.", cause: noContainer })
+    })
+
     it("given Azure denies the read, when the file is downloaded, then the error is not a not-found one and the Azure error is its cause", async () => {
         const denied = restError("This request is not authorized to perform this operation.", 403, "AuthorizationFailure")
         blob.download.mockRejectedValue(denied)

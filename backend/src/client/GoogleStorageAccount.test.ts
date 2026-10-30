@@ -323,6 +323,13 @@ describe("GoogleStorageClient.downloadFileStream", () => {
         expect(Object.getOwnPropertyDescriptor(error, "cause")).toMatchObject({ enumerable: false })
     })
 
+    it("given the bucket does not exist, when the file is downloaded, then the stream fails with the GCS error itself: the storage is misconfigured, the file is not missing", async () => {
+        const noBucket = apiError("The specified bucket does not exist.", 404)
+        sdk.file.createReadStream.mockReturnValue(failingRead(noBucket))
+
+        await expect(failureOf(new GoogleStorageClient(CONFIG).downloadFileStream("site/index.html"))).resolves.toBe(noBucket)
+    })
+
     it("given GCS denies the read, when the file is downloaded, then the stream fails with the GCS error itself", async () => {
         const denied = apiError("uploader@flightroom-test.iam.gserviceaccount.com does not have storage.objects.get access", 403)
         sdk.file.createReadStream.mockReturnValue(failingRead(denied))
