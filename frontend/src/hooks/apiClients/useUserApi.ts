@@ -1,6 +1,7 @@
+import { useTranslation } from "react-i18next"
 import { ThemeEnum } from "@/store/useThemeStore"
 import { AuthenticationType } from "../../api/apiClient"
-import useApiClient, { IClientRequestMetadataExtended } from "../useApiClient"
+import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
 
 /** Campi che il backend restituisce da `toFrontendObject()`. */
 export interface User {
@@ -59,6 +60,7 @@ export interface AuthResponse {
 
 const useUserApi = () => {
     const { doRequest } = useApiClient()
+    const { t } = useTranslation()
 
     // Authentication
     async function register(userData: UserRegistrationDTO) {
@@ -66,7 +68,9 @@ const useUserApi = () => {
             url: "/api/users/registration",
             authenticated: AuthenticationType.NONE,
             method: "POST",
-            data: userData
+            data: userData,
+            // Reached by opening /register directly on an installation with registration turned off
+            customErrorMessage: error => (errorCodeOf(error) === "REGISTRATION_NOT_ALLOWED" ? t("auth.registration_not_allowed") : undefined)
         })
         return response.data
     }

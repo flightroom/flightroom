@@ -35,7 +35,9 @@ const LoginWithGoogleButton: React.FC<LoginComponentProps> = ({ onSuccessLogin }
         enable_serial_consent: true,
         scope: "openid profile email",
         flow: "auth-code",
-        redirect_uri: parameters.getParameter("providers.google.redirectUri") as string
+        redirect_uri: parameters.getParameter("providers.google.redirectUri") as string,
+        // Only a hint, so Google offers the accounts of that domain: the backend is what refuses the others
+        hosted_domain: (parameters.getParameter("providers.google.hostedDomain") as string) || undefined
     })
 
     return (

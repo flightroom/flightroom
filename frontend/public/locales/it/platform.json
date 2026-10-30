@@ -86,6 +86,7 @@
     },
     "auth": {
         "registration_success": "Registrazione completata con successo, accedi per accedere al tuo account",
+        "registration_not_allowed": "La registrazione non è consentita su questa installazione",
         "registration_success_email": "Registrazione completata con successo, ti abbiamo inviato una mail per attivare il tuo account",
         "account_activation": {
             "title": "Attivazione Account",
