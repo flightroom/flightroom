@@ -1,6 +1,7 @@
 import { FastifyInstance } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import DeploymentService from "../service/DeploymentService"
+import EnvironmentPromotionService, { PromotionRequest } from "../service/EnvironmentPromotionService"
 import EnvironmentService from "../service/EnvironmentService"
 import { EnvironmentDTO, EnvironmentOrderDTO } from "../types/EnvironmentDTO"
 import { getProjectIdFromRequest } from "../utils/requestUtils"
@@ -22,6 +23,16 @@ export default async function environmentController(fastify: FastifyInstance) {
 
     fastify.get<{ Params: { id: string } }>("/environments/:id/deployments/last", async (request, reply) => {
         return reply.send(await new DeploymentService(request.databaseUser).getLastByEnvironmentId(request.params.id))
+    })
+
+    // The versions another environment runs, next to those of this one: what a promotion from it would change
+    fastify.get<{ Params: { id: string }; Querystring: { from?: string } }>("/environments/:id/promotion", async (request, reply) => {
+        return reply.send(await new EnvironmentPromotionService(request.databaseUser).preview(request.params.id, request.query.from))
+    })
+
+    // Brings to this environment the versions another runs: the next deploy of this one applies them
+    fastify.post<{ Params: { id: string }; Body: PromotionRequest }>("/environments/:id/promotion", async (request, reply) => {
+        return reply.send(await new EnvironmentPromotionService(request.databaseUser).promote(request.params.id, request.body))
     })
 
     fastify.post<{ Body: EnvironmentDTO }>("/environments", async (request, reply) => {

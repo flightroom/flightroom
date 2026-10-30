@@ -1,21 +1,24 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { Rocket } from "lucide-react"
-import React from "react"
+import { ArrowUpRight, Rocket } from "lucide-react"
+import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
 import AskAssistantButton from "@/components/assistant/AskAssistantButton"
 import { Button } from "@/components/atoms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY } from "@/hooks/apiClients/useDeploymentsApi"
-import useProjectStore from "@/store/useProjectStore"
+import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import EnvironmentsGate from "@/theme/EnvironmentsGate"
 import EnvironmentSelector from "../../components/molecules/EnvironmentSelector"
 import DeploymentList from "./partials/DeploymentList"
+import PromoteVersionsDialog from "./partials/PromoteVersionsDialog"
 
 export const Deployments: React.FC = () => {
     const { t } = useTranslation()
     const projectStore = useProjectStore()
     const deploymentsApi = useDeploymentsApi()
     const queryClient = useQueryClient()
+    const isViewer = useIsProjectViewer()
+    const [promoting, setPromoting] = useState(false)
 
     const isThereAtLeastOneEnvironment = projectStore.environments?.length > 0
 
@@ -47,6 +50,13 @@ export const Deployments: React.FC = () => {
                                 <Rocket />
                                 {t("deployments.deploy_button")}
                             </Button>
+                            {/* A viewer may look, not promote; with one environment there is nowhere to promote from */}
+                            {!isViewer && projectStore.environments.length > 1 && (
+                                <Button variant="secondary" onClick={() => setPromoting(true)} dataTestId="promote-versions">
+                                    <ArrowUpRight />
+                                    {t("deployments.promotion.action")}
+                                </Button>
+                            )}
                             {projectStore.environment?._id && (
                                 <AskAssistantButton
                                     label={t("assistant.actions.analyze_deployments")}
@@ -60,6 +70,20 @@ export const Deployments: React.FC = () => {
             }
             lrContainerClassname="items-end"
         >
+            {isThereAtLeastOneEnvironment && (
+                <PromoteVersionsDialog
+                    open={promoting}
+                    onOpenChange={setPromoting}
+                    environments={projectStore.environments}
+                    defaultTarget={projectStore.environment}
+                    onDeploy={environmentId => {
+                        // The page follows the deploy, to the environment the versions went to
+                        const target = projectStore.environments.find(environment => environment._id === environmentId)
+                        if (target) projectStore.setEnvironment(target)
+                        deployMutation.mutate(environmentId)
+                    }}
+                />
+            )}
             <EnvironmentsGate>
                 <DeploymentList environmentId={projectStore.environment?._id} />
             </EnvironmentsGate>
