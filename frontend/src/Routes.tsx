@@ -1,5 +1,5 @@
 import { lazy } from "react"
-import { Navigate, Route, Routes as RRDRoutes, useLocation } from "react-router-dom"
+import { Navigate, Route, Routes as RRDRoutes } from "react-router-dom"
 import Auth0Wrapper from "./authentication/Auth0AuthWrapper"
 import GoogleAuthWrapper from "./authentication/GoogleAuthWrapper"
 import MicrosoftAuthWrapper from "./authentication/MicrosoftAuthWrapper"
@@ -110,12 +110,6 @@ const OAuthRoutes: React.FC = () => {
     )
 }
 
-/** The pages of the backends were under /services and /service until the entity was renamed: old links and bookmarks land on the new ones */
-const LegacyBackendRedirect: React.FC = () => {
-    const { pathname, search, hash } = useLocation()
-    return <Navigate to={`${pathname.replace(/^\/services?(?=\/|$)/, match => (match === "/services" ? "/backends" : "/backend"))}${search}${hash}`} replace />
-}
-
 /**
  * The console opens on the AI agent; without an AI provider its page sends on to /frontends.
  * Safety net: a login that lands on "/" instead of the consent page resumes the pending consent.
@@ -155,8 +149,6 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/backend/:id/ai" element={<RouteWithSuspense element={<BackendDetail view="ai" />} />} />
                 <Route path="/backend/:id/overview" element={<RouteWithSuspense element={<BackendDetail />} />} />
                 <Route path="/backend/:id/settings" element={<RouteWithSuspense element={<AddBackend />} />} />
-                <Route path="/services" element={<LegacyBackendRedirect />} />
-                <Route path="/service/*" element={<LegacyBackendRedirect />} />
                 <Route path="/maintenance-agents" element={<RouteWithSuspense element={<MaintenanceAgents />} />} />
                 <Route path="/maintenance-agent/new" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
                 <Route path="/maintenance-agent/:id" element={<RouteWithSuspense element={<MaintenanceAgentDetail />} />} />
@@ -178,8 +170,6 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/integration" element={<RouteWithSuspense element={<Integration />} />} />
                 <Route path="/project-users" element={<RouteWithSuspense element={<ProjectUsers />} />} />
                 <Route path="/organization" element={<RouteWithSuspense element={<OrganizationSettings />} />} />
-                {/* La pagina stava qui: i link e i preferiti che puntano al vecchio percorso restano validi. */}
-                <Route path="/organization-users" element={<Navigate to="/organization?tab=members" replace />} />
                 <Route path="/storages" element={<RouteWithSuspense element={<Storages />} />} />
                 <Route path="/storages/new" element={<RouteWithSuspense element={<AddStorage />} />} />
                 <Route path="/storages/:id" element={<RouteWithSuspense element={<AddStorage />} />} />

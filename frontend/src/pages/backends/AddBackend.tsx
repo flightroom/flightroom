@@ -108,12 +108,6 @@ type FormTab = (typeof FORM_TABS)[number] | "danger"
 
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
-/** Tabs merged into another one: old links to them open the tab that now holds their fields. */
-const MERGED_TABS = new Map<string, FormTab>([
-    ["variables", "runtime"],
-    ["repository", "general"]
-])
-
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["template", "name", "slug", "version", "description", "domainId", "codeRepository"],
     context: ["context"],
@@ -168,10 +162,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
     // Opened from a domain page: the backend is created in it, and the page is where we go back
     const initialDomainId = searchParams.get("domainId")
     const hasRepositories = repositories.length > 0
-    // `#runtime` (or the older `?tab=runtime`) opens a tab straight away.
-    const hashTab = location.hash.slice(1)
-    const requestedTab = isFormTab(hashTab) || MERGED_TABS.has(hashTab) ? hashTab : searchParams.get("tab")
-    const linkedTab = MERGED_TABS.get(requestedTab ?? "") ?? requestedTab
+    // `#runtime` opens a tab straight away.
+    const linkedTab = location.hash.slice(1)
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
 
     // The open tab is written in the hash, so a reload or a copied link lands on it
