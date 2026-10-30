@@ -821,6 +821,22 @@ describe("GithubClient.getFileContent", () => {
         expect(sent(request).url).toBe(`${api}/repos/acme/cart-fe/contents/docs/a%20b%23c%3F.md`)
     })
 
+    /** Over 1 MB GitHub leaves the content out of the JSON answer: encoding "none" and an empty content */
+    it("given a file over 1 MB, when it is read, then its raw content is downloaded and the sha of the first answer comes back", async () => {
+        const request = stubRequest()
+            .mockResolvedValueOnce({ data: { type: "file", encoding: "none", content: "", sha: "big-sha" } })
+            .mockResolvedValueOnce({ data: '{"name":"big"}' })
+
+        await expect(new GithubClient().getFileContent({ ...file, ref: "main" })).resolves.toEqual({ content: '{"name":"big"}', sha: "big-sha" })
+        expect(request).toHaveBeenCalledTimes(2)
+        expect(sent(request, 1)).toEqual({
+            url: `${api}/repos/acme/cart-fe/contents/package.json`,
+            params: { ref: "main" },
+            headers: { ...githubHeaders, Accept: "application/vnd.github.raw+json" },
+            responseType: "text"
+        })
+    })
+
     it("given an answer without encoding, when the file is read, then the content is read as base64", async () => {
         stubRequest().mockResolvedValue({ data: { type: "file", content: base64("plain"), sha: "s" } })
 
