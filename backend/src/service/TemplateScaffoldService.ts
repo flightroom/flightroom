@@ -201,6 +201,7 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
 
         const exists = await githubClient.checkRepositorySecretExists({
             accessToken: codeRepository.accessToken,
+            userName: codeRepository.githubData?.userName,
             repositoryName,
             secretName: deploySecretName
         })

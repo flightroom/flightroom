@@ -72,6 +72,7 @@ import AzureDevOpsClient, { AzureBranchNotFoundError } from "../client/AzureDevO
 import GithubClient from "../client/GithubClient"
 import GitlabClient from "../client/GitlabClient"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import ApiKey from "../models/ApiKeyModel"
 import Backend from "../models/BackendModel"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../models/CodeRepositoryModel"
 import Frontend from "../models/FrontendModel"
@@ -1336,5 +1337,30 @@ describe("TemplateScaffoldService.createRepository with a name in use", () => {
         vi.spyOn(GithubClient.prototype, "createRepository").mockRejectedValue(error)
 
         await expect(new TemplateScaffoldService().createRepository(github, target(), "checkout", null)).rejects.toBe(error)
+    })
+})
+
+describe("TemplateScaffoldService.gitHubInjectApiKey", () => {
+    afterEach(() => vi.restoreAllMocks())
+
+    const github = {
+        _id: new Types.ObjectId(),
+        projectId: new Types.ObjectId(),
+        provider: CodeRepositoryProvider.GITHUB,
+        accessToken: "token",
+        githubData: { userName: "acme" }
+    } as unknown as ICodeRepository
+
+    it("given the deploy secret already on the repository of the user, when the key is injected, then the check goes to that owner and no new API key is created", async () => {
+        // The secret is there only for its real owner: a check sent anywhere else misses it
+        const check = vi.spyOn(GithubClient.prototype, "checkRepositorySecretExists").mockImplementation(async ({ userName }) => userName === "acme")
+        const upsert = vi.spyOn(GithubClient.prototype, "upsertRepositorySecret").mockResolvedValue()
+        const save = vi.spyOn(ApiKey.prototype, "save").mockResolvedValue(undefined as never)
+
+        await new TemplateScaffoldService().gitHubInjectApiKey(github, "orders-api", "orders-api")
+
+        expect(save).not.toHaveBeenCalled()
+        expect(upsert).not.toHaveBeenCalled()
+        expect(check).toHaveBeenCalledWith({ accessToken: "token", userName: "acme", repositoryName: "orders-api", secretName: "FLIGHTROOM_API_KEY" })
     })
 })
