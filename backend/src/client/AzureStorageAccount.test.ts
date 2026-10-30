@@ -35,6 +35,7 @@ vi.mock("@azure/identity", () => ({
 
 import { ClientSecretCredential } from "@azure/identity"
 import { BlobServiceClient, StorageSharedKeyCredential } from "@azure/storage-blob"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import AzureStorageClient, { AzureStorageConfig } from "./AzureStorageAccount"
 
 const RAW_CONNECTION_STRING = "DefaultEndpointsProtocol=https;AccountName=fromconnection;AccountKey=bm90LWEtcmVhbC1rZXk=;EndpointSuffix=core.windows.net"
@@ -184,6 +185,13 @@ describe("AzureStorageClient.uploadFile", () => {
 
         await expect(new AzureStorageClient(SHARED_KEY).uploadFile("site/index.html", "x")).rejects.toThrow("Failed to upload file to Azure: socket hang up")
     })
+
+    it("given Azure rejects, when a file is uploaded, then the Azure error is kept as the cause, with its status and code", async () => {
+        const denied = restError("This request is not authorized to perform this operation using this permission.", 403, "AuthorizationPermissionMismatch")
+        blob.upload.mockRejectedValue(denied)
+
+        await expect(new AzureStorageClient(AAD).uploadFile("site/index.html", "x")).rejects.toHaveProperty("cause", denied)
+    })
 })
 
 describe("AzureStorageClient.deleteFile", () => {
@@ -207,6 +215,13 @@ describe("AzureStorageClient.deleteFile", () => {
         blob.delete.mockRejectedValue("timeout")
 
         await expect(new AzureStorageClient(SHARED_KEY).deleteFile("site/index.html")).rejects.toThrow("Failed to delete file from Azure: timeout")
+    })
+
+    it("given Azure rejects, when the file is deleted, then the Azure error is kept as the cause", async () => {
+        const missing = restError("The specified blob does not exist.", 404, "BlobNotFound")
+        blob.delete.mockRejectedValue(missing)
+
+        await expect(new AzureStorageClient(SHARED_KEY).deleteFile("site/missing.html")).rejects.toHaveProperty("cause", missing)
     })
 })
 
@@ -253,5 +268,37 @@ describe("AzureStorageClient.downloadFileStream", () => {
         blob.download.mockRejectedValue("ECONNRESET")
 
         await expect(new AzureStorageClient(SHARED_KEY).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from Azure: ECONNRESET")
+    })
+
+    it("given the blob does not exist, when the file is downloaded, then the error is a not-found one answering 404, with the Azure error as its cause", async () => {
+        const missing = restError("The specified blob does not exist.", 404, "BlobNotFound")
+        blob.download.mockRejectedValue(missing)
+
+        const error = await new AzureStorageClient(SHARED_KEY).downloadFileStream("site/missing.html").catch((thrown: unknown) => thrown)
+
+        expect(error).toBeInstanceOf(EntityNotFoundError)
+        expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file from Azure: The specified blob does not exist.", cause: missing })
+    })
+
+    it("given Azure names the missing blob without a status, when the file is downloaded, then the error is still a not-found one", async () => {
+        blob.download.mockRejectedValue(Object.assign(new Error("The specified blob does not exist."), { name: "RestError", code: "BlobNotFound" }))
+
+        await expect(new AzureStorageClient(SHARED_KEY).downloadFileStream("site/missing.html")).rejects.toBeInstanceOf(EntityNotFoundError)
+    })
+
+    it("given the SDK rejects with nothing, when the file is downloaded, then the caller still gets a download error", async () => {
+        blob.download.mockRejectedValue(undefined)
+
+        await expect(new AzureStorageClient(SHARED_KEY).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from Azure: undefined")
+    })
+
+    it("given Azure denies the read, when the file is downloaded, then the error is not a not-found one and the Azure error is its cause", async () => {
+        const denied = restError("This request is not authorized to perform this operation.", 403, "AuthorizationFailure")
+        blob.download.mockRejectedValue(denied)
+
+        const error = await new AzureStorageClient(AAD).downloadFileStream("site/index.html").catch((thrown: unknown) => thrown)
+
+        expect(error).not.toBeInstanceOf(EntityNotFoundError)
+        expect(error).toHaveProperty("cause", denied)
     })
 })

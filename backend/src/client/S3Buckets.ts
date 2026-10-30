@@ -1,6 +1,7 @@
 import { DeleteObjectCommand, GetObjectCommand, PutObjectCommand, PutObjectCommandInput, S3Client } from "@aws-sdk/client-s3"
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner"
 import { Readable } from "stream"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 
 export interface S3ClientConfig {
     region: string
@@ -51,7 +52,7 @@ export class S3BucketClient {
         } catch (error: unknown) {
             console.error("Error uploading file to S3:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to upload file to S3: ${errorMessage}`)
+            throw new Error(`Failed to upload file to S3: ${errorMessage}`, { cause: error })
         }
     }
 
@@ -72,7 +73,7 @@ export class S3BucketClient {
         } catch (error: unknown) {
             console.error("Error generating pre-signed URL:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to generate pre-signed URL: ${errorMessage}`)
+            throw new Error(`Failed to generate pre-signed URL: ${errorMessage}`, { cause: error })
         }
     }
 
@@ -86,7 +87,7 @@ export class S3BucketClient {
         } catch (error: unknown) {
             console.error("Error deleting file from S3:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to delete file from S3: ${errorMessage}`)
+            throw new Error(`Failed to delete file from S3: ${errorMessage}`, { cause: error })
         }
     }
 
@@ -110,7 +111,13 @@ export class S3BucketClient {
         } catch (error: unknown) {
             console.error("Error downloading file from S3:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to download file from S3: ${errorMessage}`)
+            const message = `Failed to download file from S3: ${errorMessage}`
+            // A missing key is a 404 to whoever asked for the file, not a server error
+            const { name, $metadata } = (error ?? {}) as { name?: string; $metadata?: { httpStatusCode?: number } }
+            if (name === "NoSuchKey" || $metadata?.httpStatusCode === 404) {
+                throw Object.assign(new EntityNotFoundError(filePath, message), { cause: error })
+            }
+            throw new Error(message, { cause: error })
         }
     }
 }

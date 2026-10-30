@@ -1,6 +1,7 @@
 import { ClientSecretCredential } from "@azure/identity"
 import { BlobServiceClient, BlockBlobUploadOptions, StorageSharedKeyCredential } from "@azure/storage-blob"
 import { Readable } from "stream"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 
 type AuthConfig =
     | {
@@ -80,7 +81,7 @@ export class AzureStorageClient {
         } catch (error: unknown) {
             console.error("Error uploading file to Azure Blob Storage:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to upload file to Azure: ${errorMessage}`)
+            throw new Error(`Failed to upload file to Azure: ${errorMessage}`, { cause: error })
         }
     }
 
@@ -97,7 +98,7 @@ export class AzureStorageClient {
         } catch (error: unknown) {
             console.error("Error deleting file from Azure Blob Storage:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to delete file from Azure: ${errorMessage}`)
+            throw new Error(`Failed to delete file from Azure: ${errorMessage}`, { cause: error })
         }
     }
 
@@ -119,7 +120,13 @@ export class AzureStorageClient {
         } catch (error: unknown) {
             console.error("Error downloading file from Azure Blob Storage:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to download file from Azure: ${errorMessage}`)
+            const message = `Failed to download file from Azure: ${errorMessage}`
+            // A missing blob is a 404 to whoever asked for the file, not a server error
+            const { statusCode, code } = (error ?? {}) as { statusCode?: number; code?: string }
+            if (statusCode === 404 || code === "BlobNotFound") {
+                throw Object.assign(new EntityNotFoundError(filePath, message), { cause: error })
+            }
+            throw new Error(message, { cause: error })
         }
     }
 }

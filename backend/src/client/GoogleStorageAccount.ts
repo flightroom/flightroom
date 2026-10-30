@@ -1,5 +1,6 @@
 import { Bucket, Storage } from "@google-cloud/storage"
-import { Readable } from "stream"
+import { PassThrough, Readable } from "stream"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 
 export type AuthConfig = {
     authType: "serviceAccount"
@@ -92,7 +93,7 @@ export class GoogleStorageClient {
         } catch (error: unknown) {
             console.error("Error uploading file to Google Cloud Storage:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to upload file: ${errorMessage}`)
+            throw new Error(`Failed to upload file: ${errorMessage}`, { cause: error })
         }
     }
 
@@ -117,7 +118,7 @@ export class GoogleStorageClient {
         } catch (error: unknown) {
             console.error("Error generating signed URL:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to generate signed URL: ${errorMessage}`)
+            throw new Error(`Failed to generate signed URL: ${errorMessage}`, { cause: error })
         }
     }
 
@@ -133,18 +134,30 @@ export class GoogleStorageClient {
         } catch (error: unknown) {
             console.error("Error deleting file from Google Cloud Storage:", error)
             const errorMessage = error instanceof Error ? error.message : String(error)
-            throw new Error(`Failed to delete file: ${errorMessage}`)
+            throw new Error(`Failed to delete file: ${errorMessage}`, { cause: error })
         }
     }
 
     /**
      * Downloads a file as a readable stream
      * @param filePath The path to the file to download
-     * @returns A readable stream of the file content
+     * @returns A readable stream of the file content. GCS tells a missing object only once the response
+     * comes back, so the stream fails then, with an EntityNotFoundError for a missing object, and with
+     * the GCS error itself otherwise.
      */
     public downloadFileStream(filePath: string): Readable {
-        const file = this.bucket.file(filePath)
-        return file.createReadStream()
+        const source = this.bucket.file(filePath).createReadStream()
+        const stream = new PassThrough()
+        source.on("error", (error: Error & { code?: unknown }) => {
+            if (error.code === 404) {
+                stream.destroy(Object.assign(new EntityNotFoundError(filePath, `Failed to download file: ${error.message}`), { cause: error }))
+            } else {
+                stream.destroy(error)
+            }
+        })
+        // Whoever reads it stops, the HTTP response when the browser goes away: the download stops too
+        stream.on("close", () => source.destroy())
+        return source.pipe(stream)
     }
 }
 

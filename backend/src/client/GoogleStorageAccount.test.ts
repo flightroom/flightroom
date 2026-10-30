@@ -15,6 +15,7 @@ vi.mock("@google-cloud/storage", () => ({
 }))
 
 import { Storage } from "@google-cloud/storage"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import GoogleStorageClient, { GoogleStorageConfig } from "./GoogleStorageAccount"
 
 const SERVICE_ACCOUNT_KEY = {
@@ -197,6 +198,13 @@ describe("GoogleStorageClient.uploadFile", () => {
         await expect(new GoogleStorageClient(CONFIG).uploadFile("site/app.js", "x")).rejects.toThrow("Failed to upload file: socket hang up")
         expect(stream.end).toHaveBeenCalledWith("x")
     })
+
+    it("given GCS denies the write, when a file is uploaded, then the GCS error is kept as the cause, with its HTTP status", async () => {
+        const denied = apiError("uploader@flightroom-test.iam.gserviceaccount.com does not have storage.objects.create access", 403)
+        sdk.file.createWriteStream.mockReturnValue(uploadSink(denied).stream)
+
+        await expect(new GoogleStorageClient(CONFIG).uploadFile("site/index.html", "x")).rejects.toHaveProperty("cause", denied)
+    })
 })
 
 describe("GoogleStorageClient.getSignedUrl", () => {
@@ -233,6 +241,13 @@ describe("GoogleStorageClient.getSignedUrl", () => {
 
         await expect(new GoogleStorageClient(CONFIG).getSignedUrl("site/index.html")).rejects.toThrow("Failed to generate signed URL: offline")
     })
+
+    it("given signing fails, when an upload URL is signed, then its error is kept as the cause", async () => {
+        const failure = new Error("Cannot sign data without `client_email`.")
+        sdk.file.getSignedUrl.mockRejectedValue(failure)
+
+        await expect(new GoogleStorageClient(CONFIG).getSignedUrl("site/index.html")).rejects.toHaveProperty("cause", failure)
+    })
 })
 
 describe("GoogleStorageClient.deleteFile", () => {
@@ -256,16 +271,71 @@ describe("GoogleStorageClient.deleteFile", () => {
 
         await expect(new GoogleStorageClient(CONFIG).deleteFile("site/index.html")).rejects.toThrow("Failed to delete file: timeout")
     })
+
+    it("given GCS rejects, when the file is deleted, then the GCS error is kept as the cause", async () => {
+        const missing = apiError("No such object: assets-bucket/site/missing.html", 404)
+        sdk.file.delete.mockRejectedValue(missing)
+
+        await expect(new GoogleStorageClient(CONFIG).deleteFile("site/missing.html")).rejects.toHaveProperty("cause", missing)
+    })
 })
 
 describe("GoogleStorageClient.downloadFileStream", () => {
-    it("given a path, when the file is downloaded, then the read stream of that object is returned as is", () => {
-        const body = Readable.from([])
-        sdk.file.createReadStream.mockReturnValue(body)
+    /** A read stream like the one GCS hands out, failing the way it does once the response comes back */
+    const failingRead = (error: Error) =>
+        new Readable({
+            read() {
+                this.destroy(error)
+            }
+        })
+
+    /** The error the returned stream fails with, once read the way the HTTP response reads it */
+    const failureOf = (stream: Readable) => new Promise<unknown>(resolve => stream.on("error", resolve).resume())
+
+    it("given a path, when the file is downloaded, then the read stream of that object is opened", () => {
+        sdk.file.createReadStream.mockReturnValue(Readable.from([]))
+
+        new GoogleStorageClient(CONFIG).downloadFileStream("site/index.html")
+
+        expect(sdk.bucket.file).toHaveBeenCalledWith("site/index.html")
+        expect(sdk.file.createReadStream).toHaveBeenCalledTimes(1)
+    })
+
+    it("given GCS returns the object, when the file is downloaded, then the caller reads its content from the returned stream", async () => {
+        sdk.file.createReadStream.mockReturnValue(Readable.from([Buffer.from("<html>"), Buffer.from("</html>")]))
 
         const stream = new GoogleStorageClient(CONFIG).downloadFileStream("site/index.html")
 
-        expect(sdk.bucket.file).toHaveBeenCalledWith("site/index.html")
-        expect(stream).toBe(body)
+        const chunks: Buffer[] = []
+        for await (const chunk of stream) chunks.push(Buffer.from(chunk))
+        expect(Buffer.concat(chunks).toString("utf8")).toBe("<html></html>")
+    })
+
+    it("given the object does not exist, when the file is downloaded, then the stream fails with a not-found error answering 404, with the GCS error as its cause", async () => {
+        const missing = apiError("No such object: assets-bucket/site/missing.html", 404)
+        sdk.file.createReadStream.mockReturnValue(failingRead(missing))
+
+        const error = await failureOf(new GoogleStorageClient(CONFIG).downloadFileStream("site/missing.html"))
+
+        expect(error).toBeInstanceOf(EntityNotFoundError)
+        expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file: No such object: assets-bucket/site/missing.html", cause: missing })
+    })
+
+    it("given GCS denies the read, when the file is downloaded, then the stream fails with the GCS error itself", async () => {
+        const denied = apiError("uploader@flightroom-test.iam.gserviceaccount.com does not have storage.objects.get access", 403)
+        sdk.file.createReadStream.mockReturnValue(failingRead(denied))
+
+        await expect(failureOf(new GoogleStorageClient(CONFIG).downloadFileStream("site/index.html"))).resolves.toBe(denied)
+    })
+
+    it("given the caller stops reading, when the returned stream is destroyed, then the GCS read stream is destroyed too", async () => {
+        // Never yields: a download still under way
+        const source = new Readable({ read: () => undefined })
+        sdk.file.createReadStream.mockReturnValue(source)
+
+        new GoogleStorageClient(CONFIG).downloadFileStream("site/index.html").destroy()
+
+        await new Promise(resolve => source.once("close", resolve))
+        expect(source.destroyed).toBe(true)
     })
 })

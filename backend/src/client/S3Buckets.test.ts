@@ -27,6 +27,7 @@ vi.mock("@aws-sdk/client-s3", () => ({
 vi.mock("@aws-sdk/s3-request-presigner", () => ({ getSignedUrl: sdk.getSignedUrl }))
 
 import { S3Client } from "@aws-sdk/client-s3"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import S3BucketClient, { S3ClientConfig } from "./S3Buckets"
 
 const CONFIG: S3ClientConfig = { region: "eu-south-1", accessKeyId: "AKIA-EXAMPLE", secretAccessKey: "not-a-real-secret", bucketName: "assets-bucket" }
@@ -120,6 +121,13 @@ describe("S3BucketClient.uploadFile", () => {
 
         await expect(new S3BucketClient(CONFIG).uploadFile("site/index.html", "x")).rejects.toThrow("Failed to upload file to S3: socket hang up")
     })
+
+    it("given S3 rejects, when a file is uploaded, then the S3 error is kept as the cause, with its name and HTTP status", async () => {
+        const denied = s3Error("AccessDenied", "Access Denied", 403)
+        sdk.send.mockRejectedValue(denied)
+
+        await expect(new S3BucketClient(CONFIG).uploadFile("site/index.html", "x")).rejects.toHaveProperty("cause", denied)
+    })
 })
 
 describe("S3BucketClient.getPresignedUploadUrl", () => {
@@ -164,6 +172,13 @@ describe("S3BucketClient.getPresignedUploadUrl", () => {
 
         await expect(new S3BucketClient(CONFIG).getPresignedUploadUrl("site/index.html")).rejects.toThrow("Failed to generate pre-signed URL: 42")
     })
+
+    it("given the presigner fails, when an upload URL is presigned, then its error is kept as the cause", async () => {
+        const failure = new Error("Credential is missing")
+        sdk.getSignedUrl.mockRejectedValue(failure)
+
+        await expect(new S3BucketClient(CONFIG).getPresignedUploadUrl("site/index.html")).rejects.toHaveProperty("cause", failure)
+    })
 })
 
 describe("S3BucketClient.deleteFile", () => {
@@ -187,6 +202,13 @@ describe("S3BucketClient.deleteFile", () => {
         sdk.send.mockRejectedValue("timeout")
 
         await expect(new S3BucketClient(CONFIG).deleteFile("site/index.html")).rejects.toThrow("Failed to delete file from S3: timeout")
+    })
+
+    it("given S3 rejects, when the file is deleted, then the S3 error is kept as the cause", async () => {
+        const denied = s3Error("AccessDenied", "Access Denied", 403)
+        sdk.send.mockRejectedValue(denied)
+
+        await expect(new S3BucketClient(CONFIG).deleteFile("site/index.html")).rejects.toHaveProperty("cause", denied)
     })
 })
 
@@ -233,5 +255,38 @@ describe("S3BucketClient.downloadFileStream", () => {
         sdk.send.mockRejectedValue("ECONNRESET")
 
         await expect(new S3BucketClient(CONFIG).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from S3: ECONNRESET")
+    })
+
+    it("given the key does not exist, when the file is downloaded, then the error is a not-found one answering 404, with the S3 error as its cause", async () => {
+        const missing = s3Error("NoSuchKey", "The specified key does not exist.", 404)
+        sdk.send.mockRejectedValue(missing)
+
+        const error = await new S3BucketClient(CONFIG).downloadFileStream("site/missing.html").catch((thrown: unknown) => thrown)
+
+        expect(error).toBeInstanceOf(EntityNotFoundError)
+        expect(error).toMatchObject({ statusCode: 404, message: "Failed to download file from S3: The specified key does not exist.", cause: missing })
+    })
+
+    it("given S3 answers 404 under another name, when the file is downloaded, then the error is still a not-found one", async () => {
+        // A GetObject on a missing key can come back as a bare NotFound when the response has no XML body
+        sdk.send.mockRejectedValue(s3Error("NotFound", "UnknownError", 404))
+
+        await expect(new S3BucketClient(CONFIG).downloadFileStream("site/missing.html")).rejects.toBeInstanceOf(EntityNotFoundError)
+    })
+
+    it("given the SDK rejects with nothing, when the file is downloaded, then the caller still gets a download error", async () => {
+        sdk.send.mockRejectedValue(undefined)
+
+        await expect(new S3BucketClient(CONFIG).downloadFileStream("site/index.html")).rejects.toThrow("Failed to download file from S3: undefined")
+    })
+
+    it("given S3 denies the read, when the file is downloaded, then the error is not a not-found one and the S3 error is its cause", async () => {
+        const denied = s3Error("AccessDenied", "Access Denied", 403)
+        sdk.send.mockRejectedValue(denied)
+
+        const error = await new S3BucketClient(CONFIG).downloadFileStream("site/index.html").catch((thrown: unknown) => thrown)
+
+        expect(error).not.toBeInstanceOf(EntityNotFoundError)
+        expect(error).toHaveProperty("cause", denied)
     })
 })
