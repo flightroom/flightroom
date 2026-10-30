@@ -187,9 +187,30 @@ describe("NpmRegistryClient cache", () => {
 
     it.each([
         ["a registry failing (500)", httpError(500)],
-        ["a private package without a token (401)", httpError(401)],
+        ["a registry unavailable (503)", httpError(503)],
         ["no network", Object.assign(new axios.AxiosError("getaddrinfo ENOTFOUND registry.npmjs.org"), { code: "ENOTFOUND" })],
-        ["a request that times out", Object.assign(new axios.AxiosError("timeout of 10000ms exceeded"), { code: "ECONNABORTED" })],
+        ["a request that times out", Object.assign(new axios.AxiosError("timeout of 10000ms exceeded"), { code: "ECONNABORTED" })]
+    ])("given %s, when the package is looked up again within a minute, then the registry is not asked twice, and is after it", async (_case, error) => {
+        vi.useFakeTimers()
+        const Client = await loadClient()
+        const request = vi.spyOn(axios, "request").mockRejectedValue(error)
+        const client = new Client()
+
+        await client.getPackageInfo("react")
+        vi.advanceTimersByTime(60 * 1000 - 1)
+        expect(await client.getPackageInfo("react")).toBeNull()
+        expect(request).toHaveBeenCalledTimes(1)
+
+        vi.advanceTimersByTime(1)
+        request.mockResolvedValue({ data: { name: "react", "dist-tags": { latest: "19.2.0" } } })
+
+        expect(await client.getPackageInfo("react")).toMatchObject({ latest: "19.2.0" })
+        expect(request).toHaveBeenCalledTimes(2)
+    })
+
+    it.each([
+        ["a private package without a token (401)", httpError(401)],
+        ["a token that may not read it (403)", httpError(403)],
         ["a failure that is not of axios", new TypeError("boom")]
     ])("given %s, when the package is looked up again, then the registry is asked again and its answer comes back", async (_case, error) => {
         const Client = await loadClient()
@@ -340,5 +361,54 @@ describe("NpmRegistryClient.getPackagesInfo", () => {
         }
 
         expect((await resolving).size).toBe(10)
+    })
+})
+
+describe("NpmRegistryClient requests in flight", () => {
+    it("given a package being looked up, when it is looked up again before the answer, then both share one request", async () => {
+        const Client = await loadClient()
+        const { request, answerNext } = heldRegistry()
+
+        const first = new Client().getPackageInfo("react")
+        const second = new Client().getPackageInfo("react")
+        await settle()
+        expect(request).toHaveBeenCalledTimes(1)
+
+        answerNext()
+
+        expect(await first).toMatchObject({ name: "react", latest: "1.0.0" })
+        expect(await second).toBe(await first)
+    })
+
+    it("given two resolutions at once with names in common, when they run, then each name is asked once", async () => {
+        const Client = await loadClient()
+        const { request, answerNext } = heldRegistry()
+
+        const resolving = Promise.all([new Client().getPackagesInfo(["a", "b"]), new Client().getPackagesInfo(["b", "c"])])
+        await settle()
+        expect(request).toHaveBeenCalledTimes(3)
+
+        for (let answered = 0; answered < 3; answered++) answerNext()
+        const [first, second] = await resolving
+
+        expect([...first.keys()].sort()).toEqual(["a", "b"])
+        expect([...second.keys()].sort()).toEqual(["b", "c"])
+    })
+
+    it("given a lookup that failed without being cached, when the package is looked up again, then a new request is sent", async () => {
+        const Client = await loadClient()
+        const request = vi
+            .spyOn(axios, "request")
+            .mockRejectedValueOnce(httpError(401))
+            .mockResolvedValue({ data: { name: "react" } })
+        const client = new Client()
+
+        const [first, second] = await Promise.all([client.getPackageInfo("react"), client.getPackageInfo("react")])
+        expect(first).toBeNull()
+        expect(second).toBeNull()
+        expect(request).toHaveBeenCalledTimes(1)
+
+        expect(await client.getPackageInfo("react")).toMatchObject({ name: "react" })
+        expect(request).toHaveBeenCalledTimes(2)
     })
 })
