@@ -30,9 +30,16 @@ vi.mock("pg", () => ({
 
 vi.mock("mysql2/promise", () => ({ default: { createConnection: driver.mysql.createConnection } }))
 
-/** The parser is the driver's own: it lives in the base pool, which loads without tedious */
+/** What the base pool of mssql exports: its parser is the one the tedious pool inherits */
+type BasePoolModule = { default: { parseConnectionString: (connectionString: string) => unknown } }
+const MSSQL_BASE_POOL = "mssql/lib/base/connection-pool.js"
+
+/**
+ * The parser is the driver's own: it lives in the base pool, which loads without tedious. The deep path
+ * works because mssql ^12 has no `exports` map in its package.json: a version that adds one would refuse it.
+ */
 vi.mock("mssql", async () => {
-    const { default: BasePool } = await vi.importActual<{ default: { parseConnectionString: (connectionString: string) => unknown } }>("mssql/lib/base/connection-pool.js")
+    const { default: BasePool } = await vi.importActual<BasePoolModule>(MSSQL_BASE_POOL)
     return {
         default: {
             ConnectionPool: class {
@@ -343,5 +350,42 @@ describe("testDatabaseConnection", () => {
         await vi.advanceTimersByTimeAsync(1)
 
         await outcome
+    })
+})
+
+/**
+ * The stubs above say what the drivers look like; these load the real ones, without connecting anywhere,
+ * so that a version which moves what production reads off `default` fails here and not in production.
+ */
+describe("the real drivers", () => {
+    it("given pg, when it is imported, then its default export has the Client class", async () => {
+        const pg = await vi.importActual<{ default: { Client: unknown } }>("pg")
+
+        expect(typeof pg.default.Client).toBe("function")
+    })
+
+    it("given mysql2/promise, when it is imported, then its default export has createConnection", async () => {
+        const mysql = await vi.importActual<{ default: { createConnection: unknown } }>("mysql2/promise")
+
+        expect(typeof mysql.default.createConnection).toBe("function")
+    })
+
+    it("given oracledb, when it is imported, then its default export has getConnection", async () => {
+        const oracledb = await vi.importActual<{ default: { getConnection: unknown } }>("oracledb")
+
+        expect(typeof oracledb.default.getConnection).toBe("function")
+    })
+
+    /**
+     * mssql loads tedious and @azure/identity: seconds under the full suite, which is what ran the old first
+     * SQL Server test past the 5 s default. This is the one test that pays for it, hence its own timeout.
+     */
+    it("given mssql, when it is imported, then its ConnectionPool parses a connection string as the base pool the stub uses does", { timeout: 30_000 }, async () => {
+        const mssql = await vi.importActual<{ default: { ConnectionPool: { parseConnectionString: (connectionString: string) => unknown } } }>("mssql")
+        const { default: BasePool } = await vi.importActual<BasePoolModule>(MSSQL_BASE_POOL)
+        const connectionString = "Server=tcp:db.internal,1444;Database=orders;User Id=app;Password={p;w};Encrypt=true"
+
+        expect(typeof mssql.default.ConnectionPool).toBe("function")
+        expect(mssql.default.ConnectionPool.parseConnectionString(connectionString)).toEqual(BasePool.parseConnectionString(connectionString))
     })
 })
