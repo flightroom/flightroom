@@ -390,59 +390,61 @@ export class TemplateScaffoldService extends BaseAuthorizedService {
     ): Promise<void> {
         // Download + unzip template
         const tempDir = await this.downloadZip("template", templateUrl)
-
-        const codeManagementService = new CodeManagementService(remote.provider, remote.accessToken, tempDir)
-        await codeManagementService.cloneRepository(remote.clone)
-
-        await flattenTemplate(tempDir)
-
-        await this.copyPipeline(tempDir, pipelines, template, repositoryType, slug)
-
-        if (options?.placeholders) {
-            await replacePlaceholdersInDirectory(tempDir, options.placeholders)
-        }
-
-        if (options?.frontendSlug) {
-            await replaceFederationNameInConfigs(tempDir, federationName(options.frontendSlug))
-        }
-
-        // Stage + commit
+        // Removed however the scaffold ends: a clone refused or a pipeline missing leaves no template folder behind
         try {
-            await git.branch({
-                fs,
-                dir: tempDir,
-                ref: "main",
-                checkout: true,
-                force: true
-            })
-            await git.add({ fs, dir: tempDir, filepath: "." })
-            await git.commit({
-                fs,
-                dir: tempDir,
-                message: "Initial commit",
-                author: {
-                    name: "Flightroom Bot",
-                    email: "bot@flightroom.dev"
-                }
-            })
+            const codeManagementService = new CodeManagementService(remote.provider, remote.accessToken, tempDir)
+            await codeManagementService.cloneRepository(remote.clone)
 
-            await remote.push(tempDir, codeManagementService)
+            await flattenTemplate(tempDir)
 
-            console.log("✅ Repo is ready and pushed!")
-        } catch (e) {
-            console.error("‼️ Error pushing to remote: ", e)
-            const remotes = await git.listRemotes({ fs, dir: tempDir })
-            // A remote URL can carry the access token: never written to the log
-            console.log(
-                "🔍 Known remotes:",
-                remotes.map(remote => ({ ...remote, url: remote.url.replace(/\/\/[^/@]*@/, "//***@") }))
-            )
+            await this.copyPipeline(tempDir, pipelines, template, repositoryType, slug)
 
-            const branches = await git.listBranches({ fs, dir: tempDir })
-            console.log("🔍 Local branches:", branches)
+            if (options?.placeholders) {
+                await replacePlaceholdersInDirectory(tempDir, options.placeholders)
+            }
 
-            const remoteBranches = await git.listBranches({ fs, dir: tempDir, remote: "origin" }).catch(() => [])
-            console.log("🔍 Remote branches:", remoteBranches)
+            if (options?.frontendSlug) {
+                await replaceFederationNameInConfigs(tempDir, federationName(options.frontendSlug))
+            }
+
+            // Stage + commit
+            try {
+                await git.branch({
+                    fs,
+                    dir: tempDir,
+                    ref: "main",
+                    checkout: true,
+                    force: true
+                })
+                await git.add({ fs, dir: tempDir, filepath: "." })
+                await git.commit({
+                    fs,
+                    dir: tempDir,
+                    message: "Initial commit",
+                    author: {
+                        name: "Flightroom Bot",
+                        email: "bot@flightroom.dev"
+                    }
+                })
+
+                await remote.push(tempDir, codeManagementService)
+
+                console.log("✅ Repo is ready and pushed!")
+            } catch (e) {
+                console.error("‼️ Error pushing to remote: ", e)
+                const remotes = await git.listRemotes({ fs, dir: tempDir })
+                // A remote URL can carry the access token: never written to the log
+                console.log(
+                    "🔍 Known remotes:",
+                    remotes.map(known => ({ ...known, url: known.url.replace(/\/\/[^/@]*@/, "//***@") }))
+                )
+
+                const branches = await git.listBranches({ fs, dir: tempDir })
+                console.log("🔍 Local branches:", branches)
+
+                const remoteBranches = await git.listBranches({ fs, dir: tempDir, remote: "origin" }).catch(() => [])
+                console.log("🔍 Remote branches:", remoteBranches)
+            }
         } finally {
             await fs.remove(tempDir).catch(() => undefined)
         }
