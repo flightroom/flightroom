@@ -93,7 +93,7 @@ When adding new pages:
 - `src/errors/` - Custom error classes for different scenarios
 
 ### Frontend Key Directories  
-- `src/pages/` - All page components (lazy-loaded), 17 feature directories including `builds`, `profile`, `dependencies`, `integration`, `templates-library`
+- `src/pages/` - All page components (lazy-loaded), feature directories including `builds`, `profile`, `dependencies`, `integration`, `templates-library`
 - `src/components/` - Reusable UI components
 - `src/components/ui/` - Local leftovers only (`DeleteConfirmationDialog`, `Sidebar`); shared UI lives in `@flightroom/design-system`
 - `src/store/` - Zustand stores for global state
@@ -125,7 +125,7 @@ pnpm format           # Format all packages with Biome
 pnpm typecheck        # TypeScript check for all packages
 
 # Testing
-pnpm test             # Unit tests in all packages
+pnpm test             # Backend unit tests plus the Playwright e2e suite (unit tests only: pnpm --filter @flightroom/backend test)
 pnpm test:e2e         # Playwright end-to-end suite
 ```
 
@@ -173,7 +173,7 @@ notifications.showErrorNotification({message: "Error occurred"});
 const form = useForm<FormData>({
   resolver: zodResolver(schema),
 });
-// Use TextField.rhf, SelectField.rhf from src/components/input/
+// Use TextField.rhf, TextareaField.rhf, CalendarField.rhf, ColorPicker.rhf from src/components/input/
 ```
 
 ## Critical Rules

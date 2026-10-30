@@ -1,7 +1,8 @@
 # AI providers
 
 The console assistant, the project draft of the new project wizard and
-[editing a frontend with AI](AI-CODE-CHANGES.md) run on the AIs an **organization** defines.
+[editing a frontend or a backend with AI](AI-CODE-CHANGES.md), the domain design wizard and
+[Fleet missions](AI-CODE-CHANGES.md#fleet-missions-on-many-repositories) run on the AIs an **organization** defines.
 Each AI is a provider, a model and the credentials to reach it; an organization may define several
 (Claude on the Anthropic API and on AWS Bedrock, GPT on Azure OpenAI...), and the user picks one per
 request in a selector next to the effort, preselected on the default.
@@ -157,7 +158,9 @@ the input is validated, a **VIEWER** cannot change anything, and errors read the
   deploying, rolling back, committing to a repository), and the writes that hand out access or cannot
   be undone without being destructive (`requiresConfirmation: true` on the tool: inviting to a project
   or an organization, resending a project invitation, creating an API key, discarding an AI change,
-  setting canary users). The assistant stops and the panel shows a card, and the action runs only
+  setting canary users, scaffolding a frontend or a backend from a template, renaming a frontend's
+  repository, submitting a code change, opening the pull request of an AI change, and setting the
+  project's GitOps repository or the pipeline templates repository of a connection). The assistant stops and the panel shows a card, and the action runs only
   when the user confirms it. The card lists what the action acts on with names instead of ids
   (users by name and email, organization, project, environments, frontends with version and
   host, backends, domains, API key, MCP client, AI change with its request and files), resolved by the server with the
@@ -173,7 +176,7 @@ the input is validated, a **VIEWER** cannot change anything, and errors read the
   without them.
 - Every answer shows under it the tokens it used, every model round summed: the input (with the
   part read from the prompt cache, far cheaper) and the output. When rates are configured, the
-  estimated USD cost is shown too, including on an error after tokens were spent. Each answer is
+  estimated cost, in the currency of the AI (USD or EUR), is shown too, including on an error after tokens were spent. Each answer is
   also logged with `audit: "assistant_usage"`, the user, the project and the same counts. Input
   tokens count the whole prompt on every provider: for Claude the cache reads and writes are added back.
 - Every write the assistant runs, confirmed or refused, is logged with `audit: "assistant_tool_call"`,
@@ -185,7 +188,8 @@ the input is validated, a **VIEWER** cannot change anything, and errors read the
   only a project owner or an administrator of its organization, and never the last owner), organization settings,
   creation, deletion and members, API keys (a new key is shown in the panel only, never sent to the
   model), MCP client connections, bulk creation and deletion of environments, bulk deletion of
-  frontends, the canvas layout, creating a frontend from a template, and AI code changes.
+  frontends, the canvas layout, setting the project's GitOps repository, setting the pipeline templates repository
+  of a connection, and AI code changes.
   Changing a member's role (in a project or an organization), removing a member and revoking a key or
   a connection are destructive, so they are confirmed through the card; inviting, resending an
   invitation and creating a key are confirmed too. Inviting to a project or resending its invitation

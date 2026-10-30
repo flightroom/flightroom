@@ -4,8 +4,8 @@
 
 | Version | Supported          |
 | ------- | ------------------ |
-| 1.0.x   | :white_check_mark: |
-| < 1.0   | :x:                |
+| 10.x    | :white_check_mark: |
+| < 10.0  | :x:                |
 
 ## Reporting a Vulnerability
 
@@ -20,14 +20,14 @@ If you discover a security vulnerability in this project, please follow these st
 
 ## Security Updates
 
-Security updates will be released as patch versions (e.g., 1.0.0 → 1.0.1). We recommend always running the latest version of the software.
+Security updates will be released as patch versions (e.g., 10.1.0 → 10.1.1). We recommend always running the latest version of the software.
 
 ## Dependencies
 
 We regularly update our dependencies to ensure they are using the latest secure versions. You can check for known vulnerabilities in our dependencies by running:
 
 ```bash
-npm audit
+pnpm audit
 ```
 
 ## Secure Development

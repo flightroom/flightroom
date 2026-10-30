@@ -23,6 +23,7 @@ deployed environment such as `console-dev`.
 | `MAILINATOR_DOMAIN` | no | `private` | Mailinator API path segment: `private` for the account private domain, or a domain name. |
 | `E2E_EMAIL_DOMAIN` | no | `mfeorchestrator.testinator.com` | Mailinator domain the addresses are built on. |
 | `BASE_URL` | no | `http://localhost:5173` | Environment under test. When set, no local dev server is started. |
+| `MAILPIT_URL` | no | unset | Only read by `tests/screenshots-account.spec.ts`: base URL of a Mailpit catcher on the instance under capture. When unset, that script reads the mail through the testmail provider instead. |
 
 Each test generates its own tag, so mailboxes never collide and nothing has to be purged
 between runs. Note that the free plan is metered on received emails: a full run of
@@ -114,8 +115,10 @@ The Playwright configuration is in `playwright.config.ts`. Key settings:
 | `tests/environments` | Environments CRUD. |
 | `tests/api-keys` | API keys create / read / revoke. |
 | `tests/storages` | Storage providers CRUD. |
+| `tests/organizations` | Organizations: multi-organization login, members, switching and visibility. |
 | `tests/profile` | Profile page: personal data and avatar upload / replace / remove. |
 | `tests/project-wizard.spec.ts` | The new-project wizard. |
+| `tests/screenshots*.spec.ts` | Not tests: capture scripts that drive the console and write the images the documentation is built from (`screenshots`, `-account`, `-canary`, `-first-startup`, `-frontend`, `-organizations`). |
 | `tests/fixtures` | Shared helpers: `emailClient` (inbox polling, link extraction), `appUser` (test users, registration/login flows, invitations) and `projectResources` (API seeding and verification). |
 
 Test names are written in English in Given/When/Then form, so the report reads as a
@@ -149,7 +152,7 @@ test('my test', async ({ page }) => {
 In CI environments:
 - Tests retry up to 2 times on failure
 - Tests run sequentially (not in parallel)
-- The dev server is not reused
+- `BASE_URL` is set by the pipeline, so no dev server is started (and one already running locally is only reused outside CI)
 
 ## Documentation
 

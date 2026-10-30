@@ -45,7 +45,7 @@ puts it in front of users.
 ## How it works
 
 1. **Describe it.** Write what the app or agent should do, the way you would
-   explain it to a colleague. Flightroom proposes the web interfaces and backend
+   explain it to a colleague. Flightroom proposes the web interfaces and
    backends it needs, and you adjust the proposal.
 2. **The AI builds it in your repositories.** Each repository is created in your
    GitHub, GitLab or Azure DevOps from one of Flightroom's templates, CI
@@ -83,7 +83,7 @@ Argo CD applies.
   domain; it lands on its own branch, ready to open as a pull request, apply or
   discard.
 - **Your stack** — web interfaces in React, Angular or Vue; backends in Node.js,
-  Python, Spring Boot or Quarkus. An agent is a backend that calls the AI model
+  Python, Spring Boot, Quarkus or Micronaut. An agent is a backend that calls the AI model
   your organization chose: built, reviewed and deployed like any other.
 - **Console assistant** — ask the console to act for you, with a confirmation
   before anything destructive.
@@ -349,11 +349,11 @@ falling back to it.
 
 | Variable                               | Default / example                                                                                 | Description                                                     |
 | -------------------------------------- | ------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `FRONTEND_URL`                         | `http://localhost:3000`                                                                           | URL of the console.                                             |
+| `FRONTEND_URL`                         | _(no default, set it)_                                                                            | URL of the console. Unset, the links in emails and the derived `BACKEND_URL` break. |
 | `BACKEND_URL`                          | _(empty, falls back to `FRONTEND_URL` + `/api`)_                                                  | Public URL of the API, written into the generated configuration. |
 | `PORT`                                 | `3000`                                                                                            | Port the backend listens on.                                    |
 | `NODE_ENV`                             | `prod` _(development/prod/test/local)_                                                            | Node.js environment mode. Any other value stops the boot.       |
-| `REGISTRATION_ALLOWED`                 | `true`                                                                                            | If `true`, allows new user registration.                        |
+| `REGISTRATION_ALLOWED`                 | `true`                                                                                            | If `false`, closes self-registration: the console hides the Register link and `POST /api/users/registration` answers `403 REGISTRATION_NOT_ALLOWED`. Same when `ALLOW_EMBEDDED_LOGIN` is `false`. Invitations, first SSO logins and the first-startup registration are not affected. |
 | `ALLOW_EMBEDDED_LOGIN`                 | `true`                                                                                            | If `true`, enables the login system within the application.     |
 | `JWT_SECRET`                           | `your-secret-key`                                                                                 | Secret key for JWT generation and validation.                   |
 | `SECRETS_ENCRYPTION_KEY`               | _(empty)_                                                                                         | 32 bytes, base64 or hex (`openssl rand -base64 32`). Encrypts the credentials stored for a project — bucket keys, connection strings, repository tokens — and stops the API from returning them. Empty, they are stored in the clear. See [docs/SECRETS.md](docs/SECRETS.md). |
@@ -365,7 +365,7 @@ falling back to it.
 | `REDIS_PASSWORD`                       | _(empty)_                                                                                         | Password for Redis access (if set).                             |
 | `AI_PROVIDER`                          | _(empty)_ (`anthropic` when `ANTHROPIC_API_KEY` is set)                                           | The system AI offered to every organization: `anthropic`, `azure-foundry`, `aws-bedrock`, `gemini`, `azure-openai`. Each provider has its own `ANTHROPIC_*`, `AZURE_FOUNDRY_*`, `AWS_BEDROCK_*`, `GEMINI_*` or `AZURE_OPENAI_*` variables. See [docs/AI-PROVIDERS.md](docs/AI-PROVIDERS.md). |
 | `AI_MAX_EFFORT`                        | _(empty)_                                                                                         | Highest reasoning effort users may pick with the system AI: `low`, `medium`, `high`, `xhigh` or `max`. |
-| `ASSISTANT_RATE_LIMIT_MAX`             | `20`                                                                                              | Assistant questions per IP per minute.                          |
+| `ASSISTANT_RATE_LIMIT_MAX`             | `20`                                                                                              | Assistant questions per user (per IP when signed out) per minute. |
 | `REPOSITORIES_FOLDER`                  | `/repositories` (`/data/repositories` in the all-in-one image)                                    | Where repositories are cloned to be edited with AI. A cache.    |
 | `REPOSITORIES_MAX_SIZE_MB`             | `500`                                                                                             | Repositories bigger than this on disk are refused.              |
 | `REPOSITORIES_EVICT_AFTER_DAYS`        | `14`                                                                                              | Clones not used for this many days are deleted.                 |
@@ -385,15 +385,15 @@ falling back to it.
 | `AUTH0_SCOPE`                          | `openid profile email`                                                                            | OAuth scopes (space-separated)                                  |
 | `AZURE_ENTRAID_TENANT_ID`              | _(empty)_                                                                                         | Azure Entra ID tenant ID.                                       |
 | `AZURE_ENTRAID_CLIENT_ID`              | _(empty)_                                                                                         | Client ID of the registered Azure application.                  |
-| `AZURE_ENTRAID_REDIRECT_URI`           | _(empty)_                                                                                         | Redirect URI for Azure authentication.                          |
-| `AZURE_ENTRAID_AUTHORITY`              | `https://login.microsoftonline.com`                                                               | Authentication authority URL.                                   |
-| `AZURE_ENTRAID_SCOPES`                 | `openid profile email`                                                                            | Required scopes during login.                                   |
+| `AZURE_ENTRAID_REDIRECT_URI`           | _(empty)_                                                                                         | No effect: served to the frontend, which does not apply it. |
+| `AZURE_ENTRAID_AUTHORITY`              | `https://login.microsoftonline.com`                                                               | No effect: served to the frontend, which does not apply it. |
+| `AZURE_ENTRAID_SCOPES`                 | `openid profile email`                                                                            | No effect: served to the frontend, which does not apply it. |
 | `AZURE_ENTRAID_API_AUDIENCE`           | _(empty)_                                                                                         | Protected API identifier in Azure.                              |
 | `GOOGLE_CLIENT_ID`                     | _(empty)_                                                                                         | Client ID for Google OAuth authentication.                      |
 | `GOOGLE_CLIENT_SECRET`                 | _(empty)_                                                                                         | Client secret for Google OAuth authentication.                  |
 | `GOOGLE_REDIRECT_URI`                  | _(empty)_                                                                                         | Redirect URI for Google OAuth.                                  |
 | `GOOGLE_AUTH_SCOPE`                    | `https://www.googleapis.com/auth/userinfo.email https://www.googleapis.com/auth/userinfo.profile` | Required scopes to get Google email and profile.                |
-| `GOOGLE_AUTH_HOSTED_DOMAIN`            | _(empty)_                                                                                         | Restricts the Google login to a single Workspace domain.        |
+| `GOOGLE_AUTH_HOSTED_DOMAIN`            | _(empty)_                                                                                         | Restricts Google login to one Workspace domain: the backend refuses any account whose `hd` differs, personal accounts included. The console passes it to Google as a hint. |
 | `GOOGLE_API_AUDIENCE`                  | _(empty)_                                                                                         | Protected API identifier for Google.                            |
 | `ALLOWED_ORIGINS`                      | _(empty)_                                                                                         | List of allowed URLs for cross-origin requests comma separated. |
 | `ALLOWED_SERVE_ORIGINS`                | _(falls back to `ALLOWED_ORIGINS`)_                                                               | Same list, applied only to the `/serve/*` endpoints.            |
@@ -429,7 +429,7 @@ Self-hosted installations send **one anonymous ping per day**, so that we know h
   "version": "1.0.0",
   "nodeVersion": "24.4",
   "projects": 2,
-  "frontends": 12,
+  "microfrontends": 12,
   "environments": 3,
   "users": 4,
   "deploymentsLastWeek": 5
@@ -490,7 +490,7 @@ docker compose -f docker-compose-development.yaml up -d
 NOSQL_DATABASE_URL=mongodb://root:example@localhost:27018/admin
 NOSQL_DATABASE_USERNAME=root
 NOSQL_DATABASE_PASSWORD=example
-REDIS_URL=redis://localhost:6379
+REDIS_URL=redis://localhost:6380
 
 REGISTRATION_ALLOWED=true
 ALLOW_EMBEDDED_LOGIN=true

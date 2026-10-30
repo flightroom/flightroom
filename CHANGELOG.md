@@ -11,6 +11,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Installation Theme**: the console loads `/theme.css` in its `<head>`, empty in Flightroom. Mount a stylesheet of your own over `/var/www/frontend/theme.css` to restyle the console: it overrides the CSS variables of the design system, colours for the light and the dark mode, corner radius and font, before the first paint. nginx serves it to be revalidated at every load. See `docs/THEMES.md`
 
+### Changed
+
+- **BREAKING — Argo CD Objects Start With `fr-` Again**: since 10.0.0 the AppProject, ApplicationSets and Applications were named `<project slug>-<parts>-<hash>`, which the `mfe-*` rules of the documented `argocd-rbac-cm` no longer matched. They are now `fr-<project slug>-<parts>-<hash>`, and the documented policy and the setup snippet in Settings grant `fr-*` and `fr-*/*`. The next initialization of a project moves its 10.x objects to the new names: the old ApplicationSets are deleted without cascade, so the workloads stay, and the old AppProject is deleted after them. Before upgrading, add the `fr-*` rules to `argocd-rbac-cm` and keep the current ones until every project has been initialized again; until then alignment asks for an initialization. The Gateway keeps its name, and so do the Helm releases. See `docs/ARGOCD.md`
+- **Docs Brought In Line With The Code**: the README, the Helm chart README, the docs under `docs/`, the workflows and e2e READMEs, the agent instruction files and `SECURITY.md` no longer describe defaults, routes, tools, limits and versions that had changed. `pnpm format` works again: turbo had no `format` task
+
+### Security
+
+- **Registration Closed When `REGISTRATION_ALLOWED` Is Off**: the flag only hid the Register link; `POST /api/users/registration` now answers `403 REGISTRATION_NOT_ALLOWED` unless both `REGISTRATION_ALLOWED` and `ALLOW_EMBEDDED_LOGIN` are on. Invitations, the first SSO login and the first-startup registration are unaffected
+- **`GOOGLE_AUTH_HOSTED_DOMAIN` Enforced**: the variable was served to the console and applied nowhere. When set, a Google login whose account has no `hd` claim, or another one, is refused, and the console passes the domain to Google as a hint
+- **AI Model Keys Encrypted At Boot**: the boot migration that encrypts the credentials stored before `SECRETS_ENCRYPTION_KEY` was set now covers the `apiKey` and `secretAccessKey` of the AI models too
+
 ## [10.1.0] - 2026-10-29
 
 ### Added

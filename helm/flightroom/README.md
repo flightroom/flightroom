@@ -70,7 +70,7 @@ helm upgrade flightroom oci://ghcr.io/flightroom/charts/flightroom -f my-values.
 
 ## Environment variables
 
-Every variable the application understands is set from `values.yaml`, and any variable not
+Every variable can be set from `values.yaml`, and any variable not
 listed there can simply be added to the same maps:
 
 | Values key       | Rendered as                     | Use for                                              |
@@ -124,6 +124,7 @@ Core: `NODE_ENV`, `PORT`, `FRONTEND_URL`, `BACKEND_URL`, `ALLOWED_ORIGINS`,
 `RATE_LIMIT_MAX` ships commented out in `values.yaml` on purpose: it is validated as
 `type: number`, and an empty value fails that validation and keeps the container from
 starting. Uncomment it only to set a real number (the application default is `100`).
+`MCP_RATE_LIMIT_MAX` is commented out for the same reason (the application default is `120`).
 
 MongoDB: `NOSQL_DATABASE_URL`, `NOSQL_DATABASE_NAME`, `NOSQL_DATABASE_USERNAME`,
 `NOSQL_DATABASE_PASSWORD`*
@@ -147,7 +148,7 @@ encrypted credentials cannot be read back.
 
 Dependencies: `NPM_REGISTRY_URL`
 
-Remote MCP server: `MCP_ENABLED`, `MCP_API_KEY_ENABLED`, `MCP_RATE_LIMIT_MAX`, `MCP_DCR_ENABLED`, `MCP_CIMD_ENABLED`, `CIMD_ALLOWED_HOSTS`,
+Remote MCP server: `MCP_ENABLED`, `MCP_API_KEY_ENABLED`, `MCP_DCR_ENABLED`, `MCP_CIMD_ENABLED`, `CIMD_ALLOWED_HOSTS`,
 `OAUTH_ISSUER_URL`, `MCP_RESOURCE_URL`, `TRUST_PROXY` — see [docs/MCP.md](../../docs/MCP.md). With
 `MCP_ENABLED` the backend refuses to start without `FRONTEND_URL` and without a `JWT_SECRET` of at
 least 32 bytes (`openssl rand -hex 32`). Behind an ingress, set `TRUST_PROXY` to the hops you run
@@ -158,6 +159,10 @@ the discovery documents must reach the pod too: the default `path: /` already ro
 
 Observability: `SENTRY_DSN`, `TELEMETRY_ENABLED`, `TELEMETRY_DISABLED`, `TELEMETRY_ENDPOINT`,
 `TELEMETRY_INTERVAL_HOURS`, `DO_NOT_TRACK`
+
+Not shipped, add them yourself: the AI provider variables (`AI_PROVIDER`, `ANTHROPIC_API_KEY`, …),
+`AI_MAX_EFFORT`, `ASSISTANT_RATE_LIMIT_MAX`, `ARGOCD_ALLOW_INSECURE_HTTP`, `REPOSITORIES_*` and
+`OPENSHELL_*`. Put API keys under `envSecrets`.
 
 `*` lives under `envSecrets`. The meaning and defaults of each variable are documented in the
 [root README](../../README.md#environment-variables-) and in the comments of `values.yaml`.
@@ -192,6 +197,12 @@ persistence:
 
 With `persistence.enabled: false` the frontend bundles live in the container filesystem and are
 lost at every restart.
+
+### AI repository clones
+
+The repositories edited with AI are cloned under `repositories.mountPath` (default `/repositories`;
+the chart sets `REPOSITORIES_FOLDER` to it). It is a cache, so it is an `emptyDir` capped at
+`repositories.sizeLimit` unless `repositories.existingClaim` names a PVC that keeps the clones across restarts.
 
 ### More than one replica
 
@@ -279,6 +290,9 @@ helm install flightroom oci://ghcr.io/flightroom/charts/flightroom \
 | `persistence.mountPath`        | `""`                     | Mount point, defaults to `MICROFRONTEND_HOST_FOLDER`     |
 | `persistence.subPath`          | `""`                     | Sub path of the volume to mount                          |
 | `persistence.annotations`      | `{}`                     | Annotations added to the PVC                             |
+| `repositories.mountPath`       | `/repositories`          | Where the AI repository clones live                      |
+| `repositories.sizeLimit`       | `10Gi`                   | Size limit of the clones `emptyDir`                      |
+| `repositories.existingClaim`   | `""`                     | PVC for the clones instead of the `emptyDir`             |
 | `service.type`                 | `ClusterIP`              | Service type                                             |
 | `service.port`                 | `80`                     | Service port                                             |
 | `service.nodePort`             | `""`                     | Node port when `service.type` is `NodePort`              |
@@ -306,5 +320,5 @@ helm install flightroom oci://ghcr.io/flightroom/charts/flightroom \
 | `topologySpreadConstraints`    | `[]`                     | Topology spread constraints                              |
 | `priorityClassName`            | `""`                     | PriorityClass of the pods                                |
 | `terminationGracePeriodSeconds`| `30`                     | Graceful shutdown period                                 |
-| `extraVolumes` / `extraVolumeMounts` | `[]`               | Additional volumes and mounts                            |
+| `extraVolumes` / `extraVolumeMounts` | `[]`               | Additional volumes and mounts, e.g. the installation theme ([docs/THEMES.md](../../docs/THEMES.md)) |
 | `extraInitContainers` / `extraContainers` | `[]`          | Additional containers                                    |

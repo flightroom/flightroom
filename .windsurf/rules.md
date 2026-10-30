@@ -17,7 +17,7 @@ This is a **monorepo** with:
 - **Canary deployments**: `CanaryType` (`RANDOM` | `ON_SESSION` | `ON_USER`, default `ON_SESSION`) and `CanaryDeploymentType` (`BASED_ON_VERSION` | `BASED_ON_URL`) in `backend/src/models/FrontendModel.ts`; enrolled canary users in `DeploymentCanaryUsersController.ts`. See https://flightroom.dev/documentation/docs/frontends/canary-releases
 - **Federation integration**: `FederationIntegrationService` replaced the old host injection, which is gone. See https://flightroom.dev/documentation/docs/integration/overview
 - **Environment-free serving**: manifest, global variables and frontend config are served both with an environment slug and without it, via the `auto/:projectId` route forms
-- **Pages**: `src/pages/` has 17 feature directories, including `builds` (see https://flightroom.dev/documentation/docs/deployments/build-status), `profile`, `dependencies`, `integration`, `templates-library`
+- **Pages**: `src/pages/` has feature directories, including `builds` (see https://flightroom.dev/documentation/docs/deployments/build-status), `profile`, `dependencies`, `integration`, `templates-library`
 
 ## Quick Reference Rules
 
@@ -49,7 +49,7 @@ pnpm typecheck        # TypeScript check all packages
   ```
 - All pages must be located under `src/pages`
 - All components must be located under `src/components`
-- The API client is located under `src/hooks/apiClient`
+- The API client is located under `src/hooks/apiClients`
 - When creating a page add the link in the sidebar and the route
 
 ### API Calls
