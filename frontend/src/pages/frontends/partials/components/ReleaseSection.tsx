@@ -25,8 +25,8 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
     // On User is an explicit enrolment, not a split: there is no traffic share to set, so asking for a
     // percentage would only suggest it does something.
     const isPercentageBased = canaryType !== CanaryType.ON_USER
-    // A container is one Flightroom cannot split traffic for: no canary. Its version is the tag of its image,
-    // typed here or set by its pipeline, with no bundle to pick from
+    // A container is one Flightroom cannot split traffic for: no canary. Its version is the tag of its image, one per
+    // environment, with no bundle to pick from
     const isDocker = container
 
     return (
@@ -36,47 +36,42 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
                 <CardDescription>{t(isDocker ? "frontend.release_settings_container_description" : "frontend.release_settings_description")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-3">
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                    {isDocker ? (
-                        <TextField
-                            name="version"
-                            label={t("frontend.version")}
-                            placeholder={t("frontend.version_placeholder")}
-                            description={t("frontend.kind.version_from_pipeline")}
-                            containerClassName="flex-[1_1_240px]"
-                        />
-                    ) : hasVersionHistory ? (
-                        <>
-                            <SelectField
-                                name="version"
-                                label={t("frontend.version")}
-                                options={[
-                                    ...versions.map(version => ({
-                                        value: version,
-                                        label: version
-                                    })),
-                                    { value: "custom", label: t("frontend.custom_version") }
-                                ]}
-                                required
-                                containerClassName="flex-[1_1_240px]"
-                                className="w-full"
-                            />
-                            {version === "custom" && (
-                                <TextField
-                                    name="customVersion"
-                                    label={t("frontend.custom_version")}
-                                    textTransform={value => value.replace(" ", "")}
-                                    placeholder={t("frontend.version_placeholder")}
+                {isDocker ? (
+                    <EnvironmentVersionFields />
+                ) : (
+                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                        {hasVersionHistory ? (
+                            <>
+                                <SelectField
+                                    name="version"
+                                    label={t("frontend.version")}
+                                    options={[
+                                        ...versions.map(version => ({
+                                            value: version,
+                                            label: version
+                                        })),
+                                        { value: "custom", label: t("frontend.custom_version") }
+                                    ]}
                                     required
                                     containerClassName="flex-[1_1_240px]"
+                                    className="w-full"
                                 />
-                            )}
-                        </>
-                    ) : (
-                        <TextField name="version" label={t("frontend.version")} placeholder={t("frontend.version_placeholder")} required containerClassName="flex-[1_1_240px]" />
-                    )}
-                </div>
-                {isDocker && <EnvironmentVersionFields className="border-t border-border pt-4" />}
+                                {version === "custom" && (
+                                    <TextField
+                                        name="customVersion"
+                                        label={t("frontend.custom_version")}
+                                        textTransform={value => value.replace(" ", "")}
+                                        placeholder={t("frontend.version_placeholder")}
+                                        required
+                                        containerClassName="flex-[1_1_240px]"
+                                    />
+                                )}
+                            </>
+                        ) : (
+                            <TextField name="version" label={t("frontend.version")} placeholder={t("frontend.version_placeholder")} required containerClassName="flex-[1_1_240px]" />
+                        )}
+                    </div>
+                )}
 
                 {!isDocker && (
                     <div className="border-t border-border pt-4">

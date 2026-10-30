@@ -7,6 +7,21 @@ import ContainerResourceFields from "./ContainerResourceFields"
 
 const WATCHED_FIELDS = ["image.repository", "version", "slug"] as const
 
+/** One box of the runtime card: fields about the same thing, under its title */
+const RuntimeGroup: React.FC<{ group: "image" | "probes" | "docs" | "resources"; children: React.ReactNode }> = ({ group, children }) => {
+    const { t } = useTranslation()
+
+    return (
+        <section className="flex flex-col gap-3 rounded-md border border-border p-4">
+            <div>
+                <h4 className="text-sm font-semibold">{t(`backends.runtime_groups.${group}.title`)}</h4>
+                <p className="text-sm text-foreground-secondary">{t(`backends.runtime_groups.${group}.description`)}</p>
+            </div>
+            <div className="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-2">{children}</div>
+        </section>
+    )
+}
+
 /** The port, the probes, the docs paths, the image repository, the CPU and the memory of a container: a backend's, or a frontend's served by its own. */
 export const BackendRuntimeFields: React.FC = () => {
     const { t } = useTranslation()
@@ -32,14 +47,22 @@ export const BackendRuntimeFields: React.FC = () => {
                 <CardTitle className="mb-0">{t("backends.runtime_settings")}</CardTitle>
                 <CardDescription>{t("backends.runtime_settings_description")}</CardDescription>
             </CardHeader>
-            <CardContent className="grid grid-cols-1 gap-x-4 gap-y-2 pt-3 md:grid-cols-2">
-                <TextField name="port" type="number" label={t("backends.port")} description={t("backends.port_hint")} required />
-                <TextField name="image.repository" label={t("backends.image_repository")} placeholder="ghcr.io/acme/orders-api" description={imageHint} />
-                <TextField name="livenessPath" label={t("backends.liveness_path")} placeholder="/health/live" description={t("backends.liveness_path_hint")} required />
-                <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
-                <TextField name="docsPath" label={t("backends.docs_path")} placeholder="/docs" description={t("backends.docs_path_hint")} />
-                <TextField name="openApiPath" label={t("backends.openapi_path")} placeholder="/openapi.json" description={t("backends.openapi_path_hint")} />
-                <ContainerResourceFields />
+            <CardContent className="flex flex-col gap-4 pt-3">
+                <RuntimeGroup group="image">
+                    <TextField name="image.repository" label={t("backends.image_repository")} placeholder="ghcr.io/acme/orders-api" description={imageHint} />
+                    <TextField name="port" type="number" label={t("backends.port")} description={t("backends.port_hint")} required />
+                </RuntimeGroup>
+                <RuntimeGroup group="probes">
+                    <TextField name="livenessPath" label={t("backends.liveness_path")} placeholder="/health/live" description={t("backends.liveness_path_hint")} required />
+                    <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
+                </RuntimeGroup>
+                <RuntimeGroup group="docs">
+                    <TextField name="docsPath" label={t("backends.docs_path")} placeholder="/docs" description={t("backends.docs_path_hint")} />
+                    <TextField name="openApiPath" label={t("backends.openapi_path")} placeholder="/openapi.json" description={t("backends.openapi_path_hint")} />
+                </RuntimeGroup>
+                <RuntimeGroup group="resources">
+                    <ContainerResourceFields />
+                </RuntimeGroup>
             </CardContent>
         </Card>
     )
