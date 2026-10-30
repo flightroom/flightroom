@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, SwitchField as Switch } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import { useEffect, useState } from "react"
-import { useFormContext } from "react-hook-form"
+import { useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import TextField from "../../../../components/input/TextField.rhf"
@@ -18,6 +18,15 @@ const logoMap: Record<string, string> = {
     GOOGLE: "/img/GoogleCloud.svg",
     AZURE: "/img/Azure.svg"
 }
+
+const WATCHED_FIELDS = [
+    "codeRepository.enabled",
+    "codeRepository.codeRepositoryId",
+    "codeRepository.repositoryId",
+    "codeRepository.gitlab.groupPath",
+    "codeRepository.gitlab.groupId",
+    "codeRepository.createData.name"
+] as const
 
 interface CodeRepositorySectionProps {
     repositoriesData: ICodeRepository[]
@@ -36,16 +45,11 @@ interface RepositoryNameAvailability {
 
 export const CodeRepositorySection: React.FC<CodeRepositorySectionProps> = ({ repositoriesData, isEdit = false, frontendId, savedRepository, forceCreation = false }) => {
     const { t } = useTranslation()
-    const { watch, setValue, formState } = useFormContext()
+    const { setValue, formState } = useFormContext()
     const codeRepositoriesApi = useCodeRepositoriesApi()
 
-    // Watch form values
-    const codeRepositoryEnabled = watch("codeRepository.enabled")
-    const selectedCodeRepositoryId = watch("codeRepository.codeRepositoryId")
-    const selectedRepositoryId = watch("codeRepository.repositoryId")
-    const selectedGroupPath = watch("codeRepository.gitlab.groupPath")
-    const selectedGroupId = watch("codeRepository.gitlab.groupId")
-    const selectedRepositoryName = watch("codeRepository.createData.name")
+    // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
+    const [codeRepositoryEnabled, selectedCodeRepositoryId, selectedRepositoryId, selectedGroupPath, selectedGroupId, selectedRepositoryName] = useWatch({ name: WATCHED_FIELDS })
 
     // Local state
     const [repositoryNameAvailability, setRepositoryNameAvailability] = useState<RepositoryNameAvailability>({

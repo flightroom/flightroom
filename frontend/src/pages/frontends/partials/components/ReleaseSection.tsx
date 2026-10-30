@@ -1,9 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, SliderField, SwitchField as Switch } from "@flightroom/design-system"
-import { useFormContext } from "react-hook-form"
+import { useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 import { CanaryDeploymentType, CanaryType } from "@/hooks/apiClients/useFrontendsApi"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_DESCRIPTION_KEYS, CANARY_TYPE_LABEL_KEYS } from "../labels"
+
+const WATCHED_FIELDS = ["canary.enabled", "canary.deploymentType", "canary.type", "version"] as const
 
 interface ReleaseSectionProps {
     isEdit?: boolean
@@ -15,10 +17,9 @@ interface ReleaseSectionProps {
 /** Version and canary settings: the two knobs that decide what gets served, in the General tab where the page opens. */
 export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions, container = false }) => {
     const { t } = useTranslation()
-    const { watch } = useFormContext()
-    const canaryEnabled = watch("canary.enabled")
-    const deploymentType = watch("canary.deploymentType")
-    const canaryType = (watch("canary.type") as CanaryType | undefined) ?? CanaryType.ON_SESSION
+    // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
+    const [canaryEnabled, deploymentType, watchedCanaryType, version] = useWatch({ name: WATCHED_FIELDS })
+    const canaryType = (watchedCanaryType as CanaryType | undefined) ?? CanaryType.ON_SESSION
     const hasVersionHistory = Boolean(isEdit && versions && versions.length > 0)
     // On User is an explicit enrolment, not a split: there is no traffic share to set, so asking for a
     // percentage would only suggest it does something.
@@ -59,7 +60,7 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
                                 containerClassName="flex-[1_1_240px]"
                                 className="w-full"
                             />
-                            {watch("version") === "custom" && (
+                            {version === "custom" && (
                                 <TextField
                                     name="customVersion"
                                     label={t("frontend.custom_version")}
