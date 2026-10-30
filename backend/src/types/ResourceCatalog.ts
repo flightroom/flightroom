@@ -5,7 +5,22 @@ import { DatabaseType } from "../models/DatabaseModel"
  * attaches the resource: the platform knows its fields, so it names the variables and keeps the
  * credentials among them encrypted, where a config map or a secret leaves both to whoever fills it.
  */
-export type ResourceType = "database" | "mongodb" | "cosmosdb" | "bigquery" | "storage" | "redis" | "serviceAccount" | "auth0" | "api" | "ai" | "smtp" | "sharepoint" | "generic"
+export type ResourceType =
+    | "database"
+    | "mongodb"
+    | "cosmosdb"
+    | "bigquery"
+    | "storage"
+    | "redis"
+    | "serviceAccount"
+    | "auth0"
+    | "api"
+    | "ai"
+    | "smtp"
+    | "sharepoint"
+    | "speech"
+    | "serviceBus"
+    | "generic"
 
 /** How the console asks for a field; the backend checks number, boolean, select, url and email against it too */
 export type ResourceFieldInput = "text" | "number" | "boolean" | "select" | "multiline" | "url" | "email"
@@ -111,6 +126,22 @@ const sharepointVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVar
     id,
     // Without a library the client uses the default one of the site
     fields: [field("siteUrl", "SITE_URL", { input: "url", connection: true }), field("library", "LIBRARY", { required: false }), ...fields],
+    fixed: { AUTH: id }
+})
+
+/** An Azure AI Speech resource in its region: the variant is the way to authenticate, which the client reads rather than guesses */
+const speechVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
+    id,
+    fields: [field("region", "REGION", { connection: true }), field("language", "LANGUAGE", { required: false }), ...fields],
+    fixed: { AUTH: id }
+})
+
+/** An Azure Service Bus namespace and, when the backend uses one, its queue or topic and subscription */
+const serviceBusEntities = [field("queue", "QUEUE", { required: false }), field("topic", "TOPIC", { required: false }), field("subscription", "SUBSCRIPTION", { required: false })]
+const serviceBusVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
+    id,
+    // The fully qualified namespace, e.g. orders.servicebus.windows.net
+    fields: [field("namespace", "NAMESPACE", { connection: true }), ...serviceBusEntities, ...fields],
     fixed: { AUTH: id }
 })
 
@@ -385,6 +416,36 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             sharepointVariant("azureAadCertificate", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("certificate", "CERTIFICATE", { input: "multiline" })]),
             // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
             sharepointVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
+        ]
+    },
+    /**
+     * An Azure AI Speech resource, for speech to text and text to speech: by its key or by Entra ID. Entra ID takes
+     * the custom subdomain endpoint of the resource, as the regional one accepts keys only
+     */
+    speech: {
+        type: "speech",
+        envPrefix: "SPEECH",
+        variants: [
+            speechVariant("apiKey", [secret("apiKey", "KEY")]),
+            speechVariant("azureAad", [
+                field("endpoint", "ENDPOINT", { input: "url", connection: true }),
+                field("tenantId", "TENANT_ID"),
+                field("clientId", "CLIENT_ID"),
+                secret("clientSecret", "CLIENT_SECRET")
+            ]),
+            // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
+            speechVariant("azureManagedIdentity", [field("endpoint", "ENDPOINT", { input: "url", connection: true }), field("clientId", "CLIENT_ID", { required: false })])
+        ]
+    },
+    /** An Azure Service Bus namespace: by connection string, an Entra ID app or the identity of the pod */
+    serviceBus: {
+        type: "serviceBus",
+        envPrefix: "SERVICEBUS",
+        variants: [
+            { id: "connectionString", fields: [secret("connectionString", "CONNECTION_STRING"), ...serviceBusEntities], fixed: { AUTH: "connectionString" } },
+            serviceBusVariant("azureAad", [field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET")]),
+            // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
+            serviceBusVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
         ]
     },
     /** Anything the catalog lacks: the resource defines its own variables (customFields), none of them a connection */

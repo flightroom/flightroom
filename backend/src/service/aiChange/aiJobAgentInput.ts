@@ -46,7 +46,9 @@ const AGENT_VISIBLE_FIELDS: Record<string, string[]> = {
     ai: ["model"],
     smtp: ["host", "port", "security", "from"],
     cosmosdb: ["endpoint", "database", "containerName"],
-    sharepoint: ["siteUrl", "library"]
+    sharepoint: ["siteUrl", "library"],
+    speech: ["region", "language", "endpoint"],
+    serviceBus: ["namespace", "queue", "topic", "subscription"]
 }
 
 /** What is read of a resource for the agent: never its credentials, an override of an environment nor its pasted document */

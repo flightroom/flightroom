@@ -108,6 +108,37 @@ const RESOURCE_USAGE: Record<string, (resource: AiChangeAgentResource) => (strin
             values.library ? `library: ${values.library}` : undefined,
             `usage: call Microsoft Graph (e.g. @microsoft/microsoft-graph-client with @azure/identity, scope https://graph.microsoft.com/.default), resolving the site from ${key("siteUrl")} with GET /sites/{hostname}:/{site path} and its document library by the name in ${key("library")} when set (the default drive of the site otherwise), authenticating with ${auth[resource.variant] ?? "what its variables say"}; never hardcode any of them`
         ]
+    },
+    speech: resource => {
+        const key = keyOfField(resource)
+        const values = resource.values ?? {}
+        const auth: Record<string, string> = {
+            apiKey: `the key from ${key("apiKey")} and the region from ${key("region")} (SpeechConfig.fromSubscription)`,
+            azureAad: `an Entra ID client secret credential (tenant from ${key("tenantId")}, client from ${key("clientId")}, secret from ${key("clientSecret")}) on the custom subdomain endpoint from ${key("endpoint")}`,
+            azureManagedIdentity: `the managed identity of the pod (a user-assigned one by its client id from ${key("clientId")} when set) on the custom subdomain endpoint from ${key("endpoint")}`
+        }
+        return [
+            values.region ? `region: ${values.region}` : undefined,
+            values.language ? `language: ${values.language}` : undefined,
+            values.endpoint ? `endpoint: ${values.endpoint}` : undefined,
+            `usage: use the official Azure AI Speech SDK (e.g. microsoft-cognitiveservices-speech-sdk, with @azure/identity for Entra ID, scope https://cognitiveservices.azure.com/.default), recognition and synthesis language from ${key("language")} when set, authenticating with ${auth[resource.variant] ?? "what its variables say"}; never hardcode any of them`
+        ]
+    },
+    serviceBus: resource => {
+        const key = keyOfField(resource)
+        const values = resource.values ?? {}
+        const auth: Record<string, string> = {
+            connectionString: `the connection string from ${key("connectionString")} (it holds namespace and key)`,
+            azureAad: `an Entra ID client secret credential (tenant from ${key("tenantId")}, client from ${key("clientId")}, secret from ${key("clientSecret")}) on the namespace from ${key("namespace")}`,
+            azureManagedIdentity: `the managed identity of the pod (a user-assigned one by its client id from ${key("clientId")} when set) on the namespace from ${key("namespace")}`
+        }
+        return [
+            values.namespace ? `namespace: ${values.namespace}` : undefined,
+            values.queue ? `queue: ${values.queue}` : undefined,
+            values.topic ? `topic: ${values.topic}` : undefined,
+            values.subscription ? `subscription: ${values.subscription}` : undefined,
+            `usage: use the official Azure Service Bus SDK (e.g. @azure/service-bus, with @azure/identity for Entra ID), queue from ${key("queue")}, topic from ${key("topic")} and subscription from ${key("subscription")} when set, authenticating with ${auth[resource.variant] ?? "what its variables say"}; close senders, receivers and the client on shutdown; never hardcode any of them`
+        ]
     }
 }
 

@@ -3764,6 +3764,14 @@
                 "label": "SharePoint",
                 "description": "Un sito SharePoint Online e i suoi documenti, tramite Microsoft Graph: con un'app Entra ID, per client secret o certificato, o con managed identity."
             },
+            "speech": {
+                "label": "Azure AI Speech",
+                "description": "Una risorsa Azure AI Speech, per speech to text e text to speech: con la chiave, o con un'app Entra ID o managed identity."
+            },
+            "serviceBus": {
+                "label": "Azure Service Bus",
+                "description": "Un namespace Azure Service Bus, con la sua coda o il topic e la subscription: con connection string, app Entra ID o managed identity."
+            },
             "generic": {
                 "label": "Generica",
                 "description": "Per quello che il catalogo non ha: definisci tu le variabili, e quali sono segrete."
@@ -3831,6 +3839,16 @@
                 "azureAadCertificate": "App Entra ID, certificato",
                 "azureManagedIdentity": "Managed identity"
             },
+            "speech": {
+                "apiKey": "Chiave e regione",
+                "azureAad": "App Entra ID",
+                "azureManagedIdentity": "Managed identity"
+            },
+            "serviceBus": {
+                "connectionString": "Connection string",
+                "azureAad": "App Entra ID",
+                "azureManagedIdentity": "Managed identity"
+            },
             "generic": {
                 "custom": "Variabili personalizzate"
             }
@@ -3883,7 +3901,12 @@
             "location": "Località",
             "siteUrl": "URL del sito",
             "library": "Raccolta documenti",
-            "certificate": "Certificato (PEM con chiave privata)"
+            "certificate": "Certificato (PEM con chiave privata)",
+            "language": "Lingua",
+            "namespace": "Namespace (es. orders.servicebus.windows.net)",
+            "queue": "Coda",
+            "topic": "Topic",
+            "subscription": "Subscription"
         },
         "retype": {
             "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"

@@ -87,7 +87,7 @@ Neither MCP clients nor the AI coding agent ever get a credential of a resource:
   variables (credentials marked `(secret)`), the name of the Kubernetes Secret carrying them
   (`<name>.resource`), and the shared value of a short list of fields that are no credential and say how to
   use the resource: an api's `baseUrl`, `specUrl`, `tokenUrl` and API key placement (`in`, `name`), an ai's
-  `model`, an smtp's `host`, `port`, `security` and `from`, a sharepoint's `siteUrl` and `library`. Its prompt tells it to read every credential from
+  `model`, an smtp's `host`, `port`, `security` and `from`, a sharepoint's `siteUrl` and `library`, a speech's `region`, `language` and `endpoint`, a serviceBus's `namespace`, `queue`, `topic` and `subscription`. Its prompt tells it to read every credential from
   those variables and never hardcode one.
 - `read_api_spec`, the agent's tool for the document of an api, reads the pasted one from the database only
   when the agent asks, or fetches the `specUrl` from the backend: http or https only, no address that is
