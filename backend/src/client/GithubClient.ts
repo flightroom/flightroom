@@ -691,6 +691,11 @@ class GithubClient {
         )
 
         // One log that cannot be downloaded (gone, or over the size cap) must not hide the others: only when none came back is it an error
+        downloads.forEach((download, index) => {
+            // The job name and the message only: the error itself carries the request, token included
+            if (download.status === "rejected")
+                console.warn(`Could not download the log of GitHub job ${failedJobs[index].name}: ${download.reason instanceof Error ? download.reason.message : String(download.reason)}`)
+        })
         const logs = downloads.flatMap(download => (download.status === "fulfilled" ? [download.value] : []))
         const firstFailure = downloads.find(download => download.status === "rejected")
         if (logs.length === 0 && firstFailure) throw firstFailure.reason

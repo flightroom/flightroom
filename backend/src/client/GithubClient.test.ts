@@ -631,6 +631,19 @@ describe("GithubClient.getFailedJobLogs", () => {
         ])
     })
 
+    it("given a log download fails, when the logs are read, then a warning names the job and the error, without the token or the URL", async () => {
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
+        stubRequest()
+            .mockResolvedValueOnce({ data: { jobs: [job(1, "failure"), job(2, "failure")] } })
+            .mockResolvedValueOnce({ data: "first log" })
+            .mockRejectedValueOnce(new AxiosError("maxContentLength size of 1048576 exceeded", AxiosError.ERR_BAD_RESPONSE, { url: `${api}/repos/acme/cart-fe/actions/jobs/2/logs` } as never))
+
+        await new GithubClient().getFailedJobLogs(token, "cart-fe", "41", "acme")
+
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn).toHaveBeenCalledWith("Could not download the log of GitHub job job-2: maxContentLength size of 1048576 exceeded")
+    })
+
     it("given every log download fails, when the logs are read, then the failure of the first job is passed on", async () => {
         const first = answered(410)
         stubRequest()
