@@ -8,6 +8,14 @@ export interface BackendEnvVariableDTO {
     description?: string
 }
 
+export interface EnvironmentResourcesDTO {
+    environmentId: string
+    cpuRequest?: string | null
+    cpuLimit?: string | null
+    memoryRequest?: string | null
+    memoryLimit?: string | null
+}
+
 interface BackendDTO {
     id?: string
     name: string
@@ -41,6 +49,11 @@ interface BackendDTO {
     /** Kubernetes quantities, e.g. 128Mi or 1Gi; blank or null for the default of the chart */
     memoryRequest?: string | null
     memoryLimit?: string | null
+    /**
+     * The environments that run it with CPU and memory of their own, replaced as a whole: each value left blank is the
+     * one above. An environment appears once at most, and must be of the project
+     */
+    environmentResources?: EnvironmentResourcesDTO[] | null
     env?: BackendEnvVariableDTO[]
     /** Config maps of the project to attach; replaced as a whole, and no key may be set by two attached maps */
     configMapIds?: string[]

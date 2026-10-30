@@ -90,3 +90,17 @@ export const resourceFields = {
     memoryRequest: optionalQuantity(parseMemory, "128Mi or 1Gi"),
     memoryLimit: optionalQuantity(parseMemory, "128Mi or 1Gi")
 }
+
+/** What one environment sets apart from the CPU and memory of the container: each one left blank is the container's */
+export interface IEnvironmentResources {
+    environmentId: Schema.Types.ObjectId
+    cpuRequest?: string | null
+    cpuLimit?: string | null
+    memoryRequest?: string | null
+    memoryLimit?: string | null
+}
+
+const environmentResourcesSchema = new Schema<IEnvironmentResources>({ environmentId: { type: Schema.Types.ObjectId, ref: "Environment", required: true }, ...resourceFields }, { _id: false })
+
+/** The environments that run the container with CPU and memory of their own; that each one belongs to the project is checked by the services */
+export const environmentResourcesField = { type: [environmentResourcesSchema], default: undefined }

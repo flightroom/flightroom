@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
-import type { BackendCodeRepository, BackendEnvVariable, BuiltBackend } from "./useBackendsApi"
+import type { BackendCodeRepository, BackendEnvVariable, BuiltBackend, EnvironmentResources } from "./useBackendsApi"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 
 /** An always-on container, called on its run path when it runs, or a Docker job that runs and exits. */
@@ -48,6 +48,8 @@ export interface MaintenanceAgent {
     cpuLimit?: string | null
     memoryRequest?: string | null
     memoryLimit?: string | null
+    /** As for a backend: the environments that run it with CPU and memory of their own */
+    environmentResources?: EnvironmentResources[] | null
     env: BackendEnvVariable[]
     configMapIds: string[]
     secretIds: string[]

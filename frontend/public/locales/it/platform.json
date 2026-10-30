@@ -2497,7 +2497,13 @@
             "cpu_invalid": "Una quantità di CPU maggiore di zero: core (0.5, 1) o millicore (250m)",
             "memory_invalid": "Una quantità di memoria maggiore di zero: byte, o con un suffisso come Mi, Gi, M o G (128Mi, 1Gi)",
             "cpu_request_above_limit": "La richiesta di CPU non può superare il limite di CPU ({{limit}}): Kubernetes rifiuterebbe il container",
-            "memory_request_above_limit": "La richiesta di memoria non può superare il limite di memoria ({{limit}}): Kubernetes rifiuterebbe il container"
+            "memory_request_above_limit": "La richiesta di memoria non può superare il limite di memoria ({{limit}}): Kubernetes rifiuterebbe il container",
+            "by_environment": {
+                "title": "Per ambiente",
+                "description": "CPU e memoria diverse in alcuni ambienti, ad esempio di più in produzione. Ogni valore lasciato vuoto è quello del container, mostrato come placeholder.",
+                "add": "Aggiungi {{environment}}",
+                "none": "Uguali in tutti gli ambienti"
+            }
         },
         "image_repository": "Repository immagine",
         "image_repository_hint": "Facoltativo. Es. ghcr.io/acme/orders-api. Se vuoto, lo imposta la pipeline quando registra una versione.",

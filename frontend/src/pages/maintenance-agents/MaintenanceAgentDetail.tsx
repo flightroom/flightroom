@@ -16,7 +16,7 @@ import BackendResourcesSection from "@/pages/backends/partials/BackendResourcesS
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
-import { RESOURCE_LABELS, ResourceValue } from "@/pages/backends/partials/ContainerResourceFields"
+import { EnvironmentResourcesValue, RESOURCE_LABELS, ResourceValue } from "@/pages/backends/partials/ContainerResourceFields"
 import { RESOURCE_FIELDS } from "@/pages/backends/partials/containerResources"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
@@ -84,6 +84,9 @@ const ConfigurationSection: React.FC<{ agent: MaintenanceAgent; environments: En
                             <ResourceValue field={field} value={agent[field]} />
                         </DescriptionItem>
                     ))}
+                    <DescriptionItem label={t("backends.compute.by_environment.title")}>
+                        <EnvironmentResourcesValue entries={agent.environmentResources} environments={environments} />
+                    </DescriptionItem>
                 </DescriptionList>
                 <div>
                     <h3 className="mb-2 text-base font-semibold">{t("backends.env.title")}</h3>

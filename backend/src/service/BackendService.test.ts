@@ -38,6 +38,7 @@ import Backend from "../models/BackendModel"
 import BuiltBackend from "../models/BuiltBackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
+import Environment from "../models/EnvironmentModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
@@ -46,7 +47,7 @@ import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BackendDTO from "../types/BackendDTO"
 import { BackendRuntime } from "../types/BackendStack"
 import { FrontendStackSource } from "../types/FrontendStack"
-import BackendService, { imageRepositoryOf, isNewerVersion } from "./BackendService"
+import BackendService, { ensureRequestsWithinLimits, imageRepositoryOf, isNewerVersion, withNormalizedEnvironmentResources } from "./BackendService"
 
 withNoMaintenanceAgents()
 
@@ -541,6 +542,65 @@ describe("imageRepositoryOf", () => {
         ["orders", "orders"]
     ])("given %s, then the repository is %s", (image, repository) => {
         expect(imageRepositoryOf(image)).toBe(repository)
+    })
+})
+
+describe("ensureRequestsWithinLimits", () => {
+    const environmentId = new Types.ObjectId()
+
+    it("given an environment whose own limit is below the request of the application, when it is checked, then it is refused", () => {
+        expect(() => ensureRequestsWithinLimits({ cpuRequest: "1", cpuLimit: "2", environmentResources: [{ environmentId, cpuLimit: "500m" }] })).toThrow(BusinessException)
+    })
+
+    it("given an environment that raises both the request and the limit, when it is checked, then it is accepted", () => {
+        expect(() => ensureRequestsWithinLimits({ cpuRequest: "250m", environmentResources: [{ environmentId, cpuRequest: "2", cpuLimit: "4" }] })).not.toThrow()
+    })
+
+    it("given a lower limit of the application under the request an environment kept from before, when it is checked, then it is refused", () => {
+        const existing = { environmentResources: [{ environmentId, memoryRequest: "1Gi" }], memoryLimit: "2Gi" }
+
+        expect(() => ensureRequestsWithinLimits({ memoryLimit: "512Mi" }, existing)).toThrow(BusinessException)
+    })
+})
+
+describe("withNormalizedEnvironmentResources", () => {
+    const projectObjectId = new Types.ObjectId(projectId) as never
+    const production = new Types.ObjectId()
+
+    beforeEach(() => {
+        vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production }] as never)
+    })
+
+    it("given values with blanks and an environment setting none, when normalized, then blanks are null and that environment is left out", async () => {
+        const dto = {
+            environmentResources: [
+                { environmentId: String(production), cpuLimit: " 2 ", memoryLimit: "" },
+                { environmentId: String(new Types.ObjectId()), cpuRequest: " " }
+            ]
+        }
+
+        expect((await withNormalizedEnvironmentResources(dto, projectObjectId)).environmentResources).toEqual([
+            { environmentId: String(production), cpuRequest: null, cpuLimit: "2", memoryRequest: null, memoryLimit: null }
+        ])
+    })
+
+    it.each([
+        ["an environment of another project", [{ environmentId: String(new Types.ObjectId()), cpuLimit: "1" }]],
+        [
+            "an environment listed twice",
+            [
+                { environmentId: String(production), cpuLimit: "1" },
+                { environmentId: String(production), memoryLimit: "1Gi" }
+            ]
+        ],
+        ["a value that is no quantity", [{ environmentId: String(production), memoryLimit: "lots" }]]
+    ])("given %s, when normalized, then it is refused", async (_case, environmentResources) => {
+        await expect(withNormalizedEnvironmentResources({ environmentResources }, projectObjectId)).rejects.toThrow(BusinessException)
+    })
+
+    it("given no environmentResources, when normalized, then nothing is read", async () => {
+        expect(await withNormalizedEnvironmentResources({}, projectObjectId)).toEqual({})
+        expect(Environment.find).not.toHaveBeenCalled()
     })
 })
 

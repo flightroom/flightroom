@@ -53,6 +53,22 @@ export const containerFields = {
     cpuLimit: cpuQuantity.describe(`Most CPU the container may use, e.g. 1; the chart default (${CHART_RESOURCE_DEFAULTS.cpuLimit}) when null or omitted. Not below the request`),
     memoryRequest: memoryQuantity.describe(`Memory the container asks for, e.g. 256Mi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryRequest}) when null or omitted`),
     memoryLimit: memoryQuantity.describe(`Most memory the container may use, e.g. 1Gi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryLimit}) when null or omitted. Not below the request`),
+    environmentResources: z
+        .array(
+            z.object({
+                environmentId: objectId("Id of an environment of the project, from environments_list"),
+                cpuRequest: cpuQuantity,
+                cpuLimit: cpuQuantity,
+                memoryRequest: memoryQuantity,
+                memoryLimit: memoryQuantity
+            })
+        )
+        .max(50)
+        .nullable()
+        .optional()
+        .describe(
+            "CPU and memory set apart in some environments, e.g. more in production: each value left out or null is the one of the container above. Replaced as a whole; null or [] sets none apart. One entry per environment"
+        ),
     exposurePath: z
         .string()
         .refine(isExposurePath, 'starts with "/", at most 256 characters of letters, digits, -._~!$&\'()*+,;=:@ or %XX; no query, fragment, // nor . or .. segment')

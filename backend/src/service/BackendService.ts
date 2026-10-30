@@ -7,11 +7,12 @@ import BackendDeployment from "../models/BackendDeploymentModel"
 import Backend, { IBackend } from "../models/BackendModel"
 import BuiltBackend, { IBuiltBackend } from "../models/BuiltBackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
+import Environment from "../models/EnvironmentModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
-import BackendDTO, { BackendVersionRegistrationDTO } from "../types/BackendDTO"
+import BackendDTO, { BackendVersionRegistrationDTO, EnvironmentResourcesDTO } from "../types/BackendDTO"
 import { BACKEND_SLUG, BACKEND_VERSION, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
-import { CONTAINER_RESOURCE_FIELDS, ContainerResources, requestAboveLimit } from "../types/ContainerResources"
+import { CONTAINER_RESOURCE_FIELDS, ContainerResources, ContainerResourcesByEnvironment, parseCpu, parseMemory, requestAboveLimit, resourcesIn } from "../types/ContainerResources"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
@@ -52,31 +53,71 @@ export const ensurePlainFields = (fields: object, code = "BACKEND_INVALID") => {
  * A request above its limit is a Deployment Kubernetes refuses: checked on what the container ends up with, the
  * stored value where `fields` leaves one out and the default of the chart where neither sets it.
  */
-export const ensureRequestsWithinLimits = (fields: ContainerResources, existing?: ContainerResources, code = "BACKEND_INVALID") => {
+export const ensureRequestsWithinLimits = (fields: ContainerResourcesByEnvironment, existing?: ContainerResourcesByEnvironment, code = "BACKEND_INVALID") => {
     const resources = Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, fields[field] !== undefined ? fields[field] : existing?.[field]])) as ContainerResources
-    const resource = requestAboveLimit(resources)
-    if (resource) {
-        throw createBusinessException({
+    const refuse = (resource: "cpu" | "memory", where = "") =>
+        createBusinessException({
             code,
-            message: `The ${resource === "cpu" ? "CPU" : "memory"} request is above its limit, which Kubernetes refuses: a value left blank is the default of the chart`
+            message: `The ${resource === "cpu" ? "CPU" : "memory"} request is above its limit${where}, which Kubernetes refuses: a value left blank is the default of the chart`
         })
+    const resource = requestAboveLimit(resources)
+    if (resource) throw refuse(resource)
+    // Each environment with values of its own, on what it ends up with: its own, else the ones above
+    const environmentResources = fields.environmentResources !== undefined ? fields.environmentResources : existing?.environmentResources
+    for (const entry of environmentResources ?? []) {
+        const inEnvironment = requestAboveLimit(resourcesIn({ ...resources, environmentResources: [entry] }, entry.environmentId))
+        if (inEnvironment) throw refuse(inEnvironment, ` in environment ${String(entry.environmentId)}`)
     }
+}
+
+/**
+ * The CPU and memory set apart per environment, as stored: values trimmed, blank ones null, an environment that sets
+ * none left out. Refused: an environment that is not of the project, one listed twice, a value that is no quantity.
+ */
+export const withNormalizedEnvironmentResources = async <T extends Pick<BackendDTO, "environmentResources">>(dto: T, projectId: Schema.Types.ObjectId, code = "BACKEND_INVALID"): Promise<T> => {
+    if (dto.environmentResources === undefined) return dto
+    if (dto.environmentResources !== null && !Array.isArray(dto.environmentResources)) {
+        throw createBusinessException({ code, message: "environmentResources must be a list of { environmentId, cpuRequest, cpuLimit, memoryRequest, memoryLimit }" })
+    }
+    const quantity = (entry: EnvironmentResourcesDTO, field: (typeof CONTAINER_RESOURCE_FIELDS)[number]) => {
+        const value = entry[field]
+        if (value == null) return null
+        const trimmed = typeof value === "string" ? value.trim() : ""
+        if (typeof value !== "string" || (trimmed && (field.startsWith("cpu") ? parseCpu : parseMemory)(trimmed) === undefined)) {
+            throw createBusinessException({ code, message: `${field} "${String(value)}" of environment ${entry.environmentId} is not a Kubernetes quantity above zero` })
+        }
+        return trimmed || null
+    }
+    const entries = (dto.environmentResources ?? [])
+        .map(entry => ({ environmentId: String(entry?.environmentId ?? ""), ...Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, quantity(entry, field)])) }))
+        .filter(entry => CONTAINER_RESOURCE_FIELDS.some(field => entry[field as keyof typeof entry]))
+    const ids = entries.map(entry => entry.environmentId)
+    const twice = ids.find((id, index) => ids.indexOf(id) !== index)
+    if (twice) throw createBusinessException({ code, message: `Environment ${twice} is listed twice in environmentResources` })
+    if (ids.length > 0) {
+        const known = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
+        const unknown = ids.find(id => !known.has(id))
+        if (unknown) throw createBusinessException({ code, message: `${unknown} is not an environment of this project` })
+    }
+    return { ...dto, environmentResources: entries }
 }
 
 /**
  * The maps `dto` attaches, checked: a caller that leaves them out (an MCP update of the name, say)
  * changes none of them and costs no query. A DOCKER frontend goes through it too, since it has the
- * same container fields, but without `resources`: only a backend attaches resources.
+ * same container fields, but without `resources`: only a backend attaches resources. The CPU and memory
+ * set apart per environment are normalized here too, as every one of them has them.
  */
-export const withNormalizedReferences = async <T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds">>(
+export const withNormalizedReferences = async <T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds" | "environmentResources">>(
     dto: T,
     projectId: Schema.Types.ObjectId,
     existing?: Partial<Pick<IBackend, "name" | "configMapIds" | "secretIds" | "resourceIds">>,
     options: { resources?: boolean } = {}
 ): Promise<T> => {
     ensurePlainFields(dto)
+    const normalized = await withNormalizedEnvironmentResources(dto, projectId)
     // Only the name and the attached ids of what is stored are read
-    return resolveAttachedMaps(dto, projectId, existing as IBackend | undefined, options)
+    return resolveAttachedMaps(normalized, projectId, existing as IBackend | undefined, options)
 }
 
 /**

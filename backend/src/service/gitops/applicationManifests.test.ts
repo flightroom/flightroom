@@ -142,6 +142,19 @@ describe("renderApplicationValues", () => {
     ])("given %s, when its values are rendered, then there are no resources and the chart decides", (_case, overrides) => {
         expect(parse(render(overrides))).not.toHaveProperty("resources")
     })
+
+    it("given CPU and memory set apart in this environment, when its values are rendered, then they win over the application's, which fill in the others", () => {
+        const environmentResources = [{ environmentId: environment._id, cpuLimit: "2", memoryLimit: "2Gi", memoryRequest: " " }]
+        const values = parse(render({ cpuRequest: "250m", cpuLimit: "500m", memoryRequest: "256Mi", environmentResources }))
+
+        expect(values.resources).toEqual({ requests: { cpu: "250m", memory: "256Mi" }, limits: { cpu: "2", memory: "2Gi" } })
+    })
+
+    it("given CPU and memory set apart in another environment, when its values are rendered, then the application's are written", () => {
+        const values = parse(render({ cpuRequest: "250m", environmentResources: [{ environmentId: new Types.ObjectId(), cpuRequest: "1" }] }))
+
+        expect(values.resources).toEqual({ requests: { cpu: "250m" } })
+    })
 })
 
 describe("renderApplicationValues, maintenance agent", () => {

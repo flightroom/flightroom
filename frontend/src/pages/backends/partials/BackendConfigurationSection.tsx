@@ -7,12 +7,15 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { exposedOrigin } from "./backendVariables"
-import { RESOURCE_LABELS, ResourceValue } from "./ContainerResourceFields"
+import { EnvironmentResourcesValue, RESOURCE_LABELS, ResourceValue } from "./ContainerResourceFields"
 import { RESOURCE_FIELDS } from "./containerResources"
 
 /** What a container declares: a backend, or a frontend served by its own container */
 export type ContainerConfiguration = Partial<
-    Pick<Backend, "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "image" | "env" | "cpuRequest" | "cpuLimit" | "memoryRequest" | "memoryLimit">
+    Pick<
+        Backend,
+        "port" | "livenessPath" | "readinessPath" | "docsPath" | "openApiPath" | "exposurePath" | "image" | "env" | "cpuRequest" | "cpuLimit" | "memoryRequest" | "memoryLimit" | "environmentResources"
+    >
 >
 
 /** A path of the backend, as declared: no URL is made up from it, the host depends on where the backend runs */
@@ -131,6 +134,9 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
                             <ResourceValue field={field} value={backend[field]} />
                         </DescriptionItem>
                     ))}
+                    <DescriptionItem label={t("backends.compute.by_environment.title")}>
+                        <EnvironmentResourcesValue entries={backend.environmentResources} environments={environments} />
+                    </DescriptionItem>
                 </DescriptionList>
                 <BackendUrls backend={backend} environments={environments} />
                 <div>

@@ -119,6 +119,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         cpuLimit,
         memoryRequest,
         memoryLimit,
+        environmentResources,
         exposed,
         exposurePath,
         image,
@@ -149,6 +150,8 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   cpuLimit: cpuLimit?.trim(),
                   memoryRequest: memoryRequest?.trim(),
                   memoryLimit: memoryLimit?.trim(),
+                  // Empty: the container's, as above
+                  environmentResources,
                   // Null: not exposed on the host of the environments
                   exposurePath: exposed ? exposurePath?.trim() : null,
                   image,

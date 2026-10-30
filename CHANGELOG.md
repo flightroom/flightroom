@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Installation Theme**: the console loads `/theme.css` in its `<head>`, empty in Flightroom. Mount a stylesheet of your own over `/var/www/frontend/theme.css` to restyle the console: it overrides the CSS variables of the design system, colours for the light and the dark mode, corner radius and font, before the first paint. nginx serves it to be revalidated at every load. See `docs/THEMES.md`
+- **CPU And Memory Per Environment**: a backend, a DOCKER frontend and a maintenance agent can set their CPU and memory requests and limits apart in some environments, e.g. more in production. Under the CPU and memory of the runtime settings, each environment added gets the four fields, every one left empty being the value of the container. The deploy writes in the values file of each environment what it sets, else the container's, else the chart's default; a request above its limit is refused per environment too. The API and the MCP tools take it as `environmentResources: [{ environmentId, cpuRequest, cpuLimit, memoryRequest, memoryLimit }]`, replaced as a whole. Deleting an environment drops what was set for it
 
 ### Changed
 
