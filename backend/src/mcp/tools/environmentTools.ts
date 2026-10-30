@@ -2,6 +2,7 @@ import { z } from "zod"
 import { IDeployment } from "../../models/DeploymentModel"
 import DeploymentCanaryUsersService from "../../service/DeploymentCanaryUsersService"
 import DeploymentService from "../../service/DeploymentService"
+import EnvironmentPromotionService, { PROMOTION_KINDS } from "../../service/EnvironmentPromotionService"
 import EnvironmentService from "../../service/EnvironmentService"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange, SUBDOMAIN } from "../../types/Exposure"
@@ -98,6 +99,33 @@ export const environmentTools = [
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({ environmentIds: z.array(environmentId).min(1) }),
         run: (args, { principal, projectId }) => new EnvironmentService(principal).updateOrder(projectId, args.environmentIds)
+    }),
+    defineTool({
+        name: "environment_promotion_preview",
+        title: "Preview version promotion",
+        description:
+            "What promoting the versions of one environment to another would change, e.g. from development to UAT: each backend, DOCKER frontend and maintenance agent with the version it runs in the source (from) and in the target (to). One without a version in the source keeps what it runs in the target.",
+        scope: MCP_SCOPE_READ,
+        annotations: READ_ONLY,
+        inputSchema: z.object({ environmentId: objectId("Id of the environment the versions go to"), fromEnvironmentId: objectId("Id of the environment the versions come from") }),
+        run: (args, { principal }) => new EnvironmentPromotionService(principal).preview(args.environmentId, args.fromEnvironmentId)
+    }),
+    defineTool({
+        name: "environment_promote",
+        title: "Promote versions",
+        description:
+            "Sets, in the target environment, the version each application runs in the source one, e.g. from UAT to production. It writes the version per environment only: the next deploy of the target applies it, call deploy for that. Returns the rows of environment_promotion_preview after the change.",
+        scope: MCP_SCOPE_WRITE,
+        annotations: { ...WRITE, idempotentHint: true },
+        inputSchema: z.object({
+            environmentId: objectId("Id of the environment the versions go to"),
+            fromEnvironmentId: objectId("Id of the environment the versions come from"),
+            applications: z
+                .array(z.object({ kind: z.enum(PROMOTION_KINDS), _id: objectId("Id of the backend, frontend or maintenance agent") }))
+                .optional()
+                .describe("The applications to promote, as environment_promotion_preview lists them; left out, every one the promotion changes")
+        }),
+        run: (args, { principal }) => new EnvironmentPromotionService(principal).promote(args.environmentId, { from: args.fromEnvironmentId, applications: args.applications })
     }),
     defineTool({
         name: "deployments_list",
