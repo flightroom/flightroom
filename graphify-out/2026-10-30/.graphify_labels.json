@@ -325,7 +325,6 @@
   "323": "[5.1.0] - 2026-10-22",
   "324": "StartChoice.tsx",
   "325": "Editing a frontend with AI",
-  "326": "ConfigurationModel.ts",
   "327": "account_activation",
   "328": "projectWizardStateMachine.ts",
   "329": "IGlobalVariable",
@@ -335,8 +334,6 @@
   "335": "[7.0.0] - 2026-10-23",
   "339": "tabs",
   "340": ".getEnvironmentFomRefererAndProjectId",
-  "345": "environmentFiles",
-  "350": "[8.1.2] - 2026-10-26",
   "351": "docsSearch.ts",
   "352": "[2.1.0] - 2026-08-06"
 }

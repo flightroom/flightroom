@@ -1240,8 +1240,8 @@
     "semantic_hash": ""
   },
   "frontend/src/theme/EnvironmentsGate.tsx": {
-    "mtime": 1792649408.424517,
-    "ast_hash": "dfd8d805ce39bd15fab43679becc18d5",
+    "mtime": 1793370717.0883672,
+    "ast_hash": "3fcc52f148b74d083fbd00d44eebf3bd",
     "semantic_hash": ""
   },
   "frontend/src/theme/FirstStartupWrapper.tsx": {
@@ -3845,8 +3845,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/CodeRepositorySection.tsx": {
-    "mtime": 1793005820.6355422,
-    "ast_hash": "7493736fe3e077f9b18ca847809b2be5",
+    "mtime": 1793370705.8223743,
+    "ast_hash": "4d1010033420ddbd1028cb9a80485bab",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/DangerZoneRemoveFrontend.tsx": {
@@ -3890,8 +3890,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/ReleaseSection.tsx": {
-    "mtime": 1793005820.636545,
-    "ast_hash": "2a85cb1fc79d5a257da68403a25f286a",
+    "mtime": 1793370705.8216605,
+    "ast_hash": "f3186fd951848fe2769e42b9bfe01398",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/RenameRepositoryDialog.tsx": {
@@ -4590,8 +4590,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendEndpointFields.tsx": {
-    "mtime": 1793005820.6229904,
-    "ast_hash": "6fee526f949ace4953e292f018e1fa6e",
+    "mtime": 1793370705.8235536,
+    "ast_hash": "5947ebc4ec61da98401aa5a804dcbe88",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendEnvFields.tsx": {
@@ -4615,8 +4615,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendRuntimeFields.tsx": {
-    "mtime": 1793121139.5000114,
-    "ast_hash": "5d1a87b825adb05c8d25d458d47515d0",
+    "mtime": 1793370705.8228595,
+    "ast_hash": "70db99bba89e9decad8379a19220a563",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendVariableMapsFields.tsx": {
@@ -4935,8 +4935,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/ContainerResourceFields.tsx": {
-    "mtime": 1793369448.4290721,
-    "ast_hash": "8c2af5eb0e344978cb020356a5f227f8",
+    "mtime": 1793370705.82408,
+    "ast_hash": "31c80ce181ef607c096540ade3309bdc",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/containerResources.ts": {
