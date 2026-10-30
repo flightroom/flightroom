@@ -76,6 +76,28 @@ describe("GoogleStorageClient, construction", () => {
         expect(builtStorage().bucket).toHaveBeenCalledWith("assets-bucket")
     })
 
+    it("given a key that is not valid JSON, when the client is built, then neither the error nor its cause quotes any part of the key", () => {
+        // JSON.parse quotes the text around where it stopped, and in a service account key that is the private key
+        const secret = "oops-SECRET-PRIVATE-KEY-MATERIAL"
+        const broken = { ...CONFIG, jsonKey: `{"type": "service_account", "private_key": ${secret}}` }
+
+        let thrown: unknown
+        try {
+            new GoogleStorageClient(broken)
+        } catch (error) {
+            thrown = error
+        }
+
+        expect(thrown).toBeInstanceOf(Error)
+        expect((thrown as Error).message).toBe("The Google service account key is not valid JSON")
+        const everything = `${(thrown as Error).message} ${(thrown as Error).stack} ${String((thrown as Error).cause)} ${JSON.stringify(thrown)}`
+        for (const fragment of ["oops", "SECRET", "PRIVATE-KEY", "MATERIAL", "private_key"]) {
+            expect(everything).not.toContain(fragment)
+        }
+        expect((thrown as Error).cause).toBeUndefined()
+        expect(Storage).not.toHaveBeenCalled()
+    })
+
     it("given an unknown authentication type, when the client is built, then it is refused before any SDK client exists", () => {
         const adc = { authType: "applicationDefault", bucketName: "assets-bucket" } as unknown as GoogleStorageConfig
 

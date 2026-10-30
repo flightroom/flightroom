@@ -20,7 +20,14 @@ export class GoogleStorageClient {
 
         switch (config.authType) {
             case "serviceAccount": {
-                const jsonParsed = JSON.parse(config.jsonKey)
+                let jsonParsed
+                // JSON.parse quotes the text around where it stopped, and here that is the private key:
+                // neither its message nor the error itself, as a cause, may leave this block
+                try {
+                    jsonParsed = JSON.parse(config.jsonKey)
+                } catch {
+                    throw new Error("The Google service account key is not valid JSON")
+                }
                 this.storage = new Storage({
                     credentials: {
                         client_email: jsonParsed.client_email,
