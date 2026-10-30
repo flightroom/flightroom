@@ -21,6 +21,12 @@ export interface BackendEnvVariable {
 /** Same shape as the frontend repository link: the backend reuses the subdocument. */
 export type BackendCodeRepository = Frontend["codeRepository"]
 
+/** The version one environment runs apart from the one of a container */
+export interface EnvironmentVersion {
+    environmentId: string
+    version?: string | null
+}
+
 /** What one environment sets apart from the CPU and memory of a container */
 export interface EnvironmentResources {
     environmentId: string
@@ -73,6 +79,8 @@ export interface Backend {
     memoryLimit?: string | null
     /** The environments that run it with CPU and memory of their own: each value left blank is the one above */
     environmentResources?: EnvironmentResources[] | null
+    /** The environments that run a version of their own: one left blank runs the version above */
+    environmentVersions?: EnvironmentVersion[] | null
     env: BackendEnvVariable[]
     /** Config maps of the project it receives as environment variables */
     configMapIds?: string[]

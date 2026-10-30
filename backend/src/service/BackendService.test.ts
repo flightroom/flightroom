@@ -47,7 +47,7 @@ import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BackendDTO from "../types/BackendDTO"
 import { BackendRuntime } from "../types/BackendStack"
 import { FrontendStackSource } from "../types/FrontendStack"
-import BackendService, { ensureRequestsWithinLimits, imageRepositoryOf, isNewerVersion, withNormalizedEnvironmentResources } from "./BackendService"
+import BackendService, { ensureRequestsWithinLimits, imageRepositoryOf, isNewerVersion, withNormalizedEnvironmentResources, withNormalizedEnvironmentVersions } from "./BackendService"
 
 withNoMaintenanceAgents()
 
@@ -600,6 +600,45 @@ describe("withNormalizedEnvironmentResources", () => {
 
     it("given no environmentResources, when normalized, then nothing is read", async () => {
         expect(await withNormalizedEnvironmentResources({}, projectObjectId)).toEqual({})
+        expect(Environment.find).not.toHaveBeenCalled()
+    })
+})
+
+describe("withNormalizedEnvironmentVersions", () => {
+    const projectObjectId = new Types.ObjectId(projectId) as never
+    const production = new Types.ObjectId()
+
+    beforeEach(() => {
+        vi.spyOn(Environment, "find").mockResolvedValue([{ _id: production }] as never)
+    })
+
+    it("given a version with spaces and an environment left blank, when normalized, then the version is trimmed and that environment is left out", async () => {
+        const dto = {
+            environmentVersions: [
+                { environmentId: String(production), version: " 1.2.0 " },
+                { environmentId: String(new Types.ObjectId()), version: "" }
+            ]
+        }
+
+        expect((await withNormalizedEnvironmentVersions(dto, projectObjectId)).environmentVersions).toEqual([{ environmentId: String(production), version: "1.2.0" }])
+    })
+
+    it.each([
+        ["an environment of another project", [{ environmentId: String(new Types.ObjectId()), version: "1.0.0" }]],
+        [
+            "an environment listed twice",
+            [
+                { environmentId: String(production), version: "1.0.0" },
+                { environmentId: String(production), version: "1.1.0" }
+            ]
+        ],
+        ["a version that is no tag of an image", [{ environmentId: String(production), version: "1.0.0+build" }]]
+    ])("given %s, when normalized, then it is refused", async (_case, environmentVersions) => {
+        await expect(withNormalizedEnvironmentVersions({ environmentVersions }, projectObjectId)).rejects.toThrow(BusinessException)
+    })
+
+    it("given no environmentVersions, when normalized, then nothing is read", async () => {
+        expect(await withNormalizedEnvironmentVersions({}, projectObjectId)).toEqual({})
         expect(Environment.find).not.toHaveBeenCalled()
     })
 })

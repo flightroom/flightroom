@@ -2,8 +2,9 @@ import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { BackendPaths } from "../types/BackendStack"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
 import { IDesignSystem } from "../types/DesignSystem"
+import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
-import { backendEnvVariableSchema, environmentResourcesField, exposurePath, IBackendEnvVariable, optionalPath, resourceFields } from "./ContainerFields"
+import { backendEnvVariableSchema, environmentResourcesField, environmentVersionsField, exposurePath, IBackendEnvVariable, optionalPath, resourceFields } from "./ContainerFields"
 import { designSystemSchema } from "./DesignSystemSchema"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
@@ -73,7 +74,7 @@ export interface IPosition {
  * BUNDLE document carries none of them; FrontendService fills the backend defaults in
  * when a DOCKER is created.
  */
-export interface IFrontendContainer extends Partial<BackendPaths>, ContainerResourcesByEnvironment {
+export interface IFrontendContainer extends Partial<BackendPaths>, ContainerResourcesByEnvironment, VersionByEnvironment {
     image?: {
         /** Without tag, e.g. ghcr.io/acme/shell */
         repository?: string
@@ -402,6 +403,7 @@ const frontendSchema: Schema = new Schema<IFrontend>(
         exposurePath,
         ...resourceFields,
         environmentResources: environmentResourcesField,
+        environmentVersions: environmentVersionsField,
         env: {
             type: [backendEnvVariableSchema],
             default: undefined

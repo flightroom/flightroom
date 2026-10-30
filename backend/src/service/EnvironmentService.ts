@@ -160,7 +160,7 @@ class EnvironmentService extends BaseAuthorizedService {
      * An environment owns its deployments and its global variables, and each deployment owns the
      * canary enrolments recorded against it, so the enrolments have to go first: once the
      * deployments are gone there is nothing left to find them by. The backends, frontends and
-     * maintenance agents lose the CPU and memory they set apart for it.
+     * maintenance agents lose the CPU, the memory and the version they set apart for it.
      */
     private async deleteWithContents(environmentIds: ObjectId[], session?: ClientSession) {
         const deployments = await Deployment.find({ environmentId: { $in: environmentIds } }, null, { session })
@@ -171,9 +171,10 @@ class EnvironmentService extends BaseAuthorizedService {
         await GlobalVariable.deleteMany({ environmentId: { $in: environmentIds } }, { session })
         // The versions the deploy pipelines reported as running there
         await BackendDeployment.deleteMany({ environmentId: { $in: environmentIds } }, { session })
-        // The CPU and memory the applications set apart there
-        const setApart = { "environmentResources.environmentId": { $in: environmentIds } }
-        const pull = { $pull: { environmentResources: { environmentId: { $in: environmentIds } } } }
+        // The CPU, the memory and the version the applications set apart there
+        const inEnvironment = { environmentId: { $in: environmentIds } }
+        const setApart = { $or: [{ "environmentResources.environmentId": { $in: environmentIds } }, { "environmentVersions.environmentId": { $in: environmentIds } }] }
+        const pull = { $pull: { environmentResources: inEnvironment, environmentVersions: inEnvironment } }
         await Backend.updateMany(setApart, pull, { session })
         await Frontend.updateMany(setApart, pull, { session })
         await MaintenanceAgent.updateMany(setApart, pull, { session })

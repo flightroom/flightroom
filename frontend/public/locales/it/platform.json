@@ -2513,6 +2513,13 @@
         "version": "Versione",
         "version_hint": "Il tag dell'immagine deployata. Puoi impostarla qui, oppure la imposta la pipeline quando registra un'immagine più recente.",
         "version_invalid": "Solo lettere, numeri, punti, trattini e underscore, al massimo 128",
+        "version_by_environment": {
+            "title": "Versione per ambiente",
+            "description": "Una versione diversa in alcuni ambienti, ad esempio produzione ferma a una precedente mentre gli altri prendono l'ultima. Se vuota, l'ambiente usa la versione qui sopra, mostrata come placeholder. La scrive il prossimo deploy dell'ambiente.",
+            "add": "Aggiungi {{environment}}",
+            "none": "La stessa in tutti gli ambienti",
+            "no_version": "Ancora nessuna versione"
+        },
         "urls": {
             "title": "Endpoint",
             "description": "Se è raggiungibile dall'esterno e su quale path: lo stesso sull'host di ogni ambiente. I percorsi di documentazione e OpenAPI sono relativi a questo indirizzo.",

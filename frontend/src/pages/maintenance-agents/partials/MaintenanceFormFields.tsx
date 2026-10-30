@@ -7,6 +7,7 @@ import { Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import type { MaintenanceAgentKind } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import ContainerResourceFields from "@/pages/backends/partials/ContainerResourceFields"
+import EnvironmentVersionFields from "@/pages/backends/partials/EnvironmentVersionFields"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import { KindGlyph } from "./MaintenanceBadges"
@@ -272,6 +273,7 @@ export const MaintenanceRuntimeFields: React.FC = () => {
             <CardContent className="grid grid-cols-1 gap-x-4 gap-y-2 pt-3 md:grid-cols-2">
                 <TextField name="image.repository" label={t("backends.image_repository")} placeholder="ghcr.io/acme/cleanup-agent" description={imageHint} />
                 <TextField name="version" label={t("backends.version")} placeholder="1.0.0" description={t("backends.version_hint")} />
+                <EnvironmentVersionFields className="md:col-span-2" />
                 {isContainer && (
                     <>
                         <TextField name="runPath" label={t("maintenance.run_path")} placeholder="/run" description={t("maintenance.run_path_hint")} required />

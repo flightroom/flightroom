@@ -58,6 +58,7 @@ export const createFormSchema = (messages: FormMessages) => {
             memoryRequest: z.string().optional(),
             memoryLimit: z.string().optional(),
             environmentResources: z.array(z.object({ environmentId: z.string(), cpuRequest: z.string(), cpuLimit: z.string(), memoryRequest: z.string(), memoryLimit: z.string() })).optional(),
+            environmentVersions: z.array(z.object({ environmentId: z.string(), version: z.string() })).optional(),
             exposed: z.boolean().optional(),
             exposurePath: z.string().optional(),
             image: z.object({ repository: z.string().optional() }).optional(),
@@ -134,6 +135,11 @@ export const createFormSchema = (messages: FormMessages) => {
                 if (data.version?.trim() && !BACKEND_VERSION.test(data.version.trim())) {
                     ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["version"] })
                 }
+                data.environmentVersions?.forEach((entry, index) => {
+                    if (entry.version.trim() && !BACKEND_VERSION.test(entry.version.trim())) {
+                        ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["environmentVersions", index, "version"] })
+                    }
+                })
                 return
             }
             if (!data.version) {

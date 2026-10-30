@@ -104,3 +104,17 @@ const environmentResourcesSchema = new Schema<IEnvironmentResources>({ environme
 
 /** The environments that run the container with CPU and memory of their own; that each one belongs to the project is checked by the services */
 export const environmentResourcesField = { type: [environmentResourcesSchema], default: undefined }
+
+/** The version one environment runs apart from the application's: the tag of the image the deploy writes there */
+export interface IEnvironmentVersion {
+    environmentId: Schema.Types.ObjectId
+    version: string
+}
+
+const environmentVersionSchema = new Schema<IEnvironmentVersion>(
+    { environmentId: { type: Schema.Types.ObjectId, ref: "Environment", required: true }, version: { type: String, required: true, trim: true, maxlength: 128 } },
+    { _id: false }
+)
+
+/** The environments that run a version of their own; as for the resources, that each one belongs to the project is checked by the services */
+export const environmentVersionsField = { type: [environmentVersionSchema], default: undefined }

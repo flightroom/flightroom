@@ -155,6 +155,14 @@ describe("renderApplicationValues", () => {
 
         expect(values.resources).toEqual({ requests: { cpu: "250m" } })
     })
+
+    it.each([
+        ["this environment runs a version of its own", [{ environmentId: environment._id, version: "1.1.0" }], "1.1.0"],
+        ["another environment runs a version of its own", [{ environmentId: new Types.ObjectId(), version: "1.1.0" }], application.version],
+        ["this environment leaves its version blank", [{ environmentId: environment._id, version: " " }], application.version]
+    ])("given %s, when its values are rendered, then the image is tagged with the version it runs there", (_case, environmentVersions, tag) => {
+        expect(parse(render({ environmentVersions })).image.tag).toBe(tag)
+    })
 })
 
 describe("renderApplicationValues, maintenance agent", () => {

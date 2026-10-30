@@ -4,6 +4,7 @@ import { CanaryDeploymentType, CanaryType, type Frontend, FrontendKind } from "@
 import type { Storage } from "@/hooks/apiClients/useStorageApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
 import { resourceFormValues } from "@/pages/backends/partials/containerResources"
+import { environmentVersionFormValues } from "@/pages/backends/partials/environmentVersions"
 import { designSystemFormValues, toDesignSystem } from "@/pages/settings/partials/DesignSystemFields"
 import type { FormInput, FormValues } from "./frontendFormSchema"
 
@@ -48,6 +49,7 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
         exposed: frontend?.exposurePath ? true : !frontend || frontend.kind !== FrontendKind.DOCKER,
         exposurePath: frontend?.exposurePath ?? "",
         ...resourceFormValues(frontend),
+        environmentVersions: environmentVersionFormValues(frontend),
         image: { repository: frontend?.image?.repository ?? "" },
         env: frontend?.env ?? [],
         // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
@@ -120,6 +122,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         memoryRequest,
         memoryLimit,
         environmentResources,
+        environmentVersions,
         exposed,
         exposurePath,
         image,
@@ -152,6 +155,8 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   memoryLimit: memoryLimit?.trim(),
                   // Empty: the container's, as above
                   environmentResources,
+                  // Blank: the version above
+                  environmentVersions: environmentVersions?.map(entry => ({ ...entry, version: entry.version.trim() })),
                   // Null: not exposed on the host of the environments
                   exposurePath: exposed ? exposurePath?.trim() : null,
                   image,
