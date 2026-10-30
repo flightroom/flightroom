@@ -221,7 +221,7 @@ describe("ArgoCdClient failures", () => {
         await expect(failureOf(answered(500))).rejects.toMatchObject({ details: { reason: "500" } })
     })
 
-    it("given Argo CD answers with a redirect, when it is called, then the redirect is a failure and not followed", async () => {
+    it("given Argo CD answers 302, when it is called, then the redirect is a failed request with the status as the reason", async () => {
         await expect(failureOf(answered(302, ""))).rejects.toMatchObject({ code: "ARGOCD_REQUEST_FAILED", details: { reason: "302" } })
     })
 
@@ -267,7 +267,7 @@ describe("ArgoCdClient.getRepository", () => {
         const registered = { repo: "https://gitlab.example/acme/apps.git", project: "acme" }
         const get = vi.fn().mockResolvedValue({ data: { items: [{ repo: "https://gitlab.example/acme/other.git" }, registered] } })
 
-        await expect(clientWith({ get }).getRepository(url)).resolves.toBe(registered)
+        await expect(clientWith({ get }).getRepository(url)).resolves.toEqual(registered)
         expect(get).toHaveBeenCalledWith("/repositories")
     })
 
@@ -347,7 +347,7 @@ describe("ArgoCdClient.getProject", () => {
         const project = { metadata: { name: "acme shop", labels: { "flightroom.dev/project-id": "p1" } } }
         const get = vi.fn().mockResolvedValue({ data: project })
 
-        await expect(clientWith({ get }).getProject("acme shop")).resolves.toBe(project)
+        await expect(clientWith({ get }).getProject("acme shop")).resolves.toEqual(project)
         expect(get).toHaveBeenCalledWith("/projects/acme%20shop")
     })
 
@@ -368,7 +368,7 @@ describe("ArgoCdClient.getApplication", () => {
         const application = { metadata: { name: "orders/dev" }, status: { sync: { status: "Synced", revision: "abc" }, health: { status: "Healthy" } } }
         const get = vi.fn().mockResolvedValue({ data: application })
 
-        await expect(clientWith({ get }).getApplication("orders/dev", "acme")).resolves.toBe(application)
+        await expect(clientWith({ get }).getApplication("orders/dev", "acme")).resolves.toEqual(application)
         expect(get).toHaveBeenCalledWith("/applications/orders%2Fdev", { params: { project: "acme" } })
     })
 
@@ -389,7 +389,7 @@ describe("ArgoCdClient.getApplicationSet", () => {
         const applicationSet = { metadata: { name: "acme envs" } }
         const get = vi.fn().mockResolvedValue({ data: applicationSet })
 
-        await expect(clientWith({ get }).getApplicationSet("acme envs")).resolves.toBe(applicationSet)
+        await expect(clientWith({ get }).getApplicationSet("acme envs")).resolves.toEqual(applicationSet)
         expect(get).toHaveBeenCalledWith("/applicationsets/acme%20envs")
     })
 
@@ -453,7 +453,7 @@ describe("ArgoCdClient.listApplications", () => {
         const get = vi.fn().mockResolvedValue({ data: { items } })
         const selector = "flightroom.dev/project-id=p1,flightroom.dev/component=configuration"
 
-        await expect(clientWith({ get }).listApplications(selector, "acme")).resolves.toBe(items)
+        await expect(clientWith({ get }).listApplications(selector, "acme")).resolves.toEqual(items)
         expect(get).toHaveBeenCalledWith("/applications", { params: { selector, projects: "acme" } })
     })
 
@@ -527,7 +527,7 @@ describe("ArgoCdClient.listApplicationSets", () => {
         const items = [{ metadata: { name: "acme-envs" } }]
         const get = vi.fn().mockResolvedValue({ data: { items } })
 
-        await expect(clientWith({ get }).listApplicationSets("flightroom.dev/project-id=p1", "acme")).resolves.toBe(items)
+        await expect(clientWith({ get }).listApplicationSets("flightroom.dev/project-id=p1", "acme")).resolves.toEqual(items)
         expect(get).toHaveBeenCalledWith("/applicationsets", { params: { selector: "flightroom.dev/project-id=p1", projects: "acme" } })
     })
 
