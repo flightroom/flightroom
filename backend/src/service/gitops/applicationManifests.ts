@@ -1,5 +1,5 @@
 import { stringify } from "yaml"
-import { CHART_RESOURCE_DEFAULTS, ContainerResources } from "../../types/ContainerResources"
+import { CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 
 /**
@@ -15,7 +15,7 @@ export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: flightroom"
 
 /** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
-export interface GitOpsApplication extends ContainerResources {
+export interface GitOpsApplication extends ContainerResourcesByEnvironment {
     slug: string
     /** The latest version the CI registered, or the one set by hand: the tag of the image */
     version?: string
@@ -148,7 +148,8 @@ export interface ApplicationGateway {
  * The values of one application in one environment. The config maps, the secrets and the resources go by
  * name: the configuration repository holds them, as manifests in the namespace of the environment. A
  * resource is a Secret, so it goes with the secrets, after them: the chart needs no change for it. With a Gateway in
- * the environment, an application with an exposure path gets a route on it. Without an image repository of
+ * the environment, an application with an exposure path gets a route on it. Its CPU and memory are those of the
+ * environment where it sets some apart. Without an image repository of
  * its own, the image is the one in the container registry of the project.
  */
 export const renderApplicationValues = (
@@ -170,7 +171,8 @@ export const renderApplicationValues = (
         replicas: 1,
         image: { ...splitImage(repository), tag: application.version },
         containerPort: application.port ?? 8080,
-        ...resourceValues(application),
+        // What the environment sets apart, else what the application sets
+        ...resourceValues(resourcesIn(application, environment._id)),
         probes: {
             liveness: { active: Boolean(application.livenessPath), path: application.livenessPath ?? "/" },
             readiness: { active: Boolean(application.readinessPath), path: application.readinessPath ?? "/" }

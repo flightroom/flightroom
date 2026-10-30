@@ -6,6 +6,12 @@ export const RESOURCE_FIELDS = ["cpuRequest", "cpuLimit", "memoryRequest", "memo
 export type ResourceField = (typeof RESOURCE_FIELDS)[number]
 export type ContainerResources = Partial<Record<ResourceField, string | null>>
 
+/** Same as the backend: what one environment sets apart, each value left blank being the container's */
+export type EnvironmentResources = ContainerResources & { environmentId: string }
+
+/** The form values of one environment that sets its CPU and memory apart */
+export type EnvironmentResourcesFormValues = Record<ResourceField, string> & { environmentId: string }
+
 /** Same as the backend: what the chart of the applications repository sets for a value left empty */
 export const CHART_RESOURCE_DEFAULTS: Record<ResourceField, string> = { cpuRequest: "25m", cpuLimit: "500m", memoryRequest: "128Mi", memoryLimit: "512Mi" }
 
@@ -43,42 +49,57 @@ export const resourceMessages = (t: TFunction): ResourceMessages => ({
     memoryRequestAboveLimit: limit => t("backends.compute.memory_request_above_limit", { limit })
 })
 
-/** The four fields of a form: empty means the default of the chart */
+/** The four fields of a form, empty meaning the default of the chart, and those each environment sets apart, empty meaning the container's */
 export const createResourceShape = (messages: ResourceMessages) => {
     const quantity = (parse: (value: string) => number | undefined, message: string) =>
         z
             .string()
             .trim()
             .refine(value => value === "" || parse(value) !== undefined, message)
-    return {
+    const fields = {
         cpuRequest: quantity(parseCpu, messages.cpuInvalid),
         cpuLimit: quantity(parseCpu, messages.cpuInvalid),
         memoryRequest: quantity(parseMemory, messages.memoryInvalid),
         memoryLimit: quantity(parseMemory, messages.memoryInvalid)
     }
+    return { ...fields, environmentResources: z.array(z.object({ environmentId: z.string(), ...fields })) }
 }
 
 /**
- * Same rule as the backend (requestAboveLimit): Kubernetes refuses a request above its limit, an empty one being the
- * default of the chart. The issue lands on the request when it was typed, else on the limit.
+ * Same rule as the backend (ensureRequestsWithinLimits): Kubernetes refuses a request above its limit, an empty one
+ * being the default of the chart. An environment is checked on what it ends up with, its own values else the
+ * container's, and only for a pair it sets: the container's own is reported once, on its fields. The issue lands on
+ * the request when it was typed, else on the limit.
  */
-export const refineResources = (data: ContainerResources, ctx: z.RefinementCtx, messages: ResourceMessages) => {
-    const effective = (field: ResourceField) => data[field]?.trim() || CHART_RESOURCE_DEFAULTS[field]
+export const refineResources = (data: ContainerResources & { environmentResources?: ContainerResources[] }, ctx: z.RefinementCtx, messages: ResourceMessages) => {
     const pairs = [
         { request: "cpuRequest", limit: "cpuLimit", parse: parseCpu, message: messages.cpuRequestAboveLimit },
         { request: "memoryRequest", limit: "memoryLimit", parse: parseMemory, message: messages.memoryRequestAboveLimit }
     ] as const
-    for (const { request, limit, parse, message } of pairs) {
-        const [requested, limited] = [parse(effective(request)), parse(effective(limit))]
-        if (requested === undefined || limited === undefined || requested <= limited) continue
-        ctx.addIssue({ code: "custom", message: message(effective(limit)), path: [data[request]?.trim() ? request : limit] })
+    const refine = (values: ContainerResources, path: (string | number)[], base?: ContainerResources) => {
+        const effective = (field: ResourceField) => values[field]?.trim() || base?.[field]?.trim() || CHART_RESOURCE_DEFAULTS[field]
+        for (const { request, limit, parse, message } of pairs) {
+            if (base && !values[request]?.trim() && !values[limit]?.trim()) continue
+            const [requested, limited] = [parse(effective(request)), parse(effective(limit))]
+            if (requested === undefined || limited === undefined || requested <= limited) continue
+            ctx.addIssue({ code: "custom", message: message(effective(limit)), path: [...path, values[request]?.trim() ? request : limit] })
+        }
     }
+    refine(data, [])
+    data.environmentResources?.forEach((entry, index) => refine(entry, ["environmentResources", index], data))
 }
 
-/** What the form holds for a container: empty for a value it does not set */
-export const resourceFormValues = (container?: ContainerResources): Record<ResourceField, string> => ({
+const fieldValues = (container?: ContainerResources): Record<ResourceField, string> => ({
     cpuRequest: container?.cpuRequest ?? "",
     cpuLimit: container?.cpuLimit ?? "",
     memoryRequest: container?.memoryRequest ?? "",
     memoryLimit: container?.memoryLimit ?? ""
+})
+
+/** What the form holds for a container: empty for a value it does not set, and the environments that set some apart */
+export const resourceFormValues = (
+    container?: ContainerResources & { environmentResources?: EnvironmentResources[] | null }
+): Record<ResourceField, string> & { environmentResources: EnvironmentResourcesFormValues[] } => ({
+    ...fieldValues(container),
+    environmentResources: (container?.environmentResources ?? []).map(entry => ({ environmentId: entry.environmentId, ...fieldValues(entry) }))
 })

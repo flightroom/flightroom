@@ -17,6 +17,7 @@ type FrontendContainerDTO = Pick<
     | "cpuLimit"
     | "memoryRequest"
     | "memoryLimit"
+    | "environmentResources"
     | "env"
     | "configMapIds"
     | "secretIds"

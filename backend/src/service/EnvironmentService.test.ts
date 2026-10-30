@@ -12,10 +12,13 @@ vi.mock("..", () => ({
 vi.mock("../plugins/noSQL", () => ({ isReplicaSet: false }))
 
 import BackendDeployment from "../models/BackendDeploymentModel"
+import Backend from "../models/BackendModel"
 import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Environment from "../models/EnvironmentModel"
+import Frontend from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
+import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import EnvironmentService, { normalizeIpAllowList } from "./EnvironmentService"
 
 const newId = () => new Types.ObjectId() as unknown as ObjectId
@@ -35,6 +38,8 @@ describe("EnvironmentService cascade on delete", () => {
 
     /** The filters each model was asked to delete by, in the order the calls were made. */
     let calls: { model: string; filter: Record<string, unknown> }[]
+    /** The updates that take the environments out of the CPU and memory the applications set apart */
+    let pulls: { model: string; filter: Record<string, unknown>; update: Record<string, unknown> }[]
 
     const backend = () => {
         const instance = new EnvironmentService({ _id: newId() } as never)
@@ -48,6 +53,7 @@ describe("EnvironmentService cascade on delete", () => {
 
     beforeEach(() => {
         calls = []
+        pulls = []
         vi.spyOn(Environment, "find").mockResolvedValue([] as never)
 
         const record = (model: string) => (filter: Record<string, unknown>) => {
@@ -65,6 +71,13 @@ describe("EnvironmentService cascade on delete", () => {
         vi.spyOn(GlobalVariable, "deleteMany").mockImplementation(record("GlobalVariable") as never)
         vi.spyOn(BackendDeployment, "deleteMany").mockImplementation(record("BackendDeployment") as never)
         vi.spyOn(Environment, "deleteMany").mockImplementation(record("Environment") as never)
+        const pull = (model: string) => (filter: Record<string, unknown>, update: Record<string, unknown>) => {
+            pulls.push({ model, filter, update })
+            return Promise.resolve({ acknowledged: true, modifiedCount: 1 })
+        }
+        vi.spyOn(Backend, "updateMany").mockImplementation(pull("Backend") as never)
+        vi.spyOn(Frontend, "updateMany").mockImplementation(pull("Frontend") as never)
+        vi.spyOn(MaintenanceAgent, "updateMany").mockImplementation(pull("MaintenanceAgent") as never)
     })
 
     it("given an environment with deployments, variables and reported backend deploys, when it is deleted, then they all go with it", async () => {
@@ -93,6 +106,16 @@ describe("EnvironmentService cascade on delete", () => {
         expect(scoped("BackendDeployment")).toEqual({ environmentId: { $in: [environmentId] } })
         expect(scoped("Environment")).toEqual({ _id: { $in: [environmentId] } })
         expect(scoped("DeploymentToCanaryUsers")).toEqual({ deploymentId: { $in: deploymentIds } })
+    })
+
+    it("given an environment is deleted, then the backends, frontends and maintenance agents lose the CPU and memory they set apart for it", async () => {
+        await backend().deleteSingle(environmentId)
+
+        expect(pulls.map(pull => pull.model)).toEqual(["Backend", "Frontend", "MaintenanceAgent"])
+        for (const pull of pulls) {
+            expect(pull.filter).toEqual({ "environmentResources.environmentId": { $in: [environmentId] } })
+            expect(pull.update).toEqual({ $pull: { environmentResources: { environmentId: { $in: [environmentId] } } } })
+        }
     })
 
     it("given an environment that does not exist, when it is deleted, then nothing is deleted", async () => {

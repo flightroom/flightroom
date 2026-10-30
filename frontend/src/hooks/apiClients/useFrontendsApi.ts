@@ -46,6 +46,7 @@ export type FrontendContainer = Partial<
         | "cpuLimit"
         | "memoryRequest"
         | "memoryLimit"
+        | "environmentResources"
         | "env"
         | "configMapIds"
         | "secretIds"

@@ -11,6 +11,22 @@ export interface ContainerResources {
 
 export const CONTAINER_RESOURCE_FIELDS = ["cpuRequest", "cpuLimit", "memoryRequest", "memoryLimit"] as const
 
+/** What one environment sets apart from the values of the application: each one left out is the application's */
+export interface EnvironmentResources extends ContainerResources {
+    environmentId: unknown
+}
+
+/** The resources of an application, with those it sets apart in some environments */
+export interface ContainerResourcesByEnvironment extends ContainerResources {
+    environmentResources?: EnvironmentResources[] | null
+}
+
+/** The resources of an application in one environment: what the environment sets, else what the application sets */
+export const resourcesIn = (application: ContainerResourcesByEnvironment, environmentId: unknown): ContainerResources => {
+    const own = application.environmentResources?.find(entry => String(entry.environmentId) === String(environmentId))
+    return Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, own?.[field]?.trim() || application[field]?.trim() || null]))
+}
+
 /** What the chart Flightroom writes gives a container that sets none of them */
 export const CHART_RESOURCE_DEFAULTS = { cpuRequest: "25m", cpuLimit: "500m", memoryRequest: "128Mi", memoryLimit: "512Mi" }
 

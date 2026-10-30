@@ -21,6 +21,15 @@ export interface BackendEnvVariable {
 /** Same shape as the frontend repository link: the backend reuses the subdocument. */
 export type BackendCodeRepository = Frontend["codeRepository"]
 
+/** What one environment sets apart from the CPU and memory of a container */
+export interface EnvironmentResources {
+    environmentId: string
+    cpuRequest?: string | null
+    cpuLimit?: string | null
+    memoryRequest?: string | null
+    memoryLimit?: string | null
+}
+
 export interface Backend {
     _id?: string
     projectId?: string
@@ -62,6 +71,8 @@ export interface Backend {
     /** Kubernetes quantities, e.g. 128Mi or 1Gi; blank or null for the default of the chart */
     memoryRequest?: string | null
     memoryLimit?: string | null
+    /** The environments that run it with CPU and memory of their own: each value left blank is the one above */
+    environmentResources?: EnvironmentResources[] | null
     env: BackendEnvVariable[]
     /** Config maps of the project it receives as environment variables */
     configMapIds?: string[]
