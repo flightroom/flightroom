@@ -9,9 +9,6 @@ import { buildSpace } from "./vega-scene/space"
 import type { Departure, Leaving, RoomAnimation, Vega, Wall, WorkshopWorker } from "./vega-scene/types"
 import { makeVega } from "./vega-scene/vega"
 
-export { LIVERIES } from "./vega-scene/constants"
-export type { WorkshopMood, WorkshopWorker } from "./vega-scene/types"
-
 // Scratch vectors for the width of a bay on screen, reused on every frame
 const bayFrom = new THREE.Vector3()
 const bayTo = new THREE.Vector3()

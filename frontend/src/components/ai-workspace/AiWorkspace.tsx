@@ -24,9 +24,6 @@ import { RequestSelection } from "./RequestSelection"
 import { useWorkspaceQueue } from "./useWorkspaceQueue"
 import { useWorkspaceView, ViewSwitch } from "./WorkspaceView"
 
-export type { AiWorkspaceTarget } from "./aiWorkspaceUtils"
-export type { AiWorkspaceComposerExtension } from "./Composer"
-
 // three.js comes with it: only the users who open the workshop load it
 const VegaWorkshop = lazy(() => import("./workshop/VegaWorkshop"))
 
@@ -47,7 +44,7 @@ interface AiWorkspaceProps {
  * the other. A frontend or a backend works on its own repository, a domain on all of its repositories at once.
  * The selection lives in `?change=`, so the assistant can link a job straight to its diff.
  */
-export const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, composer }) => {
+const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, composer }) => {
     const { t } = useTranslation()
     const aiChangesApi = useAiChangesApi()
     const aiJobsApi = useAiJobsApi()

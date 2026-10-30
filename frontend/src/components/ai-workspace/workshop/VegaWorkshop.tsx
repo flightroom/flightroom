@@ -4,7 +4,9 @@ import { useTranslation } from "react-i18next"
 import useAiChangesApi, { AiChangeEvent, AiChangeStatus } from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi from "@/hooks/apiClients/useAiJobsApi"
 import { cn } from "@/utils/styleUtils"
-import { LIVERIES, VegaScene, WorkshopMood, WorkshopWorker } from "./vegaScene"
+import { LIVERIES } from "./vega-scene/constants"
+import { WorkshopMood, WorkshopWorker } from "./vega-scene/types"
+import { VegaScene } from "./vegaScene"
 
 /** One work of the queue, as the workshop draws it */
 export interface WorkshopEntry {
