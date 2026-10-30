@@ -534,10 +534,13 @@ describe("AzureDevOpsClient failed job logs", () => {
             .mockResolvedValueOnce({ data: { repository: { id: "orders-repository" } } })
             .mockResolvedValueOnce(threeFailedTasks)
             .mockImplementation(config => (String(config.url).includes("/logs/2?") ? Promise.reject(tooLarge) : Promise.resolve({ data: `log of ${config.url}` })))
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
 
         const logs = await new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")
 
         expect(logs.map(log => log.name)).toEqual(["Build", "Lint"])
+        expect(warn).toHaveBeenCalledTimes(1)
+        expect(warn).toHaveBeenCalledWith("Could not download the log of the failed task Test: maxContentLength size of 1048576 exceeded")
     })
 
     it("given every log fails, when the logs are read, then the failure of the first task is passed on", async () => {
@@ -545,9 +548,12 @@ describe("AzureDevOpsClient failed job logs", () => {
         vi.spyOn(axios, "request")
             .mockResolvedValueOnce({ data: { repository: { id: "orders-repository" } } })
             .mockResolvedValueOnce(threeFailedTasks)
-            .mockImplementation(config => Promise.reject(String(config.url).includes("/logs/1?") ? first : answered(404)))
+            .mockImplementation(config => Promise.reject(String(config.url).includes("/logs/1?") ? first : "socket hang up"))
+        const warn = vi.spyOn(console, "warn").mockImplementation(() => undefined)
 
         await expect(new AzureDevOpsClient().getFailedJobLogs("pat", "org", "project", "orders-repository", "41")).rejects.toBe(first)
+        expect(warn).toHaveBeenCalledWith("Could not download the log of the failed task Build: Request failed")
+        expect(warn).toHaveBeenCalledWith("Could not download the log of the failed task Lint: socket hang up")
     })
 
     it("given the timeline cannot be read, when the logs are read, then the failure is passed on", async () => {
