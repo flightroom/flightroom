@@ -9,14 +9,16 @@ import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import PendingInvitationsList, { usePendingInvitationsQuery } from "@/components/PendingInvitationsList"
 import ProjectPickerList from "@/components/ProjectPickerList"
+import RouteWithSuspense from "@/components/RouteWithSuspense"
 import SwitchOrganizationButton from "@/components/SwitchOrganizationButton"
 import useProjectApi, { Project } from "@/hooks/apiClients/useProjectApi"
-import NewProjectWizard from "@/pages/new-project-wizard/NewProjectWizard"
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import { clearProjectIdInLocalStorage, getProjectIdFromLocalStorage, setProjectIdInLocalStorage } from "@/utils/localStorageUtils"
 
 const OrganizationSettings = lazy(() => import("@/pages/organization/OrganizationSettings"))
+// The same chunk as the /project-wizard route: only a user who sets out to create a project downloads it.
+const NewProjectWizard = lazy(() => import("@/pages/new-project-wizard/NewProjectWizard"))
 
 interface SelectProjectFormProps {
     /** Left out for a member who may not create projects in this organization. */
@@ -138,13 +140,17 @@ const SelectProjectWrapperInner: React.FC<React.PropsWithChildren> = ({ children
     // until a project is active it shadows the routed pages, so navigating there would show nothing.
     if (isCreatingProject) {
         return (
-            <NewProjectWizard
-                mountPoint="/project-wizard"
-                onComplete={() => {
-                    setFirstRunComplete(true)
-                    setIsCreatingProject(false)
-                    queryClient.invalidateQueries({ queryKey: ["projects-mine"] })
-                }}
+            <RouteWithSuspense
+                element={
+                    <NewProjectWizard
+                        mountPoint="/project-wizard"
+                        onComplete={() => {
+                            setFirstRunComplete(true)
+                            setIsCreatingProject(false)
+                            queryClient.invalidateQueries({ queryKey: ["projects-mine"] })
+                        }}
+                    />
+                }
             />
         )
     }
