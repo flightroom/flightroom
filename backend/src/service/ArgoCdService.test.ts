@@ -379,6 +379,18 @@ describe("ArgoCdService.initialize", () => {
             expect(calls).toContain(`argo:deleteRepository:${CONFIG_REPO}:${EARLIER}`)
         })
 
+        it("when the old AppProject still carries only the mfe-orchestrator label, as its upsert never refreshed the labels, then it is its own and moved", async () => {
+            vi.mocked(ArgoCdClient.prototype.getProject).mockImplementation(async name =>
+                name === EARLIER ? { metadata: { name, labels: { "mfe-orchestrator/project-id": String(projectId) } }, spec: {} } : null
+            )
+            vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === CONFIG_REPO ? { repo, project: EARLIER } : null))
+
+            await initialize()
+
+            expect(calls).toContain(`argo:upsertRepository:${CONFIG_REPO}:gitlab+deploy-token-8:gldt-new:${PROJECT_NAME}`)
+            expect(calls).toContain(`argo:deleteProject:${EARLIER}`)
+        })
+
         it("when Argo CD refuses the old AppProject while its Applications are being deleted, then the initialization goes through", async () => {
             vi.mocked(ArgoCdClient.prototype.deleteProject).mockRejectedValue(new Error("referenced by 2 applications"))
 
