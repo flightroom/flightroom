@@ -1,4 +1,4 @@
-import { Auth0Provider } from "@auth0/auth0-react"
+import { Auth0ContextInterface, Auth0Provider } from "@auth0/auth0-react"
 import { Auth0ProviderConfig } from "@/types/ConfigResponseDTO"
 import { Auth0Context } from "./auth0Context"
 
@@ -18,7 +18,8 @@ const Auth0SdkProvider = ({ config, children }: Auth0SdkProviderProps) => (
         }}
         cacheLocation="localstorage"
         useRefreshTokens={true}
-        context={Auth0Context}
+        // The provider fills the whole interface; the app reads only the Auth0State part of it
+        context={Auth0Context as unknown as React.Context<Auth0ContextInterface>}
     >
         <>{children}</>
     </Auth0Provider>

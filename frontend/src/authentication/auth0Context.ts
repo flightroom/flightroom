@@ -24,6 +24,6 @@ const noProvider: Auth0State = {
  * is downloaded only where Auth0 login is configured, while the API client and the user menu read
  * this state on every page.
  */
-export const Auth0Context = createContext<Auth0ContextInterface>(noProvider as Auth0ContextInterface)
+export const Auth0Context = createContext<Auth0State>(noProvider)
 
 export const useAuth0 = (): Auth0State => useContext(Auth0Context)
