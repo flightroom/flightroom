@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [11.8.0] - 2026-10-31
+
 ### Added
 
 - **Shell Commands For Edit With AI**: with an OpenShell gateway the agent gets `run_command` beside `run_script`, which runs any shell command in the sandbox, at the root of a repository or in a folder of it, for up to 10 minutes: the build and tests of a repository without a `package.json` (Maven, Gradle, Go, .NET, Python), one test file, a tool the scripts do not run. What it changes in the repository joins the change as for a script, counted in the 500 KB the agent may write, and the output of both, as the agent reads it, has the usual credential shapes masked. It does not get the `.npmrc` of the design system, which stays with `run_script`
