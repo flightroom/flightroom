@@ -32,6 +32,12 @@ type Phase = "committing" | "rolling_out" | "done" | "failed" | "timeout"
 
 const ENDED: Phase[] = ["done", "failed", "timeout"]
 
+/** Those the deploy changed: the others are only applied again. A deploy that changed no version, of config maps only, shows them all */
+const shownApplications = (rollout?: Rollout) => {
+    const updated = rollout?.applications.filter(application => application.updated) ?? []
+    return updated.length > 0 ? updated : (rollout?.applications ?? [])
+}
+
 /** The deploy the overlay follows once committed, the domain it was of, and when the overlay began to follow it */
 interface Followed {
     projectId: string
@@ -73,9 +79,7 @@ const DeployScreen: React.FC<DeployScreenProps> = ({ phase, startedAt, endedAt, 
     const messages = t("deployments.overlay.messages", { returnObjects: true }) as string[]
     const [messageIndex, setMessageIndex] = useState(() => Math.floor(Math.random() * messages.length))
     const ended = ENDED.includes(phase)
-    // Those the deploy changed: the others are only applied again. A deploy that changed no version, of config maps only, shows them all
-    const updated = rollout?.applications.filter(application => application.updated) ?? []
-    const applications = updated.length > 0 ? updated : (rollout?.applications ?? [])
+    const applications = shownApplications(rollout)
 
     useEffect(() => {
         const interval = setInterval(() => setMessageIndex(index => index + 1), MESSAGE_INTERVAL)
@@ -269,8 +273,9 @@ export const DeployOverlay: React.FC = () => {
         }
     }, [followed])
 
+    // Only those shown, as the end of the rollout counts them: one the deploy did not touch does not fail it
     useEffect(() => {
-        for (const application of rollout?.applications ?? []) {
+        for (const application of shownApplications(rollout)) {
             if (application.state === "healthy") degradedSince.current.delete(application._id)
             else if (application.state === "degraded" && !degradedSince.current.has(application._id)) degradedSince.current.set(application._id, Date.now())
         }
