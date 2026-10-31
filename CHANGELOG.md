@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Scheduled Sleep With kube-green**: an environment can sleep off hours on a [kube-green](https://kube-green.dev) schedule, set in the new kube-green section of its editor: the days in cron notation (`1-5` until set), when it sleeps and wakes up in a time zone (20:00 to 08:00, `Europe/Rome` until set; no wake up time, it sleeps until its next deploy), whether Deployments, StatefulSets and CronJobs are suspended, and the backends and frontends that never sleep. With GitOps on, the next deploy commits it as `<environment>/sleepinfo.yaml`, a SleepInfo in the namespace of the environment, and prunes it once the schedule is turned off. The tile of a sleeping environment shows the kube-green logo. The cluster needs the kube-green operator: without it the SleepInfo does nothing. The API and the MCP tool `environment_update` take `kubeGreen`, which replaces the saved schedule as a whole
 - **Manage Environments From The Deployments Page**: a **Manage environments** button among the actions of the Deployments page opens the Environments page
 
 ### Fixed
