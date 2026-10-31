@@ -48,7 +48,9 @@ export interface MaintenanceAgent {
     cpuLimit?: string | null
     memoryRequest?: string | null
     memoryLimit?: string | null
-    /** As for a backend: the environments that run it with CPU and memory of their own */
+    /** As for a backend: the pods a container runs, null for the default of the chart; a job runs none */
+    replicas?: number | null
+    /** As for a backend: the environments that run it with CPU, memory or replicas of their own */
     environmentResources?: EnvironmentResources[] | null
     /** As for a backend: the version each environment runs */
     environmentVersions?: EnvironmentVersion[] | null

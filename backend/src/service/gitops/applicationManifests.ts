@@ -1,5 +1,5 @@
 import { stringify } from "yaml"
-import { CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
+import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
 import { EnvironmentVersion, hasEnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 
@@ -154,8 +154,8 @@ export interface ApplicationGateway {
  * The values of one application in one environment. The config maps, the secrets and the resources go by
  * name: the configuration repository holds them, as manifests in the namespace of the environment. A
  * resource is a Secret, so it goes with the secrets, after them: the chart needs no change for it. With a Gateway in
- * the environment, an application with an exposure path gets a route on it. Its CPU and memory are those of the
- * environment where it sets some apart. Its version is the one of the environment. Without an image repository of
+ * the environment, an application with an exposure path gets a route on it. Its CPU, memory and replicas are those of
+ * the environment where it sets some apart. Its version is the one of the environment. Without an image repository of
  * its own, the image is the one in the container registry of the project.
  */
 export const renderApplicationValues = (
@@ -175,12 +175,13 @@ export const renderApplicationValues = (
         gateway && application.exposurePath
             ? { gateway: gateway.name, listener: gateway.listener, path: application.exposurePath, hsts: gateway.hsts, ...(gateway.ipAllowList ? { ipAllowList: gateway.ipAllowList } : {}) }
             : undefined
+    // What the environment sets apart, else what the application sets
+    const resources = resourcesIn(application, environment._id)
     const values = {
-        replicas: 1,
+        replicas: resources.replicas ?? CHART_REPLICAS_DEFAULT,
         image: { ...splitImage(repository), tag: version },
         containerPort: application.port ?? 8080,
-        // What the environment sets apart, else what the application sets
-        ...resourceValues(resourcesIn(application, environment._id)),
+        ...resourceValues(resources),
         probes: {
             liveness: { active: Boolean(application.livenessPath), path: application.livenessPath ?? "/" },
             readiness: { active: Boolean(application.readinessPath), path: application.readinessPath ?? "/" }

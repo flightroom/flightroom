@@ -47,7 +47,14 @@ import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BackendDTO from "../types/BackendDTO"
 import { BackendRuntime } from "../types/BackendStack"
 import { FrontendStackSource } from "../types/FrontendStack"
-import BackendService, { ensureRequestsWithinLimits, imageRepositoryOf, isNewerVersion, withNormalizedEnvironmentResources, withNormalizedEnvironmentVersions } from "./BackendService"
+import BackendService, {
+    ensureRequestsWithinLimits,
+    imageRepositoryOf,
+    isNewerVersion,
+    withNormalizedEnvironmentResources,
+    withNormalizedEnvironmentVersions,
+    withNormalizedReplicas
+} from "./BackendService"
 
 withNoMaintenanceAgents()
 
@@ -580,7 +587,15 @@ describe("withNormalizedEnvironmentResources", () => {
         }
 
         expect((await withNormalizedEnvironmentResources(dto, projectObjectId)).environmentResources).toEqual([
-            { environmentId: String(production), cpuRequest: null, cpuLimit: "2", memoryRequest: null, memoryLimit: null }
+            { environmentId: String(production), cpuRequest: null, cpuLimit: "2", memoryRequest: null, memoryLimit: null, replicas: null }
+        ])
+    })
+
+    it("given an environment setting only its replicas, as the digits a form sends, when normalized, then it is kept with a number", async () => {
+        const dto = { environmentResources: [{ environmentId: String(production), replicas: " 3 " as unknown as number }] }
+
+        expect((await withNormalizedEnvironmentResources(dto, projectObjectId)).environmentResources).toEqual([
+            { environmentId: String(production), cpuRequest: null, cpuLimit: null, memoryRequest: null, memoryLimit: null, replicas: 3 }
         ])
     })
 
@@ -593,7 +608,9 @@ describe("withNormalizedEnvironmentResources", () => {
                 { environmentId: String(production), memoryLimit: "1Gi" }
             ]
         ],
-        ["a value that is no quantity", [{ environmentId: String(production), memoryLimit: "lots" }]]
+        ["a value that is no quantity", [{ environmentId: String(production), memoryLimit: "lots" }]],
+        ["replicas that are no whole number", [{ environmentId: String(production), replicas: 1.5 }]],
+        ["replicas above the most", [{ environmentId: String(production), replicas: 21 }]]
     ])("given %s, when normalized, then it is refused", async (_case, environmentResources) => {
         await expect(withNormalizedEnvironmentResources({ environmentResources }, projectObjectId)).rejects.toThrow(BusinessException)
     })
@@ -601,6 +618,21 @@ describe("withNormalizedEnvironmentResources", () => {
     it("given no environmentResources, when normalized, then nothing is read", async () => {
         expect(await withNormalizedEnvironmentResources({}, projectObjectId)).toEqual({})
         expect(Environment.find).not.toHaveBeenCalled()
+    })
+})
+
+describe("withNormalizedReplicas", () => {
+    it.each([
+        ["left out", {}, {}],
+        ["blank, as a form sends an empty field", { replicas: "" }, { replicas: null }],
+        ["the digits a form sends", { replicas: "3" }, { replicas: 3 }],
+        ["a number", { replicas: 20 }, { replicas: 20 }]
+    ])("given replicas %s, when normalized, then they are stored as a number or null", (_case, dto, expected) => {
+        expect(withNormalizedReplicas(dto as never)).toEqual(expected)
+    })
+
+    it.each([[0], [21], [1.5], ["two"]])("given replicas %s, when normalized, then they are refused", replicas => {
+        expect(() => withNormalizedReplicas({ replicas: replicas as never })).toThrow(BusinessException)
     })
 })
 

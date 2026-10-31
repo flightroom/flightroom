@@ -2288,7 +2288,10 @@
                 "description": "Description",
                 "jobId": "AI job",
                 "backend": "Backend",
-                "domain": "Domain"
+                "domain": "Domain",
+                "title": "Title",
+                "sourceBranch": "From branch",
+                "targetBranch": "Into branch"
             }
         },
         "errors": {
@@ -2489,8 +2492,8 @@
                 "description": "Optional: where the container publishes the documentation and the specification of its API"
             },
             "resources": {
-                "title": "CPU and memory",
-                "description": "What Kubernetes reserves for the container and the most it may use"
+                "title": "CPU, memory and replicas",
+                "description": "What Kubernetes reserves for the container, the most it may use and how many copies of it run"
             }
         },
         "port": "Port",
@@ -2519,9 +2522,12 @@
             "memory_invalid": "A memory quantity above zero: bytes, or with a suffix such as Mi, Gi, M or G (128Mi, 1Gi)",
             "cpu_request_above_limit": "The CPU request cannot be above the CPU limit ({{limit}}): Kubernetes would refuse the container",
             "memory_request_above_limit": "The memory request cannot be above the memory limit ({{limit}}): Kubernetes would refuse the container",
+            "replicas": "Replicas",
+            "replicas_hint": "Optional. How many pods run the container, from 1 to {{max}}. Left empty, the default of the chart: {{value}}",
+            "replicas_invalid": "A whole number from 1 to {{max}}",
             "by_environment": {
                 "title": "Per environment",
-                "description": "Different CPU and memory in some environments, e.g. more in production. Each value left empty is the container's, shown as placeholder.",
+                "description": "Different CPU, memory and replicas in some environments, e.g. more in production. Each value left empty is the container's, shown as placeholder.",
                 "add": "Add {{environment}}",
                 "none": "The same in every environment"
             }

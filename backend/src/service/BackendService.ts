@@ -12,7 +12,17 @@ import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import BackendDTO, { BackendVersionRegistrationDTO, EnvironmentResourcesDTO } from "../types/BackendDTO"
 import { BACKEND_SLUG, BACKEND_VERSION, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
-import { CONTAINER_RESOURCE_FIELDS, ContainerResources, ContainerResourcesByEnvironment, parseCpu, parseMemory, requestAboveLimit, resourcesIn } from "../types/ContainerResources"
+import {
+    CONTAINER_RESOURCE_FIELDS,
+    ContainerResources,
+    ContainerResourcesByEnvironment,
+    isReplicaCount,
+    MAX_REPLICAS,
+    parseCpu,
+    parseMemory,
+    requestAboveLimit,
+    resourcesIn
+} from "../types/ContainerResources"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
@@ -70,14 +80,27 @@ export const ensureRequestsWithinLimits = (fields: ContainerResourcesByEnvironme
     }
 }
 
+/** Replicas as stored: a number, or the digits a form sends; blank or null is the default of the chart */
+const replicaCount = (value: unknown, code: string, where = ""): number | null => {
+    if (value == null || (typeof value === "string" && !value.trim())) return null
+    const count = typeof value === "string" ? Number(value.trim()) : value
+    if (!isReplicaCount(count)) throw createBusinessException({ code, message: `replicas "${String(value)}"${where} is not a whole number from 1 to ${MAX_REPLICAS}` })
+    return count
+}
+
+/** The replicas of the container, as stored; left out, the stored ones stay */
+export const withNormalizedReplicas = <T extends Pick<BackendDTO, "replicas">>(dto: T, code = "BACKEND_INVALID"): T =>
+    dto.replicas === undefined ? dto : { ...dto, replicas: replicaCount(dto.replicas, code) }
+
 /**
- * The CPU and memory set apart per environment, as stored: values trimmed, blank ones null, an environment that sets
- * none left out. Refused: an environment that is not of the project, one listed twice, a value that is no quantity.
+ * The CPU, memory and replicas set apart per environment, as stored: values trimmed, blank ones null, an environment
+ * that sets none left out. Refused: an environment that is not of the project, one listed twice, a value that is no
+ * quantity or no count of replicas.
  */
 export const withNormalizedEnvironmentResources = async <T extends Pick<BackendDTO, "environmentResources">>(dto: T, projectId: Schema.Types.ObjectId, code = "BACKEND_INVALID"): Promise<T> => {
     if (dto.environmentResources === undefined) return dto
     if (dto.environmentResources !== null && !Array.isArray(dto.environmentResources)) {
-        throw createBusinessException({ code, message: "environmentResources must be a list of { environmentId, cpuRequest, cpuLimit, memoryRequest, memoryLimit }" })
+        throw createBusinessException({ code, message: "environmentResources must be a list of { environmentId, cpuRequest, cpuLimit, memoryRequest, memoryLimit, replicas }" })
     }
     const quantity = (entry: EnvironmentResourcesDTO, field: (typeof CONTAINER_RESOURCE_FIELDS)[number]) => {
         const value = entry[field]
@@ -89,8 +112,12 @@ export const withNormalizedEnvironmentResources = async <T extends Pick<BackendD
         return trimmed || null
     }
     const entries = (dto.environmentResources ?? [])
-        .map(entry => ({ environmentId: String(entry?.environmentId ?? ""), ...Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, quantity(entry, field)])) }))
-        .filter(entry => CONTAINER_RESOURCE_FIELDS.some(field => entry[field as keyof typeof entry]))
+        .map(entry => ({
+            environmentId: String(entry?.environmentId ?? ""),
+            ...Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, quantity(entry, field)])),
+            replicas: replicaCount(entry?.replicas, code, ` of environment ${entry?.environmentId}`)
+        }))
+        .filter(entry => entry.replicas !== null || CONTAINER_RESOURCE_FIELDS.some(field => entry[field as keyof typeof entry]))
     const ids = entries.map(entry => entry.environmentId)
     const twice = ids.find((id, index) => ids.indexOf(id) !== index)
     if (twice) throw createBusinessException({ code, message: `Environment ${twice} is listed twice in environmentResources` })
@@ -140,14 +167,14 @@ export const withNormalizedEnvironmentVersions = async <T extends Pick<BackendDT
  * same container fields, but without `resources`: only a backend attaches resources. The CPU and memory
  * set apart per environment, and the versions, are normalized here too, as every one of them has them.
  */
-export const withNormalizedReferences = async <T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds" | "environmentResources" | "environmentVersions">>(
+export const withNormalizedReferences = async <T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds" | "replicas" | "environmentResources" | "environmentVersions">>(
     dto: T,
     projectId: Schema.Types.ObjectId,
     existing?: Partial<Pick<IBackend, "name" | "configMapIds" | "secretIds" | "resourceIds">>,
     options: { resources?: boolean } = {}
 ): Promise<T> => {
     ensurePlainFields(dto)
-    const normalized = await withNormalizedEnvironmentVersions(await withNormalizedEnvironmentResources(dto, projectId), projectId)
+    const normalized = await withNormalizedEnvironmentVersions(await withNormalizedEnvironmentResources(withNormalizedReplicas(dto), projectId), projectId)
     // Only the name and the attached ids of what is stored are read
     return resolveAttachedMaps(normalized, projectId, existing as IBackend | undefined, options)
 }

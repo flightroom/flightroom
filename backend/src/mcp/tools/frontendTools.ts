@@ -11,7 +11,7 @@ import StackDetectionService from "../../service/StackDetectionService"
 import { StorageService } from "../../service/StorageService"
 import { attachedVariableKeys } from "../../service/VariableMapService"
 import { BACKEND_HTTP_PATH, BACKEND_VERSION } from "../../types/BackendStack"
-import { CHART_RESOURCE_DEFAULTS, parseCpu, parseMemory } from "../../types/ContainerResources"
+import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, MAX_REPLICAS, parseCpu, parseMemory } from "../../types/ContainerResources"
 import { DESIGN_SYSTEM_MAX_LENGTH, NPM_PACKAGE_NAME } from "../../types/DesignSystem"
 import { isExposurePath } from "../../types/Exposure"
 import FrontendDTO from "../../types/FrontendDTO"
@@ -34,6 +34,7 @@ const memoryQuantity = z
     .refine(value => !value.trim() || parseMemory(value.trim()) !== undefined, "a memory quantity above zero: bytes, or with a suffix such as Mi, Gi, M or G")
     .nullable()
     .optional()
+const replicaCount = z.number().int().min(1).max(MAX_REPLICAS).nullable().optional()
 
 /**
  * The fields of what runs as a container of its own: a backend, and a frontend of kind
@@ -53,6 +54,7 @@ export const containerFields = {
     cpuLimit: cpuQuantity.describe(`Most CPU the container may use, e.g. 1; the chart default (${CHART_RESOURCE_DEFAULTS.cpuLimit}) when null or omitted. Not below the request`),
     memoryRequest: memoryQuantity.describe(`Memory the container asks for, e.g. 256Mi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryRequest}) when null or omitted`),
     memoryLimit: memoryQuantity.describe(`Most memory the container may use, e.g. 1Gi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryLimit}) when null or omitted. Not below the request`),
+    replicas: replicaCount.describe(`Pods the container runs, 1 to ${MAX_REPLICAS}; the chart default (${CHART_REPLICAS_DEFAULT}) when null or omitted`),
     environmentResources: z
         .array(
             z.object({
@@ -60,14 +62,15 @@ export const containerFields = {
                 cpuRequest: cpuQuantity,
                 cpuLimit: cpuQuantity,
                 memoryRequest: memoryQuantity,
-                memoryLimit: memoryQuantity
+                memoryLimit: memoryQuantity,
+                replicas: replicaCount
             })
         )
         .max(50)
         .nullable()
         .optional()
         .describe(
-            "CPU and memory set apart in some environments, e.g. more in production: each value left out or null is the one of the container above. Replaced as a whole; null or [] sets none apart. One entry per environment"
+            "CPU, memory and replicas set apart in some environments, e.g. more in production: each value left out or null is the one of the container above. Replaced as a whole; null or [] sets none apart. One entry per environment"
         ),
     environmentVersions: z
         .array(

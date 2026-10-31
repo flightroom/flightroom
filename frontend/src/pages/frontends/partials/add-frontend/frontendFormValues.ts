@@ -3,7 +3,7 @@ import type { ICodeRepository } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import { CanaryDeploymentType, CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import type { Storage } from "@/hooks/apiClients/useStorageApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
-import { resourceFormValues } from "@/pages/backends/partials/containerResources"
+import { replicaCount, resourceFormValues } from "@/pages/backends/partials/containerResources"
 import { environmentVersionFormValues } from "@/pages/backends/partials/environmentVersions"
 import { designSystemFormValues, toDesignSystem } from "@/pages/settings/partials/DesignSystemFields"
 import type { FormInput, FormValues } from "./frontendFormSchema"
@@ -121,6 +121,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         cpuLimit,
         memoryRequest,
         memoryLimit,
+        replicas,
         environmentResources,
         environmentVersions,
         exposed,
@@ -153,8 +154,9 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   cpuLimit: cpuLimit?.trim(),
                   memoryRequest: memoryRequest?.trim(),
                   memoryLimit: memoryLimit?.trim(),
+                  replicas: replicaCount(replicas),
                   // Empty: the container's, as above
-                  environmentResources,
+                  environmentResources: environmentResources?.map(entry => ({ ...entry, replicas: replicaCount(entry.replicas) })),
                   // Blank: not deployed in that environment
                   environmentVersions: environmentVersions?.map(entry => ({ ...entry, version: entry.version.trim() })),
                   // Null: not exposed on the host of the environments

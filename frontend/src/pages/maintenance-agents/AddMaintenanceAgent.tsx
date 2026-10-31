@@ -140,7 +140,21 @@ const isFormTab = (value: string | null): value is FormTab => Boolean(value && (
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["template", "name", "slug", "description", "domainId", "context", "kind"],
     schedule: ["scheduleMode", "schedule", "timeZone", "backendIds", "frontendIds"],
-    runtime: ["port", "image", "version", "environmentVersions", "runPath", "livenessPath", "readinessPath", "cpuRequest", "cpuLimit", "memoryRequest", "memoryLimit", "environmentResources"],
+    runtime: [
+        "port",
+        "image",
+        "version",
+        "environmentVersions",
+        "runPath",
+        "livenessPath",
+        "readinessPath",
+        "cpuRequest",
+        "cpuLimit",
+        "memoryRequest",
+        "memoryLimit",
+        "replicas",
+        "environmentResources"
+    ],
     variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     repository: ["codeRepository"],
     danger: []

@@ -125,6 +125,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
         "cpuLimit",
         "memoryRequest",
         "memoryLimit",
+        "replicas",
         "environmentResources",
         "exposed",
         "exposurePath",

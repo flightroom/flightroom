@@ -7,6 +7,8 @@ export interface ContainerResources {
     cpuLimit?: string | null
     memoryRequest?: string | null
     memoryLimit?: string | null
+    /** The pods of the Deployment: left out, the chart runs one */
+    replicas?: number | null
 }
 
 export const CONTAINER_RESOURCE_FIELDS = ["cpuRequest", "cpuLimit", "memoryRequest", "memoryLimit"] as const
@@ -24,8 +26,17 @@ export interface ContainerResourcesByEnvironment extends ContainerResources {
 /** The resources of an application in one environment: what the environment sets, else what the application sets */
 export const resourcesIn = (application: ContainerResourcesByEnvironment, environmentId: unknown): ContainerResources => {
     const own = application.environmentResources?.find(entry => String(entry.environmentId) === String(environmentId))
-    return Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, own?.[field]?.trim() || application[field]?.trim() || null]))
+    return {
+        ...Object.fromEntries(CONTAINER_RESOURCE_FIELDS.map(field => [field, own?.[field]?.trim() || application[field]?.trim() || null])),
+        replicas: own?.replicas ?? application.replicas ?? null
+    }
 }
+
+/** The pods the chart runs of a container that sets none, and the most one may set */
+export const CHART_REPLICAS_DEFAULT = 1
+export const MAX_REPLICAS = 20
+
+export const isReplicaCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_REPLICAS
 
 /** What the chart Flightroom writes gives a container that sets none of them */
 export const CHART_RESOURCE_DEFAULTS = { cpuRequest: "25m", cpuLimit: "500m", memoryRequest: "128Mi", memoryLimit: "512Mi" }

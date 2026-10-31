@@ -2307,7 +2307,10 @@
                 "description": "Descrizione",
                 "jobId": "Job AI",
                 "backend": "Backend",
-                "domain": "Dominio"
+                "domain": "Dominio",
+                "title": "Titolo",
+                "sourceBranch": "Dal branch",
+                "targetBranch": "Nel branch"
             }
         },
         "errors": {
@@ -2508,8 +2511,8 @@
                 "description": "Facoltativa: dove il container pubblica la documentazione e la specifica delle sue API"
             },
             "resources": {
-                "title": "CPU e memoria",
-                "description": "Le risorse che Kubernetes riserva al container e il massimo che può usare"
+                "title": "CPU, memoria e repliche",
+                "description": "Le risorse che Kubernetes riserva al container, il massimo che può usare e quante copie ne girano"
             }
         },
         "port": "Porta",
@@ -2538,9 +2541,12 @@
             "memory_invalid": "Una quantità di memoria maggiore di zero: byte, o con un suffisso come Mi, Gi, M o G (128Mi, 1Gi)",
             "cpu_request_above_limit": "La richiesta di CPU non può superare il limite di CPU ({{limit}}): Kubernetes rifiuterebbe il container",
             "memory_request_above_limit": "La richiesta di memoria non può superare il limite di memoria ({{limit}}): Kubernetes rifiuterebbe il container",
+            "replicas": "Repliche",
+            "replicas_hint": "Facoltativo. Quanti pod eseguono il container, da 1 a {{max}}. Se vuoto, il default del chart: {{value}}",
+            "replicas_invalid": "Un numero intero da 1 a {{max}}",
             "by_environment": {
                 "title": "Per ambiente",
-                "description": "CPU e memoria diverse in alcuni ambienti, ad esempio di più in produzione. Ogni valore lasciato vuoto è quello del container, mostrato come placeholder.",
+                "description": "CPU, memoria e repliche diverse in alcuni ambienti, ad esempio di più in produzione. Ogni valore lasciato vuoto è quello del container, mostrato come placeholder.",
                 "add": "Aggiungi {{environment}}",
                 "none": "Uguali in tutti gli ambienti"
             }

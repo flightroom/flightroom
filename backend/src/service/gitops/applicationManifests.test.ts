@@ -171,6 +171,15 @@ describe("renderApplicationValues", () => {
         expect(values.resources).toEqual({ requests: { cpu: "250m" } })
     })
 
+    it.each([
+        ["none set", {}, 1],
+        ["the application's", { replicas: 2 }, 2],
+        ["this environment's over the application's", { replicas: 2, environmentResources: [{ environmentId: environment._id, replicas: 4 }] }, 4],
+        ["the application's where another environment sets its own", { replicas: 2, environmentResources: [{ environmentId: new Types.ObjectId(), replicas: 4 }] }, 2]
+    ])("given replicas %s, when its values are rendered, then the Deployment runs that many", (_case, overrides, replicas) => {
+        expect(parse(render(overrides)).replicas).toBe(replicas)
+    })
+
     it("given this environment runs a version of its own, when its values are rendered, then the image is tagged with it", () => {
         expect(parse(render({ environmentVersions: [{ environmentId: environment._id, version: "1.1.0" }] })).image.tag).toBe("1.1.0")
     })
