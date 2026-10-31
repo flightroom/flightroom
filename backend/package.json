@@ -27,6 +27,7 @@
         "@aws-sdk/client-s3": "^3.1160.0",
         "@aws-sdk/s3-request-presigner": "^3.1160.0",
         "@azure/identity": "^4.14.1",
+        "@azure/monitor-opentelemetry": "^1.20.1",
         "@azure/storage-blob": "^12.34.0",
         "@fastify/autoload": "^6.5.1",
         "@fastify/cors": "^11.3.1",

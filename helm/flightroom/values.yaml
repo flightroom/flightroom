@@ -197,6 +197,9 @@ envSecrets:
   EMAIL_SMTP_PASSWORD: ""
   GOOGLE_CLIENT_SECRET: ""
   CODE_REPOSITORY_GITHUB_CLIENT_SECRET: ""
+  # Your own Application Insights, for the console's backend and browser
+  # telemetry. Empty, nothing is sent. See docs/APPLICATION-INSIGHTS.md.
+  APPLICATIONINSIGHTS_CONNECTION_STRING: ""
 
 ## Names of Secrets and ConfigMaps that already exist in the namespace and hold
 ## further environment variables (all of their keys are injected as-is).

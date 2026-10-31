@@ -58,7 +58,7 @@ Not "we do not currently send", but "the code has no way to send":
 - No hostname, no IP address in the payload, no environment variables, no secrets, no configuration values
 - No frontend content, no bundles, no deployment contents, no global variables
 - No logs, no stack traces, no error messages
-- No page views, no clicks, no session tracking — there is no client-side tracker, no cookie and no third-party analytics in the product
+- No page views, no clicks, no session tracking — there is no client-side tracker, no cookie and no third-party analytics in the product. The one exception is yours to make: an operator who sets `APPLICATIONINSIGHTS_CONNECTION_STRING` sends the console's telemetry to *their own* Application Insights, never to us. It is off by default and has nothing to do with this ping: see [APPLICATION-INSIGHTS.md](APPLICATION-INSIGHTS.md)
 
 The backoffice that receives the ping is an ordinary HTTP service, so it sees the source IP of the request, exactly like any outbound HTTP call your server makes. The IP is not part of the payload, it is not stored with the ping and it is not used to identify or locate an installation.
 

@@ -1,3 +1,5 @@
+// First: Application Insights instruments only the modules loaded after it
+import "./instrumentation"
 import AutoLoad from "@fastify/autoload"
 import * as Sentry from "@sentry/node"
 import dotenv from "dotenv"

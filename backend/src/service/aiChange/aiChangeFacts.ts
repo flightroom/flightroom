@@ -139,7 +139,10 @@ const RESOURCE_USAGE: Record<string, (resource: AiChangeAgentResource) => (strin
             values.subscription ? `subscription: ${values.subscription}` : undefined,
             `usage: use the official Azure Service Bus SDK (e.g. @azure/service-bus, with @azure/identity for Entra ID), queue from ${key("queue")}, topic from ${key("topic")} and subscription from ${key("subscription")} when set, authenticating with ${auth[resource.variant] ?? "what its variables say"}; close senders, receivers and the client on shutdown; never hardcode any of them`
         ]
-    }
+    },
+    applicationInsights: resource => [
+        `usage: send the telemetry to Azure Monitor only when ${keyOfField(resource)("connectionString")} is set, and do nothing otherwise: in Node.js call useAzureMonitor() of @azure/monitor-opentelemetry before the server and its modules are imported, in Python configure_azure_monitor() of azure-monitor-opentelemetry before the app is created, on the JVM attach the Application Insights Java agent; the distros read the connection string by themselves, and the service name, environment and version from OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES, which every deploy sets: never hardcode any of them`
+    ]
 }
 
 /** A variable of a resource as listed: a credential is marked, a value the variant always sets is shown. */

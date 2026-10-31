@@ -158,7 +158,7 @@ the discovery documents must reach the pod too: the default `path: /` already ro
 `/.well-known/oauth-*` there.
 
 Observability: `SENTRY_DSN`, `TELEMETRY_ENABLED`, `TELEMETRY_DISABLED`, `TELEMETRY_ENDPOINT`,
-`TELEMETRY_INTERVAL_HOURS`, `DO_NOT_TRACK`
+`TELEMETRY_INTERVAL_HOURS`, `DO_NOT_TRACK`, `APPLICATIONINSIGHTS_CONNECTION_STRING` (under `envSecrets`)
 
 Not shipped, add them yourself: the AI provider variables (`AI_PROVIDER`, `ANTHROPIC_API_KEY`, …),
 `AI_MAX_EFFORT`, `ASSISTANT_RATE_LIMIT_MAX`, `ARGOCD_ALLOW_INSECURE_HTTP`, `REPOSITORIES_*` and

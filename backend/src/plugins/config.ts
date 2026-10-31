@@ -217,6 +217,11 @@ export default fastifyPlugin(
                     type: "number",
                     default: TELEMETRY_DEFAULT_INTERVAL_HOURS
                 },
+                // The operator's own Application Insights, for the console and its users' browsers: off
+                // when unset. Read by instrumentation.ts too, before this plugin. See docs/APPLICATION-INSIGHTS.md.
+                APPLICATIONINSIGHTS_CONNECTION_STRING: {
+                    type: "string"
+                },
                 // Remote MCP server and the OAuth authorization server in front of it. Off until
                 // the operator turns it on: see docs/MCP.md.
                 MCP_ENABLED: {

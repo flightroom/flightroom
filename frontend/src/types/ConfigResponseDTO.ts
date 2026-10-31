@@ -47,6 +47,10 @@ export default interface GlobalConfigDTO {
         enabled: boolean
         url: string
     }
+    /** L'Application Insights dell'operatore, se impostato: il browser gli manda pagine viste ed errori */
+    applicationInsights?: {
+        connectionString: string
+    }
     codeRepository?: {
         github?: {
             clientId: string

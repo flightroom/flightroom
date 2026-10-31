@@ -1,5 +1,6 @@
 import { DatabaseType } from "../models/DatabaseModel"
 import { RUNTIME_VARIABLES } from "./RuntimeVariables"
+import { SERVICE_VARIABLES } from "./ServiceVariables"
 
 /**
  * What a resource can be. Each type is a package of variables a backend receives once it
@@ -21,6 +22,7 @@ export type ResourceType =
     | "sharepoint"
     | "speech"
     | "serviceBus"
+    | "applicationInsights"
     | "generic"
 
 /** How the console asks for a field; the backend checks number, boolean, select, url and email against it too */
@@ -61,6 +63,8 @@ export interface ResourceTypeSpec {
     type: ResourceType
     /** The start of the variables of a resource of this type, before its name */
     envPrefix: string
+    /** The variables are named by envPrefix alone, without the name of the resource: those an SDK reads by itself */
+    exactEnvPrefix?: boolean
     variants: ResourceVariantSpec[]
 }
 
@@ -68,7 +72,7 @@ export interface ResourceTypeSpec {
 export const RESOURCE_ENV_PREFIX = /^[A-Z_][A-Z0-9_]{0,190}$/
 
 /** Set on every container by the chart and by the deploy (applicationManifests.ts): a resource setting one too would be there twice */
-export const RESERVED_ENV_KEYS = ["HTTP_PORT", ...RUNTIME_VARIABLES]
+export const RESERVED_ENV_KEYS = ["HTTP_PORT", ...RUNTIME_VARIABLES, ...SERVICE_VARIABLES]
 
 /** The Kubernetes Secret a resource becomes: a map name cannot hold a dot, so it never collides with a secret map */
 export const resourceSecretName = (resource: { name: string }): string => `${resource.name}.resource`
@@ -449,6 +453,17 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             serviceBusVariant("azureManagedIdentity", [field("clientId", "CLIENT_ID", { required: false })])
         ]
     },
+    /**
+     * An Azure Monitor Application Insights resource the backend sends its telemetry to. Its variable is the one the
+     * Azure Monitor distros and the Java agent read by themselves, APPLICATIONINSIGHTS_CONNECTION_STRING; the name of
+     * the service and its version come from OTEL_SERVICE_NAME and OTEL_RESOURCE_ATTRIBUTES, set by every deploy
+     */
+    applicationInsights: {
+        type: "applicationInsights",
+        envPrefix: "APPLICATIONINSIGHTS",
+        exactEnvPrefix: true,
+        variants: [{ id: "connectionString", fields: [secret("connectionString", "CONNECTION_STRING")] }]
+    },
     /** Anything the catalog lacks: the resource defines its own variables (customFields), none of them a connection */
     generic: {
         type: "generic",
@@ -494,9 +509,15 @@ export interface ResourceNaming {
     customFields?: ResourceCustomField[] | null
 }
 
-/** The prefix typed for the resource, otherwise the one of its type followed by its name: `orders-db` → DB_ORDERS_DB */
-export const resourceEnvPrefix = (resource: ResourceNaming): string =>
-    resource.envPrefix || `${isResourceType(resource.type) ? RESOURCE_CATALOG[resource.type].envPrefix : ""}_${resource.name.toUpperCase().replace(/-/g, "_")}`
+/**
+ * The prefix typed for the resource, otherwise the one of its type followed by its name: `orders-db` → DB_ORDERS_DB.
+ * A type with an exact prefix leaves the name out: `telemetry` → APPLICATIONINSIGHTS
+ */
+export const resourceEnvPrefix = (resource: ResourceNaming): string => {
+    if (resource.envPrefix) return resource.envPrefix
+    const spec = isResourceType(resource.type) ? RESOURCE_CATALOG[resource.type] : undefined
+    return spec?.exactEnvPrefix ? spec.envPrefix : `${spec?.envPrefix ?? ""}_${resource.name.toUpperCase().replace(/-/g, "_")}`
+}
 
 /** A variable a resource sets on the containers attaching it */
 export interface ResourceEnvKey {

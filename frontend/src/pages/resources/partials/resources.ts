@@ -23,9 +23,12 @@ export const MAX_API_SPEC_BYTES = 5 * 1024 * 1024
 export const RESOURCE_LIST_PATH = "/resources"
 export const resourcePath = (id: string) => `/resource/${id}`
 
-/** Mirror of the backend (resourceEnvPrefix): the prefix typed for the resource, otherwise the one of its type and its name */
+/**
+ * Mirror of the backend (resourceEnvPrefix): the prefix typed for the resource, otherwise the one of its type and its
+ * name; the one of its type alone when the type says so (Application Insights)
+ */
 export const resourceEnvPrefix = (spec: ResourceTypeSpec | undefined, name: string, envPrefix?: string | null): string =>
-    envPrefix || [spec?.envPrefix, name.toUpperCase().replace(/-/g, "_")].filter(Boolean).join("_")
+    envPrefix || (spec?.exactEnvPrefix ? spec.envPrefix : [spec?.envPrefix, name.toUpperCase().replace(/-/g, "_")].filter(Boolean).join("_"))
 
 /** The fields a `generic` resource defines, as the catalog would give them; none for any other type */
 const customFieldSpecs = (spec: ResourceTypeSpec | undefined, customFields?: ResourceCustomField[]): ResourceFieldSpec[] =>

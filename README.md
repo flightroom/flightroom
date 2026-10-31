@@ -215,6 +215,7 @@ Project reference:
 - **[Secrets](docs/SECRETS.md)** - Encrypting the credentials stored for a project
 - **[Installation theme](docs/THEMES.md)** - Restyling the console with a stylesheet of your own
 - **[Remote MCP server](docs/MCP.md)** - Letting AI clients use the console through OAuth, on the projects the user picks
+- **[Application Insights](docs/APPLICATION-INSIGHTS.md)** - Sending the telemetry of your backends, microfrontends and the console to your own Azure Monitor
 - **[Anonymous telemetry](docs/TELEMETRY.md)** - What the daily ping contains and how to turn it off
 - **[Commit Conventions](COMMIT_CONVENTIONS.md)** - Conventional Commits specification
 - **[Changelog](CHANGELOG.md)** - Project version history
@@ -409,6 +410,7 @@ falling back to it.
 | `MCP_RESOURCE_URL`                     | _(empty, falls back to the issuer + `/mcp`)_                                                      | Public URL of the MCP endpoint.                                 |
 | `NPM_REGISTRY_URL`                     | `https://registry.npmjs.org`                                                                      | Registry queried by the dependency analysis for published versions. |
 | `SENTRY_DSN`                           | _(empty)_                                                                                         | Sentry DSN. Leave empty to disable error reporting.             |
+| `APPLICATIONINSIGHTS_CONNECTION_STRING` | _(empty)_                                                                                        | Your own Application Insights, for the console's backend and browser telemetry. Empty, nothing is loaded or sent. See [docs/APPLICATION-INSIGHTS.md](docs/APPLICATION-INSIGHTS.md). |
 | `INSTALLATION_NAME`                    | _(empty, `Flightroom`)_                                                                           | Name the console shows in the sidebar, the login page and the browser tab. |
 | `INSTALLATION_LOGO_URL`                | _(empty, the Flightroom logo)_                                                                    | Logo the console shows in place of Flightroom's: an absolute URL, or a path the console serves. |
 | `MARKETING_OPT_IN_ENABLED`             | `false`                                                                                           | If `true`, the registration form collects a marketing consent, which the profile page can then change. |
