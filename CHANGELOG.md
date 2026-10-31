@@ -12,6 +12,16 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Pull Requests Between Existing Branches**: the assistant and MCP clients open a pull request (a merge request on GitLab) from one branch of the repository of a frontend or a backend to another, e.g. `release/dev` into `main`, with the `pull_request_create` tool; the target is the default branch when left out. Nothing is pushed and nothing is merged: the merge stays at the provider, behind its reviews and branch policies. The assistant asks the user first, and a viewer cannot do it. When the provider refuses, e.g. there is nothing to merge or one is already open, the tool says why
 - **Replicas**: a backend, a DOCKER frontend and a maintenance agent of kind CONTAINER set how many pods run them, from 1 to 20, in the runtime settings next to the CPU and memory; left empty, the chart runs one. Each environment can set its own too, e.g. more in production, in the same per-environment box as the CPU and memory. The deploy writes `replicas` in the values file of each environment: what it sets, else the container's, else 1. A JOB still runs none. The API and the MCP tools take `replicas`, and `replicas` in each entry of `environmentResources`
 
+### Changed
+
+- **An Applications Repository Already Registered In Argo CD Is Used As It Is**: the initialization no longer stops on an applications repository that Argo CD holds a global registration of, made by hand, by an earlier version or by a project of another organization. It reads through that registration, as Argo CD does for every AppProject anyway, and never changes nor deletes it. Still refused are a registration of it scoped to an AppProject, and any registration of the configuration repository, which holds the secrets. A registration is told apart by its URL as Argo CD compares them, case, a trailing slash and `.git` aside, so the project's own written otherwise is no longer taken for someone else's, nor deleted right after its upsert. See `docs/ARGOCD.md`
+
+### Fixed
+
+- **The Deploy Overlay Says Why Argo CD Got No Application**: when the deploy could not hand Argo CD the ApplicationSets, e.g. a project still on the 10.x names of Argo CD that asks to be initialized again, the overlay waited for ever with no word. The applications left without an Application now fail the rollout, and the overlay shows the reason, translated, as the Argo CD settings do. A domain release fails at once instead of at its timeout. An alignment that failed only for other environments does not fail this one
+- **The Deploy Overlay Ends On The Applications It Shows**: one the deploy did not touch, still on the revision before, no longer keeps it waiting with every card green. The rollout asks Argo CD to read the repository again, at most every 30 seconds per application, when the refresh after the commit came before Argo CD saw it
+- **A Version Whose Tag Already Exists Is Refused First**: retrying a version a canceled run had already tagged answered the raw `staleOldObjectId` of Azure DevOps. The build checks the tag first and answers `BUILD_TAG_EXISTS`, translated in the console
+
 ## [11.0.0] - 2026-10-30
 
 ### Added

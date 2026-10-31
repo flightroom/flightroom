@@ -62,7 +62,7 @@ export interface ArgoCdRegisteredRepository {
 }
 
 /** As Argo CD compares the URLs of repositories: case, a trailing slash and .git aside */
-const sameRepoUrl = (a: string, b: string) => {
+export const sameRepoUrl = (a: string, b: string) => {
     const normalize = (url: string) =>
         url
             .trim()

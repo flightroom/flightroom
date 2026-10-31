@@ -1,3 +1,4 @@
+import { Alert, AlertDescription, AlertTitle } from "@flightroom/design-system"
 import { useIsMutating, useMutationState, useQuery } from "@tanstack/react-query"
 import { X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
@@ -7,6 +8,7 @@ import { Button } from "@/components/atoms"
 import Mascot from "@/components/mascot/Mascot"
 import useArgoCdApi, { type Rollout } from "@/hooks/apiClients/useArgoCdApi"
 import { DEPLOY_MUTATION_KEY, type DeploymentDTO } from "@/hooks/apiClients/useDeploymentsApi"
+import { useGitOpsErrorTranslation } from "@/hooks/apiClients/useGitOpsErrorMessage"
 import useElapsed from "@/hooks/useElapsed"
 import useProjectStore from "@/store/useProjectStore"
 import DeployGame from "./DeployGame"
@@ -75,8 +77,10 @@ interface DeployScreenProps {
 
 const DeployScreen: React.FC<DeployScreenProps> = ({ phase, startedAt, endedAt, rollout, readError, onHide, onClose }) => {
     const { t } = useTranslation()
+    const translateError = useGitOpsErrorTranslation()
     const elapsed = useElapsed(startedAt, endedAt)
     const messages = t("deployments.overlay.messages", { returnObjects: true }) as string[]
+    const alignError = rollout?.alignError && (translateError(rollout.alignError.code, rollout.alignError.details) ?? rollout.alignError.message)
     const [messageIndex, setMessageIndex] = useState(() => Math.floor(Math.random() * messages.length))
     const ended = ENDED.includes(phase)
     const applications = shownApplications(rollout)
@@ -134,6 +138,12 @@ const DeployScreen: React.FC<DeployScreenProps> = ({ phase, startedAt, endedAt, 
                     </p>
                 )}
             </div>
+            {alignError && (
+                <Alert variant="destructive" className="w-full max-w-2xl" data-testid="deploy-overlay-align-error">
+                    <AlertTitle>{t("settings.argoCd.alignErrorTitle")}</AlertTitle>
+                    <AlertDescription>{alignError}</AlertDescription>
+                </Alert>
+            )}
             {rollout?.tracked && (
                 // Scrolls on its own: the game below stays in sight however many applications the deploy ships
                 <div className="max-h-[30vh] w-full max-w-2xl shrink-0 overflow-y-auto" aria-live="polite">

@@ -4,7 +4,7 @@ import Backend from "../../models/BackendModel"
 import Deployment, { IDeployment } from "../../models/DeploymentModel"
 import { IEnvironment } from "../../models/EnvironmentModel"
 import Frontend, { FrontendKind } from "../../models/FrontendModel"
-import { IProject } from "../../models/ProjectModel"
+import { IArgoCdError, IProject } from "../../models/ProjectModel"
 import { allInOrder } from "../../utils/allInOrder"
 import { environmentSlug } from "../GitOpsService"
 import { isDeployable } from "../gitops/applicationManifests"
@@ -27,13 +27,22 @@ const refreshDue = (application: ArgoCdResource) => {
 }
 
 /**
+ * Why the last deploy could not hand Argo CD the ApplicationSets, when that holds in the environment: there an application
+ * without its Application never gets one until it is fixed. An error that names its environments holds in those only
+ */
+const alignErrorIn = (alignError: IArgoCdError | undefined, environment: string) => {
+    const environments = alignError?.details?.slug
+    return alignError && (typeof environments !== "string" || environments.split(", ").includes(environment)) ? alignError : undefined
+}
+
+/**
  * Where the deploy stands in Argo CD, application by application, for a project that deploys through it.
  * `domainScope` is the condition on the applications followed: those of the domain deployed, or those the user reaches.
  */
 export const followRollout = async (
     projectId: Schema.Types.ObjectId,
     project: Pick<IProject, "slug" | "containerRegistry">,
-    argoCd: { url: string; token: string; insecure?: boolean },
+    argoCd: { url: string; token: string; insecure?: boolean; alignError?: IArgoCdError },
     deployment: DeployedVersions,
     environment: Pick<IEnvironment, "slug">,
     domainScope: () => Promise<Record<string, unknown>>
@@ -67,11 +76,15 @@ export const followRollout = async (
     const slug = environmentSlug(environment)
     const listed = await client.listApplications(`${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL}=${slug}`, projectName)
     const byName = new Map(listed.filter(application => projectOf(application) === projectName).map(application => [application.metadata.name, application]))
+    const alignError = alignErrorIn(argoCd.alignError, slug)
+    let stranded = false
     const applications = await Promise.all(
         members.map(async ({ kind, application }) => {
             const name = applicationName(String(projectId), project.slug, application.slug, slug)
             const argoCdApplication = byName.get(name)
-            const state = rolloutStateOf(argoCdApplication, revisions)
+            // Not waiting: no ApplicationSet will generate it until the alignment goes through
+            if (!argoCdApplication && alignError) stranded = true
+            const state = !argoCdApplication && alignError ? { state: "failed" as const } : rolloutStateOf(argoCdApplication, revisions)
             // The refresh after the commit may have come before Argo CD saw it, and its own poll may be minutes away, or off.
             // Not awaited: Argo CD answers once it has compared, and the next read sees it
             if (state.state === "waiting" && argoCdApplication && refreshDue(argoCdApplication)) client.refreshApplication(name, projectName).catch(() => undefined)
@@ -87,6 +100,7 @@ export const followRollout = async (
         tracked: true,
         applications,
         done: awaited.every(application => application.state === "healthy"),
-        failed: awaited.some(application => application.state === "failed")
+        failed: awaited.some(application => application.state === "failed"),
+        ...(stranded ? { alignError } : {})
     }
 }

@@ -1,6 +1,6 @@
 import { Schema } from "mongoose"
 import { fastify } from "../.."
-import ArgoCdClient, { ArgoCdResource } from "../../client/ArgoCdClient"
+import ArgoCdClient, { ArgoCdResource, sameRepoUrl } from "../../client/ArgoCdClient"
 import { BusinessException } from "../../errors/BusinessException"
 import { IProjectArgoCd, IProjectGitOps } from "../../models/ProjectModel"
 import GitOpsService from "../GitOpsService"
@@ -71,9 +71,10 @@ export const earlierAppProjects = async (
 }
 
 /**
- * The repositories read through the registration another project of the organization made globally, and refused are those
- * Argo CD holds a registration of that is not this project's. Only a global one is shared: a registration scoped to another
- * AppProject is of no use to this one
+ * The repositories read through a global registration that is not this project's own: one another project of the organization
+ * made, or one made by hand or by an earlier version. Argo CD reads a repository registered globally for every AppProject
+ * anyway, so the console uses it as it is and never changes nor deletes it. Refused is only a registration of the repository
+ * scoped to an AppProject, and any of the configuration repository, as that one holds the secrets of the project
  */
 export const sharedRepositories = async (
     client: ArgoCdClient,
@@ -90,8 +91,12 @@ export const sharedRepositories = async (
             continue
         }
         const before = previous?.repositories?.[target.kind]
-        const ours = before?.argoCdUrl === url && before.repoUrl === target.repoUrl && (before.argoProject === target.argoProject || movedFrom.includes(before.argoProject ?? ""))
-        if (!ours && (await client.getRepository(target.repoUrl))) throw repositoryConflict(target.repoUrl)
+        const ours = before?.argoCdUrl === url && sameRepoUrl(before.repoUrl, target.repoUrl) && (before.argoProject === target.argoProject || movedFrom.includes(before.argoProject ?? ""))
+        if (ours) continue
+        const registered = await client.getRepository(target.repoUrl)
+        if (!registered) continue
+        if (target.argoProject || registered.project) throw repositoryConflict(target.repoUrl)
+        shared.add(target.kind)
     }
     return shared
 }

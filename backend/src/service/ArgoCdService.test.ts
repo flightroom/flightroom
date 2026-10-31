@@ -264,11 +264,32 @@ describe("ArgoCdService.initialize", () => {
         expect(saved.at(-1)?.lastError).toBeUndefined()
     })
 
-    it("given another project that only reads through a registration too, when it is initialized, then that one is no holder and the conflict stands", async () => {
-        vi.mocked(Project.find).mockResolvedValue([{ slug: "portal", argoCd: { repositories: { applications: manualCredential({ repoUrl: APPS_REPO, source: "shared" }) } } }] as never)
+    it("given the applications repository registered globally by hand, when it is initialized, then it reads through that registration and never changes it", async () => {
         vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === APPS_REPO ? ({ repo } as never) : null))
 
+        await initialize()
+
+        expect(calls.some(call => call.startsWith(`argo:upsertRepository:${APPS_REPO}`) || call.startsWith(`argo:deleteRepository:${APPS_REPO}`))).toBe(false)
+        expect(saved.at(-1)?.repositories?.applications).toMatchObject({ source: "shared", repoUrl: APPS_REPO, password: "" })
+        expect(saved.at(-1)?.lastError).toBeUndefined()
+    })
+
+    it("given the applications repository registered for another AppProject, when it is initialized, then it is refused before anything is written", async () => {
+        vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === APPS_REPO ? ({ repo, project: "someone-else" } as never) : null))
+
         await expect(initialize()).rejects.toMatchObject({ code: "ARGOCD_REPOSITORY_CONFLICT" })
+
+        expect(calls.some(call => call.startsWith("argo:upsert") || call.startsWith("gitlab:"))).toBe(false)
+    })
+
+    it("given its own registration stored with the URL written otherwise, when it is initialized, then it is still its own: no conflict, and not deleted after the upsert", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", repositories: { applications: manualCredential({ repoUrl: APPS_REPO.toUpperCase() }) } }
+        vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === APPS_REPO ? ({ repo } as never) : null))
+
+        await initialize()
+
+        expect(calls).toContain(`argo:upsertRepository:${APPS_REPO}:x-access-token:ghp-read-only:global`)
+        expect(calls.some(call => call.startsWith("argo:deleteRepository"))).toBe(false)
     })
 
     it("given a registration another project reads through, when the project that made it links another repository, then the registration is left in place", async () => {
@@ -469,8 +490,8 @@ describe("ArgoCdService.initialize", () => {
         expect(calls).toContain("gitlab:revokeDeployToken:101:7")
     })
 
-    it("given a repository registered in Argo CD by someone else, when it is initialized, then it is refused before anything is written", async () => {
-        vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === APPS_REPO ? { repo } : null))
+    it("given the configuration repository registered in Argo CD by someone else, when it is initialized, then it is refused before anything is written", async () => {
+        vi.mocked(ArgoCdClient.prototype.getRepository).mockImplementation(async repo => (repo === CONFIG_REPO ? { repo } : null))
 
         await expect(initialize()).rejects.toMatchObject({ code: "ARGOCD_REPOSITORY_CONFLICT" })
 
@@ -1074,6 +1095,37 @@ describe("ArgoCdService.rollout", () => {
         const result = await rollout()
 
         expect(result.applications.every(application => application.state === "waiting")).toBe(true)
+        expect(result.alignError).toBeUndefined()
+    })
+
+    it("given a deploy that could not hand Argo CD the ApplicationSets, when the rollout is read, then the applications without an Application failed with its reason", async () => {
+        const alignError = { code: "ARGOCD_REINITIALIZE_REQUIRED", message: "initialize it again" }
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date(), alignError }
+        applications = [deployed("orders", synced("Healthy"))]
+
+        const result = await rollout()
+
+        expect(result.applications.map(application => [application.slug, application.state])).toEqual([
+            ["orders", "healthy"],
+            ["checkout", "failed"]
+        ])
+        expect(result).toMatchObject({ failed: true, done: false, alignError })
+    })
+
+    it("given an alignment that failed in another environment only, when the rollout is read, then an application without an Application here is still waiting", async () => {
+        previous = {
+            url: ARGO_URL,
+            token: "argo-token",
+            initializedAt: new Date(),
+            alignError: { code: "ARGOCD_NAMESPACES_NOT_IN_PROJECT", message: "not in the AppProject", details: { slug: "uat, prod" } }
+        }
+        applications = []
+
+        const result = await rollout()
+
+        expect(result.applications.every(application => application.state === "waiting")).toBe(true)
+        expect(result).toMatchObject({ failed: false })
+        expect(result.alignError).toBeUndefined()
     })
 
     it("given a deploy of one domain, when the rollout is read, then only the applications of that domain are followed", async () => {
