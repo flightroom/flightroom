@@ -207,7 +207,9 @@ describe("renderApplicationValues", () => {
     it("given an environment that never set its logging, when its values are rendered, then the container logs at info in JSON and gets no FRONTEND_URL", () => {
         expect(parse(render()).env).toEqual([
             { name: "LOG_LEVEL", value: "info" },
-            { name: "LOG_JSON", value: "true" }
+            { name: "LOG_JSON", value: "true" },
+            { name: "OTEL_SERVICE_NAME", value: "orders" },
+            { name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3" }
         ])
     })
 
@@ -217,7 +219,9 @@ describe("renderApplicationValues", () => {
         expect(values.env).toEqual([
             { name: "LOG_LEVEL", value: "debug" },
             { name: "LOG_JSON", value: "true" },
-            { name: "FRONTEND_URL", value: "https://dev.example.com/shop" }
+            { name: "FRONTEND_URL", value: "https://dev.example.com/shop" },
+            { name: "OTEL_SERVICE_NAME", value: "orders" },
+            { name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3" }
         ])
     })
 
@@ -227,6 +231,12 @@ describe("renderApplicationValues", () => {
 
     it("given a log level that is not one, when its values are rendered, then the container logs at info", () => {
         expect(parse(renderApplicationValues(application, { ...environment, logLevel: "verbose" }, mapNames)).env[0]).toEqual({ name: "LOG_LEVEL", value: "info" })
+    })
+
+    it("given a version with characters that split the attribute list, when its values are rendered, then the version is percent-encoded", () => {
+        const values = parse(render({ environmentVersions: [{ environmentId: environment._id, version: "1.2.3+build,7" }] }))
+
+        expect(values.env).toContainEqual({ name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3%2Bbuild%2C7" })
     })
 })
 

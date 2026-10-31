@@ -14,6 +14,10 @@ export default interface ConfigResponseDTO {
         enabled: boolean
         url: string
     }
+    /** The operator's Application Insights, when set: the browser sends it page views and errors. Ingestion only, public by design */
+    applicationInsights?: {
+        connectionString: string
+    }
     codeRepository?: {
         github?: {
             clientId: string

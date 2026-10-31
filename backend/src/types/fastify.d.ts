@@ -81,6 +81,7 @@ declare module "fastify" {
             DO_NOT_TRACK?: string
             TELEMETRY_ENDPOINT: string
             TELEMETRY_INTERVAL_HOURS: number
+            APPLICATIONINSIGHTS_CONNECTION_STRING?: string
             MCP_ENABLED: boolean
             OAUTH_ISSUER_URL?: string
             MCP_RESOURCE_URL?: string

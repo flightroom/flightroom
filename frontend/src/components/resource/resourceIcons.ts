@@ -1,4 +1,4 @@
-import { ArrowRightLeft, Box, Braces, Database, FolderOpen, HardDrive, KeyRound, type LucideIcon, Mail, Mic, Sparkles } from "lucide-react"
+import { Activity, ArrowRightLeft, Box, Braces, Database, FolderOpen, HardDrive, KeyRound, type LucideIcon, Mail, Mic, Sparkles } from "lucide-react"
 import { type SimpleIcon, siAuth0, siClaude, siGooglebigquery, siGooglecloud, siGooglegemini, siMariadb, siMongodb, siMysql, siOpenapiinitiative, siPostgresql, siRedis } from "simple-icons"
 import { isNearBlack } from "@/components/technology/technologyIcons"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
@@ -48,6 +48,7 @@ const TYPE_ICONS = new Map<string, LucideIcon>([
     ["sharepoint", FolderOpen],
     ["speech", Mic],
     ["serviceBus", ArrowRightLeft],
+    ["applicationInsights", Activity],
     ["generic", Braces]
 ])
 
@@ -66,6 +67,7 @@ const TYPE_ICON_MARKUP = new Map<string, string>(
             '<path d="m6 14 1.5-2.9A2 2 0 0 1 9.24 10H20a2 2 0 0 1 1.94 2.5l-1.54 6a2 2 0 0 1-1.95 1.5H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h3.9a2 2 0 0 1 1.69.9l.81 1.2a2 2 0 0 0 1.67.9H18a2 2 0 0 1 2 2v2"/>',
         speech: '<path d="M12 19v3"/><path d="M19 10v2a7 7 0 0 1-14 0v-2"/><rect x="9" y="2" width="6" height="13" rx="3"/>',
         serviceBus: '<path d="m16 3 4 4-4 4"/><path d="M20 7H4"/><path d="m8 21-4-4 4-4"/><path d="M4 17h16"/>',
+        applicationInsights: '<path d="M22 12h-2.48a2 2 0 0 0-1.93 1.46l-2.35 8.36a.25.25 0 0 1-.48 0L9.24 2.18a.25.25 0 0 0-.48 0l-2.35 8.36A2 2 0 0 1 4.49 12H2"/>',
         generic: '<path d="M8 3H7a2 2 0 0 0-2 2v5a2 2 0 0 1-2 2 2 2 0 0 1 2 2v5c0 1.1.9 2 2 2h1"/><path d="M16 21h1a2 2 0 0 0 2-2v-5c0-1.1.9-2 2-2a2 2 0 0 1-2-2V5a2 2 0 0 0-2-2h-1"/>'
     })
 )

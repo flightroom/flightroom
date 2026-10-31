@@ -733,8 +733,13 @@ describe("GitOpsService.deploy", () => {
                     { name: "LOG_JSON", value: "true" },
                     { name: "FRONTEND_URL", value: "https://app.example.com/shop" }
                 ]
-                expect(envOf("orders-api.yaml")).toEqual(expected)
-                expect(envOf("shop-fe.yaml")).toEqual(expected)
+                // Each container then gets its own OpenTelemetry name and version (ServiceVariables)
+                const service = (slug: string, version: string) => [
+                    { name: "OTEL_SERVICE_NAME", value: slug },
+                    { name: "OTEL_RESOURCE_ATTRIBUTES", value: expect.stringContaining(`service.version=${version}`) }
+                ]
+                expect(envOf("orders-api.yaml")).toEqual([...expected, ...service("orders-api", "1.4.0")])
+                expect(envOf("shop-fe.yaml")).toEqual([...expected, ...service("shop-fe", "2.0.0")])
             })
 
             it("given a project exposed on no domain, when it is deployed, then the containers get their logging and no FRONTEND_URL", async () => {
@@ -743,7 +748,7 @@ describe("GitOpsService.deploy", () => {
 
                 await deployOf(production)()
 
-                expect(envOf("orders-api.yaml").map((variable: { name: string }) => variable.name)).toEqual(["LOG_LEVEL", "LOG_JSON"])
+                expect(envOf("orders-api.yaml").map((variable: { name: string }) => variable.name)).toEqual(["LOG_LEVEL", "LOG_JSON", "OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES"])
             })
         })
     })

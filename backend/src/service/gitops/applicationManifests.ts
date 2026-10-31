@@ -3,6 +3,7 @@ import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, ContainerResources, Co
 import { EnvironmentVersion, hasEnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 import { EnvironmentLogging, runtimeVariables } from "../../types/RuntimeVariables"
+import { serviceVariables } from "../../types/ServiceVariables"
 
 /**
  * The applications repository of GitOps, laid out as an `applications-infra` repository: one branch per
@@ -175,8 +176,8 @@ export interface ApplicationGateway {
  * the environment, an application with an exposure path gets a route on it. Its CPU, memory and replicas are those of
  * the environment where it sets some apart. Its version is the one of the environment. Without an image repository of
  * its own, the image is the one in the container registry of the project. Every container gets the LOG_LEVEL and
- * LOG_JSON of the environment, and FRONTEND_URL when given, as `env`: Kubernetes puts them before what a config map of
- * the same name says.
+ * LOG_JSON of the environment, FRONTEND_URL when given, and the OpenTelemetry name, environment and version of the
+ * application, as `env`: Kubernetes puts them before what a config map of the same name says.
  */
 export const renderApplicationValues = (
     application: GitOpsApplication,
@@ -213,7 +214,11 @@ export const renderApplicationValues = (
             ...names(application.resourceIds, mapNames.resources ?? new Map()),
             ...(application.maintenance ? [maintenanceAgentSecretName(application.slug)] : [])
         ],
-        env: [...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []), ...runtimeVariables(environment, frontendUrl)],
+        env: [
+            ...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []),
+            ...runtimeVariables(environment, frontendUrl),
+            ...serviceVariables(application, environment, version)
+        ],
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }

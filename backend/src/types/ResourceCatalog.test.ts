@@ -44,6 +44,16 @@ describe("resourceEnvPrefix", () => {
     it("given a prefix typed by hand, when the prefix is derived, then it replaces the derived one", () => {
         expect(resourceEnvPrefix({ name: "orders", type: "database", variant: "credentials", envPrefix: "POSTGRES" })).toBe("POSTGRES")
     })
+
+    it("given an Application Insights resource, when its variables are derived, then they are named as the Azure Monitor SDKs read them, whatever its name", () => {
+        expect(resourceEnvKeys({ name: "orders-telemetry", type: "applicationInsights", variant: "connectionString" })).toEqual([
+            { key: "APPLICATIONINSIGHTS_CONNECTION_STRING", field: "connectionString", secret: true, required: true }
+        ])
+    })
+
+    it("given an Application Insights resource with a prefix typed by hand, when the prefix is derived, then the typed one still wins", () => {
+        expect(resourceEnvPrefix({ name: "telemetry", type: "applicationInsights", variant: "connectionString", envPrefix: "LEGACY_INSIGHTS" })).toBe("LEGACY_INSIGHTS")
+    })
 })
 
 describe("resourceEnvKeys", () => {

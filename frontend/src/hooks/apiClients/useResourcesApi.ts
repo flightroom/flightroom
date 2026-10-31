@@ -33,6 +33,8 @@ export interface ResourceTypeSpec {
     /** A string rather than a union: the form is drawn from the catalog, so a type added later works as it is */
     type: string
     envPrefix: string
+    /** The variables are named by envPrefix alone, without the name of the resource: those an SDK reads by itself */
+    exactEnvPrefix?: boolean
     variants: ResourceVariantSpec[]
 }
 

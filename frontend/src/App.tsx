@@ -7,6 +7,7 @@ import { BrowserRouter } from "react-router-dom"
 import { GlobalParameterProvider } from "./contexts/GlobalParameterProvider"
 import i18n from "./i18n"
 import Routes from "./Routes"
+import ApplicationInsightsInit from "./theme/ApplicationInsightsInit"
 import InitialThemeWrapper from "./theme/InitialThemeWrapper"
 import Notification from "./theme/Notification"
 import SentryInit from "./theme/SentryInit"
@@ -30,6 +31,7 @@ const App: React.FC = () => (
                         <QueryClientProvider client={queryClient}>
                             <BrowserRouter>
                                 <GlobalParameterProvider>
+                                    <ApplicationInsightsInit />
                                     <TooltipProvider>
                                         <Notification />
                                         <Routes />

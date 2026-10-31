@@ -30,6 +30,11 @@ export default async function configurationController(fastify: FastifyInstance) 
             }
         }
 
+        const insights = config.APPLICATIONINSIGHTS_CONNECTION_STRING?.trim()
+        if (insights) {
+            response.applicationInsights = { connectionString: insights }
+        }
+
         // Aggiungi provider solo se attivo
         if (config.AUTH0_DOMAIN) {
             response.providers.auth0 = {

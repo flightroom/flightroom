@@ -23,6 +23,7 @@
         "@flightroom/design-system": "^2.1.0",
         "@heroicons/react": "^2.2.0",
         "@hookform/resolvers": "^6.0.2",
+        "@microsoft/applicationinsights-web": "^3.4.5",
         "@react-oauth/google": "^0.13.5",
         "@sentry/react": "^11.10.0",
         "@tanstack/react-query": "^5.105.0",

@@ -1174,6 +1174,17 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         )
     })
 
+    it("Given an Application Insights resource, when it runs, then the agent is told to turn on Azure Monitor only when its connection string is set", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+        const insights = agentResource("telemetry", "applicationInsights", "connectionString", {})
+
+        await runAiChangeAgent(client, { ...input(), repositories: [{ baseBranch: "main", workingCopy, backend: { ...configuredBackend(), resources: [insights] } }] }, hooks().hooks)
+
+        const prompt = firstPromptOf(sent)
+        expect(prompt).toContain(["- telemetry (applicationInsights, connectionString)", "  keys: APPLICATIONINSIGHTS_CONNECTION_STRING (secret)", "  secret: telemetry.resource"].join("\n"))
+        expect(prompt).toContain("usage: send the telemetry to Azure Monitor only when APPLICATIONINSIGHTS_CONNECTION_STRING is set")
+    })
+
     it("Given an Azure AI Speech resource, when it runs, then the agent is told to reach it with the Speech SDK by its key and region", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
         const speech = agentResource("voice", "speech", "apiKey", { region: "westeurope", language: "it-IT" })
