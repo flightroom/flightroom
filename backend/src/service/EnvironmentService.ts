@@ -11,6 +11,7 @@ import GlobalVariable from "../models/GlobalVariableModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import { EnvironmentDTO } from "../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange } from "../types/Exposure"
+import { isTimeZone, KUBE_GREEN_DEFAULTS, KUBE_GREEN_TIME, KUBE_GREEN_WEEKDAYS, KubeGreenSettings } from "../types/KubeGreen"
 import { isLogLevel, LOG_LEVELS } from "../types/RuntimeVariables"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -74,6 +75,44 @@ const withValidLogLevel = <T extends Partial<EnvironmentDTO>>(data: T): T => {
     return { ...data, logLevel }
 }
 
+const invalidKubeGreen = (field: string, value: unknown, message: string) => createBusinessException({ code: "ENVIRONMENT_KUBE_GREEN_INVALID", message, details: { field, value: String(value) } })
+
+/**
+ * The kube-green schedule as it is saved: filled in with the defaults, trimmed, the excluded applications without blanks
+ * or repeats. Checked only when it is on: kube-green ignores a SleepInfo it cannot parse, and the environment never sleeps.
+ */
+export const normalizeKubeGreen = (kubeGreen: Partial<KubeGreenSettings>): KubeGreenSettings => {
+    const trimmed = (value: unknown, fallback = "") => (typeof value === "string" ? value.trim() : fallback)
+    const settings: KubeGreenSettings = {
+        enabled: kubeGreen.enabled === true,
+        weekdays: trimmed(kubeGreen.weekdays, KUBE_GREEN_DEFAULTS.weekdays).replace(/\s+/g, ""),
+        sleepAt: trimmed(kubeGreen.sleepAt, KUBE_GREEN_DEFAULTS.sleepAt),
+        wakeUpAt: trimmed(kubeGreen.wakeUpAt),
+        timeZone: trimmed(kubeGreen.timeZone, KUBE_GREEN_DEFAULTS.timeZone),
+        suspendDeployments: kubeGreen.suspendDeployments ?? KUBE_GREEN_DEFAULTS.suspendDeployments,
+        suspendStatefulSets: kubeGreen.suspendStatefulSets ?? KUBE_GREEN_DEFAULTS.suspendStatefulSets,
+        suspendCronJobs: kubeGreen.suspendCronJobs ?? KUBE_GREEN_DEFAULTS.suspendCronJobs,
+        excludeApplications: [...new Set((Array.isArray(kubeGreen.excludeApplications) ? kubeGreen.excludeApplications : []).map(slug => trimmed(slug)).filter(Boolean))]
+    }
+    if (!settings.enabled) return settings
+    if (!KUBE_GREEN_WEEKDAYS.test(settings.weekdays)) {
+        throw invalidKubeGreen("weekdays", settings.weekdays, `"${settings.weekdays}" are not days of the week: 0 (Sunday) to 6, ranges and commas, e.g. 1-5, or * for every day`)
+    }
+    for (const field of ["sleepAt", "wakeUpAt"] as const) {
+        const value = settings[field]
+        if ((field === "sleepAt" || value) && !KUBE_GREEN_TIME.test(value ?? "")) throw invalidKubeGreen(field, value, `"${value}" is not a time as HH:MM, e.g. 20:00`)
+    }
+    if (!isTimeZone(settings.timeZone)) throw invalidKubeGreen("timeZone", settings.timeZone, `"${settings.timeZone}" is not an IANA time zone, e.g. Europe/Rome`)
+    return settings
+}
+
+/** The data of an environment with its kube-green schedule normalized, when it carries one */
+const withNormalizedKubeGreen = <T extends Partial<EnvironmentDTO>>(data: T): T =>
+    data.kubeGreen === undefined || data.kubeGreen === null ? data : { ...data, kubeGreen: normalizeKubeGreen(data.kubeGreen) }
+
+/** Everything the data of an environment is checked and normalized for before it is saved */
+const normalized = <T extends Partial<EnvironmentDTO>>(data: T, hadIpAllowList = false): T => withNormalizedKubeGreen(withValidLogLevel(withNormalizedIpAllowList(data, hadIpAllowList)))
+
 class EnvironmentService extends BaseAuthorizedService {
     async getByProjectId(projectId: string) {
         await this.ensureAccessToProject(projectId)
@@ -95,7 +134,7 @@ class EnvironmentService extends BaseAuthorizedService {
         await this.ensureAccessToProject(projectIdObj)
         // Every domain is deployed to the environments: only those reaching the whole project change them
         await this.ensureWholeProject(projectIdObj)
-        const environment = new Environment(withValidLogLevel(withNormalizedIpAllowList(environmentData)))
+        const environment = new Environment(normalized(environmentData))
         environment.projectId = projectIdObj
         if (environment.order === undefined || environment.order === null) {
             environment.order = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
@@ -107,7 +146,7 @@ class EnvironmentService extends BaseAuthorizedService {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
         await this.ensureWholeProject(projectIdObj)
-        const environments = body.map(env => new Environment(withValidLogLevel(withNormalizedIpAllowList(env))))
+        const environments = body.map(env => new Environment(normalized(env)))
         let maxOrder = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
         environments.forEach(env => {
             env.projectId = projectIdObj
@@ -124,7 +163,7 @@ class EnvironmentService extends BaseAuthorizedService {
         await this.ensureWholeProjectOfEnvironment(environmentId)
         const environmentIdObj = toObjectId(environmentId)
         const current = updateData.ipAllowList === undefined ? null : await Environment.findById(environmentIdObj, { ipAllowList: 1 })
-        const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, withValidLogLevel(withNormalizedIpAllowList(updateData, Array.isArray(current?.ipAllowList))), {
+        const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, normalized(updateData, Array.isArray(current?.ipAllowList)), {
             new: true
         })
 

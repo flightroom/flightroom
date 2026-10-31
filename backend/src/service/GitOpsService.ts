@@ -88,6 +88,9 @@ export const NAMESPACE_FILE = "namespace.yaml"
 /** The Gateway of the environment, its Certificate and its redirect to HTTPS, in the folder of the environment */
 export const GATEWAY_FILE = "gateway.yaml"
 
+/** The kube-green SleepInfo of the environment, when it sleeps on a schedule, in the folder of the environment */
+export const SLEEP_INFO_FILE = "sleepinfo.yaml"
+
 /** Local branch the commit is made on before it is pushed onto the default one */
 const GITOPS_BRANCH = "flightroom-gitops"
 
@@ -140,6 +143,39 @@ export const maintenanceAgentFilePath = (environment: Pick<IEnvironment, "slug">
 export const namespaceFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${NAMESPACE_FILE}`
 
 export const gatewayFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${GATEWAY_FILE}`
+
+export const sleepInfoFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${SLEEP_INFO_FILE}`
+
+/**
+ * The kube-green SleepInfo of an environment, none when it does not sleep. Named after the project, as its Gateway:
+ * two projects sharing a namespace do not take each other's. A cluster without the kube-green CRD must not keep the
+ * rest of the environment from syncing, as for the Gateway.
+ */
+export const renderSleepInfo = (name: string, environment: Pick<IEnvironment, "slug" | "namespace" | "kubeGreen">): string | undefined => {
+    const kubeGreen = environment.kubeGreen
+    if (!kubeGreen?.enabled) return undefined
+    return stringify({
+        apiVersion: "kube-green.com/v1alpha1",
+        kind: "SleepInfo",
+        metadata: {
+            name,
+            namespace: environmentNamespace(environment),
+            labels: { [MANAGED_BY_LABEL]: MANAGED_BY },
+            annotations: { "argocd.argoproj.io/sync-options": "SkipDryRunOnMissingResource=true" }
+        },
+        spec: {
+            weekdays: kubeGreen.weekdays,
+            sleepAt: kubeGreen.sleepAt,
+            ...(kubeGreen.wakeUpAt ? { wakeUpAt: kubeGreen.wakeUpAt } : {}),
+            timeZone: kubeGreen.timeZone,
+            suspendDeployments: kubeGreen.suspendDeployments,
+            suspendStatefulSets: kubeGreen.suspendStatefulSets,
+            suspendCronJobs: kubeGreen.suspendCronJobs,
+            // The Deployment of an application is named after its slug, as its Helm release
+            ...(kubeGreen.excludeApplications?.length ? { excludeRef: kubeGreen.excludeApplications.map(slug => ({ apiVersion: "apps/v1", kind: "Deployment", name: slug })) } : {})
+        }
+    })
+}
 
 /** A project as its Gateways are named and exposed */
 type ExposedProject = { _id: unknown; slug: string; exposure?: { domain: string; certificateIssuer?: string; httpPort?: number; httpsPort?: number } }
@@ -261,6 +297,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 
 - \`<environment>/namespace.yaml\`: the Namespace of the environment, named as set on it or as its slug in lowercase
 - \`<environment>/gateway.yaml\`: when the project has a domain, the Traefik Gateway answering on the host of the environment, its cert-manager Certificate and the redirect to HTTPS
+- \`<environment>/sleepinfo.yaml\`: when the environment sleeps on a schedule, the kube-green SleepInfo that scales it down and back up
 - \`<environment>/configMaps/<name>.yaml\`: the ConfigMaps, in that namespace
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
 - \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a backend attaches, in that namespace, values base64 encoded (not encrypted)
@@ -313,10 +350,12 @@ const environmentOfPath = (path: string): string => path.split("/")[0]
 
 const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER, MAINTENANCE_AGENTS_FOLDER])
 
-/** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
+const ENVIRONMENT_FILES = new Set([NAMESPACE_FILE, GATEWAY_FILE, SLEEP_INFO_FILE])
+
+/** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, `<slug>/sleepinfo.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
 const isConfigurationManifest = (path: string) => {
     const [, second, third, ...rest] = path.split("/")
-    return rest.length === 0 && (third === undefined ? second === NAMESPACE_FILE || second === GATEWAY_FILE : KIND_FOLDERS.has(second) && third.endsWith(".yaml"))
+    return rest.length === 0 && (third === undefined ? ENVIRONMENT_FILES.has(second) : KIND_FOLDERS.has(second) && third.endsWith(".yaml"))
 }
 
 /** A map as it is read for a deploy: its id is how backends and frontends attach it */
@@ -328,19 +367,22 @@ type DeployedResource = ResourceWithValues & { _id: unknown }
 /**
  * What a deploy of one environment ships: its Namespace, its Gateway when it has one, every config map and
  * secret of the project as they are in it, and every resource a backend attaches. A Gateway left out is
- * pruned, with the project's domain gone, and so is a resource no backend attaches any longer.
+ * pruned, with the project's domain gone, and so is a resource no backend attaches any longer, and the
+ * SleepInfo of an environment that no longer sleeps.
  */
 const environmentFiles = (
     environment: Pick<IEnvironment, "_id" | "slug" | "namespace">,
     maps: Record<VariableMapKind, DeployedMap[]>,
     resources: DeployedResource[],
     gateway?: EnvironmentGateway,
-    agents: Array<{ slug: string; token: string }> = []
+    agents: Array<{ slug: string; token: string }> = [],
+    sleepInfo?: string
 ): GitOpsFile[] => {
     const namespace = environmentNamespace(environment)
     return [
         { path: namespaceFilePath(environment), action: "update", content: renderNamespace(environment) },
         ...(gateway ? [{ path: gatewayFilePath(environment), action: "update" as const, content: renderGateway(gateway) }] : []),
+        ...(sleepInfo ? [{ path: sleepInfoFilePath(environment), action: "update" as const, content: sleepInfo }] : []),
         ...(Object.keys(GITOPS_FOLDER) as VariableMapKind[]).flatMap(kind =>
             maps[kind].map(map => ({ path: gitOpsFilePath(kind, environment, map.name), action: "update" as const, content: renderManifest(kind, map, String(environment._id), namespace) }))
         ),
@@ -483,7 +525,7 @@ export class GitOpsService extends BaseAuthorizedService {
         // With GitOps on, a deploy pushes to the provider with the token of the connection
         await this.ensureNotViewer(projectId, { code: "GITOPS_VIEWER_FORBIDDEN", message: "A viewer of the project cannot change what is committed to its GitOps repositories" })
 
-        const environments = await Environment.find({ projectId }, { slug: 1, namespace: 1, subdomain: 1, isProduction: 1, ipAllowList: 1, logLevel: 1, logJson: 1 })
+        const environments = await Environment.find({ projectId }, { slug: 1, namespace: 1, subdomain: 1, isProduction: 1, ipAllowList: 1, logLevel: 1, logJson: 1, kubeGreen: 1 })
         const deployed = environments.filter(environment => environmentIds.has(String(environment._id)))
         // Refused before anything is pushed: a subdomain the cluster would not take, or a host two environments share
         const gateways = new Map(deployed.map(environment => [String(environment._id), environmentGateway(project, environment, environments)] as const))
@@ -520,7 +562,16 @@ export class GitOpsService extends BaseAuthorizedService {
             const message = `Deploy ${[...deployedSlugs].join(", ")}`
             const undo = await commit(
                 message,
-                deployed.flatMap(environment => environmentFiles(environment, maps, resources, gateways.get(String(environment._id)), agentSecrets(environment))),
+                deployed.flatMap(environment =>
+                    environmentFiles(
+                        environment,
+                        maps,
+                        resources,
+                        gateways.get(String(environment._id)),
+                        agentSecrets(environment),
+                        renderSleepInfo(gatewayName(String(project._id), project.slug), environment)
+                    )
+                ),
                 { prune: path => isConfigurationManifest(path) && (deployedSlugs.has(environmentOfPath(path)) || !existingSlugs.has(environmentOfPath(path))) }
             )
             return revertingOnFailure(withApplications, async () => {
