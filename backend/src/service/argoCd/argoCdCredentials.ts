@@ -1,6 +1,6 @@
 import { Schema } from "mongoose"
 import { fastify } from "../.."
-import ArgoCdClient from "../../client/ArgoCdClient"
+import ArgoCdClient, { sameRepoUrl } from "../../client/ArgoCdClient"
 import GitlabClient from "../../client/GitlabClient"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../../models/CodeRepositoryModel"
 import { ICodeRepositoryFrontend } from "../../models/FrontendModel"
@@ -97,7 +97,8 @@ export const retire = async (
     next?: IArgoCdRepositoryCredential
 ): Promise<IArgoCdRepositoryRegistration[]> => {
     const undeleted: IArgoCdRepositoryRegistration[] = []
-    const sameRegistration = next && next.argoCdUrl === before.argoCdUrl && next.repoUrl === before.repoUrl && next.argoProject === before.argoProject
+    // As Argo CD compares the URLs: the upsert of a URL written otherwise updated this very registration
+    const sameRegistration = next && next.argoCdUrl === before.argoCdUrl && sameRepoUrl(next.repoUrl, before.repoUrl) && next.argoProject === before.argoProject
     // A shared registration is the other project's to delete, and so are its credentials
     if (before.argoCdUrl === url && !sameRegistration && before.source !== "shared") {
         const registration = { argoCdUrl: before.argoCdUrl, repoUrl: before.repoUrl, argoProject: before.argoProject }

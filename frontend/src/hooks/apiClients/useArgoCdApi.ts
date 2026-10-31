@@ -94,6 +94,8 @@ export interface Rollout {
     done: boolean
     /** Argo CD non è riuscito ad applicare il commit per almeno un'applicazione */
     failed: boolean
+    /** Perché il deploy non ha consegnato gli ApplicationSet ad Argo CD: le applicazioni rimaste senza Application sono fallite per questo */
+    alignError?: { code?: string; message: string; details?: GitOpsErrorDetails }
 }
 
 const useArgoCdApi = () => {

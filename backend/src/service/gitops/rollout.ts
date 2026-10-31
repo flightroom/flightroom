@@ -1,4 +1,5 @@
 import { ArgoCdPod, ArgoCdResource } from "../../client/ArgoCdClient"
+import { IArgoCdError } from "../../models/ProjectModel"
 
 /**
  * Where an application stands after a deploy, as Argo CD tells it:
@@ -37,6 +38,8 @@ export interface RolloutDTO {
     done: boolean
     /** Argo CD could not apply the commit for at least one of those applications */
     failed: boolean
+    /** Why the deploy could not hand Argo CD the ApplicationSets: the applications it left without an Application failed with it */
+    alignError?: IArgoCdError
 }
 
 const STARTED = new Set(["Running", "Terminating"])

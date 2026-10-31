@@ -41,7 +41,9 @@ name longer than **53 characters**: an application with a longer slug fails to s
 Argo CD. Keep the slugs of backends and frontends shorter.
 
 Before writing anything, the console checks that every name it is about to take is free or already its
-own, and that no repository it registers is already registered in Argo CD by someone else. An object
+own, and that no repository it registers is already registered in Argo CD by someone else. A global
+registration of the applications repository is the exception: the console reads through it as it is and
+never changes nor deletes it (see below). An object
 the account of the token may not read counts as taken. Anything taken stops the initialization with
 nothing changed: rename or remove it in Argo CD, then initialize again. Two objects of the project
 that would take the same name stop it too: `orders-api` in `dev` and `orders` in `api-dev` are both
@@ -60,7 +62,10 @@ only one of them in a project:
 
 An applications repository with an empty project is expected: nothing is missing. When two projects of
 the organization link the same applications repository, they share one global registration. The second
-project adds no row, and the registration stays as long as a project reads through it. A project column
+project adds no row, and the registration stays as long as a project reads through it. An applications
+repository already registered globally by hand, by an earlier version or by a project of another
+organization is used the same way: its credentials stay those of whoever registered it, and the console
+leaves the row alone. A project column
 without the `fr-` prefix is an AppProject of 10.x: initialize that project again to move it (see
 [Re-running it](#re-running-it)).
 
@@ -278,7 +283,7 @@ it says to check:
 | Token not accepted | That it is a token of the `orchestrator` account, not expired or revoked. |
 | Not allowed | The policy in `argocd-rbac-cm` above. |
 | Name taken | An AppProject, Application or ApplicationSet of that name not created by this project. |
-| Repository already registered | A registration of the repository made by hand, or by another project. |
+| Repository already registered | A registration of the configuration repository made by hand or by another project, or one of the applications repository scoped to an AppProject. |
 | Deploy token not created | The role and the scopes of the GitLab connection. |
 | Initialized with other repositories, or AppProject not there | Nothing: initialize again. |
 | Already running | Another initialization of the project: wait for it to end. |
