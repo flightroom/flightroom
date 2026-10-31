@@ -676,6 +676,12 @@
             "restarts_one": "{{count}} restart",
             "restarts_other": "{{count}} restarts",
             "empty": "No containers to start in this deploy."
+        },
+        "card": {
+            "replicas_zero": "No replicas",
+            "replicas_one": "{{count}} replica",
+            "replicas_other": "{{count}} replicas",
+            "stopped": "No pod runs in this environment: the URL does not answer until you scale it up"
         }
     },
     "builds": {

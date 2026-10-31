@@ -6,6 +6,7 @@ import { Link } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
+import useEnvironmentsApi from "@/hooks/apiClients/useEnvironmentsApi"
 import { Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
@@ -83,7 +84,7 @@ const groupByDomain = (frontends: Frontend[], backends: DeployedBackend[], domai
 }
 
 /** What a deployment shipped: the same summary for the active one and for the history */
-const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment }) => {
+const DeploymentSummary: React.FC<{ deployment: DeploymentDTO; active?: boolean }> = ({ deployment, active }) => {
     const { t } = useTranslation()
     const backends = deployment.backends ?? []
     const configMaps = deployment.configMaps ?? []
@@ -103,6 +104,14 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
     const groups = groupByDomain(deployment.frontends, backends, domainsQuery.data ?? [])
     // Without any domain the headings would only repeat "without a domain": the members stay as they were
     const showDomains = groups.some(group => group.domain)
+    // The replicas are the ones set on the environment now, not recorded by the deployment: only the active one shows them
+    const environmentsApi = useEnvironmentsApi()
+    const replicasQuery = useQuery({
+        queryKey: ["environment-replicas", deployment.environmentId],
+        queryFn: () => environmentsApi.getReplicas(deployment.environmentId),
+        enabled: !!active
+    })
+    const replicasOf = (kind: "frontend" | "backend", id: string) => replicasQuery.data?.find(row => row.kind === kind && row._id === id)?.replicas
 
     return (
         <>
@@ -125,10 +134,15 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO }> = ({ deployment
                         {/* One grid for both: the tag and the color of each card tell a frontend from a backend */}
                         <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
                             {group.frontends.map(frontend => (
-                                <DeploymentFrontendCard key={frontend._id} frontend={frontend} url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined} />
+                                <DeploymentFrontendCard
+                                    key={frontend._id}
+                                    frontend={frontend}
+                                    url={frontend.kind === FrontendKind.DOCKER ? exposedUrl(frontend.exposurePath) : undefined}
+                                    replicas={replicasOf("frontend", frontend._id)}
+                                />
                             ))}
                             {group.backends.map(backend => (
-                                <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} />
+                                <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} replicas={replicasOf("backend", backend._id)} />
                             ))}
                         </div>
                     </section>
@@ -207,7 +221,7 @@ export const DeploymentList: React.FC<DeploymentListProps> = ({ environmentId })
                                                     </div>
                                                 </AccordionTrigger>
                                                 <AccordionContent>
-                                                    <DeploymentSummary deployment={deployment} />
+                                                    <DeploymentSummary deployment={deployment} active />
                                                     <div className="mt-8">
                                                         <Button variant="secondary" href={`/deployments/${deployment._id}/canary-users`}>
                                                             <UsersRound />

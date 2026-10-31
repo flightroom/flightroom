@@ -573,6 +573,12 @@
             "restarts_one": "{{count}} riavvio",
             "restarts_other": "{{count}} riavvii",
             "empty": "Nessun container da avviare in questo deploy."
+        },
+        "card": {
+            "replicas_zero": "Nessuna replica",
+            "replicas_one": "{{count}} replica",
+            "replicas_other": "{{count}} repliche",
+            "stopped": "Nessun pod in esecuzione in questo ambiente: l'URL non risponde finché non riscali"
         }
     },
     "builds": {
