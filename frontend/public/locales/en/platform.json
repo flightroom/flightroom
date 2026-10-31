@@ -551,6 +551,7 @@
         "select_environment": "Select an environment",
         "deploy_button": "Deploy",
         "deploying": "Deploying…",
+        "manage_environments": "Manage environments",
         "active_deployments": "Active deployment",
         "history": "History",
         "kind_frontend": "Frontend",
