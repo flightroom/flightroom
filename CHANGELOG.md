@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.4.0] - 2026-10-31
+
+### Added
+
+- **Manage Environments From The Deployments Page**: a **Manage environments** button among the actions of the Deployments page opens the Environments page
+
+### Fixed
+
+- **Scaling, Promoting And Domain Releases No Longer Fail**: scaling the replicas of an environment, promoting versions to it and setting the versions of a domain release failed with "Cannot pass an array to query updates", as Mongoose 9 refuses an aggregation pipeline as an update without the `updatePipeline` option
+
 ## [11.3.0] - 2026-10-31
 
 ### Added
