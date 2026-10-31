@@ -5,15 +5,20 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
-## [Unreleased]
+## [11.5.0] - 2026-10-31
 
 ### Added
 
+- **Detach A Config Map Or A Secret From Its Page**: each backend, DOCKER frontend or maintenance agent listed under **Used by** has a button that detaches the map from it; from its next deploy it no longer receives the values. The card now lists the DOCKER frontends and the maintenance agents too, which already kept a map from being deleted without showing up there
 - **Subscription And Resource Group Of An Azure Storage**: a `storage` resource on Azure, in every variant, takes its subscription ID and resource group, both optional, passed in `STORAGE_<NAME>_SUBSCRIPTION_ID` and `STORAGE_<NAME>_RESOURCE_GROUP` to a backend that manages the account through Azure Resource Manager
 
 ### Changed
 
 - **MongoDB Database Name Variable**: the database of a `mongodb` resource is passed in `MONGO_<NAME>_DATABASE_NAME` in place of `MONGO_<NAME>_NAME`, in both variants. The old name is no longer set: a backend that reads it must switch to the new one, and gets it at its next deploy
+
+### Security
+
+- **Unused `@tailwindcss/typography` Removed**: it pinned `postcss-selector-parser` 6.0.10, vulnerable to quadratic selector parsing (CVE-2026-104844, GHSA-rj75-hqrm-r3gf), and nothing in the console loaded it
 
 ## [11.4.1] - 2026-10-31
 
