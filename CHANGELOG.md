@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [11.7.0] - 2026-10-31
+
+### Added
+
+- **Overview Of A Backend In Tabs**: the overview of a backend is split into the **Summary**, **Configuration**, **Resources** and **Logs** tabs, in place of one long page
+
+### Changed
+
+- **kube-green Hours For Each Day Of The Week**: the scheduled sleep of an environment is set day by day, from Monday, in place of one rule for every day: each day is awake from when it wakes up to when it goes to sleep (from or until midnight when left empty), or asleep all day; Monday to Friday 08:00 to 20:00 and the weekend asleep until set. A SleepInfo has one set of days for both its times and wakes up only what it put to sleep, so `<environment>/sleepinfo.yaml` now holds a SleepInfo per sleep within a day: a night asleep is woken at 23:59 and put back to sleep at 00:00, and its pods start for that minute. The API and the MCP tool `environment_update` take `kubeGreen.days`, one entry per day with `weekday`, `awake`, `wakeUpAt` and `sleepAt`, in place of `weekdays`, `sleepAt` and `wakeUpAt`. A schedule saved before is turned into a day each at boot: its days awake between its two times, the others asleep. With no wake up time it no longer sleeps until the next deploy: its days are awake from midnight. The SleepInfos take new names, so the first deploy prunes the old one: an environment asleep at that moment stays scaled down until its next deploy
+
 ## [11.6.0] - 2026-10-31
 
 ### Added
