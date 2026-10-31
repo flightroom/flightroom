@@ -347,9 +347,18 @@
   "345": "[8.1.1] - 2026-10-26",
   "346": "[8.6.1] - 2026-10-27",
   "347": "[Unreleased]",
+  "348": "aiChangeAgent.test.ts",
+  "349": "BuildStatusDTO.ts",
+  "350": "integration",
   "351": "docsSearch.ts",
   "352": "[2.1.0] - 2026-08-06",
+  "353": "provider_load_error",
   "354": "main.tsx",
   "355": "DeploymentController.ts",
-  "361": "[Unreleased]"
+  "356": "projectWizardStateMachine.ts",
+  "357": "[11.3.0] - 2026-10-31",
+  "358": "[8.3.0] - 2026-10-26",
+  "359": "StartChoice.tsx",
+  "360": "[8.1.2] - 2026-10-26",
+  "361": "ChargeForce"
 }
