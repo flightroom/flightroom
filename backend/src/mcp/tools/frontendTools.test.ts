@@ -49,6 +49,18 @@ describe("exposurePath of a DOCKER frontend", () => {
     })
 })
 
+describe("replicas of a DOCKER frontend", () => {
+    it.each(["frontend_create", "frontend_update"])("given %s, when its input is read, then it takes replicas, for the container and per environment", name => {
+        const base = name === "frontend_create" ? { name: "Shell", slug: "shell", kind: "DOCKER" } : { frontendId: FRONTEND }
+        const accepts = (fields: object) => tool(name).inputSchema.safeParse({ ...base, ...fields }).success
+        const environmentId = "cccccccccccccccccccccccc"
+
+        expect(accepts({ replicas: 3, environmentResources: [{ environmentId, replicas: 5 }] })).toBe(true)
+        expect(accepts({ replicas: 0 })).toBe(false)
+        expect(accepts({ environmentResources: [{ environmentId, replicas: 21 }] })).toBe(false)
+    })
+})
+
 describe("frontend_repository_rename", () => {
     beforeEach(() => {
         renameRepository.mockReset()
