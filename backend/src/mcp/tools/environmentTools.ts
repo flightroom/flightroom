@@ -50,7 +50,7 @@ export const environmentFields = {
         .boolean()
         .optional()
         .describe(
-            "Whether the containers of the environment log JSON (true) or plain text (false), handed to each of them as the LOG_JSON environment variable on its next deploy; false when never set"
+            "Whether the containers of the environment log JSON (true) or plain text (false), handed to each of them as the LOG_JSON environment variable on its next deploy; true when never set"
         )
 }
 

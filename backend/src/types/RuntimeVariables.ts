@@ -20,7 +20,7 @@ export const FRONTEND_URL_VARIABLE = "FRONTEND_URL"
 /** Set by every deploy on every container: a resource setting one of them too would be there twice */
 export const RUNTIME_VARIABLES = [LOG_LEVEL_VARIABLE, LOG_JSON_VARIABLE, FRONTEND_URL_VARIABLE]
 
-/** What an environment sets of them; an environment saved before they existed logs at info, in plain text */
+/** What an environment sets of them; an environment saved before they existed logs at info, in JSON */
 export interface EnvironmentLogging {
     logLevel?: string | null
     logJson?: boolean | null
@@ -29,6 +29,6 @@ export interface EnvironmentLogging {
 /** The variables a container gets in an environment; FRONTEND_URL only where there is one */
 export const runtimeVariables = (environment: EnvironmentLogging, frontendUrl?: string): Array<{ name: string; value: string }> => [
     { name: LOG_LEVEL_VARIABLE, value: isLogLevel(environment.logLevel) ? environment.logLevel : DEFAULT_LOG_LEVEL },
-    { name: LOG_JSON_VARIABLE, value: String(environment.logJson === true) },
+    { name: LOG_JSON_VARIABLE, value: String(environment.logJson !== false) },
     ...(frontendUrl ? [{ name: FRONTEND_URL_VARIABLE, value: frontendUrl }] : [])
 ]
