@@ -5,6 +5,18 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Shell Commands For Edit With AI**: with an OpenShell gateway the agent gets `run_command` beside `run_script`, which runs any shell command in the sandbox, at the root of a repository or in a folder of it, for up to 10 minutes: the build and tests of a repository without a `package.json` (Maven, Gradle, Go, .NET, Python), one test file, a tool the scripts do not run. What it changes in the repository joins the change as for a script, counted in the 500 KB the agent may write, and the output of both, as the agent reads it, has the usual credential shapes masked. It does not get the `.npmrc` of the design system, which stays with `run_script`
+- **Sandbox Time In The AI Usage**: the AI usage cards count, by Edit with AI, missions and live previews, the scripts and commands run in a sandbox and how long they ran, and how long each sandbox lived, idle minutes included until it is deleted. Shown in minutes once there is some, beside the tokens; the API returns it as `sandbox` on each summary and on each project of the organization's
+- **Missions Apart In The AI Usage**: the tokens of the jobs of a mission are counted as `mission`, apart from those of Edit with AI, from now on
+
+### Changed
+
+- **A Build Before Finish For Every Stack**: a repository changed by the agent with no `build` script in `package.json` must now have run, before `finish`, the check command of the files at its root: `mvn -B -q verify` (or `./mvnw`), `./gradlew build --no-daemon -q`, `go build ./... && go vet ./...` or `dotnet build`, when the sandbox image has its toolchain: the default image has Node.js only. Run is enough, not passed, as for the build script. Code a script or a command other than the build changes afterwards has to be built again
+
 ## [11.7.0] - 2026-10-31
 
 ### Added

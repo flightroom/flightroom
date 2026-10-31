@@ -60,7 +60,7 @@ const moodOf = (status: AiChangeStatus, events?: AiChangeEvent[]): WorkshopMood 
     const tool = activity.message.split(" ")[0]
     if (READING_TOOLS.has(tool)) return "analyzing"
     if (WRITING_TOOLS.has(tool)) return "coding"
-    return tool === "run_script" ? "working" : "thinking"
+    return tool === "run_script" || tool === "run_command" ? "working" : "thinking"
 }
 
 const clip = (text: string) => (text.length > CAPTION_LENGTH ? `${text.slice(0, CAPTION_LENGTH - 1)}…` : text)

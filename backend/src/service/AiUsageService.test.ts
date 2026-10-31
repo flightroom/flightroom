@@ -7,6 +7,7 @@ import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
+import SandboxUsage from "../models/SandboxUsageModel"
 import User, { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
@@ -19,7 +20,8 @@ import AiUsageService, {
     membersMonthCostPipeline,
     membersMonthPipeline,
     periodStart,
-    recordAiUsage
+    recordAiUsage,
+    sandboxPipeline
 } from "./AiUsageService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
@@ -95,6 +97,9 @@ const groupOver = (pipeline: PipelineStage[], documents: Record<string, unknown>
 
 const matchOf = (pipeline: PipelineStage[]) => (pipeline[0] as PipelineStage.Match).$match
 
+const NO_SANDBOX = { commands: 0, execSeconds: 0, lifetimeSeconds: 0 }
+const noSandboxSummary = { total: NO_SANDBOX, bySource: { agent: NO_SANDBOX, mission: NO_SANDBOX, preview: NO_SANDBOX } }
+
 describe("AiUsageService", () => {
     beforeEach(() => {
         vi.useFakeTimers({ toFake: ["Date"] })
@@ -104,6 +109,7 @@ describe("AiUsageService", () => {
         vi.spyOn(gates, "ensureInDomainScope").mockResolvedValue(undefined)
         vi.spyOn(gates, "ensureWholeProject").mockResolvedValue(undefined)
         vi.spyOn(AiUsage, "aggregate").mockResolvedValue([] as never)
+        vi.spyOn(SandboxUsage, "aggregate").mockResolvedValue([] as never)
     })
 
     afterEach(() => {
@@ -244,6 +250,34 @@ describe("AiUsageService", () => {
             expect(totals.costUSD).toBeCloseTo(0.3)
         })
 
+        it("Given sandbox time on several repositories, when a frontend's usage is asked, then commands and seconds are shared as the tokens and an open lifetime counts nothing", async () => {
+            vi.spyOn(Frontend, "findById").mockResolvedValue({ _id: catalog, projectId } as never)
+            const sandboxTime = [
+                { frontendIds: [catalog, cart], backendIds: [], commands: 1, execSeconds: 60, createdAt: new Date("2026-10-20") },
+                { frontendIds: [catalog, cart], backendIds: [], commands: 0, execSeconds: 0, lifetimeSeconds: 600, createdAt: new Date("2026-10-20") },
+                // Still alive: its lifetime is not known yet.
+                { frontendIds: [catalog], backendIds: [], commands: 0, execSeconds: 0, createdAt: new Date("2026-10-21") }
+            ]
+
+            await service().forFrontend(String(catalog), "30d")
+
+            expect(groupOver(vi.mocked(SandboxUsage.aggregate).mock.calls[0][0] as PipelineStage[], sandboxTime)).toEqual({ commands: 0.5, execSeconds: 30, lifetimeSeconds: 300 })
+        })
+
+        it("Given the sandbox time of a domain, when the pipeline is built, then the domain counts all of it, grouped by project and source", () => {
+            expect(sandboxPipeline({ domainId: checkout }, "all")).toEqual([
+                { $match: { domainId: checkout } },
+                {
+                    $group: {
+                        _id: { projectId: "$projectId", source: "$source" },
+                        commands: { $sum: "$commands" },
+                        execSeconds: { $sum: "$execSeconds" },
+                        lifetimeSeconds: { $sum: "$lifetimeSeconds" }
+                    }
+                }
+            ])
+        })
+
         it("Given shares that do not divide evenly, when a frontend's total is returned, then it is rounded once at the end", async () => {
             vi.spyOn(Frontend, "findById").mockResolvedValue({ _id: catalog, projectId } as never)
             vi.mocked(AiUsage.aggregate).mockResolvedValue([{ _id: null, inputTokens: 33.333333, cachedInputTokens: 0.5, outputTokens: 3.4999 }] as never)
@@ -336,7 +370,8 @@ describe("AiUsageService", () => {
             expect(await service().forDomain(String(domainId), "month")).toEqual({
                 period: "month",
                 since: new Date("2026-10-01T00:00:00.000Z"),
-                total: { inputTokens: 1000, cachedInputTokens: 600, outputTokens: 80, costs: [] }
+                total: { inputTokens: 1000, cachedInputTokens: 600, outputTokens: 80, costs: [] },
+                sandbox: noSandboxSummary
             })
         })
     })
@@ -351,7 +386,12 @@ describe("AiUsageService", () => {
                 period: "all",
                 since: undefined,
                 total: { inputTokens: 500, cachedInputTokens: 200, outputTokens: 50, costs: [] },
-                bySource: { agent: { inputTokens: 500, cachedInputTokens: 200, outputTokens: 50, costs: [] }, assistant: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, costs: [] } }
+                bySource: {
+                    agent: { inputTokens: 500, cachedInputTokens: 200, outputTokens: 50, costs: [] },
+                    mission: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, costs: [] },
+                    assistant: { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0, costs: [] }
+                },
+                sandbox: noSandboxSummary
             })
             expect(matchOf(vi.mocked(AiUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ projectId })
         })
@@ -375,6 +415,26 @@ describe("AiUsageService", () => {
             ])
         })
 
+        it("Given sandbox time of jobs, missions and previews, when the project's usage is asked, then it comes split by source and added up", async () => {
+            vi.mocked(SandboxUsage.aggregate).mockResolvedValue([
+                { _id: { projectId, source: "agent" }, commands: 3, execSeconds: 120.4, lifetimeSeconds: 900 },
+                { _id: { projectId, source: "mission" }, commands: 1, execSeconds: 30, lifetimeSeconds: 0 },
+                { _id: { projectId, source: "preview" }, commands: 0, execSeconds: 0, lifetimeSeconds: 600 }
+            ] as never)
+
+            const summary = await service().forProject(String(projectId), "30d")
+
+            expect(summary.sandbox).toEqual({
+                total: { commands: 4, execSeconds: 150, lifetimeSeconds: 1500 },
+                bySource: {
+                    agent: { commands: 3, execSeconds: 120, lifetimeSeconds: 900 },
+                    mission: { commands: 1, execSeconds: 30, lifetimeSeconds: 0 },
+                    preview: { commands: 0, execSeconds: 0, lifetimeSeconds: 600 }
+                }
+            })
+            expect(matchOf(vi.mocked(SandboxUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ projectId, createdAt: { $gte: new Date("2026-09-22T10:00:00.000Z") } })
+        })
+
         it("Given a member confined to some domains, when the project's usage is asked, then it is refused", async () => {
             vi.mocked((BaseAuthorizedService.prototype as unknown as WithGates).ensureWholeProject).mockRejectedValue(new Error("whole project only"))
 
@@ -391,6 +451,32 @@ describe("AiUsageService", () => {
 
             await expect(service().forOrganization(String(organizationId), "30d")).rejects.toBeInstanceOf(UserCannotAccessThisOrganizationError)
             expect(AiUsage.aggregate).not.toHaveBeenCalled()
+        })
+
+        it("Given a project that only ran live previews, when the organization's usage is asked, then it is listed with its sandbox time and no token", async () => {
+            asRole(RoleInOrganization.ADMIN)
+            const shop = new Types.ObjectId()
+            const demo = new Types.ObjectId()
+            vi.mocked(AiUsage.aggregate).mockResolvedValue([{ _id: shop, inputTokens: 10, cachedInputTokens: 0, outputTokens: 1 }] as never)
+            vi.mocked(SandboxUsage.aggregate).mockResolvedValue([
+                { _id: { projectId: shop, source: "agent" }, commands: 2, execSeconds: 40, lifetimeSeconds: 300 },
+                { _id: { projectId: demo, source: "preview" }, commands: 0, execSeconds: 0, lifetimeSeconds: 3600 }
+            ] as never)
+            vi.spyOn(Project, "find").mockReturnValue(
+                thenable([
+                    { _id: shop, name: "Shop" },
+                    { _id: demo, name: "Demo" }
+                ]) as never
+            )
+
+            const summary = await service().forOrganization(String(organizationId), "30d")
+
+            expect(summary.byProject.map(project => [project.name, project.inputTokens, project.sandbox])).toEqual([
+                ["Shop", 10, { commands: 2, execSeconds: 40, lifetimeSeconds: 300 }],
+                ["Demo", 0, { commands: 0, execSeconds: 0, lifetimeSeconds: 3600 }]
+            ])
+            expect(summary.sandbox.total).toEqual({ commands: 2, execSeconds: 40, lifetimeSeconds: 3900 })
+            expect(summary.sandbox.bySource.preview).toEqual({ commands: 0, execSeconds: 0, lifetimeSeconds: 3600 })
         })
 
         it("Given someone outside the organization, when its usage is asked, then it is refused", async () => {
@@ -419,9 +505,9 @@ describe("AiUsageService", () => {
             const summary = await service().forOrganization(String(organizationId), "90d")
 
             expect(summary.byProject).toEqual([
-                { projectId: String(shop), name: "Shop", inputTokens: 900, cachedInputTokens: 300, outputTokens: 90, costs: [] },
-                { projectId: String(blog), name: "Blog", inputTokens: 100, cachedInputTokens: 0, outputTokens: 10, costs: [] },
-                { projectId: String(deleted), name: undefined, inputTokens: 5, cachedInputTokens: 0, outputTokens: 1, costs: [] }
+                { projectId: String(shop), name: "Shop", inputTokens: 900, cachedInputTokens: 300, outputTokens: 90, costs: [], sandbox: NO_SANDBOX },
+                { projectId: String(blog), name: "Blog", inputTokens: 100, cachedInputTokens: 0, outputTokens: 10, costs: [], sandbox: NO_SANDBOX },
+                { projectId: String(deleted), name: undefined, inputTokens: 5, cachedInputTokens: 0, outputTokens: 1, costs: [], sandbox: NO_SANDBOX }
             ])
             expect(summary.total).toEqual({ inputTokens: 1005, cachedInputTokens: 300, outputTokens: 101, costs: [] })
             expect(matchOf(vi.mocked(AiUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ organizationId, createdAt: { $gte: new Date("2026-07-24T10:00:00.000Z") } })

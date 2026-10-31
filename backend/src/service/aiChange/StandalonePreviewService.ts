@@ -11,6 +11,7 @@ import BaseAuthorizedService, { AuthorizedPrincipal } from "../BaseAuthorizedSer
 import { OpenShellConfiguration, openShellSandboxes } from "../sandbox/OpenShellSandboxes"
 import { RepositoryWorkspaceService } from "../workspace/RepositoryWorkspaceService"
 import { BackendComponent, FrontendComponent, fromBackend, fromFrontend, RepositoryComponent } from "../workspace/repositoryComponent"
+import { sandboxLifecycle } from "./aiChangeSandboxes"
 import { AiChangeScriptRunner, ScriptRepository } from "./aiChangeScripts"
 
 export interface StandalonePreviewInput {
@@ -63,6 +64,8 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
 
         const projectObjectId = toObjectId(projectId)
         let components: RepositoryComponent[]
+        // The domain the preview counts for: the one previewed, or the frontend's own.
+        let domainId: unknown
         if (input.kind === "frontend") {
             const frontend = await Frontend.findById(input.id)
             if (!frontend) throw new EntityNotFoundError(input.id)
@@ -70,6 +73,7 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             await this.ensureAccessToFrontend(frontend)
             await this.ensureNotViewer(frontend.projectId, { code: "LIVE_PREVIEW_FORBIDDEN", message: "A viewer cannot start a live preview" })
             components = [fromFrontend(frontend)]
+            domainId = frontend.domainId
         } else {
             const domain = await Domain.findById(input.id)
             if (!domain || String(domain.projectId) !== String(projectObjectId)) throw new EntityNotFoundError(input.id)
@@ -78,6 +82,7 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             await this.ensureNotViewer(domain.projectId, { code: "LIVE_PREVIEW_FORBIDDEN", message: "A viewer cannot start a live preview" })
             const [frontends, backends] = await Promise.all([Frontend.find({ projectId: domain.projectId, domainId: domain._id }), Backend.find({ projectId: domain.projectId, domainId: domain._id })])
             components = [...frontends.map(fromFrontend), ...backends.map(fromBackend)]
+            domainId = domain._id
         }
 
         const connected = components.filter(isConnected)
@@ -94,7 +99,16 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
 
         const ordered = [...workspaces].sort((left, right) => left.workspace.workingCopy.dir.localeCompare(right.workspace.workingCopy.dir))
         const repositories = workspaces.map(({ component, workspace }) => scriptRepositoryOf(component, workspace.workingCopy))
-        const runner = new AiChangeScriptRunner(repositories, () => sandboxes.acquire(sessionId), undefined, true)
+        // A preview runs no command of an agent: only the lifetime of its sandbox is counted, against what it previews.
+        const lifecycle = sandboxLifecycle({
+            projectId: projectObjectId,
+            userId: this.getUser()?._id,
+            source: "preview",
+            ...(domainId ? { domainId: String(domainId) } : {}),
+            frontendIds: connected.filter(component => component.kind === "frontend").map(component => component._id),
+            backendIds: connected.filter(component => component.kind === "backend").map(component => component._id)
+        })
+        const runner = new AiChangeScriptRunner(repositories, () => sandboxes.acquire(sessionId, lifecycle), undefined, true)
         const startLocked = (index: number): Promise<string | undefined> =>
             index < ordered.length
                 ? withRepositoryLock(ordered[index].workspace.workingCopy.dir, async () => {

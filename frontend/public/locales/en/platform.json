@@ -4009,11 +4009,11 @@
     "ai_usage": {
         "title": "AI tokens",
         "description": {
-            "domain": "Spent by Edit with AI on the requests made from this domain.",
-            "frontend": "Its share of Edit with AI: a request on several repositories is split equally among them.",
-            "backend": "Its share of Edit with AI: a request on several repositories is split equally among them.",
-            "project": "Spent on the whole project by Edit with AI and Vega.",
-            "organization": "Spent by every project of the organization, Edit with AI and Vega together."
+            "domain": "Spent by Edit with AI and the missions on the requests made from this domain, with its live previews.",
+            "frontend": "Its share of Edit with AI, the missions and the live previews: a job or a preview on several repositories is split equally among them.",
+            "backend": "Its share of Edit with AI, the missions and the live previews: a job or a preview on several repositories is split equally among them.",
+            "project": "Spent on the whole project by Edit with AI, the missions and Vega.",
+            "organization": "Spent by every project of the organization, Edit with AI, the missions and Vega together."
         },
         "period": {
             "label": "Period",
@@ -4035,12 +4035,20 @@
         },
         "sources": {
             "agent": "Edit with AI",
-            "assistant": "Vega"
+            "mission": "Missions",
+            "assistant": "Vega",
+            "preview": "Live previews"
         },
+        "sandbox": "Sandbox",
+        "sandbox_value": "{{exec}} / {{lifetime}} min",
+        "sandbox_under_minute": "< 1 min",
+        "sandbox_hint": "The minutes the sandboxes spent running scripts and commands, then the minutes they stayed up, idle time included, until they were removed: a sandbox still up is counted once it is removed.",
+        "sandbox_exec": "Sandbox running (min)",
+        "sandbox_lifetime": "Sandbox up (min)",
         "deleted_project": "Deleted project",
         "since": "Counted since {{date}}.",
         "since_start": "Counted since AI usage started being recorded.",
-        "empty": "No AI tokens recorded in this period. Usage is counted from the release of this feature on.",
+        "empty": "No AI tokens nor sandbox time recorded in this period. Usage is counted from the release of this feature on.",
         "errors": {
             "load": "The AI usage could not be loaded."
         }

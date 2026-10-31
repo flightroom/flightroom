@@ -3,6 +3,7 @@ import { IProjectTechnologies } from "../../types/ProjectTechnology"
 import { LlmEffort, LlmImage, LlmMessage, LlmUsage } from "../llm"
 import { CommandSandbox } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
+import { SandboxExec } from "./aiChangeScripts"
 import { AiChangeApiSpecSource } from "./apiSpecReader"
 
 export interface AiChangeAgentFrontend {
@@ -103,8 +104,10 @@ export interface AiChangeAgentInput {
     history?: LlmMessage[]
     /** Where read_api_spec finds the document of each api resource of the backends: the tool is offered only with one */
     apiSpecs?: AiChangeApiSpecSource[]
-    /** The sandbox run_script runs in, asked for at the first script: the tool is offered only with one */
+    /** The sandbox run_script and run_command run in, asked for at the first script: the tools are offered only with one */
     sandbox?: () => Promise<CommandSandbox>
+    /** Told after each script and command run in the sandbox, to count what it costs: it must not throw */
+    onSandboxExec?: (exec: SandboxExec) => Promise<void> | void
     /** Starts gateway-routed development previews when explicitly enabled by the installation. */
     previewsEnabled?: boolean
 }

@@ -2,10 +2,10 @@ import mongoose, { Schema } from "mongoose"
 import { LLM_EFFORTS, LlmEffort, LlmProvider } from "../service/llm/types"
 import { AiCurrency } from "./AiModelModel"
 
-/** What spent the tokens: an Edit with AI job or an answer of the assistant. */
-export type AiUsageSource = "agent" | "assistant"
+/** What spent the tokens: an Edit with AI job, a job of a mission, or an answer of the assistant. */
+export type AiUsageSource = "agent" | "mission" | "assistant"
 
-export const AI_USAGE_SOURCES: readonly AiUsageSource[] = ["agent", "assistant"]
+export const AI_USAGE_SOURCES: readonly AiUsageSource[] = ["agent", "mission", "assistant"]
 
 /**
  * One amount of tokens spent, kept for good: a round of an Edit with AI job or a whole answer of the assistant.
@@ -19,7 +19,7 @@ export interface IAiUsage {
     projectId: Schema.Types.ObjectId
     userId?: Schema.Types.ObjectId
     source: AiUsageSource
-    /** The job of an `agent` usage: gone after a week if nobody applied it, the usage stays. */
+    /** The job of an `agent` or `mission` usage: gone after a week if nobody applied it, the usage stays. */
     jobId?: Schema.Types.ObjectId
     /** The functional domain the job was asked from: the domain counts the whole usage. */
     domainId?: Schema.Types.ObjectId

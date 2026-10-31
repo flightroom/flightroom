@@ -4028,11 +4028,11 @@
     "ai_usage": {
         "title": "Token AI",
         "description": {
-            "domain": "Spesi da Modifica con AI sulle richieste fatte da questo dominio.",
-            "frontend": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
-            "backend": "La sua quota di Modifica con AI: una richiesta su più repository è divisa in parti uguali tra loro.",
-            "project": "Spesi sull'intero progetto da Modifica con AI e da Vega.",
-            "organization": "Spesi da tutti i progetti dell'organizzazione, Modifica con AI e Vega insieme."
+            "domain": "Spesi da Modifica con AI e dalle missioni sulle richieste fatte da questo dominio, con le sue anteprime live.",
+            "frontend": "La sua quota di Modifica con AI, delle missioni e delle anteprime live: un lavoro o un'anteprima su più repository è diviso in parti uguali tra loro.",
+            "backend": "La sua quota di Modifica con AI, delle missioni e delle anteprime live: un lavoro o un'anteprima su più repository è diviso in parti uguali tra loro.",
+            "project": "Spesi sull'intero progetto da Modifica con AI, dalle missioni e da Vega.",
+            "organization": "Spesi da tutti i progetti dell'organizzazione, Modifica con AI, missioni e Vega insieme."
         },
         "period": {
             "label": "Periodo",
@@ -4054,12 +4054,20 @@
         },
         "sources": {
             "agent": "Modifica con AI",
-            "assistant": "Vega"
+            "mission": "Missioni",
+            "assistant": "Vega",
+            "preview": "Anteprime live"
         },
+        "sandbox": "Sandbox",
+        "sandbox_value": "{{exec}} / {{lifetime}} min",
+        "sandbox_under_minute": "< 1 min",
+        "sandbox_hint": "I minuti in cui le sandbox hanno eseguito script e comandi, poi quelli in cui sono rimaste attive, inattività compresa, fino alla loro rimozione: una sandbox ancora attiva è contata quando viene rimossa.",
+        "sandbox_exec": "Sandbox in esecuzione (min)",
+        "sandbox_lifetime": "Sandbox attiva (min)",
         "deleted_project": "Progetto eliminato",
         "since": "Conteggiati dal {{date}}.",
         "since_start": "Conteggiati da quando l'uso dell'AI viene registrato.",
-        "empty": "Nessun token AI registrato in questo periodo. L'uso è conteggiato dal rilascio di questa funzionalità in poi.",
+        "empty": "Nessun token AI né tempo di sandbox registrato in questo periodo. L'uso è conteggiato dal rilascio di questa funzionalità in poi.",
         "errors": {
             "load": "Non è stato possibile caricare l'uso dell'AI."
         }

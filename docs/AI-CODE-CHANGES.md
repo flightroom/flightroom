@@ -173,8 +173,8 @@ handed to each network call.
   feature branch as soon as the agent is done, a pipeline that runs on every branch runs on the
   agent's code before anyone has reviewed it: limit such pipelines, or their secrets, to protected branches.
 - Without a sandbox it cannot run anything: no install, build or test. The repository's CI checks the
-  pull request. With an [OpenShell gateway](#running-install-lint-test-and-build) it runs the install and
-  the scripts of `package.json` in an isolated sandbox, never on the console.
+  pull request. With an [OpenShell gateway](#running-install-lint-test-and-build) it runs the install, the
+  scripts of `package.json` and its own shell commands in an isolated sandbox, never on the console.
 - It is told the config maps, secrets and resources attached to each backend by the names of their
   variables, never a credential (see [SECRETS](SECRETS.md#in-the-api)). When a backend attaches an `api`
   resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
@@ -191,13 +191,29 @@ The agent can check its own change when the console is given an [OpenShell](http
 gateway. It then gets `run_script`, which runs `install` or one script of the repository's `package.json`
 (`lint`, `test`, `build`...) with the repository's package manager (the `packageManager` field, else the
 lockfile: pnpm and yarn through corepack, npm otherwise), and reads back the exit code and the end of the
-output. Nothing else can be run: no arbitrary command, no repository without a `package.json`.
-A change is pushed once the agent is done, so it must have been built first: in every repository it changed
-that has a `build` script, `finish` is refused until `build` has run after its last edit. Run is enough, not
-passed: a build already broken on the base branch must not hold the agent forever, and it says so in the
-summary. An agent that ends with an answer instead of `finish` is asked once to build, then its answer stands.
-A follow-up that changes nothing needs no build.
-Scripts run with `CI=true`, so test runners stay out of watch mode; the install does not, because
+output. It also gets `run_command`, which runs any shell command (`sh -c`) in the same sandbox, at the root of
+the repository or in a folder of it (`workdir`, relative: no absolute path, no `..`), stopped after
+`timeout_seconds` (10 minutes at most): the build and tests of a repository without a `package.json` (Maven,
+Gradle, Go, .NET, Python), one test file, a tool the scripts do not run. Its output is read back like a
+script's, with the usual credential shapes masked, and so are the files it changes, which unlike a script's
+count towards the 500 KB the agent may write (lockfiles apart). Dependencies of `package.json` still go through
+`run_script "install"`: a command does not get the `.npmrc` of the design system, only the package manager does.
+A change is pushed once the agent is done, so it must have been built first: in every repository it changed,
+`finish` is refused until it has run, after its last edit, the `build` script of `package.json`, or else the
+check command of the files at the root of the repository: `mvn -B -q verify` (`pom.xml`; `./mvnw -B -q verify`
+with `mvnw`), `./gradlew build --no-daemon -q` (`gradlew` with `build.gradle` or `build.gradle.kts`),
+`go build ./... && go vet ./...` (`go.mod`), `dotnet build` (exactly one `.sln`, or no `.sln` and exactly one
+`.csproj`). A check is asked for only when the sandbox has its program (`mvn`, `java` for a wrapper, `go`,
+`dotnet`), looked up once per run: the default `node:24-bookworm-slim` image has none of them, so the checks of
+non-Node repositories need an image or a template with their toolchain (`OPENSHELL_SANDBOX_IMAGE`,
+`OPENSHELL_SANDBOX_TEMPLATE`). The Gradle wrapper also downloads Gradle from `services.gradle.org`, which is
+not among the default `OPENSHELL_REGISTRY_HOSTS`: add it, or bake Gradle into the image. A repository with
+neither a build script nor a check is not waited for. Run is enough, not passed: a build already broken on the
+base branch must not hold the agent forever, and it says so in the summary. Code changed afterwards by a
+script or a command that is not the build (`lint --fix`, a formatter, a generator) has to be built again; a
+lockfile alone does not. An agent that ends with an answer instead of `finish` is asked once to build, then
+its answer stands. A follow-up that changes nothing needs no build.
+Scripts and commands run with `CI=true`, so test runners stay out of watch mode; the install does not, because
 under CI pnpm and yarn freeze the lockfile and the install fails as soon as the agent changes a dependency
 (pnpm gets `--config.confirmModulesPurge=false` instead, having no terminal to ask in).
 
@@ -242,8 +258,9 @@ are the repository's code, and the console holds the repository tokens, the data
   masked. The registry's host must be among `OPENSHELL_REGISTRY_HOSTS`, and so must the host it redirects
   the download to: Azure Artifacts serves its packages from `<account>.blob.core.windows.net`. The code of the repository runs
   next to it, so the token is as exposed as on a developer's laptop: give it read access to the feed only.
-- **Limits.** 10 minutes per script, so a `dev` or `watch` script is stopped; the agent reads the last
-  6,000 characters of the output; 300 MB copied per repository.
+- **Limits.** 10 minutes per script or command, so a `dev` or `watch` script is stopped; the agent reads the
+  last 6,000 characters of the output; 300 MB copied per repository. The network is the policy above: no
+  database, no Docker, no internal service, so a command cannot run integration tests that need them.
 - **Live previews.** When OpenShell is configured, frontend development scripts (`dev`,
   `start` or `serve`) for React, Vue and Angular, and backend servers for Node.js, FastAPI/Flask/Django,
   Spring Boot/Quarkus/Micronaut, Go and .NET. Frontends use port 5173; backends use their configured port.
@@ -301,5 +318,8 @@ Any member of the project can see the requests. Viewers can neither ask for a ch
 discard one; organization administrators can. A request, a job and its follow-ups belong to the user who
 started them: only they, or an organization administrator, can apply, discard, stop or follow them up, or
 open their pull request. Other members see them read only (`AI_JOB_NOT_OWNER`). Requests count against `ASSISTANT_RATE_LIMIT_MAX`,
-per user, like the assistant. The token usage of each request is stored and shown in the console;
-when its AI has configured token rates, the estimated cost, in the currency of the AI (USD or EUR), is shown alongside it.
+per user, like the assistant. The token usage of each request is stored and shown in the console, the jobs of
+missions apart from the others; when its AI has configured token rates, the estimated cost, in the currency of
+the AI (USD or EUR), is shown alongside it. With a sandbox the console also counts, by job, mission or live
+preview, the scripts and commands run and how long they ran, and how long each sandbox lived from its creation
+to its deletion, idle minutes included: a sandbox still alive is counted once it is deleted.

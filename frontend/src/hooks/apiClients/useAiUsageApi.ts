@@ -6,8 +6,11 @@ export const AI_USAGE_PERIODS = ["30d", "month", "90d", "all"] as const
 
 export type AiUsagePeriod = (typeof AI_USAGE_PERIODS)[number]
 
-/** What spent the tokens: an Edit with AI job or an answer of the assistant. */
-export type AiUsageSource = "agent" | "assistant"
+/** What spent the tokens: an Edit with AI job, a job of a mission, or an answer of the assistant. */
+export type AiUsageSource = "agent" | "mission" | "assistant"
+
+/** What a sandbox ran for: an Edit with AI job, a job of a mission, or a live preview. */
+export type SandboxUsageSource = "agent" | "mission" | "preview"
 
 export interface AiUsageCost {
     amount: number
@@ -23,11 +26,25 @@ export interface AiUsageTotals {
     costs?: AiUsageCost[]
 }
 
+/** The time spent in sandboxes: the scripts and commands run, how long they ran, how long the sandboxes lived. */
+export interface SandboxUsageTotals {
+    commands: number
+    execSeconds: number
+    /** Counted once a sandbox is deleted. */
+    lifetimeSeconds: number
+}
+
+export interface SandboxUsageSummary {
+    total: SandboxUsageTotals
+    bySource: Record<SandboxUsageSource, SandboxUsageTotals>
+}
+
 export interface AiUsageSummary {
     period: AiUsagePeriod
     /** The first instant counted: missing for all time. */
     since?: string
     total: AiUsageTotals
+    sandbox: SandboxUsageSummary
 }
 
 export interface ProjectAiUsageSummary extends AiUsageSummary {
@@ -38,6 +55,7 @@ export interface ProjectAiUsage extends AiUsageTotals {
     projectId: string
     /** Missing for a project deleted since. */
     name?: string
+    sandbox: SandboxUsageTotals
 }
 
 export interface OrganizationAiUsageSummary extends AiUsageSummary {

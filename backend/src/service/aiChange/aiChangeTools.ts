@@ -1,3 +1,4 @@
+import { redactSecrets } from "../../utils/redactSecrets"
 import { LlmTool } from "../llm"
 import { AI_CHANGE_LIMITS } from "./aiChangeLimits"
 
@@ -147,6 +148,11 @@ export const describeToolCall = (name: string, input: unknown): string => {
         return [name, readString(input, "resource", false), readString(input, "method", false)?.toUpperCase(), readString(input, "path", false)].filter(Boolean).join(" ")
     }
     if (name === "run_script") return [name, readString(input, "repository", false), readString(input, "script", false)].filter(Boolean).join(" ")
+    if (name === "run_command") {
+        // Kept in the events of the job, shown in the console: a token typed into the command is masked.
+        const command = redactSecrets(readString(input, "command", false) ?? "")
+        return [name, readString(input, "repository", false), readString(input, "workdir", false), command && command.length > 80 ? `${command.slice(0, 80)}…` : command].filter(Boolean).join(" ")
+    }
     const path = readString(input, "path", false) ?? readString(input, "prefix", false)
     const text = readString(input, "text", false)
     if (name === "search" && text) return `search "${text.slice(0, 80)}"`
