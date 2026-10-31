@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import DeploymentService from "../service/DeploymentService"
 import EnvironmentPromotionService, { PromotionRequest } from "../service/EnvironmentPromotionService"
+import EnvironmentReplicasService from "../service/EnvironmentReplicasService"
 import EnvironmentService from "../service/EnvironmentService"
 import { EnvironmentDTO, EnvironmentOrderDTO } from "../types/EnvironmentDTO"
 import { getProjectIdFromRequest } from "../utils/requestUtils"
@@ -33,6 +34,16 @@ export default async function environmentController(fastify: FastifyInstance) {
     // Brings to this environment the versions another runs: the next deploy of this one applies them
     fastify.post<{ Params: { id: string }; Body: PromotionRequest }>("/environments/:id/promotion", async (request, reply) => {
         return reply.send(await new EnvironmentPromotionService(request.databaseUser).promote(request.params.id, request.body))
+    })
+
+    // The containers this environment runs, with the pods each one runs there
+    fastify.get<{ Params: { id: string } }>("/environments/:id/replicas", async (request, reply) => {
+        return reply.send(await new EnvironmentReplicasService(request.databaseUser).preview(request.params.id))
+    })
+
+    // Sets the pods of every container this environment runs: the next deploy of this one applies them
+    fastify.post<{ Params: { id: string }; Body: { replicas?: unknown } }>("/environments/:id/replicas", async (request, reply) => {
+        return reply.send(await new EnvironmentReplicasService(request.databaseUser).scale(request.params.id, request.body))
     })
 
     fastify.post<{ Body: EnvironmentDTO }>("/environments", async (request, reply) => {

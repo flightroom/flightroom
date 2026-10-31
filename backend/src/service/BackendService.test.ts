@@ -626,12 +626,13 @@ describe("withNormalizedReplicas", () => {
         ["left out", {}, {}],
         ["blank, as a form sends an empty field", { replicas: "" }, { replicas: null }],
         ["the digits a form sends", { replicas: "3" }, { replicas: 3 }],
+        ["zero, a container that runs no pod", { replicas: "0" }, { replicas: 0 }],
         ["a number", { replicas: 20 }, { replicas: 20 }]
     ])("given replicas %s, when normalized, then they are stored as a number or null", (_case, dto, expected) => {
         expect(withNormalizedReplicas(dto as never)).toEqual(expected)
     })
 
-    it.each([[0], [21], [1.5], ["two"]])("given replicas %s, when normalized, then they are refused", replicas => {
+    it.each([[-1], [21], [1.5], ["two"]])("given replicas %s, when normalized, then they are refused", replicas => {
         expect(() => withNormalizedReplicas({ replicas: replicas as never })).toThrow(BusinessException)
     })
 })

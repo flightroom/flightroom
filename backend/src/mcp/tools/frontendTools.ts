@@ -34,7 +34,7 @@ const memoryQuantity = z
     .refine(value => !value.trim() || parseMemory(value.trim()) !== undefined, "a memory quantity above zero: bytes, or with a suffix such as Mi, Gi, M or G")
     .nullable()
     .optional()
-const replicaCount = z.number().int().min(1).max(MAX_REPLICAS).nullable().optional()
+const replicaCount = z.number().int().min(0).max(MAX_REPLICAS).nullable().optional()
 
 /**
  * The fields of what runs as a container of its own: a backend, and a frontend of kind
@@ -54,7 +54,7 @@ export const containerFields = {
     cpuLimit: cpuQuantity.describe(`Most CPU the container may use, e.g. 1; the chart default (${CHART_RESOURCE_DEFAULTS.cpuLimit}) when null or omitted. Not below the request`),
     memoryRequest: memoryQuantity.describe(`Memory the container asks for, e.g. 256Mi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryRequest}) when null or omitted`),
     memoryLimit: memoryQuantity.describe(`Most memory the container may use, e.g. 1Gi; the chart default (${CHART_RESOURCE_DEFAULTS.memoryLimit}) when null or omitted. Not below the request`),
-    replicas: replicaCount.describe(`Pods the container runs, 1 to ${MAX_REPLICAS}; the chart default (${CHART_REPLICAS_DEFAULT}) when null or omitted`),
+    replicas: replicaCount.describe(`Pods the container runs, 0 to ${MAX_REPLICAS} (0 runs none); the chart default (${CHART_REPLICAS_DEFAULT}) when null or omitted`),
     environmentResources: z
         .array(
             z.object({

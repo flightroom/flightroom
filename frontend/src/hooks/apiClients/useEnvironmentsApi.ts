@@ -41,6 +41,15 @@ export interface PromotionRow {
     to?: string
 }
 
+/** Un container che l'ambiente esegue, con i pod che vi esegue */
+export interface ReplicasRow {
+    kind: PromotionRow["kind"]
+    _id: string
+    name: string
+    slug: string
+    replicas: number
+}
+
 /** Se la promozione la cambia: un'applicazione che non gira nell'origine tiene quello che usa nella destinazione */
 export const promotes = (row: PromotionRow) => Boolean(row.from) && row.from !== row.to
 
@@ -125,6 +134,22 @@ const useEnvironmentsApi = () => {
         return response.data
     }
 
+    /** I container che `environmentId` esegue, con le repliche di ognuno lì */
+    const getReplicas = async (environmentId: string) => {
+        const response = await apiClient.doRequest<ReplicasRow[]>({ url: `/api/environments/${environmentId}/replicas` })
+        return response.data
+    }
+
+    /** Mette a `replicas` i pod di ogni container che `environmentId` esegue: li applica il prossimo deploy */
+    const setReplicas = async (environmentId: string, replicas: number) => {
+        const response = await apiClient.doRequest<ReplicasRow[]>({
+            url: `/api/environments/${environmentId}/replicas`,
+            method: "POST",
+            data: { replicas }
+        })
+        return response.data
+    }
+
     return {
         createEnvironment,
         createEnvironmentsBulk,
@@ -132,7 +157,9 @@ const useEnvironmentsApi = () => {
         editEnvironment,
         getEnvironment,
         getPromotion,
+        getReplicas,
         promote,
+        setReplicas,
         updateEnvironmentsOrder
     }
 }
