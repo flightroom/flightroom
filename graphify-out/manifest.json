@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793448114.9821973,
-    "ast_hash": "5c049dc46981fa58797315158e792a88",
+    "mtime": 1793448458.5824993,
+    "ast_hash": "4d1dd622f04a3a4bc4dbe139f946e45f",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793448114.98295,
-    "ast_hash": "b49ed8cf24e03064a1553ebaa5653e20",
+    "mtime": 1793448458.5836468,
+    "ast_hash": "5d0765cbf61ca6c46759892402245725",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -3200,13 +3200,13 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/variable-maps/partials/variableMaps.ts": {
-    "mtime": 1793005820.6517305,
-    "ast_hash": "69db1dd073491e5e1515c81911e5847f",
+    "mtime": 1793448458.5810795,
+    "ast_hash": "cfb5d29cff725c870a0ca165e70b4e1c",
     "semantic_hash": ""
   },
   "frontend/src/pages/variable-maps/VariableMapForm.tsx": {
-    "mtime": 1793005820.6513095,
-    "ast_hash": "77396b225668ceccd4c4d43fbe84cb73",
+    "mtime": 1793448458.581675,
+    "ast_hash": "bb6a902639f7fe1a56523dc979703567",
     "semantic_hash": ""
   },
   "frontend/src/pages/variable-maps/VariableMaps.tsx": {
