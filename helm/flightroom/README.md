@@ -13,7 +13,7 @@ Every release publishes the chart to the GitHub Container Registry as an OCI art
 is needed:
 
 ```bash
-helm install flightroom oci://ghcr.io/flightroom/charts/flightroom --version 11.1.0 \
+helm install flightroom oci://ghcr.io/flightroom/charts/flightroom --version 11.2.0 \
   --namespace flightroom --create-namespace \
   --set env.NOSQL_DATABASE_URL="mongodb://root:example@mongodb:27017" \
   --set env.REDIS_URL="redis://redis:6379" \
@@ -33,7 +33,7 @@ spec:
   source:
     repoURL: ghcr.io/flightroom/charts
     chart: flightroom
-    targetRevision: 11.1.0
+    targetRevision: 11.2.0
     helm:
       valuesObject:
         env:
@@ -51,7 +51,7 @@ To keep the bundles, tell Helm to leave the old claim in place and mount it from
 
 ```bash
 kubectl annotate pvc <release>-mfe-orchestrator-microfrontends helm.sh/resource-policy=keep
-helm upgrade <release> oci://ghcr.io/flightroom/charts/flightroom --version 11.1.0 -f my-values.yaml \
+helm upgrade <release> oci://ghcr.io/flightroom/charts/flightroom --version 11.2.0 -f my-values.yaml \
   --set persistence.existingClaim=<release>-mfe-orchestrator-microfrontends
 ```
 
