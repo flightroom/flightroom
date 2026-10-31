@@ -3248,8 +3248,10 @@
         },
         "used_by": {
             "title": "Usata da",
-            "description": "I backend che ricevono questi valori.",
-            "none": "Nessun backend"
+            "description": "I backend, i frontend DOCKER e i maintenance agent che ricevono questi valori.",
+            "none": "Non è agganciata a nulla",
+            "detach": "Sgancia da {{name}}",
+            "detached": "{{map}} sganciata da {{name}}: dal prossimo deploy non ne riceve più i valori"
         },
         "attach": {
             "title": "Config map e secret",

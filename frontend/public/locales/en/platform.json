@@ -3229,8 +3229,10 @@
         },
         "used_by": {
             "title": "Used by",
-            "description": "The backends that receive these values.",
-            "none": "No backend"
+            "description": "The backends, DOCKER frontends and maintenance agents that receive these values.",
+            "none": "Nothing attaches it",
+            "detach": "Detach from {{name}}",
+            "detached": "{{map}} detached from {{name}}: from the next deploy it no longer receives its values"
         },
         "attach": {
             "title": "Config maps and secrets",
