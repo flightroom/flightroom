@@ -6,17 +6,24 @@ import { Badge } from "@/components/atoms"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryDeploymentType, CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
+import { cn } from "@/utils/styleUtils"
 import { frontendTechnologyOf } from "@/utils/technologies"
 import DeploymentExposedLink from "./DeploymentExposedLink"
+import DeploymentReplicas from "./DeploymentReplicas"
 
 interface DeploymentFrontendCardProps {
     frontend: Frontend
     /** Where it is reached in the environment of the deployment, when it is exposed there */
     url?: string
+    /** The pods it runs there, when known: a static frontend runs none of its own */
+    replicas?: number
 }
 
-export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ frontend, url }) => {
+export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ frontend, url, replicas }) => {
     const { t } = useTranslation()
+    // Without pods nothing answers on the URL: the card goes grey and the link goes away
+    const stopped = replicas === 0
+    const shownUrl = stopped ? undefined : url
 
     const canary = frontend.canary?.enabled ? frontend.canary : undefined
     const canaryPercentage = Math.min(100, Math.max(0, canary?.percentage ?? 0))
@@ -27,7 +34,12 @@ export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ 
 
     return (
         // The name is the link; it stretches over the whole card, so the card opens the frontend on a click anywhere.
-        <Card className="relative border-l-4 border-l-info transition-colors duration-200 focus-within:border-primary hover:border-primary">
+        <Card
+            className={cn(
+                "relative border-l-4 transition-colors duration-200 focus-within:border-primary hover:border-primary",
+                stopped ? "border-l-divider bg-muted text-foreground-secondary" : "border-l-info"
+            )}
+        >
             <CardHeader className="flex-row items-end justify-between flex-wrap-reverse border-0 pb-0">
                 <div className="min-w-0">
                     <Badge variant="info" className="mb-2 w-fit">
@@ -47,9 +59,10 @@ export const DeploymentFrontendCard: React.FC<DeploymentFrontendCardProps> = ({ 
                     {frontend.version || "—"}
                 </Badge>
             </CardHeader>
-            {url && (
-                <CardContent className="pt-2">
-                    <DeploymentExposedLink url={url} />
+            {(shownUrl || replicas !== undefined) && (
+                <CardContent className="flex flex-col gap-2 pt-2">
+                    {replicas !== undefined && <DeploymentReplicas replicas={replicas} />}
+                    {shownUrl && <DeploymentExposedLink url={shownUrl} />}
                 </CardContent>
             )}
             {canary && (
