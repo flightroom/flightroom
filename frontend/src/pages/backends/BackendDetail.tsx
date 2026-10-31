@@ -1,7 +1,8 @@
-import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, Spinner } from "@flightroom/design-system"
+import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
+import { Boxes, Info, ScrollText, SlidersHorizontal } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Navigate, useParams } from "react-router-dom"
+import { Navigate, useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
@@ -73,6 +74,11 @@ const BackendAiSection: React.FC<{ backendQuery: { isPending: boolean; isError: 
     )
 }
 
+const TABS = ["summary", "configuration", "resources", "logs"] as const
+type Tab = (typeof TABS)[number]
+
+const TAB_ICONS: Record<Tab, React.ComponentType> = { summary: Info, configuration: SlidersHorizontal, resources: Boxes, logs: ScrollText }
+
 interface BackendDetailProps {
     /** The overview of the backend, or its Edit with AI workspace. */
     view?: "overview" | "ai"
@@ -83,6 +89,11 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
     const backendsApi = useBackendsApi()
     const aiModels = useProjectAiModels()
     const isViewer = useIsProjectViewer()
+    const { t } = useTranslation()
+    // The tab lives in the URL (`?tab=logs`) so that a link can point straight to one of them, as in the settings.
+    const [searchParams, setSearchParams] = useSearchParams()
+    const requestedTab = searchParams.get("tab")
+    const tab: Tab = TABS.includes(requestedTab as Tab) ? (requestedTab as Tab) : "summary"
 
     const backendQuery = useQuery({ queryKey: ["backend", id], queryFn: () => backendsApi.getSingle(id!), enabled: !!id })
     const versionsQuery = useQuery({ queryKey: ["backend-versions", id], queryFn: () => backendsApi.getVersions(id!), enabled: !!id && view === "overview" })
@@ -105,14 +116,39 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         // The actions live in Edit with AI: here only when that screen does not exist
                         actions={!aiModels.isPending && !isBackendAiAvailable(backend, aiModels.enabled) && <BackendActions backend={backend} />}
                     />
-                    {/* Sections are siblings so further ones (e.g. AI) can be added next to them. */}
-                    <BackendRepositorySection backend={backend} />
-                    <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
-                    <BackendVersionsTable versions={versionsQuery.data ?? []} />
-                    <BackendConfigurationSection backend={backend} environments={environmentsQuery.data ?? []} />
-                    <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
-                    <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} canDetach={!isViewer} />
-                    <ApplicationLogsSection slug={backend.slug} environments={environmentsQuery.data ?? []} />
+                    {/* One concern per tab: what the backend is, how it is configured, what it uses, what it logs. */}
+                    <Tabs value={tab} onValueChange={value => setSearchParams({ tab: value }, { replace: true })}>
+                        <TabsList aria-label={t("backends.overview_tabs.label")}>
+                            {TABS.map(value => {
+                                const Icon = TAB_ICONS[value]
+                                return (
+                                    <TabsTrigger key={value} value={value} dataTestId={`backend-tab-${value}`}>
+                                        <Icon />
+                                        {t(`backends.overview_tabs.${value}`)}
+                                    </TabsTrigger>
+                                )
+                            })}
+                        </TabsList>
+
+                        <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
+                            <BackendRepositorySection backend={backend} />
+                            <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
+                            <BackendVersionsTable versions={versionsQuery.data ?? []} />
+                        </TabsContent>
+
+                        <TabsContent value="configuration" className="mt-6 flex flex-col gap-6">
+                            <BackendConfigurationSection backend={backend} environments={environmentsQuery.data ?? []} />
+                            <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                        </TabsContent>
+
+                        <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
+                            <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} canDetach={!isViewer} />
+                        </TabsContent>
+
+                        <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
+                            <ApplicationLogsSection slug={backend.slug} environments={environmentsQuery.data ?? []} />
+                        </TabsContent>
+                    </Tabs>
                 </div>
             )}
         </ApiStatusHandler>

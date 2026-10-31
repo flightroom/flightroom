@@ -2715,7 +2715,14 @@
                 "confirm": "Delete"
             }
         },
-        "nav_ai": "Edit with AI"
+        "nav_ai": "Edit with AI",
+        "overview_tabs": {
+            "label": "Overview tabs",
+            "summary": "Summary",
+            "configuration": "Configuration",
+            "resources": "Resources",
+            "logs": "Logs"
+        }
     },
     "domains": {
         "sidebar_title": "Domains",

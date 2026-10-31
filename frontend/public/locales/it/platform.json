@@ -2734,7 +2734,14 @@
                 "confirm": "Elimina"
             }
         },
-        "nav_ai": "Modifica con AI"
+        "nav_ai": "Modifica con AI",
+        "overview_tabs": {
+            "label": "Schede della panoramica",
+            "summary": "Riepilogo",
+            "configuration": "Configurazione",
+            "resources": "Risorse",
+            "logs": "Log"
+        }
     },
     "domains": {
         "sidebar_title": "Domini",
