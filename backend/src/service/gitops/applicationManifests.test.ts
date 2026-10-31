@@ -2,7 +2,18 @@ import { Types } from "mongoose"
 import { describe, expect, it } from "vitest"
 import { parse } from "yaml"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
-import { APPLICATIONS_CHART_FOLDER, applicationImageRepository, CHART_FILES, isDeployable, MANAGED_VALUES_MARKER, PAUSED_SCHEDULE, renderApplicationValues, splitImage } from "./applicationManifests"
+import {
+    APPLICATIONS_CHART_FOLDER,
+    applicationImageRepository,
+    backendFrontendPath,
+    CHART_FILES,
+    exposedUrl,
+    isDeployable,
+    MANAGED_VALUES_MARKER,
+    PAUSED_SCHEDULE,
+    renderApplicationValues,
+    splitImage
+} from "./applicationManifests"
 
 describe("splitImage", () => {
     it.each([
@@ -192,6 +203,65 @@ describe("renderApplicationValues", () => {
     ])("given %s, when its values are rendered, then it is refused whatever version the CI registered", (_case, environmentVersions) => {
         expect(() => render({ environmentVersions })).toThrow()
     })
+
+    it("given an environment that never set its logging, when its values are rendered, then the container logs at info in plain text and gets no FRONTEND_URL", () => {
+        expect(parse(render()).env).toEqual([
+            { name: "LOG_LEVEL", value: "info" },
+            { name: "LOG_JSON", value: "false" }
+        ])
+    })
+
+    it("given an environment that logs at debug in JSON and a frontend URL, when its values are rendered, then the container gets all three", () => {
+        const values = parse(renderApplicationValues(application, { ...environment, logLevel: "debug", logJson: true }, mapNames, undefined, undefined, "https://dev.example.com/shop"))
+
+        expect(values.env).toEqual([
+            { name: "LOG_LEVEL", value: "debug" },
+            { name: "LOG_JSON", value: "true" },
+            { name: "FRONTEND_URL", value: "https://dev.example.com/shop" }
+        ])
+    })
+
+    it("given a log level that is not one, when its values are rendered, then the container logs at info", () => {
+        expect(parse(renderApplicationValues(application, { ...environment, logLevel: "verbose" }, mapNames)).env[0]).toEqual({ name: "LOG_LEVEL", value: "info" })
+    })
+})
+
+describe("backendFrontendPath", () => {
+    const backendId = new Types.ObjectId()
+
+    it("given one exposed frontend calling the backend, when its path is read, then it is that frontend's", () => {
+        const frontends = [
+            { exposurePath: "/shop/", backendIds: [backendId] },
+            { exposurePath: "/admin", backendIds: [new Types.ObjectId()] }
+        ]
+
+        expect(backendFrontendPath(String(backendId), frontends)).toBe("/shop/")
+    })
+
+    it.each([
+        ["no frontend calls it", [{ exposurePath: "/shop", backendIds: [] }]],
+        [
+            "several frontends call it",
+            [
+                { exposurePath: "/shop", backendIds: [backendId] },
+                { exposurePath: "/admin", backendIds: [backendId] }
+            ]
+        ],
+        ["the frontend calling it is not exposed", [{ exposurePath: null, backendIds: [backendId] }]]
+    ])("given %s, when its path is read, then it is the root of the environment", (_case, frontends) => {
+        expect(backendFrontendPath(backendId, frontends)).toBe("/")
+    })
+})
+
+describe("exposedUrl", () => {
+    it.each([
+        ["https://dev.example.com", "/shop/", "https://dev.example.com/shop"],
+        ["https://example.com", "/", "https://example.com"],
+        [undefined, "/shop", undefined],
+        ["https://example.com", null, undefined]
+    ])("given the origin %s and the path %s, when the URL is built, then it is %s", (origin, path, url) => {
+        expect(exposedUrl(origin, path)).toBe(url)
+    })
 })
 
 describe("renderApplicationValues, maintenance agent", () => {
@@ -232,7 +302,7 @@ describe("renderApplicationValues, maintenance agent", () => {
     })
 
     it("given targets, when its values are rendered, then the container receives them as JSON", () => {
-        expect(agent({}).env).toEqual([{ name: "MAINTAINED_TARGETS", value: JSON.stringify(targets) }])
+        expect(agent({}).env).toContainEqual({ name: "MAINTAINED_TARGETS", value: JSON.stringify(targets) })
     })
 
     it("given an agent, when its values are rendered, then its container reads the Secret with the URL of the console and its token, after its own secrets", () => {
@@ -263,7 +333,7 @@ describe("renderApplicationValues, maintenance agent", () => {
         )
 
         expect(values.maintenance).toBeUndefined()
-        expect(values.env).toBeUndefined()
+        expect(values.env.map((variable: { name: string }) => variable.name)).not.toContain("MAINTAINED_TARGETS")
         expect(values.secrets).toEqual([])
     })
 })

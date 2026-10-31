@@ -8,6 +8,7 @@ import EnvironmentService from "../../service/EnvironmentService"
 import { MAX_REPLICAS } from "../../types/ContainerResources"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange, SUBDOMAIN } from "../../types/Exposure"
+import { LOG_LEVELS } from "../../types/RuntimeVariables"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
 
@@ -40,7 +41,17 @@ export const environmentFields = {
         .array(z.string().refine(isIpRange, "an IP address or a CIDR range, e.g. 203.0.113.7 or 203.0.113.0/24"))
         .max(IP_ALLOW_LIST_MAX)
         .optional()
-        .describe("Addresses and CIDR ranges the host of the environment answers to, applied on its next deploy; an empty list lets every address in")
+        .describe("Addresses and CIDR ranges the host of the environment answers to, applied on its next deploy; an empty list lets every address in"),
+    logLevel: z
+        .enum(LOG_LEVELS)
+        .optional()
+        .describe("What the containers of the environment log at, handed to each of them as the LOG_LEVEL environment variable on its next deploy; info when never set"),
+    logJson: z
+        .boolean()
+        .optional()
+        .describe(
+            "Whether the containers of the environment log JSON (true) or plain text (false), handed to each of them as the LOG_JSON environment variable on its next deploy; false when never set"
+        )
 }
 
 /**

@@ -1,4 +1,5 @@
 import { DatabaseType } from "../models/DatabaseModel"
+import { RUNTIME_VARIABLES } from "./RuntimeVariables"
 
 /**
  * What a resource can be. Each type is a package of variables a backend receives once it
@@ -66,8 +67,8 @@ export interface ResourceTypeSpec {
 /** A prefix typed by hand in place of the one derived from the name: what starts an environment variable name */
 export const RESOURCE_ENV_PREFIX = /^[A-Z_][A-Z0-9_]{0,190}$/
 
-/** Set by the chart on every container (applicationManifests.ts): a resource setting it too would be there twice */
-export const RESERVED_ENV_KEYS = ["HTTP_PORT"]
+/** Set on every container by the chart and by the deploy (applicationManifests.ts): a resource setting one too would be there twice */
+export const RESERVED_ENV_KEYS = ["HTTP_PORT", ...RUNTIME_VARIABLES]
 
 /** The Kubernetes Secret a resource becomes: a map name cannot hold a dot, so it never collides with a secret map */
 export const resourceSecretName = (resource: { name: string }): string => `${resource.name}.resource`

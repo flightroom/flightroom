@@ -205,3 +205,31 @@ describe("EnvironmentService.update, IP allow list", () => {
         expect(update.mock.calls[0][1]).toEqual({ ipAllowList: ["203.0.113.7"] })
     })
 })
+
+describe("EnvironmentService.update, logging", () => {
+    const environmentId = newId()
+
+    const service = () => {
+        const instance = new EnvironmentService({ _id: newId() } as never)
+        const gate = instance as unknown as { ensureAccessToEnvironment: () => Promise<boolean>; ensureWholeProjectOfEnvironment: () => Promise<void> }
+        vi.spyOn(gate, "ensureAccessToEnvironment").mockResolvedValue(true)
+        vi.spyOn(gate, "ensureWholeProjectOfEnvironment").mockResolvedValue()
+        return instance
+    }
+    const saved = () => vi.spyOn(Environment, "findOneAndUpdate").mockResolvedValue({ _id: environmentId } as never)
+
+    it("given a log level written in capitals and JSON logs, when they are saved, then the level is saved in lowercase", async () => {
+        const update = saved()
+
+        await service().update(environmentId, { logLevel: " DEBUG ", logJson: true } as never)
+
+        expect(update.mock.calls[0][1]).toEqual({ logLevel: "debug", logJson: true })
+    })
+
+    it("given a log level that is not one, when it is saved, then it is refused before anything is written", async () => {
+        const update = saved()
+
+        await expect(service().update(environmentId, { logLevel: "verbose" } as never)).rejects.toMatchObject({ code: "ENVIRONMENT_LOG_LEVEL_INVALID" })
+        expect(update).not.toHaveBeenCalled()
+    })
+})

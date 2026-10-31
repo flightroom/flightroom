@@ -691,6 +691,61 @@ describe("GitOpsService.deploy", () => {
             const values = applicationsCommit.mock.calls[0][1].find(file => file.path === "orders-api.yaml")!
             expect(parse(values.content!).route).not.toHaveProperty("ipAllowList")
         })
+
+        describe("runtime variables", () => {
+            const ordersId = new Types.ObjectId()
+            const withShopCallingOrders = () => {
+                vi.spyOn(Environment, "find").mockResolvedValue([
+                    { _id: development, slug: "development", subdomain: "dev", projectId },
+                    { _id: production, slug: "production", subdomain: "app", isProduction: true, logLevel: "warn", logJson: true, projectId }
+                ] as never)
+                vi.spyOn(Backend, "find").mockResolvedValue([
+                    {
+                        _id: ordersId,
+                        slug: "orders-api",
+                        environmentVersions: [{ environmentId: production, version: "1.4.0" }],
+                        image: { repository: "ghcr.io/acme/orders-api" },
+                        exposurePath: "/api/orders"
+                    }
+                ] as never)
+                vi.spyOn(Frontend, "find").mockResolvedValue([
+                    {
+                        _id: new Types.ObjectId(),
+                        slug: "shop-fe",
+                        kind: "DOCKER",
+                        environmentVersions: [{ environmentId: production, version: "2.0.0" }],
+                        image: { repository: "ghcr.io/acme/shop-fe" },
+                        exposurePath: "/shop/",
+                        backendIds: [ordersId]
+                    }
+                ] as never)
+            }
+            const envOf = (path: string) => parse(applicationsCommit.mock.calls[0][1].find(file => file.path === path)!.content!).env
+
+            it("given an environment that logs at warn in JSON and a frontend calling a backend, when it is deployed, then both containers get the logging and the URL of the frontend", async () => {
+                exposedOn({ domain: "example.com", certificateIssuer: "letsencrypt" }, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
+                withShopCallingOrders()
+
+                await deployOf(production)()
+
+                const expected = [
+                    { name: "LOG_LEVEL", value: "warn" },
+                    { name: "LOG_JSON", value: "true" },
+                    { name: "FRONTEND_URL", value: "https://app.example.com/shop" }
+                ]
+                expect(envOf("orders-api.yaml")).toEqual(expected)
+                expect(envOf("shop-fe.yaml")).toEqual(expected)
+            })
+
+            it("given a project exposed on no domain, when it is deployed, then the containers get their logging and no FRONTEND_URL", async () => {
+                exposedOn(undefined, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
+                withShopCallingOrders()
+
+                await deployOf(production)()
+
+                expect(envOf("orders-api.yaml").map((variable: { name: string }) => variable.name)).toEqual(["LOG_LEVEL", "LOG_JSON"])
+            })
+        })
     })
 
     describe("with two applications exposed at the same path", () => {
