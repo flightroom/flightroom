@@ -379,9 +379,9 @@ describe("advanceDomainReleases", () => {
         ]
         expect(updateFrontends).toHaveBeenCalledTimes(2)
         expect(updateFrontends).toHaveBeenCalledWith({ _id: { $in: [cart._id, search._id] }, ...inDomain, kind: { $ne: FrontendKind.DOCKER } }, { $set: { version: "1.4.0" } })
-        expect(updateFrontends).toHaveBeenCalledWith({ _id: { $in: [cart._id, search._id] }, ...inDomain, kind: FrontendKind.DOCKER }, inEnvironment)
+        expect(updateFrontends).toHaveBeenCalledWith({ _id: { $in: [cart._id, search._id] }, ...inDomain, kind: FrontendKind.DOCKER }, inEnvironment, { updatePipeline: true })
         // The member without a repository keeps its version
-        expect(updateBackends).toHaveBeenCalledWith({ _id: { $in: [ordersApi._id] }, ...inDomain }, inEnvironment)
+        expect(updateBackends).toHaveBeenCalledWith({ _id: { $in: [ordersApi._id] }, ...inDomain }, inEnvironment, { updatePipeline: true })
         expect(updateFrontends.mock.invocationCallOrder[0]).toBeLessThan(deploy.mock.invocationCallOrder[0])
     })
 
