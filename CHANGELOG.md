@@ -5,6 +5,13 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Pull Requests Between Existing Branches**: the assistant and MCP clients open a pull request (a merge request on GitLab) from one branch of the repository of a frontend or a backend to another, e.g. `release/dev` into `main`, with the `pull_request_create` tool; the target is the default branch when left out. Nothing is pushed and nothing is merged: the merge stays at the provider, behind its reviews and branch policies. The assistant asks the user first, and a viewer cannot do it. When the provider refuses, e.g. there is nothing to merge or one is already open, the tool says why
+- **Replicas**: a backend, a DOCKER frontend and a maintenance agent of kind CONTAINER set how many pods run them, from 1 to 20, in the runtime settings next to the CPU and memory; left empty, the chart runs one. Each environment can set its own too, e.g. more in production, in the same per-environment box as the CPU and memory. The deploy writes `replicas` in the values file of each environment: what it sets, else the container's, else 1. A JOB still runs none. The API and the MCP tools take `replicas`, and `replicas` in each entry of `environmentResources`
+
 ## [11.0.0] - 2026-10-30
 
 ### Added

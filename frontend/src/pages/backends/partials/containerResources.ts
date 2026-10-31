@@ -6,14 +6,21 @@ export const RESOURCE_FIELDS = ["cpuRequest", "cpuLimit", "memoryRequest", "memo
 export type ResourceField = (typeof RESOURCE_FIELDS)[number]
 export type ContainerResources = Partial<Record<ResourceField, string | null>>
 
-/** Same as the backend: what one environment sets apart, each value left blank being the container's */
-export type EnvironmentResources = ContainerResources & { environmentId: string }
+/** Same as the backend: the pods of the Deployment, null for the default of the chart */
+export type ContainerReplicas = { replicas?: number | null }
 
-/** The form values of one environment that sets its CPU and memory apart */
-export type EnvironmentResourcesFormValues = Record<ResourceField, string> & { environmentId: string }
+/** Same as the backend: what one environment sets apart, each value left blank being the container's */
+export type EnvironmentResources = ContainerResources & ContainerReplicas & { environmentId: string }
+
+/** The form values of one environment that sets its CPU, memory or replicas apart */
+export type EnvironmentResourcesFormValues = Record<ResourceField, string> & { replicas: string; environmentId: string }
 
 /** Same as the backend: what the chart of the applications repository sets for a value left empty */
 export const CHART_RESOURCE_DEFAULTS: Record<ResourceField, string> = { cpuRequest: "25m", cpuLimit: "500m", memoryRequest: "128Mi", memoryLimit: "512Mi" }
+
+/** Same as the backend (CHART_REPLICAS_DEFAULT, MAX_REPLICAS) */
+export const CHART_REPLICAS_DEFAULT = 1
+export const MAX_REPLICAS = 20
 
 const CPU_QUANTITY = /^(?:(\d{1,9})m|(\d{1,6}(?:\.\d{1,3})?))$/
 const MEMORY_QUANTITY = /^(\d{1,15}(?:\.\d{1,6})?)(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$/
@@ -40,16 +47,18 @@ export interface ResourceMessages {
     memoryInvalid: string
     cpuRequestAboveLimit: (limit: string) => string
     memoryRequestAboveLimit: (limit: string) => string
+    replicasInvalid: string
 }
 
 export const resourceMessages = (t: TFunction): ResourceMessages => ({
     cpuInvalid: t("backends.compute.cpu_invalid"),
     memoryInvalid: t("backends.compute.memory_invalid"),
     cpuRequestAboveLimit: limit => t("backends.compute.cpu_request_above_limit", { limit }),
-    memoryRequestAboveLimit: limit => t("backends.compute.memory_request_above_limit", { limit })
+    memoryRequestAboveLimit: limit => t("backends.compute.memory_request_above_limit", { limit }),
+    replicasInvalid: t("backends.compute.replicas_invalid", { max: MAX_REPLICAS })
 })
 
-/** The four fields of a form, empty meaning the default of the chart, and those each environment sets apart, empty meaning the container's */
+/** The five fields of a form, empty meaning the default of the chart, and those each environment sets apart, empty meaning the container's */
 export const createResourceShape = (messages: ResourceMessages) => {
     const quantity = (parse: (value: string) => number | undefined, message: string) =>
         z
@@ -60,7 +69,11 @@ export const createResourceShape = (messages: ResourceMessages) => {
         cpuRequest: quantity(parseCpu, messages.cpuInvalid),
         cpuLimit: quantity(parseCpu, messages.cpuInvalid),
         memoryRequest: quantity(parseMemory, messages.memoryInvalid),
-        memoryLimit: quantity(parseMemory, messages.memoryInvalid)
+        memoryLimit: quantity(parseMemory, messages.memoryInvalid),
+        replicas: z
+            .string()
+            .trim()
+            .refine(value => value === "" || (/^\d{1,2}$/.test(value) && Number(value) >= 1 && Number(value) <= MAX_REPLICAS), messages.replicasInvalid)
     }
     return { ...fields, environmentResources: z.array(z.object({ environmentId: z.string(), ...fields })) }
 }
@@ -89,17 +102,21 @@ export const refineResources = (data: ContainerResources & { environmentResource
     data.environmentResources?.forEach((entry, index) => refine(entry, ["environmentResources", index], data))
 }
 
-const fieldValues = (container?: ContainerResources): Record<ResourceField, string> => ({
+const fieldValues = (container?: ContainerResources & ContainerReplicas): Record<ResourceField | "replicas", string> => ({
     cpuRequest: container?.cpuRequest ?? "",
     cpuLimit: container?.cpuLimit ?? "",
     memoryRequest: container?.memoryRequest ?? "",
-    memoryLimit: container?.memoryLimit ?? ""
+    memoryLimit: container?.memoryLimit ?? "",
+    replicas: container?.replicas != null ? String(container.replicas) : ""
 })
+
+/** What the API receives for the replicas of the form: null for an empty field, the default of the chart */
+export const replicaCount = (value?: string): number | null => (value?.trim() ? Number(value) : null)
 
 /** What the form holds for a container: empty for a value it does not set, and the environments that set some apart */
 export const resourceFormValues = (
-    container?: ContainerResources & { environmentResources?: EnvironmentResources[] | null }
-): Record<ResourceField, string> & { environmentResources: EnvironmentResourcesFormValues[] } => ({
+    container?: ContainerResources & ContainerReplicas & { environmentResources?: EnvironmentResources[] | null }
+): Record<ResourceField | "replicas", string> & { environmentResources: EnvironmentResourcesFormValues[] } => ({
     ...fieldValues(container),
     environmentResources: (container?.environmentResources ?? []).map(entry => ({ environmentId: entry.environmentId, ...fieldValues(entry) }))
 })

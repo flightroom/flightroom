@@ -27,13 +27,14 @@ export interface EnvironmentVersion {
     version?: string | null
 }
 
-/** What one environment sets apart from the CPU and memory of a container */
+/** What one environment sets apart from the CPU, memory and replicas of a container */
 export interface EnvironmentResources {
     environmentId: string
     cpuRequest?: string | null
     cpuLimit?: string | null
     memoryRequest?: string | null
     memoryLimit?: string | null
+    replicas?: number | null
 }
 
 export interface Backend {
@@ -77,7 +78,9 @@ export interface Backend {
     /** Kubernetes quantities, e.g. 128Mi or 1Gi; blank or null for the default of the chart */
     memoryRequest?: string | null
     memoryLimit?: string | null
-    /** The environments that run it with CPU and memory of their own: each value left blank is the one above */
+    /** The pods it runs; null for the default of the chart (1) */
+    replicas?: number | null
+    /** The environments that run it with CPU, memory or replicas of their own: each value left blank is the one above */
     environmentResources?: EnvironmentResources[] | null
     /** The version each environment runs: one without does not get it, whatever the version above */
     environmentVersions?: EnvironmentVersion[] | null

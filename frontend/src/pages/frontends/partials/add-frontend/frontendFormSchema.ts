@@ -57,7 +57,10 @@ export const createFormSchema = (messages: FormMessages) => {
             cpuLimit: z.string().optional(),
             memoryRequest: z.string().optional(),
             memoryLimit: z.string().optional(),
-            environmentResources: z.array(z.object({ environmentId: z.string(), cpuRequest: z.string(), cpuLimit: z.string(), memoryRequest: z.string(), memoryLimit: z.string() })).optional(),
+            replicas: z.string().optional(),
+            environmentResources: z
+                .array(z.object({ environmentId: z.string(), cpuRequest: z.string(), cpuLimit: z.string(), memoryRequest: z.string(), memoryLimit: z.string(), replicas: z.string() }))
+                .optional(),
             environmentVersions: z.array(z.object({ environmentId: z.string(), version: z.string() })).optional(),
             exposed: z.boolean().optional(),
             exposurePath: z.string().optional(),

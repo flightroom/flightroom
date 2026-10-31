@@ -5,7 +5,7 @@ import { Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import { useProjectEnvironmentsQuery } from "./backendVariables"
-import { CHART_RESOURCE_DEFAULTS, type EnvironmentResources, type EnvironmentResourcesFormValues, RESOURCE_FIELDS, ResourceField } from "./containerResources"
+import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, type EnvironmentResources, type EnvironmentResourcesFormValues, MAX_REPLICAS, RESOURCE_FIELDS, ResourceField } from "./containerResources"
 
 export const RESOURCE_LABELS: Record<ResourceField, string> = {
     cpuRequest: "backends.compute.cpu_request",
@@ -15,7 +15,7 @@ export const RESOURCE_LABELS: Record<ResourceField, string> = {
 }
 
 /**
- * The environments that run the container with CPU and memory of their own, e.g. more in production. Each value left
+ * The environments that run the container with CPU, memory or replicas of their own, e.g. more in production. Each value left
  * empty is the container's, shown as placeholder; an environment is added once.
  */
 const EnvironmentResourceFields: React.FC = () => {
@@ -23,6 +23,7 @@ const EnvironmentResourceFields: React.FC = () => {
     const { control } = useFormContext()
     const { fields, append, remove } = useFieldArray({ control, name: "environmentResources" })
     const container: (string | undefined)[] = useWatch({ control, name: RESOURCE_FIELDS })
+    const replicas: string | undefined = useWatch({ control, name: "replicas" })
     const environments = useProjectEnvironmentsQuery({ inForm: true }).data ?? []
     const entries = fields as unknown as (EnvironmentResourcesFormValues & { id: string })[]
     const setApart = new Set(entries.map(entry => entry.environmentId))
@@ -47,6 +48,12 @@ const EnvironmentResourceFields: React.FC = () => {
                         {RESOURCE_FIELDS.map(field => (
                             <TextField key={field} name={`environmentResources.${index}.${field}`} label={t(RESOURCE_LABELS[field])} placeholder={inherited(field)} />
                         ))}
+                        <TextField
+                            name={`environmentResources.${index}.replicas`}
+                            type="number"
+                            label={t("backends.compute.replicas")}
+                            placeholder={replicas?.trim() || String(CHART_REPLICAS_DEFAULT)}
+                        />
                     </div>
                 </div>
             ))}
@@ -58,7 +65,7 @@ const EnvironmentResourceFields: React.FC = () => {
                             type="button"
                             variant="secondary"
                             size="sm"
-                            onClick={() => append({ environmentId: environment._id, cpuRequest: "", cpuLimit: "", memoryRequest: "", memoryLimit: "" })}
+                            onClick={() => append({ environmentId: environment._id, cpuRequest: "", cpuLimit: "", memoryRequest: "", memoryLimit: "", replicas: "" })}
                         >
                             <Plus />
                             {t("backends.compute.by_environment.add", { environment: environment.name })}
@@ -70,7 +77,7 @@ const EnvironmentResourceFields: React.FC = () => {
     )
 }
 
-/** CPU and memory of a container, for a two-column grid: each one left empty takes the default of the chart, shown as placeholder, and each environment may set its own */
+/** CPU, memory and replicas of a container, for a two-column grid: each one left empty takes the default of the chart, shown as placeholder, and each environment may set its own */
 export const ContainerResourceFields: React.FC = () => {
     const { t } = useTranslation()
 
@@ -85,6 +92,13 @@ export const ContainerResourceFields: React.FC = () => {
                     description={t("backends.compute.default_hint", { value: CHART_RESOURCE_DEFAULTS[field] })}
                 />
             ))}
+            <TextField
+                name="replicas"
+                type="number"
+                label={t("backends.compute.replicas")}
+                placeholder={String(CHART_REPLICAS_DEFAULT)}
+                description={t("backends.compute.replicas_hint", { value: CHART_REPLICAS_DEFAULT, max: MAX_REPLICAS })}
+            />
             <EnvironmentResourceFields />
         </>
     )
@@ -95,6 +109,13 @@ export const ResourceValue: React.FC<{ value?: string | null; field: ResourceFie
     const { t } = useTranslation()
 
     return value ? <span className="font-mono">{value}</span> : <span className="text-foreground-secondary">{t("backends.compute.default_value", { value: CHART_RESOURCE_DEFAULTS[field] })}</span>
+}
+
+/** The replicas of a container as the detail views show them: the default of the chart when it sets none */
+export const ReplicasValue: React.FC<{ value?: number | null }> = ({ value }) => {
+    const { t } = useTranslation()
+
+    return value != null ? <span className="font-mono">{value}</span> : <span className="text-foreground-secondary">{t("backends.compute.default_value", { value: CHART_REPLICAS_DEFAULT })}</span>
 }
 
 /** What each environment sets apart, as the detail views show it: only the values it sets */
@@ -108,9 +129,10 @@ export const EnvironmentResourcesValue: React.FC<{ entries?: EnvironmentResource
                 <li key={entry.environmentId} className="text-sm">
                     <span className="font-medium">{environments.find(environment => environment._id === entry.environmentId)?.name ?? entry.environmentId}</span>
                     {": "}
-                    {RESOURCE_FIELDS.filter(field => entry[field])
-                        .map(field => `${t(RESOURCE_LABELS[field])} ${entry[field]}`)
-                        .join(" · ")}
+                    {[
+                        ...RESOURCE_FIELDS.filter(field => entry[field]).map(field => `${t(RESOURCE_LABELS[field])} ${entry[field]}`),
+                        ...(entry.replicas != null ? [`${t("backends.compute.replicas")} ${entry.replicas}`] : [])
+                    ].join(" · ")}
                 </li>
             ))}
         </ul>

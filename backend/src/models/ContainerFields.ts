@@ -1,6 +1,6 @@
 import { Schema } from "mongoose"
 import { BACKEND_HTTP_PATH } from "../types/BackendStack"
-import { parseCpu, parseMemory } from "../types/ContainerResources"
+import { isReplicaCount, MAX_REPLICAS, parseCpu, parseMemory } from "../types/ContainerResources"
 import { isExposurePath } from "../types/Exposure"
 
 /**
@@ -81,23 +81,32 @@ const optionalQuantity = (parse: (value: string) => number | undefined, example:
 })
 
 /**
- * The CPU and memory of the container, as Kubernetes quantities: blank means the default of the chart, so it is stored
- * as null. That a request is not above its limit is checked by the services, which see what is stored as well.
+ * The CPU and memory of the container, as Kubernetes quantities, and its replicas: blank means the default of the chart, so
+ * it is stored as null. That a request is not above its limit is checked by the services, which see what is stored as well.
  */
 export const resourceFields = {
     cpuRequest: optionalQuantity(parseCpu, "250m or 0.5"),
     cpuLimit: optionalQuantity(parseCpu, "250m or 0.5"),
     memoryRequest: optionalQuantity(parseMemory, "128Mi or 1Gi"),
-    memoryLimit: optionalQuantity(parseMemory, "128Mi or 1Gi")
+    memoryLimit: optionalQuantity(parseMemory, "128Mi or 1Gi"),
+    replicas: {
+        type: Number,
+        required: false,
+        validate: {
+            validator: (value?: number | null) => value == null || isReplicaCount(value),
+            message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" is not a whole number from 1 to ${MAX_REPLICAS}`
+        }
+    }
 }
 
-/** What one environment sets apart from the CPU and memory of the container: each one left blank is the container's */
+/** What one environment sets apart from the CPU, memory and replicas of the container: each one left blank is the container's */
 export interface IEnvironmentResources {
     environmentId: Schema.Types.ObjectId
     cpuRequest?: string | null
     cpuLimit?: string | null
     memoryRequest?: string | null
     memoryLimit?: string | null
+    replicas?: number | null
 }
 
 const environmentResourcesSchema = new Schema<IEnvironmentResources>({ environmentId: { type: Schema.Types.ObjectId, ref: "Environment", required: true }, ...resourceFields }, { _id: false })

@@ -7,7 +7,7 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { exposedOrigin } from "./backendVariables"
-import { EnvironmentResourcesValue, RESOURCE_LABELS, ResourceValue } from "./ContainerResourceFields"
+import { EnvironmentResourcesValue, RESOURCE_LABELS, ReplicasValue, ResourceValue } from "./ContainerResourceFields"
 import { RESOURCE_FIELDS } from "./containerResources"
 import { EnvironmentVersionsValue } from "./EnvironmentVersionFields"
 
@@ -27,6 +27,7 @@ export type ContainerConfiguration = Partial<
         | "cpuLimit"
         | "memoryRequest"
         | "memoryLimit"
+        | "replicas"
         | "environmentResources"
         | "environmentVersions"
     >
@@ -148,6 +149,9 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
                             <ResourceValue field={field} value={backend[field]} />
                         </DescriptionItem>
                     ))}
+                    <DescriptionItem label={t("backends.compute.replicas")}>
+                        <ReplicasValue value={backend.replicas} />
+                    </DescriptionItem>
                     <DescriptionItem label={t("backends.compute.by_environment.title")}>
                         <EnvironmentResourcesValue entries={backend.environmentResources} environments={environments} />
                     </DescriptionItem>
