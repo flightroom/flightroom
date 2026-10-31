@@ -1394,7 +1394,8 @@
                 "sections": {
                     "general": "General",
                     "exposure": "Exposure",
-                    "logs": "Logs"
+                    "logs": "Logs",
+                    "kube_green": "kube-green"
                 },
                 "cancel": "Cancel",
                 "create": "Create",
@@ -1437,7 +1438,27 @@
             "log_level_description": "Handed to every container of the environment as LOG_LEVEL from its next deploy.",
             "log_levels": { "trace": "Trace", "debug": "Debug", "info": "Info", "warn": "Warn", "error": "Error", "fatal": "Fatal" },
             "log_json": "JSON logs",
-            "log_json_description": "Handed to every container as LOG_JSON: true for one JSON object per line, false for plain text."
+            "log_json_description": "Handed to every container as LOG_JSON: true for one JSON object per line, false for plain text.",
+            "kube_green": {
+                "description": "Puts the environment to sleep off hours to save resources and energy: from its next deploy GitOps commits a SleepInfo to its namespace. The cluster needs the kube-green operator.",
+                "enabled": "Scheduled sleep",
+                "enabled_badge": "Scheduled sleep with kube-green",
+                "weekdays": "Days",
+                "weekdays_description": "In cron notation, 0 (Sunday) to 6: 1-5 Monday to Friday, * every day.",
+                "weekdays_invalid": "Days 0 to 6, ranges and commas (e.g. 1-5 or 1,3,5), or *",
+                "time_zone": "Time zone",
+                "time_zone_invalid": "Not an IANA time zone, e.g. Europe/Rome",
+                "sleep_at": "Sleep at",
+                "sleep_at_required": "Set when it goes to sleep",
+                "wake_up_at": "Wake up at",
+                "wake_up_at_description": "Left empty, the environment sleeps until its next deploy.",
+                "suspend_deployments": "Scale Deployments down",
+                "suspend_stateful_sets": "Scale StatefulSets down",
+                "suspend_cron_jobs": "Suspend CronJobs",
+                "exclude_applications": "Always-on applications",
+                "exclude_applications_placeholder": "Enter the slug of a backend or a frontend and press Enter",
+                "exclude_applications_description": "Their Deployments never sleep."
+            }
         }
     },
     "storage": {

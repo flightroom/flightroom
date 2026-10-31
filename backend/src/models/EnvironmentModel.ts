@@ -1,4 +1,5 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
+import { KUBE_GREEN_DEFAULTS, KubeGreenSettings } from "../types/KubeGreen"
 import { DEFAULT_LOG_LEVEL, LOG_LEVELS } from "../types/RuntimeVariables"
 
 export interface IEnvironment extends Document<ObjectId> {
@@ -21,6 +22,8 @@ export interface IEnvironment extends Document<ObjectId> {
     logLevel: string
     /** Whether its containers log JSON rather than plain text, handed to them as LOG_JSON */
     logJson: boolean
+    /** When kube-green puts it to sleep, committed by GitOps as a SleepInfo in its namespace */
+    kubeGreen: KubeGreenSettings
 }
 
 const environmentSchema = new Schema<IEnvironment>(
@@ -69,6 +72,18 @@ const environmentSchema = new Schema<IEnvironment>(
         logJson: {
             type: Boolean,
             default: true
+        },
+        // A nested path, not a subdocument: an environment saved before it reads the defaults
+        kubeGreen: {
+            enabled: { type: Boolean, default: KUBE_GREEN_DEFAULTS.enabled },
+            weekdays: { type: String, default: KUBE_GREEN_DEFAULTS.weekdays },
+            sleepAt: { type: String, default: KUBE_GREEN_DEFAULTS.sleepAt },
+            wakeUpAt: { type: String, default: KUBE_GREEN_DEFAULTS.wakeUpAt },
+            timeZone: { type: String, default: KUBE_GREEN_DEFAULTS.timeZone },
+            suspendDeployments: { type: Boolean, default: KUBE_GREEN_DEFAULTS.suspendDeployments },
+            suspendStatefulSets: { type: Boolean, default: KUBE_GREEN_DEFAULTS.suspendStatefulSets },
+            suspendCronJobs: { type: Boolean, default: KUBE_GREEN_DEFAULTS.suspendCronJobs },
+            excludeApplications: { type: [String], default: undefined }
         },
         projectId: {
             type: Schema.Types.ObjectId,

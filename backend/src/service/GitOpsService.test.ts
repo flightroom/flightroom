@@ -679,6 +679,57 @@ describe("GitOpsService.deploy", () => {
             expect(parse(applicationsCommit.mock.calls[0][1].find(file => file.path === "orders-api.yaml")!.content!).route.ipAllowList).toBe(middleware.metadata.name)
         })
 
+        it("given an environment that sleeps on a kube-green schedule, when it is deployed, then its SleepInfo is committed beside its Namespace", async () => {
+            exposedOn({ domain: "example.com" })
+            vi.spyOn(Environment, "find").mockResolvedValue([
+                { _id: development, slug: "development", subdomain: "dev", projectId },
+                {
+                    _id: production,
+                    slug: "production",
+                    subdomain: "app",
+                    projectId,
+                    kubeGreen: {
+                        enabled: true,
+                        weekdays: "1-5",
+                        sleepAt: "20:00",
+                        wakeUpAt: "",
+                        timeZone: "Europe/Rome",
+                        suspendDeployments: true,
+                        suspendStatefulSets: false,
+                        suspendCronJobs: true,
+                        excludeApplications: ["orders-api"]
+                    }
+                }
+            ] as never)
+
+            await deployOf(production)()
+
+            const sleepInfo = parse(commit.mock.calls[0][1].find(file => file.path === "production/sleepinfo.yaml")!.content!)
+            expect(sleepInfo).toMatchObject({ apiVersion: "kube-green.com/v1alpha1", kind: "SleepInfo", metadata: { namespace: "production" } })
+            expect(sleepInfo.spec).toEqual({
+                weekdays: "1-5",
+                sleepAt: "20:00",
+                timeZone: "Europe/Rome",
+                suspendDeployments: true,
+                suspendStatefulSets: false,
+                suspendCronJobs: true,
+                excludeRef: [{ apiVersion: "apps/v1", kind: "Deployment", name: "orders-api" }]
+            })
+        })
+
+        it("given an environment whose kube-green schedule was turned off, when it is deployed, then its SleepInfo is pruned", async () => {
+            exposedOn({ domain: "example.com" })
+            vi.spyOn(Environment, "find").mockResolvedValue([
+                { _id: development, slug: "development", subdomain: "dev", projectId },
+                { _id: production, slug: "production", subdomain: "app", projectId, kubeGreen: { enabled: false, weekdays: "1-5", sleepAt: "20:00", timeZone: "Europe/Rome" } }
+            ] as never)
+
+            await deployOf(production)()
+
+            expect(commit.mock.calls[0][1].map(file => file.path)).not.toContain("production/sleepinfo.yaml")
+            expect(commit.mock.calls[0][2]!.prune!("production/sleepinfo.yaml")).toBe(true)
+        })
+
         it("given an environment that never had an IP allow list, when it is deployed, then the routes go through no Middleware", async () => {
             exposedOn({ domain: "example.com" }, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
             subdomains("dev", "app")

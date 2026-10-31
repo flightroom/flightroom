@@ -6,7 +6,7 @@ import { Button } from "@/components/atoms"
 import ColorPicker from "@/components/input/ColorPicker.rhf"
 import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
-import useEnvironmentsApi, { EnvironmentDTO, LOG_LEVELS, type LogLevel } from "@/hooks/apiClients/useEnvironmentsApi"
+import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS, type KubeGreenSettings, LOG_LEVELS, type LogLevel } from "@/hooks/apiClients/useEnvironmentsApi"
 import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -23,6 +23,20 @@ export interface EnvironmentFormData {
     ipAllowList?: string[]
     logLevel?: LogLevel
     logJson?: boolean
+    kubeGreen?: KubeGreenSettings
+}
+
+/** Come per il backend (KUBE_GREEN_WEEKDAYS): giorni da 0 (domenica) a 6, intervalli e virgole, oppure `*` */
+const KUBE_GREEN_WEEKDAYS = /^(\*|[0-6](-[0-6])?(,[0-6](-[0-6])?)*)$/
+
+/** Come per il backend (isTimeZone): un fuso orario IANA che il browser riconosce */
+const isTimeZone = (value: string) => {
+    try {
+        new Intl.DateTimeFormat("en", { timeZone: value })
+        return value !== ""
+    } catch {
+        return false
+    }
 }
 
 /** Come per il backend: etichette DNS separate da punti, oppure niente per il dominio stesso */
@@ -70,7 +84,8 @@ interface EnvironmentEditorProps {
 export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }: EnvironmentEditorProps) {
     const { t } = useTranslation()
     const isEdit = Boolean(id)
-    const form = useForm<EnvironmentFormData>({ defaultValues: formData })
+    // I campi di kube-green partono dai default anche per un ambiente salvato prima che ci fossero
+    const form = useForm<EnvironmentFormData>({ defaultValues: { ...formData, kubeGreen: { ...KUBE_GREEN_DEFAULTS, ...formData.kubeGreen } } })
     const environmentsApi = useEnvironmentsApi()
     const notifications = useToastNotificationStore()
     // Il namespace serve solo a GitOps: senza, l'ambiente non finisce in nessun cluster
@@ -80,6 +95,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
     const domain = useProjectStore(state => state.project?.exposure?.domain)
     const subdomain = form.watch("subdomain")
     const isProduction = form.watch("isProduction")
+    const isKubeGreenEnabled = form.watch("kubeGreen.enabled")
     const isSubmitting = form.formState.isSubmitting
     // L'host salvato, non quello in modifica: il link porta all'ambiente com'e' oggi
     const savedHost = isEdit && isGitOpsEnabled && domain ? exposedHost(domain, effectiveSubdomain(formData)) : undefined
@@ -231,6 +247,75 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                         </div>
                                         <Switch name="logJson" label={t("environment.form.log_json")} description={t("environment.form.log_json_description")} />
                                     </div>
+                                </section>
+                            )}
+
+                            {isGitOpsEnabled && (
+                                <section className="flex flex-col gap-4" data-testid="environment-kube-green">
+                                    <SectionHeader
+                                        as="h3"
+                                        title={t("environment.page.form.sections.kube_green")}
+                                        description={t("environment.form.kube_green.description")}
+                                        icon={<img src="/img/kube-green.svg" alt="" className="size-5" />}
+                                        actions={<Switch name="kubeGreen.enabled" label={t("environment.form.kube_green.enabled")} />}
+                                    />
+                                    {isKubeGreenEnabled && (
+                                        <>
+                                            <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                                <TextField
+                                                    name="kubeGreen.weekdays"
+                                                    dataTestId="environment-kube-green-weekdays"
+                                                    label={t("environment.form.kube_green.weekdays")}
+                                                    placeholder="1-5"
+                                                    description={t("environment.form.kube_green.weekdays_description")}
+                                                    rules={{ validate: value => KUBE_GREEN_WEEKDAYS.test((value ?? "").replace(/\s+/g, "")) || t("environment.form.kube_green.weekdays_invalid") }}
+                                                    required
+                                                    containerClassName="flex-[1_1_200px]"
+                                                />
+                                                <TextField
+                                                    name="kubeGreen.timeZone"
+                                                    dataTestId="environment-kube-green-time-zone"
+                                                    label={t("environment.form.kube_green.time_zone")}
+                                                    placeholder="Europe/Rome"
+                                                    rules={{ validate: value => isTimeZone((value ?? "").trim()) || t("environment.form.kube_green.time_zone_invalid") }}
+                                                    required
+                                                    containerClassName="flex-[1_1_200px]"
+                                                />
+                                            </div>
+                                            <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                                <TextField
+                                                    name="kubeGreen.sleepAt"
+                                                    type="time"
+                                                    dataTestId="environment-kube-green-sleep-at"
+                                                    label={t("environment.form.kube_green.sleep_at")}
+                                                    rules={{ required: t("environment.form.kube_green.sleep_at_required") as string }}
+                                                    required
+                                                    containerClassName="flex-[1_1_200px]"
+                                                />
+                                                <TextField
+                                                    name="kubeGreen.wakeUpAt"
+                                                    type="time"
+                                                    dataTestId="environment-kube-green-wake-up-at"
+                                                    label={t("environment.form.kube_green.wake_up_at")}
+                                                    description={t("environment.form.kube_green.wake_up_at_description")}
+                                                    containerClassName="flex-[1_1_200px]"
+                                                />
+                                            </div>
+                                            <div className="flex flex-col gap-3">
+                                                <Switch name="kubeGreen.suspendDeployments" label={t("environment.form.kube_green.suspend_deployments")} />
+                                                <Switch name="kubeGreen.suspendStatefulSets" label={t("environment.form.kube_green.suspend_stateful_sets")} />
+                                                <Switch name="kubeGreen.suspendCronJobs" label={t("environment.form.kube_green.suspend_cron_jobs")} />
+                                            </div>
+                                            <TextareaChipsField
+                                                name="kubeGreen.excludeApplications"
+                                                dataTestId="environment-kube-green-exclude"
+                                                label={t("environment.form.kube_green.exclude_applications")}
+                                                placeholder={t("environment.form.kube_green.exclude_applications_placeholder")}
+                                                description={t("environment.form.kube_green.exclude_applications_description")}
+                                                textTransform={value => value.trim()}
+                                            />
+                                        </>
+                                    )}
                                 </section>
                             )}
                         </div>

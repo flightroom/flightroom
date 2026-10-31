@@ -19,7 +19,7 @@ import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import EnvironmentService, { normalizeIpAllowList } from "./EnvironmentService"
+import EnvironmentService, { normalizeIpAllowList, normalizeKubeGreen } from "./EnvironmentService"
 
 const newId = () => new Types.ObjectId() as unknown as ObjectId
 
@@ -162,6 +162,35 @@ describe("normalizeIpAllowList", () => {
         const ranges = Array.from({ length: 101 }, (_, index) => `10.0.${index}.0/24`)
 
         expect(() => normalizeIpAllowList(ranges)).toThrow(expect.objectContaining({ code: "ENVIRONMENT_IP_ALLOWLIST_TOO_LONG" }))
+    })
+})
+
+describe("normalizeKubeGreen", () => {
+    it("given a schedule with blanks and repeats, when it is normalized, then it is trimmed and filled in with the defaults", () => {
+        expect(normalizeKubeGreen({ enabled: true, weekdays: " 1-5 ", sleepAt: "19:30", excludeApplications: [" orders-api ", "", "orders-api"] })).toEqual({
+            enabled: true,
+            weekdays: "1-5",
+            sleepAt: "19:30",
+            wakeUpAt: "",
+            timeZone: "Europe/Rome",
+            suspendDeployments: true,
+            suspendStatefulSets: true,
+            suspendCronJobs: false,
+            excludeApplications: ["orders-api"]
+        })
+    })
+
+    it.each([
+        ["days out of the week", { weekdays: "1-7" }],
+        ["a time with no minutes", { sleepAt: "20" }],
+        ["a wake up past midnight", { wakeUpAt: "24:00" }],
+        ["an unknown time zone", { timeZone: "Europe/Atlantis" }]
+    ])("given %s, when it is on, then it is refused", (_case, value) => {
+        expect(() => normalizeKubeGreen({ enabled: true, ...value })).toThrow(expect.objectContaining({ code: "ENVIRONMENT_KUBE_GREEN_INVALID" }))
+    })
+
+    it("given a schedule that is off, when it is normalized, then it is kept as it is, even when it would not parse", () => {
+        expect(normalizeKubeGreen({ enabled: false, weekdays: "1-7" })).toMatchObject({ enabled: false, weekdays: "1-7" })
     })
 })
 

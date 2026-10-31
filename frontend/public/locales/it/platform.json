@@ -784,7 +784,8 @@
                 "sections": {
                     "general": "Generale",
                     "exposure": "Esposizione",
-                    "logs": "Log"
+                    "logs": "Log",
+                    "kube_green": "kube-green"
                 },
                 "cancel": "Annulla",
                 "create": "Crea",
@@ -839,7 +840,27 @@
             "log_level_description": "Passato a ogni container dell'ambiente come LOG_LEVEL dal prossimo deploy.",
             "log_levels": { "trace": "Trace", "debug": "Debug", "info": "Info", "warn": "Warn", "error": "Error", "fatal": "Fatal" },
             "log_json": "Log in JSON",
-            "log_json_description": "Passato a ogni container come LOG_JSON: true per un oggetto JSON per riga, false per testo semplice."
+            "log_json_description": "Passato a ogni container come LOG_JSON: true per un oggetto JSON per riga, false per testo semplice.",
+            "kube_green": {
+                "description": "Spegne l'ambiente fuori orario per risparmiare risorse ed energia: dal prossimo deploy GitOps crea uno SleepInfo nel suo namespace. Il cluster deve avere l'operatore kube-green.",
+                "enabled": "Spegnimento programmato",
+                "enabled_badge": "Spegnimento programmato con kube-green",
+                "weekdays": "Giorni",
+                "weekdays_description": "In notazione cron, da 0 (domenica) a 6: 1-5 da lunedì a venerdì, * tutti i giorni.",
+                "weekdays_invalid": "Giorni da 0 a 6, intervalli e virgole (es. 1-5 o 1,3,5), oppure *",
+                "time_zone": "Fuso orario",
+                "time_zone_invalid": "Non è un fuso orario IANA, es. Europe/Rome",
+                "sleep_at": "Spegni alle",
+                "sleep_at_required": "Indica l'ora dello spegnimento",
+                "wake_up_at": "Riaccendi alle",
+                "wake_up_at_description": "Se vuoto, l'ambiente resta spento fino al prossimo deploy.",
+                "suspend_deployments": "Spegni i Deployment",
+                "suspend_stateful_sets": "Spegni gli StatefulSet",
+                "suspend_cron_jobs": "Sospendi i CronJob",
+                "exclude_applications": "Applicazioni sempre accese",
+                "exclude_applications_placeholder": "Inserisci lo slug di un backend o di un frontend e premi Invio",
+                "exclude_applications_description": "I loro Deployment non vengono mai spenti."
+            }
         },
         "table": {
             "name": "Nome",

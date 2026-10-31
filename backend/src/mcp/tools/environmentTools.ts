@@ -8,6 +8,7 @@ import EnvironmentService from "../../service/EnvironmentService"
 import { MAX_REPLICAS } from "../../types/ContainerResources"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange, SUBDOMAIN } from "../../types/Exposure"
+import { isTimeZone, KUBE_GREEN_TIME, KUBE_GREEN_WEEKDAYS } from "../../types/KubeGreen"
 import { LOG_LEVELS } from "../../types/RuntimeVariables"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
@@ -51,6 +52,30 @@ export const environmentFields = {
         .optional()
         .describe(
             "Whether the containers of the environment log JSON (true) or plain text (false), handed to each of them as the LOG_JSON environment variable on its next deploy; true when never set"
+        ),
+    kubeGreen: z
+        .object({
+            enabled: z.boolean(),
+            weekdays: z
+                .string()
+                .regex(KUBE_GREEN_WEEKDAYS, "0 (Sunday) to 6, ranges and commas, or *")
+                .optional()
+                .describe("Days the schedule applies to, in cron notation: 1-5 Monday to Friday, * every day"),
+            sleepAt: z.string().regex(KUBE_GREEN_TIME, "HH:MM").optional().describe("When the environment is scaled down, HH:MM"),
+            wakeUpAt: z
+                .string()
+                .regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, "HH:MM or empty")
+                .optional()
+                .describe("When it is scaled back up, HH:MM; empty, it sleeps until it is deployed again"),
+            timeZone: z.string().refine(isTimeZone, "an IANA time zone, e.g. Europe/Rome").optional(),
+            suspendDeployments: z.boolean().optional(),
+            suspendStatefulSets: z.boolean().optional(),
+            suspendCronJobs: z.boolean().optional(),
+            excludeApplications: z.array(z.string().min(1)).optional().describe("Slugs of the backends and frontends that never sleep")
+        })
+        .optional()
+        .describe(
+            "The kube-green schedule the environment sleeps on, committed by GitOps as a SleepInfo in its namespace on its next deploy; the cluster needs the kube-green operator. It replaces the saved one as a whole: fields left out take their defaults (1-5, 20:00 to 08:00, Europe/Rome, Deployments and StatefulSets, not CronJobs)"
         )
 }
 

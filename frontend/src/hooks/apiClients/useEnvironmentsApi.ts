@@ -6,6 +6,36 @@ export const LOG_LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] a
 
 export type LogLevel = (typeof LOG_LEVELS)[number]
 
+/** Come per il backend (KubeGreenSettings): quando kube-green spegne l'ambiente, con uno SleepInfo nel suo namespace */
+export interface KubeGreenSettings {
+    enabled: boolean
+    /** Giorni della settimana in notazione cron: `1-5` da lunedì a venerdì, `*` tutti */
+    weekdays: string
+    /** HH:MM, nel fuso orario timeZone */
+    sleepAt: string
+    /** HH:MM; se vuoto l'ambiente resta spento fino al prossimo deploy */
+    wakeUpAt?: string
+    timeZone: string
+    suspendDeployments: boolean
+    suspendStatefulSets: boolean
+    suspendCronJobs: boolean
+    /** Gli slug delle applicazioni che non si spengono mai */
+    excludeApplications?: string[]
+}
+
+/** Come per il backend (KUBE_GREEN_DEFAULTS) */
+export const KUBE_GREEN_DEFAULTS: KubeGreenSettings = {
+    enabled: false,
+    weekdays: "1-5",
+    sleepAt: "20:00",
+    wakeUpAt: "08:00",
+    timeZone: "Europe/Rome",
+    suspendDeployments: true,
+    suspendStatefulSets: true,
+    suspendCronJobs: false,
+    excludeApplications: []
+}
+
 export interface EnvironmentDTO {
     slug: string
     name: string
@@ -26,6 +56,7 @@ export interface EnvironmentDTO {
     logLevel?: LogLevel
     /** Il LOG_JSON dei suoi container: log JSON invece che testo */
     logJson?: boolean
+    kubeGreen?: KubeGreenSettings
     _id?: string
 }
 
@@ -40,6 +71,7 @@ export interface CreateEnvironmentDTO {
     ipAllowList?: string[]
     logLevel?: LogLevel
     logJson?: boolean
+    kubeGreen?: KubeGreenSettings
 }
 
 /** Un'applicazione con la versione che usa nell'ambiente di origine e in quello di destinazione di una promozione */

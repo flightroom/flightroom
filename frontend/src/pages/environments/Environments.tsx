@@ -7,7 +7,7 @@ import { Badge } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
-import useEnvironmentsApi, { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useDragAndDropOrder from "@/hooks/useDragAndDropOrder"
 import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
@@ -97,7 +97,8 @@ export default function EnvironmentsPage() {
             color: getRandomColor(),
             isProduction: false,
             logLevel: "info",
-            logJson: true
+            logJson: true,
+            kubeGreen: KUBE_GREEN_DEFAULTS
         })
         setSelectedId(NEW)
     }
@@ -145,6 +146,14 @@ export default function EnvironmentsPage() {
                                         <span className="flex w-full min-w-0 items-center gap-2">
                                             <ColorSwatch color={env.color} />
                                             <span className="truncate font-medium">{env.name}</span>
+                                            {isGitOpsEnabled && env.kubeGreen?.enabled && (
+                                                <img
+                                                    src="/img/kube-green.svg"
+                                                    alt={t("environment.form.kube_green.enabled_badge")}
+                                                    title={t("environment.form.kube_green.enabled_badge")}
+                                                    className="size-4 shrink-0"
+                                                />
+                                            )}
                                         </span>
                                         <span className="w-full truncate font-mono text-xs text-foreground-secondary">{env.slug}</span>
                                         {isGitOpsEnabled && <span className="w-full truncate font-mono text-xs text-foreground-secondary">{hostOf(env)}</span>}

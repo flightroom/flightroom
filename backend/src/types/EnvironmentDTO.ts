@@ -1,3 +1,5 @@
+import { KubeGreenSettings } from "./KubeGreen"
+
 export interface EnvironmentDTO {
     name: string
     description: string
@@ -13,6 +15,8 @@ export interface EnvironmentDTO {
     logLevel?: string
     /** LOG_JSON of its containers: JSON logs rather than plain text */
     logJson?: boolean
+    /** The kube-green schedule, as a whole: it replaces the one saved */
+    kubeGreen?: KubeGreenSettings
 }
 
 export interface EnvironmentOrderDTO {
