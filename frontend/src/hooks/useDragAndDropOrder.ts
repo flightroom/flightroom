@@ -60,15 +60,16 @@ const useDragAndDropOrder = <T>({ items, getId, onReorder, disabled }: UseDragAn
     const getHandleProps = (id: string) => ({
         onPointerDown: () => setHandleActiveId(id),
         onPointerUp: () => setHandleActiveId(undefined),
-        onKeyDown: (event: React.KeyboardEvent) => {
+        onKeyDown: (event: React.KeyboardEvent<HTMLElement>) => {
             if (disabled) return
-            if (event.key === "ArrowUp") {
-                event.preventDefault()
-                moveBy(id, -1)
-            } else if (event.key === "ArrowDown") {
-                event.preventDefault()
-                moveBy(id, 1)
-            }
+            // Su e sinistra spostano indietro, giu' e destra avanti: le liste vanno in verticale, le griglie di tessere in orizzontale
+            const delta = { ArrowUp: -1, ArrowLeft: -1, ArrowDown: 1, ArrowRight: 1 }[event.key]
+            if (delta === undefined) return
+            event.preventDefault()
+            const handle = event.currentTarget
+            moveBy(id, delta)
+            // React sposta il nodo nel DOM, e spostandolo il browser gli toglie il focus: si continua a muovere con le frecce
+            requestAnimationFrame(() => handle.focus())
         }
     })
 

@@ -1,5 +1,5 @@
 import { Card, ColorSwatch, SwitchField as Switch } from "@flightroom/design-system"
-import { GripVertical, PencilIcon, PlusCircle, Save, TrashIcon, X } from "lucide-react"
+import { Check, GripVertical, PencilIcon, PlusCircle, Save, TrashIcon, X } from "lucide-react"
 import { useEffect, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -11,6 +11,7 @@ import { cn } from "@/utils/styleUtils"
 import ColorPicker from "../../../components/input/ColorPicker.rhf"
 import TextareaField from "../../../components/input/TextareaField.rhf"
 import TextField from "../../../components/input/TextField.rhf"
+import { slugFromName } from "./EnvironmentEditor"
 
 interface EnvironmentListProps {
     environments: EnvironmentDTO[]
@@ -56,7 +57,7 @@ const SingleEnviromentSee: React.FC<SingleEnviromentSeeProps> = ({ environment, 
                     </div>
                     {environment.description && <p className="text-sm text-foreground-secondary">{environment.description}</p>}
                 </div>
-                {environment.isProduction && <Badge variant="accent">{t("environment.production")}</Badge>}
+                {environment.isProduction && <Badge variant="warning">{t("environment.production")}</Badge>}
             </div>
 
             <div className="flex items-center gap-1 ms-auto">
@@ -75,6 +76,8 @@ const SingleEnviromentEdit: React.FC<SingleEnviromentEditProps> = ({ environment
     const form = useForm<EnvironmentDTO>({
         defaultValues: environment
     })
+    // Quello appena aggiunto con "Aggiungi ambiente" non ha ancora un nome: gli altri si stanno solo modificando
+    const isNew = !environment.name
 
     return (
         <div className="p-3 bg-primary/15 rounded-lg border-2 border-border">
@@ -90,9 +93,7 @@ const SingleEnviromentEdit: React.FC<SingleEnviromentEditProps> = ({ environment
                                 required
                                 containerClassName="md:col-span-2"
                                 onChange={e => {
-                                    const slug = e.target.value.toUpperCase().replace(/[^A-Za-z0-9]/g, "-")
-                                    console.log(slug, e.target.value, e.target.value.toUpperCase())
-                                    form.setValue("slug", slug)
+                                    form.setValue("slug", slugFromName(e.target.value))
                                 }}
                             />
                             <TextField
@@ -124,8 +125,8 @@ const SingleEnviromentEdit: React.FC<SingleEnviromentEditProps> = ({ environment
                                 {t("common.cancel")}
                             </Button>
                             <Button type="submit" variant="primary">
-                                <PlusCircle />
-                                {t("common.add")}
+                                {isNew ? <PlusCircle /> : <Check />}
+                                {isNew ? t("common.add") : t("common.update")}
                             </Button>
                         </div>
                     </div>
@@ -143,11 +144,8 @@ export const EnvironmentList: React.FC<EnvironmentListProps> = ({ environments, 
 
     useEffect(() => {
         if (!environments) return
-        const newEnv = [...environments]
-        newEnv.forEach((env, index) => {
-            env.order = index
-        })
-        setEnvironmentList(newEnv)
+        // Copie: gli oggetti sono del genitore (es. i preset), non vanno modificati
+        setEnvironmentList(environments.map((env, index) => ({ ...env, order: index })))
     }, [environments])
 
     const onAddEnvironment = () => {
@@ -223,7 +221,7 @@ export const EnvironmentList: React.FC<EnvironmentListProps> = ({ environments, 
                                         environment={env}
                                         onDelete={onDeleteSingle(index)}
                                         onEdit={onEditSingle(index)}
-                                        disableIcons={Boolean(editingId)}
+                                        disableIcons={editingId !== undefined}
                                         dragHandleProps={editingId === undefined && environmentList.length > 1 ? getHandleProps(dragId) : undefined}
                                     />
                                 )}

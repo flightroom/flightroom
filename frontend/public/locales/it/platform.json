@@ -769,11 +769,13 @@
                 "title": "Elimina Ambiente",
                 "confirmation": "Sei sicuro di voler eliminare l'ambiente {{name}}? Questa azione non può essere annullata.",
                 "success": "Ambiente eliminato con successo",
-                "error": "Errore durante l'eliminazione dell'ambiente"
+                "error": "Errore durante l'eliminazione dell'ambiente",
+                "production_warning": "È un ambiente di produzione",
+                "production_hint": "Per confermare, scrivi {{name}}"
             },
             "color": "Colore",
             "reorder": {
-                "hint": "Trascina gli ambienti per cambiare l'ordine usato in tutta l'applicazione",
+                "hint": "Trascina gli ambienti, o usa le frecce sulla maniglia, per cambiare l'ordine usato in tutta l'applicazione",
                 "handle": "Trascina per riordinare {{name}}",
                 "success": "Ordine degli ambienti aggiornato"
             },
@@ -794,7 +796,13 @@
             "create_success": "Ambiente creato con successo",
             "update_success": "Ambiente aggiornato con successo",
             "host": "Host",
-            "opens_new_tab": "(si apre in una nuova scheda)"
+            "opens_new_tab": "(si apre in una nuova scheda)",
+            "unsaved": {
+                "title": "Modifiche non salvate",
+                "description": "L'ambiente aperto ha modifiche non salvate. Se apri un altro ambiente andranno perse.",
+                "keep": "Continua a modificare",
+                "discard": "Scarta le modifiche"
+            }
         },
         "form": {
             "name": "Nome",
@@ -811,7 +819,7 @@
             "color_required": "Il colore è obbligatorio",
             "is_production": "Ambiente di produzione",
             "is_production_description": "Indica se questo è un ambiente di produzione",
-            "domains": "Domini Consentiti",
+            "domains": "Domini delle pagine host",
             "domains_placeholder": "Inserisci un dominio e premi Invio o virgola per aggiungere (es. esempio.com)",
             "namespace": "Namespace Kubernetes",
             "namespace_placeholder": "Lo slug in minuscolo",
@@ -846,8 +854,8 @@
                 "enabled": "Spegnimento programmato",
                 "enabled_badge": "Spegnimento programmato con kube-green",
                 "weekdays": "Giorni",
-                "weekdays_description": "In notazione cron, da 0 (domenica) a 6: 1-5 da lunedì a venerdì, * tutti i giorni.",
-                "weekdays_invalid": "Giorni da 0 a 6, intervalli e virgole (es. 1-5 o 1,3,5), oppure *",
+                "weekdays_description": "I giorni in cui l'ambiente si spegne.",
+                "weekdays_invalid": "Scegli almeno un giorno",
                 "time_zone": "Fuso orario",
                 "time_zone_invalid": "Non è un fuso orario IANA, es. Europe/Rome",
                 "sleep_at": "Spegni alle",
@@ -860,7 +868,9 @@
                 "exclude_applications": "Applicazioni sempre accese",
                 "exclude_applications_placeholder": "Inserisci lo slug di un backend o di un frontend e premi Invio",
                 "exclude_applications_description": "I loro Deployment non vengono mai spenti."
-            }
+            },
+            "slug_locked_description": "Identifica l'ambiente e non si può cambiare dopo la creazione.",
+            "domains_description": "I domini delle pagine che caricano i frontend di questo ambiente: le richieste che arrivano da lì vengono attribuite a questo ambiente."
         },
         "table": {
             "name": "Nome",
