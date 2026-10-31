@@ -361,14 +361,8 @@
   "359": "StartChoice.tsx",
   "360": "[8.1.2] - 2026-10-26",
   "361": "ChargeForce",
-  "362": "TelemetryService",
   "363": "domainDeploymentTools.test.ts",
   "364": "OrganizationSandboxStatus.tsx",
   "365": "ProjectUserController.test.ts",
-  "366": "assist",
-  "367": "DeploymentCanaryUsersController.ts",
-  "368": "build",
-  "369": "OpenShellCommandSandbox",
-  "370": "GitHub Logo (Octocat Mark)",
-  "371": "downloadAndExtractZip"
+  "366": "assist"
 }
