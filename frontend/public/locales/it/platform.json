@@ -448,6 +448,7 @@
         "select_environment": "Seleziona un ambiente",
         "deploy_button": "Deploy",
         "deploying": "Deploy in corso…",
+        "manage_environments": "Gestisci ambienti",
         "active_deployments": "Deployment attivo",
         "history": "Storico",
         "kind_frontend": "Frontend",

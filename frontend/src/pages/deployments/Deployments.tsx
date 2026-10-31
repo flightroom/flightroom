@@ -1,5 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { ArrowUpRight, Layers, Rocket } from "lucide-react"
+import { ArrowUpRight, Layers, Rocket, Server } from "lucide-react"
 import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
 import AskAssistantButton from "@/components/assistant/AskAssistantButton"
@@ -72,6 +72,10 @@ export const Deployments: React.FC = () => {
                                     {t("deployments.replicas.action")}
                                 </Button>
                             )}
+                            <Button variant="secondary" href="/environments" dataTestId="manage-environments">
+                                <Server />
+                                {t("deployments.manage_environments")}
+                            </Button>
                             {projectStore.environment?._id && (
                                 <AskAssistantButton
                                     label={t("assistant.actions.analyze_deployments")}
