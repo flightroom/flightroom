@@ -84,7 +84,7 @@ export const ensureRequestsWithinLimits = (fields: ContainerResourcesByEnvironme
 const replicaCount = (value: unknown, code: string, where = ""): number | null => {
     if (value == null || (typeof value === "string" && !value.trim())) return null
     const count = typeof value === "string" ? Number(value.trim()) : value
-    if (!isReplicaCount(count)) throw createBusinessException({ code, message: `replicas "${String(value)}"${where} is not a whole number from 1 to ${MAX_REPLICAS}` })
+    if (!isReplicaCount(count)) throw createBusinessException({ code, message: `replicas "${String(value)}"${where} is not a whole number from 0 to ${MAX_REPLICAS}` })
     return count
 }
 

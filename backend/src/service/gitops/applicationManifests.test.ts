@@ -175,7 +175,8 @@ describe("renderApplicationValues", () => {
         ["none set", {}, 1],
         ["the application's", { replicas: 2 }, 2],
         ["this environment's over the application's", { replicas: 2, environmentResources: [{ environmentId: environment._id, replicas: 4 }] }, 4],
-        ["the application's where another environment sets its own", { replicas: 2, environmentResources: [{ environmentId: new Types.ObjectId(), replicas: 4 }] }, 2]
+        ["the application's where another environment sets its own", { replicas: 2, environmentResources: [{ environmentId: new Types.ObjectId(), replicas: 4 }] }, 2],
+        ["zero in this environment over the application's, not taken for unset", { replicas: 2, environmentResources: [{ environmentId: environment._id, replicas: 0 }] }, 0]
     ])("given replicas %s, when its values are rendered, then the Deployment runs that many", (_case, overrides, replicas) => {
         expect(parse(render(overrides)).replicas).toBe(replicas)
     })

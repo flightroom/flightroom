@@ -94,7 +94,7 @@ export const resourceFields = {
         required: false,
         validate: {
             validator: (value?: number | null) => value == null || isReplicaCount(value),
-            message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" is not a whole number from 1 to ${MAX_REPLICAS}`
+            message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" is not a whole number from 0 to ${MAX_REPLICAS}`
         }
     }
 }

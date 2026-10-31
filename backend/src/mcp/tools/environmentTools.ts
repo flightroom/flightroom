@@ -3,7 +3,9 @@ import { IDeployment } from "../../models/DeploymentModel"
 import DeploymentCanaryUsersService from "../../service/DeploymentCanaryUsersService"
 import DeploymentService from "../../service/DeploymentService"
 import EnvironmentPromotionService, { PROMOTION_KINDS } from "../../service/EnvironmentPromotionService"
+import EnvironmentReplicasService from "../../service/EnvironmentReplicasService"
 import EnvironmentService from "../../service/EnvironmentService"
+import { MAX_REPLICAS } from "../../types/ContainerResources"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange, SUBDOMAIN } from "../../types/Exposure"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
@@ -126,6 +128,18 @@ export const environmentTools = [
                 .describe("The applications to promote, as environment_promotion_preview lists them; left out, every one the promotion changes")
         }),
         run: (args, { principal }) => new EnvironmentPromotionService(principal).promote(args.environmentId, { from: args.fromEnvironmentId, applications: args.applications })
+    }),
+    defineTool({
+        name: "environment_replicas_set",
+        title: "Set the replicas of an environment",
+        description: `Sets the pods of every container an environment runs at once, from 0 to ${MAX_REPLICAS}, e.g. 0 to stop UAT for the night: each backend, DOCKER frontend and maintenance agent of kind CONTAINER with a version there gets them in that environment, its CPU and memory kept. It writes the replicas per environment only: the next deploy of the environment applies them, call deploy for that. Returns each container with the replicas it runs there after the change.`,
+        scope: MCP_SCOPE_WRITE,
+        annotations: { ...WRITE, idempotentHint: true },
+        inputSchema: z.object({
+            environmentId: objectId("Id of the environment"),
+            replicas: z.number().int().min(0).max(MAX_REPLICAS).describe(`Pods of each container, 0 to ${MAX_REPLICAS}; 0 runs none and leaves its route out`)
+        }),
+        run: (args, { principal }) => new EnvironmentReplicasService(principal).scale(args.environmentId, { replicas: args.replicas })
     }),
     defineTool({
         name: "deployments_list",

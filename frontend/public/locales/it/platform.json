@@ -406,6 +406,19 @@
         "toggle_theme": "Cambia tema"
     },
     "deployments": {
+        "replicas": {
+            "action": "Scala repliche",
+            "title": "Scala repliche",
+            "description": "Imposta in un colpo solo i pod di ogni container di un ambiente, ad esempio 0 per spegnerlo di notte: ogni backend, frontend container e agente di manutenzione di tipo container deployato lì, con CPU e memoria che restano come sono. Salvate e basta, le applica il prossimo deploy dell'ambiente.",
+            "environment": "Ambiente",
+            "count": "Repliche",
+            "zero_hint": "Con 0 non gira nessun pod e le route non vengono pubblicate: i container restano spenti finché non li riscali.",
+            "empty": "{{environment}} non esegue nessun backend, frontend container o agente di manutenzione container.",
+            "changes_one": "Cambia {{count}} container",
+            "changes_other": "Cambiano {{count}} container",
+            "saved_one": "{{count}} container di {{environment}} portato a {{replicas}} repliche",
+            "saved_other": "{{count}} container di {{environment}} portati a {{replicas}} repliche"
+        },
         "promotion": {
             "action": "Promuovi versioni",
             "title": "Promuovi versioni",
@@ -2542,8 +2555,8 @@
             "cpu_request_above_limit": "La richiesta di CPU non può superare il limite di CPU ({{limit}}): Kubernetes rifiuterebbe il container",
             "memory_request_above_limit": "La richiesta di memoria non può superare il limite di memoria ({{limit}}): Kubernetes rifiuterebbe il container",
             "replicas": "Repliche",
-            "replicas_hint": "Facoltativo. Quanti pod eseguono il container, da 1 a {{max}}. Se vuoto, il default del chart: {{value}}",
-            "replicas_invalid": "Un numero intero da 1 a {{max}}",
+            "replicas_hint": "Facoltativo. Quanti pod eseguono il container, da 0 a {{max}}: con 0 non ne gira nessuno e la sua route non viene pubblicata. Se vuoto, il default del chart: {{value}}",
+            "replicas_invalid": "Un numero intero da 0 a {{max}}",
             "by_environment": {
                 "title": "Per ambiente",
                 "description": "CPU, memoria e repliche diverse in alcuni ambienti, ad esempio di più in produzione. Ogni valore lasciato vuoto è quello del container, mostrato come placeholder.",

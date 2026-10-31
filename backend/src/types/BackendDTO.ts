@@ -55,7 +55,7 @@ interface BackendDTO {
     /** Kubernetes quantities, e.g. 128Mi or 1Gi; blank or null for the default of the chart */
     memoryRequest?: string | null
     memoryLimit?: string | null
-    /** The pods it runs, from 1 to MAX_REPLICAS; null for the default of the chart (1) */
+    /** The pods it runs, from 0 (none, and no route) to MAX_REPLICAS; null for the default of the chart (1) */
     replicas?: number | null
     /**
      * The environments that run it with CPU, memory or replicas of their own, replaced as a whole: each value left blank is the

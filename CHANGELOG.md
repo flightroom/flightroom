@@ -5,6 +5,16 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **Scale Replicas Of An Environment**: the Deployments page sets the pods of every container an environment runs at once, e.g. 0 to stop UAT for the night and back to 1 in the morning. The dialog takes the environment and the number, from 0 to 20, and lists each backend, DOCKER frontend and maintenance agent of kind CONTAINER deployed there with the replicas it runs now and the ones it would get; a JOB runs no pod and is left out. Save writes the replicas of that environment, its CPU and memory kept; Save and deploy deploys it right after. A domain-scoped member scales only the applications of their domains, a viewer none. The API takes it as `GET /environments/:id/replicas` for the preview and `POST /environments/:id/replicas` with `{ replicas }`; the MCP tools as `environment_replicas_set`, which does not deploy
+
+### Changed
+
+- **Replicas Go Down To Zero**: a backend, a DOCKER frontend and a maintenance agent of kind CONTAINER can run 0 pods, for the container or in one environment only, e.g. none in UAT; the range is now 0 to 20. With 0 the Deployment stays and runs no pod, and its route or ingress is left out. A 0 set in an environment wins over the container's, it is not taken for unset. The API and the MCP tools take `replicas: 0`
+
 ## [11.1.0] - 2026-10-31
 
 ### Added

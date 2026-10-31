@@ -36,7 +36,7 @@ export const resourcesIn = (application: ContainerResourcesByEnvironment, enviro
 export const CHART_REPLICAS_DEFAULT = 1
 export const MAX_REPLICAS = 20
 
-export const isReplicaCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 1 && value <= MAX_REPLICAS
+export const isReplicaCount = (value: unknown): value is number => typeof value === "number" && Number.isInteger(value) && value >= 0 && value <= MAX_REPLICAS
 
 /** What the chart Flightroom writes gives a container that sets none of them */
 export const CHART_RESOURCE_DEFAULTS = { cpuRequest: "25m", cpuLimit: "500m", memoryRequest: "128Mi", memoryLimit: "512Mi" }

@@ -509,6 +509,19 @@
         "select_color": "Select a color"
     },
     "deployments": {
+        "replicas": {
+            "action": "Scale replicas",
+            "title": "Scale replicas",
+            "description": "Sets the pods of every container an environment runs at once, e.g. 0 to stop it for the night: each backend, container frontend and maintenance agent of kind container deployed there, its CPU and memory kept. Saved only, the next deploy of the environment applies them.",
+            "environment": "Environment",
+            "count": "Replicas",
+            "zero_hint": "With 0 no pod runs and the routes are left out: the containers stop until you scale them up again.",
+            "empty": "{{environment}} runs no backend, container frontend or container maintenance agent.",
+            "changes_one": "{{count}} container changes",
+            "changes_other": "{{count}} containers change",
+            "saved_one": "{{count}} container of {{environment}} set to {{replicas}} replicas",
+            "saved_other": "{{count}} containers of {{environment}} set to {{replicas}} replicas"
+        },
         "promotion": {
             "action": "Promote versions",
             "title": "Promote versions",
@@ -2523,8 +2536,8 @@
             "cpu_request_above_limit": "The CPU request cannot be above the CPU limit ({{limit}}): Kubernetes would refuse the container",
             "memory_request_above_limit": "The memory request cannot be above the memory limit ({{limit}}): Kubernetes would refuse the container",
             "replicas": "Replicas",
-            "replicas_hint": "Optional. How many pods run the container, from 1 to {{max}}. Left empty, the default of the chart: {{value}}",
-            "replicas_invalid": "A whole number from 1 to {{max}}",
+            "replicas_hint": "Optional. How many pods run the container, from 0 to {{max}}: 0 runs none and leaves its route out. Left empty, the default of the chart: {{value}}",
+            "replicas_invalid": "A whole number from 0 to {{max}}",
             "by_environment": {
                 "title": "Per environment",
                 "description": "Different CPU, memory and replicas in some environments, e.g. more in production. Each value left empty is the container's, shown as placeholder.",

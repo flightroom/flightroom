@@ -56,7 +56,8 @@ describe("replicas of a DOCKER frontend", () => {
         const environmentId = "cccccccccccccccccccccccc"
 
         expect(accepts({ replicas: 3, environmentResources: [{ environmentId, replicas: 5 }] })).toBe(true)
-        expect(accepts({ replicas: 0 })).toBe(false)
+        expect(accepts({ replicas: 0 })).toBe(true)
+        expect(accepts({ replicas: -1 })).toBe(false)
         expect(accepts({ environmentResources: [{ environmentId, replicas: 21 }] })).toBe(false)
     })
 })

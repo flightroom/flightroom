@@ -73,7 +73,7 @@ export const createResourceShape = (messages: ResourceMessages) => {
         replicas: z
             .string()
             .trim()
-            .refine(value => value === "" || (/^\d{1,2}$/.test(value) && Number(value) >= 1 && Number(value) <= MAX_REPLICAS), messages.replicasInvalid)
+            .refine(value => value === "" || (/^\d{1,2}$/.test(value) && Number(value) >= 0 && Number(value) <= MAX_REPLICAS), messages.replicasInvalid)
     }
     return { ...fields, environmentResources: z.array(z.object({ environmentId: z.string(), ...fields })) }
 }
