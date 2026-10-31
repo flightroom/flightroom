@@ -3187,7 +3187,7 @@
             "updated": "Config map updated",
             "entries": {
                 "title": "Keys",
-                "description": "A value per environment; an empty one leaves the key unset there."
+                "description": "A value for all environments, overridden where an environment needs its own; with neither, the key is unset there."
             },
             "attach": "Add config map"
         },
@@ -3205,7 +3205,7 @@
             "key_locked": "To rename a saved key, remove it and add it again.",
             "entries": {
                 "title": "Keys",
-                "description": "A value per environment; an empty one leaves the key unset there. Saved values are never shown: leave them as they are to keep them."
+                "description": "A value for all environments, overridden where an environment needs its own; with neither, the key is unset there. Saved values are never shown: leave them as they are to keep them."
             },
             "attach": "Add secret"
         },
@@ -3214,6 +3214,9 @@
             "empty": "No keys.",
             "key": "Key",
             "not_set": "Not set",
+            "value_all": "All environments",
+            "overrides": "Override per environment",
+            "uses_all": "Uses the value of all environments",
             "key_invalid": "Letters, digits and underscores only, not starting with a digit",
             "key_duplicated": "This key appears more than once",
             "search_placeholder": "Search by key or value",

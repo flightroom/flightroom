@@ -39,12 +39,13 @@ export const ATTACHING_PATHS: Record<AttachingKind, (id: string) => string> = {
 }
 
 /**
- * A key as the form holds it: one value per environment of the project, in their order, so no
- * environment id ends up in a field path. `saved` marks a secret the backend already has: its values
+ * A key as the form holds it: the value of all, then the one each environment of the project overrides it
+ * with, in their order, so no environment id ends up in a field path. `saved` marks a secret the backend already has: its values
  * are placeholders, which only mean something under the key they were sent with.
  */
 export interface VariableEntryFormValue {
     key: string
+    value: string
     values: string[]
     saved: boolean
 }
@@ -52,14 +53,16 @@ export interface VariableEntryFormValue {
 export const toFormEntries = (entries: VariableMapEntry[] | undefined, environments: EnvironmentDTO[], saved: boolean): VariableEntryFormValue[] =>
     (entries ?? []).map(entry => ({
         key: entry.key,
+        value: entry.value ?? "",
         values: environments.map(environment => entry.values.find(value => value.environmentId === environment._id)?.value ?? ""),
         saved
     }))
 
-/** Blank values are left out: the key stays unset in that environment */
+/** Blank values are left out: the environment gets the value of all, or the key stays unset there */
 export const fromFormEntries = (entries: VariableEntryFormValue[], environments: EnvironmentDTO[]): VariableMapEntry[] =>
-    entries.map(({ key, values }) => ({
+    entries.map(({ key, value, values }) => ({
         key,
+        value,
         values: environments.flatMap((environment, index) => (values[index] && environment._id ? [{ environmentId: environment._id, value: values[index] }] : []))
     }))
 

@@ -87,6 +87,13 @@ describe("renderManifest", () => {
         expect(manifest.stringData).toBeUndefined()
     })
 
+    it("given a value for all environments, when it is rendered, then an environment gets it unless it overrides it", () => {
+        const shared = { name: "shared", entries: [{ key: "REGION", value: "eu", values: [{ environmentId: String(production), value: "us" }] }] }
+
+        expect(parse(renderManifest("configMap", shared, String(development))).data).toEqual({ REGION: "eu" })
+        expect(parse(renderManifest("configMap", shared, String(production))).data).toEqual({ REGION: "us" })
+    })
+
     it("given a value YAML would read as another type, when it is rendered, then it stays a string", () => {
         const manifest = parse(renderManifest("configMap", { name: "flags", entries: [{ key: "ENABLED", values: [{ environmentId: String(production), value: "true" }] }] }, String(production)))
         expect(manifest.data.ENABLED).toBe("true")

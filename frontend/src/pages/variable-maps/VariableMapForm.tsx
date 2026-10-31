@@ -42,6 +42,7 @@ const createFormSchema = (messages: { name: string; key: string; keyDuplicated: 
             entries: z.array(
                 z.object({
                     key: z.string().trim().regex(VARIABLE_KEY, messages.key),
+                    value: z.string(),
                     values: z.array(z.string()),
                     saved: z.boolean().default(false)
                 })

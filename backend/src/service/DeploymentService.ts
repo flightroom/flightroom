@@ -12,6 +12,7 @@ import Storage from "../models/StorageModel"
 import { ConfigMap, IVariableMap, Secret } from "../models/VariableMapModel"
 import { versionIn } from "../types/EnvironmentVersions"
 import { resourceEnvironmentValues } from "../types/ResourceCatalog"
+import { entryValueIn } from "../types/VariableMapDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import BaseAuthorizedService, { isInDomainScope } from "./BaseAuthorizedService"
@@ -25,8 +26,8 @@ const deployedMap = (map: IVariableMap, environmentId: string, withValues: boole
     _id: map._id,
     name: map.name,
     entries: map.entries.flatMap(entry => {
-        const value = entry.values?.find(candidate => String(candidate.environmentId) === environmentId)?.value
-        if (value === undefined || value === "") return []
+        const value = entryValueIn(entry, environmentId)
+        if (value === undefined) return []
         return [withValues ? { key: entry.key, value } : { key: entry.key }]
     })
 })

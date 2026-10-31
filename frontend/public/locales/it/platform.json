@@ -3206,7 +3206,7 @@
             "updated": "Config map aggiornata",
             "entries": {
                 "title": "Chiavi",
-                "description": "Un valore per ambiente; se vuoto, la chiave non è impostata in quell'ambiente."
+                "description": "Un valore per tutti gli ambienti, sovrascritto dove un ambiente ne vuole uno suo; senza nessuno dei due, la chiave non è impostata in quell'ambiente."
             },
             "attach": "Aggiungi config map"
         },
@@ -3224,7 +3224,7 @@
             "key_locked": "Per rinominare una chiave salvata, rimuovila e aggiungila di nuovo.",
             "entries": {
                 "title": "Chiavi",
-                "description": "Un valore per ambiente; se vuoto, la chiave non è impostata in quell'ambiente. I valori salvati non vengono mai mostrati: lasciali così per conservarli."
+                "description": "Un valore per tutti gli ambienti, sovrascritto dove un ambiente ne vuole uno suo; senza nessuno dei due, la chiave non è impostata in quell'ambiente. I valori salvati non vengono mai mostrati: lasciali così per conservarli."
             },
             "attach": "Aggiungi secret"
         },
@@ -3233,6 +3233,9 @@
             "empty": "Nessuna chiave.",
             "key": "Chiave",
             "not_set": "Non impostato",
+            "value_all": "Tutti gli ambienti",
+            "overrides": "Override per ambiente",
+            "uses_all": "Usa il valore di tutti gli ambienti",
             "key_invalid": "Solo lettere, cifre e underscore, senza iniziare con una cifra",
             "key_duplicated": "Questa chiave compare più di una volta",
             "search_placeholder": "Cerca per chiave o valore",
