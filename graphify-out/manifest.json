@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793444565.151938,
-    "ast_hash": "0ddc810bf4102d85b3bf5433a701f95c",
+    "mtime": 1793446513.9061425,
+    "ast_hash": "20afaf5010850ba873be961c5c0f4c30",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793444564.3035815,
-    "ast_hash": "5543d48ebff64c397b5c961526fe7bd1",
+    "mtime": 1793446513.9000282,
+    "ast_hash": "99c35bb872b430c2afcd274342253d58",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -890,9 +890,9 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/useDragAndDropOrder.ts": {
-    "mtime": 1792649408.412542,
-    "ast_hash": "95996ea924cf338a8b413ed67711ca5e",
-    "semantic_hash": "95996ea924cf338a8b413ed67711ca5e"
+    "mtime": 1793446237.6113188,
+    "ast_hash": "fb01cdf39109ff20d44d3b414ffff36d",
+    "semantic_hash": ""
   },
   "frontend/src/i18n.ts": {
     "mtime": 1793005820.619329,
@@ -1030,23 +1030,23 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/Environments.tsx": {
-    "mtime": 1793444577.8569186,
-    "ast_hash": "ca634cba65bbc14efe631172d13322b9",
+    "mtime": 1793446514.4737275,
+    "ast_hash": "15602fe9effa6257f39ad98f1e9e087e",
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/EnvironmentList.tsx": {
-    "mtime": 1793005820.6333237,
-    "ast_hash": "bc28a015f918f037aba259464363de9a",
+    "mtime": 1793446461.4751997,
+    "ast_hash": "4961e2cac414cefd45ec3747be2bc086",
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/EnvironmentSet.tsx": {
-    "mtime": 1793005820.6334667,
-    "ast_hash": "de1bb1644a14b1d5a1a88c5432f83736",
+    "mtime": 1793446785.9638412,
+    "ast_hash": "5a851893cb649715febcccbc491408a0",
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/NoEnvironmentPlaceholder.tsx": {
-    "mtime": 1793005820.6336074,
-    "ast_hash": "bcdfbfb880e97c53f3d6b18f0f2b98ca",
+    "mtime": 1793446486.0231078,
+    "ast_hash": "696867d1528ac32bc55d1a06648e32a3",
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/index.ts": {
@@ -1240,8 +1240,8 @@
     "semantic_hash": ""
   },
   "frontend/src/theme/EnvironmentsGate.tsx": {
-    "mtime": 1793370717.0883672,
-    "ast_hash": "3fcc52f148b74d083fbd00d44eebf3bd",
+    "mtime": 1793446757.4364655,
+    "ast_hash": "b983e2b29e215ab292b34b71f9aa9dbc",
     "semantic_hash": ""
   },
   "frontend/src/theme/FirstStartupWrapper.tsx": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793442820.9533691,
-    "ast_hash": "a17b04813c64411207d1af3380970fb8",
+    "mtime": 1793446575.1295185,
+    "ast_hash": "226efa369eca5dc54b34fdaf485b769c",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4415,13 +4415,13 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793442820.9584188,
-    "ast_hash": "561088f3b3531fb41d1d13fe194ecaff",
+    "mtime": 1793444939.2984757,
+    "ast_hash": "74f117ed31863864ffc17191a3e47d97",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
-    "mtime": 1793442820.9629076,
-    "ast_hash": "66b159c6c625e75c6b9bebf9268a1019",
+    "mtime": 1793444939.3017302,
+    "ast_hash": "aebc9c489cbc502fee36f733941939dc",
     "semantic_hash": ""
   },
   "helm/flightroom/templates/NOTES.txt": {
@@ -5685,8 +5685,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/EnvironmentEditor.tsx": {
-    "mtime": 1793444542.0340104,
-    "ast_hash": "eb210fc75ea83f7c999ee043279cb8b4",
+    "mtime": 1793446759.335551,
+    "ast_hash": "cbe6effd795afc75960d5856d71e1d1e",
     "semantic_hash": ""
   },
   "backend/src/types/KubeGreen.ts": {
