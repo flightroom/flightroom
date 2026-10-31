@@ -1,7 +1,14 @@
+import { Types } from "mongoose"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+
+const log = vi.hoisted(() => ({ error: vi.fn() }))
+vi.mock("../..", () => ({ fastify: { log } }))
+vi.mock("../SandboxUsageService", () => ({ recordSandboxUsage: vi.fn(), openSandboxLifetime: vi.fn(), closeSandboxLifetime: vi.fn() }))
+
 import AiChangeJob, { AiJobStatus } from "../../models/AiChangeJobModel"
 import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
-import { conversationState } from "./aiChangeSandboxes"
+import { closeSandboxLifetime, openSandboxLifetime, recordSandboxUsage } from "../SandboxUsageService"
+import { conversationState, jobSandboxOwner, sandboxExecRecorder, sandboxLifecycle } from "./aiChangeSandboxes"
 
 vi.mock("../../models/AiChangeJobModel", async importOriginal => {
     const original = await importOriginal<typeof import("../../models/AiChangeJobModel")>()
@@ -55,5 +62,65 @@ describe("conversationState", () => {
     it("Given a label that is no conversation id, then it is unknown without asking the database", async () => {
         expect(await conversationState(5 * 60_000)("not-an-id")).toBe("unknown")
         expect(AiChangeJob.exists).not.toHaveBeenCalled()
+    })
+})
+
+describe("the sandbox ledger of a job", () => {
+    beforeEach(() => vi.clearAllMocks())
+
+    const job = {
+        _id: new Types.ObjectId(),
+        rootJobId: new Types.ObjectId(CONVERSATION),
+        projectId: new Types.ObjectId(),
+        userId: new Types.ObjectId(),
+        domainId: new Types.ObjectId(),
+        frontendIds: [new Types.ObjectId()],
+        backendIds: []
+    }
+    const organizationId = new Types.ObjectId()
+
+    it("Given a job, then its sandbox time is counted against its organization, project, user, domain and repositories, a job of a mission as the mission's", () => {
+        expect(jobSandboxOwner(job as never, organizationId)).toEqual({
+            organizationId,
+            projectId: job.projectId,
+            userId: job.userId,
+            source: "agent",
+            jobId: job._id,
+            domainId: job.domainId,
+            frontendIds: job.frontendIds,
+            backendIds: []
+        })
+        expect(jobSandboxOwner({ ...job, missionId: new Types.ObjectId() } as never, organizationId).source).toBe("mission")
+    })
+
+    it("Given a command run in the sandbox, then one command and its seconds are recorded against the conversation of the job", async () => {
+        const owner = jobSandboxOwner(job as never, organizationId)
+
+        await sandboxExecRecorder(job as never, owner)({ seconds: 12.5 })
+
+        expect(recordSandboxUsage).toHaveBeenCalledWith({ ...owner, conversationId: CONVERSATION, commands: 1, execSeconds: 12.5 })
+    })
+
+    it("Given a ledger that cannot be written, when a command or a lifetime is recorded, then it is logged and nothing throws", async () => {
+        vi.mocked(recordSandboxUsage).mockRejectedValue(new Error("mongo down"))
+        vi.mocked(openSandboxLifetime).mockRejectedValue(new Error("mongo down"))
+        const owner = jobSandboxOwner(job as never, organizationId)
+
+        await expect(sandboxExecRecorder(job as never, owner)({ seconds: 1 })).resolves.toBeUndefined()
+        await expect(sandboxLifecycle(owner).created?.(CONVERSATION, "sandbox-1")).resolves.toBeUndefined()
+
+        expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ conversationId: CONVERSATION }), "Sandbox command not recorded")
+        expect(log.error).toHaveBeenCalledWith(expect.objectContaining({ conversationId: CONVERSATION }), "Sandbox lifetime not recorded")
+    })
+
+    it("Given a sandbox created then deleted, then its lifetime is opened against the owner and closed by its conversation", async () => {
+        const owner = jobSandboxOwner(job as never, organizationId)
+        const lifecycle = sandboxLifecycle(owner)
+
+        await lifecycle.created?.(CONVERSATION, "sandbox-1")
+        await lifecycle.deleted?.(CONVERSATION, "sandbox-1")
+
+        expect(openSandboxLifetime).toHaveBeenCalledWith(CONVERSATION, "sandbox-1", owner)
+        expect(closeSandboxLifetime).toHaveBeenCalledWith(CONVERSATION, "sandbox-1")
     })
 })

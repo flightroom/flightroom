@@ -87,6 +87,16 @@ const CONVERSATION_LABEL = "flightroom.dev/conversation"
 /** Busy keeps a sandbox; unknown, a conversation this installation has no record of, deletes only an owned one. */
 export type ConversationState = "busy" | "idle" | "unknown"
 
+/**
+ * Told when this installation creates or deletes the sandbox of a conversation: a sandbox costs while it lives, and
+ * the caller keeps how long. The gateway knows nothing of who it was for; the caller does. Each sandbox comes with
+ * the id the gateway gave it: the conversation keeps its name across sandboxes, the id is this one's alone.
+ */
+export interface SandboxLifecycle {
+    created?: (conversationId: string, sandboxId: string) => Promise<void>
+    deleted?: (conversationId: string, sandboxId: string) => Promise<void>
+}
+
 /** The end of the output of a command kept in memory: the agent reads less, this is only a bound. */
 const MAX_OUTPUT_BYTES = 64_000
 /** Creating a sandbox may pull its image: minutes on a cold node. */
@@ -264,17 +274,16 @@ export class OpenShellSandboxes {
         const labels = { [ROLE_LABEL]: ROLE, [OWNER_LABEL]: owner, [CONVERSATION_LABEL]: conversationId }
         const policy = this.policy()
         if (this.config.OPENSHELL_SANDBOX_TEMPLATE) {
-            await client.sandbox.createFromTemplate({ name, workspace: this.workspace, workloadTemplate: this.config.OPENSHELL_SANDBOX_TEMPLATE, labels, policy })
-        } else {
-            await client.sandbox.create({ name, workspace: this.workspace, image: this.config.OPENSHELL_SANDBOX_IMAGE || OPENSHELL_DEFAULTS.image, labels, policy })
+            return client.sandbox.createFromTemplate({ name, workspace: this.workspace, workloadTemplate: this.config.OPENSHELL_SANDBOX_TEMPLATE, labels, policy })
         }
+        return client.sandbox.create({ name, workspace: this.workspace, image: this.config.OPENSHELL_SANDBOX_IMAGE || OPENSHELL_DEFAULTS.image, labels, policy })
     }
 
     /**
      * The sandbox of a conversation: the one its earlier messages used while it is alive, else a new
      * one. Two replicas asking at once end up on the same one: its name is the conversation's.
      */
-    async acquire(conversationId: string): Promise<CommandSandbox> {
+    async acquire(conversationId: string, lifecycle: SandboxLifecycle = {}): Promise<CommandSandbox> {
         const [client, owner] = await Promise.all([this.connect(), this.owner()])
         const name = sandboxNameFor(owner, conversationId)
         const workspace = this.workspace
@@ -286,13 +295,17 @@ export class OpenShellSandboxes {
         if (existing && dead) {
             await client.sandbox.delete(name, { workspace, allowMissing: true })
             await client.sandbox.waitDeleted(name, DELETE_TIMEOUT_SECS, { workspace, expectedSandboxId: existing.id })
+            await lifecycle.deleted?.(conversationId, existing.id)
         }
         if (!existing || dead) {
-            await this.create(client, name, owner, conversationId).catch(error => {
+            // Another replica that created it first counts it: only the one whose create went through does.
+            const created = await this.create(client, name, owner, conversationId).catch(error => {
                 if (!hasCode(error, "already_exists")) throw error
+                return undefined
             })
+            if (created) await lifecycle.created?.(conversationId, created.id)
         }
-        await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace }).catch(error => this.unready(client, name, error))
+        await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace }).catch(error => this.unready(client, name, conversationId, lifecycle, error))
         return new OpenShellCommandSandbox(client, name, workspace, this.config.OPENSHELL_SANDBOX_ROOT || OPENSHELL_DEFAULTS.root)
     }
 
@@ -301,15 +314,14 @@ export class OpenShellSandboxes {
      * for again by every next attempt: its name is the conversation's. It is deleted, so the next attempt
      * creates a new one, and the error says the phase it was left in. A ready one is kept: only the wait failed.
      */
-    private async unready(client: OpenShellClient, name: string, error: unknown): Promise<never> {
+    private async unready(client: OpenShellClient, name: string, conversationId: string, lifecycle: SandboxLifecycle, error: unknown): Promise<never> {
         const workspace = this.workspace
-        const phase = await client.sandbox.get(name, { workspace }).then(
-            sandbox => sandbox.phase,
-            () => undefined
-        )
+        const stuck = await client.sandbox.get(name, { workspace }).catch(() => undefined)
+        const phase = stuck?.phase
         if (phase === "ready") throw error
         try {
             await client.sandbox.delete(name, { workspace, allowMissing: true })
+            if (stuck) await lifecycle.deleted?.(conversationId, stuck.id)
         } catch {
             // The next attempt finds it still stuck, and tries again
         }
@@ -326,27 +338,32 @@ export class OpenShellSandboxes {
     /**
      * Deletes the sandboxes of this installation whose conversation nobody uses any more; how many it
      * deleted. Another installation's are never touched. One with no owner, made before the label
-     * existed, goes only once its conversation is known here and idle.
+     * existed, goes only once its conversation is known here and idle. `deleted` is told of each one.
      */
-    async sweep(stateOf: (conversationId: string) => Promise<ConversationState>): Promise<number> {
+    async sweep(stateOf: (conversationId: string) => Promise<ConversationState>, deleted?: SandboxLifecycle["deleted"]): Promise<number> {
         const [client, owner] = await Promise.all([this.connect(), this.owner()])
         const workspace = this.workspace
-        const found: { name: string; owner?: string; conversationId?: string }[] = []
+        const found: { id: string; name: string; owner?: string; conversationId?: string }[] = []
         // Listed first, deleted after: deleting while paging could skip some.
         for await (const page of client.sandbox.list({ workspace, labelSelector: `${ROLE_LABEL}=${ROLE}` })) {
-            for (const sandbox of page.items) found.push({ name: sandbox.name, owner: sandbox.labels[OWNER_LABEL], conversationId: sandbox.labels[CONVERSATION_LABEL] })
+            for (const sandbox of page.items) {
+                found.push({ id: sandbox.id, name: sandbox.name, owner: sandbox.labels[OWNER_LABEL], conversationId: sandbox.labels[CONVERSATION_LABEL] })
+            }
         }
-        let deleted = 0
+        let count = 0
         for (const sandbox of found) {
             if (sandbox.owner === owner) {
                 if (sandbox.conversationId && (await stateOf(sandbox.conversationId)) === "busy") continue
             } else if (sandbox.owner !== undefined || !sandbox.conversationId || (await stateOf(sandbox.conversationId)) !== "idle") {
                 continue
             }
-            await client.sandbox.delete(sandbox.name, { workspace, allowMissing: true })
-            deleted++
+            const result = await client.sandbox.delete(sandbox.name, { workspace, allowMissing: true })
+            // Told even when another replica deleted it first: closing the same sandbox twice counts it once.
+            if (sandbox.conversationId) await deleted?.(sandbox.conversationId, sandbox.id)
+            // One already gone, deleted by another replica, is not counted here.
+            if (result?.sandboxId) count++
         }
-        return deleted
+        return count
     }
 }
 

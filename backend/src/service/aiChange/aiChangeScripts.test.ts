@@ -6,7 +6,7 @@ import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CommandSandbox, SandboxExecOptions } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
-import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, commandFor, previewPlanFor, ScriptRepository } from "./aiChangeScripts"
+import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, checkCommandFor, commandFor, commandWorkdir, previewPlanFor, ScriptRepository } from "./aiChangeScripts"
 import { AiChangeToolbox } from "./aiChangeToolbox"
 
 const hasTools = ["git", "tar", "npm"].every(tool => spawnSync(tool, ["--version"]).status === 0)
@@ -170,6 +170,23 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner", () => {
         expect(open).toHaveBeenCalledTimes(2)
     })
 
+    it("Given a token or a private key across the cut of a long output, then neither half reaches the agent", async () => {
+        const token = `ghp_${"t".repeat(36)}`
+        const key = "-----BEGIN RSA PRIVATE KEY-----\nMIIEowIBAAKCAQEAtopsecretkeymaterial\n-----END RSA PRIVATE KEY-----"
+        const filler = `${"y".repeat(100)}\n`.repeat(Math.ceil(AI_SCRIPT_LIMITS.maxOutputChars / 101))
+        for (const [secret, leak] of [
+            [token, "tttttttttt"],
+            [key, "topsecretkeymaterial"]
+        ]) {
+            // The secret ends right where the end the agent reads starts, before masking.
+            const output = `${"x\n".repeat(5_000)}${secret}${filler.slice(-(AI_SCRIPT_LIMITS.maxOutputChars - 25))}`
+            const long: CommandSandbox = { root, exec: vi.fn(async () => ({ exitCode: 0, output, cutBytes: 0 })) }
+            const run = await new AiChangeScriptRunner([repository], async () => long).run(repository, "show")
+            expect(run.output).not.toContain(leak)
+            expect(run.output).toContain("the start of the output is cut")
+        }
+    })
+
     it("Given an output longer than the agent reads, then only its end comes back, said to be cut", async () => {
         const long: CommandSandbox = { root, exec: vi.fn(async () => ({ exitCode: 0, output: `${"x".repeat(AI_SCRIPT_LIMITS.maxOutputChars)}THE END`, cutBytes: 0 })) }
         const { output } = await new AiChangeScriptRunner([repository], async () => long).run(repository, "show")
@@ -250,6 +267,110 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner changes of a script", () => {
         expect(run.left).toEqual(["src/a.js, src/b.js: 2 files are too many"])
         expect(sandbox.commands.some(command => command.join(" ").includes("gzip"))).toBe(false)
     })
+
+    it("Given a command in a folder of the repository, then it runs there with sh and what it writes comes back as a change", async () => {
+        setUp({})
+        const run = await new AiChangeScriptRunner([repository], async () => sandbox).runCommand(repository, "pwd && printf generated > out.txt", { workdir: "./src/" })
+
+        expect(run.output).toContain("$ cd src && pwd && printf generated > out.txt")
+        expect(run.output).toContain("exit code 0 (success)")
+        expect(run.output).toContain(path.join(root, "repositories/shop/src"))
+        expect(run.files.map(file => [file.path, file.content.toString("utf8")])).toEqual([["src/out.txt", "generated"]])
+        expect(sandbox.commands).toContainEqual(["sh", "-c", 'cd -- "$1" || exit 1; exec sh -c "$0"', "pwd && printf generated > out.txt", "src"])
+    })
+
+    it("Given a folder that does not exist, then the command fails with an exit code the agent reads and the sandbox is kept", async () => {
+        setUp({})
+        const open = vi.fn(async () => sandbox)
+        const runner = new AiChangeScriptRunner([repository], open)
+
+        expect((await runner.runCommand(repository, "ls", { workdir: "missing" })).output).toMatch(/exit code [1-9]/)
+        expect((await runner.runCommand(repository, "ls")).output).toContain("exit code 0")
+        expect(open).toHaveBeenCalledTimes(1)
+    })
+
+    it("Given a command printing credentials, then the agent reads them masked", async () => {
+        setUp({})
+        const { output } = await new AiChangeScriptRunner([repository], async () => sandbox).runCommand(repository, "echo NPM_TOKEN=abc123def456 && echo https://ci:s3cr3tpass@example.com/repo.git")
+
+        expect(output).toContain("NPM_TOKEN=[REDACTED]")
+        expect(output).not.toContain("abc123def456")
+        expect(output).not.toContain("s3cr3tpass")
+    })
+
+    it("Given a workdir that is absolute or leads out, then the command is refused before any sandbox is asked for", async () => {
+        setUp({})
+        const open = vi.fn(async () => sandbox)
+        const runner = new AiChangeScriptRunner([repository], open)
+
+        await expect(runner.runCommand(repository, "ls", { workdir: "/etc" })).rejects.toThrow("is absolute")
+        await expect(runner.runCommand(repository, "ls", { workdir: "src/../../other" })).rejects.toThrow('".." is not allowed')
+        await expect(runner.runCommand(repository, "  ")).rejects.toThrow("The command is empty")
+        expect(open).not.toHaveBeenCalled()
+    })
+
+    it("Given a hook, when a script and a command run, then it is told how long each took", async () => {
+        setUp({ build: "node -e 0" })
+        const onExec = vi.fn()
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox, undefined, false, undefined, onExec)
+
+        await runner.runCommand(repository, "true", { timeoutSecs: 30 })
+        await runner.run(repository, "build")
+
+        expect(onExec).toHaveBeenCalledTimes(2)
+        expect(onExec).toHaveBeenCalledWith({ seconds: expect.any(Number) })
+    })
+
+    it("Given a command that throws in the sandbox, a timeout or an abort, then its time is counted all the same", async () => {
+        setUp({})
+        const onExec = vi.fn()
+        const failing: CommandSandbox = {
+            root,
+            exec: vi.fn(async (command: string[], options?: SandboxExecOptions) => {
+                if (command[2] === "sleep 600") throw new Error("deadline exceeded")
+                return sandbox.exec(command, options)
+            })
+        }
+
+        await expect(new AiChangeScriptRunner([repository], async () => failing, undefined, false, undefined, onExec).runCommand(repository, "sleep 600")).rejects.toThrow("deadline exceeded")
+        expect(onExec).toHaveBeenCalledWith({ seconds: expect.any(Number) })
+    })
+})
+
+describe("checkCommandFor", () => {
+    it("Given the files at the root of a Maven, Gradle, Go or .NET repository, then the command its CI most likely builds it with comes back", () => {
+        expect(checkCommandFor(["pom.xml", "src/main/java/App.java"])).toEqual({ command: "mvn -B -q verify", requires: "mvn" })
+        expect(checkCommandFor(["pom.xml", "mvnw"])).toEqual({ command: "./mvnw -B -q verify", requires: "java" })
+        expect(checkCommandFor(["gradlew", "build.gradle.kts"])).toEqual({ command: "./gradlew build --no-daemon -q", requires: "java" })
+        expect(checkCommandFor(["gradlew", "build.gradle"])).toEqual({ command: "./gradlew build --no-daemon -q", requires: "java" })
+        expect(checkCommandFor(["go.mod", "main.go"])).toEqual({ command: "go build ./... && go vet ./...", requires: "go" })
+        expect(checkCommandFor(["Accounts.sln", "Accounts.csproj", "Tests.csproj"])).toEqual({ command: "dotnet build", requires: "dotnet" })
+        expect(checkCommandFor(["Accounts.csproj", "Program.cs"])).toEqual({ command: "dotnet build", requires: "dotnet" })
+    })
+
+    it("Given no known build file at the root, Gradle without its wrapper, or build files in a folder only, then there is no check", () => {
+        expect(checkCommandFor(["requirements.txt", "app/main.py"])).toBeUndefined()
+        expect(checkCommandFor(["build.gradle"])).toBeUndefined()
+        expect(checkCommandFor(["services/orders/pom.xml", "src/Api/Api.csproj"])).toBeUndefined()
+        // dotnet build would not know which to build.
+        expect(checkCommandFor(["Accounts.sln", "Billing.sln"])).toBeUndefined()
+        expect(checkCommandFor(["Accounts.csproj", "Tests.csproj"])).toBeUndefined()
+        expect(checkCommandFor([])).toBeUndefined()
+    })
+})
+
+describe("commandWorkdir", () => {
+    it("Given a folder of the repository, then it comes back normalized, and the root as none", () => {
+        expect(commandWorkdir("services/api/")).toBe("services/api")
+        expect(commandWorkdir("./services//api")).toBe("services/api")
+        expect(commandWorkdir(".")).toBeUndefined()
+        expect(commandWorkdir("")).toBeUndefined()
+        expect(commandWorkdir(undefined)).toBeUndefined()
+    })
+
+    it("Given an absolute path or a way out, then it is refused", () => {
+        for (const workdir of ["/sandbox", "\\server\\share", "C:/repo", "..", "src/../..", "a\\..\\b"]) expect(() => commandWorkdir(workdir)).toThrow()
+    })
 })
 
 describe("commandFor", () => {
@@ -312,6 +433,19 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         ])
         expect(sandbox.exposeService).toHaveBeenCalledWith(5173, expect.stringMatching(/^preview-fe-/))
         expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|frontend|shop|https%3A%2F%2Fpreview.example.test")
+        fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    it("Given enabled previews, when a command succeeds, then no preview is started: only a script may have installed what it needs", async () => {
+        const dir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
+        const sandbox = recording()
+        const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
+        const onPreview = vi.fn()
+
+        await new AiChangeScriptRunner([repository], async () => sandbox, undefined, true, onPreview).runCommand(repository, "npx vite build")
+
+        expect(sandbox.exposeService).not.toHaveBeenCalled()
+        expect(onPreview).not.toHaveBeenCalled()
         fs.rmSync(dir, { recursive: true, force: true })
     })
 
@@ -570,6 +704,134 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
         await toolbox.run("run_script", { repository: "shop", script: "build" })
 
         await expect(toolbox.run("finish", { summary: "Both" })).rejects.toThrow("since the last build of cart,")
+    })
+
+    it("Given no sandbox, then run_command is neither offered nor run; with one it is offered beside run_script", async () => {
+        const without = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]) }])
+        expect(without.tools().map(tool => tool.name)).not.toContain("run_command")
+        await expect(without.run("run_command", { command: "ls" })).rejects.toThrow('Unknown tool "run_command"')
+
+        const sandbox = recording()
+        const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]) }], async () => sandbox)
+        expect(toolbox.tools().map(tool => tool.name)).toEqual(expect.arrayContaining(["run_script", "run_command"]))
+        expect(await toolbox.run("run_command", { command: "ls -la", workdir: "src", timeout_seconds: 30 })).toContain("exit code 0")
+        expect(sandbox.exec.mock.calls.find(([command]) => command[3] === "ls -la")).toEqual([
+            ["sh", "-c", 'cd -- "$1" || exit 1; exec sh -c "$0"', "ls -la", "src"],
+            expect.objectContaining({ workdir: "/sandbox/repositories/shop", timeoutSecs: 30, environment: expect.objectContaining({ CI: "true" }) })
+        ])
+        await expect(toolbox.run("run_command", { command: "ls", timeout_seconds: AI_SCRIPT_LIMITS.timeoutSecs + 1 })).rejects.toThrow()
+        await expect(toolbox.run("run_command", { command: "cat x", workdir: "../cart" })).rejects.toThrow('".." is not allowed')
+    })
+
+    it("Given an npmrc, when a command runs, then it gets no registry configuration: that is the package manager's, through run_script", async () => {
+        const sandbox = recording()
+        const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dirs[0]), npmrc: "//registry/:_authToken=s3cr3t" }], async () => sandbox)
+
+        await toolbox.run("run_command", { command: "npm ls" })
+
+        expect(sandbox.exec.mock.calls.find(([command]) => command[2] === "npm ls")?.[1]?.environment).not.toHaveProperty("npm_config_userconfig")
+    })
+
+    it("Given a command whose files weigh more than the agent may write, then none joins the change and the copy is sent again; a script's are not counted", async () => {
+        const write = "node -e \"require('fs').writeFileSync('big.txt','a'.repeat(600000))\""
+        const dir = makeRepository({ "package.json": manifest({ big: write }) })
+        dirs.push(dir)
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "ai-change-sandbox-"))
+        try {
+            const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => new LocalSandbox(root))
+
+            expect(await toolbox.run("run_command", { command: write })).toContain("big.txt: more than the 500000 bytes written in one request, not part of your change")
+            expect(fs.existsSync(path.join(dir, "big.txt"))).toBe(false)
+
+            expect(await toolbox.run("run_script", { script: "big" })).toContain("now part of your change: big.txt")
+            expect(fs.readFileSync(path.join(dir, "big.txt"), "utf8")).toHaveLength(600_000)
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true })
+        }
+    })
+
+    it("Given code a script other than the build changed after the build, then finish waits for the build again; a lockfile alone does not", async () => {
+        const dir = makeRepository({
+            "package.json": manifest({ build: "node -e 0", "lint:fix": writes({ "src/a.js": "fixed" }), relock: writes({ "package-lock.json": '{"lockfileVersion":3,"packages":{}}' }) }),
+            "package-lock.json": '{"lockfileVersion":3}',
+            "src/a.js": "broken"
+        })
+        dirs.push(dir)
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "ai-change-sandbox-"))
+        try {
+            const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => new LocalSandbox(root))
+            await toolbox.run("write_file", { path: "src/b.js", content: "b" })
+            await toolbox.run("run_script", { script: "build" })
+            await toolbox.run("run_script", { script: "relock" })
+            expect(await toolbox.run("finish", { summary: "B" })).toBe("Done.")
+
+            await toolbox.run("run_script", { script: "lint:fix" })
+            await expect(toolbox.run("finish", { summary: "B" })).rejects.toThrow('Run run_script "build"')
+            await toolbox.run("run_script", { script: "build" })
+            expect(await toolbox.run("finish", { summary: "B" })).toBe("Done.")
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true })
+        }
+    })
+
+    it("Given a sandbox without the program a check needs, then finish does not wait for it, and the sandbox is asked once", async () => {
+        const dir = makeRepository({ "go.mod": "module shop\n", "main.go": "package main" })
+        dirs.push(dir)
+        const sandbox = { root: "/sandbox", exec: vi.fn(async (command: string[]) => ({ exitCode: command[2]?.startsWith("command -v") ? 1 : 0, output: "", cutBytes: 0 })) }
+        const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => sandbox)
+
+        await toolbox.run("write_file", { path: "main.go", content: "package main\n" })
+        await toolbox.run("run_command", { command: "ls" })
+
+        expect(await toolbox.run("finish", { summary: "Main" })).toBe("Done.")
+        expect(sandbox.exec.mock.calls.filter(([command]) => command[2]?.startsWith("command -v"))).toEqual([[["sh", "-c", 'command -v "$0" >/dev/null', "go"], expect.anything()]])
+    })
+
+    it("Given a command that fixes a file, then the working copy gets the fix and the agent is told", async () => {
+        const dir = makeRepository({ "go.mod": "module shop\n", "main.go": "package main" })
+        dirs.push(dir)
+        const root = fs.mkdtempSync(path.join(os.tmpdir(), "ai-change-sandbox-"))
+        try {
+            const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => new LocalSandbox(root))
+            expect(await toolbox.run("run_command", { command: "printf 'package main\\n' > main.go" })).toContain("now part of your change: main.go")
+            expect(fs.readFileSync(path.join(dir, "main.go"), "utf8")).toBe("package main\n")
+        } finally {
+            fs.rmSync(root, { recursive: true, force: true })
+        }
+    })
+
+    it("Given a change of a Go repository, when the agent finishes, then finish is refused until its check command ran at the root", async () => {
+        const dir = makeRepository({ "go.mod": "module shop\n", "main.go": "package main" })
+        dirs.push(dir)
+        const toolbox = new AiChangeToolbox([{ slug: "shop", workingCopy: workingCopyOf(dir) }], async () => recording())
+
+        await toolbox.run("write_file", { path: "main.go", content: "package main\n\nfunc main() {}" })
+        await expect(toolbox.run("finish", { summary: "Main" })).rejects.toThrow('Run run_command "go build ./... && go vet ./..."')
+        // Not the check: another command, the check in a folder, or a build script the repository does not have.
+        await toolbox.run("run_command", { command: "go test ./..." })
+        await toolbox.run("run_command", { command: "go build ./... && go vet ./...", workdir: "cmd" })
+        await expect(toolbox.run("run_script", { script: "build" })).rejects.toThrow(/no package.json/)
+        await expect(toolbox.run("finish", { summary: "Main" })).rejects.toThrow("Not finished")
+
+        await toolbox.run("run_command", { command: "  go build ./... && go vet ./...  " })
+        expect(await toolbox.run("finish", { summary: "Main" })).toBe("Done.")
+    })
+
+    it("Given several repositories changed, one with a build script and one built by Maven, then finish names what to run in each", async () => {
+        const shop = makeRepository({ "package.json": manifest({ build: "echo shop" }) })
+        const orders = makeRepository({ "pom.xml": "<project/>" })
+        dirs.push(shop, orders)
+        const toolbox = new AiChangeToolbox(
+            [
+                { slug: "shop", workingCopy: workingCopyOf(shop) },
+                { slug: "orders", workingCopy: workingCopyOf(orders) }
+            ],
+            async () => recording()
+        )
+        await toolbox.run("write_file", { path: "shop/a.js", content: "a" })
+        await toolbox.run("write_file", { path: "orders/App.java", content: "class App {}" })
+
+        await expect(toolbox.run("finish", { summary: "Both" })).rejects.toThrow('Run run_script "build" in shop, run_command "mvn -B -q verify" in orders,')
     })
 
     it("Given several repositories, then run_script names the one to run in, and refuses a slug of no repository", async () => {

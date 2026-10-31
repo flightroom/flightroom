@@ -31,7 +31,8 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
         input.sandbox,
         signal,
         input.previewsEnabled,
-        hooks.onEvent
+        hooks.onEvent,
+        input.onSandboxExec
     )
     // Sent with the new request only: the transcript keeps a note of them, not the images.
     const images = input.images?.length ? { images: input.images } : {}
@@ -74,8 +75,8 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
                 await hooks.onEvent("tool", describeToolCall(call.name, call.input))
                 if (call.name === "read_api_spec" && apiSpecs.resources.length) return apiSpecs.read(call.input)
                 const result = await toolbox.run(call.name, call.input)
-                // What a script printed is shown as the agent read it: the command, its exit code and the end of its output.
-                if (call.name === "run_script") await hooks.onEvent("output", result)
+                // What a script or a command printed is shown as the agent read it: the command, its exit code and the end of its output.
+                if (call.name === "run_script" || call.name === "run_command") await hooks.onEvent("output", result)
                 return result
             }),
             stop: toolbox.summary !== undefined

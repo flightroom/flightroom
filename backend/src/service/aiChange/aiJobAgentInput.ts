@@ -14,7 +14,7 @@ import { projectDesignSystemOf } from "../ProjectService"
 import { keysOnly } from "../VariableMapService"
 import { BackendComponent, componentsOfJob, RepositoryComponent } from "../workspace/repositoryComponent"
 import { AiChangeAgentBackend, AiChangeAgentDomain, AiChangeAgentInput, AiChangeAgentRepository, AiChangeAgentResource } from "./aiChangeAgentTypes"
-import { sandboxForJob } from "./aiChangeSandboxes"
+import { jobSandboxOwner, sandboxExecRecorder, sandboxForJob } from "./aiChangeSandboxes"
 import { RunningRepository } from "./aiJobWorkingCopies"
 import { AiChangeApiSpecSource } from "./apiSpecReader"
 
@@ -258,6 +258,8 @@ export const agentInputOf = async (
         domain ? domainResourcesOf(job.projectId, domain, visibleResources) : []
     ])
     const slugs = pathSlugs(components)
+    // The sandbox time of the job is counted as its tokens are: against its organization, project, user, domain and repositories.
+    const sandboxOwner = jobSandboxOwner(job, project.organizationId)
     return {
         prompt: job.prompt,
         images: job.images?.map(({ mediaType, data }) => ({ mediaType, data })),
@@ -284,7 +286,8 @@ export const agentInputOf = async (
         previousRequests: history ? undefined : await previousRequests(job),
         history,
         ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {}),
-        sandbox: sandboxForJob(fastify.config, job),
+        sandbox: sandboxForJob(fastify.config, job, sandboxOwner),
+        onSandboxExec: sandboxExecRecorder(job, sandboxOwner),
         previewsEnabled: fastify.config.OPENSHELL_PREVIEWS_ENABLED
     }
 }

@@ -7,7 +7,7 @@ import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
 import { AiChangeRepositoryMap, AiChangeToolboxChange } from "./aiChangeAgentTypes"
 import { decodeStart, describeLayout, linesHolding, linesOf, looksBinary, matchingLines, normalizeFolder, underPrefix, withoutLeadingSlash } from "./aiChangeFiles"
 import { AI_CHANGE_LIMITS, agentLimitsFor, REPOSITORY_MAP_PATH } from "./aiChangeLimits"
-import { AiChangeScriptRunner, BUILD_SCRIPT, runScriptTool, ScriptRun } from "./aiChangeScripts"
+import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, BUILD_SCRIPT, commandWorkdir, RepositoryCheck, runCommandTool, runScriptTool, SandboxExec, ScriptRun } from "./aiChangeScripts"
 import { readCount, readString, toolsFor } from "./aiChangeTools"
 
 /** Instructions a team writes for coding agents, the first one found shown in the repository map. */
@@ -41,9 +41,9 @@ export class AiChangeToolbox {
     private readonly changed = new Map<AiChangeToolboxRepository, Set<string>>()
     private writtenBytes = 0
     private readonly maxWrittenBytes: number
-    /** Only with a sandbox: run_script is not offered otherwise. */
+    /** Only with a sandbox: run_script and run_command are not offered otherwise. */
     private readonly scripts?: AiChangeScriptRunner
-    /** Repositories the agent changed since their last build: finish waits for one. */
+    /** Repositories the agent changed since their last build or check command: finish waits for one. */
     private readonly unbuilt = new Set<AiChangeToolboxRepository>()
     summary?: string
 
@@ -52,11 +52,12 @@ export class AiChangeToolbox {
         sandbox?: () => Promise<CommandSandbox>,
         signal?: AbortSignal,
         previewsEnabled = false,
-        onPreview?: (kind: "info", message: string) => Promise<void> | void
+        onPreview?: (kind: "info", message: string) => Promise<void> | void,
+        onExec?: (exec: SandboxExec) => Promise<void> | void
     ) {
         if (repositories.length === 0) throw new Error("A toolbox needs at least one repository")
         this.maxWrittenBytes = agentLimitsFor(repositories.length).maxWrittenBytes
-        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal, previewsEnabled, onPreview) : undefined
+        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal, previewsEnabled, onPreview, onExec) : undefined
         // A follow-up refines what its parent wrote: the limits hold for the whole proposal, not for each step.
         for (const repository of repositories) {
             // A lockfile comes from the install, not from the agent: alone it may weigh more than the agent may write.
@@ -70,10 +71,11 @@ export class AiChangeToolbox {
         return this.repositories.length > 1
     }
 
-    /** The tools of a run on these repositories: run_script among them only with a sandbox. */
+    /** The tools of a run on these repositories: run_script and run_command among them only with a sandbox. */
     tools(apiResources: string[] = []): LlmTool[] {
-        const runScript = this.scripts ? [runScriptTool(this.multipleRepositories ? this.repositories.map(repository => repository.slug) : undefined)] : []
-        return [...toolsFor(this.multipleRepositories, apiResources), ...runScript]
+        const slugs = this.multipleRepositories ? this.repositories.map(repository => repository.slug) : undefined
+        const run = this.scripts ? [runScriptTool(slugs), runCommandTool(slugs)] : []
+        return [...toolsFor(this.multipleRepositories, apiResources), ...run]
     }
 
     async run(name: string, input: unknown): Promise<string> {
@@ -105,17 +107,31 @@ export class AiChangeToolbox {
             case "run_script":
                 if (!this.scripts) throw new Error(`Unknown tool "${name}"`)
                 return this.runScript(this.scripts, this.repositoryNamed(readString(input, "repository", this.multipleRepositories)), readString(input, "script")!)
+            case "run_command":
+                if (!this.scripts) throw new Error(`Unknown tool "${name}"`)
+                return this.runCommand(
+                    this.scripts,
+                    this.repositoryNamed(readString(input, "repository", this.multipleRepositories)),
+                    readString(input, "command")!,
+                    readString(input, "workdir", false),
+                    readCount(input, "timeout_seconds", 1, AI_SCRIPT_LIMITS.timeoutSecs)
+                )
             default:
                 throw new Error(`Unknown tool "${name}"`)
         }
     }
 
-    /** The slugs of the repositories changed since their last build that have a build script: none without a sandbox. */
-    async unbuiltRepositories(): Promise<string[]> {
+    /** The repositories changed since their last build that have one to run, with what to run: none without a sandbox. */
+    async unbuiltRepositories(): Promise<UnbuiltRepository[]> {
         const scripts = this.scripts
         if (!scripts) return []
-        const unbuilt = await Promise.all([...this.unbuilt].map(async repository => ((await scripts.hasScript(repository, BUILD_SCRIPT)) ? repository.slug : undefined)))
-        return unbuilt.filter(slug => slug !== undefined)
+        const unbuilt = await Promise.all(
+            [...this.unbuilt].map(async repository => {
+                const check = await scripts.checkOf(repository)
+                return check ? { slug: repository.slug, check } : undefined
+            })
+        )
+        return unbuilt.filter(repository => repository !== undefined)
     }
 
     /** The repository a path of the agent points into, and the path inside it. */
@@ -352,9 +368,22 @@ export class AiChangeToolbox {
     /** Runs a script and takes into the working copy what it changed in the sandbox: see {@link takeScriptChanges}. */
     private async runScript(scripts: AiChangeScriptRunner, repository: AiChangeToolboxRepository, script: string): Promise<string> {
         // Tried is enough: a build broken before the change, or a sandbox that fails, must not hold finish forever.
-        if (script === BUILD_SCRIPT) this.unbuilt.delete(repository)
+        const asBuild = script === BUILD_SCRIPT && (await scripts.hasScript(repository, BUILD_SCRIPT))
+        if (asBuild) this.unbuilt.delete(repository)
         const run = await scripts.run(repository, script, paths => this.tooManyFiles(repository, paths))
-        const changes = await this.takeScriptChanges(repository, run)
+        const changes = await this.takeScriptChanges(repository, run, { asBuild, countBytes: false })
+        return [run.output, changes].filter(Boolean).join("\n\n")
+    }
+
+    /** Runs a command of the agent, what it changed taken as for a script; the check command of the repository counts as its build. */
+    private async runCommand(scripts: AiChangeScriptRunner, repository: AiChangeToolboxRepository, command: string, workdir?: string, timeoutSecs?: number): Promise<string> {
+        // Tried is enough, as for a build script: run at the root, where the check command builds the whole repository.
+        const check = commandWorkdir(workdir) === undefined ? await scripts.checkOf(repository) : undefined
+        const asBuild = check?.tool === "run_command" && check.run === command.trim()
+        if (asBuild) this.unbuilt.delete(repository)
+        const run = await scripts.runCommand(repository, command, { workdir, timeoutSecs }, paths => this.tooManyFiles(repository, paths))
+        // Unlike a script, the files a command writes are the agent's own code: they count as if it had written them.
+        const changes = await this.takeScriptChanges(repository, run, { asBuild, countBytes: true })
         return [run.output, changes].filter(Boolean).join("\n\n")
     }
 
@@ -367,12 +396,23 @@ export class AiChangeToolbox {
 
     /**
      * What a script changed becomes part of the change as if the agent had written it, in the limit of
-     * files, its bytes not counted: a lockfile alone may weigh more than the agent may write. The runner
-     * already left out what may not be proposed; the sandbox holds these files already, nothing is sent back.
+     * files, its bytes not counted unless `countBytes`, and never a lockfile's: a lockfile alone may weigh more
+     * than the agent may write. The runner already left out what may not be proposed; the sandbox holds these
+     * files already, nothing is sent back. Code changed by a run that was not the build (lint --fix, a formatter,
+     * generated code) waits for the build again.
      */
-    private async takeScriptChanges(repository: AiChangeToolboxRepository, run: ScriptRun): Promise<string | undefined> {
+    private async takeScriptChanges(repository: AiChangeToolboxRepository, run: ScriptRun, { asBuild, countBytes }: { asBuild: boolean; countBytes: boolean }): Promise<string | undefined> {
         const notes: string[] = []
-        if (run.files.length) {
+        const left = [...run.left]
+        const code = run.files.filter(file => !isLockfilePath(file.path))
+        const bytes = countBytes ? code.reduce((sum, file) => sum + file.content.length, 0) : 0
+        if (run.files.length && this.writtenBytes + bytes > this.maxWrittenBytes) {
+            // Sent again before the next run: the copy goes back to what the working copy holds.
+            for (const file of run.files) this.scripts?.touch(repository, file.path)
+            left.push(`${run.files.map(file => this.shown(repository, file.path)).join(", ")}: more than the ${this.maxWrittenBytes} bytes written in one request, not part of your change`)
+        } else if (run.files.length) {
+            this.writtenBytes += bytes
+            if (!asBuild && code.length) this.unbuilt.add(repository)
             const changed = this.changed.get(repository) ?? new Set<string>()
             for (const file of run.files) {
                 const { absolute, relative } = await resolveInsideWorkingCopy(repository.workingCopy.dir, file.path)
@@ -383,7 +423,7 @@ export class AiChangeToolbox {
             this.changed.set(repository, changed)
             notes.push(`Files the script changed, now part of your change: ${run.files.map(file => this.shown(repository, file.path)).join(", ")}`)
         }
-        if (run.left.length) notes.push(`Left out of your change:\n${run.left.map(line => `- ${line}`).join("\n")}`)
+        if (left.length) notes.push(`Left out of your change:\n${left.map(line => `- ${line}`).join("\n")}`)
         return notes.join("\n") || undefined
     }
 
@@ -462,7 +502,17 @@ export class AiChangeToolbox {
     }
 }
 
-/** Why the work is not over yet: the change of these repositories was never built. */
-export const buildFirst = (slugs: string[], multipleRepositories: boolean) =>
-    `Not finished: you changed files since the last build${multipleRepositories ? ` of ${slugs.join(", ")}` : ""}, and your change is pushed once you are done. ` +
-    `Run run_script "${BUILD_SCRIPT}"${multipleRepositories ? " in each" : ""}, fix what your change broke, then finish.`
+/** A repository changed since its last build, and what builds it: its build script or its check command. */
+export interface UnbuiltRepository {
+    slug: string
+    check: RepositoryCheck
+}
+
+/** Why the work is not over yet: the change of these repositories was never built, with what to run in each. */
+export const buildFirst = (unbuilt: UnbuiltRepository[], multipleRepositories: boolean) => {
+    const run = ({ check }: UnbuiltRepository) => `${check.tool} "${check.run}"`
+    return (
+        `Not finished: you changed files since the last build${multipleRepositories ? ` of ${unbuilt.map(repository => repository.slug).join(", ")}` : ""}, and your change is pushed once you are done. ` +
+        `Run ${multipleRepositories ? unbuilt.map(repository => `${run(repository)} in ${repository.slug}`).join(", ") : run(unbuilt[0])}, fix what your change broke, then finish.`
+    )
+}

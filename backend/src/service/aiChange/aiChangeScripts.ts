@@ -1,6 +1,7 @@
 import { createHash, randomUUID } from "node:crypto"
 import fs from "node:fs/promises"
 import { gunzipSync } from "node:zlib"
+import { redactSecrets } from "../../utils/redactSecrets"
 import { isLockfilePath, isProtectedPath, isSecretPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
 import { LlmTool } from "../llm"
 import { CommandSandbox, SandboxCommandResult } from "../sandbox/commandSandbox"
@@ -30,6 +31,48 @@ export const INSTALL_SCRIPT = "install"
 
 /** The script a change must have gone through before it is pushed, in every repository that has one. */
 export const BUILD_SCRIPT = "build"
+
+/** A check command, and the program the sandbox must have to run it: the default image has Node.js only. */
+export interface CheckCommand {
+    command: string
+    requires: string
+}
+
+/**
+ * The command that checks a change of a repository with no build script in package.json, read from the files at
+ * its root: the build its CI most likely runs. Undefined when none is known, and then finish waits for nothing.
+ * A wrapper (mvnw, gradlew) needs only Java. .NET builds what is there when it is one solution, or one project.
+ */
+export const checkCommandFor = (files: Iterable<string>): CheckCommand | undefined => {
+    const root = [...files].filter(file => !file.includes("/"))
+    const has = (file: string) => root.includes(file)
+    if (has("pom.xml")) return has("mvnw") ? { command: "./mvnw -B -q verify", requires: "java" } : { command: "mvn -B -q verify", requires: "mvn" }
+    if (has("gradlew") && (has("build.gradle") || has("build.gradle.kts"))) return { command: "./gradlew build --no-daemon -q", requires: "java" }
+    if (has("go.mod")) return { command: "go build ./... && go vet ./...", requires: "go" }
+    const solutions = root.filter(file => file.endsWith(".sln")).length
+    const projects = root.filter(file => file.endsWith(".csproj")).length
+    if (solutions === 1 || (solutions === 0 && projects === 1)) return { command: "dotnet build", requires: "dotnet" }
+    return undefined
+}
+
+/** What a changed repository must have run before finish: its build script, or the check command of its files. */
+export interface RepositoryCheck {
+    tool: "run_script" | "run_command"
+    /** The script, or the command exactly as run_command must be given it. */
+    run: string
+}
+
+/**
+ * The folder of the copy a command runs in, relative to the root of the repository, normalized; undefined for the
+ * root. An absolute path or a `..` would lead out of the copy, to the other repositories or the caches.
+ */
+export const commandWorkdir = (requested?: string): string | undefined => {
+    if (requested === undefined) return undefined
+    if (/^([\\/]|[A-Za-z]:)/.test(requested)) throw new Error(`workdir "${requested}" is absolute: give a folder relative to the root of the repository`)
+    const segments = requested.split(/[\\/]+/).filter(segment => segment && segment !== ".")
+    if (segments.includes("..")) throw new Error(`workdir "${requested}" leads out of the repository: ".." is not allowed`)
+    return segments.join("/") || undefined
+}
 
 type PackageManager = "pnpm" | "yarn" | "npm"
 
@@ -78,15 +121,22 @@ const TERMINAL_ESCAPES = /\x1b\[[0-9;?]*[A-Za-z]/g
 
 const looksBinary = (content: Buffer) => content.subarray(0, 8_000).includes(0)
 
-const describeResult = (command: string[], result: SandboxCommandResult) => {
-    const output = result.output.replace(TERMINAL_ESCAPES, "").trimEnd()
-    const shown = output.length > AI_SCRIPT_LIMITS.maxOutputChars ? output.slice(-AI_SCRIPT_LIMITS.maxOutputChars) : output
-    const cut = result.cutBytes > 0 || shown.length < output.length
+/**
+ * What the agent reads of a run: a credential the command printed is masked before it reaches the model. Masked
+ * whole, then cut: a private key or a token across the cut would be masked by neither of its halves. The line the
+ * cut falls in is left out, as it may be the end of a secret whose start is gone.
+ */
+const describeResult = (shown: string, result: SandboxCommandResult) => {
+    const output = redactSecrets(result.output.replace(TERMINAL_ESCAPES, "")).trimEnd()
+    let tail = output.length > AI_SCRIPT_LIMITS.maxOutputChars ? output.slice(-AI_SCRIPT_LIMITS.maxOutputChars) : output
+    const cut = result.cutBytes > 0 || tail.length < output.length
+    const firstLineEnd = tail.indexOf("\n")
+    if (cut && firstLineEnd !== -1) tail = tail.slice(firstLineEnd + 1)
     return [
-        `$ ${command.join(" ")}`,
+        `$ ${redactSecrets(shown)}`,
         `exit code ${result.exitCode}${result.exitCode === 0 ? " (success)" : ""}`,
         cut ? "… the start of the output is cut, this is its end:" : undefined,
-        shown || "(no output)"
+        tail || "(no output)"
     ]
         .filter(Boolean)
         .join("\n")
@@ -218,6 +268,26 @@ export interface ScriptChangedFile {
     content: Buffer
 }
 
+/** What one script or command took in the sandbox, failed or not, told to whoever counts what the sandbox costs. */
+export interface SandboxExec {
+    seconds: number
+}
+
+/** One run in the copy of a repository: a script of package.json or a command of the agent. */
+interface SandboxRun {
+    /** Run at the root of the copy. */
+    command: string[]
+    /** The command as the agent reads it back. */
+    shown: string
+    /** The install runs without CI: see environmentOf. */
+    install: boolean
+    /** The registry configuration of the repository, credentials included: for its package manager only. */
+    npmrc: boolean
+    timeoutSecs: number
+    /** Whether a run that succeeds starts the preview of the repository: a script may have installed what it needs. */
+    preview: boolean
+}
+
 export interface ScriptRun {
     /** What the agent reads: the command, its exit code and the end of its output. */
     output: string
@@ -241,7 +311,8 @@ export const runScriptTool = (slugs?: string[]): LlmTool => ({
         "Runs, in an isolated sandbox holding a copy of the repository as it is now (your edits included), the install of its dependencies or one script of its package.json, with the package manager of the repository, and returns the exit code and the end of the output. " +
         `Run "${INSTALL_SCRIPT}" first, and again after changing package.json: the lockfile it updates becomes part of your change. Then run the scripts that check your change: lint, typecheck, test, build, whichever the repository has. ` +
         "Every file a script creates or changes in the repository (a lockfile, lint --fix, a formatter, generated code) becomes part of your change, as if you had written it; what .gitignore excludes (node_modules, builds) stays in the sandbox. Run a script that rewrites files only when the request needs it. " +
-        `Never a script that starts a server or watches files (dev, start, serve, watch): it is stopped after ${AI_SCRIPT_LIMITS.timeoutSecs / 60} minutes. Each call takes time: run what the change needs.`,
+        `Never a script that starts a server or watches files (dev, start, serve, watch): it is stopped after ${AI_SCRIPT_LIMITS.timeoutSecs / 60} minutes. Each call takes time: run what the change needs. ` +
+        "Anything that is not the install or a script of package.json (a repository without one, a single test file, a tool of its own) runs with run_command.",
     inputSchema: {
         type: "object",
         properties: {
@@ -253,12 +324,40 @@ export const runScriptTool = (slugs?: string[]): LlmTool => ({
     }
 })
 
+/** The tool that runs any command, offered with run_script, only when the installation has sandboxes. */
+export const runCommandTool = (slugs?: string[]): LlmTool => ({
+    name: "run_command",
+    description:
+        "Runs a shell command (sh -c) in the isolated sandbox of run_script, in a copy of the repository as it is now (your edits included), and returns the exit code and the end of the output: " +
+        "the build and tests of a repository without package.json (mvn, ./gradlew, go, dotnet, python), one test file, a tool the scripts do not run. " +
+        "Every file the command creates or changes in the repository becomes part of your change, as for run_script; what .gitignore excludes stays in the sandbox. " +
+        "The network reaches the public package registries only: no database, no Docker, no internal service, nothing the deployed application talks to. " +
+        `Dependencies of package.json are installed with run_script "${INSTALL_SCRIPT}", which updates the lockfile and is the only one given the repository's private registry, never with npm, pnpm or yarn here. ` +
+        `Never a command that starts a server or watches files: it is stopped after timeout_seconds, ${AI_SCRIPT_LIMITS.timeoutSecs / 60} minutes at most. Each call takes time: run what the change needs.`,
+    inputSchema: {
+        type: "object",
+        properties: {
+            ...(slugs ? { repository: { type: "string", enum: slugs, description: "Slug of the repository to run it in." } } : {}),
+            command: { type: "string", description: 'The command, run by sh -c, e.g. "mvn -B -q verify" or "go test ./internal/orders/...".' },
+            workdir: { type: "string", description: 'Folder to run it in, relative to the root of the repository, e.g. "services/api". Leave out for the root.' },
+            timeout_seconds: {
+                type: "integer",
+                minimum: 1,
+                maximum: AI_SCRIPT_LIMITS.timeoutSecs,
+                description: `Seconds before it is stopped, ${AI_SCRIPT_LIMITS.timeoutSecs} when left out.`
+            }
+        },
+        required: slugs ? ["repository", "command"] : ["command"],
+        additionalProperties: false
+    }
+})
+
 /** The gateway no longer has the sandbox: deleted under the run, or its node lost. */
 const isGone = (error: unknown) => (error as { code?: unknown } | null)?.code === "not_found"
 
 /**
- * Runs the scripts of the repositories of one run in a sandbox. The sandbox is asked for at the first
- * script: a run that only reads and edits never creates one. Each repository is copied into it whole
+ * Runs the scripts of the repositories of one run, and the commands of the agent, in a sandbox. The sandbox
+ * is asked for at the first script: a run that only reads and edits never creates one. Each repository is copied into it whole
  * at its first script of the run, and from then on only what the agent wrote or deleted is sent.
  *
  * What a script changes in the copy comes back with its output (a lockfile the install rewrote, the
@@ -273,13 +372,17 @@ export class AiChangeScriptRunner {
     private readonly previewStarted = new Set<ScriptRepository>()
     /** What the agent wrote or deleted since the repository was last sent. */
     private readonly unsent = new Map<ScriptRepository, Set<string>>()
+    /** Whether the image of the sandbox has a program, asked once per run. */
+    private readonly programs = new Map<string, Promise<boolean>>()
 
     constructor(
         private readonly repositories: ScriptRepository[],
         private readonly open: () => Promise<CommandSandbox>,
         private readonly signal?: AbortSignal,
         private readonly previewsEnabled = false,
-        private readonly onPreview?: (kind: "info", message: string) => Promise<void> | void
+        private readonly onPreview?: (kind: "info", message: string) => Promise<void> | void,
+        /** Told after each script and command, even one that throws: its time is what the sandbox costs. It must not throw. */
+        private readonly onExec?: (exec: SandboxExec) => Promise<void> | void
     ) {
         for (const repository of repositories) {
             if (!SLUG.test(repository.slug)) throw new Error(`"${repository.slug}" cannot name a folder of the sandbox`)
@@ -300,6 +403,37 @@ export class AiChangeScriptRunner {
     }
 
     /**
+     * What finish waits for once the repository changed: its build script, else the check command of its files when
+     * the sandbox has the program it needs, else nothing.
+     */
+    async checkOf(repository: ScriptRepository): Promise<RepositoryCheck | undefined> {
+        if (await this.hasScript(repository, BUILD_SCRIPT)) return { tool: "run_script", run: BUILD_SCRIPT }
+        const check = checkCommandFor(await repository.workingCopy.listFiles())
+        return check && (await this.hasProgram(check.requires)) ? { tool: "run_command", run: check.command } : undefined
+    }
+
+    /**
+     * Whether the image of the sandbox has this program: a check it cannot run would cost the agent a round for
+     * nothing. Asked once per run, all repositories sharing the sandbox. One that cannot be asked has none, and is
+     * asked again, in the sandbox that replaces it, next time.
+     */
+    private hasProgram(program: string): Promise<boolean> {
+        let found = this.programs.get(program)
+        if (!found) {
+            found = this.sandboxForRun()
+                .then(sandbox => sandbox.exec(["sh", "-c", 'command -v "$0" >/dev/null', program], { timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal }))
+                .then(result => result.exitCode === 0)
+                .catch(() => {
+                    this.programs.delete(program)
+                    this.forgetSandbox()
+                    return false
+                })
+            this.programs.set(program, found)
+        }
+        return found
+    }
+
+    /**
      * `refusal` says why the paths a script changed cannot join the change, if they cannot: then none comes back.
      * A sandbox the gateway no longer has, deleted under the script, is replaced once before the agent hears of it.
      */
@@ -310,29 +444,65 @@ export class AiChangeScriptRunner {
             throw new Error(`package.json has no script "${script}"${scripts.length ? `: it has ${scripts.join(", ")}` : ""}`)
         }
         const command = commandFor(await this.managerOf(repository, manifest), script)
-        return this.runInSandbox(repository, command, script, refusal).catch(error => {
+        return this.runRetried(repository, { command, shown: command.join(" "), install: script === INSTALL_SCRIPT, npmrc: true, timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs, preview: true }, refusal)
+    }
+
+    /**
+     * Runs a command of the agent with sh, in the copy of the repository or a folder of it, as a script but for the
+     * preview, which it never starts: what it changes comes back the same way, see {@link run}.
+     */
+    async runCommand(
+        repository: ScriptRepository,
+        command: string,
+        options: { workdir?: string; timeoutSecs?: number } = {},
+        refusal: (paths: string[]) => string | undefined = () => undefined
+    ): Promise<ScriptRun> {
+        if (!command.trim()) throw new Error("The command is empty")
+        const workdir = commandWorkdir(options.workdir)
+        const run = {
+            // A folder that does not exist is an exit code the agent reads, not a failure of the sandbox.
+            command: workdir ? ["sh", "-c", 'cd -- "$1" || exit 1; exec sh -c "$0"', command, workdir] : ["sh", "-c", command],
+            shown: workdir ? `cd ${workdir} && ${command}` : command,
+            install: false,
+            npmrc: false,
+            timeoutSecs: options.timeoutSecs ?? AI_SCRIPT_LIMITS.timeoutSecs,
+            preview: false
+        }
+        return this.runRetried(repository, run, refusal)
+    }
+
+    /** A sandbox the gateway no longer has, deleted under the run, is replaced once before the agent hears of it. */
+    private runRetried(repository: ScriptRepository, run: SandboxRun, refusal: (paths: string[]) => string | undefined): Promise<ScriptRun> {
+        return this.runInSandbox(repository, run, refusal).catch(error => {
             if (this.signal?.aborted || !isGone(error)) throw error
-            return this.runInSandbox(repository, command, script, refusal)
+            return this.runInSandbox(repository, run, refusal)
         })
     }
 
-    private async runInSandbox(repository: ScriptRepository, command: string[], script: string, refusal: (paths: string[]) => string | undefined): Promise<ScriptRun> {
+    private async runInSandbox(repository: ScriptRepository, run: SandboxRun, refusal: (paths: string[]) => string | undefined): Promise<ScriptRun> {
         try {
             const sandbox = await this.sandboxForRun()
             await this.send(sandbox, repository)
             const marker = `${sandbox.root}/markers/${repository.slug}`
             const marked = await sandbox.exec(["sh", "-c", 'mkdir -p "$(dirname "$0")" && touch "$0"', marker], { timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal })
             ensureSucceeded("Marking the start of the script", marked)
-            const result = await sandbox.exec(command, {
-                workdir: this.folderOf(sandbox, repository),
-                environment: this.environmentOf(sandbox, repository, script),
-                timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
-                signal: this.signal
-            })
+            const startedAt = Date.now()
+            let result: SandboxCommandResult
+            try {
+                result = await sandbox.exec(run.command, {
+                    workdir: this.folderOf(sandbox, repository),
+                    environment: this.environmentOf(sandbox, repository, run.install, run.npmrc),
+                    timeoutSecs: run.timeoutSecs,
+                    signal: this.signal
+                })
+            } finally {
+                // Stopped at its timeout or aborted, it took the sandbox's time all the same.
+                await this.onExec?.({ seconds: (Date.now() - startedAt) / 1000 })
+            }
             // Read back whatever the exit code: lint --fix fails on what it could not fix, and still fixed the rest.
             const changes = await this.changesOf(sandbox, repository, marker, refusal)
-            if (result.exitCode === 0) await this.startPreview(repository)
-            return { output: describeResult(command, result), ...changes }
+            if (result.exitCode === 0 && run.preview) await this.startPreview(repository)
+            return { output: describeResult(run.shown, result), ...changes }
         } catch (error) {
             this.forgetSandbox()
             throw error
@@ -385,7 +555,7 @@ export class AiChangeScriptRunner {
             if (plan.install) {
                 const installed = await sandbox.exec(plan.install, {
                     workdir: this.folderOf(sandbox, repository),
-                    environment: this.environmentOf(sandbox, repository, INSTALL_SCRIPT),
+                    environment: this.environmentOf(sandbox, repository, true),
                     timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
                     signal: this.signal
                 })
@@ -396,7 +566,7 @@ export class AiChangeScriptRunner {
             const started = await sandbox.exec(["sh", "-c", 'set -e; mkdir -p "$(dirname "$0")"; nohup "$@" </dev/null >"$0" 2>&1 & echo $!', log, ...plan.command], {
                 workdir: this.folderOf(sandbox, repository),
                 environment: {
-                    ...this.environmentOf(sandbox, repository, INSTALL_SCRIPT),
+                    ...this.environmentOf(sandbox, repository, true),
                     ...plan.environment
                 },
                 timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
@@ -442,12 +612,12 @@ export class AiChangeScriptRunner {
      * Caches and the home of every tool under the root: the only folder the sandbox is sure to let them write.
      * CI keeps test runners out of watch mode, but not for the install: under CI pnpm and yarn freeze the
      * lockfile, and an install after the agent changed a dependency would fail. The npmrc of the repository is the
-     * user configuration npm, pnpm and yarn 1 read.
+     * user configuration npm, pnpm and yarn 1 read: given to the package manager only, not to a command of the agent.
      */
-    private environmentOf(sandbox: CommandSandbox, repository: ScriptRepository, script: string): Record<string, string> {
+    private environmentOf(sandbox: CommandSandbox, repository: ScriptRepository, install: boolean, npmrc = true): Record<string, string> {
         return {
-            ...(script === INSTALL_SCRIPT ? {} : { CI: "true" }),
-            ...(repository.npmrc ? { npm_config_userconfig: this.npmrcOf(sandbox, repository) } : {}),
+            ...(install ? {} : { CI: "true" }),
+            ...(npmrc && repository.npmrc ? { npm_config_userconfig: this.npmrcOf(sandbox, repository) } : {}),
             HOME: `${sandbox.root}/home`,
             COREPACK_ENABLE_DOWNLOAD_PROMPT: "0",
             NO_COLOR: "1",

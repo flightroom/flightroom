@@ -33,27 +33,39 @@ import useAiUsageApi, {
     AiUsageTarget,
     AiUsageTotals,
     OrganizationAiUsageSummary,
-    ProjectAiUsageSummary
+    ProjectAiUsageSummary,
+    SandboxUsageSource,
+    SandboxUsageTotals
 } from "@/hooks/apiClients/useAiUsageApi"
 import useThemeStore from "@/store/useThemeStore"
 import { cn } from "@/utils/styleUtils"
 
-const SOURCES: AiUsageSource[] = ["agent", "assistant"]
+const SOURCES: AiUsageSource[] = ["agent", "mission", "assistant"]
+
+/** The sources of sandbox time that spend no token: a live preview runs no agent. */
+const SANDBOX_ONLY_SOURCES: SandboxUsageSource[] = ["preview"]
+
+const NO_TOKENS: AiUsageTotals = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 }
+
+const hasSandboxTime = (sandbox?: SandboxUsageTotals) => Boolean(sandbox && sandbox.commands + sandbox.execSeconds + sandbox.lifetimeSeconds > 0)
 
 interface AiUsageSummaryProps {
     target: AiUsageTarget
 }
 
-/** One line of the breakdown: what spent the tokens, then the three figures of the tiles. */
+/** One line of the breakdown: what spent the tokens, then the three figures of the tiles and the sandbox time. */
 interface BreakdownRow extends AiUsageTotals {
     key: string
     label: string
+    /** None for what never runs a sandbox: the assistant. */
+    sandbox?: SandboxUsageTotals
 }
 
 /**
  * The AI tokens spent over a period on what the page shows: three figures, the cached part of the input apart as
- * it is far cheaper. The project adds the split between Edit with AI and the assistant, the organization the
- * split by project. Counting started when the ledger shipped: nothing before it is shown.
+ * it is far cheaper, and the minutes of sandbox once there are some. The project adds the split between Edit with
+ * AI, the missions, the assistant and the live previews, the organization the split by project. Counting started when
+ * the ledger shipped: nothing before it is shown.
  */
 const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
     const { t, i18n } = useTranslation()
@@ -79,15 +91,33 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                   )
                   .join(" + ")
             : "—"
+    const minutes = (seconds: number) => (seconds / 60).toLocaleString(i18n.language, { maximumFractionDigits: 1 })
     const usage = usageQuery.data
+    const sandbox = usage?.sandbox
+    // Shown only once something ran in a sandbox: an installation without OpenShell never sees the columns.
+    const showSandbox = hasSandboxTime(sandbox?.total)
 
+    const sourceRows = (summary: ProjectAiUsageSummary): BreakdownRow[] => [
+        ...SOURCES.map(source => ({
+            key: source,
+            label: t(`ai_usage.sources.${source}`),
+            ...summary.bySource[source],
+            sandbox: source === "assistant" ? undefined : summary.sandbox?.bySource[source]
+        })),
+        ...SANDBOX_ONLY_SOURCES.filter(source => hasSandboxTime(summary.sandbox?.bySource[source])).map(source => ({
+            key: source,
+            label: t(`ai_usage.sources.${source}`),
+            ...NO_TOKENS,
+            sandbox: summary.sandbox?.bySource[source]
+        }))
+    ]
     const breakdown: BreakdownRow[] | undefined =
         usage && "byProject" in usage
             ? (usage as OrganizationAiUsageSummary).byProject.map(project => ({ key: project.projectId, label: project.name ?? t("ai_usage.deleted_project"), ...project }))
             : usage && "bySource" in usage
-              ? SOURCES.map(source => ({ key: source, label: t(`ai_usage.sources.${source}`), ...(usage as ProjectAiUsageSummary).bySource[source] }))
+              ? sourceRows(usage as ProjectAiUsageSummary)
               : undefined
-    const isEmpty = usage ? usage.total.inputTokens + usage.total.outputTokens === 0 : false
+    const isEmpty = usage ? usage.total.inputTokens + usage.total.outputTokens === 0 && !showSandbox : false
 
     return (
         <Card data-testid={`ai-usage-${target.kind}`}>
@@ -127,6 +157,20 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.cached")} value={formatted(usage.total.cachedInputTokens)} title={t("ai_usage.cached_hint")} />
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.output")} value={formatted(usage.total.outputTokens)} />
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.cost")} value={money(usage.total.costs)} title={t("ai_usage.cost_hint")} />
+                            {showSandbox && sandbox && (
+                                <StatTile
+                                    size="sm"
+                                    className="flex-[1_0_160px]"
+                                    label={t("ai_usage.sandbox")}
+                                    value={
+                                        // A few short commands round to 0 / 0, which would read as nothing ran
+                                        minutes(sandbox.total.execSeconds) === minutes(0) && minutes(sandbox.total.lifetimeSeconds) === minutes(0)
+                                            ? t("ai_usage.sandbox_under_minute")
+                                            : t("ai_usage.sandbox_value", { exec: minutes(sandbox.total.execSeconds), lifetime: minutes(sandbox.total.lifetimeSeconds) })
+                                    }
+                                    title={t("ai_usage.sandbox_hint")}
+                                />
+                            )}
                         </div>
                         {breakdown && breakdown.length > 0 && !isEmpty && (
                             <Table>
@@ -137,6 +181,16 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                                         <TableHead className="text-right">{t("ai_usage.cached")}</TableHead>
                                         <TableHead className="text-right">{t("ai_usage.output")}</TableHead>
                                         <TableHead className="text-right">{t("ai_usage.cost")}</TableHead>
+                                        {showSandbox && (
+                                            <>
+                                                <TableHead className="text-right" title={t("ai_usage.sandbox_hint")}>
+                                                    {t("ai_usage.sandbox_exec")}
+                                                </TableHead>
+                                                <TableHead className="text-right" title={t("ai_usage.sandbox_hint")}>
+                                                    {t("ai_usage.sandbox_lifetime")}
+                                                </TableHead>
+                                            </>
+                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
@@ -147,6 +201,12 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                                             <TableCell className="text-right tabular-nums text-muted-foreground">{formatted(row.cachedInputTokens)}</TableCell>
                                             <TableCell className="text-right tabular-nums">{formatted(row.outputTokens)}</TableCell>
                                             <TableCell className="text-right tabular-nums">{money(row.costs)}</TableCell>
+                                            {showSandbox && (
+                                                <>
+                                                    <TableCell className="text-right tabular-nums">{row.sandbox ? minutes(row.sandbox.execSeconds) : "—"}</TableCell>
+                                                    <TableCell className="text-right tabular-nums text-muted-foreground">{row.sandbox ? minutes(row.sandbox.lifetimeSeconds) : "—"}</TableCell>
+                                                </>
+                                            )}
                                         </TableRow>
                                     ))}
                                 </TableBody>

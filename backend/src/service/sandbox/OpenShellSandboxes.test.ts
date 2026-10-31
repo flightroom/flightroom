@@ -32,6 +32,9 @@ describe("OpenShellSandboxes", () => {
     beforeEach(() => {
         vi.clearAllMocks()
         sandbox.waitReady.mockResolvedValue({ name: NAME, phase: "ready" })
+        sandbox.create.mockResolvedValue({ id: "created-1", name: NAME, phase: "provisioning" })
+        sandbox.createFromTemplate.mockResolvedValue({ id: "created-1", name: NAME, phase: "provisioning" })
+        sandbox.delete.mockResolvedValue({ sandboxId: "deleted-1" })
     })
 
     it("Given no sandbox for the conversation, when one is acquired, then it is created with its labels and a read-only policy letting only the package managers reach the registries", async () => {
@@ -153,6 +156,42 @@ describe("OpenShellSandboxes", () => {
         expect(sandbox.waitReady).toHaveBeenCalled()
     })
 
+    it("Given a lifecycle, when a sandbox is created, replaced or deleted as stuck, then it is told of each creation and deletion of the conversation's sandbox", async () => {
+        const lifecycle = { created: vi.fn(async (_conversation: string, _id: string) => undefined), deleted: vi.fn(async (_conversation: string, _id: string) => undefined) }
+        const sandboxes = new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" })
+
+        sandbox.get.mockRejectedValueOnce(sdkError("not_found"))
+        await sandboxes.acquire(CONVERSATION, lifecycle)
+        expect(lifecycle.created).toHaveBeenCalledWith(CONVERSATION, "created-1")
+        expect(lifecycle.deleted).not.toHaveBeenCalled()
+
+        lifecycle.created.mockClear()
+        sandbox.get.mockResolvedValueOnce({ id: "dead-1", name: NAME, phase: "error" })
+        sandbox.create.mockResolvedValueOnce({ id: "created-2", name: NAME, phase: "provisioning" })
+        await sandboxes.acquire(CONVERSATION, lifecycle)
+        expect(lifecycle.deleted).toHaveBeenCalledWith(CONVERSATION, "dead-1")
+        expect(lifecycle.created).toHaveBeenCalledWith(CONVERSATION, "created-2")
+        expect(lifecycle.deleted.mock.invocationCallOrder[0]).toBeLessThan(lifecycle.created.mock.invocationCallOrder[0])
+
+        lifecycle.created.mockClear()
+        lifecycle.deleted.mockClear()
+        sandbox.get.mockResolvedValue({ id: "stuck-1", name: NAME, phase: "provisioning" })
+        sandbox.waitReady.mockRejectedValueOnce(new Error("timed out"))
+        await expect(sandboxes.acquire(CONVERSATION, lifecycle)).rejects.toThrow("timed out")
+        expect(lifecycle.deleted).toHaveBeenCalledWith(CONVERSATION, "stuck-1")
+        expect(lifecycle.created).not.toHaveBeenCalled()
+    })
+
+    it("Given another replica creating it at the same time, when one is acquired with a lifecycle, then only the replica whose create went through counts it", async () => {
+        sandbox.get.mockRejectedValue(sdkError("not_found"))
+        sandbox.create.mockRejectedValue(sdkError("already_exists"))
+        const created = vi.fn(async (_conversation: string, _id: string) => undefined)
+
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).acquire(CONVERSATION, { created })
+
+        expect(created).not.toHaveBeenCalled()
+    })
+
     it("Given a template and no registry hosts, when a sandbox is created, then it comes from the template under the gateway's own network policy", async () => {
         sandbox.get.mockRejectedValue(sdkError("not_found"))
         await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway", OPENSHELL_SANDBOX_TEMPLATE: "node-gvisor", OPENSHELL_REGISTRY_HOSTS: "", OPENSHELL_WORKSPACE: "flightroom" }).acquire(
@@ -181,7 +220,7 @@ describe("OpenShellSandboxes", () => {
     const listed = (...items: { name: string; labels: Record<string, string> }[]) =>
         sandbox.list.mockReturnValue(
             (async function* () {
-                yield { items }
+                yield { items: items.map(item => ({ id: `id-${item.name}`, ...item })) }
             })()
         )
 
@@ -198,6 +237,29 @@ describe("OpenShellSandboxes", () => {
         expect(sandbox.list).toHaveBeenCalledWith({ workspace: undefined, labelSelector: "flightroom.dev/role=ai-change" })
         expect(sandbox.delete.mock.calls.map(([name]) => name)).toEqual(["fr-idle", "fr-unknown", "fr-orphan"])
         expect(deleted).toBe(3)
+    })
+
+    it("Given a callback, when sandboxes are swept, then it is told the conversation of each one deleted that has one", async () => {
+        const owned = { "flightroom.dev/owner": OWNER }
+        listed(
+            { name: "fr-busy", labels: { ...owned, "flightroom.dev/conversation": "busy" } },
+            { name: "fr-idle", labels: { ...owned, "flightroom.dev/conversation": "idle" } },
+            { name: "fr-orphan", labels: owned }
+        )
+        const deleted = vi.fn(async (_conversation: string, _id: string) => undefined)
+
+        await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).sweep(async conversation => conversation as ConversationState, deleted)
+
+        expect(deleted.mock.calls).toEqual([["idle", "id-fr-idle"]])
+    })
+
+    it("Given a sandbox another replica deleted first, when it is swept, then its lifetime is still told of but it is not counted as deleted here", async () => {
+        listed({ name: "fr-idle", labels: { "flightroom.dev/owner": OWNER, "flightroom.dev/conversation": "idle" } })
+        sandbox.delete.mockResolvedValue({})
+        const deleted = vi.fn(async (_conversation: string, _id: string) => undefined)
+
+        expect(await new OpenShellSandboxes({ OPENSHELL_GATEWAY_URL: "https://gateway" }).sweep(async conversation => conversation as ConversationState, deleted)).toBe(0)
+        expect(deleted).toHaveBeenCalledWith("idle", "id-fr-idle")
     })
 
     it("Given sandboxes of another installation on the same gateway, when they are swept, then none is deleted, whatever their conversation", async () => {

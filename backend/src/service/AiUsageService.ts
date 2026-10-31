@@ -7,6 +7,7 @@ import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
+import SandboxUsage, { SANDBOX_USAGE_SOURCES, SandboxUsageSource } from "../models/SandboxUsageModel"
 import User from "../models/UserModel"
 import { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrganizationModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
@@ -36,11 +37,25 @@ export interface AiUsageTotals extends LlmUsage {
     costs: AiUsageCost[]
 }
 
+/** The time spent in sandboxes: the scripts and commands run, how long they ran, how long the sandboxes lived. */
+export interface SandboxUsageTotals {
+    commands: number
+    execSeconds: number
+    /** Counted once a sandbox is deleted: one still alive adds its lifetime then. */
+    lifetimeSeconds: number
+}
+
+export interface SandboxUsageSummary {
+    total: SandboxUsageTotals
+    bySource: Record<SandboxUsageSource, SandboxUsageTotals>
+}
+
 export interface AiUsageSummary {
     period: AiUsagePeriod
     /** The first instant counted: missing for `all`. */
     since?: Date
     total: AiUsageTotals
+    sandbox: SandboxUsageSummary
 }
 
 export interface ProjectAiUsageSummary extends AiUsageSummary {
@@ -51,6 +66,7 @@ export interface ProjectAiUsage extends AiUsageTotals {
     projectId: string
     /** Missing for a project deleted since: its usage still counts for the organization. */
     name?: string
+    sandbox: SandboxUsageTotals
 }
 
 export interface OrganizationAiUsageSummary extends AiUsageSummary {
@@ -209,11 +225,13 @@ const addedWithCosts = (usages: AiUsageTotals[]): AiUsageTotals => {
 
 const tokensOf = (usage: LlmUsage) => usage.inputTokens + usage.outputTokens
 
+/** The domain the job was asked from counts all of it; a repository its share. */
+const componentWeight = (field: "domainId" | "frontendIds" | "backendIds") => (field === "domainId" ? 1 : REPOSITORY_SHARE)
+
 /** The pipeline of the total of a domain, a frontend or a backend: exported for the tests, which have no MongoDB. */
 export const componentPipeline = (field: "domainId" | "frontendIds" | "backendIds", id: Id, period: AiUsagePeriod): PipelineStage[] => [
     matchOf({ [field]: objectId(id) }, period),
-    // The domain the job was asked from counts all of it; a repository its share.
-    { $group: { _id: null, ...sums(field === "domainId" ? 1 : REPOSITORY_SHARE), ...costSums(field === "domainId" ? 1 : REPOSITORY_SHARE) } }
+    { $group: { _id: null, ...sums(componentWeight(field)), ...costSums(componentWeight(field)) } }
 ]
 
 export const projectPipeline = (projectId: Id, period: AiUsagePeriod): PipelineStage[] => [
@@ -225,6 +243,36 @@ export const organizationPipeline = (organizationId: Id, period: AiUsagePeriod):
     matchOf({ organizationId: objectId(organizationId) }, period),
     { $group: { _id: "$projectId", ...sums(), ...costSums() } }
 ]
+
+type SandboxGroup = Partial<SandboxUsageTotals> & { _id: { projectId: unknown; source: SandboxUsageSource } }
+
+/**
+ * The sandbox time of a level, by project and source, each amount weighed by `weight` as the tokens: a lifetime still
+ * open has none, and `$sum` skips it. One shape for every level: the project and the source are split in code.
+ */
+export const sandboxPipeline = (filter: Record<string, unknown>, period: AiUsagePeriod, weight: unknown = 1): PipelineStage[] => [
+    matchOf(filter, period),
+    {
+        $group: {
+            _id: { projectId: "$projectId", source: "$source" },
+            commands: { $sum: weighed("$commands", weight) },
+            execSeconds: { $sum: weighed("$execSeconds", weight) },
+            lifetimeSeconds: { $sum: weighed("$lifetimeSeconds", weight) }
+        }
+    }
+]
+
+/** Summed, then rounded once: a repository's share of a command or a second is a fraction. */
+const sandboxTotalsOf = (groups: SandboxGroup[]): SandboxUsageTotals => ({
+    commands: Math.round(groups.reduce((sum, group) => sum + (group.commands ?? 0), 0)),
+    execSeconds: Math.round(groups.reduce((sum, group) => sum + (group.execSeconds ?? 0), 0)),
+    lifetimeSeconds: Math.round(groups.reduce((sum, group) => sum + (group.lifetimeSeconds ?? 0), 0))
+})
+
+const sandboxSummaryOf = (groups: SandboxGroup[]): SandboxUsageSummary => ({
+    total: sandboxTotalsOf(groups),
+    bySource: Object.fromEntries(SANDBOX_USAGE_SOURCES.map(source => [source, sandboxTotalsOf(groups.filter(group => group._id.source === source))])) as Record<SandboxUsageSource, SandboxUsageTotals>
+})
 
 /** A member's usage in the project between two days, summed by period: exported for the tests, which have no MongoDB. */
 export const memberSeriesPipeline = (projectId: Id, userId: Id, { from, to, granularity, timeZone = "UTC" }: MemberAiUsageQuery): PipelineStage[] => {
@@ -302,8 +350,9 @@ export const ensureWithinTokenLimit = async (projectId: Id, userId: Id): Promise
 }
 
 /**
- * The AI tokens spent, by Edit with AI jobs and the assistant, at each level the console shows them: a domain, a
- * frontend or a backend (the jobs only, the assistant working on no repository), a project, an organization.
+ * The AI tokens spent, by Edit with AI jobs, missions and the assistant, at each level the console shows them: a domain,
+ * a frontend or a backend (the jobs only, the assistant working on no repository), a project, an organization. With
+ * them the time spent in sandboxes by the jobs and the live previews: what the scripts ran, how long the sandboxes lived.
  * Whoever sees the domain, the repository or the project sees its usage; the organization's, which names every
  * project, is for its administrators, who decide which AIs the projects use.
  */
@@ -313,39 +362,54 @@ export default class AiUsageService extends BaseAuthorizedService {
         if (!domain) throw new EntityNotFoundError(domainId)
         await this.ensureAccessToProject(domain.projectId)
         await this.ensureInDomainScope(domain.projectId, domain._id)
-        return this.summary(componentPipeline("domainId", domainId, period), period)
+        return this.componentSummary("domainId", domainId, period)
     }
 
     async forFrontend(frontendId: string, period: AiUsagePeriod): Promise<AiUsageSummary> {
         const frontend = await Frontend.findById(toObjectId(frontendId), { projectId: 1, domainId: 1 })
         if (!frontend) throw new EntityNotFoundError(frontendId)
         await this.ensureAccessToFrontend(frontend)
-        return this.summary(componentPipeline("frontendIds", frontendId, period), period)
+        return this.componentSummary("frontendIds", frontendId, period)
     }
 
     async forBackend(backendId: string, period: AiUsagePeriod): Promise<AiUsageSummary> {
         const backend = await Backend.findById(toObjectId(backendId), { projectId: 1, domainId: 1 })
         if (!backend) throw new EntityNotFoundError(backendId)
         await this.ensureAccessToBackend(backend)
-        return this.summary(componentPipeline("backendIds", backendId, period), period)
+        return this.componentSummary("backendIds", backendId, period)
     }
 
     /** The whole project: a member confined to some domains sees only theirs. */
     async forProject(projectId: string, period: AiUsagePeriod): Promise<ProjectAiUsageSummary> {
         await this.ensureAccessToProject(projectId)
         await this.ensureWholeProject(projectId)
-        const groups = await AiUsage.aggregate<Totals>(projectPipeline(projectId, period))
+        const [groups, sandboxGroups] = await Promise.all([
+            AiUsage.aggregate<Totals>(projectPipeline(projectId, period)),
+            SandboxUsage.aggregate<SandboxGroup>(sandboxPipeline({ projectId: objectId(projectId) }, period))
+        ])
         const bySource = Object.fromEntries(AI_USAGE_SOURCES.map(source => [source, withCosts(groups.find(group => group._id === source))])) as Record<AiUsageSource, AiUsageTotals>
-        return { period, since: periodStart(period), total: addedWithCosts(Object.values(bySource)), bySource }
+        return { period, since: periodStart(period), total: addedWithCosts(Object.values(bySource)), bySource, sandbox: sandboxSummaryOf(sandboxGroups) }
     }
 
     async forOrganization(organizationId: string, period: AiUsagePeriod): Promise<OrganizationAiUsageSummary> {
         await this.ensureOrganizationAdmin(organizationId)
-        const groups = await AiUsage.aggregate<Totals>(organizationPipeline(organizationId, period))
-        const projects = groups.length ? await Project.find({ _id: { $in: groups.map(group => toObjectId(String(group._id))) } }, { name: 1 }).lean() : []
+        const [groups, sandboxGroups] = await Promise.all([
+            AiUsage.aggregate<Totals>(organizationPipeline(organizationId, period)),
+            SandboxUsage.aggregate<SandboxGroup>(sandboxPipeline({ organizationId: objectId(organizationId) }, period))
+        ])
+        // A project may have run a live preview and spent no token: it is listed all the same.
+        const projectIds = [...new Set([...groups.map(group => String(group._id)), ...sandboxGroups.map(group => String(group._id.projectId))])]
+        const projects = projectIds.length ? await Project.find({ _id: { $in: projectIds.map(id => toObjectId(id)) } }, { name: 1 }).lean() : []
         const names = new Map(projects.map(project => [String(project._id), project.name]))
-        const byProject = groups.map(group => ({ projectId: String(group._id), name: names.get(String(group._id)), ...withCosts(group) })).sort((a, b) => tokensOf(b) - tokensOf(a))
-        return { period, since: periodStart(period), total: addedWithCosts(byProject), byProject }
+        const byProject = projectIds
+            .map(projectId => ({
+                projectId,
+                name: names.get(projectId),
+                ...withCosts(groups.find(group => String(group._id) === projectId)),
+                sandbox: sandboxTotalsOf(sandboxGroups.filter(group => String(group._id.projectId) === projectId))
+            }))
+            .sort((a, b) => tokensOf(b) - tokensOf(a) || b.sandbox.lifetimeSeconds - a.sandbox.lifetimeSeconds)
+        return { period, since: periodStart(period), total: addedWithCosts(byProject), byProject, sandbox: sandboxSummaryOf(sandboxGroups) }
     }
 
     /**
@@ -379,8 +443,11 @@ export default class AiUsageService extends BaseAuthorizedService {
         return Boolean(role && ORGANIZATION_ADMIN_ROLES.includes(role))
     }
 
-    private async summary(pipeline: PipelineStage[], period: AiUsagePeriod): Promise<AiUsageSummary> {
-        const [totals] = await AiUsage.aggregate<Totals>(pipeline)
-        return { period, since: periodStart(period), total: withCosts(totals) }
+    private async componentSummary(field: "domainId" | "frontendIds" | "backendIds", id: string, period: AiUsagePeriod): Promise<AiUsageSummary> {
+        const [[totals], sandboxGroups] = await Promise.all([
+            AiUsage.aggregate<Totals>(componentPipeline(field, id, period)),
+            SandboxUsage.aggregate<SandboxGroup>(sandboxPipeline({ [field]: objectId(id) }, period, componentWeight(field)))
+        ])
+        return { period, since: periodStart(period), total: withCosts(totals), sandbox: sandboxSummaryOf(sandboxGroups) }
     }
 }

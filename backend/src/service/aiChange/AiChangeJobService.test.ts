@@ -1355,6 +1355,27 @@ describe("AiChangeJobService", () => {
             expect(vi.mocked(AiUsage.create).mock.calls.map(([entry]) => entry.cost)).toEqual([0.0000942, 0.0001434])
         })
 
+        it("Given a job of a mission, when its agent spends tokens, then the ledger counts them as the mission's", async () => {
+            vi.spyOn(AiChangeJob, "findById").mockResolvedValue({
+                _id: jobId,
+                parentJobId,
+                rootJobId: parentJobId,
+                missionId: new Types.ObjectId(),
+                projectId,
+                userId: user._id,
+                prompt: "Also show the currency",
+                frontendIds,
+                status: AiJobStatus.RUNNING,
+                aiModelId: "system",
+                usage: {}
+            } as never)
+            vi.mocked(Project.findById).mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId(), name: "Shop", context: "Shop context" } as never)
+
+            await run()
+
+            expect(vi.mocked(AiUsage.create).mock.calls.map(([entry]) => entry.source)).toEqual(["mission", "mission"])
+        })
+
         it("Given an agent spending tokens over two rounds, when it runs, then each round is added to the ledger with the organization, the project, the job and its repositories", async () => {
             const organizationId = new Types.ObjectId()
             vi.mocked(Project.findById).mockResolvedValue({ _id: projectId, organizationId, name: "Shop", context: "Shop context" } as never)

@@ -4,8 +4,8 @@ import AiChangeJob, { AiJobStatus, IAiChangeJob } from "../../models/AiChangeJob
 import AiChangeRequest, { AI_CHANGE_MAX_EVENTS, AiChangeStatus, IAiChangeEvent, IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import { IProject } from "../../models/ProjectModel"
 import { toObjectId } from "../../utils/mongooseUtils"
+import { redactSecrets } from "../../utils/redactSecrets"
 import { calculateAiUsageCost, recordAiUsage } from "../AiUsageService"
-import { redactSecrets } from "../assistant/assistantTools"
 import { LlmClient, LlmUsage } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
 import { loggable, PROPOSAL_TTL_MS, STALE_AFTER_MS } from "./aiChangeShared"
@@ -57,7 +57,8 @@ export const addJobUsage = async (job: IAiChangeJob, project: IProject, client: 
             organizationId: project.organizationId,
             projectId: job.projectId,
             userId: job.userId,
-            source: "agent",
+            // A job of a mission is counted apart: it runs on its own, nobody asked for each of its rounds.
+            source: job.missionId ? "mission" : "agent",
             jobId: job._id,
             domainId: job.domainId,
             frontendIds: job.frontendIds,

@@ -3,8 +3,8 @@ import { createBusinessException } from "../../errors/BusinessException"
 import AssistantConversation from "../../models/AssistantConversationModel"
 import { AssistantConversationDTO, AssistantConversationMessageDTO, AssistantConversationSummaryDTO } from "../../types/AssistantDTO"
 import { toObjectId } from "../../utils/mongooseUtils"
+import { redactSecrets } from "../../utils/redactSecrets"
 import { LLM_EFFORTS } from "../llm/types"
-import { redactSecrets } from "./assistantTools"
 
 /** The history shows the most recent ones only. */
 export const MAX_LISTED_CONVERSATIONS = 50

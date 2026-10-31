@@ -40,10 +40,10 @@ const API_RESOURCE_INSTRUCTIONS =
 const BACKEND_ENDPOINT_INSTRUCTIONS =
     "\n- A frontend calls a backend of the job at the address listed in <backend_endpoints> for the environment it runs in: take the base URL from the frontend's configuration, never hardcode a host."
 
-/** What the agent can run: the scripts of package.json in a sandbox, or nothing. */
+/** What the agent can run: the scripts of package.json and its own commands in a sandbox, or nothing. */
 const RUN_INSTRUCTIONS = {
     sandbox:
-        "You cannot run arbitrary commands, but run_script runs the install and the scripts of package.json in an isolated sandbox: after changing code, run the checks the repository has (lint, typecheck, test, build) and fix what your change broke. Your change is pushed once you are done: after your last edit, run its build script in every repository you changed that has one, or finish is refused. A failure that was there before your change is not yours to fix: mention it in the summary. What a script changes in the repository comes back into your change: to add or update a dependency, change package.json and run the install, which updates the lockfile.",
+        'In an isolated sandbox holding a copy of the repositories, run_script runs the install and the scripts of package.json, and run_command any other shell command: the build and tests of a repository without package.json (Maven, Gradle, Go, .NET, Python), one test file, a tool the scripts do not run. Prefer run_script for what package.json has a script for. The sandbox reaches the package registries only: no database, no Docker, no internal service. After changing code, run the checks the repository has (lint, typecheck, test, build) and fix what your change broke. Your change is pushed once you are done: after your last edit, build every repository you changed, with run_script "build" when package.json has that script, else with the check command finish names, or finish is refused. A failure that was there before your change is not yours to fix: mention it in the summary. What a script or a command changes in the repository comes back into your change: to add or update a dependency of package.json, change package.json and run the install, which updates the lockfile.',
     none: "You cannot run commands, install packages, build or test."
 }
 
