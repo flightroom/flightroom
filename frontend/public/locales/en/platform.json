@@ -3925,6 +3925,8 @@
             "tenantId": "Tenant ID",
             "clientId": "Client ID",
             "clientSecret": "Client secret",
+            "subscriptionId": "Subscription ID",
+            "resourceGroup": "Resource group",
             "jsonKey": "JSON key",
             "url": "Connection URL",
             "tls": "TLS",

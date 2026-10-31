@@ -117,6 +117,14 @@ describe("resourceEnvKeys", () => {
         ])
     })
 
+    it("given a storage on Azure, when its variables are derived, then its subscription and resource group are optional in every variant", () => {
+        for (const variant of ["azureConnectionString", "azureSharedKey", "azureAad"]) {
+            const keys = resourceEnvKeys({ name: "media", type: "storage", variant })
+            expect(keys).toContainEqual({ key: "STORAGE_MEDIA_SUBSCRIPTION_ID", field: "subscriptionId", secret: false, required: false })
+            expect(keys).toContainEqual({ key: "STORAGE_MEDIA_RESOURCE_GROUP", field: "resourceGroup", secret: false, required: false })
+        }
+    })
+
     it("given a storage on AWS, when its variables are derived, then the provider is among them with its fixed value", () => {
         expect(resourceEnvKeys({ name: "media", type: "storage", variant: "aws" })).toContainEqual({ key: "STORAGE_MEDIA_PROVIDER", secret: false, required: true, value: "AWS" })
     })
@@ -214,7 +222,7 @@ describe("the mongodb type", () => {
     it("given a connection string, when its variables are derived, then the URI is a secret and the database optional", () => {
         expect(resourceEnvKeys({ name: "orders", type: "mongodb", variant: "connectionString" })).toEqual([
             { key: "MONGO_ORDERS_URL", field: "connectionString", secret: true, required: true },
-            { key: "MONGO_ORDERS_NAME", field: "database", secret: false, required: false }
+            { key: "MONGO_ORDERS_DATABASE_NAME", field: "database", secret: false, required: false }
         ])
     })
 
@@ -222,7 +230,7 @@ describe("the mongodb type", () => {
         expect(resourceEnvKeys({ name: "orders", type: "mongodb", variant: "credentials" })).toEqual([
             { key: "MONGO_ORDERS_HOST", field: "host", secret: false, required: true },
             { key: "MONGO_ORDERS_PORT", field: "port", secret: false, required: true },
-            { key: "MONGO_ORDERS_NAME", field: "database", secret: false, required: true },
+            { key: "MONGO_ORDERS_DATABASE_NAME", field: "database", secret: false, required: true },
             { key: "MONGO_ORDERS_USER", field: "username", secret: false, required: true },
             { key: "MONGO_ORDERS_PASSWORD", field: "password", secret: true, required: true },
             { key: "MONGO_ORDERS_AUTH_SOURCE", field: "authSource", secret: false, required: false },
