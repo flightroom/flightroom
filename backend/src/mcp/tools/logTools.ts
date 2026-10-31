@@ -26,13 +26,13 @@ export const logTools = [
         name: "application_pods_list",
         title: "List application pods",
         description:
-            "The pods a backend, a container frontend or a maintenance agent runs in one environment now, read through the Argo CD the project deploys with: their names, for application_logs_get, with their health, status, ready containers and restarts. Not for a viewer of the project.",
+            "The pods a backend, a container frontend or a maintenance agent runs in one environment now, read through the Argo CD the project deploys with: their names, for application_logs_get, with their health, status, ready containers and restarts, and in containerDetails each container's CPU and memory requests and limits, restart count, current state with its reason (CrashLoopBackOff, ImagePullBackOff...) and how its previous run ended (OOMKilled, Error..., exit code). Not for a viewer of the project.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY_EXTERNAL,
         inputSchema: z.object({ slug, environmentId }),
         run: async (args, context) => {
             ensureNotViewerKey(context)
-            return new ArgoCdService(context.principal).listPods(context.projectId, args.slug, args.environmentId)
+            return new ArgoCdService(context.principal).listPods(context.projectId, args.slug, args.environmentId, { details: true })
         }
     }),
     defineTool({

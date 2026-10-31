@@ -1,4 +1,5 @@
 import { z } from "zod"
+import ContainerEnvironmentService from "../../service/ContainerEnvironmentService"
 import { VariableMapService } from "../../service/VariableMapService"
 import VariableMapDTO, { VARIABLE_MAP_NAME } from "../../types/VariableMapDTO"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
@@ -109,6 +110,20 @@ export const variableMapTools = [
         annotations: READ_ONLY,
         inputSchema: z.object({ secretId }),
         run: (args, { principal }) => secrets(principal).getById(args.secretId)
+    }),
+    defineTool({
+        name: "container_environment_get",
+        title: "Get container environment",
+        description:
+            "The environment variables the container of a backend or a DOCKER frontend gets in one environment, as the deploy hands them to its pod: each with its source (platform, configMap <name>, secret <name> or resource <name>.resource), its value, and overriddenBy when another source sets the same name and wins (env over envFrom, a later envFrom over an earlier one). Values of secrets and resources are masked: only that they are set and their length. Built from the configuration as it is now (state next_deploy): what changed since the last deploy reaches the pod with the next one. state not_in_deploy: the environment sets no version of it, and a container may still run there with what an earlier deploy wrote; no_gitops: the project deploys no container through GitOps. missing lists the variables the backend declares that nothing sets; notes says what was left out and why.",
+        scope: MCP_SCOPE_READ,
+        annotations: READ_ONLY,
+        inputSchema: z.object({
+            kind: z.enum(["backend", "frontend"]).describe("What the id is of: a backend, or a frontend that runs as a container (DOCKER)"),
+            id: objectId("Id of the backend or of the frontend, from backends_list or frontends_list"),
+            environmentId: objectId("Id of the environment, from environments_list")
+        }),
+        run: (args, { principal, projectId }) => new ContainerEnvironmentService(principal).get(projectId, { kind: args.kind, id: args.id }, args.environmentId)
     }),
     defineTool({
         name: "secret_delete",

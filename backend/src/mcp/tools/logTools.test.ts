@@ -74,7 +74,7 @@ describe("log tools", () => {
     it("given a MANAGER API key, when it asks for the pods, then they are read", async () => {
         await run("application_pods_list", { slug: "orders", environmentId: ENVIRONMENT }, context({ kind: "api_key", apiKeyId: "key-1" }, "MANAGER"))
 
-        expect(listPods).toHaveBeenCalledWith(PROJECT, "orders", ENVIRONMENT)
+        expect(listPods).toHaveBeenCalledWith(PROJECT, "orders", ENVIRONMENT, { details: true })
     })
 
     it("given more lines than Argo CD is asked for, when the logs are asked, then the input is refused", () => {

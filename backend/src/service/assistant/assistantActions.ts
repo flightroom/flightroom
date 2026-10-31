@@ -34,12 +34,10 @@
  * with the action, so the model resumes it with its own messages (thinking and signatures included).
  */
 import { FastifyBaseLogger } from "fastify"
-import { z } from "zod"
 import { describeToolError, MCP_TOOLS } from "../../mcp/server"
-import { credentialLogFields, McpSession, McpToolContext, McpToolDefinition, requiresConfirmation } from "../../mcp/toolDefinition"
+import { auditedArgs, credentialLogFields, McpSession, McpToolContext, McpToolDefinition, requiresConfirmation, toModelContent, toModelInputSchema } from "../../mcp/toolDefinition"
 import { IUser } from "../../models/UserModel"
 import { RoleInProject } from "../../models/UserProjectModel"
-import { redactDesignSystems } from "../../types/DesignSystem"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { AuthorizedPrincipal } from "../BaseAuthorizedService"
 import { LlmMessage, LlmTool, LlmToolCall, LlmToolResult } from "../llm"
@@ -107,15 +105,6 @@ export const ASSISTANT_TOOLS: McpToolDefinition[] = [...MCP_TOOLS.filter(tool =>
 
 const toolsByName = new Map(ASSISTANT_TOOLS.map(tool => [tool.name, tool]))
 
-/**
- * The input schema the model sees: the tool's own, without the `projectId` MCP clients pass. The
- * project is the one open in the console, taken from the request, never chosen by the model.
- */
-export const toModelInputSchema = (schema: z.ZodObject): Record<string, unknown> => {
-    const { $schema: _dialect, ...jsonSchema } = z.toJSONSchema(schema, { io: "input" })
-    return jsonSchema
-}
-
 export const assistantToolDefinitions: LlmTool[] = ASSISTANT_TOOLS.map(tool => ({ name: tool.name, description: tool.description, inputSchema: toModelInputSchema(tool.inputSchema) }))
 
 /** The scope decides what is a write, as it does for MCP; `requiresConfirmation` what waits for the user. */
@@ -128,22 +117,6 @@ export const toolKind = (tool: McpToolDefinition): AssistantToolKind => {
 const needsConfirmation = (tool: McpToolDefinition) => {
     const kind = toolKind(tool)
     return kind === "confirm" || kind === "destructive"
-}
-
-/** Input fields an audit line may carry: ids and short identifying values, never secrets or free text. */
-const AUDITED_FIELDS = new Set(["email", "role", "name", "key", "originalKey", "slug", "enabled", "scope", "expiresAt", "version", "branch", "ref", "isProduction", "active"])
-const MAX_AUDITED_CHARS = 200
-const MAX_AUDITED_ITEMS = 50
-
-export const auditedArgs = (args: Record<string, unknown>): Record<string, unknown> => {
-    const audited: Record<string, unknown> = {}
-    for (const [key, value] of Object.entries(args)) {
-        if (!AUDITED_FIELDS.has(key) && !/Ids?$/.test(key)) continue
-        const short = (item: unknown) => (typeof item === "string" ? item.length <= MAX_AUDITED_CHARS : typeof item === "number" || typeof item === "boolean")
-        if (short(value)) audited[key] = value
-        else if (Array.isArray(value) && value.every(short)) audited[key] = value.slice(0, MAX_AUDITED_ITEMS)
-    }
-    return audited
 }
 
 /**
@@ -159,12 +132,6 @@ export const parkableTurn = (turn: LlmMessage[]): LlmMessage[] | undefined => {
         kept = kept.slice(nextRound)
     }
     return kept
-}
-
-const toModelContent = (value: unknown): string => {
-    // The model reads the design systems of the projects and frontends it is handed without the credentials of their npmrc
-    const json = JSON.stringify(value ?? null, redactDesignSystems)
-    return json.length > MAX_RESULT_CHARS_FOR_MODEL ? `${json.slice(0, MAX_RESULT_CHARS_FOR_MODEL)}… [cut at ${MAX_RESULT_CHARS_FOR_MODEL} of ${json.length} characters]` : json
 }
 
 const toUserResult = (value: unknown): unknown => {
@@ -363,7 +330,7 @@ export class AssistantToolRunner {
             const shown = forUser === undefined ? forModel : forUser
             this.audit(tool, "ok", { args, actionId })
             return {
-                result: { callId: call.id, name: call.name, content: toModelContent(forModel) },
+                result: { callId: call.id, name: call.name, content: toModelContent(forModel, MAX_RESULT_CHARS_FOR_MODEL) },
                 frame: { id: call.id, ok: true, summary: summarize(shown), result: toUserResult(shown) },
                 wrote: toolKind(tool) !== "read"
             }

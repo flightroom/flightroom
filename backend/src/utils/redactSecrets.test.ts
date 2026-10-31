@@ -50,4 +50,22 @@ describe("redactSecrets", () => {
         expect(redacted).toContain("&sig=[REDACTED]&se=2026")
         expect(redacted).toContain("Build finished in 12s")
     })
+
+    it.each([
+        ["mongodb://admin:hunter2@db.internal:27017/orders", "mongodb://[REDACTED]@db.internal:27017/orders"],
+        ["mongodb+srv://app:hunter2@cluster0.example.net/shop?retryWrites=true", "mongodb+srv://[REDACTED]@cluster0.example.net/shop?retryWrites=true"],
+        ["postgres://orders:hunter2@pg:5432/orders", "postgres://[REDACTED]@pg:5432/orders"],
+        ["postgresql://orders:hunter2@pg/orders", "postgresql://[REDACTED]@pg/orders"],
+        ["mysql://root:hunter2@mysql:3306/app", "mysql://[REDACTED]@mysql:3306/app"],
+        ["REDIS_URL redis://:hunter2@cache:6379/0", "REDIS_URL redis://[REDACTED]@cache:6379/0"],
+        ["rediss://default:hunter2@cache:6380", "rediss://[REDACTED]@cache:6380"],
+        ["amqp://guest:hunter2@rabbit:5672/vhost", "amqp://[REDACTED]@rabbit:5672/vhost"],
+        ["HTTPS://CI:hunter2@GITHUB.COM/acme/app.git", "HTTPS://[REDACTED]@GITHUB.COM/acme/app.git"]
+    ])("given the connection string %s, when it is redacted, then its credentials are blanked and the rest still reads", (value, expected) => {
+        expect(redactSecrets(value)).toBe(expected)
+    })
+
+    it("given a URL with no credentials or a user only, when it is redacted, then it is left as it is", () => {
+        expect(redactSecrets("connecting to mongodb://db.internal:27017/orders and https://user@example.com/x")).toBe("connecting to mongodb://db.internal:27017/orders and https://user@example.com/x")
+    })
 })

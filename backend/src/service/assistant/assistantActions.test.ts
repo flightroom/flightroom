@@ -1,7 +1,7 @@
 import { FastifyBaseLogger } from "fastify"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
-import { McpToolDefinition } from "../../mcp/toolDefinition"
+import { auditedArgs, McpToolDefinition } from "../../mcp/toolDefinition"
 import { IUser } from "../../models/UserModel"
 import { LlmMessage, LlmToolCall } from "../llm"
 import {
@@ -10,7 +10,6 @@ import {
     AssistantToolEvents,
     AssistantToolRunner,
     assistantToolDefinitions,
-    auditedArgs,
     DECLINED,
     MAX_PARKED_TURN_CHARS,
     ONE_CONFIRMATION_AT_A_TIME,

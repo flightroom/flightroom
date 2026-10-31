@@ -7,7 +7,10 @@ import {
     applicationImageRepository,
     backendFrontendPath,
     CHART_FILES,
+    containerEnvironment,
+    containerFrontendUrl,
     exposedUrl,
+    gatewayOrigin,
     isDeployable,
     MANAGED_VALUES_MARKER,
     PAUSED_SCHEDULE,
@@ -371,5 +374,214 @@ describe("CHART_FILES", () => {
         expect(route.replaces).toHaveLength(1)
         expect(route.replaces![0]).not.toContain("ipAllowList")
         expect(route.replaces![0]).toContain("kind: HTTPRoute")
+    })
+})
+
+describe("containerEnvironment", () => {
+    const environment = { _id: "e1", slug: "production", logLevel: "debug", logJson: false }
+    const mapNames = {
+        configMaps: new Map([
+            ["c1", "logging"],
+            ["c2", "features"]
+        ]),
+        secrets: new Map([["s1", "database"]]),
+        resources: new Map([["r1", "orders-db.resource"]])
+    }
+    const backend = {
+        _id: "b1",
+        slug: "orders",
+        environmentVersions: [{ environmentId: "e1", version: "1.2.3" }],
+        image: { repository: "ghcr.io/acme/orders" },
+        port: 3000,
+        exposurePath: "/api/orders",
+        livenessPath: "/live",
+        memoryLimit: "1Gi",
+        configMapIds: ["c1", "missing", "c2"],
+        secretIds: ["s1"],
+        resourceIds: ["r1"]
+    }
+    const agent = {
+        slug: "cleaner",
+        environmentVersions: [{ environmentId: "e1", version: "1.0.0" }],
+        image: { repository: "ghcr.io/acme/cleaner" },
+        configMapIds: ["c2"],
+        secretIds: ["s1"],
+        maintenance: { kind: MaintenanceAgentKind.CONTAINER, schedule: "@hourly", runPath: "/run", targets: [{ kind: "service" as const, slug: "orders", url: "http://orders" }] }
+    }
+    const values = {
+        configMaps: new Map<string, Record<string, string>>([
+            ["c1", { LOG_LEVEL: "warn", LOG_FORMAT: "pretty", FEATURE_X: "off" }],
+            ["c2", { FEATURE_X: "on" }]
+        ]),
+        secrets: new Map([["s1", { DB_PASSWORD: "hunter2-very-secret", FEATURE_X: "secret-on" }]]),
+        resources: new Map([["r1", { DB_ORDERS_HOST: "db.internal", DB_ORDERS_PASSWORD: "p4ss" }]])
+    }
+    const variables = () => containerEnvironment(backend, environment, mapNames, values, "1.2.3", "https://shop.example.com/shop")
+    const named = (name: string) => variables().filter(variable => variable.name === name)
+
+    it("given a backend, when its values are rendered, then they are byte for byte what the deploy wrote before the environment was extracted", () => {
+        expect(renderApplicationValues(backend, environment, mapNames, { name: "shop-gw", listener: "https", hsts: true }, undefined, "https://shop.example.com/shop")).toBe(
+            `# app.kubernetes.io/managed-by: flightroom
+# Written by every deploy of production: a change made here is overwritten.
+replicas: 1
+image:
+  host: ghcr.io
+  name: acme/orders
+  tag: 1.2.3
+containerPort: 3000
+resources:
+  limits:
+    memory: 1Gi
+probes:
+  liveness:
+    active: true
+    path: /live
+  readiness:
+    active: false
+    path: /
+environmentMaps:
+  - logging
+  - features
+secrets:
+  - database
+  - orders-db.resource
+env:
+  - name: LOG_LEVEL
+    value: debug
+  - name: LOG_JSON
+    value: "false"
+  - name: FRONTEND_URL
+    value: https://shop.example.com/shop
+  - name: OTEL_SERVICE_NAME
+    value: orders
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: deployment.environment=production,service.version=1.2.3
+route:
+  gateway: shop-gw
+  listener: https
+  path: /api/orders
+  hsts: true
+`
+        )
+    })
+
+    it("given a maintenance agent, when its values are rendered, then they are byte for byte what the deploy wrote before the environment was extracted", () => {
+        expect(renderApplicationValues(agent, environment, mapNames)).toBe(
+            `# app.kubernetes.io/managed-by: flightroom
+# Written by every deploy of production: a change made here is overwritten.
+replicas: 1
+image:
+  host: ghcr.io
+  name: acme/cleaner
+  tag: 1.0.0
+containerPort: 8080
+probes:
+  liveness:
+    active: false
+    path: /
+  readiness:
+    active: false
+    path: /
+environmentMaps:
+  - features
+secrets:
+  - database
+  - cleaner.flightroom
+env:
+  - name: MAINTAINED_TARGETS
+    value: '[{"kind":"service","slug":"orders","url":"http://orders"}]'
+  - name: LOG_LEVEL
+    value: debug
+  - name: LOG_JSON
+    value: "false"
+  - name: OTEL_SERVICE_NAME
+    value: cleaner
+  - name: OTEL_RESOURCE_ATTRIBUTES
+    value: deployment.environment=production,service.version=1.0.0
+maintenance:
+  schedule: "@hourly"
+  suspend: false
+  trigger:
+    url: http://cleaner/run
+`
+        )
+    })
+
+    it("given a backend, when its environment is built, then the platform's variables come first, in clear, HTTP_PORT from its port", () => {
+        expect(variables().slice(0, 6)).toEqual([
+            { name: "HTTP_PORT", source: "platform", value: "3000" },
+            { name: "LOG_LEVEL", source: "platform", value: "debug" },
+            { name: "LOG_JSON", source: "platform", value: "false" },
+            { name: "FRONTEND_URL", source: "platform", value: "https://shop.example.com/shop" },
+            { name: "OTEL_SERVICE_NAME", source: "platform", value: "orders" },
+            { name: "OTEL_RESOURCE_ATTRIBUTES", source: "platform", value: "deployment.environment=production,service.version=1.2.3" }
+        ])
+    })
+
+    it("given a name a config map sets too, when the environment is built, then env wins over envFrom", () => {
+        expect(named("LOG_LEVEL")).toEqual([
+            { name: "LOG_LEVEL", source: "platform", value: "debug" },
+            { name: "LOG_LEVEL", source: "configMap logging", value: "warn", overriddenBy: "platform" }
+        ])
+    })
+
+    it("given a name several envFrom sources set, when the environment is built, then the last one in the chart's order wins", () => {
+        expect(named("FEATURE_X")).toEqual([
+            { name: "FEATURE_X", source: "configMap logging", value: "off", overriddenBy: "secret database" },
+            { name: "FEATURE_X", source: "configMap features", value: "on", overriddenBy: "secret database" },
+            { name: "FEATURE_X", source: "secret database", masked: { set: true, length: 9 } }
+        ])
+    })
+
+    it("given secrets and resources, when the environment is built, then their values are masked with their length and a config map's are shown", () => {
+        const json = JSON.stringify(variables())
+        expect(named("DB_PASSWORD")).toEqual([{ name: "DB_PASSWORD", source: "secret database", masked: { set: true, length: 19 } }])
+        expect(named("DB_ORDERS_HOST")).toEqual([{ name: "DB_ORDERS_HOST", source: "resource orders-db.resource", masked: { set: true, length: 11 } }])
+        expect(named("LOG_FORMAT")).toEqual([{ name: "LOG_FORMAT", source: "configMap logging", value: "pretty" }])
+        expect(json).not.toContain("hunter2")
+        expect(json).not.toContain("p4ss")
+        expect(json).not.toContain("db.internal")
+    })
+
+    it("given a config map deleted since, when the environment is built, then it is left out as the deploy leaves it out", () => {
+        expect(new Set(variables().map(variable => variable.source))).toEqual(new Set(["platform", "configMap logging", "configMap features", "secret database", "resource orders-db.resource"]))
+    })
+
+    it("given a CONTAINER maintenance agent, whose Deployment runs it, when its environment is built, then it gets HTTP_PORT, its targets and the platform's Secret masked, without the token read", () => {
+        const agentVariables = containerEnvironment(agent, environment, mapNames, values, "1.0.0")
+
+        expect(agentVariables).toContainEqual({ name: "MAINTAINED_TARGETS", source: "platform", value: JSON.stringify(agent.maintenance.targets) })
+        expect(agentVariables).toContainEqual({ name: "HTTP_PORT", source: "platform", value: "8080" })
+        expect(agentVariables.slice(-2)).toEqual([
+            { name: "FLIGHTROOM_API_URL", source: "platform", masked: { set: true } },
+            { name: "FLIGHTROOM_AGENT_TOKEN", source: "platform", masked: { set: true } }
+        ])
+        expect(agentVariables.map(variable => variable.name)).not.toContain("FRONTEND_URL")
+    })
+
+    it("given a JOB maintenance agent, which only its CronJob runs, when its environment is built, then there is no HTTP_PORT: the CronJob does not set it", () => {
+        const job = { ...agent, maintenance: { ...agent.maintenance, kind: MaintenanceAgentKind.JOB } }
+
+        const names = containerEnvironment(job, environment, mapNames, values, "1.0.0").map(variable => variable.name)
+
+        expect(names).not.toContain("HTTP_PORT")
+        expect(names).toContain("MAINTAINED_TARGETS")
+    })
+})
+
+describe("containerFrontendUrl", () => {
+    const frontends = [{ exposurePath: "/shop", backendIds: ["b1"] }]
+
+    it("given a frontend, a backend and a maintenance agent, when FRONTEND_URL is resolved, then it is the frontend's own URL, the calling frontend's, and none", () => {
+        const origin = gatewayOrigin({ host: "dev.example.com", certificateIssuer: "letsencrypt" })
+
+        expect(containerFrontendUrl("frontend", { exposurePath: "/checkout/" }, origin, frontends)).toBe("https://dev.example.com/checkout")
+        expect(containerFrontendUrl("backend", { _id: "b1" }, origin, frontends)).toBe("https://dev.example.com/shop")
+        expect(containerFrontendUrl("maintenanceAgent", { _id: "b1" }, origin, frontends)).toBeUndefined()
+    })
+
+    it("given a Gateway without a certificate issuer, or none, when its origin is read, then it is plain HTTP, or nothing", () => {
+        expect(gatewayOrigin({ host: "dev.example.com" })).toBe("http://dev.example.com")
+        expect(gatewayOrigin(undefined)).toBeUndefined()
     })
 })

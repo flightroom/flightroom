@@ -419,7 +419,8 @@ export class AiChangeJobService extends AiChangeJobQueryService {
             // The job runs as whoever started it: a domain-scoped member's agent sees the resources they may read, no more
             const scope = await this.getDomainScope(job.projectId)
             const visibleResources = scope ? await resourceIdsInScope(job.projectId, scope) : undefined
-            const input = await agentInputOf(job, project, domain, memberDomains, repositories, visibleResources)
+            // The user of this service started the job, or asked for this follow-up, a mission's later jobs included: the console tools read as them
+            const input = await agentInputOf(job, project, domain, memberDomains, repositories, visibleResources, this.getUser())
             // The agent may stop midway, the provider failing or its answer cut off: what it wrote until then is still proposed.
             let stopped: string | undefined
             const result = await runAiChangeAgent(

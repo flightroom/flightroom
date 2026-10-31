@@ -31,10 +31,11 @@ import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import {
     applicationValuesPath,
-    backendFrontendPath,
     CHART_FILES,
-    exposedUrl,
+    ContainerKind,
+    containerFrontendUrl,
     GitOpsApplication,
+    gatewayOrigin,
     isDeployable,
     MAINTENANCE_AGENT_API_URL_VARIABLE,
     MAINTENANCE_AGENT_TOKEN_VARIABLE,
@@ -669,13 +670,11 @@ export class GitOpsService extends BaseAuthorizedService {
                 const listener = gateway && applicationListener(gateway)
                 const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER, ipAllowList: ipAllowListMiddleware(gateway) } : undefined
                 // Where browsers reach the environment: a project exposed on no domain gives its containers no FRONTEND_URL
-                const origin = gateway ? `${gateway.certificateIssuer ? "https" : "http"}://${gateway.host}` : undefined
+                const origin = gatewayOrigin(gateway)
                 const callingFrontends = exposedFrontends.filter(frontend => isDeployable(frontend, containerRegistry, environment._id))
-                const frontendUrl = (application: GitOpsApplication & { _id?: unknown }) => {
-                    if (frontendIds.has(String(application._id))) return exposedUrl(origin, application.exposurePath)
-                    if (backendIds.has(String(application._id))) return exposedUrl(origin, backendFrontendPath(application._id, callingFrontends))
-                    return undefined
-                }
+                const kindOf = (application: GitOpsApplication & { _id?: unknown }): ContainerKind =>
+                    frontendIds.has(String(application._id)) ? "frontend" : backendIds.has(String(application._id)) ? "backend" : "maintenanceAgent"
+                const frontendUrl = (application: GitOpsApplication & { _id?: unknown }) => containerFrontendUrl(kindOf(application), application, origin, callingFrontends)
                 const files: GitOpsFile[] = [
                     ...CHART_FILES.map(file => ({ ...file, action: "update" as const, ifMissing: true })),
                     // Those with no version in the environment keep the values they have there, if any

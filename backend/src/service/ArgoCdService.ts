@@ -32,7 +32,7 @@ import { podLogsQuery, podOf } from "./argoCd/argoCdLogs"
 import { argoCdInUse, clientOf, deployableSlugs, environmentsOf, linksOf, normalizeUrl, projectOf, repoUrlOf, retyped } from "./argoCd/argoCdProject"
 import { DEPLOYED_VERSIONS, followRollout } from "./argoCd/argoCdRollout"
 import { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdRepositories, ArgoCdStatusDTO, PendingDeployToken, RepositoryTarget } from "./argoCd/argoCdTypes"
-import BaseAuthorizedService from "./BaseAuthorizedService"
+import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
 import {
@@ -49,6 +49,11 @@ import {
 } from "./gitops/argoCdManifests"
 import { RolloutDTO } from "./gitops/rollout"
 import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
+
+/** The pods whose live manifest is read when they are listed with details, one call each: as many as a Deployment may run */
+const MAX_DETAILED_PODS = 20
+/** The live manifests read at once */
+const POD_DETAIL_CONCURRENCY = 5
 
 /**
  * Hands the GitOps repositories of a project to an Argo CD instance that runs on another cluster, through its
@@ -75,13 +80,39 @@ class ArgoCdService extends BaseAuthorizedService {
         await client.createJobFromCronJob(application, appProject, environmentNamespace(environment), slug)
     }
 
-    /** The pods the backend, frontend or maintenance agent `slug` runs in the environment now, read through Argo CD */
-    async listPods(projectId: string, slug: string, environmentId: string): Promise<ArgoCdPod[]> {
+    /**
+     * The pods the backend, frontend or maintenance agent `slug` runs in the environment now, read through Argo CD.
+     * With `details`, each of the first {@link MAX_DETAILED_PODS} also says what its containers ask for and are held
+     * to and how they last stopped, from its live manifest: one more call per pod, so only for who asks for them (an
+     * agent diagnosing), not for the console's page that polls the list. A pod whose manifest cannot be read keeps
+     * what the tree says of it.
+     */
+    async listPods(projectId: string, slug: string, environmentId: string, { details = false }: { details?: boolean } = {}): Promise<ArgoCdPod[]> {
         const environment = await this.readableEnvironment(projectId, slug, environmentId)
-        return this.podsOf(toObjectId(projectId), slug, environment)
+        const { client, application, appProject } = await this.deployedApplication(toObjectId(projectId), slug, environment)
+        const pods = await client.listPods(application, appProject)
+        if (!details) return pods
+        const detailed = [...pods]
+        const detail = async (index: number) => {
+            const pod = pods[index]
+            const containerDetails = await client.getPodContainers(application, appProject, pod).catch(error => {
+                fastify.log.warn({ error: toErrorMessage(error), application, pod: pod.name }, "Argo CD pod manifest not read")
+                return null
+            })
+            if (containerDetails) detailed[index] = { ...pod, containerDetails }
+        }
+        // A few at a time: a Deployment of many replicas must not open as many requests to Argo CD at once
+        const indexes = pods.slice(0, MAX_DETAILED_PODS).map((_pod, index) => index)
+        for (let start = 0; start < indexes.length; start += POD_DETAIL_CONCURRENCY) {
+            await Promise.all(indexes.slice(start, start + POD_DETAIL_CONCURRENCY).map(detail))
+        }
+        return detailed
     }
 
-    /** As {@link listPods}, for an application of the project in `environment`. Whoever calls it checks who may. */
+    /**
+     * The pods of an application of the project in `environment`, as the tree of its Application describes them,
+     * without the details of their containers. Whoever calls it checks who may.
+     */
     async podsOf(projectId: Schema.Types.ObjectId, slug: string, environment: { slug: string; namespace?: string }): Promise<ArgoCdPod[]> {
         const { client, application, appProject } = await this.deployedApplication(projectId, slug, environment)
         return client.listPods(application, appProject)
@@ -145,6 +176,16 @@ class ArgoCdService extends BaseAuthorizedService {
         ])
         if (!environment) throw new EntityNotFoundError(String(environmentId))
         if (!backend && !frontend && !agent) throw new EntityNotFoundError(String(slug))
+        // A domain-scoped member reads the applications of their domains only, as everywhere else in the console. The
+        // Application is named after the slug alone, which a backend, a frontend and an agent may share: each one
+        // running under it must be in scope, or one of their own would open the pods of another domain's
+        const scope = await this.getDomainScope(projectIdObj)
+        if (scope) {
+            // $nin also matches a component with no domain at all, outside every scope
+            const outside = { projectId: projectIdObj, slug, domainId: { $nin: scope.map(id => toObjectId(id)) } }
+            const elsewhere = await Promise.all([Backend.exists(outside), Frontend.exists({ ...outside, kind: FrontendKind.DOCKER }), MaintenanceAgent.exists(outside)])
+            if (elsewhere.some(Boolean)) throw domainScopeForbidden()
+        }
         return environment
     }
 

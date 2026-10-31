@@ -1,5 +1,6 @@
 import { z } from "zod"
 import { AuthorizedPrincipal } from "../service/BaseAuthorizedService"
+import { redactDesignSystems } from "../types/DesignSystem"
 import { McpScope } from "../utils/oauthConfig"
 
 /** A project shared with the connection, with the role that caps what can be done on it. */
@@ -134,3 +135,35 @@ export const objectId = (description: string) =>
         .describe(description)
 
 export const NO_INPUT = z.object({})
+
+/**
+ * The input schema a model sees, the assistant's and the coding agent's: the tool's own, without the `projectId`
+ * MCP clients pass. The project is the one the console binds the model to, never chosen by the model.
+ */
+export const toModelInputSchema = (schema: z.ZodObject): Record<string, unknown> => {
+    const { $schema: _dialect, ...jsonSchema } = z.toJSONSchema(schema, { io: "input" })
+    return jsonSchema
+}
+
+/** A tool result as a model reads it: JSON, cut at `max` characters. */
+export const toModelContent = (value: unknown, max: number): string => {
+    // The model reads the design systems of the projects and frontends it is handed without the credentials of their npmrc
+    const json = JSON.stringify(value ?? null, redactDesignSystems)
+    return json.length > max ? `${json.slice(0, max)}… [cut at ${max} of ${json.length} characters]` : json
+}
+
+/** Input fields an audit line may carry, the assistant's and the coding agent's: ids and short identifying values, never secrets or free text. */
+const AUDITED_FIELDS = new Set(["email", "role", "name", "key", "originalKey", "slug", "enabled", "scope", "expiresAt", "version", "branch", "ref", "isProduction", "active"])
+const MAX_AUDITED_CHARS = 200
+const MAX_AUDITED_ITEMS = 50
+
+export const auditedArgs = (args: Record<string, unknown>): Record<string, unknown> => {
+    const audited: Record<string, unknown> = {}
+    for (const [key, value] of Object.entries(args)) {
+        if (!AUDITED_FIELDS.has(key) && !/Ids?$/.test(key)) continue
+        const short = (item: unknown) => (typeof item === "string" ? item.length <= MAX_AUDITED_CHARS : typeof item === "number" || typeof item === "boolean")
+        if (short(value)) audited[key] = value
+        else if (Array.isArray(value) && value.every(short)) audited[key] = value.slice(0, MAX_AUDITED_ITEMS)
+    }
+    return audited
+}

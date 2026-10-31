@@ -5,6 +5,7 @@ import { parse } from "yaml"
 
 vi.mock("..", () => ({ fastify: { log: { error: vi.fn(), warn: vi.fn() }, config: { REPOSITORIES_FOLDER: "/repositories" } } }))
 
+import { fastify } from ".."
 import ArgoCdClient, { ArgoCdResource } from "../client/ArgoCdClient"
 import GitlabClient from "../client/GitlabClient"
 import { createBusinessException } from "../errors/BusinessException"
@@ -895,6 +896,7 @@ describe("ArgoCdService.getLogs", () => {
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
         vi.spyOn(ArgoCdClient.prototype, "getPodLogs").mockResolvedValue([{ content: "started" }])
         vi.spyOn(ArgoCdClient.prototype, "listPods").mockResolvedValue([{ name: "orders-abc", namespace: "development" }])
+        vi.spyOn(ArgoCdClient.prototype, "getPodContainers").mockResolvedValue(null)
     })
 
     const getLogs = (slug: string, query: Record<string, unknown>) => new ArgoCdService().getLogs(String(projectId), slug, String(environmentId), query)
@@ -947,6 +949,88 @@ describe("ArgoCdService.getLogs", () => {
     it("given a backend of the project, when its pods are listed, then those of its Application come back", async () => {
         await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))).resolves.toEqual([{ name: "orders-abc", namespace: "development" }])
         expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledWith(ORDERS_DEVELOPMENT, PROJECT_NAME)
+    })
+
+    it("given the console's page polling the pods, when they are listed without details, then no manifest is read", async () => {
+        await new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))
+
+        expect(ArgoCdClient.prototype.getPodContainers).not.toHaveBeenCalled()
+    })
+
+    it("given pods with readable manifests, when they are listed with details, then each comes with its containers, and one whose manifest fails keeps what the tree says", async () => {
+        vi.mocked(ArgoCdClient.prototype.listPods).mockResolvedValue([
+            { name: "orders-abc", namespace: "development", restarts: 3 },
+            { name: "orders-def", namespace: "development" }
+        ])
+        const containers = [{ name: "orders", limits: { memory: "512Mi" }, restartCount: 3, lastTermination: { reason: "OOMKilled", exitCode: 137 } }]
+        vi.mocked(ArgoCdClient.prototype.getPodContainers).mockImplementation(async (_application, _project, pod) => {
+            if (pod.name === "orders-def") throw new Error("unreadable")
+            return containers
+        })
+
+        await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId), { details: true })).resolves.toEqual([
+            { name: "orders-abc", namespace: "development", restarts: 3, containerDetails: containers },
+            { name: "orders-def", namespace: "development" }
+        ])
+        expect(ArgoCdClient.prototype.getPodContainers).toHaveBeenCalledWith(ORDERS_DEVELOPMENT, PROJECT_NAME, expect.objectContaining({ name: "orders-abc", namespace: "development" }))
+        expect(fastify.log.warn).toHaveBeenCalledWith(expect.objectContaining({ pod: "orders-def" }), "Argo CD pod manifest not read")
+    })
+
+    it("given many pods, when they are listed with details, then at most 5 manifests are read at once and at most 20 in all", async () => {
+        vi.mocked(ArgoCdClient.prototype.listPods).mockResolvedValue(Array.from({ length: 25 }, (_, index) => ({ name: `orders-${index}`, namespace: "development" })))
+        let running = 0
+        let most = 0
+        vi.mocked(ArgoCdClient.prototype.getPodContainers).mockImplementation(async () => {
+            running++
+            most = Math.max(most, running)
+            await new Promise(resolve => setTimeout(resolve, 1))
+            running--
+            return [{ name: "orders" }]
+        })
+
+        const pods = await new ArgoCdService().listPods(String(projectId), "orders", String(environmentId), { details: true })
+
+        expect(most).toBe(5)
+        expect(pods.filter(pod => pod.containerDetails)).toHaveLength(20)
+        expect(pods).toHaveLength(25)
+    })
+
+    describe("for a member scoped to some domains", () => {
+        const scoped = String(new Types.ObjectId())
+        /** The backend `orders` is the project's; `outside` says whether it is, or the frontend of the same slug is, outside the scope */
+        const components = ({ backendOutside = false, frontendOutside = false }) => {
+            vi.spyOn(ArgoCdService.prototype as unknown as { getDomainScope: () => Promise<string[]> }, "getDomainScope").mockResolvedValue([scoped])
+            const found = (outside: boolean) =>
+                ((filter: { slug: string; domainId?: unknown }) => Promise.resolve(filter.slug === "orders" && (!filter.domainId || outside) ? { _id: new Types.ObjectId() } : null)) as never
+            vi.mocked(Backend.exists).mockImplementation(found(backendOutside))
+            vi.mocked(Frontend.exists).mockImplementation(((filter: { slug: string; domainId?: unknown }) =>
+                Promise.resolve(filter.domainId && frontendOutside ? { _id: new Types.ObjectId() } : null)) as never)
+        }
+
+        it("given a backend of their domain, when they read its pods, then they come back", async () => {
+            components({})
+
+            await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))).resolves.toEqual([{ name: "orders-abc", namespace: "development" }])
+            expect(vi.mocked(Backend.exists).mock.calls.at(-1)?.[0]).toMatchObject({ slug: "orders", domainId: { $nin: [expect.anything()] } })
+        })
+
+        it("given a backend of another domain, when they read its pods or its logs, then it is refused before Argo CD is asked", async () => {
+            components({ backendOutside: true })
+
+            await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN" })
+            await expect(getLogs("orders", { pod: "orders-abc" })).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN" })
+            expect(ArgoCdClient.prototype.listPods).not.toHaveBeenCalled()
+            expect(ArgoCdClient.prototype.getPodLogs).not.toHaveBeenCalled()
+        })
+
+        it("given a backend of their domain sharing its slug with a container frontend of another domain, when they read the pods of that slug, then it is refused: the Application may be the frontend's", async () => {
+            components({ frontendOutside: true })
+
+            await expect(new ArgoCdService().listPods(String(projectId), "orders", String(environmentId))).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN" })
+            await expect(getLogs("orders", { pod: "orders-abc" })).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN" })
+            expect(ArgoCdClient.prototype.listPods).not.toHaveBeenCalled()
+            expect(vi.mocked(Frontend.exists).mock.calls.at(-1)?.[0]).toMatchObject({ slug: "orders", kind: "DOCKER" })
+        })
     })
 })
 

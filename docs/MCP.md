@@ -37,7 +37,17 @@ Two scopes, chosen on the consent page:
   dependency and integration plans. The pods of a backend, a container frontend or a maintenance
   agent and their logs (`application_pods_list`, `application_logs_get`) are read through Argo CD,
   and are refused to a VIEWER of the project and to a VIEWER API key: logs may hold what the
-  configuration hides.
+  configuration hides. Each pod comes with what its containers ask for and are held to (CPU and
+  memory requests and limits), their restarts, their state and how their previous run ended
+  (`OOMKilled`, exit code), from its live manifest. `container_environment_get` returns the
+  environment variables the container of a backend or a container frontend gets in an environment,
+  as the deploy hands them to its pod: each with its source (platform, config map, secret or
+  resource), which one wins when two set the same name, and the values of secrets and resources
+  masked; `state` says whether that is what the next deploy hands it (`next_deploy`), whether the
+  environment leaves it out of its deploys (`not_in_deploy`) or the project deploys no container
+  through GitOps (`no_gitops`). A domain-scoped member reads these for the applications of their
+  domains only: when a backend, a container frontend and a maintenance agent share a slug, every
+  one of them must be in their domains.
 - `mfe:write` — everything the console does inside a project, **deploy and rollback included**:
   create and edit frontends, backends, domains and environments, trigger builds, import
   repositories, change global variables, apply dependency alignments and integrations, revoke the

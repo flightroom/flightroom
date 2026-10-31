@@ -159,6 +159,146 @@ export const backendFrontendPath = (backendId: unknown, frontends: CallingFronte
 /** The public URL of a path on the origin of an environment, without a trailing slash; none without either */
 export const exposedUrl = (origin: string | undefined, path: string | null | undefined): string | undefined => (origin && path ? `${origin}${path.replace(/\/+$/, "")}` : undefined)
 
+/** Where browsers reach an environment through its Gateway: none when the project is exposed on no domain */
+export const gatewayOrigin = (gateway?: { host: string; certificateIssuer?: string }): string | undefined => (gateway ? `${gateway.certificateIssuer ? "https" : "http"}://${gateway.host}` : undefined)
+
+/** What runs as a container: what FRONTEND_URL points at depends on it */
+export type ContainerKind = "backend" | "frontend" | "maintenanceAgent"
+
+/**
+ * FRONTEND_URL of a container: a frontend's own public URL, a backend's that of the frontend calling it (see
+ * {@link backendFrontendPath}), none for a maintenance agent. `callingFrontends` are the exposed frontends the
+ * environment runs.
+ */
+export const containerFrontendUrl = (
+    kind: ContainerKind,
+    application: { _id?: unknown; exposurePath?: string | null },
+    origin: string | undefined,
+    callingFrontends: CallingFrontend[]
+): string | undefined => {
+    if (kind === "frontend") return exposedUrl(origin, application.exposurePath)
+    if (kind === "backend") return exposedUrl(origin, backendFrontendPath(application._id, callingFrontends))
+    return undefined
+}
+
+export const HTTP_PORT_VARIABLE = "HTTP_PORT"
+
+/** The port the container listens on: the chart hands it to the container as HTTP_PORT, before every other variable */
+export const containerPortOf = (application: Pick<GitOpsApplication, "port">): number => application.port ?? 8080
+
+/**
+ * The variables the values hand the chart as `env`, after HTTP_PORT: the targets of a maintenance agent, the
+ * LOG_LEVEL and LOG_JSON of the environment, FRONTEND_URL when given, and the OpenTelemetry name, environment and
+ * version of the application. The deploy writes them, `containerEnvironment` reads them: the two never differ.
+ */
+export const containerVariables = (
+    application: GitOpsApplication,
+    environment: { slug: string } & EnvironmentLogging,
+    version: string,
+    frontendUrl?: string
+): Array<{ name: string; value: string }> => [
+    ...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []),
+    ...runtimeVariables(environment, frontendUrl),
+    ...serviceVariables(application, environment, version)
+]
+
+/** The names of the config maps, the secrets and the Secrets of the resources of the project, by id */
+export interface ContainerMapNames {
+    configMaps: Map<string, string>
+    secrets: Map<string, string>
+    resources?: Map<string, string>
+}
+
+/** What a container takes whole through `envFrom`: a config map, a secret, the Secret of a resource, or the platform's Secret of a maintenance agent */
+export interface ContainerEnvSource {
+    kind: "configMap" | "secret" | "resource" | "platform"
+    /** The id of the config map, the secret or the resource; none for the platform's */
+    id?: string
+    /** The ConfigMap or the Secret, as Kubernetes names it */
+    name: string
+}
+
+/**
+ * The `envFrom` of the container, in the order the chart lists it: config maps, then secrets, the Secrets of the
+ * resources and, for a maintenance agent, its own. An id with no name is a map deleted since: left out.
+ */
+export const containerEnvSources = (application: GitOpsApplication, mapNames: ContainerMapNames): ContainerEnvSource[] => {
+    const named = (kind: "configMap" | "secret" | "resource", ids: unknown[] | undefined, byId: Map<string, string>): ContainerEnvSource[] =>
+        (ids ?? []).flatMap(id => {
+            const name = byId.get(String(id))
+            return name ? [{ kind, id: String(id), name }] : []
+        })
+    return [
+        ...named("configMap", application.configMapIds, mapNames.configMaps),
+        ...named("secret", application.secretIds, mapNames.secrets),
+        ...named("resource", application.resourceIds, mapNames.resources ?? new Map()),
+        ...(application.maintenance ? [{ kind: "platform" as const, name: maintenanceAgentSecretName(application.slug) }] : [])
+    ]
+}
+
+/** A variable of a container as its pod gets it, and where it comes from */
+export interface ContainerVariable {
+    name: string
+    /** `platform`, or the source it comes from: `configMap logging`, `secret database`, `resource orders-db.resource` */
+    source: string
+    /** In clear for the platform's variables and a config map's */
+    value?: string
+    /** A Secret's, never its value: that it is set and, when known, how long it is */
+    masked?: { set: true; length?: number }
+    /** The source whose value the container gets instead: `env` wins over `envFrom`, a later `envFrom` over an earlier one */
+    overriddenBy?: string
+}
+
+/** What each `envFrom` source holds in the environment, by id, as the deploy commits it: a key with no value there is left out */
+export interface ContainerSourceValues {
+    configMaps: Map<string, Record<string, string>>
+    secrets: Map<string, Record<string, string>>
+    resources: Map<string, Record<string, string>>
+}
+
+/** The keys of the platform's Secret of a maintenance agent: its token is never read to describe it */
+const PLATFORM_SECRET_KEYS = [MAINTENANCE_AGENT_API_URL_VARIABLE, MAINTENANCE_AGENT_TOKEN_VARIABLE]
+
+/**
+ * Every variable the container of `application` gets in `environment`, in the order the chart lists them: HTTP_PORT
+ * and the rest of `env`, then each `envFrom` source. A name set twice is there twice, the one Kubernetes drops marked
+ * with the source that wins: `env` over `envFrom`, and within each the later one. Values of Secrets, a resource's
+ * included, are masked.
+ */
+export const containerEnvironment = (
+    application: GitOpsApplication,
+    environment: { slug: string } & EnvironmentLogging,
+    mapNames: ContainerMapNames,
+    values: ContainerSourceValues,
+    version: string,
+    frontendUrl?: string
+): ContainerVariable[] => {
+    const variables: Array<ContainerVariable & { fromEnv: boolean }> = [
+        // The Deployment hands it, not the CronJob: the container of a JOB agent, which only the CronJob runs, has none
+        ...(application.maintenance?.kind === MaintenanceAgentKind.JOB ? [] : [{ name: HTTP_PORT_VARIABLE, value: String(containerPortOf(application)) }]),
+        ...containerVariables(application, environment, version, frontendUrl)
+    ].map(({ name, value }) => ({ name, source: "platform", value, fromEnv: true }))
+    for (const source of containerEnvSources(application, mapNames)) {
+        if (source.kind === "platform") {
+            for (const name of PLATFORM_SECRET_KEYS) variables.push({ name, source: "platform", masked: { set: true }, fromEnv: false })
+            continue
+        }
+        const held = { configMap: values.configMaps, secret: values.secrets, resource: values.resources }[source.kind].get(source.id ?? "") ?? {}
+        for (const [name, value] of Object.entries(held)) {
+            variables.push({ name, source: `${source.kind} ${source.name}`, ...(source.kind === "configMap" ? { value } : { masked: { set: true, length: value.length } }), fromEnv: false })
+        }
+    }
+    const winners = new Map<string, number>()
+    variables.forEach((variable, index) => {
+        const current = winners.get(variable.name)
+        if (current === undefined || variable.fromEnv || !variables[current].fromEnv) winners.set(variable.name, index)
+    })
+    return variables.map(({ fromEnv: _fromEnv, ...variable }, index) => {
+        const winner = winners.get(variable.name) ?? index
+        return winner === index ? variable : { ...variable, overriddenBy: variables[winner].source }
+    })
+}
+
 /** The Gateway of the environment the HTTPRoute of an application attaches to, and the listener it attaches to */
 export interface ApplicationGateway {
     name: string
@@ -175,14 +315,13 @@ export interface ApplicationGateway {
  * resource is a Secret, so it goes with the secrets, after them: the chart needs no change for it. With a Gateway in
  * the environment, an application with an exposure path gets a route on it. Its CPU, memory and replicas are those of
  * the environment where it sets some apart. Its version is the one of the environment. Without an image repository of
- * its own, the image is the one in the container registry of the project. Every container gets the LOG_LEVEL and
- * LOG_JSON of the environment, FRONTEND_URL when given, and the OpenTelemetry name, environment and version of the
- * application, as `env`: Kubernetes puts them before what a config map of the same name says.
+ * its own, the image is the one in the container registry of the project. Every container gets the variables of
+ * {@link containerVariables} as `env`: Kubernetes puts them before what a config map of the same name says.
  */
 export const renderApplicationValues = (
     application: GitOpsApplication,
     environment: { _id: unknown; slug: string } & EnvironmentLogging,
-    mapNames: { configMaps: Map<string, string>; secrets: Map<string, string>; resources?: Map<string, string> },
+    mapNames: ContainerMapNames,
     gateway?: ApplicationGateway,
     containerRegistry?: string,
     frontendUrl?: string
@@ -192,7 +331,7 @@ export const renderApplicationValues = (
     // isDeployable lets through only what has both: values without them would be a Deployment that never starts
     if (!repository) throw new Error(`${application.slug} has no image repository and the project no container registry`)
     if (!version) throw new Error(`${application.slug} has no version in ${environment.slug}`)
-    const names = (ids: unknown[] | undefined, byId: Map<string, string>) => (ids ?? []).map(id => byId.get(String(id))).filter((name): name is string => Boolean(name))
+    const sources = containerEnvSources(application, mapNames)
     const route =
         gateway && application.exposurePath
             ? { gateway: gateway.name, listener: gateway.listener, path: application.exposurePath, hsts: gateway.hsts, ...(gateway.ipAllowList ? { ipAllowList: gateway.ipAllowList } : {}) }
@@ -202,23 +341,16 @@ export const renderApplicationValues = (
     const values = {
         replicas: resources.replicas ?? CHART_REPLICAS_DEFAULT,
         image: { ...splitImage(repository), tag: version },
-        containerPort: application.port ?? 8080,
+        containerPort: containerPortOf(application),
         ...resourceValues(resources),
         probes: {
             liveness: { active: Boolean(application.livenessPath), path: application.livenessPath ?? "/" },
             readiness: { active: Boolean(application.readinessPath), path: application.readinessPath ?? "/" }
         },
-        environmentMaps: names(application.configMapIds, mapNames.configMaps),
-        secrets: [
-            ...names(application.secretIds, mapNames.secrets),
-            ...names(application.resourceIds, mapNames.resources ?? new Map()),
-            ...(application.maintenance ? [maintenanceAgentSecretName(application.slug)] : [])
-        ],
-        env: [
-            ...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []),
-            ...runtimeVariables(environment, frontendUrl),
-            ...serviceVariables(application, environment, version)
-        ],
+        environmentMaps: sources.filter(source => source.kind === "configMap").map(source => source.name),
+        // The chart lists the secrets after the config maps: a resource's Secret and the platform's are secrets too
+        secrets: sources.filter(source => source.kind !== "configMap").map(source => source.name),
+        env: containerVariables(application, environment, version, frontendUrl),
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }

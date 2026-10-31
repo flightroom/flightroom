@@ -51,9 +51,10 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
         system: systemPrompt(input.repositories, {
             apiResources: apiSpecs.resources.length > 0,
             backendEndpoints: describeBackendEndpoints(input.repositories) !== undefined,
-            scripts: input.sandbox !== undefined
+            scripts: input.sandbox !== undefined,
+            consoleTools: input.consoleTools !== undefined
         }),
-        tools: toolbox.tools(apiSpecs.resources),
+        tools: [...toolbox.tools(apiSpecs.resources), ...(input.consoleTools?.definitions ?? [])],
         messages,
         maxRounds,
         maxTokens: AI_CHANGE_LIMITS.maxTokensPerTurn[effort],
@@ -74,6 +75,7 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
             results: await runToolsInOrder(calls, async call => {
                 await hooks.onEvent("tool", describeToolCall(call.name, call.input))
                 if (call.name === "read_api_spec" && apiSpecs.resources.length) return apiSpecs.read(call.input)
+                if (input.consoleTools?.has(call.name)) return input.consoleTools.run(call.name, call.input)
                 const result = await toolbox.run(call.name, call.input)
                 // What a script or a command printed is shown as the agent read it: the command, its exit code and the end of its output.
                 if (call.name === "run_script" || call.name === "run_command") await hooks.onEvent("output", result)

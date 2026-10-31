@@ -24,6 +24,14 @@ vi.mock("../../service/VariableMapService", () => ({
     }
 }))
 
+const getEnvironment = vi.fn()
+
+vi.mock("../../service/ContainerEnvironmentService", () => ({
+    default: class {
+        get = (...args: unknown[]) => getEnvironment(...args)
+    }
+}))
+
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const MAP = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const ENVIRONMENT = "cccccccccccccccccccccccc"
@@ -101,5 +109,15 @@ describe("variable map tools", () => {
         expect(await run("secret_delete", { secretId: MAP })).toEqual({ deleted: true })
         expect(kinds).toEqual(["secret"])
         expect(remove).toHaveBeenCalledWith(MAP)
+    })
+
+    it("given a backend and an environment, when its container environment is asked, then the service reads it in the connection's project", async () => {
+        getEnvironment.mockResolvedValue({ state: "next_deploy", variables: [], missing: [] })
+
+        await run("container_environment_get", { kind: "backend", id: MAP, environmentId: ENVIRONMENT })
+
+        expect(getEnvironment).toHaveBeenCalledWith(PROJECT, { kind: "backend", id: MAP }, ENVIRONMENT)
+        expect(tool("container_environment_get")).toMatchObject({ scope: MCP_SCOPE_READ, annotations: { readOnlyHint: true } })
+        expect(() => tool("container_environment_get").inputSchema.parse({ kind: "agent", id: MAP, environmentId: ENVIRONMENT })).toThrow()
     })
 })

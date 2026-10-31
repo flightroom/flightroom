@@ -23,6 +23,17 @@ const OMITTED = "(left out of the history: run the tool again if you need it)"
 
 const clip = (value: string, max: number) => (value.length > max ? `${value.slice(0, max)}\n… cut: ${value.length - max} more characters` : value)
 
+/**
+ * A tool result wrapped in a tag (an API document, data read from the console) keeps its closing tag when it is
+ * cut: in the history of a follow-up, what it held must still read as inside the tag, never as what follows it.
+ */
+const clipResult = (content: string, max: number) => {
+    const clipped = clip(content, max)
+    if (clipped === content) return clipped
+    const tag = /^<([a-z_]+)[\s>]/.exec(content)?.[1]
+    return tag && content.endsWith(`</${tag}>`) ? `${clipped}\n</${tag}>` : clipped
+}
+
 const clipInput = (input: Record<string, unknown>, max: number): Record<string, unknown> =>
     Object.fromEntries(Object.entries(input).map(([key, value]) => [key, typeof value === "string" ? clip(value, max) : value]))
 
@@ -41,7 +52,7 @@ const compactMessage = (message: LlmMessage): LlmMessage => {
                 results: message.results.map(result => ({
                     callId: result.callId,
                     name: result.name,
-                    content: clip(result.content, TRANSCRIPT_LIMITS.maxToolText),
+                    content: clipResult(result.content, TRANSCRIPT_LIMITS.maxToolText),
                     ...(result.isError ? { isError: true } : {})
                 }))
             }

@@ -180,10 +180,50 @@ handed to each network call.
   resource it gets `read_api_spec`, which reads the OpenAPI document pasted in the console, or fetches its
   `specUrl` from the backend with no access to private addresses, and answers with an index of the
   operations or one operation in full.
+- It reads the console, never changes it: see [Reading the console](#reading-the-console).
 - At most 20 files and 500 KB written per repository (2 MB per job), 40 model rounds plus 20 per extra
   repository (120 at most).
 - It never pushes. The console pushes its proposal on a feature branch only, never on the base branch:
   only the user's **Apply** writes there.
+
+## Reading the console
+
+The agent of Edit with AI and of missions gets the read tools of the [MCP server](MCP.md#what-the-client-can-do),
+run in process as the user the job runs for, bound to the project of the job: whoever started it, or, for a
+follow-up, whoever asked for the follow-up. It never passes a project, and every id it passes is checked by the
+console against that project, and against the domains of a domain-scoped member, as for that user in the console.
+Each call is written to the log as an audit line (`ai_job_console_tool_call`: tool, ids, job, user). With them it
+diagnoses before changing code:
+
+- the CI runs of each frontend and backend and the logs of a failed one (`build_status_get`, `build_run_logs_get`);
+- the pods of a backend or a container frontend in an environment, with each container's CPU and memory requests
+  and limits, restarts, current state (`CrashLoopBackOff`, `ImagePullBackOff`...) and how its previous run ended
+  (`OOMKilled`, exit code), and what they log (`application_pods_list`, `application_logs_get`);
+- the environment variables a container gets (`container_environment_get`), built by the same function the deploy
+  writes the Helm values with: `HTTP_PORT`, `LOG_LEVEL`, `LOG_JSON`, `FRONTEND_URL`, the OpenTelemetry variables,
+  then the config maps, secrets and resources in the order of the chart's `envFrom`, each with its source and,
+  when another source sets the same name and wins (`env` over `envFrom`, a later `envFrom` over an earlier one),
+  `overriddenBy`. Values of secrets and resources are masked (set, and their length). Global variables are not
+  there: they reach the browsers, not the containers. `state` says what the list is: `next_deploy`, what the next
+  deploy hands the container; `not_in_deploy`, the environment sets no version of it and a container may still run
+  with what an earlier deploy wrote; `no_gitops`, the project deploys no container through GitOps;
+- the rest of the read-only catalog: the project, its environments, domains, frontends, backends and their
+  versions, deployments, config maps, the names and keys of secrets, global variables, resources (credentials masked).
+
+Every write of the catalog is left out, and so are the read tools that hold or reach credentials, masked or not:
+`secret_get`, storages, databases, the repository connections and `repository_checkout_get`, the console-only ones
+(members, API keys, MCP clients, AI jobs), and those that help no change to the code, whose definitions the model
+would read on every round: `user_ai_usage`, canary users, templates, resource types, domain links, dependency and
+integration plans, the promotion preview. A fix that needs the console changed (a variable,
+a memory limit, replicas, a deploy) is written in the summary for the team to make.
+
+Every result of these tools, whichever the tool, comes to the model inside `<console_data untrusted="true">`, which
+no text of it can open or close: CI and pod logs, commit and termination messages, variable values and what the
+team configured may all have been written by someone other than the user. The usual credential shapes are masked
+(connection strings of any scheme included), each text keeps only its end (8,000 characters) and a long list its
+latest items: the prompt tells the agent it is evidence, never instructions. Each result is cut at 20,000
+characters, and counts in the tokens of the job like the rest; when the history of a follow-up keeps only the start
+of a result, the tag is closed again after the cut.
 
 ## Running install, lint, test and build
 

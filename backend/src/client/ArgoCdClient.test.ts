@@ -2,7 +2,7 @@ import https from "node:https"
 import axios, { CreateAxiosDefaults } from "axios"
 import { afterEach, describe, expect, it, vi } from "vitest"
 import { BusinessException } from "../errors/BusinessException"
-import ArgoCdClient from "./ArgoCdClient"
+import ArgoCdClient, { podContainers } from "./ArgoCdClient"
 
 /** The configuration the client created its axios instance with */
 const configOf = (...options: ConstructorParameters<typeof ArgoCdClient>[2][]) => {
@@ -704,6 +704,90 @@ describe("ArgoCdClient.getPodLogs edge cases", () => {
         await expect(clientWith({ get: vi.fn().mockRejectedValue(answered(404, { message: "pods not found" })) }).getPodLogs("orders", "acme", query)).rejects.toMatchObject({
             code: "ARGOCD_REQUEST_FAILED",
             details: { reason: "404 pods not found" }
+        })
+    })
+})
+
+describe("podContainers", () => {
+    it("given a pod whose container was OOMKilled and now crash loops, when its manifest is read, then its resources, restarts, state and last termination come back", () => {
+        const manifest = {
+            spec: { containers: [{ name: "orders", resources: { requests: { cpu: "25m", memory: "128Mi" }, limits: { cpu: "500m", memory: "512Mi", "nvidia.com/gpu": "1" } } }] },
+            status: {
+                containerStatuses: [
+                    {
+                        name: "orders",
+                        ready: false,
+                        restartCount: 7,
+                        state: { waiting: { reason: "CrashLoopBackOff", message: "back-off 5m0s restarting failed container" } },
+                        lastState: { terminated: { reason: "OOMKilled", exitCode: 137, finishedAt: "2026-10-31T10:00:00Z", message: "x".repeat(2_000) } }
+                    }
+                ]
+            }
+        }
+
+        const [container] = podContainers(manifest)
+
+        expect(container).toMatchObject({
+            name: "orders",
+            requests: { cpu: "25m", memory: "128Mi" },
+            limits: { cpu: "500m", memory: "512Mi" },
+            ready: false,
+            restartCount: 7,
+            state: { kind: "waiting", reason: "CrashLoopBackOff", message: "back-off 5m0s restarting failed container" },
+            lastTermination: { reason: "OOMKilled", exitCode: 137, finishedAt: "2026-10-31T10:00:00Z" }
+        })
+        expect(container.lastTermination?.message).toHaveLength(500)
+    })
+
+    it("given a running container and a terminated one, when the manifest is read, then each state says so with when", () => {
+        const manifest = {
+            spec: { containers: [{ name: "app" }, { name: "migrate", resources: { requests: {} } }] },
+            status: {
+                containerStatuses: [
+                    { name: "app", ready: true, restartCount: 0, state: { running: { startedAt: "2026-10-31T09:00:00Z" } } },
+                    { name: "migrate", state: { terminated: { reason: "Completed", exitCode: 0, finishedAt: "2026-10-31T09:01:00Z" } } }
+                ]
+            }
+        }
+
+        expect(podContainers(manifest)).toEqual([
+            { name: "app", ready: true, restartCount: 0, state: { kind: "running", at: "2026-10-31T09:00:00Z" } },
+            { name: "migrate", state: { kind: "terminated", reason: "Completed", message: undefined, exitCode: 0, at: "2026-10-31T09:01:00Z" } }
+        ])
+    })
+
+    it("given a pod not scheduled yet, a container without a name, or no manifest, when it is read, then only what is there comes back", () => {
+        expect(podContainers({ spec: { containers: [{ name: "app", resources: { limits: { memory: "1Gi" } } }, {}] }, status: { containerStatuses: [{ name: "app", state: {} }] } })).toEqual([
+            { name: "app", limits: { memory: "1Gi" } }
+        ])
+        expect(podContainers(null)).toEqual([])
+        expect(podContainers({})).toEqual([])
+    })
+})
+
+describe("ArgoCdClient.getPodContainers", () => {
+    const pod = { name: "orders-7d9f-abcde", namespace: "dev" }
+
+    it("given a pod of the Application, when its containers are read, then its live manifest is asked for through the Application and parsed", async () => {
+        const manifest = { spec: { containers: [{ name: "orders", resources: { limits: { memory: "512Mi" } } }] }, status: { containerStatuses: [{ name: "orders", restartCount: 1 }] } }
+        const get = vi.fn().mockResolvedValue({ data: { manifest: JSON.stringify(manifest) } })
+
+        await expect(clientWith({ get }).getPodContainers("orders/dev", "acme", pod)).resolves.toEqual([{ name: "orders", limits: { memory: "512Mi" }, restartCount: 1 }])
+        expect(get).toHaveBeenCalledWith("/applications/orders%2Fdev/resource", {
+            params: { namespace: "dev", resourceName: "orders-7d9f-abcde", group: "", version: "v1", kind: "Pod", project: "acme" }
+        })
+    })
+
+    it("given a pod gone meanwhile, an answer without a manifest or one that is not JSON, when its containers are read, then there are none to tell", async () => {
+        await expect(clientWith({ get: vi.fn().mockRejectedValue(answered(404)) }).getPodContainers("orders", "acme", pod)).resolves.toBeNull()
+        await expect(clientWith({ get: vi.fn().mockResolvedValue({ data: {} }) }).getPodContainers("orders", "acme", pod)).resolves.toBeNull()
+        await expect(clientWith({ get: vi.fn().mockResolvedValue({ data: { manifest: "{not json" } }) }).getPodContainers("orders", "acme", pod)).resolves.toBeNull()
+    })
+
+    it("given the account may not read the pod, when its containers are read, then the refusal names the pod", async () => {
+        await expect(clientWith({ get: vi.fn().mockRejectedValue(answered(403)) }).getPodContainers("orders", "acme", pod)).rejects.toMatchObject({
+            code: "ARGOCD_FORBIDDEN",
+            details: { reason: "read the pod orders-7d9f-abcde" }
         })
     })
 })

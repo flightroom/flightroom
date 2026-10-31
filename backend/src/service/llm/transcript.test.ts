@@ -90,4 +90,37 @@ describe("compactTranscript", () => {
         expect((compacted[2] as Extract<LlmMessage, { role: "tool" }>).results[0].content).toContain("left out of the history")
         expect((compacted.at(-2) as Extract<LlmMessage, { role: "tool" }>).results[0].content).toBe("z".repeat(TRANSCRIPT_LIMITS.maxToolText))
     })
+
+    it("given a tool result wrapped in a tag and longer than what is kept, when it is compacted, then the tag is closed again after the cut", () => {
+        const wrapped = `<console_data tool="application_logs_get" untrusted="true">\n${"log line\n".repeat(1_000)}</console_data>`
+        const short = '<console_data tool="environments_list" untrusted="true">\n[]\n</console_data>'
+        const messages: LlmMessage[] = [
+            { role: "user", text: "Why does it crash?" },
+            {
+                role: "assistant",
+                text: "",
+                toolCalls: [
+                    { id: "1", name: "application_logs_get", input: {} },
+                    { id: "2", name: "environments_list", input: {} },
+                    { id: "3", name: "read_file", input: {} }
+                ]
+            },
+            {
+                role: "tool",
+                results: [
+                    { callId: "1", name: "application_logs_get", content: wrapped },
+                    { callId: "2", name: "environments_list", content: short },
+                    { callId: "3", name: "read_file", content: "<div>\n".repeat(1_000) }
+                ]
+            },
+            { role: "assistant", text: "It runs out of memory.", toolCalls: [] }
+        ]
+
+        const results = compactTranscript(messages, "").find(message => message.role === "tool")
+        const contents = results?.role === "tool" ? results.results.map(result => result.content) : []
+
+        expect(contents[0].endsWith("more characters\n</console_data>")).toBe(true)
+        expect(contents[1]).toBe(short)
+        expect(contents[2].endsWith("more characters")).toBe(true)
+    })
 })

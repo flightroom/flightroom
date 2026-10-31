@@ -22,7 +22,8 @@ const PRIVATE_KEY = /-----BEGIN [A-Z ]*PRIVATE KEY-----[\s\S]*?(?:-----END [A-Z 
 const ACCOUNT_KEY = /\b(AccountKey=)[^;\s]+/gi
 const SHARED_ACCESS_SIGNATURE = /\b(SharedAccessSignature=)[^;\s]+/gi
 const SAS_SIGNATURE = /([?&]sig=)[^&\s"']+/gi
-const URL_CREDENTIALS = /(https?:\/\/)[^/\s:@]+:[^/\s@]+@/g
+/** `user:password@` in a URL of any scheme: git over HTTPS, mongodb(+srv), postgres, mysql, amqp, redis (`://:password@`)... */
+const URL_CREDENTIALS = /\b([a-z][a-z0-9+.-]*:\/\/)[^/\s:@]*:[^/\s@]+@/gi
 
 export const redactSecrets = (value: string): string =>
     SECRET_PATTERNS.reduce((redacted, pattern) => redacted.replace(pattern, "[REDACTED]"), value)

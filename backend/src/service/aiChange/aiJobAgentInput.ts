@@ -5,6 +5,7 @@ import { IDomain } from "../../models/DomainModel"
 import Environment from "../../models/EnvironmentModel"
 import { IProject } from "../../models/ProjectModel"
 import Resource, { IResource } from "../../models/ResourceModel"
+import { IUser } from "../../models/UserModel"
 import { ConfigMap, IVariableMap, Secret } from "../../models/VariableMapModel"
 import { effectiveDesignSystem, IDesignSystem } from "../../types/DesignSystem"
 import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
@@ -14,6 +15,7 @@ import { projectDesignSystemOf } from "../ProjectService"
 import { keysOnly } from "../VariableMapService"
 import { BackendComponent, componentsOfJob, RepositoryComponent } from "../workspace/repositoryComponent"
 import { AiChangeAgentBackend, AiChangeAgentDomain, AiChangeAgentInput, AiChangeAgentRepository, AiChangeAgentResource } from "./aiChangeAgentTypes"
+import { AiChangeConsoleTools } from "./aiChangeConsoleTools"
 import { jobSandboxOwner, sandboxExecRecorder, sandboxForJob } from "./aiChangeSandboxes"
 import { RunningRepository } from "./aiJobWorkingCopies"
 import { AiChangeApiSpecSource } from "./apiSpecReader"
@@ -237,8 +239,9 @@ const previousRequests = async (job: IAiChangeJob): Promise<{ prompt: string; su
 
 /**
  * What the agent of a job is given: the project, the domain it works on or those its repositories are in, each
- * repository with its working copy, and what came before in the conversation. `visibleResources`, for a job of a
- * domain-scoped member, keeps the resources they may read: the job runs as whoever started it, and sees no more.
+ * repository with its working copy, what came before in the conversation, and with `user`, the console tools read
+ * as them: whoever started the job, or asked for the follow-up it is. `visibleResources`, for a job of a domain-scoped member, keeps the resources they
+ * may read: the job runs as whoever started it, and sees no more.
  */
 export const agentInputOf = async (
     job: IAiChangeJob,
@@ -246,7 +249,8 @@ export const agentInputOf = async (
     domain: IDomain | null,
     memberDomains: IDomain[],
     repositories: RunningRepository[],
-    visibleResources?: Set<string>
+    visibleResources?: Set<string>,
+    user?: IUser
 ): Promise<AiChangeAgentInput> => {
     const components = repositories.map(repository => repository.component)
     // Independent reads, side by side
@@ -288,6 +292,7 @@ export const agentInputOf = async (
         ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {}),
         sandbox: sandboxForJob(fastify.config, job, sandboxOwner),
         onSandboxExec: sandboxExecRecorder(job, sandboxOwner),
-        previewsEnabled: fastify.config.OPENSHELL_PREVIEWS_ENABLED
+        previewsEnabled: fastify.config.OPENSHELL_PREVIEWS_ENABLED,
+        ...(user ? { consoleTools: new AiChangeConsoleTools(user, String(job.projectId), String(job._id), fastify.log) } : {})
     }
 }

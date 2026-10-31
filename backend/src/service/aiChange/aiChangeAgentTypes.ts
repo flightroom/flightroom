@@ -1,6 +1,6 @@
 import { IDesignSystem } from "../../types/DesignSystem"
 import { IProjectTechnologies } from "../../types/ProjectTechnology"
-import { LlmEffort, LlmImage, LlmMessage, LlmUsage } from "../llm"
+import { LlmEffort, LlmImage, LlmMessage, LlmTool, LlmUsage } from "../llm"
 import { CommandSandbox } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
 import { SandboxExec } from "./aiChangeScripts"
@@ -110,6 +110,16 @@ export interface AiChangeAgentInput {
     onSandboxExec?: (exec: SandboxExec) => Promise<void> | void
     /** Starts gateway-routed development previews when explicitly enabled by the installation. */
     previewsEnabled?: boolean
+    /** What the agent reads of the console (builds, pods, logs, environment variables, configuration): offered only with them */
+    consoleTools?: AiChangeAgentConsoleTools
+}
+
+/** Read tools of the console, bound to the project of the job and run as whoever started it: they never change anything */
+export interface AiChangeAgentConsoleTools {
+    definitions: LlmTool[]
+    has: (name: string) => boolean
+    /** The result as the model reads it; throws with what to tell the model when the call fails */
+    run: (name: string, input: unknown) => Promise<string>
 }
 
 export interface AiChangeAgentHooks {

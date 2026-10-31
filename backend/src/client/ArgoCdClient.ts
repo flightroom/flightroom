@@ -92,6 +92,81 @@ export interface ArgoCdPod {
     containers?: string
     restarts?: number
     createdAt?: string
+    /** Read from the live manifest of the pod, when it could be: what each container may use and how it ran */
+    containerDetails?: ArgoCdPodContainer[]
+}
+
+/** A container of a pod as Kubernetes holds it now: what it asks for and is held to, and why it stopped */
+export interface ArgoCdPodContainer {
+    name: string
+    requests?: { cpu?: string; memory?: string }
+    limits?: { cpu?: string; memory?: string }
+    ready?: boolean
+    restartCount?: number
+    /** What it is doing now: running, or waiting or terminated with Kubernetes' reason (CrashLoopBackOff, ImagePullBackOff, OOMKilled...) */
+    state?: { kind: "running" | "waiting" | "terminated"; reason?: string; message?: string; exitCode?: number; at?: string }
+    /** How its previous run ended, the one before the last restart: OOMKilled, Error... with its exit code */
+    lastTermination?: { reason?: string; message?: string; exitCode?: number; finishedAt?: string }
+}
+
+/** A message a container writes when it ends is its own text: only its start is kept */
+const CONTAINER_MESSAGE_MAX_LENGTH = 500
+
+interface KubernetesContainerState {
+    running?: { startedAt?: string }
+    waiting?: { reason?: string; message?: string }
+    terminated?: { reason?: string; message?: string; exitCode?: number; finishedAt?: string }
+}
+
+interface KubernetesPod {
+    spec?: { containers?: Array<{ name?: string; resources?: { requests?: Record<string, string>; limits?: Record<string, string> } }> }
+    status?: { containerStatuses?: Array<{ name?: string; ready?: boolean; restartCount?: number; state?: KubernetesContainerState; lastState?: KubernetesContainerState }> }
+}
+
+const shortMessage = (message?: string) => (message ? message.slice(0, CONTAINER_MESSAGE_MAX_LENGTH) : undefined)
+
+/** The CPU and memory of a requests or limits block, none when it sets neither */
+const quantities = (block?: Record<string, string>) => {
+    const picked = { ...(block?.cpu ? { cpu: block.cpu } : {}), ...(block?.memory ? { memory: block.memory } : {}) }
+    return Object.keys(picked).length ? picked : undefined
+}
+
+const stateOf = (state?: KubernetesContainerState): ArgoCdPodContainer["state"] => {
+    if (state?.running) return { kind: "running", at: state.running.startedAt }
+    if (state?.waiting) return { kind: "waiting", reason: state.waiting.reason, message: shortMessage(state.waiting.message) }
+    if (state?.terminated) {
+        const { reason, message, exitCode, finishedAt } = state.terminated
+        return { kind: "terminated", reason, message: shortMessage(message), exitCode, at: finishedAt }
+    }
+    return undefined
+}
+
+/**
+ * The containers of a live Pod manifest: the requests and limits of its spec, with the restarts, the state and the
+ * last termination of its status. A container the status does not mention yet has its resources only.
+ */
+export const podContainers = (manifest: unknown): ArgoCdPodContainer[] => {
+    const pod = (manifest ?? {}) as KubernetesPod
+    const statuses = pod.status?.containerStatuses ?? []
+    return (pod.spec?.containers ?? []).flatMap(container => {
+        if (!container.name) return []
+        const status = statuses.find(candidate => candidate.name === container.name)
+        const last = status?.lastState?.terminated
+        const requests = quantities(container.resources?.requests)
+        const limits = quantities(container.resources?.limits)
+        const state = stateOf(status?.state)
+        return [
+            {
+                name: container.name,
+                ...(requests ? { requests } : {}),
+                ...(limits ? { limits } : {}),
+                ...(status?.ready !== undefined ? { ready: status.ready } : {}),
+                ...(status?.restartCount !== undefined ? { restartCount: status.restartCount } : {}),
+                ...(state ? { state } : {}),
+                ...(last ? { lastTermination: { reason: last.reason, message: shortMessage(last.message), exitCode: last.exitCode, finishedAt: last.finishedAt } } : {})
+            }
+        ]
+    })
 }
 
 export interface ArgoCdLogLine {
@@ -268,6 +343,24 @@ class ArgoCdClient {
                     createdAt: node.createdAt
                 }
             })
+    }
+
+    /**
+     * The containers of a pod the Application runs, from its live manifest: the resource tree has neither the
+     * requests and limits nor why a container last stopped. Null when the pod is gone or its manifest unreadable.
+     */
+    async getPodContainers(application: string, project: string, pod: Pick<ArgoCdPod, "name" | "namespace">): Promise<ArgoCdPodContainer[] | null> {
+        const resource = await this.find(`read the pod ${pod.name}`, () =>
+            this.api.get<{ manifest?: string }>(`/applications/${encodeURIComponent(application)}/resource`, {
+                params: { namespace: pod.namespace, resourceName: pod.name, group: "", version: "v1", kind: "Pod", project }
+            })
+        )
+        if (!resource?.manifest) return null
+        try {
+            return podContainers(JSON.parse(resource.manifest))
+        } catch {
+            return null
+        }
     }
 
     /**
