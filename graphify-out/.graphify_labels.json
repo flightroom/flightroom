@@ -21,7 +21,6 @@
   "19": "Backend Controller Layer",
   "20": "Tables & Layout Components",
   "21": "Sidebar & Theme Toggle",
-  "22": "ApiKeyService.ts",
   "23": "Frontend API Client",
   "24": "Auth Wrappers & Context",
   "25": "Project Docs & Tooling",
@@ -251,7 +250,6 @@
   "249": "[6.2.0] - 2026-10-23",
   "250": "codeRepositoryUtils.ts",
   "251": "CodeRepositoryImportService",
-  "252": "aiChangeAgent.test.ts",
   "253": "DomainController.ts",
   "254": "resourceTools.test.ts",
   "255": "curl",
@@ -358,7 +356,6 @@
   "356": "readOAuthResume",
   "357": "noSQL.test.ts",
   "358": "projectWizardStateMachine.ts",
-  "359": "[6.0.0] - 2026-10-23",
   "360": "[8.4.0] - 2026-10-26",
   "361": "[Unreleased]",
   "362": "ChargeForce"
