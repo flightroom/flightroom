@@ -1,6 +1,21 @@
-import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, SectionHeader, SelectField, SwitchField as Switch, TextareaChipsField } from "@flightroom/design-system"
+import {
+    Card,
+    CardContent,
+    CardDescription,
+    CardFooter,
+    CardHeader,
+    CardTitle,
+    Label,
+    SectionHeader,
+    SelectField,
+    SwitchField as Switch,
+    TextareaChipsField,
+    ToggleGroup,
+    ToggleGroupItem
+} from "@flightroom/design-system"
 import { ExternalLink, Trash2 } from "lucide-react"
-import { FormProvider, useForm } from "react-hook-form"
+import { useEffect, useId, useRef } from "react"
+import { FormProvider, useController, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import ColorPicker from "@/components/input/ColorPicker.rhf"
@@ -10,6 +25,7 @@ import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS, type KubeGreen
 import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
+import { cn } from "@/utils/styleUtils"
 
 export interface EnvironmentFormData {
     name: string
@@ -29,6 +45,34 @@ export interface EnvironmentFormData {
 /** Come per il backend (KUBE_GREEN_WEEKDAYS): giorni da 0 (domenica) a 6, intervalli e virgole, oppure `*` */
 const KUBE_GREEN_WEEKDAYS = /^(\*|[0-6](-[0-6])?(,[0-6](-[0-6])?)*)$/
 
+/** Lunedi' per primo, come nel calendario italiano; 0 e' la domenica, come nel cron */
+const WEEK = [1, 2, 3, 4, 5, 6, 0]
+
+/** I giorni indicati da `1-5`, `1,3,5` o `*`; nessuno se il valore non e' valido */
+export const parseWeekdays = (value: string): number[] => {
+    const compact = value.replace(/\s+/g, "")
+    if (!KUBE_GREEN_WEEKDAYS.test(compact)) return []
+    if (compact === "*") return [...WEEK]
+    return compact.split(",").flatMap(part => {
+        const [from, to = from] = part.split("-").map(Number)
+        // Il backend accetta anche gli intervalli al contrario: 5-1 gira sulla settimana, da venerdi' a lunedi'
+        return Array.from({ length: ((to - from + 7) % 7) + 1 }, (_, offset) => (from + offset) % 7)
+    })
+}
+
+/** I giorni nella forma piu' corta: `*` per tutti, intervalli per i giorni consecutivi */
+export const formatWeekdays = (days: number[]): string => {
+    const sorted = [...new Set(days)].sort((a, b) => a - b)
+    if (sorted.length === WEEK.length) return "*"
+    const runs: number[][] = []
+    for (const day of sorted) {
+        const run = runs[runs.length - 1]
+        if (run && day === run[run.length - 1] + 1) run.push(day)
+        else runs.push([day])
+    }
+    return runs.map(run => (run.length > 1 ? `${run[0]}-${run[run.length - 1]}` : `${run[0]}`)).join(",")
+}
+
 /** Come per il backend (isTimeZone): un fuso orario IANA che il browser riconosce */
 const isTimeZone = (value: string) => {
     try {
@@ -38,6 +82,9 @@ const isTimeZone = (value: string) => {
         return false
     }
 }
+
+/** I fusi orari IANA del browser, suggeriti mentre si scrive; la lib ES2020 di TypeScript non conosce ancora supportedValuesOf */
+const TIME_ZONES: string[] = (Intl as { supportedValuesOf?: (key: string) => string[] }).supportedValuesOf?.("timeZone") ?? []
 
 /** Come per il backend: etichette DNS separate da punti, oppure niente per il dominio stesso */
 const SUBDOMAIN = /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?(\.[a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)*)?$/
@@ -65,7 +112,63 @@ const isIpRange = (value: string) => {
 /** Come per il backend (IP_ALLOW_LIST_MAX) */
 const IP_ALLOW_LIST_MAX = 100
 
+/** Lo slug proposto dal nome, nella forma dei preset (DEV, PROD): maiuscole, cifre e trattini */
+export const slugFromName = (name: string) =>
+    name
+        .normalize("NFD")
+        .replace(/[̀-ͯ]/g, "")
+        .trim()
+        .toUpperCase()
+        .replace(/[^A-Z0-9]+/g, "-")
+        .replace(/^-+|-+$/g, "")
+
 export const exposedHost = (domain: string, subdomain: string) => (subdomain ? `${subdomain}.${domain}` : domain)
+
+/** I giorni in cui kube-green spegne l'ambiente, uno per bottone; nel form resta la notazione cron che il backend si aspetta */
+function WeekdaysField() {
+    const { t, i18n } = useTranslation()
+    const id = useId()
+    const { field, fieldState } = useController<EnvironmentFormData, "kubeGreen.weekdays">({
+        name: "kubeGreen.weekdays",
+        rules: { validate: value => parseWeekdays(value ?? "").length > 0 || t("environment.form.kube_green.weekdays_invalid") }
+    })
+    // Il 4 gennaio 2026 e' una domenica: day giorni dopo cade il giorno day del cron
+    const dayName = (day: number, weekday: "short" | "long") => new Intl.DateTimeFormat(i18n.language, { weekday }).format(new Date(2026, 0, 4 + day))
+    const error = fieldState.error?.message
+
+    return (
+        <div className="flex flex-col">
+            <Label id={`${id}-label`} className={cn("mb-1 block", error ? "text-destructive" : "text-foreground-secondary")}>
+                {t("environment.form.kube_green.weekdays")}
+            </Label>
+            <p id={`${id}-description`} className="mb-1 text-sm text-foreground-secondary">
+                {t("environment.form.kube_green.weekdays_description")}
+            </p>
+            <ToggleGroup
+                type="multiple"
+                variant="outline"
+                size="sm"
+                aria-labelledby={`${id}-label`}
+                aria-describedby={error ? `${id}-description ${id}-error` : `${id}-description`}
+                value={parseWeekdays(field.value ?? "").map(String)}
+                onValueChange={days => field.onChange(formatWeekdays(days.map(Number)))}
+                dataTestId="environment-kube-green-weekdays"
+                className="flex-wrap justify-start"
+            >
+                {WEEK.map(day => (
+                    <ToggleGroupItem key={day} value={String(day)} aria-label={dayName(day, "long")} className="capitalize">
+                        {dayName(day, "short")}
+                    </ToggleGroupItem>
+                ))}
+            </ToggleGroup>
+            {error && (
+                <p id={`${id}-error`} role="alert" className="mt-1 text-sm text-destructive">
+                    {error}
+                </p>
+            )}
+        </div>
+    )
+}
 
 interface EnvironmentEditorProps {
     /** Valori di partenza: il genitore rimonta l'editor (key) quando cambia l'ambiente selezionato */
@@ -75,21 +178,25 @@ interface EnvironmentEditorProps {
     /** Solo in creazione: in modifica "Annulla" riporta i valori salvati */
     onCancel?: () => void
     onDelete?: () => void
+    /** Se il form ha modifiche non salvate: il genitore chiede conferma prima di aprire un altro ambiente */
+    onDirtyChange?: (isDirty: boolean) => void
 }
 
 /**
  * Modifica dell'ambiente selezionato, in linea sotto le tessere invece che in un dialog:
  * i campi crescono con GitOps (esposizione, IP, log) e su due colonne restano tutti a vista.
  */
-export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }: EnvironmentEditorProps) {
+export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, onDirtyChange }: EnvironmentEditorProps) {
     const { t } = useTranslation()
     const isEdit = Boolean(id)
     // I campi di kube-green partono dai default anche per un ambiente salvato prima che ci fossero
     const form = useForm<EnvironmentFormData>({ defaultValues: { ...formData, kubeGreen: { ...KUBE_GREEN_DEFAULTS, ...formData.kubeGreen } } })
     const environmentsApi = useEnvironmentsApi()
     const notifications = useToastNotificationStore()
+    const timeZonesId = useId()
     // Il namespace serve solo a GitOps: senza, l'ambiente non finisce in nessun cluster
     const isGitOpsEnabled = Boolean(useProjectStore(state => state.project?.gitOps?.enabled))
+    const name = form.watch("name")
     const slug = form.watch("slug")
     // Il sottodominio vale sul dominio del progetto: finche' non c'e', l'ambiente non e' esposto da GitOps
     const domain = useProjectStore(state => state.project?.exposure?.domain)
@@ -97,8 +204,23 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
     const isProduction = form.watch("isProduction")
     const isKubeGreenEnabled = form.watch("kubeGreen.enabled")
     const isSubmitting = form.formState.isSubmitting
+    const isDirty = form.formState.isDirty
     // L'host salvato, non quello in modifica: il link porta all'ambiente com'e' oggi
     const savedHost = isEdit && isGitOpsEnabled && domain ? exposedHost(domain, effectiveSubdomain(formData)) : undefined
+
+    useEffect(() => {
+        onDirtyChange?.(isDirty)
+        return () => onDirtyChange?.(false)
+    }, [isDirty, onDirtyChange])
+
+    // In creazione lo slug segue il nome finche' l'utente non lo scrive a mano
+    const derivedSlug = useRef(formData.slug)
+    useEffect(() => {
+        if (isEdit || form.getValues("slug") !== derivedSlug.current) return
+        derivedSlug.current = slugFromName(name ?? "")
+        // shouldDirty: cancellato il nome, lo slug torna vuoto e il form torna pulito
+        form.setValue("slug", derivedSlug.current, { shouldDirty: true, shouldValidate: form.formState.isSubmitted })
+    }, [isEdit, name, form])
 
     const onSubmit = async (data: EnvironmentFormData) => {
         const saved = isEdit ? await environmentsApi.editEnvironment(id, data) : await environmentsApi.createEnvironment(data)
@@ -153,6 +275,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                     dataTestId="environment-slug"
                                     label={t("environment.form.slug")}
                                     placeholder={t("environment.form.slug_placeholder")}
+                                    description={isEdit ? t("environment.form.slug_locked_description") : undefined}
                                     rules={{
                                         required: t("environment.form.slug_required") as string
                                     }}
@@ -162,7 +285,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                 />
                             </div>
                             <TextareaField name="description" label={t("environment.form.description")} placeholder={t("environment.form.description_placeholder")} />
-                            <div className="flex flex-row justify-between gap-4">
+                            <div className="flex flex-row flex-wrap justify-between gap-4">
                                 <ColorPicker
                                     name="color"
                                     label={t("environment.color")}
@@ -173,12 +296,18 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                 />
                                 <Switch name="isProduction" label={t("environment.is_production")} />
                             </div>
+                            <TextareaChipsField
+                                name="domains"
+                                label={t("environment.form.domains")}
+                                placeholder={t("environment.form.domains_placeholder")}
+                                description={t("environment.form.domains_description")}
+                            />
                         </section>
 
                         <div className="flex flex-col gap-6">
-                            <section className="flex flex-col gap-4">
-                                <SectionHeader as="h3" title={t("environment.page.form.sections.exposure")} />
-                                {isGitOpsEnabled && (
+                            {isGitOpsEnabled && (
+                                <section className="flex flex-col gap-4">
+                                    <SectionHeader as="h3" title={t("environment.page.form.sections.exposure")} />
                                     <div className="flex flex-wrap gap-x-4 gap-y-2">
                                         <TextField
                                             name="namespace"
@@ -211,8 +340,6 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                             containerClassName="flex-[1_1_200px]"
                                         />
                                     </div>
-                                )}
-                                {isGitOpsEnabled && (
                                     <TextareaChipsField
                                         name="ipAllowList"
                                         dataTestId="environment-ip-allow-list"
@@ -228,9 +355,8 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                             }
                                         }}
                                     />
-                                )}
-                                <TextareaChipsField name="domains" label={t("environment.form.domains")} placeholder={t("environment.form.domains_placeholder")} />
-                            </section>
+                                </section>
+                            )}
 
                             {isGitOpsEnabled && (
                                 <section className="flex flex-col gap-4">
@@ -261,27 +387,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                     />
                                     {isKubeGreenEnabled && (
                                         <>
-                                            <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                                <TextField
-                                                    name="kubeGreen.weekdays"
-                                                    dataTestId="environment-kube-green-weekdays"
-                                                    label={t("environment.form.kube_green.weekdays")}
-                                                    placeholder="1-5"
-                                                    description={t("environment.form.kube_green.weekdays_description")}
-                                                    rules={{ validate: value => KUBE_GREEN_WEEKDAYS.test((value ?? "").replace(/\s+/g, "")) || t("environment.form.kube_green.weekdays_invalid") }}
-                                                    required
-                                                    containerClassName="flex-[1_1_200px]"
-                                                />
-                                                <TextField
-                                                    name="kubeGreen.timeZone"
-                                                    dataTestId="environment-kube-green-time-zone"
-                                                    label={t("environment.form.kube_green.time_zone")}
-                                                    placeholder="Europe/Rome"
-                                                    rules={{ validate: value => isTimeZone((value ?? "").trim()) || t("environment.form.kube_green.time_zone_invalid") }}
-                                                    required
-                                                    containerClassName="flex-[1_1_200px]"
-                                                />
-                                            </div>
+                                            <WeekdaysField />
                                             <div className="flex flex-wrap gap-x-4 gap-y-2">
                                                 <TextField
                                                     name="kubeGreen.sleepAt"
@@ -301,6 +407,21 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                                     containerClassName="flex-[1_1_200px]"
                                                 />
                                             </div>
+                                            <TextField
+                                                name="kubeGreen.timeZone"
+                                                dataTestId="environment-kube-green-time-zone"
+                                                label={t("environment.form.kube_green.time_zone")}
+                                                placeholder="Europe/Rome"
+                                                list={timeZonesId}
+                                                autoComplete="off"
+                                                rules={{ validate: value => isTimeZone((value ?? "").trim()) || t("environment.form.kube_green.time_zone_invalid") }}
+                                                required
+                                            />
+                                            <datalist id={timeZonesId}>
+                                                {TIME_ZONES.map(timeZone => (
+                                                    <option key={timeZone} value={timeZone} />
+                                                ))}
+                                            </datalist>
                                             <div className="flex flex-col gap-3">
                                                 <Switch name="kubeGreen.suspendDeployments" label={t("environment.form.kube_green.suspend_deployments")} />
                                                 <Switch name="kubeGreen.suspendStatefulSets" label={t("environment.form.kube_green.suspend_stateful_sets")} />
@@ -342,11 +463,12 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete }:
                                 variant="secondary"
                                 // In modifica riporta i valori salvati, in creazione torna all'ambiente di prima
                                 onClick={isEdit ? () => form.reset() : onCancel}
-                                disabled={isSubmitting || (isEdit && !form.formState.isDirty)}
+                                disabled={isSubmitting || (isEdit && !isDirty)}
                             >
                                 {t("environment.page.form.cancel")}
                             </Button>
-                            <Button type="submit" disabled={isSubmitting} dataTestId="environment-submit">
+                            {/* In creazione resta cliccabile anche vuoto: e' l'invio che mostra quali campi mancano */}
+                            <Button type="submit" loading={isSubmitting} loadingLabel={t("common.saving")} disabled={isEdit && !isDirty} dataTestId="environment-submit">
                                 {isEdit ? t("environment.page.form.update") : t("environment.page.form.create")}
                             </Button>
                         </div>

@@ -5,6 +5,21 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Changed
+
+- **Days Of A kube-green Schedule As Buttons**: the days an environment sleeps are picked from a row of day buttons, Monday first, in place of typing them in cron notation; the API and the MCP tools still take and return the cron string, e.g. `1-5`. The time zone suggests the IANA zones while typing
+- **Deleting A Production Environment Asks For Its Name**: an environment marked as production is deleted only after typing its name
+- **Environment Editor**: the slug of a new environment follows its name, e.g. `STAGING-EU` from "Staging EU", until it is typed by hand, and once created a note says it cannot change. **Allowed Domains** is now **Host page domains**, under General, and says what it is for: the domains of the pages that load the frontends of the environment, whose requests are attributed to it. **Update** shows its progress and stays off until something changes. The reorder hint and handles are hidden while there is a single environment
+
+### Fixed
+
+- **Environment Selector Up To Date**: creating, renaming or deleting an environment updates the environment selector of the console right away, and saving no longer switches the selected environment back to the first one; deleting the last one shows the setup screen again
+- **Unsaved Changes Of An Environment**: opening another environment, or a new one, while the open one has unsaved changes asks before discarding them
+- **Reordering Environments With The Keyboard**: the handle of a tile also moves with the left and right arrows and keeps the focus, and the order is saved once the moves stop, not at every key press with a notification each
+- **Environment Setup Screen**: the preset groups can be picked with the keyboard and their colours no longer make the environment names unreadable; while one environment is being edited the actions of the others are off, the first one included, and confirming an edit reads Update rather than Add
+
 ## [11.4.0] - 2026-10-31
 
 ### Added
