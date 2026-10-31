@@ -34,6 +34,15 @@ export interface McpToolContext {
     scopes: string[]
     credential: McpCredential
     session: McpSession
+    /**
+     * Set by the console assistant only: the conversation the call is made in, which the agents it starts are
+     * linked to and the only one that may drive them.
+     */
+    conversationId?: string
+    /** Set by the console assistant only: aborted once nobody waits for the answer, so a tool that waits stops. */
+    signal?: AbortSignal
+    /** Set by the console assistant only: the turn is one the server runs when agents end, nobody at the console. */
+    update?: boolean
 }
 
 /**
@@ -112,6 +121,12 @@ export interface McpToolDefinition<Schema extends z.ZodObject = z.ZodObject> {
      * access, or cannot be undone, without being destructive, so the MCP annotations stay truthful.
      */
     requiresConfirmation?: boolean
+    /**
+     * For a tool waiting for a confirmation, whether this call is destructive (the card says so) or only needs the
+     * user's yes: one tool may do both, as applying through a pull request or pushing to the base branch. Left
+     * out, `annotations.destructiveHint` decides for every call.
+     */
+    destructiveFor?: (input: Record<string, unknown>) => boolean
 }
 
 /** Whether the console assistant waits for the user's confirmation before running the tool. */

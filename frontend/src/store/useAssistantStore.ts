@@ -28,10 +28,18 @@ export interface AssistantToolCall {
     result?: unknown
 }
 
+/** A line the console words: `key` under `assistant.confirmation.lines`, `params` its names, branches and counts. */
+export interface AssistantConfirmationLine {
+    key: string
+    params?: Record<string, string | number>
+}
+
 /** One line of a confirmation card, built by the server: `label` is a key under `assistant.confirmation.details`. */
 export interface AssistantConfirmationDetail {
     label: string
     value: string
+    /** Shown in place of `value`, worded in the user's language. */
+    lines?: AssistantConfirmationLine[]
 }
 
 /** A call waiting for (or answered by) the user. */
@@ -52,6 +60,10 @@ export interface AssistantMessage {
     id: string
     role: AssistantRole
     content: string
+    /** `server` on the messages the server added when agents of the conversation ended, while nobody was asking. */
+    origin?: "server"
+    /** `agent_update`: the server's note that agents ended, shown as a notice rather than as the user's words. */
+    kind?: "agent_update"
     /** Only assistant messages carry a status: they are written while the answer streams in. */
     status?: "streaming" | "done" | "error"
     /** Translation key under `assistant.errors`, set when the answer could not be completed. */
@@ -132,6 +144,11 @@ interface AssistantState {
     openConversation: (projectId: string, conversationId: string, messages: AssistantMessage[]) => boolean
     /** Forgets every conversation: on logout, so the next user of the browser does not see them. */
     clearAll: () => void
+    /**
+     * Adds to the open conversation the messages the server added that it does not show yet, each after the message
+     * it followed. Ignored when another conversation is open or an answer is streaming.
+     */
+    adoptServerMessages: (conversationId: string, saved: AssistantMessage[]) => void
 }
 
 /** Saved per conversation; the server reads at most this many messages anyway. */
@@ -165,6 +182,25 @@ const settled = (messages: AssistantMessage[]): AssistantMessage[] =>
 
 // Only needs to be unique; crypto.randomUUID would also need a secure context. Matches the server's id pattern.
 const newConversationId = () => `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
+
+/** A card still waiting for the user's answer: one expired waits for nothing, and blocks nothing. */
+export const isPendingConfirmation = (message: AssistantMessage, now = Date.now()) => message.confirmation?.status === "pending" && new Date(message.confirmation.expiresAt).getTime() > now
+
+/**
+ * `local` with the server's messages it lacks, each after the message it followed; those older than the oldest
+ * message `local` holds stay out. The same merge the server makes when the browser saves.
+ */
+export const withServerMessages = (local: AssistantMessage[], saved: AssistantMessage[]): AssistantMessage[] => {
+    const ids = new Set(local.map(message => message.id))
+    const oldestKnown = saved.findIndex(message => ids.has(message.id))
+    const merged = [...local]
+    saved.forEach((message, index) => {
+        if (message.origin !== "server" || ids.has(message.id) || index < oldestKnown) return
+        const previous = index > 0 ? merged.findIndex(candidate => candidate.id === saved[index - 1].id) : -1
+        merged.splice(previous < 0 ? merged.length : previous + 1, 0, message)
+    })
+    return merged
+}
 
 /** `findLastIndex`, which the ES2020 target of the console does not have. */
 const lastIndexWhere = <T>(items: T[], predicate: (item: T) => boolean) => {
@@ -244,7 +280,12 @@ const useAssistantStore = create<AssistantState>()(
                 set({ conversationId, messages })
                 return true
             },
-            clearAll: () => set({ messages: [], conversations: {}, conversationIds: {}, conversationId: undefined, projectId: undefined, pendingQuestion: undefined })
+            clearAll: () => set({ messages: [], conversations: {}, conversationIds: {}, conversationId: undefined, projectId: undefined, pendingQuestion: undefined }),
+            adoptServerMessages: (conversationId: string, saved: AssistantMessage[]) => {
+                const state = get()
+                if (state.conversationId !== conversationId || state.messages.some(message => message.status === "streaming")) return
+                set({ messages: withServerMessages(state.messages, saved) })
+            }
         }),
         {
             name: "assistant-storage"

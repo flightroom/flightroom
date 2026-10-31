@@ -46,6 +46,8 @@ export interface AiJobCreateInput {
     aiModelId?: string
     /** Images the user attached to the prompt, shown to the model with it. */
     images?: LlmImage[]
+    /** The assistant conversation starting the job: it alone drives the job, and hears when it ends. */
+    assistantConversationId?: string
 }
 
 export interface AiJobFollowUpInput {
@@ -59,6 +61,11 @@ export interface AiJobFollowUpInput {
     aiModelId?: string
     /** Images the user attached to the prompt, shown to the model with it. */
     images?: LlmImage[]
+    /**
+     * The assistant conversation asking for the follow-up, which drives it from then on. Left out (the console's
+     * follow-ups), the follow-up is no conversation's, whoever started its parent.
+     */
+    assistantConversationId?: string
 }
 
 /** A repository the job is about to work on. */
@@ -160,7 +167,16 @@ export class AiChangeJobService extends AiChangeJobQueryService {
 
         const repositories = await this.withBaseBranches(components, input.baseBranches)
         const { job } = await this.start(
-            { projectId: toObjectId(projectId), prompt: input.prompt, images: input.images, scope: input.scope, domainId: domain?._id, repositories, effort: input.effort },
+            {
+                projectId: toObjectId(projectId),
+                prompt: input.prompt,
+                images: input.images,
+                scope: input.scope,
+                domainId: domain?._id,
+                repositories,
+                effort: input.effort,
+                assistantConversationId: input.assistantConversationId
+            },
             aiModel
         )
         return this.view(job, true)
@@ -253,7 +269,8 @@ export class AiChangeJobService extends AiChangeJobQueryService {
                 repositories,
                 parentJob: parent,
                 effort: input.effort,
-                missionId: parent.missionId
+                missionId: parent.missionId,
+                assistantConversationId: input.assistantConversationId
             },
             aiModel
         )
@@ -279,6 +296,8 @@ export class AiChangeJobService extends AiChangeJobQueryService {
             missionId?: IAiMission["_id"]
             /** The id a mission claimed for the job. */
             jobId?: IAiChangeJob["_id"]
+            /** The assistant conversation starting the job, a follow-up included: it alone drives it. */
+            assistantConversationId?: string
         },
         { settings, client }: ResolvedAiModel
     ): Promise<{ job: IAiChangeJob; requests: IAiChangeRequest[] }> {
@@ -301,6 +320,7 @@ export class AiChangeJobService extends AiChangeJobQueryService {
             parentJobId: input.parentJob?._id,
             rootJobId: input.parentJob?.rootJobId ?? jobId,
             missionId: input.missionId,
+            assistantConversationId: input.assistantConversationId,
             prompt: input.prompt,
             images: input.images?.length ? input.images : undefined,
             title: topic.title,

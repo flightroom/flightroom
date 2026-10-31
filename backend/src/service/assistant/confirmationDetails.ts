@@ -3,9 +3,9 @@ import { McpToolContext, McpToolDefinition } from "../../mcp/toolDefinition"
 import { AiChangeStatus } from "../../models/AiChangeRequestModel"
 import { IDeployment } from "../../models/DeploymentModel"
 import { IFrontend } from "../../models/FrontendModel"
+import { ConfirmationLineDTO } from "../../types/AssistantDTO"
 import { ApiKeyService } from "../ApiKeyService"
 import AiChangeJobService from "../aiChange/AiChangeJobService"
-import AiChangeService from "../aiChange/AiChangeService"
 import BackendService from "../BackendService"
 import CodeRepositoryService from "../CodeRepositoryService"
 import DeploymentService from "../DeploymentService"
@@ -27,6 +27,8 @@ import UserProjectService from "../UserProjectService"
 export interface ConfirmationDetail {
     label: string
     value: string
+    /** Lines the console words in the user's language, shown in place of `value`: names, branches and counts only. */
+    lines?: ConfirmationLineDTO[]
 }
 
 const MAX_VALUE_CHARS = 200
@@ -178,15 +180,14 @@ class DetailResolver {
                     return grant && `${grant.clientName} (${grant.userEmail})`
                 })
             case "backendId":
-                return each("backend", async id => (await new BackendService(this.principal).getById(id))?.name)
+            case "backendIds":
+                return each(key === "backendId" ? "backend" : "backends", async id => (await new BackendService(this.principal).getById(id))?.name)
             case "domainId":
                 return each("domain", async id => (await new DomainService(this.principal).getById(id))?.name)
             case "storageId":
                 return each("storage", async id => (await new StorageService(this.principal).getByProjectId(this.projectId)).find(storage => String(storage._id) === id)?.name)
             case "codeRepositoryId":
                 return each("code_repository", async id => (await new CodeRepositoryService(this.principal).findById(id))?.name)
-            case "changeId":
-                return this.aiChange(String(value))
             case "jobId":
                 return this.aiJob(String(value))
             default:
@@ -194,28 +195,40 @@ class DetailResolver {
         }
     }
 
-    /** An AI change: on which frontend, what was asked, and the files it would write. */
-    private async aiChange(id: string): Promise<ConfirmationDetail[]> {
-        const change = await new AiChangeService(this.principal, fastify.config).get(id).catch(() => undefined)
-        if (!change) return [{ label: "ai_change", value: id }]
-        const files = (change.files ?? []).map(file => `${file.action} ${file.path}`)
-        const frontend = change.frontendId ? await this.frontendLabel(String(change.frontendId)).catch(() => undefined) : undefined
-        const backend = change.backendId ? await new BackendService(this.principal).getById(String(change.backendId)).catch(() => undefined) : undefined
-        return [
-            change.backendId ? { label: "backend", value: backend?.name ?? String(change.backendId) } : { label: "frontend", value: frontend ?? String(change.frontendId) },
-            { label: "prompt", value: clip(change.prompt ?? "") },
-            ...(files.length ? [{ label: "files", value: lines(files) }] : [])
-        ]
+    /** The proposals of an AI job still waiting, each with its branch, the base it goes to and its file count. */
+    private async proposalsOf(jobId: string) {
+        const job = await new AiChangeJobService(this.principal, fastify.config).get(jobId).catch(() => undefined)
+        const proposed = job?.repositories.filter(repository => repository.status === AiChangeStatus.PROPOSED && repository.files.length > 0) ?? []
+        return {
+            job,
+            proposed: proposed.map(repository => ({
+                name: repository.frontendName || repository.frontendSlug,
+                branch: repository.branch ?? "",
+                base: repository.baseBranch,
+                count: repository.files.length
+            }))
+        }
     }
 
-    /** An AI job: what was asked, and per repository how many files its proposal would commit. */
+    /** An AI job: what was asked, and per repository how many files its proposal holds. Worded by the console. */
     private async aiJob(id: string): Promise<ConfirmationDetail[]> {
-        const job = await new AiChangeJobService(this.principal, fastify.config).get(id).catch(() => undefined)
+        const { job, proposed } = await this.proposalsOf(id)
         if (!job) return [{ label: "jobId", value: id }]
-        const proposed = job.repositories
-            .filter(repository => repository.status === AiChangeStatus.PROPOSED && repository.files.length > 0)
-            .map(repository => `${repository.frontendName || repository.frontendSlug}: ${repository.files.length} ${repository.files.length === 1 ? "file" : "files"}`)
-        return [{ label: "prompt", value: clip(job.prompt) }, ...(proposed.length ? [{ label: "frontends", value: lines(proposed) }] : [])]
+        return [{ label: "prompt", value: clip(job.prompt) }, ...(proposed.length ? [{ label: "frontends", value: "", lines: proposed.map(params => ({ key: "proposal", params })) }] : [])]
+    }
+
+    /**
+     * Applying an agent run: per repository still proposed, what is pushed where. A pull request goes from the
+     * feature branch onto the base, a direct push lands on the base itself.
+     */
+    private async agentRunApply(jobId: string, mode: unknown): Promise<ConfirmationDetail[]> {
+        const { job, proposed } = await this.proposalsOf(jobId)
+        if (!job) return [{ label: "jobId", value: jobId }]
+        const key = mode === "pull_request" ? "pull_request" : "direct_push"
+        return [
+            { label: "prompt", value: clip(job.prompt) },
+            { label: mode === "pull_request" ? "pull_requests" : "direct_push", value: "", lines: proposed.length ? proposed.map(params => ({ key, params })) : [{ key: "none" }] }
+        ]
     }
 
     /** Per environment: what the new deployment changes compared to the one served now, or all it serves when there is none. */
@@ -277,6 +290,12 @@ class DetailResolver {
         }
         const ids = (value: unknown) => (Array.isArray(value) ? value.map(String) : [])
         if (this.tool.name === "deploy") return [...details, ...(await this.deploy(ids(this.args.environmentIds)))]
+        if (this.tool.name === "agent_run_apply") return [...details, ...(await this.agentRunApply(String(this.args.jobId), this.args.mode))]
+        // A mission pushes straight to the branches: the card says which, the default branches when none is named.
+        if (this.tool.name === "mission_start") {
+            const branch = typeof this.args.baseBranch === "string" ? this.args.baseBranch : undefined
+            details.push({ label: "direct_push", value: branch ?? "", ...(branch ? {} : { lines: [{ key: "default_branches" }] }) })
+        }
         if (this.tool.name === "deployment_rollback") {
             return [...details, ...(await this.rollback(String(this.args.deploymentId)).catch(() => [{ label: "deployment", value: String(this.args.deploymentId) }]))]
         }

@@ -17,6 +17,7 @@ import BaseAuthorizedService from "../BaseAuthorizedService"
 import { RepositoryComponentRef } from "../workspace/repositoryComponent"
 import AiChangeJobService from "./AiChangeJobService"
 import AiMissionService, { sweepRunningMissions } from "./AiMissionService"
+import { onAiMissionEnded } from "./aiChangeShared"
 
 type WithGates = { ensureAccessToProject: () => Promise<void>; isOrganizationAdmin: () => Promise<boolean> }
 
@@ -175,7 +176,10 @@ describe("AiMissionService", () => {
         vi.spyOn(AiMission, "findById").mockImplementation((() => Promise.resolve(copy())) as never)
         vi.spyOn(AiMission, "find").mockImplementation(((filter: Doc) => query(stored && matches({ ...filter, projectId: stored.projectId }) ? [copy()] : [])) as never)
         vi.spyOn(AiMission, "findOneAndUpdate").mockImplementation(((filter: Doc, change: Doc, options?: { arrayFilters?: Doc[] }) => Promise.resolve(update(filter, change, options))) as never)
-        vi.spyOn(AiMission, "updateOne").mockImplementation(((filter: Doc, change: Doc, options?: { arrayFilters?: Doc[] }) => Promise.resolve(update(filter, change, options))) as never)
+        vi.spyOn(AiMission, "updateOne").mockImplementation(((filter: Doc, change: Doc, options?: { arrayFilters?: Doc[] }) => {
+            const modified = update(filter, change, options) ? 1 : 0
+            return Promise.resolve({ matchedCount: modified, modifiedCount: modified })
+        }) as never)
     })
 
     afterEach(() => {
@@ -327,6 +331,26 @@ describe("AiMissionService", () => {
             await finish(0, AiJobStatus.FAILED)
             await finish(1, AiJobStatus.FAILED)
             expect(stored).toMatchObject({ status: AiMissionStatus.FAILED })
+        })
+
+        it("Given a mission ending or stopped, when it does, then its listeners hear of it once, whatever the order the jobs' listeners run in", async () => {
+            const ended = vi.fn(async () => undefined)
+            onAiMissionEnded("test", ended)
+            components = frontends(1)
+            await start("perRepository")
+            await finish(0)
+            await service().advance(String(stored!._id))
+
+            expect(ended).toHaveBeenCalledTimes(1)
+            expect(ended).toHaveBeenCalledWith(expect.objectContaining({ _id: stored!._id }), expect.anything())
+
+            stored = undefined
+            jobs.clear()
+            started = []
+            await start("perRepository")
+            await service().stop(String(stored!._id))
+            expect(ended).toHaveBeenCalledTimes(2)
+            onAiMissionEnded("test", async () => undefined)
         })
 
         it("Given a global mission on 15 repositories, when it runs, then each batch is one job on all its repositories", async () => {

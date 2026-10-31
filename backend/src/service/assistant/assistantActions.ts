@@ -43,7 +43,7 @@ import { AuthorizedPrincipal } from "../BaseAuthorizedService"
 import { LlmMessage, LlmTool, LlmToolCall, LlmToolResult } from "../llm"
 import { assistantOnlyTools } from "./assistantTools"
 import { ConfirmationDetail, describeConfirmation } from "./confirmationDetails"
-import { createPendingAction, PendingAssistantAction } from "./pendingActions"
+import { createPendingAction, PendingAssistantAction, UPDATE_ACTION_TTL_MS } from "./pendingActions"
 
 /** A tool result is sent again on every later round of the turn: an oversized one is cut. */
 const MAX_RESULT_CHARS_FOR_MODEL = 60_000
@@ -107,16 +107,39 @@ const toolsByName = new Map(ASSISTANT_TOOLS.map(tool => [tool.name, tool]))
 
 export const assistantToolDefinitions: LlmTool[] = ASSISTANT_TOOLS.map(tool => ({ name: tool.name, description: tool.description, inputSchema: toModelInputSchema(tool.inputSchema) }))
 
-/** The scope decides what is a write, as it does for MCP; `requiresConfirmation` what waits for the user. */
-export const toolKind = (tool: McpToolDefinition): AssistantToolKind => {
+/**
+ * The scope decides what is a write, as it does for MCP; `requiresConfirmation` what waits for the user, and
+ * `destructiveFor`, given the call's input, whether it is destructive.
+ */
+export const toolKind = (tool: McpToolDefinition, input?: Record<string, unknown>): AssistantToolKind => {
     if (tool.scope !== MCP_SCOPE_WRITE) return "read"
     if (!requiresConfirmation(tool)) return "write"
-    return tool.annotations.destructiveHint ? "destructive" : "confirm"
+    const destructive = tool.destructiveFor && input ? tool.destructiveFor(input) : tool.annotations.destructiveHint
+    return destructive ? "destructive" : "confirm"
 }
 
 const needsConfirmation = (tool: McpToolDefinition) => {
     const kind = toolKind(tool)
     return kind === "confirm" || kind === "destructive"
+}
+
+/** The writes an update turn runs itself: following up and stopping its own agents, within their limits. */
+const UPDATE_TURN_WRITES = new Set(["agent_run_follow_up", "agent_run_stop"])
+/** Never in an update turn, not even parked: starting agents is the user's to ask for. */
+const UPDATE_TURN_REFUSED = new Set(["agent_run_start", "mission_start"])
+
+export const NOT_IN_UPDATE_TURN = "Nobody is at the console in an update turn, and this changes the project: do not call it now. Propose it to the user in your answer."
+
+/**
+ * What an update turn, run by the server with nobody at the console, may not do: reads run, its agents are followed
+ * up and stopped, the tools waiting for a confirmation are parked for the user, except those starting agents. Every
+ * other write is refused, to be proposed to the user instead.
+ */
+export const updateTurnRefusal = (tool: McpToolDefinition, args: Record<string, unknown>): string | undefined => {
+    if (UPDATE_TURN_REFUSED.has(tool.name)) return NOT_IN_UPDATE_TURN
+    const kind = toolKind(tool, args)
+    if (kind === "read" || kind === "confirm" || kind === "destructive" || UPDATE_TURN_WRITES.has(tool.name)) return undefined
+    return NOT_IN_UPDATE_TURN
 }
 
 /**
@@ -161,6 +184,12 @@ export interface AssistantToolRunnerOptions {
     projectId: string
     /** The user's role in that project: a VIEWER only reads. */
     role: string
+    /** The saved conversation of the turn: the agents the assistant starts are linked to it. */
+    conversationId?: string
+    /** Aborted once nobody waits for the answer: a tool waiting for an agent stops waiting. */
+    signal?: AbortSignal
+    /** A turn the server runs when agents end: it starts no agent, and the actions it parks wait a day for the user. */
+    update?: boolean
     log?: FastifyBaseLogger
 }
 
@@ -193,7 +222,7 @@ export class AssistantToolRunner {
     async runRound(calls: LlmToolCall[], events: AssistantToolEvents, turn: LlmMessage[] = []): Promise<AssistantRoundOutcome> {
         for (const call of calls) {
             const tool = toolsByName.get(call.name)
-            events.onToolCall({ id: call.id, name: call.name, title: tool?.title ?? call.name, input: call.input, kind: tool ? toolKind(tool) : "read" })
+            events.onToolCall({ id: call.id, name: call.name, title: tool?.title ?? call.name, input: call.input, kind: tool ? toolKind(tool, call.input) : "read" })
         }
 
         const results: LlmToolResult[] = new Array(calls.length)
@@ -235,14 +264,18 @@ export class AssistantToolRunner {
         // Parked once the round is complete: the turn it carries holds every result of the round.
         if (waiting) {
             const details = await describeConfirmation(waiting.tool, waiting.args, waiting.context)
-            const pending = await createPendingAction({
-                userId: String(this.session.principal._id),
-                projectId: this.options.projectId,
-                tool: waiting.tool.name,
-                args: waiting.call.input,
-                callId: waiting.call.id,
-                turn: turn.length ? parkableTurn([...turn, { role: "tool", results }]) : undefined
-            })
+            const pending = await createPendingAction(
+                {
+                    userId: String(this.session.principal._id),
+                    projectId: this.options.projectId,
+                    tool: waiting.tool.name,
+                    args: waiting.call.input,
+                    callId: waiting.call.id,
+                    conversationId: this.options.conversationId,
+                    turn: turn.length ? parkableTurn([...turn, { role: "tool", results }]) : undefined
+                },
+                this.options.update ? UPDATE_ACTION_TTL_MS : undefined
+            )
             this.audit(waiting.tool, "pending", { args: waiting.args, actionId: pending.id })
             events.onConfirm({
                 actionId: pending.id,
@@ -292,6 +325,13 @@ export class AssistantToolRunner {
         }
         const args = parsed.data as Record<string, unknown>
 
+        // Nobody is at the console in an update turn: what it may do is decided here, before anything runs or is parked.
+        const refusal = this.options.update ? updateTurnRefusal(tool, args) : undefined
+        if (refusal) {
+            this.audit(tool, "denied", { args, actionId })
+            return { ok: false, call, message: refusal }
+        }
+
         // Organization tools act for the user: the services check the organization role.
         if (tool.projectScoped === false) {
             return {
@@ -318,7 +358,10 @@ export class AssistantToolRunner {
                 projectId,
                 scopes: this.session.scopes,
                 credential: this.session.credential,
-                session: this.session
+                session: this.session,
+                conversationId: this.options.conversationId,
+                signal: this.options.signal,
+                update: this.options.update
             }
         }
     }

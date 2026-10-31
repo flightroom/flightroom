@@ -225,6 +225,70 @@ latest items: the prompt tells the agent it is evidence, never instructions. Eac
 characters, and counts in the tokens of the job like the rest; when the history of a follow-up keeps only the start
 of a result, the tag is closed again after the cut.
 
+## Vega supervises the agent
+
+The console assistant (Vega) delegates code changes to this agent and follows it, with tools only it has: they
+live in `assistantOnlyTools`, never in the MCP catalog, so an MCP client can neither start nor drive the agent.
+Each acts as the user of the conversation, through the same services as the console (role, domain scope, token
+limit, the project's cap of 5 jobs), and only on the jobs and missions the conversation started.
+
+| Tool | Kind | What it does |
+|------|------|--------------|
+| `agent_run_start` | write | Starts a job on a domain, on chosen frontends and backends, or with `all` on every one of the project with a repository (at most 10), with a base branch per repository, effort and AI, and a brief that carries the evidence Vega gathered (logs, env, pod state) so the agent does not investigate again. |
+| `agent_run_status` | read | Status, latest steps, the commands it ran with their exit codes (the final check among them), per repository the files changed with lines added and removed (counted cheaply: what lies between the lines both versions share at their start and end), branch and pull request, tokens, cost and sandbox time. The exact diff of one file only with `path`, cut at 20,000 characters. |
+| `agent_run_wait` | read | Waits up to 60 seconds for the job to end (the stream stays open on its heartbeats), then returns the status. |
+| `agent_run_follow_up` | write | A follow-up on the job: it is linked to the conversation. A follow-up asked from the console is not. |
+| `agent_run_stop` | write | Stops a job queued or at work. |
+| `agent_run_apply` | confirm / destructive | `pull_request` opens a pull request from each feature branch (a confirmation), each outcome told on its own; `push` brings the proposals onto their base branches (destructive). The card lists, per repository still proposed, the branch, the base it goes to and its file count. |
+| `agent_run_discard` | confirm | Discards every proposal of the job still open. |
+| `mission_start` | confirm | Starts a [mission](#fleet-missions-on-many-repositories): the card says the branch it pushes to. |
+
+The assistant has no other tool that starts, applies or discards an AI change or job: the console-only `ai_*` tools
+it keeps only read them (`ai_changes_list`, `ai_change_get`, `ai_jobs_list`, `ai_job_get`, `ai_models_list`) or plan a
+domain (`ai_domain_plan`). Confirmation cards are words the console writes in the user's language: the server sends
+names, branches and counts only.
+
+- **Link**: the job keeps `assistantConversationId`, and so does a mission. Every question carries the
+  `conversationId` the panel saves the conversation under (the request is refused without it); a job of another
+  conversation is not found (`AGENT_RUN_NOT_LINKED`).
+- **Limits**: at most 3 agents of a conversation at work at once, a running mission counting as its jobs at work
+  (one at least) (`AGENT_RUN_TOO_MANY`); at most 6 agents started (jobs, follow-ups and missions) and 3 follow-ups of
+  one chain since the user last asked a question (`AGENT_RUN_TOO_MANY_STARTED`, `AGENT_RUN_TOO_MANY_FOLLOW_UPS`).
+- **When a job or a mission ends**, the server adds a note to the conversation (`kind: "agent_update"`: ids,
+  statuses and counts only, what the agents wrote being read with `agent_run_status`) and runs a turn of Vega on its
+  own, saved like any answer (`origin: "server"`), so the outcome is reviewed with the chat closed. In such a turn,
+  checked before anything runs or is parked, Vega reads, follows up and stops its own runs within the limits, and the
+  tools waiting for a confirmation are parked for the user; starting an agent or a mission, and every other write of
+  the catalog (builds, promotions, replicas, variables...), is refused with a message telling it to propose it in its
+  answer. A question of the user left without an answer (failed, refused as busy) is marked unanswered in the history
+  the turn reads, so it never runs what the user once asked. At
+  most 5 update turns run between two questions of the user; past them only the notes are added. The turn runs as the
+  conversation's user, with the AI of their last question (the project's default when it may not be used any more)
+  and the effort of the last answer, `high` at most, within their token limit; it records its tokens as any answer
+  (`assistant`) and confirms nothing: an action needing a confirmation waits on a card, for a day.
+- **One turn at a time**: each turn, the user's or the server's, holds a lease on the conversation (`turnUntil`,
+  3 minutes, renewed every minute while the turn runs and before each round of updates; a turn losing it stops). No
+  turn runs longer than 10 minutes. A question asked while an update turn runs is refused with
+  `ASSISTANT_CONVERSATION_BUSY`. An update finding a turn under way leaves it; it runs once the browser has saved that
+  turn (the save of the conversation runs it, not the end of the stream): a turn of the user marks the conversation
+  until the browser saves its answer, and no update runs on it before that, for 2 minutes at most. While an action of
+  the conversation waits for the user, read from the store of pending actions (taken to wait when Redis is configured
+  but down), only the note is added; a card is answered only from the conversation it was asked in. A job or mission is claimed once
+  (`assistantNotifiedAt`), whichever replica sees it end; one Vega already read the end of in a turn
+  (`agent_run_status`, `agent_run_wait`, `agent_run_stop`) gets no note. The end of a job is heard where it ends, the
+  end of a mission where the mission ends or is stopped; the sweep of the server, every 5 minutes, fails linked jobs
+  that died with their process and runs what was missed, 3 conversations at a time.
+- **Saving**: the browser saves the whole conversation; the messages the server added and the browser has not seen
+  are kept, each after the message it followed. Every write raises a `version` the save is guarded on; a save that
+  keeps losing the race is refused (`ASSISTANT_CONVERSATION_CONFLICT`) rather than written over the server's messages.
+- **In the chat**, each job of the conversation has a card (title, status, repositories, files changed, tokens, cost,
+  sandbox time) opening its review tab, each mission one (status, repositories done, tokens) opening its page, and
+  the conversation's cost is shown apart and summed: Vega's answers, the agents' tokens (from the AI usage ledger, by
+  job, mission jobs included) and their sandbox time. The panel reads them from
+  `GET /assistant/conversations/:id/agent-runs`, which reads no text of the conversation, polling every 5 seconds
+  while an agent works or an update is to come and every 30 while only a mission works, and brings the server's new
+  messages into the open chat; a card expired waits for nothing and holds nothing back.
+
 ## Running install, lint, test and build
 
 The agent can check its own change when the console is given an [OpenShell](https://github.com/NVIDIA/OpenShell)

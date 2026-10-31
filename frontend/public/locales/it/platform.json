@@ -2373,7 +2373,25 @@
                 "domain": "Dominio",
                 "title": "Titolo",
                 "sourceBranch": "Dal branch",
-                "targetBranch": "Nel branch"
+                "targetBranch": "Nel branch",
+                "pull_requests": "Pull request",
+                "direct_push": "Push diretto",
+                "brief": "Brief",
+                "backends": "Backend",
+                "mode": "Modalità",
+                "all": "Tutti i repository",
+                "concurrency": "Agenti in parallelo",
+                "baseBranch": "Branch"
+            },
+            "lines": {
+                "proposal_one": "{{name}}: {{count}} file",
+                "proposal_other": "{{name}}: {{count}} file",
+                "pull_request_one": "{{name}}: {{branch}} → {{base}} ({{count}} file)",
+                "pull_request_other": "{{name}}: {{branch}} → {{base}} ({{count}} file)",
+                "direct_push_one": "{{name}}: {{count}} file → {{base}}",
+                "direct_push_other": "{{name}}: {{count}} file → {{base}}",
+                "default_branches": "Il branch predefinito di ogni repository",
+                "none": "Nessuna proposta rimasta"
             }
         },
         "errors": {
@@ -2385,7 +2403,8 @@
             "stopped": "Risposta interrotta.",
             "confirmation_expired": "La conferma è scaduta o ha già ricevuto una risposta, quindi non è stato fatto nulla. Chiedi di nuovo se vuoi ancora procedere.",
             "ai_model_not_available": "L'IA scelta non è più disponibile per il progetto: scegline un'altra e chiedi di nuovo.",
-            "token_limit_reached": "Hai esaurito il tuo limite mensile di token AI in questo progetto. Riparte il primo del prossimo mese, oppure chiedi a un amministratore del progetto di alzarlo."
+            "token_limit_reached": "Hai esaurito il tuo limite mensile di token AI in questo progetto. Riparte il primo del prossimo mese, oppure chiedi a un amministratore del progetto di alzarlo.",
+            "busy": "Vega sta rispondendo a un aggiornamento degli agenti di questa conversazione: attendi un momento e chiedi di nuovo."
         },
         "suggestions": {
             "overview": "Riassumimi lo stato del progetto",
@@ -2521,7 +2540,24 @@
             "scope_domain": "Dominio",
             "read_only": "Avviato da {{name}}: sola lettura"
         },
-        "page_title": "Agente AI"
+        "page_title": "Agente AI",
+        "agent_runs": {
+            "title": "Agenti di questa conversazione",
+            "review": "Apri la revisione",
+            "follow": "Segui l'agente",
+            "tokens": "{{formatted}} token",
+            "sandbox": "sandbox {{exec}} / {{lifetime}} min",
+            "cost_title": "Costo della conversazione",
+            "cost_split": "Vega {{assistant}} token · agenti {{agents}} token",
+            "cost_total": "totale {{total}} token",
+            "cost_hint": "Token delle risposte di Vega e degli agenti che ha avviato, con i minuti in cui le loro sandbox hanno eseguito comandi e poi sono rimaste attive. I costi compaiono dove l'IA ha tariffe impostate.",
+            "mission_progress": "{{done}} di {{total}} repository completati",
+            "open_mission": "Apri la missione"
+        },
+        "agent_update": {
+            "title": "Gli agenti di questa conversazione hanno finito: Vega rivede cosa hanno fatto",
+            "details": "Dettagli"
+        }
     },
     "backends": {
         "title": "Backend",

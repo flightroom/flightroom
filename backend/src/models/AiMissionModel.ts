@@ -54,6 +54,10 @@ export interface IAiMission extends Document<ObjectId> {
     /** How many repositories were handed to a job so far: each claim is made on the count it read, so two advances racing never both start. */
     claims: number
     status: AiMissionStatus
+    /** The assistant conversation whose supervisor started the mission: it hears when the mission ends. */
+    assistantConversationId?: string
+    /** Set once the conversation was told the mission ended: claimed once, whichever replica. */
+    assistantNotifiedAt?: Date
     stoppedAt?: Date
     /** Set when it ends, like a job's: the mission goes with its jobs. */
     expiresAt?: Date
@@ -88,6 +92,8 @@ const aiMissionSchema = new Schema<IAiMission>(
         batchCount: { type: Number, required: true },
         claims: { type: Number, default: 0 },
         status: { type: String, enum: Object.values(AiMissionStatus), default: AiMissionStatus.RUNNING, required: true },
+        assistantConversationId: { type: String },
+        assistantNotifiedAt: { type: Date },
         stoppedAt: { type: Date },
         expiresAt: { type: Date }
     },
@@ -96,6 +102,7 @@ const aiMissionSchema = new Schema<IAiMission>(
 
 aiMissionSchema.index({ projectId: 1, createdAt: -1 })
 aiMissionSchema.index({ projectId: 1, status: 1 })
+aiMissionSchema.index({ assistantConversationId: 1, status: 1 }, { partialFilterExpression: { assistantConversationId: { $exists: true } } })
 aiMissionSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 const AiMission = mongoose.model<IAiMission>("AiMission", aiMissionSchema)

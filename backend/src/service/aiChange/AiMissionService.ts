@@ -14,7 +14,7 @@ import { LlmConfiguration, LlmEffort, LlmUsage } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
 import { componentIdOf, componentsOfJob, findComponents, RepositoryComponent, RepositoryComponentKind, RepositoryComponentRef } from "../workspace/repositoryComponent"
 import AiChangeJobService from "./AiChangeJobService"
-import { AiChangeBaseService, loggable, onAiJobEnded, onBeforeAiCapCheck, PROPOSAL_TTL_MS, STALE_AFTER_MS, staleOutcome } from "./aiChangeShared"
+import { AiChangeBaseService, aiMissionEnded, loggable, onAiJobEnded, onBeforeAiCapCheck, PROPOSAL_TTL_MS, STALE_AFTER_MS, staleOutcome } from "./aiChangeShared"
 import { ACTIVE_JOB_STATUSES } from "./aiJobRecords"
 
 /** Repositories of a batch: as many as one job may work on, so a `global` batch is one job. */
@@ -42,6 +42,8 @@ export interface AiMissionCreateInput {
     effort?: LlmEffort
     baseBranch?: string
     aiModelId?: string
+    /** The assistant conversation starting the mission: it hears when the mission ends. */
+    assistantConversationId?: string
 }
 
 export interface AiMissionRepositoryView {
@@ -249,6 +251,7 @@ export class AiMissionService extends AiChangeBaseService {
             effort: input.effort,
             baseBranch: baseBranch || undefined,
             aiModelId: aiModel.settings.id,
+            assistantConversationId: input.assistantConversationId,
             repositories: components.map((component, index) => ({ kind: component.kind, id: component._id, batch: Math.floor(index / MISSION_BATCH_SIZE) })),
             batchCount: Math.ceil(components.length / MISSION_BATCH_SIZE),
             status: AiMissionStatus.RUNNING
@@ -279,9 +282,11 @@ export class AiMissionService extends AiChangeBaseService {
                 }
                 const anyDone = await AiChangeJob.exists({ missionId: mission._id, status: AiJobStatus.DONE })
                 const expiresAt = expiry()
-                await AiMission.updateOne(current, { status: anyDone ? AiMissionStatus.DONE : AiMissionStatus.FAILED, expiresAt })
+                const { modifiedCount } = await AiMission.updateOne(current, { status: anyDone ? AiMissionStatus.DONE : AiMissionStatus.FAILED, expiresAt })
                 // Its jobs go with it, from its end: those that finished early would otherwise go before it.
                 await extendExpiry(mission._id, expiresAt)
+                // Told by whoever ended it, once: an advance racing it changed nothing.
+                if (modifiedCount > 0) void aiMissionEnded(mission, { user: this.user, config: this.config })
                 return
             }
 
@@ -416,6 +421,7 @@ export class AiMissionService extends AiChangeBaseService {
             fastify.log.warn({ error: loggable(error), aiMissionId: id }, "AI mission could not stamp the expiry of its jobs")
         )
         fastify.log.info({ audit: "ai_mission_stopped", userId: String(this.getUser()!._id), projectId: String(mission.projectId), missionId: id }, "AI mission stopped")
+        void aiMissionEnded(stopped, { user: this.user, config: this.config })
         return (await this.views([(await AiMission.findById(mission._id)) ?? stopped]))[0]
     }
 

@@ -21,7 +21,7 @@ const refOf = (args: { frontendId?: string; backendId?: string }): RepositoryCom
 /**
  * Code changes made by the client's own agent, on the developer's machine: the server tells where
  * to clone and what the team wrote for agents, then pushes what comes back on a new branch with a
- * pull request. Unlike ai_change_start, no agent runs here, so MCP clients get these.
+ * pull request. Unlike the console's AI changes, no agent runs here, so MCP clients get these.
  */
 export const localChangeTools = [
     defineTool({

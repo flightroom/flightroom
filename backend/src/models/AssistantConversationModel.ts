@@ -18,6 +18,24 @@ export interface IAssistantConversation {
     messages: AssistantConversationMessageDTO[]
     /** Set when the user deletes it: it leaves the history but stays in the database. */
     deletedAt?: Date
+    /**
+     * Held while a turn of the conversation runs, the user's or one the server runs when an agent it started ends:
+     * two turns never run at once. A lease rather than a flag, so that a turn dying with its process frees it.
+     */
+    turnUntil?: Date
+    /** When the user last asked a question: the agents the assistant starts are counted from it. */
+    askedAt?: Date
+    /** Update turns the server ran since the user last asked a question: they are capped, the user is asked again. */
+    updateTurns?: number
+    /** The AI of the user's last question: the update turns answer with it too. */
+    aiModelId?: string
+    /** Raised by every write of the messages, the browser's saves and the server's notes: a save is guarded on it. */
+    version?: number
+    /**
+     * Set when a turn of the user starts, cleared once the browser saved its answer: until then the conversation
+     * the server holds lacks that turn, and no update turn runs on it (for a while: a browser closed never saves).
+     */
+    savePendingSince?: Date
     createdAt: Date
     updatedAt: Date
 }
@@ -29,7 +47,13 @@ const assistantConversationSchema = new Schema<IAssistantConversation>(
         projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
         title: { type: String, required: true },
         messages: { type: Schema.Types.Mixed, required: true },
-        deletedAt: { type: Date }
+        deletedAt: { type: Date },
+        turnUntil: { type: Date },
+        askedAt: { type: Date },
+        updateTurns: { type: Number },
+        aiModelId: { type: String },
+        version: { type: Number },
+        savePendingSince: { type: Date }
     },
     { timestamps: true }
 )

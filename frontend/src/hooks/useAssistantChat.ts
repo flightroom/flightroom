@@ -1,9 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query"
+import { AxiosError } from "axios"
 import { useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
 import useAssistantJobsStore from "@/store/useAssistantJobsStore"
-import useAssistantStore, { AssistantRole, AssistantUsage, toStored } from "@/store/useAssistantStore"
+import useAssistantStore, { AssistantRole, AssistantUsage, isPendingConfirmation, toStored } from "@/store/useAssistantStore"
 import useProjectStore from "@/store/useProjectStore"
 import type { LlmEffort } from "@/types/ConfigResponseDTO"
 import useAiJobsApi from "./apiClients/useAiJobsApi"
@@ -37,10 +38,16 @@ const toUsage = (value: unknown): AssistantUsage | undefined => {
 }
 
 /** Tools that start an agent job: their result carries the `jobId`, and the job gets a tab of its own. */
-const JOB_TOOLS = new Set(["ai_job_start", "ai_job_follow_up", "ai_change_start"])
+const JOB_TOOLS = new Set(["agent_run_start", "agent_run_follow_up"])
 
 /** Tools that push proposals: the job tabs showing them poll again to follow the apply. */
-const APPLY_TOOLS = new Set(["ai_job_apply", "ai_change_apply"])
+const APPLY_TOOLS = new Set(["agent_run_apply"])
+
+/** A read of the cards younger than this is enough before a question: no second request for it. */
+const CATCH_UP_STALE_MS = 5_000
+
+/** The cards of the agents of a conversation and its cost, polled while something of it is at work. */
+export const AGENT_RUNS_QUERY_KEY = "assistant-agent-runs"
 
 /** The `jobId` of a tool result, when it is an object that has one (a result too long arrives as a string preview). */
 const jobIdOf = (result: unknown): string | undefined => {
@@ -48,7 +55,7 @@ const jobIdOf = (result: unknown): string | undefined => {
     return typeof jobId === "string" ? jobId : undefined
 }
 
-const hasPendingConfirmation = () => useAssistantStore.getState().messages.some(message => message.confirmation?.status === "pending")
+const hasPendingConfirmation = () => useAssistantStore.getState().messages.some(message => isPendingConfirmation(message))
 
 /** Saves go one after the other: each one replaces the whole conversation, a slow one landing last would drop what came after it. */
 let savesInFlight: Promise<void> = Promise.resolve()
@@ -94,6 +101,8 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
     const assistantApi = useAssistantApi()
     const [isStreaming, setIsStreaming] = useState(false)
     const abortRef = useRef<AbortController | undefined>(undefined)
+    // Set while a question catches up with the server before it is sent: a second click waits for it.
+    const preparingRef = useRef(false)
 
     /**
      * Opens the tab of a job the assistant started, without taking the focus from the chat. The
@@ -125,7 +134,13 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
         const messages = toStored(current)
         savesInFlight = savesInFlight.then(async () => {
             try {
-                await assistantApi.saveConversation(conversationId, messages)
+                try {
+                    await assistantApi.saveConversation(conversationId, messages)
+                } catch (error) {
+                    // The server kept adding messages while this save merged them: once more, it merges the latest.
+                    if ((error as AxiosError)?.response?.status !== 409) throw error
+                    await assistantApi.saveConversation(conversationId, messages)
+                }
                 queryClient.invalidateQueries({ queryKey: ["assistant-conversations"] })
             } catch (error) {
                 console.error("Could not save the conversation", error)
@@ -137,7 +152,7 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
      * Posts `body` and streams the answer into the message `answerId`. `onRefused` runs when the
      * server answers with an HTTP error instead of a stream.
      */
-    const stream = async (body: Record<string, unknown>, answerId: string, onRefused?: (status: number) => void) => {
+    const stream = async (body: Record<string, unknown>, answerId: string, onRefused?: (status: number, code?: string) => void) => {
         const abortController = new AbortController()
         abortRef.current = abortController
         setIsStreaming(true)
@@ -164,18 +179,24 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
                     ...body,
                     effort,
                     aiModelId,
+                    // The agents Vega starts are linked to it, and its turns never run alongside one the server runs.
+                    conversationId,
                     // In voice mode the answer is read aloud: the server asks the model for a short, spoken one.
                     context: { page: location.pathname, environmentId: projectStore.environment?._id, locale: i18n.language, voice: useAssistantStore.getState().voiceMode || undefined }
                 })
             })
 
             if (!response.ok || !response.body) {
-                onRefused?.(response.status)
                 const code = await response.json().then(
                     (data: { error?: { code?: string } }) => data?.error?.code,
                     () => undefined
                 )
-                if (code === "AI_MODEL_NOT_AVAILABLE") {
+                onRefused?.(response.status, code)
+                if (code === "ASSISTANT_CONVERSATION_BUSY") {
+                    // An update turn the server runs when an agent ends holds the conversation: its answer shows up shortly.
+                    queryClient.invalidateQueries({ queryKey: [AGENT_RUNS_QUERY_KEY] })
+                    fail("busy")
+                } else if (code === "AI_MODEL_NOT_AVAILABLE") {
                     // Taken away from the project since the list was read: reading it again falls back to the default.
                     queryClient.invalidateQueries({ queryKey: [AVAILABLE_AI_MODELS_QUERY_KEY] })
                     fail("ai_model_not_available")
@@ -273,9 +294,35 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
             setIsStreaming(false)
             if (wrote) queryClient.invalidateQueries()
             // Every answer is counted, a stopped or failed one too: the AI usage shown on the page includes it.
-            else queryClient.invalidateQueries({ queryKey: [AI_USAGE_QUERY_KEY] })
+            else {
+                queryClient.invalidateQueries({ queryKey: [AI_USAGE_QUERY_KEY] })
+                // The agents the answer started, and what the conversation cost with it.
+                queryClient.invalidateQueries({ queryKey: [AGENT_RUNS_QUERY_KEY] })
+            }
             // Saved after every answer, so that the history can reopen it.
             if (conversationId) save(conversationId)
+        }
+    }
+
+    /**
+     * Brings into the chat the messages the server added since the cards were last read (an agent ended, and Vega
+     * answered it), so the model reads the latest update with the question. One read of the cards at most, when the
+     * last one is older than a few seconds; a failure leaves the chat as it is.
+     */
+    const catchUp = async (conversationId: string) => {
+        try {
+            const runs = await queryClient.fetchQuery({
+                queryKey: [AGENT_RUNS_QUERY_KEY, projectStore.project?._id, conversationId],
+                queryFn: () => assistantApi.getAgentRuns(conversationId),
+                staleTime: CATCH_UP_STALE_MS,
+                retry: false
+            })
+            const shown = new Set(useAssistantStore.getState().messages.map(message => message.id))
+            if (!runs.serverMessageIds.some(id => !shown.has(id))) return
+            const conversation = await assistantApi.getConversation(conversationId)
+            useAssistantStore.getState().adoptServerMessages(conversationId, conversation.messages)
+        } catch (error) {
+            console.error("Could not read the latest messages of the conversation", error)
         }
     }
 
@@ -283,7 +330,17 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
         const trimmed = question.trim()
         // The ref, not the state: two clicks within one render would both still see isStreaming false.
         // A pending confirmation has to be answered first: the turn it belongs to is not over.
-        if (!trimmed || abortRef.current || hasPendingConfirmation()) return
+        if (!trimmed || abortRef.current || preparingRef.current || hasPendingConfirmation()) return
+
+        const known = useAssistantStore.getState()
+        if (known.conversationId && known.messages.length > 0) {
+            preparingRef.current = true
+            try {
+                await catchUp(known.conversationId)
+            } finally {
+                preparingRef.current = false
+            }
+        }
 
         const history = buildHistory(MAX_MESSAGES - 1)
         const answerId = newId()
@@ -319,9 +376,10 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
         const conversationId = useAssistantStore.getState().conversationId
         if (conversationId) save(conversationId)
 
-        await stream({ messages: history, confirmation: { actionId: confirmation.actionId, approved } }, answerId, status => {
-            // The server took nothing unless it says the action is gone: the card can be answered again.
-            const expired = status === 409
+        await stream({ messages: history, confirmation: { actionId: confirmation.actionId, approved } }, answerId, (status, code) => {
+            // The server took nothing unless it says the action is gone: the card can be answered again. A busy
+            // conversation is refused before the action is taken.
+            const expired = status === 409 && code !== "ASSISTANT_CONVERSATION_BUSY"
             setStatus(expired ? "expired" : "pending")
             updateTool(confirmation.callId, tool => ({ ...tool, status: expired ? "interrupted" : "awaiting_confirmation" }))
         })

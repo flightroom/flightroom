@@ -1,5 +1,7 @@
 import { AssistantMessage } from "@/store/useAssistantStore"
 import useApiClient from "../useApiClient"
+import type { AiJob } from "./useAiJobsApi"
+import type { AiCurrency } from "./useAiModelsApi"
 
 export interface ProjectDraft {
     name: string
@@ -46,6 +48,53 @@ export interface AssistantConversation extends AssistantConversationSummary {
     messages: AssistantMessage[]
 }
 
+/** The time spent in sandboxes: commands run, how long they ran, how long the sandboxes stayed up. */
+export interface SandboxTotals {
+    commands: number
+    execSeconds: number
+    lifetimeSeconds: number
+}
+
+/** Tokens, and what they cost in each currency the AIs have rates in. */
+export interface ConversationCostPart {
+    inputTokens: number
+    cachedInputTokens: number
+    outputTokens: number
+    costs: { amount: number; currency: AiCurrency }[]
+}
+
+/** A mission Vega started in a conversation, as its card shows it. */
+export interface AssistantAgentMission {
+    _id: string
+    prompt: string
+    status: "RUNNING" | "DONE" | "FAILED" | "STOPPED"
+    /** Repositories it covers, and those whose job is over. */
+    repositories: number
+    done: number
+    usage: { inputTokens: number; cachedInputTokens: number; outputTokens: number }
+    createdAt: string
+}
+
+/** The agents Vega started in a conversation, and what the conversation cost. */
+export interface AssistantAgentRuns {
+    /** The latest, oldest first, follow-ups included: a card each. */
+    jobs: (AiJob & { sandbox: SandboxTotals })[]
+    /** The latest missions, newest first. */
+    missions: AssistantAgentMission[]
+    cost: {
+        assistant: ConversationCostPart
+        agents: ConversationCostPart & { sandbox: SandboxTotals }
+        total: ConversationCostPart & { sandbox: SandboxTotals }
+    }
+    /** The messages the server added when agents ended: one missing here means the conversation is reloaded. */
+    serverMessageIds: string[]
+    /**
+     * What is still to come: `agents` (a job at work, an update being written) polls often, `missions` (only a mission
+     * at work, slow to move on) seldom, `none` not at all.
+     */
+    activity: "agents" | "missions" | "none"
+}
+
 const useAssistantApi = () => {
     const apiClient = useApiClient()
 
@@ -88,7 +137,13 @@ const useAssistantApi = () => {
         await apiClient.doRequest<void>({ url: `/api/assistant/conversations/${id}`, method: "DELETE" })
     }
 
-    return { draftProject, listConversations, getConversation, saveConversation, deleteConversation }
+    /** Silent: a conversation not saved yet has none, and the cards are an extra of the chat. */
+    const getAgentRuns = async (id: string): Promise<AssistantAgentRuns> => {
+        const response = await apiClient.doRequest<AssistantAgentRuns>({ url: `/api/assistant/conversations/${id}/agent-runs`, silent: true })
+        return response.data
+    }
+
+    return { draftProject, listConversations, getConversation, saveConversation, deleteConversation, getAgentRuns }
 }
 
 export default useAssistantApi

@@ -3,6 +3,7 @@ import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import AiChangeJob, { IAiChangeJob } from "../../models/AiChangeJobModel"
 import AiChangeRequest, { AiChangeStatus, IAiChangeFile, IAiChangeRequest } from "../../models/AiChangeRequestModel"
+import { IAiMission } from "../../models/AiMissionModel"
 import { IFrontend } from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
 import UserProject, { RoleInProject } from "../../models/UserProjectModel"
@@ -187,6 +188,7 @@ export interface AiJobListenerContext {
 
 type AiJobEndedListener = (job: Pick<IAiChangeJob, "_id" | "missionId">, context: AiJobListenerContext) => Promise<void>
 type AiCapCheckListener = (projectId: string, context: AiJobListenerContext) => Promise<void>
+type AiMissionEndedListener = (mission: Pick<IAiMission, "_id" | "assistantConversationId">, context: AiJobListenerContext) => Promise<void>
 
 /**
  * What runs around the jobs without the job service knowing it: the missions register here, so the
@@ -195,9 +197,22 @@ type AiCapCheckListener = (projectId: string, context: AiJobListenerContext) => 
  */
 const jobEndedListeners = new Map<string, AiJobEndedListener>()
 const capCheckListeners = new Map<string, AiCapCheckListener>()
+const missionEndedListeners = new Map<string, AiMissionEndedListener>()
 
 /** Called once a job is over, however it ended. */
 export const onAiJobEnded = (name: string, listener: AiJobEndedListener) => void jobEndedListeners.set(name, listener)
+
+/**
+ * Called once a mission is over (done, failed or stopped), by whoever ended it: apart from the jobs' listeners, which
+ * may run before the mission's own listener has moved it on.
+ */
+export const onAiMissionEnded = (name: string, listener: AiMissionEndedListener) => void missionEndedListeners.set(name, listener)
+
+export const aiMissionEnded = async (mission: Pick<IAiMission, "_id" | "assistantConversationId">, context: AiJobListenerContext) => {
+    for (const [name, listener] of missionEndedListeners) {
+        await listener(mission, context).catch(error => fastify.log.error({ error: loggable(error), aiMissionId: String(mission._id), listener: name }, "AI mission listener failed"))
+    }
+}
 
 /** Called before a project refused for its cap of AI work is counted again: what ended unnoticed frees its place. */
 export const onBeforeAiCapCheck = (name: string, listener: AiCapCheckListener) => void capCheckListeners.set(name, listener)

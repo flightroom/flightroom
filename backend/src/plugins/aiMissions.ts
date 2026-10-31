@@ -2,13 +2,15 @@ import { FastifyInstance } from "fastify"
 import fastifyPlugin from "fastify-plugin"
 import mongoose from "mongoose"
 import { sweepRunningMissions } from "../service/aiChange/AiMissionService"
+import { sweepAgentUpdates } from "../service/assistant/agentUpdates"
 
 /** Often enough to keep a mission whose last job died moving, rarely enough to cost nothing: a stale job is only declared dead after 20 minutes. */
 const SWEEP_EVERY_MS = 5 * 60_000
 
 /**
  * Moves on the running AI missions once the server is ready, then every few minutes: a mission waits for its
- * jobs to tell it they ended, and a job that died with the previous process never will.
+ * jobs to tell it they ended, and a job that died with the previous process never will. The assistant
+ * conversations whose agents ended unheard (dead, or ended while another replica restarted) get their update too.
  */
 export default fastifyPlugin(
     async (fastify: FastifyInstance) => {
@@ -21,6 +23,11 @@ export default fastifyPlugin(
                 await sweepRunningMissions(fastify.config)
             } catch (error) {
                 fastify.log.warn({ err: error }, "AI missions sweep failed")
+            }
+            try {
+                await sweepAgentUpdates(fastify.config)
+            } catch (error) {
+                fastify.log.warn({ err: error }, "Assistant updates sweep failed")
             } finally {
                 running = false
             }

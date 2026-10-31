@@ -124,6 +124,17 @@ export abstract class AiChangeJobQueryService extends AiChangeBaseService {
         return this.views(await Promise.all(jobs.map(candidate => this.failIfStale(candidate))), true)
     }
 
+    /** The latest jobs an assistant conversation of the project started, its follow-ups included, oldest first: a card each in the chat. */
+    async conversationJobs(projectId: string, conversationId: string): Promise<AiJobView[]> {
+        await this.ensureAccessToProject(toObjectId(projectId))
+        const latest = await AiChangeJob.find({ projectId: toObjectId(projectId), assistantConversationId: conversationId, deletedAt: { $exists: false } }, JOB_LISTED)
+            .sort({ createdAt: -1 })
+            .limit(LISTED_JOBS)
+        const jobs = latest.reverse()
+        const visible = await this.inDomainScope(toObjectId(projectId), jobs)
+        return this.views(await Promise.all(visible.map(job => this.failIfStale(job))), false)
+    }
+
     /**
      * The latest conversations on a domain, everyone's, as a frontend page shows everyone's requests:
      * the first job of each chain, which names it, and its latest, which says where it stands. Newest first.

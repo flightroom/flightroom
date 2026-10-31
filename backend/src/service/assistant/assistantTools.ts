@@ -3,6 +3,7 @@ import { defineTool, objectId, READ_ONLY, READ_ONLY_EXTERNAL } from "../../mcp/t
 import { MCP_SCOPE_READ } from "../../utils/oauthConfig"
 import { redactSecrets } from "../../utils/redactSecrets"
 import BuildStatusService, { BuildRunOwner } from "../BuildStatusService"
+import { agentRunTools } from "./agentRunTools"
 import { searchDocs } from "./docsSearch"
 
 /** Logs are read from the end: that is where a failing step prints why it failed. */
@@ -15,8 +16,9 @@ const tail = (value: string, max: number) => (value.length > max ? { text: value
 
 /**
  * The tools only the assistant has: everything else it can do comes from the MCP tools, run in
- * process. These two have no MCP counterpart (the documentation is the console's own, and build
- * logs are free text a CI job wrote, redacted here before they reach the model).
+ * process. None has an MCP counterpart: the documentation is the console's own, build logs are free
+ * text a CI job wrote, redacted here before they reach the model, and the agent runs are the
+ * assistant's to start and drive, never an MCP client's.
  */
 export const assistantOnlyTools = [
     defineTool({
@@ -61,5 +63,6 @@ export const assistantOnlyTools = [
                 url: section.url,
                 text: section.text.length > MAX_DOCS_SECTION_CHARS ? `${section.text.slice(0, MAX_DOCS_SECTION_CHARS)}…` : section.text
             }))
-    })
+    }),
+    ...agentRunTools
 ]

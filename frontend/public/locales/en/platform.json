@@ -2354,7 +2354,25 @@
                 "domain": "Domain",
                 "title": "Title",
                 "sourceBranch": "From branch",
-                "targetBranch": "Into branch"
+                "targetBranch": "Into branch",
+                "pull_requests": "Pull requests",
+                "direct_push": "Direct push",
+                "brief": "Brief",
+                "backends": "Backends",
+                "mode": "Mode",
+                "all": "Every repository",
+                "concurrency": "Agents at once",
+                "baseBranch": "Branch"
+            },
+            "lines": {
+                "proposal_one": "{{name}}: {{count}} file",
+                "proposal_other": "{{name}}: {{count}} files",
+                "pull_request_one": "{{name}}: {{branch}} → {{base}} ({{count}} file)",
+                "pull_request_other": "{{name}}: {{branch}} → {{base}} ({{count}} files)",
+                "direct_push_one": "{{name}}: {{count}} file → {{base}}",
+                "direct_push_other": "{{name}}: {{count}} files → {{base}}",
+                "default_branches": "The default branch of each repository",
+                "none": "No proposal left"
             }
         },
         "errors": {
@@ -2366,7 +2384,8 @@
             "stopped": "Answer stopped.",
             "confirmation_expired": "The confirmation expired or was already answered, so nothing was done. Ask again if you still want to proceed.",
             "ai_model_not_available": "The AI you picked is no longer available to the project: pick another one and ask again.",
-            "token_limit_reached": "You have spent your monthly AI token limit in this project. It starts again on the first of next month, or ask a project admin to raise it."
+            "token_limit_reached": "You have spent your monthly AI token limit in this project. It starts again on the first of next month, or ask a project admin to raise it.",
+            "busy": "Vega is answering an update from the agents of this conversation: wait a moment and ask again."
         },
         "suggestions": {
             "overview": "Give me an overview of the project",
@@ -2502,7 +2521,24 @@
             "scope_domain": "Domain",
             "read_only": "Started by {{name}}: read only"
         },
-        "page_title": "AI agent"
+        "page_title": "AI agent",
+        "agent_runs": {
+            "title": "Agents of this conversation",
+            "review": "Open the review",
+            "follow": "Follow the agent",
+            "tokens": "{{formatted}} tokens",
+            "sandbox": "sandbox {{exec}} / {{lifetime}} min",
+            "cost_title": "Conversation cost",
+            "cost_split": "Vega {{assistant}} tokens · agents {{agents}} tokens",
+            "cost_total": "total {{total}} tokens",
+            "cost_hint": "Tokens of Vega's answers and of the agents it started, with the minutes their sandboxes spent running commands and then stayed up. Costs show where the AI has rates set.",
+            "mission_progress": "{{done}} of {{total}} repositories done",
+            "open_mission": "Open the mission"
+        },
+        "agent_update": {
+            "title": "Agents of this conversation ended: Vega reviews what they did",
+            "details": "Details"
+        }
     },
     "backends": {
         "title": "Backends",

@@ -48,7 +48,16 @@ const AssistantConfirmationCard: React.FC<AssistantConfirmationCardProps> = ({ c
                             {details.map((detail, index) => (
                                 // Labels repeat (one "environment" per environment deployed): the position keeps them apart.
                                 <DescriptionItem key={`${index}-${detail.label}`} label={t(`assistant.confirmation.details.${detail.label}`, { defaultValue: detail.label })}>
-                                    <span className="whitespace-pre-wrap break-words">{detail.value}</span>
+                                    {detail.lines?.length ? (
+                                        // Worded here, in the user's language: the server sends only names, branches and counts.
+                                        <span className="flex flex-col whitespace-pre-wrap break-words">
+                                            {detail.lines.map((line, lineIndex) => (
+                                                <span key={`${lineIndex}-${line.key}`}>{t(`assistant.confirmation.lines.${line.key}`, line.params)}</span>
+                                            ))}
+                                        </span>
+                                    ) : (
+                                        <span className="whitespace-pre-wrap break-words">{detail.value}</span>
+                                    )}
                                 </DescriptionItem>
                             ))}
                         </DescriptionList>

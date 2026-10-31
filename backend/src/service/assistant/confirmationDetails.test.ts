@@ -11,7 +11,6 @@ const shipsServedVariables = vi.fn()
 const variablesOf = vi.fn()
 const projectById = vi.fn()
 const projectUsers = vi.fn()
-const aiChange = vi.fn()
 const aiJob = vi.fn()
 const backendById = vi.fn()
 const domainById = vi.fn()
@@ -57,11 +56,6 @@ vi.mock("../BackendService", () => ({
 vi.mock("../DomainService", () => ({
     default: class {
         getById = domainById
-    }
-}))
-vi.mock("../aiChange/AiChangeService", () => ({
-    default: class {
-        get = aiChange
     }
 }))
 vi.mock("../aiChange/AiChangeJobService", () => ({
@@ -121,21 +115,7 @@ describe("describeServedChanges", () => {
 
 describe("describeConfirmation", () => {
     beforeEach(() => {
-        for (const mock of [
-            environments,
-            environmentById,
-            frontends,
-            deploymentsOf,
-            deploymentById,
-            shipsServedVariables,
-            variablesOf,
-            projectById,
-            projectUsers,
-            aiChange,
-            aiJob,
-            backendById,
-            domainById
-        ])
+        for (const mock of [environments, environmentById, frontends, deploymentsOf, deploymentById, shipsServedVariables, variablesOf, projectById, projectUsers, aiJob, backendById, domainById])
             mock.mockReset()
         projectById.mockResolvedValue({ name: "Shop" })
         environments.mockResolvedValue([
@@ -210,45 +190,6 @@ describe("describeConfirmation", () => {
         ])
     })
 
-    it("Given an AI change, when described, then its frontend, a summary of the prompt and every file it would write are shown", async () => {
-        aiChange.mockResolvedValue({
-            frontendId: CHECKOUT,
-            prompt: `Add a coupon field ${"x".repeat(300)}`,
-            files: [
-                { path: "src/Coupon.tsx", action: "create" },
-                { path: "src/secret.ts", action: "update" }
-            ]
-        })
-
-        const details = await describeConfirmation(toolNamed("ai_change_apply"), { changeId: CHANGE }, context)
-
-        expect(details[1]).toEqual({ label: "frontend", value: "Checkout 1.1.0 (https://cdn.example.com/checkout)" })
-        expect(details[2].label).toBe("prompt")
-        expect(details[2].value.startsWith("Add a coupon field")).toBe(true)
-        expect(details[2].value.length).toBeLessThanOrEqual(201)
-        expect(details[3]).toEqual({ label: "files", value: "create src/Coupon.tsx\nupdate src/secret.ts" })
-        expect(details).toHaveLength(4)
-    })
-
-    it("Given an AI change of a backend, when described, then the backend is shown by its name", async () => {
-        aiChange.mockResolvedValue({ backendId: CHECKOUT, prompt: "Add a health route", files: [] })
-        backendById.mockResolvedValue({ _id: CHECKOUT, name: "Orders API" })
-
-        const details = await describeConfirmation(toolNamed("ai_change_apply"), { changeId: CHANGE }, context)
-
-        expect(backendById).toHaveBeenCalledWith(CHECKOUT)
-        expect(details[1]).toEqual({ label: "backend", value: "Orders API" })
-    })
-
-    it("Given an AI change of a backend that cannot be read, when described, then its id is shown instead", async () => {
-        aiChange.mockResolvedValue({ backendId: CHECKOUT, prompt: "Add a health route", files: [] })
-        backendById.mockRejectedValue(new Error("forbidden"))
-
-        const details = await describeConfirmation(toolNamed("ai_change_apply"), { changeId: CHANGE }, context)
-
-        expect(details[1]).toEqual({ label: "backend", value: CHECKOUT })
-    })
-
     it("Given a backend or a domain to delete, when described, then it is shown by its name", async () => {
         backendById.mockResolvedValue({ _id: CHECKOUT, name: "Orders API" })
         domainById.mockResolvedValue({ _id: CHANGE, name: "Payments" })
@@ -263,7 +204,7 @@ describe("describeConfirmation", () => {
         ])
     })
 
-    it("Given an AI job, when its apply is described, then the prompt and the file count of each repository it would commit are shown", async () => {
+    it("Given an agent run, when its discard is described, then the prompt and, worded by the console, the file count of each repository it would drop are shown", async () => {
         aiJob.mockResolvedValue({
             prompt: "Rename the price API",
             repositories: [
@@ -282,12 +223,89 @@ describe("describeConfirmation", () => {
             ]
         })
 
-        const details = await describeConfirmation(toolNamed("ai_job_apply"), { jobId: CHANGE }, context)
+        const details = await describeConfirmation(toolNamed("agent_run_discard"), { jobId: CHANGE }, context)
 
         expect(details.slice(1)).toEqual([
             { label: "prompt", value: "Rename the price API" },
-            { label: "frontends", value: "Catalog: 1 file\nSearch: 2 files" }
+            {
+                label: "frontends",
+                value: "",
+                lines: [
+                    { key: "proposal", params: { name: "Catalog", branch: "", base: undefined, count: 1 } },
+                    { key: "proposal", params: { name: "Search", branch: "", base: undefined, count: 2 } }
+                ]
+            }
         ])
+    })
+
+    describe("agent run apply", () => {
+        beforeEach(() => {
+            aiJob.mockResolvedValue({
+                prompt: "Fix the lint error",
+                repositories: [
+                    { frontendName: "Catalog", frontendSlug: "catalog", status: "PROPOSED", branch: "ai-feature/fix-lint", baseBranch: "main", files: [{ path: "src/a.ts", action: "update" }] },
+                    { frontendName: "Cart", frontendSlug: "cart", status: "DISCARDED", branch: "ai-feature/x", baseBranch: "main", files: [{ path: "src/b.ts", action: "update" }] },
+                    {
+                        frontendName: "Orders",
+                        frontendSlug: "orders-be",
+                        status: "PROPOSED",
+                        branch: "ai-feature/fix-lint",
+                        baseBranch: "develop",
+                        files: [
+                            { path: "a.go", action: "update" },
+                            { path: "b.go", action: "create" }
+                        ]
+                    }
+                ]
+            })
+        })
+
+        it("Given a pull request, when the apply of an agent run is described, then each proposal shows its branch, the base it goes to and its file count", async () => {
+            const details = await describeConfirmation(toolNamed("agent_run_apply"), { jobId: CHANGE, mode: "pull_request" }, context)
+
+            expect(details.slice(1)).toEqual([
+                { label: "prompt", value: "Fix the lint error" },
+                {
+                    label: "pull_requests",
+                    value: "",
+                    lines: [
+                        { key: "pull_request", params: { name: "Catalog", branch: "ai-feature/fix-lint", base: "main", count: 1 } },
+                        { key: "pull_request", params: { name: "Orders", branch: "ai-feature/fix-lint", base: "develop", count: 2 } }
+                    ]
+                }
+            ])
+        })
+
+        it("Given a direct push, when the apply of an agent run is described, then each proposal shows the base branch it lands on", async () => {
+            const details = await describeConfirmation(toolNamed("agent_run_apply"), { jobId: CHANGE, mode: "push" }, context)
+
+            expect(details.slice(1)).toEqual([
+                { label: "prompt", value: "Fix the lint error" },
+                {
+                    label: "direct_push",
+                    value: "",
+                    lines: [
+                        { key: "direct_push", params: { name: "Catalog", branch: "ai-feature/fix-lint", base: "main", count: 1 } },
+                        { key: "direct_push", params: { name: "Orders", branch: "ai-feature/fix-lint", base: "develop", count: 2 } }
+                    ]
+                }
+            ])
+        })
+    })
+
+    it("Given a mission, when described, then the card says where it pushes, the default branches when none is named", async () => {
+        const named = await describeConfirmation(toolNamed("mission_start"), { brief: "Bump React", mode: "global", all: true, baseBranch: "develop" }, context)
+        const unnamed = await describeConfirmation(toolNamed("mission_start"), { brief: "Bump React", mode: "global", all: true }, context)
+
+        expect(named).toEqual(
+            expect.arrayContaining([
+                { label: "direct_push", value: "develop" },
+                { label: "brief", value: "Bump React" }
+            ])
+        )
+        expect(unnamed).toEqual(expect.arrayContaining([{ label: "direct_push", value: "", lines: [{ key: "default_branches" }] }]))
+        // Nothing worded in English: the console words the lines in the user's language.
+        expect(JSON.stringify(unnamed)).not.toContain("default branches")
     })
 
     it("Given a rollback, when described, then the deployment coming back and what it changes are shown", async () => {

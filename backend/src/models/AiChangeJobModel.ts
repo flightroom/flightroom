@@ -34,6 +34,13 @@ export interface IAiChangeJob extends Document<ObjectId> {
     rootJobId: Schema.Types.ObjectId
     /** The mission that started the job: it starts the next ones as this one ends. */
     missionId?: Schema.Types.ObjectId
+    /**
+     * The assistant conversation whose supervisor started the job, kept by its follow-ups: only that conversation
+     * drives it, and it hears when the job ends.
+     */
+    assistantConversationId?: string
+    /** Set once the conversation was told the job ended, by a note or by a tool that read it: claimed once, whichever replica. */
+    assistantNotifiedAt?: Date
     prompt: string
     /**
      * Images the user attached to the prompt, sent to the model with it. Heavy: never read unless asked
@@ -90,6 +97,8 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         parentJobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob" },
         rootJobId: { type: Schema.Types.ObjectId, ref: "AiChangeJob", required: true, index: true },
         missionId: { type: Schema.Types.ObjectId, ref: "AiMission", index: true },
+        assistantConversationId: { type: String },
+        assistantNotifiedAt: { type: Date },
         prompt: { type: String, required: true, maxlength: 8_000 },
         images: { type: [promptImageSchema], default: undefined, select: false },
         title: { type: String },
@@ -127,6 +136,8 @@ aiChangeJobSchema.index({ projectId: 1, userId: 1, createdAt: -1 })
 aiChangeJobSchema.index({ projectId: 1, status: 1 })
 aiChangeJobSchema.index({ projectId: 1, domainId: 1, createdAt: -1 })
 aiChangeJobSchema.index({ parentJobId: 1 })
+// The jobs of a conversation, and those ended that it has not heard of yet.
+aiChangeJobSchema.index({ assistantConversationId: 1, status: 1 }, { partialFilterExpression: { assistantConversationId: { $exists: true } } })
 aiChangeJobSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })
 
 const AiChangeJob = mongoose.model<IAiChangeJob>("AiChangeJob", aiChangeJobSchema)

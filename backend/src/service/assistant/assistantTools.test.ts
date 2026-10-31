@@ -1,4 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import { MCP_TOOLS } from "../../mcp/server"
 import { McpToolContext } from "../../mcp/toolDefinition"
 import { assistantOnlyTools } from "./assistantTools"
 
@@ -14,18 +15,27 @@ const FRONTEND = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const BACKEND = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const context = { principal: { _id: "user-1" }, projectId: "project-1" } as unknown as McpToolContext
 const toolNamed = (name: string) => assistantOnlyTools.find(tool => tool.name === name)!
+const AGENT_RUN_TOOLS = ["agent_run_start", "agent_run_status", "agent_run_wait", "agent_run_follow_up", "agent_run_stop", "agent_run_apply", "agent_run_discard", "mission_start"]
 
 describe("assistant-only tools", () => {
     beforeEach(() => {
         getFailedRunLogs.mockReset()
     })
 
-    it("Given the tools MCP lacks, when read, then they are console-only reads", () => {
+    it("Given the tools MCP lacks, when read, then they are console-only, and those not driving agents are reads", () => {
         for (const tool of assistantOnlyTools) {
             expect(tool.consoleOnly, tool.name).toBe(true)
+            if (AGENT_RUN_TOOLS.includes(tool.name)) continue
             expect(tool.scope, tool.name).toBe("mfe:read")
             expect(tool.annotations.readOnlyHint, tool.name).toBe(true)
         }
+    })
+
+    it("Given the tools that start and drive the agent, when the MCP catalog is read, then none of them is in it", () => {
+        const catalog = MCP_TOOLS.map(tool => tool.name)
+
+        expect(assistantOnlyTools.map(tool => tool.name)).toEqual(expect.arrayContaining(AGENT_RUN_TOOLS))
+        for (const name of AGENT_RUN_TOOLS) expect(catalog, name).not.toContain(name)
     })
 
     it("Given failed CI jobs echoing credentials, when their logs are read, then the secrets are blanked before anything is returned", async () => {

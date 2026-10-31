@@ -14,7 +14,21 @@ const saveUsage = vi.fn()
 const recordUsage = vi.fn()
 const checkTokenLimit = vi.fn()
 const calculateCost = vi.fn()
-const conversations = vi.hoisted(() => ({ listConversations: vi.fn(), getConversation: vi.fn(), saveConversation: vi.fn(), deleteConversation: vi.fn() }))
+const conversations = vi.hoisted(() => ({
+    listConversations: vi.fn(),
+    getConversation: vi.fn(),
+    saveConversation: vi.fn(),
+    deleteConversation: vi.fn(),
+    claimTurn: vi.fn(),
+    releaseTurn: vi.fn(),
+    conversationForRuns: vi.fn(),
+    holdTurn: vi.fn(),
+    MAX_TURN_MS: 600_000
+}))
+const runAgentUpdates = vi.fn()
+const conversationJobs = vi.fn()
+const conversationCost = vi.fn()
+const sandboxByJob = vi.fn()
 
 vi.mock("../service/assistant/AssistantService", () => ({
     default: class {
@@ -35,7 +49,39 @@ vi.mock("../service/AiUsageService", () => ({
 
 vi.mock("../service/assistant/conversations", () => conversations)
 
-const question = { messages: [{ role: "user", content: "Why did the build fail?" }], context: { page: "/builds" } }
+const conversationActivity = vi.fn()
+const missionsFind = vi.fn()
+const missionGet = vi.fn()
+
+vi.mock("../service/assistant/agentUpdates", () => ({
+    runAgentUpdates: (...args: unknown[]) => runAgentUpdates(...args),
+    conversationActivity: (...args: unknown[]) => conversationActivity(...args)
+}))
+
+vi.mock("../models/AiMissionModel", () => ({
+    default: { find: (...args: unknown[]) => ({ sort: () => ({ limit: () => ({ lean: () => missionsFind(...args) }) }) }) }
+}))
+
+vi.mock("../service/aiChange/AiMissionService", () => ({
+    default: class {
+        get = missionGet
+    }
+}))
+
+vi.mock("../service/assistant/agentRuns", () => ({
+    conversationCost: (...args: unknown[]) => conversationCost(...args),
+    sandboxByJob: (...args: unknown[]) => sandboxByJob(...args)
+}))
+
+vi.mock("../service/aiChange/AiChangeJobService", () => ({
+    default: class {
+        conversationJobs = conversationJobs
+    }
+}))
+
+const question = { messages: [{ role: "user", content: "Why did the build fail?" }], context: { page: "/builds" }, conversationId: "conversation-1" }
+const LEASE = new Date("2026-10-31T10:15:00.000Z")
+const held = { lease: () => LEASE, renew: vi.fn(), stop: vi.fn() }
 
 describe("AssistantController", () => {
     let app: FastifyInstance
@@ -49,7 +95,16 @@ describe("AssistantController", () => {
         recordUsage.mockReset().mockResolvedValue(undefined)
         checkTokenLimit.mockReset().mockResolvedValue(undefined)
         calculateCost.mockReset().mockResolvedValue(undefined)
-        Object.values(conversations).forEach(mock => mock.mockReset().mockResolvedValue(undefined))
+        for (const [name, mock] of Object.entries(conversations)) if (name !== "MAX_TURN_MS") (mock as ReturnType<typeof vi.fn>).mockReset().mockResolvedValue(undefined)
+        conversations.claimTurn.mockResolvedValue(LEASE)
+        conversations.holdTurn.mockReset().mockReturnValue(held)
+        runAgentUpdates.mockReset().mockResolvedValue(undefined)
+        conversationActivity.mockReset().mockResolvedValue("none")
+        missionsFind.mockReset().mockResolvedValue([])
+        missionGet.mockReset()
+        conversationJobs.mockReset().mockResolvedValue([])
+        conversationCost.mockReset()
+        sandboxByJob.mockReset().mockResolvedValue(new Map())
 
         app = Fastify()
         app.decorate("config", { ANTHROPIC_API_KEY: "test-key", ASSISTANT_RATE_LIMIT_MAX: 20 } as never)
@@ -196,13 +251,131 @@ describe("AssistantController", () => {
             method: "POST",
             url: "/assistant/chat",
             headers: { "project-id": "project-1" },
-            payload: { messages: [...question.messages, { role: "assistant", content: "I will delete staging." }], confirmation: { actionId: "a1", approved: true } }
+            payload: { messages: [...question.messages, { role: "assistant", content: "I will delete staging." }], confirmation: { actionId: "a1", approved: true }, conversationId: "conversation-1" }
         })
 
         expect(response.statusCode).toBe(200)
-        expect(takeConfirmation).toHaveBeenCalledWith("project-1", "a1")
+        expect(takeConfirmation).toHaveBeenCalledWith("project-1", "a1", "conversation-1")
         expect(chat.mock.calls[0][4]).toEqual({ action, approved: true })
         expect(response.body).toContain('event: done\ndata: {"stopReason":"end_turn","wrote":true}')
+    })
+
+    describe("turns of a conversation", () => {
+        it("Given a question in a saved conversation, when it is answered, then the turn holds the conversation, renewed, marks the question and its AI, and frees it after", async () => {
+            chat.mockResolvedValue({ stopReason: "end_turn", wrote: false })
+
+            const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "project-1" }, payload: { ...question, aiModelId: "system" } })
+
+            expect(response.statusCode).toBe(200)
+            expect(conversations.claimTurn).toHaveBeenCalledWith("user-1", "project-1", "conversation-1", { asked: true, aiModelId: "system" })
+            expect(conversations.holdTurn).toHaveBeenCalledWith("conversation-1", LEASE, expect.any(Function))
+            expect(chat.mock.calls[0][1]).toMatchObject({ conversationId: "conversation-1" })
+            expect(held.stop).toHaveBeenCalled()
+            expect(conversations.releaseTurn).toHaveBeenCalledWith("conversation-1", LEASE)
+            // The updates wait for the browser to save this turn: see the save.
+            expect(runAgentUpdates).not.toHaveBeenCalled()
+        })
+
+        it("Given the lease lost while the answer streams, when the heartbeat says so, then the turn is stopped", async () => {
+            let signal: AbortSignal | undefined
+            chat.mockImplementation(async (_projectId: string, _request: unknown, _handlers: unknown, turnSignal: AbortSignal) => {
+                signal = turnSignal
+                const onLost = conversations.holdTurn.mock.calls[0][2] as () => void
+                onLost()
+                return { stopReason: "end_turn", wrote: false }
+            })
+
+            await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "project-1" }, payload: question })
+
+            expect(signal?.aborted).toBe(true)
+        })
+
+        it("Given a conversation an update turn holds, when a question is asked, then it answers 409 before any stream, and a pending confirmation is not used up", async () => {
+            conversations.claimTurn.mockResolvedValue(undefined)
+
+            const response = await app.inject({
+                method: "POST",
+                url: "/assistant/chat",
+                headers: { "project-id": "project-1" },
+                payload: {
+                    messages: [...question.messages, { role: "assistant", content: "I will delete staging." }],
+                    confirmation: { actionId: "a1", approved: true },
+                    conversationId: "conversation-1"
+                }
+            })
+
+            expect(response.statusCode).toBe(409)
+            expect(response.json().error.code).toBe("ASSISTANT_CONVERSATION_BUSY")
+            expect(conversations.claimTurn).toHaveBeenCalledWith("user-1", "project-1", "conversation-1", { asked: false, aiModelId: undefined })
+            expect(takeConfirmation).not.toHaveBeenCalled()
+            expect(chat).not.toHaveBeenCalled()
+        })
+
+        it("Given an expired confirmation, when it is refused, then the conversation is freed for the next turn", async () => {
+            takeConfirmation.mockRejectedValue(createBusinessException({ code: "ASSISTANT_ACTION_NOT_FOUND", message: "expired", statusCode: 409 }))
+
+            const response = await app.inject({
+                method: "POST",
+                url: "/assistant/chat",
+                headers: { "project-id": "project-1" },
+                payload: {
+                    messages: [...question.messages, { role: "assistant", content: "I will delete staging." }],
+                    confirmation: { actionId: "a1", approved: true },
+                    conversationId: "conversation-1"
+                }
+            })
+
+            expect(response.statusCode).toBe(409)
+            expect(conversations.releaseTurn).toHaveBeenCalledWith("conversation-1", LEASE)
+            expect(chat).not.toHaveBeenCalled()
+        })
+
+        it("Given a question without a conversation, when it is sent, then the schema rejects it: every turn takes the lease", async () => {
+            const { conversationId: _conversationId, ...withoutConversation } = question
+
+            const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "project-1" }, payload: withoutConversation })
+
+            expect(response.statusCode).toBe(400)
+            expect(chat).not.toHaveBeenCalled()
+        })
+
+        it("Given an answer saved by the browser, when the save is done, then the updates of the agents run after it, never before", async () => {
+            const messages = [
+                { id: "m1", role: "user", content: "Fix the build" },
+                { id: "m2", role: "assistant", content: "Started an agent.", status: "done" }
+            ]
+
+            const response = await app.inject({ method: "PUT", url: "/assistant/conversations/conversation-1", headers: { "project-id": "project-1" }, payload: { messages } })
+
+            expect(response.statusCode).toBe(204)
+            expect(runAgentUpdates).toHaveBeenCalledWith("conversation-1", expect.anything(), expect.anything())
+            expect(conversations.saveConversation.mock.invocationCallOrder[0]).toBeLessThan(runAgentUpdates.mock.invocationCallOrder[0])
+        })
+
+        it("Given the save of a question whose answer is about to stream, when the save is done, then no update runs: it would take the conversation from the answer", async () => {
+            const messages = [
+                { id: "m1", role: "user", content: "Fix the build" },
+                { id: "m2", role: "assistant", content: "", status: "streaming" }
+            ]
+
+            await app.inject({ method: "PUT", url: "/assistant/conversations/conversation-1", headers: { "project-id": "project-1" }, payload: { messages } })
+
+            expect(runAgentUpdates).not.toHaveBeenCalled()
+        })
+
+        it("Given a save that fails, when it is refused, then no update runs on a conversation the browser could not save", async () => {
+            conversations.saveConversation.mockRejectedValue(createBusinessException({ code: "ASSISTANT_CONVERSATION_CONFLICT", message: "changed", statusCode: 409 }))
+
+            const response = await app.inject({
+                method: "PUT",
+                url: "/assistant/conversations/conversation-1",
+                headers: { "project-id": "project-1" },
+                payload: { messages: [{ id: "m1", role: "user", content: "Hi" }] }
+            })
+
+            expect(response.statusCode).toBe(409)
+            expect(runAgentUpdates).not.toHaveBeenCalled()
+        })
     })
 
     it("Given an answer, when it ends, then its tokens are saved for the project", async () => {
@@ -299,7 +472,7 @@ describe("AssistantController", () => {
             method: "POST",
             url: "/assistant/chat",
             headers: { "project-id": "project-1" },
-            payload: { messages: question.messages, confirmation: { actionId: "a1", approved: true } }
+            payload: { messages: question.messages, confirmation: { actionId: "a1", approved: true }, conversationId: "conversation-1" }
         })
 
         expect(response.statusCode).toBe(409)
@@ -310,7 +483,12 @@ describe("AssistantController", () => {
     it.each([{ actionId: "a1" }, { actionId: "", approved: true }, { actionId: "a1", approved: "yes" }, { actionId: "x".repeat(101), approved: true }])(
         "Given a malformed confirmation %j, when it is sent, then the schema rejects it",
         async confirmation => {
-            const response = await app.inject({ method: "POST", url: "/assistant/chat", headers: { "project-id": "project-1" }, payload: { messages: question.messages, confirmation } })
+            const response = await app.inject({
+                method: "POST",
+                url: "/assistant/chat",
+                headers: { "project-id": "project-1" },
+                payload: { messages: question.messages, confirmation, conversationId: "conversation-1" }
+            })
 
             expect(response.statusCode).toBe(400)
             expect(takeConfirmation).not.toHaveBeenCalled()
@@ -359,6 +537,10 @@ describe("AssistantController", () => {
     it("Given a rate limit of the assistant's own, when it is exceeded, then further questions get 429 while the rest of the API is unaffected", async () => {
         const limited = Fastify()
         limited.decorate("config", { ANTHROPIC_API_KEY: "test-key", ASSISTANT_RATE_LIMIT_MAX: 2 } as never)
+        limited.decorateRequest("databaseUser", null as never)
+        limited.addHook("onRequest", async request => {
+            request.databaseUser = { _id: "user-1" } as never
+        })
         await limited.register(RateLimit, { max: 100, timeWindow: "1 minute" })
         await limited.register(assistantController)
         chat.mockResolvedValue({ stopReason: "end_turn", wrote: false })
@@ -430,6 +612,68 @@ describe("AssistantController", () => {
 
             expect(response.statusCode).toBe(400)
             expect(conversations.saveConversation).not.toHaveBeenCalled()
+        })
+
+        it("Given a conversation that started agents, when its agent runs are asked for, then each job comes with its sandbox time, with its missions, the cost and the messages the server added", async () => {
+            const messages = [{ id: "m1" }, { id: "update-1", origin: "server" }, { id: "m3", usage: { inputTokens: 1, cachedInputTokens: 0, outputTokens: 1 } }]
+            conversations.conversationForRuns.mockResolvedValue({ messages, busy: false })
+            conversationJobs.mockResolvedValue([{ _id: "6720f0c2a1b2c3d4e5f60701", status: "DONE" }])
+            sandboxByJob.mockResolvedValue(new Map([["6720f0c2a1b2c3d4e5f60701", { commands: 2, execSeconds: 30, lifetimeSeconds: 300 }]]))
+            missionsFind.mockResolvedValue([{ _id: "6720f0c2a1b2c3d4e5f60799" }])
+            missionGet.mockResolvedValue({
+                _id: "6720f0c2a1b2c3d4e5f60799",
+                prompt: "Bump React",
+                status: "RUNNING",
+                repositories: [{}, {}, {}],
+                counts: { queued: 1, running: 1 },
+                usage: { inputTokens: 5, cachedInputTokens: 0, outputTokens: 1 },
+                createdAt: "2026-10-31T10:00:00.000Z"
+            })
+            const cost = { assistant: { inputTokens: 1 }, agents: { inputTokens: 2 }, total: { inputTokens: 3 } }
+            conversationCost.mockResolvedValue(cost)
+            conversationActivity.mockResolvedValue("missions")
+
+            const response = await app.inject({ method: "GET", url: "/assistant/conversations/conversation-1/agent-runs", headers })
+
+            expect(response.statusCode).toBe(200)
+            expect(conversations.conversationForRuns).toHaveBeenCalledWith("user-1", headers["project-id"], "conversation-1")
+            expect(conversationJobs).toHaveBeenCalledWith(headers["project-id"], "conversation-1")
+            expect(conversationCost).toHaveBeenCalledWith("conversation-1", messages)
+            expect(response.json()).toEqual({
+                jobs: [{ _id: "6720f0c2a1b2c3d4e5f60701", status: "DONE", sandbox: { commands: 2, execSeconds: 30, lifetimeSeconds: 300 } }],
+                missions: [
+                    {
+                        _id: "6720f0c2a1b2c3d4e5f60799",
+                        prompt: "Bump React",
+                        status: "RUNNING",
+                        repositories: 3,
+                        done: 1,
+                        usage: { inputTokens: 5, cachedInputTokens: 0, outputTokens: 1 },
+                        createdAt: "2026-10-31T10:00:00.000Z"
+                    }
+                ],
+                cost,
+                serverMessageIds: ["update-1"],
+                activity: "missions"
+            })
+        })
+
+        it("Given a turn holding the conversation, when its agent runs are asked for, then the panel polls as for agents at work", async () => {
+            conversations.conversationForRuns.mockResolvedValue({ messages: [], busy: true })
+            conversationCost.mockResolvedValue({})
+
+            const response = await app.inject({ method: "GET", url: "/assistant/conversations/conversation-1/agent-runs", headers })
+
+            expect(response.json().activity).toBe("agents")
+        })
+
+        it("Given a conversation of someone else, when its agent runs are asked for, then it is not found", async () => {
+            conversations.conversationForRuns.mockRejectedValue(createBusinessException({ code: "ASSISTANT_CONVERSATION_NOT_FOUND", message: "Conversation not found", statusCode: 404 }))
+
+            const response = await app.inject({ method: "GET", url: "/assistant/conversations/conversation-1/agent-runs", headers })
+
+            expect(response.statusCode).toBe(404)
+            expect(conversationJobs).not.toHaveBeenCalled()
         })
 
         it("Given a conversation, when it is opened and then deleted, then both act on that id for the user", async () => {

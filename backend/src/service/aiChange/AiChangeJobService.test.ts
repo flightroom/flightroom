@@ -178,6 +178,12 @@ describe("AiChangeJobService", () => {
             expect(AiChangeJob.create).not.toHaveBeenCalled()
         })
 
+        it("Given an assistant conversation starting a job, when it is created, then the job is linked to it", async () => {
+            await service().create(projectId, { prompt: "Rename the price API", scope: "global", assistantConversationId: "conversation-1" })
+
+            expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ assistantConversationId: "conversation-1" }))
+        })
+
         it("Given more than 10 frontends with a repository, when a global job is started, then it asks to select them", async () => {
             withRepository = Array.from({ length: 11 }, (_, index) => frontend(`mfe-${index}`, `Mfe ${index}`))
 
@@ -660,6 +666,31 @@ describe("AiChangeJobService", () => {
             await service().followUp(String(parentJobId), { prompt: "Also in the summary" })
 
             expect(AiChangeJob.create).toHaveBeenCalledWith(expect.objectContaining({ scope: "domain", domainId, parentJobId }))
+        })
+
+        it("Given a job an assistant conversation started, when the console follows it up, then the child is no conversation's, and when the assistant does it is linked", async () => {
+            vi.spyOn(AiChangeJob, "findById").mockImplementation((() =>
+                Promise.resolve({
+                    _id: parentJobId,
+                    rootJobId,
+                    projectId,
+                    userId: user._id,
+                    assistantConversationId: "conversation-1",
+                    prompt: "Fix the lint error",
+                    scope: "selection",
+                    frontendIds: [catalog._id],
+                    status: parentStatus,
+                    usage: {},
+                    updatedAt: new Date()
+                })) as never)
+
+            await service().followUp(String(parentJobId), { prompt: "Also the tests" })
+            await service().followUp(String(parentJobId), { prompt: "Also the docs", assistantConversationId: "conversation-1" })
+
+            const created = (AiChangeJob.create as unknown as { mock: { calls: [Record<string, unknown>][] } }).mock.calls
+            const [fromConsole, fromAssistant] = created.map(([document]) => document)
+            expect(fromConsole.assistantConversationId).toBeUndefined()
+            expect(fromAssistant).toMatchObject({ assistantConversationId: "conversation-1", parentJobId })
         })
 
         it("Given a job still running, when it is followed up, then it is refused", async () => {

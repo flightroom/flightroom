@@ -1,10 +1,15 @@
 import { FastifyInstance, FastifyRequest } from "fastify"
 import { createBusinessException } from "../errors/BusinessException"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
+import AiMission from "../models/AiMissionModel"
 import AssistantUsage from "../models/AssistantUsageModel"
 import { calculateAiUsageCost, ensureWithinTokenLimit, recordAiUsage } from "../service/AiUsageService"
+import AiChangeJobService from "../service/aiChange/AiChangeJobService"
+import AiMissionService from "../service/aiChange/AiMissionService"
 import AssistantService, { AssistantSpentOn } from "../service/assistant/AssistantService"
-import { deleteConversation, getConversation, listConversations, saveConversation } from "../service/assistant/conversations"
+import { conversationCost, sandboxByJob } from "../service/assistant/agentRuns"
+import { conversationActivity, runAgentUpdates } from "../service/assistant/agentUpdates"
+import { claimTurn, conversationForRuns, deleteConversation, getConversation, holdTurn, listConversations, MAX_TURN_MS, releaseTurn, saveConversation } from "../service/assistant/conversations"
 import { addUsage, isRateLimitError, LLM_EFFORTS, LlmEffort, LlmProvider, LlmUsage, NO_USAGE } from "../service/llm"
 import { AssistantChatRequestDTO, AssistantConversationSaveDTO, AssistantProjectDraftRequestDTO } from "../types/AssistantDTO"
 import AuthenticationMethod from "../types/AuthenticationMethod"
@@ -19,10 +24,15 @@ const HEARTBEAT = ": ping\n\n"
 /** An id of the organization's AIs, or `system`. */
 const AI_MODEL_ID = { type: "string", minLength: 1, maxLength: 64 }
 const HEARTBEAT_INTERVAL_MS = 15_000
+/** The missions of a conversation shown, newest first. */
+const MAX_MISSION_CARDS = 10
+/** The id the browser names a conversation with. */
+const CONVERSATION_ID = { type: "string", pattern: "^[A-Za-z0-9_-]{8,64}$" }
 
 const chatBodySchema = {
     type: "object",
-    required: ["messages"],
+    // Every turn belongs to a saved conversation: it takes the conversation's lease, so no two turns of it overlap.
+    required: ["messages", "conversationId"],
     additionalProperties: false,
     properties: {
         messages: {
@@ -41,6 +51,7 @@ const chatBodySchema = {
         },
         effort: { type: "string", enum: LLM_EFFORTS },
         aiModelId: AI_MODEL_ID,
+        conversationId: CONVERSATION_ID,
         context: {
             type: "object",
             additionalProperties: false,
@@ -83,7 +94,7 @@ const SHORT_STRING = { type: "string", maxLength: 200 }
 const conversationParamsSchema = {
     type: "object",
     required: ["conversationId"],
-    properties: { conversationId: { type: "string", pattern: "^[A-Za-z0-9_-]{8,64}$" } }
+    properties: { conversationId: CONVERSATION_ID }
 }
 
 const conversationBodySchema = {
@@ -102,6 +113,8 @@ const conversationBodySchema = {
                     id: { type: "string", minLength: 1, maxLength: 100 },
                     role: { type: "string", enum: ["user", "assistant"] },
                     content: { type: "string" },
+                    origin: { type: "string", enum: ["server"] },
+                    kind: { type: "string", enum: ["agent_update"] },
                     thinking: { type: "string" },
                     effort: SHORT_STRING,
                     status: { type: "string", enum: ["streaming", "done", "error"] },
@@ -124,7 +137,15 @@ const conversationBodySchema = {
                             title: SHORT_STRING,
                             details: {
                                 type: "array",
-                                items: { type: "object", required: ["label", "value"], properties: { label: SHORT_STRING, value: { type: "string" } } }
+                                items: {
+                                    type: "object",
+                                    required: ["label", "value"],
+                                    properties: {
+                                        label: SHORT_STRING,
+                                        value: { type: "string" },
+                                        lines: { type: "array", items: { type: "object", required: ["key"], properties: { key: SHORT_STRING, params: { type: "object" } } } }
+                                    }
+                                }
                             },
                             expiresAt: SHORT_STRING,
                             status: SHORT_STRING
@@ -183,9 +204,30 @@ export default async function assistantController(fastify: FastifyInstance) {
         await service.ensureCanChat(projectId, request.body.aiModelId)
         // Here, not in ensureCanChat: reading or saving the conversations spends no token, and stays open past the limit
         if (request.databaseUser) await ensureWithinTokenLimit(projectId, request.databaseUser._id)
+        // One turn of a conversation at a time: an update turn the server runs when an agent ends holds it
+        // meanwhile. Claimed before the confirmation is taken, which a busy conversation must not use up.
+        const conversationId = request.body.conversationId as string
+        const lease = await claimTurn(request.databaseUser._id, projectId, conversationId, { asked: !confirmation, aiModelId: request.body.aiModelId })
+        if (!lease) {
+            throw createBusinessException({ code: "ASSISTANT_CONVERSATION_BUSY", message: "The assistant is answering an update of this conversation: ask again in a moment", statusCode: 409 })
+        }
+        // Renewed while the turn runs; lost (it ran out and another turn took it), the turn stops.
+        const lost = new AbortController()
+        const held = holdTurn(conversationId, lease, () => lost.abort())
+        // The updates of the agents that ended meanwhile run once the browser has saved this turn: see the save below.
+        const release = async () => {
+            held.stop()
+            await releaseTurn(conversationId, held.lease()).catch(error => fastify.log.warn({ err: error, projectId }, "Assistant conversation not released"))
+        }
         // Taken before the stream opens, so an expired or foreign action is an HTTP error, and only
         // once: a second answer to the same card finds nothing.
-        const action = confirmation ? await service.takeConfirmation(projectId, confirmation.actionId) : undefined
+        let action: Awaited<ReturnType<typeof service.takeConfirmation>> | undefined
+        try {
+            action = confirmation ? await service.takeConfirmation(projectId, confirmation.actionId, conversationId) : undefined
+        } catch (error) {
+            await release()
+            throw error
+        }
 
         openEventStream(reply)
 
@@ -218,7 +260,8 @@ export default async function assistantController(fastify: FastifyInstance) {
                         spent = { usage: addUsage(spent.usage, usage), spentOn }
                     }
                 },
-                abortController.signal,
+                // The user leaving, the lease lost, or the turn running past what any turn may.
+                AbortSignal.any([abortController.signal, lost.signal, AbortSignal.timeout(MAX_TURN_MS)]),
                 action && confirmation ? { action, approved: confirmation.approved } : undefined
             )
             let cost: Awaited<ReturnType<typeof calculateAiUsageCost>> = undefined
@@ -251,6 +294,7 @@ export default async function assistantController(fastify: FastifyInstance) {
             clearInterval(heartbeat)
         }
         reply.raw.end()
+        await release()
 
         if (answered) {
             const { stopReason, usage, cost, currency, effort, aiModelId, provider } = answered
@@ -322,12 +366,69 @@ export default async function assistantController(fastify: FastifyInstance) {
         }
     )
 
+    /**
+     * The agents the assistant started in the conversation, a card each (its jobs, its missions), and what the
+     * conversation cost: the assistant's answers and its agents (tokens and sandbox time), apart and summed. Reads no
+     * text of the conversation. `serverMessageIds` lists the messages the server added when agents ended: the panel
+     * reloads the conversation when it misses one. `activity` says how often to poll: `agents` while a turn holds the
+     * conversation, a job works or an update is to come, `missions` while only a mission works, `none` after.
+     */
+    fastify.get<{ Params: { conversationId: string } }>(
+        "/assistant/conversations/:conversationId/agent-runs",
+        { schema: { params: conversationParamsSchema }, config: { authMethod: AuthenticationMethod.JWT } },
+        async (request, reply) => {
+            const projectId = await conversationProjectId(request)
+            const { conversationId } = request.params
+            const conversation = await conversationForRuns(request.databaseUser._id, projectId, conversationId)
+            const missionIds = await AiMission.find({ projectId: toObjectId(projectId), assistantConversationId: conversationId }, { _id: 1 })
+                .sort({ createdAt: -1 })
+                .limit(MAX_MISSION_CARDS)
+                .lean()
+            const missionService = new AiMissionService(request.databaseUser, fastify.config)
+            const [jobs, missions, cost, activity] = await Promise.all([
+                new AiChangeJobService(request.databaseUser, fastify.config).conversationJobs(projectId, conversationId),
+                // One out of the caller's domains is left out, as on the Fleet page.
+                Promise.all(missionIds.map(mission => missionService.get(String(mission._id)).catch(() => undefined))),
+                conversationCost(conversationId, conversation.messages),
+                conversationActivity(conversationId)
+            ])
+            const sandboxes = await sandboxByJob(jobs.map(job => toObjectId(job._id)))
+            return reply.send({
+                jobs: jobs.map(job => ({ ...job, sandbox: sandboxes.get(job._id) ?? { commands: 0, execSeconds: 0, lifetimeSeconds: 0 } })),
+                missions: missions.flatMap(mission =>
+                    mission
+                        ? [
+                              {
+                                  _id: mission._id,
+                                  prompt: mission.prompt,
+                                  status: mission.status,
+                                  repositories: mission.repositories.length,
+                                  done: mission.repositories.length - mission.counts.queued - mission.counts.running,
+                                  usage: mission.usage,
+                                  createdAt: mission.createdAt
+                              }
+                          ]
+                        : []
+                ),
+                cost,
+                serverMessageIds: conversation.messages.filter(message => message.origin === "server").map(message => message.id),
+                activity: conversation.busy ? "agents" : activity
+            })
+        }
+    )
+
     fastify.put<{ Params: { conversationId: string }; Body: AssistantConversationSaveDTO }>(
         "/assistant/conversations/:conversationId",
         { bodyLimit: CONVERSATION_BODY_LIMIT, schema: { params: conversationParamsSchema, body: conversationBodySchema }, config: { authMethod: AuthenticationMethod.JWT } },
         async (request, reply) => {
             const projectId = await conversationProjectId(request)
-            await saveConversation(request.databaseUser._id, projectId, request.params.conversationId, request.body.messages)
+            const { conversationId } = request.params
+            await saveConversation(request.databaseUser._id, projectId, conversationId, request.body.messages)
+            // The turn is saved: the agents that ended meanwhile get their update after it, never before. Not on the
+            // save of a question, whose answer is about to stream and would find the conversation taken.
+            if (!request.body.messages.some(message => message.status === "streaming")) {
+                void runAgentUpdates(conversationId, fastify.config, request.log).catch(error => fastify.log.error({ err: error, projectId }, "Assistant update failed"))
+            }
             return reply.code(204).send()
         }
     )

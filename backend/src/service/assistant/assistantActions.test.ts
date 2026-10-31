@@ -76,12 +76,21 @@ describe("assistantToolDefinitions", () => {
         }
     })
 
-    it("Given the MCP tools and the assistant's own, when listed, then the reads and writes of MCP are there with the two tools MCP lacks and no duplicate", () => {
+    it("Given the MCP tools and the assistant's own, when listed, then the reads and writes of MCP are there with the tools MCP lacks and no duplicate", () => {
         const names = assistantToolDefinitions.map(definition => definition.name)
 
         expect(names).toEqual(expect.arrayContaining(["environments_list", "environment_create", "deploy", "search_docs", "get_failed_build_logs"]))
         expect(names).not.toContain("list_environments")
         expect(new Set(names).size).toBe(names.length)
+    })
+
+    it("Given the AI changes and jobs, when the assistant's tools are listed, then it reads them and drives only its own agent runs", () => {
+        const names = assistantToolDefinitions.map(definition => definition.name)
+
+        for (const name of ["ai_change_start", "ai_change_apply", "ai_change_open_pull_request", "ai_change_discard", "ai_job_start", "ai_job_follow_up", "ai_job_apply"]) {
+            expect(names).not.toContain(name)
+        }
+        expect(names).toEqual(expect.arrayContaining(["agent_run_start", "agent_run_follow_up", "agent_run_apply", "agent_run_discard", "ai_job_get", "ai_change_get"]))
     })
 
     it("Given the tool handing out the whole npmrc, when the assistant's tools are listed, then it is not there: the console's model never reads the credentials", () => {
@@ -97,7 +106,7 @@ describe("assistantToolDefinitions", () => {
 })
 
 describe("confirmation policy", () => {
-    const CONFIRMED_WRITES = ["project_member_invite", "project_member_resend_invitation", "organization_member_invite", "api_key_create", "ai_change_discard", "canary_users_set"]
+    const CONFIRMED_WRITES = ["project_member_invite", "project_member_resend_invitation", "organization_member_invite", "api_key_create", "agent_run_discard", "canary_users_set"]
 
     it("Given tools that grant access or cannot be undone, when classified, then they wait for the user while their MCP annotations stay non-destructive", () => {
         for (const name of CONFIRMED_WRITES) {

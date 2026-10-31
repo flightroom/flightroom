@@ -157,13 +157,13 @@ the input is validated, a **VIEWER** cannot change anything, and errors read the
 - **Writes** run directly. Tools that need a confirmation do not: every **destructive** one (deleting,
   deploying, rolling back, committing to a repository), and the writes that hand out access or cannot
   be undone without being destructive (`requiresConfirmation: true` on the tool: inviting to a project
-  or an organization, resending a project invitation, creating an API key, discarding an AI change,
+  or an organization, resending a project invitation, creating an API key, discarding the proposals of an agent run,
   setting canary users, scaffolding a frontend or a backend from a template, renaming a frontend's
-  repository, submitting a code change, opening the pull request of an AI change, and setting the
+  repository, submitting a code change, applying an agent run through pull requests, starting a mission, and setting the
   project's GitOps repository or the pipeline templates repository of a connection). The assistant stops and the panel shows a card, and the action runs only
   when the user confirms it. The card lists what the action acts on with names instead of ids
   (users by name and email, organization, project, environments, frontends with version and
-  host, backends, domains, API key, MCP client, AI change with its request and files), resolved by the server with the
+  host, backends, domains, API key, MCP client, agent run with its request and, per repository, the branch and base its proposal goes to), resolved by the server with the
   user's own access; a `deploy` card says, per environment, which frontend versions, hosts and
   variables change compared to the active deployment (or everything it will serve on a first
   deployment). A name that cannot be resolved is shown as the raw value; the input the model sent is
@@ -195,6 +195,12 @@ the input is validated, a **VIEWER** cannot change anything, and errors read the
   invitation and creating a key are confirmed too. Inviting to a project or resending its invitation
   takes a project owner (or an organization administrator), and inviting an organization owner takes
   an organization owner, in the console pages as through the assistant.
+- **Supervising the code agent**: the assistant investigates with its own tools (builds, pipelines, pods,
+  logs, the environment of a container), then delegates code changes to the Edit with AI agent with
+  `agent_run_start` and a brief carrying what it found, follows it (`agent_run_wait`, `agent_run_status`),
+  asks for follow-ups, and proposes to apply (`agent_run_apply`, always confirmed). When an agent it started
+  ends, the server adds a note to the conversation and runs a turn on its own, saved like the others. See
+  [Vega supervises the agent](AI-CODE-CHANGES.md#vega-supervises-the-agent).
 - Build logs read by the assistant are redacted before they reach the model: known token formats
   (GitHub, GitLab, npm, AWS, Slack, JWT), credentials in URLs, `password=`/`token:` assignments,
   variables named like `*SECRET*`, `*KEY*`, `*TOKEN*`, `*PASSWORD*`, `*PASSWD*`, `*PWD*`, `Bearer`

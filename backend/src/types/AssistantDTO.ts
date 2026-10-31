@@ -16,6 +16,12 @@ export interface AssistantChatRequestDTO {
     effort?: LlmEffort
     /** The AI that answers, one the project may use: the project's default when left out. */
     aiModelId?: string
+    /**
+     * The saved conversation the question belongs to: the agents the assistant starts are linked to it, and its
+     * turns, the user's and those the server runs when an agent ends, never run at once. Without it the assistant
+     * cannot start agents.
+     */
+    conversationId?: string
     /** The user's answer to a `confirm` frame: the turn resumes from the action it names. */
     confirmation?: {
         actionId: string
@@ -28,6 +34,11 @@ export interface AssistantChatRequestDTO {
         locale?: string
         /** The voice mode of the panel is on: the answer is read aloud, so it is asked short and spoken. */
         voice?: boolean
+        /**
+         * Set by the server only, never by the browser: the turn it runs on its own when agents of the conversation
+         * end. Nobody is at the console, and confirmations wait for the user.
+         */
+        update?: boolean
     }
 }
 
@@ -71,11 +82,27 @@ export interface AssistantProjectDraftTurnDTO {
     draft: AssistantProjectDraftDTO
 }
 
+/**
+ * A line of a confirmation card the console words in the user's language: `key` under
+ * `assistant.confirmation.lines`, `params` its values (names, branches, a `count` for plurals).
+ */
+export interface ConfirmationLineDTO {
+    key: string
+    params?: Record<string, string | number>
+}
+
 /** A message of a saved conversation, as the panel shows it. Tool inputs and results are never kept. */
 export interface AssistantConversationMessageDTO {
     id: string
     role: "user" | "assistant"
     content: string
+    /**
+     * `server` on the messages the server added on its own, when an agent the assistant started ended: a save from
+     * the browser that has not seen them yet keeps them.
+     */
+    origin?: "server"
+    /** `agent_update`: the note of how agents of the conversation ended, shown as a notice rather than as the user's words. */
+    kind?: "agent_update"
     /** The summary of the model's reasoning, shown above the answer. */
     thinking?: string
     /** The effort the answer was asked with. */
@@ -95,7 +122,7 @@ export interface AssistantConversationMessageDTO {
         callId: string
         name: string
         title: string
-        details: { label: string; value: string }[]
+        details: { label: string; value: string; lines?: ConfirmationLineDTO[] }[]
         expiresAt: string
         status: string
     }
@@ -122,4 +149,6 @@ export interface AssistantConversationSummaryDTO {
 
 export interface AssistantConversationDTO extends AssistantConversationSummaryDTO {
     messages: AssistantConversationMessageDTO[]
+    /** A turn holds the conversation: an answer, maybe the server's to an agent that ended, is being written. */
+    busy?: boolean
 }

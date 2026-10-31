@@ -62,13 +62,14 @@ takes write access away from their clients immediately.
 The console's own assistant runs these same tools in process, for the signed-in user and on the
 project open in the console (see [AI providers](AI-PROVIDERS.md#the-console-assistant)). A tool
 defined with `consoleOnly: true` sits in the same registry (`MCP_TOOLS`) but is never registered on
-the MCP server: only the assistant offers it. A tool may also define `presentResult` to keep part of
-its result (a new API key, say) away from the model while the user still sees it; MCP clients always
+the MCP server: only the assistant offers it. The tools that start and drive the Edit with AI agent
+(`agent_run_*`, `mission_start`) are not even in that registry: an MCP client never reaches the agent.
+A tool may also define `presentResult` to keep part of its result (a new API key, say) away from the model while the user still sees it; MCP clients always
 get the whole result. The annotations MCP clients see (`destructiveHint`...) stay truthful: whether
 the assistant asks the user before running a tool is `requiresConfirmation`, which defaults to
 `destructiveHint` and is set to true on writes that hand out access or cannot be undone (invitations,
-API key creation, discarding an AI change, canary users, scaffolding a frontend or a backend from a
-template, renaming a frontend's repository, `code_change_submit`, `pull_request_create`, opening the pull request of an AI change,
+API key creation, discarding the proposals of an agent run, canary users, scaffolding a frontend or a backend from a
+template, renaming a frontend's repository, `code_change_submit`, `pull_request_create`, applying an agent run through pull requests, starting a mission,
 setting the project's GitOps repository or the pipeline templates repository of a connection). Of these, MCP
 clients get `frontend_scaffold`, `backend_scaffold`, `frontend_repository_rename`, `code_change_submit`,
 `pull_request_create` and `canary_users_set`.

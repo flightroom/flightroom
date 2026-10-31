@@ -1,5 +1,5 @@
 import { Tabs, TabsContent, Textarea } from "@flightroom/design-system"
-import { ArrowUp, GitBranchPlus, History, Mic, RotateCcw, Sparkles, Square, X } from "lucide-react"
+import { ArrowUp, Bot, GitBranchPlus, History, Mic, RotateCcw, Sparkles, Square, X } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
@@ -7,11 +7,12 @@ import { Button } from "@/components/atoms"
 import Mascot from "@/components/mascot/Mascot"
 import useAssistantChat from "@/hooks/useAssistantChat"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
-import useAssistantStore, { AssistantMessage } from "@/store/useAssistantStore"
+import useAssistantStore, { AssistantMessage, isPendingConfirmation } from "@/store/useAssistantStore"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import AiModelSelect from "./AiModelSelect"
 import AnswerUsage from "./AnswerUsage"
+import AssistantAgentRuns from "./AssistantAgentRuns"
 import AssistantConfirmationCard from "./AssistantConfirmationCard"
 import AssistantHistory from "./AssistantHistory"
 import AssistantJobTabs from "./AssistantJobTabs"
@@ -93,6 +94,23 @@ const AnswerBubble: React.FC<AnswerBubbleProps> = ({ message, isStreaming, onAns
     )
 }
 
+/** The server's note that agents of the conversation ended: a notice, not the user's words. Its text is written for the model. */
+const AgentUpdateNotice: React.FC<{ message: AssistantMessage }> = ({ message }) => {
+    const { t } = useTranslation()
+    return (
+        <div className="flex flex-col gap-1 rounded-md border border-dashed border-divider px-3 py-2 text-xs text-foreground-secondary" data-testid="assistant-agent-update">
+            <span className="flex items-center gap-1 font-medium">
+                <Bot className="size-3.5" aria-hidden="true" />
+                {t("assistant.agent_update.title")}
+            </span>
+            <details>
+                <summary className="cursor-pointer select-none">{t("assistant.agent_update.details")}</summary>
+                <p className="mt-1 whitespace-pre-wrap break-words">{message.content.replace(/<\/?agent_update>/g, "").trim()}</p>
+            </details>
+        </div>
+    )
+}
+
 interface AssistantPanelProps {
     /**
      * `panel`: docked on the right of every project page, opened and closed by the user.
@@ -127,7 +145,7 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
     // The saved conversations, shown in place of the open one. On wide screens the page lists them next to it.
     const [historyOpen, setHistoryOpen] = useState(false)
     // The turn waits for the user's answer to the card: a new question would leave it hanging.
-    const awaitingConfirmation = messages.some(message => message.confirmation?.status === "pending")
+    const awaitingConfirmation = messages.some(message => isPendingConfirmation(message))
     const [draft, setDraft] = useState("")
     const scrollRef = useRef<HTMLDivElement>(null)
     const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -310,7 +328,9 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
                                         </div>
                                     ) : (
                                         messages.map(message =>
-                                            message.role === "user" ? (
+                                            message.kind === "agent_update" ? (
+                                                <AgentUpdateNotice key={message.id} message={message} />
+                                            ) : message.role === "user" ? (
                                                 <div key={message.id} className="self-end max-w-[85%] rounded-lg bg-primary/10 px-3 py-2 text-sm text-foreground">
                                                     <AssistantMessageText text={message.content} />
                                                 </div>
@@ -319,6 +339,7 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
                                             )
                                         )
                                     )}
+                                    {projectId && <AssistantAgentRuns projectId={projectId} isStreaming={isStreaming} />}
                                 </div>
                             </div>
 
