@@ -779,6 +779,12 @@
             "form": {
                 "create_title": "Nuovo Ambiente",
                 "edit_title": "Modifica {{name}}",
+                "delete": "Elimina",
+                "sections": {
+                    "general": "Generale",
+                    "exposure": "Esposizione",
+                    "logs": "Log"
+                },
                 "cancel": "Annulla",
                 "create": "Crea",
                 "update": "Aggiorna"

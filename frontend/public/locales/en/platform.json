@@ -1389,6 +1389,12 @@
             "form": {
                 "create_title": "Create New Environment",
                 "edit_title": "Edit {{name}}",
+                "delete": "Delete",
+                "sections": {
+                    "general": "General",
+                    "exposure": "Exposure",
+                    "logs": "Logs"
+                },
                 "cancel": "Cancel",
                 "create": "Create",
                 "update": "Update"

@@ -6,7 +6,7 @@ import { createEnvironmentViaApi, getEnvironmentsViaApi } from "../fixtures/proj
  * CRUD degli ambienti dalla pagina /environments.
  *
  * Il progetto parte con un ambiente creato via API: senza nemmeno uno la pagina
- * mostra il placeholder con i preset invece della tabella, e il bottone di
+ * mostra il placeholder con i preset invece delle tessere, e la tessera di
  * creazione non c'e'.
  *
  * Prerequisiti: credenziali testmail.app (TESTMAIL_API_KEY, TESTMAIL_NAMESPACE)
@@ -71,7 +71,7 @@ test.describe
             await expect(row).toContainText(seeded.slug)
         })
 
-        test("given the create dialog, when a name and a slug are submitted, then the environment is created", async ({ browser, request }) => {
+        test("given the create form, when a name and a slug are submitted, then the environment is created", async ({ browser, request }) => {
             const page = await openEnvironments(browser)
 
             await page.getByTestId("environment-new").click()
@@ -83,18 +83,16 @@ test.describe
             expect((await environments(request)).map(environment => environment.slug)).toContain(created.slug)
         })
 
-        test("given the create dialog, when the name is missing, then the environment is not created", async ({ browser, request }) => {
+        test("given the create form, when the name is missing, then the environment is not created", async ({ browser, request }) => {
             const page = await openEnvironments(browser)
             const before = (await environments(request)).length
 
             await page.getByTestId("environment-new").click()
             await page.getByTestId("environment-submit").click()
 
-            // Campo obbligatorio: il dialog resta aperto e non viene creato nulla.
+            // Campo obbligatorio: il form di creazione resta aperto e non viene creato nulla.
             await expect(page.getByTestId("environment-name")).toBeVisible()
             expect(await environments(request)).toHaveLength(before)
-
-            await page.keyboard.press("Escape")
         })
 
         test("given an existing environment, when it is renamed, then the new name is persisted", async ({ browser, request }) => {
@@ -111,6 +109,8 @@ test.describe
         test("given an existing environment, when it is deleted, then it disappears from the project", async ({ browser, request }) => {
             const page = await openEnvironments(browser)
 
+            // L'eliminazione sta nell'editor dell'ambiente selezionato
+            await page.getByTestId(`environment-edit-${created.slug}`).click()
             await page.getByTestId(`environment-delete-${created.slug}`).click()
             await page.getByRole("button", { name: "Elimina", exact: true }).click()
 
