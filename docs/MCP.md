@@ -58,10 +58,10 @@ get the whole result. The annotations MCP clients see (`destructiveHint`...) sta
 the assistant asks the user before running a tool is `requiresConfirmation`, which defaults to
 `destructiveHint` and is set to true on writes that hand out access or cannot be undone (invitations,
 API key creation, discarding an AI change, canary users, scaffolding a frontend or a backend from a
-template, renaming a frontend's repository, `code_change_submit`, opening the pull request of an AI change,
+template, renaming a frontend's repository, `code_change_submit`, `pull_request_create`, opening the pull request of an AI change,
 setting the project's GitOps repository or the pipeline templates repository of a connection). Of these, MCP
-clients get `frontend_scaffold`, `backend_scaffold`, `frontend_repository_rename`, `code_change_submit` and
-`canary_users_set`.
+clients get `frontend_scaffold`, `backend_scaffold`, `frontend_repository_rename`, `code_change_submit`,
+`pull_request_create` and `canary_users_set`.
 
 ## Project context
 

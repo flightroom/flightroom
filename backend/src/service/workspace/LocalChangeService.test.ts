@@ -160,6 +160,42 @@ describe("LocalChangeService.submit", () => {
     })
 })
 
+describe("LocalChangeService.openPullRequest", () => {
+    it("opens a pull request from an existing branch to the default branch, pushing nothing", async () => {
+        await expect(backend().openPullRequest(ref, { sourceBranch: "release/dev", title: "Release", description: "Sprint 12" })).resolves.toEqual({
+            sourceBranch: "release/dev",
+            targetBranch: "main",
+            pullRequestUrl: "https://github.com/acme/cart-fe/pull/7"
+        })
+        expect(ensureCanChangeProject).toHaveBeenCalledWith(PROJECT)
+        expect(openPullRequest.mock.calls[0][1]).toEqual({
+            sourceBranch: "release/dev",
+            targetBranch: "main",
+            title: "Release",
+            description: "Sprint 12\n\n---\nOpened through Flightroom by dev@example.com."
+        })
+        expect(prepare).not.toHaveBeenCalled()
+        expect(workingCopy.commitAndPush).not.toHaveBeenCalled()
+    })
+
+    it("refuses a branch merged into itself", async () => {
+        await expect(backend().openPullRequest(ref, { sourceBranch: "main", title: "Release" })).rejects.toMatchObject({ code: "PULL_REQUEST_SAME_BRANCH" })
+        expect(openPullRequest).not.toHaveBeenCalled()
+    })
+
+    it("says why the provider refused it", async () => {
+        const refusal = Object.assign(new Error("Request failed with status code 422"), {
+            isAxiosError: true,
+            response: { status: 422, data: { message: "Validation Failed", errors: [{ message: "No commits between main and release/dev" }] } }
+        })
+        openPullRequest.mockRejectedValue(refusal)
+        await expect(backend().openPullRequest(ref, { sourceBranch: "release/dev", title: "Release" })).rejects.toMatchObject({
+            code: "PULL_REQUEST_REFUSED",
+            message: "The pull request from release/dev to main could not be opened: Validation Failed No commits between main and release/dev"
+        })
+    })
+})
+
 describe("LocalChangeService by a member assigned to some domains", () => {
     const OWN_DOMAIN = "eeeeeeeeeeeeeeeeeeeeeeee"
     const scoped = () => {

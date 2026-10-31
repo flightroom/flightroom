@@ -8,6 +8,7 @@ import { firstLine, loggable, timestamp } from "../aiChange/aiChangeShared"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import ProjectService, { ProjectContextDTO } from "../ProjectService"
 import { toErrorMessage } from "../RepositoryFileService"
+import { describeProviderError } from "../RepositoryRenameService"
 import { FileChangeAction, GitAuthor, ORCHESTRATOR_COMMITTER } from "./GitWorkingCopy"
 import RepositoryWorkspaceService, { cloneUrlFor } from "./RepositoryWorkspaceService"
 import { findComponent, RepositoryComponent, RepositoryComponentRef } from "./repositoryComponent"
@@ -49,6 +50,19 @@ export interface LocalChangeResult {
     baseCommit: string
     pullRequestUrl?: string
     pullRequestError?: string
+}
+
+export interface PullRequestInput {
+    sourceBranch: string
+    targetBranch?: string
+    title: string
+    description?: string
+}
+
+export interface PullRequestResult {
+    sourceBranch: string
+    targetBranch: string
+    pullRequestUrl: string
 }
 
 const invalidFile = (message: string) => createBusinessException({ code: "LOCAL_CHANGE_INVALID_FILE", message, statusCode: 422 })
@@ -120,6 +134,45 @@ export class LocalChangeService extends BaseAuthorizedService {
         return { name: [user.name, user.surname].filter(Boolean).join(" ") || user.email, email: user.email }
     }
 
+    /** Who asked, for the pull request description: an API key has no person behind it. */
+    private requester(): string {
+        return this.user?.apiKeyId ? `the API key ${this.user.apiKeyId}` : this.getUser()!.email
+    }
+
+    /**
+     * Opens a pull request between two branches that already exist, e.g. to bring release/dev into
+     * main. Nothing is pushed and nothing is merged: the merge stays at the provider, behind its
+     * reviews and branch policies.
+     */
+    async openPullRequest(ref: RepositoryComponentRef, input: PullRequestInput): Promise<PullRequestResult> {
+        const component = await this.getComponent(ref)
+        await new AiChangeService(this.user, fastify.config).ensureCanChangeProject(component.projectId)
+        await this.ensureRepositoryInDomainScope(component, component.codeRepository)
+        const workspaceService = new RepositoryWorkspaceService(this.user)
+        const workspace = await workspaceService.open(component)
+        const sourceBranch = input.sourceBranch.trim()
+        const targetBranch = input.targetBranch?.trim() || workspace.defaultBranch
+        if (sourceBranch === targetBranch) {
+            throw createBusinessException({ code: "PULL_REQUEST_SAME_BRANCH", message: `${sourceBranch} cannot be merged into itself`, statusCode: 422 })
+        }
+        try {
+            const pullRequestUrl = await workspaceService.openPullRequest(workspace.target, {
+                sourceBranch,
+                targetBranch,
+                title: firstLine(input.title, 200),
+                description: [input.description?.trim(), `---\nOpened through Flightroom by ${this.requester()}.`].filter(Boolean).join("\n\n")
+            })
+            return { sourceBranch, targetBranch, pullRequestUrl }
+        } catch (error) {
+            // A provider error says why (no commits between the branches, one already open...): the model needs that, not a generic failure.
+            throw createBusinessException({
+                code: "PULL_REQUEST_REFUSED",
+                message: `The pull request from ${sourceBranch} to ${targetBranch} could not be opened: ${describeProviderError(error).message}`,
+                statusCode: 422
+            })
+        }
+    }
+
     /**
      * Commits the files on a new branch started from the latest `baseBranch`, pushes it and opens a
      * pull request.
@@ -180,12 +233,11 @@ export class LocalChangeService extends BaseAuthorizedService {
                 let pullRequestUrl: string | undefined
                 let pullRequestError: string | undefined
                 try {
-                    const submitter = this.user?.apiKeyId ? `the API key ${this.user.apiKeyId}` : this.getUser()!.email
                     pullRequestUrl = await workspaceService.openPullRequest(workspace.target, {
                         sourceBranch: branch,
                         targetBranch: baseBranch,
                         title,
-                        description: [input.description?.trim(), `---\nSubmitted through the Flightroom MCP server by ${submitter}.`].filter(Boolean).join("\n\n")
+                        description: [input.description?.trim(), `---\nSubmitted through the Flightroom MCP server by ${this.requester()}.`].filter(Boolean).join("\n\n")
                     })
                 } catch (error) {
                     // The branch is pushed: the change is not lost, the developer opens the pull request by hand.
