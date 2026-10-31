@@ -12,6 +12,7 @@ import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
+import { WEEKDAYS } from "../types/KubeGreen"
 import { isSecretEncryptionEnabled } from "./secretCrypto"
 
 /** Anything not carrying the marker written by secretCrypto is still a credential in the clear. */
@@ -128,6 +129,38 @@ export const seedEnvironmentVersions = async (logger: FastifyBaseLogger): Promis
     }
 }
 
+/** The days of a cron `weekdays`, e.g. `1-5`, `1,3,5` or `*`; a range backwards goes round the week, as it did in the editor */
+const cronDays = (weekdays: string): number[] => {
+    if (weekdays.trim() === "*") return [...WEEKDAYS]
+    return weekdays
+        .replace(/\s+/g, "")
+        .split(",")
+        .flatMap(part => {
+            const [from, to = from] = part.split("-").map(Number)
+            if (!Number.isInteger(from) || !Number.isInteger(to)) return []
+            return Array.from({ length: ((to - from + 7) % 7) + 1 }, (_, offset) => (from + offset) % 7)
+        })
+}
+
+/**
+ * Turns the kube-green schedules saved as one rule, its days going to sleep at `sleepAt` and waking up at `wakeUpAt`,
+ * into a day each: those days awake between the two times, the others asleep, as the rule had them from Friday night to
+ * Monday morning. A rule with no wake up, or waking up after it goes to sleep, keeps those days awake from midnight. Once
+ * per environment: the rule is unset as it is turned.
+ */
+export const convertKubeGreenSchedules = async (logger: FastifyBaseLogger): Promise<void> => {
+    type Legacy = { _id: unknown; kubeGreen: { weekdays?: string; sleepAt?: string; wakeUpAt?: string } }
+    const legacy = await Environment.collection.find<Legacy>({ "kubeGreen.weekdays": { $exists: true } }, { projection: { kubeGreen: 1 } }).toArray()
+    for (const { _id, kubeGreen } of legacy) {
+        const awake = new Set(cronDays(kubeGreen.weekdays ?? ""))
+        const sleepAt = kubeGreen.sleepAt ?? ""
+        const wakeUpAt = kubeGreen.wakeUpAt && kubeGreen.wakeUpAt < sleepAt ? kubeGreen.wakeUpAt : ""
+        const days = WEEKDAYS.map(weekday => (awake.has(weekday) ? { weekday, awake: true, wakeUpAt, sleepAt } : { weekday, awake: false, wakeUpAt: "", sleepAt: "" }))
+        await Environment.collection.updateOne({ _id: _id as never }, { $set: { "kubeGreen.days": days }, $unset: { "kubeGreen.weekdays": "", "kubeGreen.sleepAt": "", "kubeGreen.wakeUpAt": "" } })
+    }
+    if (legacy.length > 0) logger.info(`Turned the kube-green schedule of ${legacy.length} environment(s) into a day each`)
+}
+
 /**
  * Every data migration the application still needs, run once the database connection is up.
  *
@@ -145,5 +178,10 @@ export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> =>
         await seedEnvironmentVersions(logger)
     } catch (error) {
         logger.error({ error }, "Error while setting the version each environment runs")
+    }
+    try {
+        await convertKubeGreenSchedules(logger)
+    } catch (error) {
+        logger.error({ error }, "Error while turning the kube-green schedules into a day each")
     }
 }

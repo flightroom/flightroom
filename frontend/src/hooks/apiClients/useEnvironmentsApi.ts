@@ -6,15 +6,23 @@ export const LOG_LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] a
 
 export type LogLevel = (typeof LOG_LEVELS)[number]
 
-/** Come per il backend (KubeGreenSettings): quando kube-green spegne l'ambiente, con uno SleepInfo nel suo namespace */
+/** Come per il backend (KubeGreenDay): un giorno della settimana, acceso da wakeUpAt a sleepAt oppure spento tutto il giorno */
+export interface KubeGreenDay {
+    /** Da 0 (domenica) a 6, come nel cron */
+    weekday: number
+    /** Se false resta spento tutto il giorno e gli orari non contano */
+    awake: boolean
+    /** HH:MM, nel fuso orario timeZone; se vuoto acceso da mezzanotte */
+    wakeUpAt?: string
+    /** HH:MM, nel fuso orario timeZone; se vuoto acceso fino a mezzanotte */
+    sleepAt?: string
+}
+
+/** Come per il backend (KubeGreenSettings): quando kube-green spegne l'ambiente, con gli SleepInfo nel suo namespace */
 export interface KubeGreenSettings {
     enabled: boolean
-    /** Giorni della settimana in notazione cron: `1-5` da lunedì a venerdì, `*` tutti */
-    weekdays: string
-    /** HH:MM, nel fuso orario timeZone */
-    sleepAt: string
-    /** HH:MM; se vuoto l'ambiente resta spento fino al prossimo deploy */
-    wakeUpAt?: string
+    /** Uno per giorno, dalla domenica: l'indice e' il giorno */
+    days: KubeGreenDay[]
     timeZone: string
     suspendDeployments: boolean
     suspendStatefulSets: boolean
@@ -23,12 +31,10 @@ export interface KubeGreenSettings {
     excludeApplications?: string[]
 }
 
-/** Come per il backend (KUBE_GREEN_DEFAULTS) */
+/** Come per il backend (KUBE_GREEN_DEFAULTS): acceso dalle 8 alle 20 dal lunedi' al venerdi', spento nel weekend */
 export const KUBE_GREEN_DEFAULTS: KubeGreenSettings = {
     enabled: false,
-    weekdays: "1-5",
-    sleepAt: "20:00",
-    wakeUpAt: "08:00",
+    days: [0, 1, 2, 3, 4, 5, 6].map(weekday => (weekday >= 1 && weekday <= 5 ? { weekday, awake: true, wakeUpAt: "08:00", sleepAt: "20:00" } : { weekday, awake: false, wakeUpAt: "", sleepAt: "" })),
     timeZone: "Europe/Rome",
     suspendDeployments: true,
     suspendStatefulSets: true,

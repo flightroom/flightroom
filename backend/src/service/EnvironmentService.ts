@@ -11,7 +11,7 @@ import GlobalVariable from "../models/GlobalVariableModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import { EnvironmentDTO } from "../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange } from "../types/Exposure"
-import { isTimeZone, KUBE_GREEN_DEFAULTS, KUBE_GREEN_TIME, KUBE_GREEN_WEEKDAYS, KubeGreenSettings } from "../types/KubeGreen"
+import { isTimeZone, KUBE_GREEN_DEFAULT_DAYS, KUBE_GREEN_DEFAULTS, KUBE_GREEN_TIME, KubeGreenDay, KubeGreenSettings, WEEKDAYS } from "../types/KubeGreen"
 import { isLogLevel, LOG_LEVELS } from "../types/RuntimeVariables"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -78,6 +78,19 @@ const withValidLogLevel = <T extends Partial<EnvironmentDTO>>(data: T): T => {
 const invalidKubeGreen = (field: string, value: unknown, message: string) => createBusinessException({ code: "ENVIRONMENT_KUBE_GREEN_INVALID", message, details: { field, value: String(value) } })
 
 /**
+ * The days of a kube-green schedule as they are saved: one per day of the week, Sunday first, the times trimmed. A day
+ * left out is awake all day; no days at all, the defaults.
+ */
+const normalizeKubeGreenDays = (days: unknown): KubeGreenDay[] => {
+    if (!Array.isArray(days)) return KUBE_GREEN_DEFAULT_DAYS()
+    const trimmed = (value: unknown) => (typeof value === "string" ? value.trim() : "")
+    return WEEKDAYS.map(weekday => {
+        const day = days.find(candidate => candidate?.weekday === weekday)
+        return day ? { weekday, awake: day.awake !== false, wakeUpAt: trimmed(day.wakeUpAt), sleepAt: trimmed(day.sleepAt) } : { weekday, awake: true, wakeUpAt: "", sleepAt: "" }
+    })
+}
+
+/**
  * The kube-green schedule as it is saved: filled in with the defaults, trimmed, the excluded applications without blanks
  * or repeats. Checked only when it is on: kube-green ignores a SleepInfo it cannot parse, and the environment never sleeps.
  */
@@ -85,9 +98,7 @@ export const normalizeKubeGreen = (kubeGreen: Partial<KubeGreenSettings>): KubeG
     const trimmed = (value: unknown, fallback = "") => (typeof value === "string" ? value.trim() : fallback)
     const settings: KubeGreenSettings = {
         enabled: kubeGreen.enabled === true,
-        weekdays: trimmed(kubeGreen.weekdays, KUBE_GREEN_DEFAULTS.weekdays).replace(/\s+/g, ""),
-        sleepAt: trimmed(kubeGreen.sleepAt, KUBE_GREEN_DEFAULTS.sleepAt),
-        wakeUpAt: trimmed(kubeGreen.wakeUpAt),
+        days: normalizeKubeGreenDays(kubeGreen.days),
         timeZone: trimmed(kubeGreen.timeZone, KUBE_GREEN_DEFAULTS.timeZone),
         suspendDeployments: kubeGreen.suspendDeployments ?? KUBE_GREEN_DEFAULTS.suspendDeployments,
         suspendStatefulSets: kubeGreen.suspendStatefulSets ?? KUBE_GREEN_DEFAULTS.suspendStatefulSets,
@@ -95,12 +106,14 @@ export const normalizeKubeGreen = (kubeGreen: Partial<KubeGreenSettings>): KubeG
         excludeApplications: [...new Set((Array.isArray(kubeGreen.excludeApplications) ? kubeGreen.excludeApplications : []).map(slug => trimmed(slug)).filter(Boolean))]
     }
     if (!settings.enabled) return settings
-    if (!KUBE_GREEN_WEEKDAYS.test(settings.weekdays)) {
-        throw invalidKubeGreen("weekdays", settings.weekdays, `"${settings.weekdays}" are not days of the week: 0 (Sunday) to 6, ranges and commas, e.g. 1-5, or * for every day`)
-    }
-    for (const field of ["sleepAt", "wakeUpAt"] as const) {
-        const value = settings[field]
-        if ((field === "sleepAt" || value) && !KUBE_GREEN_TIME.test(value ?? "")) throw invalidKubeGreen(field, value, `"${value}" is not a time as HH:MM, e.g. 20:00`)
+    for (const day of settings.days.filter(candidate => candidate.awake)) {
+        for (const field of ["wakeUpAt", "sleepAt"] as const) {
+            const value = day[field]
+            if (value && !KUBE_GREEN_TIME.test(value)) throw invalidKubeGreen(`days.${day.weekday}.${field}`, value, `"${value}" is not a time as HH:MM, e.g. 20:00`)
+        }
+        if (day.wakeUpAt && day.sleepAt && day.wakeUpAt >= day.sleepAt) {
+            throw invalidKubeGreen(`days.${day.weekday}.sleepAt`, day.sleepAt, `Day ${day.weekday} goes to sleep at ${day.sleepAt}, not after it wakes up at ${day.wakeUpAt}`)
+        }
     }
     if (!isTimeZone(settings.timeZone)) throw invalidKubeGreen("timeZone", settings.timeZone, `"${settings.timeZone}" is not an IANA time zone, e.g. Europe/Rome`)
     return settings
