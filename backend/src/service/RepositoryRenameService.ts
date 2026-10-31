@@ -35,7 +35,7 @@ const readableReason = (reason: unknown): string =>
               .join("; ")
 
 /** The status and the reason a provider gave, from wherever each one puts it. */
-const describeProviderError = (error: unknown): { status?: number; message: string } => {
+export const describeProviderError = (error: unknown): { status?: number; message: string } => {
     if (!axios.isAxiosError(error)) return { message: toErrorMessage(error) }
     const data = error.response?.data as { message?: unknown; errors?: { message?: string }[] } | undefined
     const reason = [data?.message, ...(data?.errors ?? []).map(item => item.message)].filter(Boolean).map(readableReason).join(" ")

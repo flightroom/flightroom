@@ -2,13 +2,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { requiresConfirmation } from "../toolDefinition"
 import { localChangeTools } from "./localChangeTools"
 
-const { checkout, submit } = vi.hoisted(() => ({ checkout: vi.fn(), submit: vi.fn() }))
+const { checkout, submit, openPullRequest } = vi.hoisted(() => ({ checkout: vi.fn(), submit: vi.fn(), openPullRequest: vi.fn() }))
 
 vi.mock("../../service/workspace/LocalChangeService", () => ({
     MAX_SUBMITTED_FILES: 100,
     default: class {
         checkout = checkout
         submit = submit
+        openPullRequest = openPullRequest
     }
 }))
 
@@ -45,9 +46,16 @@ describe("localChangeTools", () => {
         expect(schema.safeParse({ frontendId: FRONTEND, baseCommit: COMMIT, title: "Fix", files: [] }).success).toBe(false)
     })
 
-    it("asks the console user before pushing", () => {
+    it("opens a pull request between two existing branches", async () => {
+        await run("pull_request_create", { backendId: BACKEND, sourceBranch: " release/dev ", targetBranch: "main", title: "Release" })
+        expect(openPullRequest).toHaveBeenCalledWith({ kind: "backend", id: BACKEND }, { sourceBranch: "release/dev", targetBranch: "main", title: "Release" })
+    })
+
+    it("asks the console user before pushing or opening a pull request", () => {
         expect(requiresConfirmation(tool("code_change_submit"))).toBe(true)
+        expect(requiresConfirmation(tool("pull_request_create"))).toBe(true)
         expect(tool("repository_checkout_get").scope).toBe("mfe:read")
         expect(tool("code_change_submit").scope).toBe("mfe:write")
+        expect(tool("pull_request_create").scope).toBe("mfe:write")
     })
 })

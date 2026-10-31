@@ -67,5 +67,25 @@ export const localChangeTools = [
                 .max(MAX_SUBMITTED_FILES)
         }),
         run: async ({ frontendId, backendId, ...input }, { principal }) => new LocalChangeService(principal).submit(refOf({ frontendId, backendId }), input)
+    }),
+    defineTool({
+        name: "pull_request_create",
+        title: "Open pull request",
+        description:
+            "Opens a pull request (a merge request on GitLab) between two branches that already exist in the repository of a frontend or a backend, e.g. to bring release/dev into main. " +
+            "Nothing is pushed and nothing is merged here: the pull request is merged at the provider, after its reviews and branch policies. " +
+            "The branches are listed by code_repository_branches. Refused when there is nothing to merge or a pull request between the same branches is already open. Returns the pull request URL.",
+        scope: MCP_SCOPE_WRITE,
+        annotations: WRITE_EXTERNAL,
+        // It asks people for a review in the user's name, at the provider.
+        requiresConfirmation: true,
+        inputSchema: z.object({
+            ...target,
+            sourceBranch: z.string().trim().min(1).max(255).describe("Branch whose commits are to be merged, e.g. release/dev"),
+            targetBranch: z.string().trim().min(1).max(255).optional().describe("Branch the commits go into, the repository's default branch when omitted"),
+            title: z.string().trim().min(1).max(200).describe("Pull request title"),
+            description: z.string().max(10_000).optional().describe("Pull request description: what the merge brings")
+        }),
+        run: async ({ frontendId, backendId, ...input }, { principal }) => new LocalChangeService(principal).openPullRequest(refOf({ frontendId, backendId }), input)
     })
 ]
