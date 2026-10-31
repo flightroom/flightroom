@@ -9,6 +9,10 @@ export interface EnvironmentDTO {
     namespace?: string
     subdomain?: string
     ipAllowList?: string[]
+    /** trace, debug, info, warn, error or fatal: LOG_LEVEL of its containers */
+    logLevel?: string
+    /** LOG_JSON of its containers: JSON logs rather than plain text */
+    logJson?: boolean
 }
 
 export interface EnvironmentOrderDTO {

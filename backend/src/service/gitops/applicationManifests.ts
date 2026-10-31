@@ -2,6 +2,7 @@ import { stringify } from "yaml"
 import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
 import { EnvironmentVersion, hasEnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
+import { EnvironmentLogging, runtimeVariables } from "../../types/RuntimeVariables"
 
 /**
  * The applications repository of GitOps, laid out as an `applications-infra` repository: one branch per
@@ -84,7 +85,6 @@ const maintenanceValues = (application: GitOpsApplication, maintenance: Applicat
     const schedule = maintenance.schedule?.trim()
     return {
         ...(isJob ? { replicas: 0, expose: { service: false } } : {}),
-        env: [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(maintenance.targets) }],
         maintenance: {
             schedule: schedule || PAUSED_SCHEDULE,
             suspend: !schedule,
@@ -140,6 +140,24 @@ export const splitImage = (repository: string): { host: string; name: string } =
     return isRegistry ? { host: first, name: rest.join("/") } : { host: "docker.io", name: repository }
 }
 
+/** A DOCKER frontend as FRONTEND_URL reads it: where it is exposed, and the backends it calls */
+export interface CallingFrontend {
+    exposurePath?: string | null
+    backendIds?: unknown[] | null
+}
+
+/**
+ * The path FRONTEND_URL of a backend points at: that of the one exposed frontend calling it, the root of the
+ * environment when several or none do, as there is no single frontend to name.
+ */
+export const backendFrontendPath = (backendId: unknown, frontends: CallingFrontend[]): string => {
+    const calling = frontends.filter(frontend => frontend.exposurePath && frontend.backendIds?.some(id => String(id) === String(backendId)))
+    return calling.length === 1 ? calling[0].exposurePath! : "/"
+}
+
+/** The public URL of a path on the origin of an environment, without a trailing slash; none without either */
+export const exposedUrl = (origin: string | undefined, path: string | null | undefined): string | undefined => (origin && path ? `${origin}${path.replace(/\/+$/, "")}` : undefined)
+
 /** The Gateway of the environment the HTTPRoute of an application attaches to, and the listener it attaches to */
 export interface ApplicationGateway {
     name: string
@@ -156,14 +174,17 @@ export interface ApplicationGateway {
  * resource is a Secret, so it goes with the secrets, after them: the chart needs no change for it. With a Gateway in
  * the environment, an application with an exposure path gets a route on it. Its CPU, memory and replicas are those of
  * the environment where it sets some apart. Its version is the one of the environment. Without an image repository of
- * its own, the image is the one in the container registry of the project.
+ * its own, the image is the one in the container registry of the project. Every container gets the LOG_LEVEL and
+ * LOG_JSON of the environment, and FRONTEND_URL when given, as `env`: Kubernetes puts them before what a config map of
+ * the same name says.
  */
 export const renderApplicationValues = (
     application: GitOpsApplication,
-    environment: { _id: unknown; slug: string },
+    environment: { _id: unknown; slug: string } & EnvironmentLogging,
     mapNames: { configMaps: Map<string, string>; secrets: Map<string, string>; resources?: Map<string, string> },
     gateway?: ApplicationGateway,
-    containerRegistry?: string
+    containerRegistry?: string,
+    frontendUrl?: string
 ): string => {
     const repository = applicationImageRepository(application, containerRegistry)
     const version = versionIn(application, environment._id)
@@ -192,6 +213,7 @@ export const renderApplicationValues = (
             ...names(application.resourceIds, mapNames.resources ?? new Map()),
             ...(application.maintenance ? [maintenanceAgentSecretName(application.slug)] : [])
         ],
+        env: [...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []), ...runtimeVariables(environment, frontendUrl)],
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }

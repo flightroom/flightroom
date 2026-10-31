@@ -11,6 +11,7 @@ import GlobalVariable from "../models/GlobalVariableModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import { EnvironmentDTO } from "../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange } from "../types/Exposure"
+import { isLogLevel, LOG_LEVELS } from "../types/RuntimeVariables"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import BaseAuthorizedService from "./BaseAuthorizedService"
@@ -56,6 +57,23 @@ const withNormalizedIpAllowList = <T extends Partial<EnvironmentDTO>>(data: T, h
     return rest as T
 }
 
+/**
+ * The data of an environment with its log level as it is saved, in lowercase, when it carries one. Refused when it is
+ * none of LOG_LEVELS: the containers would get a LOG_LEVEL their logger does not know.
+ */
+const withValidLogLevel = <T extends Partial<EnvironmentDTO>>(data: T): T => {
+    if (data.logLevel === undefined || data.logLevel === null) return data
+    const logLevel = typeof data.logLevel === "string" ? data.logLevel.trim().toLowerCase() : data.logLevel
+    if (!isLogLevel(logLevel)) {
+        throw createBusinessException({
+            code: "ENVIRONMENT_LOG_LEVEL_INVALID",
+            message: `"${data.logLevel}" is not a log level: one of ${LOG_LEVELS.join(", ")}`,
+            details: { value: String(data.logLevel) }
+        })
+    }
+    return { ...data, logLevel }
+}
+
 class EnvironmentService extends BaseAuthorizedService {
     async getByProjectId(projectId: string) {
         await this.ensureAccessToProject(projectId)
@@ -77,7 +95,7 @@ class EnvironmentService extends BaseAuthorizedService {
         await this.ensureAccessToProject(projectIdObj)
         // Every domain is deployed to the environments: only those reaching the whole project change them
         await this.ensureWholeProject(projectIdObj)
-        const environment = new Environment(withNormalizedIpAllowList(environmentData))
+        const environment = new Environment(withValidLogLevel(withNormalizedIpAllowList(environmentData)))
         environment.projectId = projectIdObj
         if (environment.order === undefined || environment.order === null) {
             environment.order = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
@@ -89,7 +107,7 @@ class EnvironmentService extends BaseAuthorizedService {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
         await this.ensureWholeProject(projectIdObj)
-        const environments = body.map(env => new Environment(withNormalizedIpAllowList(env)))
+        const environments = body.map(env => new Environment(withValidLogLevel(withNormalizedIpAllowList(env))))
         let maxOrder = (await this.getMaxOrderByProjectId(projectIdObj)) + 1
         environments.forEach(env => {
             env.projectId = projectIdObj
@@ -106,7 +124,9 @@ class EnvironmentService extends BaseAuthorizedService {
         await this.ensureWholeProjectOfEnvironment(environmentId)
         const environmentIdObj = toObjectId(environmentId)
         const current = updateData.ipAllowList === undefined ? null : await Environment.findById(environmentIdObj, { ipAllowList: 1 })
-        const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, withNormalizedIpAllowList(updateData, Array.isArray(current?.ipAllowList)), { new: true })
+        const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, withValidLogLevel(withNormalizedIpAllowList(updateData, Array.isArray(current?.ipAllowList))), {
+            new: true
+        })
 
         if (!updatedEnvironment) {
             throw new EnvironmentNotFoundError(environmentIdObj.toString())

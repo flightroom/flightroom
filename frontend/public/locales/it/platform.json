@@ -303,7 +303,8 @@
                 "invalid_repository_name": "Il nome del repository non è valido: usa lettere, cifre, punti, trattini e underscore",
                 "repository_name_taken": "Esiste già un repository con questo nome sul provider, forse lasciato da un tentativo fallito: sceglilo dall'elenco o scegli un altro nome",
                 "environment_ip_allowlist_invalid": "{{value}} non è né un indirizzo IP né un range CIDR, es. 203.0.113.7 o 203.0.113.0/24",
-                "environment_ip_allowlist_too_long": "Un ambiente consente al massimo {{value}} indirizzi e range"
+                "environment_ip_allowlist_too_long": "Un ambiente consente al massimo {{value}} indirizzi e range",
+                "environment_log_level_invalid": "{{value}} non è un livello di log: trace, debug, info, warn, error o fatal"
             }
         },
         "argoCd": {
@@ -826,7 +827,12 @@
             "ip_allow_list_description": "Solo questi indirizzi e range CIDR raggiungono le applicazioni dell'ambiente, dal prossimo deploy: gli altri ricevono 403. Se vuoto: tutti gli indirizzi. La prima volta fai il deploy dell'intero ambiente: fino ad allora le applicazioni non rilasciate di nuovo rispondono a tutti.",
             "ip_allow_list_description_no_domain": "Si applica quando il progetto è esposto su un dominio, in Impostazioni → Esposizione.",
             "ip_allow_list_invalid": "{{value}} non è né un indirizzo IP né un range CIDR, es. 203.0.113.7 o 203.0.113.0/24",
-            "ip_allow_list_too_long": "Al massimo {{max}} indirizzi e range"
+            "ip_allow_list_too_long": "Al massimo {{max}} indirizzi e range",
+            "log_level": "Livello di log",
+            "log_level_description": "Passato a ogni container dell'ambiente come LOG_LEVEL dal prossimo deploy.",
+            "log_levels": { "trace": "Trace", "debug": "Debug", "info": "Info", "warn": "Warn", "error": "Error", "fatal": "Fatal" },
+            "log_json": "Log in JSON",
+            "log_json_description": "Passato a ogni container come LOG_JSON: true per un oggetto JSON per riga, false per testo semplice."
         },
         "table": {
             "name": "Nome",
@@ -3793,6 +3799,10 @@
                 "label": "Azure Service Bus",
                 "description": "Un namespace Azure Service Bus, con la sua coda o il topic e la subscription: con connection string, app Entra ID o managed identity."
             },
+            "applicationInsights": {
+                "label": "Application Insights",
+                "description": "Una risorsa Azure Monitor Application Insights a cui il backend invia tracce, log e metriche. Imposta APPLICATIONINSIGHTS_CONNECTION_STRING, la variabile che gli SDK di Azure Monitor leggono da soli."
+            },
             "generic": {
                 "label": "Generica",
                 "description": "Per quello che il catalogo non ha: definisci tu le variabili, e quali sono segrete."
@@ -3869,6 +3879,9 @@
                 "connectionString": "Connection string",
                 "azureAad": "App Entra ID",
                 "azureManagedIdentity": "Managed identity"
+            },
+            "applicationInsights": {
+                "connectionString": "Connection string"
             },
             "generic": {
                 "custom": "Variabili personalizzate"

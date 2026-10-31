@@ -1,4 +1,5 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
+import { DEFAULT_LOG_LEVEL, LOG_LEVELS } from "../types/RuntimeVariables"
 
 export interface IEnvironment extends Document<ObjectId> {
     name: string
@@ -16,6 +17,10 @@ export interface IEnvironment extends Document<ObjectId> {
     subdomain?: string
     /** The addresses and CIDR ranges its host answers to; empty or unset, every one */
     ipAllowList?: string[]
+    /** What its containers log at, handed to them as LOG_LEVEL */
+    logLevel: string
+    /** Whether its containers log JSON rather than plain text, handed to them as LOG_JSON */
+    logJson: boolean
 }
 
 const environmentSchema = new Schema<IEnvironment>(
@@ -55,6 +60,15 @@ const environmentSchema = new Schema<IEnvironment>(
         ipAllowList: {
             type: [String],
             default: undefined
+        },
+        logLevel: {
+            type: String,
+            enum: LOG_LEVELS,
+            default: DEFAULT_LOG_LEVEL
+        },
+        logJson: {
+            type: Boolean,
+            default: false
         },
         projectId: {
             type: Schema.Types.ObjectId,

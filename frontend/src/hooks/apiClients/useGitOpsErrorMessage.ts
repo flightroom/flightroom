@@ -17,6 +17,7 @@ const GITOPS_ERROR_KEYS: Record<string, string> = {
     GITOPS_ENVIRONMENT_HOST_TAKEN: "settings.gitOps.errors.environment_host_taken",
     ENVIRONMENT_IP_ALLOWLIST_INVALID: "settings.gitOps.errors.environment_ip_allowlist_invalid",
     ENVIRONMENT_IP_ALLOWLIST_TOO_LONG: "settings.gitOps.errors.environment_ip_allowlist_too_long",
+    ENVIRONMENT_LOG_LEVEL_INVALID: "settings.gitOps.errors.environment_log_level_invalid",
     GITOPS_EXPOSURE_PATH_TAKEN: "settings.gitOps.errors.exposure_path_taken",
     INVALID_REPOSITORY_NAME: "settings.gitOps.errors.invalid_repository_name",
     REPOSITORY_NAME_TAKEN: "settings.gitOps.errors.repository_name_taken",

@@ -5,6 +5,7 @@ import {
     DialogFooter,
     DialogHeader,
     DialogTitle,
+    SelectField,
     SwitchField as Switch,
     Table,
     TableBody,
@@ -26,7 +27,7 @@ import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
-import useEnvironmentsApi, { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import useEnvironmentsApi, { EnvironmentDTO, LOG_LEVELS, type LogLevel } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useDragAndDropOrder from "@/hooks/useDragAndDropOrder"
 import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
@@ -45,6 +46,8 @@ interface EnvironmentDialogFormData {
     namespace?: string
     subdomain?: string
     ipAllowList?: string[]
+    logLevel?: LogLevel
+    logJson?: boolean
 }
 
 /** Come per il backend: etichette DNS separate da punti, oppure niente per il dominio stesso */
@@ -200,6 +203,20 @@ function EnvironmentDialog({ isOpen, onOpenChange, onSubmitSuccess, formData, id
                                 }}
                             />
                         )}
+                        {isGitOpsEnabled && (
+                            <div className="flex flex-row flex-wrap items-start justify-between gap-4">
+                                {/* SelectField non espone un test id: il wrapper dà ai test un aggancio stabile sul trigger. */}
+                                <div data-testid="environment-log-level" className="flex-[1_1_200px]">
+                                    <SelectField
+                                        name="logLevel"
+                                        label={t("environment.form.log_level")}
+                                        description={t("environment.form.log_level_description")}
+                                        options={LOG_LEVELS.map(level => ({ value: level, label: t(`environment.form.log_levels.${level}`) }))}
+                                    />
+                                </div>
+                                <Switch name="logJson" label={t("environment.form.log_json")} description={t("environment.form.log_json_description")} />
+                            </div>
+                        )}
                         <TextareaField name="description" label={t("environment.form.description")} placeholder={t("environment.form.description_placeholder")} />
                         <TextareaChipsField name="domains" label={t("environment.form.domains")} placeholder={t("environment.form.domains_placeholder")} />
                         <div className="flex gap-4 flex-row justify-between">
@@ -307,7 +324,9 @@ export default function EnvironmentsPage() {
             slug: "",
             description: "",
             color: getRandomColor(),
-            isProduction: false
+            isProduction: false,
+            logLevel: "info",
+            logJson: false
         })
         setIsDialogOpen(true)
     }

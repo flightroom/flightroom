@@ -302,7 +302,8 @@
                 "invalid_repository_name": "The repository name is not valid: use letters, digits, dots, dashes and underscores",
                 "repository_name_taken": "A repository with this name already exists at the provider, maybe left by a failed attempt: pick it from the list or choose another name",
                 "environment_ip_allowlist_invalid": "{{value}} is neither an IP address nor a CIDR range, e.g. 203.0.113.7 or 203.0.113.0/24",
-                "environment_ip_allowlist_too_long": "An environment allows at most {{value}} addresses and ranges"
+                "environment_ip_allowlist_too_long": "An environment allows at most {{value}} addresses and ranges",
+                "environment_log_level_invalid": "{{value}} is not a log level: trace, debug, info, warn, error or fatal"
             }
         },
         "argoCd": {
@@ -1424,7 +1425,12 @@
             "ip_allow_list_description": "Only these addresses and CIDR ranges reach the applications of the environment, from its next deploy: the others get 403. Left empty: every address. The first time, deploy the whole environment: the applications not deployed again answer every address until then.",
             "ip_allow_list_description_no_domain": "It applies once the project is exposed on a domain, in Settings → Exposure.",
             "ip_allow_list_invalid": "{{value}} is neither an IP address nor a CIDR range, e.g. 203.0.113.7 or 203.0.113.0/24",
-            "ip_allow_list_too_long": "At most {{max}} addresses and ranges"
+            "ip_allow_list_too_long": "At most {{max}} addresses and ranges",
+            "log_level": "Log level",
+            "log_level_description": "Handed to every container of the environment as LOG_LEVEL from its next deploy.",
+            "log_levels": { "trace": "Trace", "debug": "Debug", "info": "Info", "warn": "Warn", "error": "Error", "fatal": "Fatal" },
+            "log_json": "JSON logs",
+            "log_json_description": "Handed to every container as LOG_JSON: true for one JSON object per line, false for plain text."
         }
     },
     "storage": {
@@ -3774,6 +3780,10 @@
                 "label": "Azure Service Bus",
                 "description": "An Azure Service Bus namespace, with its queue or topic and subscription: by connection string, Entra ID app or managed identity."
             },
+            "applicationInsights": {
+                "label": "Application Insights",
+                "description": "An Azure Monitor Application Insights resource the backend sends traces, logs and metrics to. It sets APPLICATIONINSIGHTS_CONNECTION_STRING, the variable the Azure Monitor SDKs read by themselves."
+            },
             "generic": {
                 "label": "Generic",
                 "description": "For whatever the catalog lacks: you define the variables, and which ones are secret."
@@ -3850,6 +3860,9 @@
                 "connectionString": "Connection string",
                 "azureAad": "Entra ID app",
                 "azureManagedIdentity": "Managed identity"
+            },
+            "applicationInsights": {
+                "connectionString": "Connection string"
             },
             "generic": {
                 "custom": "Custom variables"

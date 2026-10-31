@@ -1,6 +1,11 @@
 import useApiClient from "../useApiClient"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 
+/** Come per il backend (LOG_LEVELS): dal più verboso */
+export const LOG_LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] as const
+
+export type LogLevel = (typeof LOG_LEVELS)[number]
+
 export interface EnvironmentDTO {
     slug: string
     name: string
@@ -17,6 +22,10 @@ export interface EnvironmentDTO {
     subdomain?: string
     /** Gli indirizzi e i range CIDR a cui risponde il suo host; se vuoto, tutti */
     ipAllowList?: string[]
+    /** Il LOG_LEVEL dei suoi container */
+    logLevel?: LogLevel
+    /** Il LOG_JSON dei suoi container: log JSON invece che testo */
+    logJson?: boolean
     _id?: string
 }
 
@@ -29,6 +38,8 @@ export interface CreateEnvironmentDTO {
     namespace?: string
     subdomain?: string
     ipAllowList?: string[]
+    logLevel?: LogLevel
+    logJson?: boolean
 }
 
 /** Un'applicazione con la versione che usa nell'ambiente di origine e in quello di destinazione di una promozione */

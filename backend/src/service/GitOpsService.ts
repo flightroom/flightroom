@@ -30,7 +30,9 @@ import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import {
     applicationValuesPath,
+    backendFrontendPath,
     CHART_FILES,
+    exposedUrl,
     GitOpsApplication,
     isDeployable,
     MAINTENANCE_AGENT_API_URL_VARIABLE,
@@ -481,7 +483,7 @@ export class GitOpsService extends BaseAuthorizedService {
         // With GitOps on, a deploy pushes to the provider with the token of the connection
         await this.ensureNotViewer(projectId, { code: "GITOPS_VIEWER_FORBIDDEN", message: "A viewer of the project cannot change what is committed to its GitOps repositories" })
 
-        const environments = await Environment.find({ projectId }, { slug: 1, namespace: 1, subdomain: 1, isProduction: 1, ipAllowList: 1 })
+        const environments = await Environment.find({ projectId }, { slug: 1, namespace: 1, subdomain: 1, isProduction: 1, ipAllowList: 1, logLevel: 1, logJson: 1 })
         const deployed = environments.filter(environment => environmentIds.has(String(environment._id)))
         // Refused before anything is pushed: a subdomain the cluster would not take, or a host two environments share
         const gateways = new Map(deployed.map(environment => [String(environment._id), environmentGateway(project, environment, environments)] as const))
@@ -551,7 +553,7 @@ export class GitOpsService extends BaseAuthorizedService {
     private async commitApplications<T>(
         projectId: Schema.Types.ObjectId,
         containerRegistry: string | undefined,
-        deployed: Pick<IEnvironment, "_id" | "slug">[],
+        deployed: Pick<IEnvironment, "_id" | "slug" | "logLevel" | "logJson">[],
         maps: Record<VariableMapKind, DeployedMap[]>,
         resources: DeployedResource[],
         gateways: Map<string, EnvironmentGateway | undefined>,
@@ -560,11 +562,16 @@ export class GitOpsService extends BaseAuthorizedService {
         domainId?: string
     ): Promise<T> {
         const scope = domainId ? { domainId: toObjectId(domainId) } : await this.domainScopeFilter(projectId)
-        const applications: GitOpsApplication[] = [
-            ...(await Backend.find({ projectId, ...scope })),
-            ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER, ...scope })),
-            ...(await maintenanceApplications(await MaintenanceAgent.find({ projectId, ...scope })))
-        ]
+        const backends = await Backend.find({ projectId, ...scope })
+        const frontends = await Frontend.find({ projectId, kind: FrontendKind.DOCKER, ...scope })
+        const applications: GitOpsApplication[] = [...backends, ...frontends, ...(await maintenanceApplications(await MaintenanceAgent.find({ projectId, ...scope })))]
+        // The frontends a backend may be called by, those of other domains too: FRONTEND_URL names the one that does
+        const exposedFrontends = await Frontend.find(
+            { projectId, kind: FrontendKind.DOCKER, exposurePath: { $ne: null } },
+            { slug: 1, environmentVersions: 1, image: 1, exposurePath: 1, backendIds: 1 }
+        )
+        const backendIds = new Set(backends.map(backend => String(backend._id)))
+        const frontendIds = new Set(frontends.map(frontend => String(frontend._id)))
         const existingSlugs = new Set(
             [...(await Backend.find({ projectId }, { slug: 1 })), ...(await Frontend.find({ projectId }, { slug: 1 })), ...(await MaintenanceAgent.find({ projectId }, { slug: 1 }))].map(
                 application => application.slug
@@ -602,6 +609,14 @@ export class GitOpsService extends BaseAuthorizedService {
                 const gateway = gateways.get(String(environment._id))
                 const listener = gateway && applicationListener(gateway)
                 const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER, ipAllowList: ipAllowListMiddleware(gateway) } : undefined
+                // Where browsers reach the environment: a project exposed on no domain gives its containers no FRONTEND_URL
+                const origin = gateway ? `${gateway.certificateIssuer ? "https" : "http"}://${gateway.host}` : undefined
+                const callingFrontends = exposedFrontends.filter(frontend => isDeployable(frontend, containerRegistry, environment._id))
+                const frontendUrl = (application: GitOpsApplication & { _id?: unknown }) => {
+                    if (frontendIds.has(String(application._id))) return exposedUrl(origin, application.exposurePath)
+                    if (backendIds.has(String(application._id))) return exposedUrl(origin, backendFrontendPath(application._id, callingFrontends))
+                    return undefined
+                }
                 const files: GitOpsFile[] = [
                     ...CHART_FILES.map(file => ({ ...file, action: "update" as const, ifMissing: true })),
                     // Those with no version in the environment keep the values they have there, if any
@@ -610,7 +625,7 @@ export class GitOpsService extends BaseAuthorizedService {
                         .map(application => ({
                             path: applicationValuesPath(application),
                             action: "update" as const,
-                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry)
+                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, frontendUrl(application))
                         }))
                 ]
                 const onPushed = (revision: string) => revisions.set(String(environment._id), revision)
