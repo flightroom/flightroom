@@ -18,7 +18,7 @@ import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { variableMapModels } from "../models/VariableMapModel"
 import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
 import { ResourceWithValues, resourceEnvironmentValues, resourceSecretName } from "../types/ResourceCatalog"
-import { VariableMapKind } from "../types/VariableMapDTO"
+import { entryValueIn, VariableMapKind } from "../types/VariableMapDTO"
 import { getBackendUrl } from "../utils/backendUrl"
 import { NormalizedRepository } from "../utils/codeRepositoryUtils"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -70,7 +70,7 @@ type GitOpsRepositoryKind = "configuration" | "applications"
 export interface CommittedVariableMap {
     name: string
     /** As the API sends them or as the model stores them: the environment id is a string or an ObjectId */
-    entries: Array<{ key: string; values?: Array<{ environmentId: unknown; value?: string }> }>
+    entries: Array<{ key: string; value?: string; values?: Array<{ environmentId: unknown; value?: string }> }>
 }
 
 /** The folder of each kind inside the folder of the environment, named as its slug at the root of the repository */
@@ -227,8 +227,8 @@ export const environmentGateway = (
 export const renderManifest = (kind: VariableMapKind, map: CommittedVariableMap, environmentId: string, namespace?: string): string => {
     const data: Record<string, string> = {}
     for (const entry of map.entries) {
-        const value = entry.values?.find(candidate => String(candidate.environmentId) === environmentId)?.value
-        if (value !== undefined && value !== "") data[entry.key] = value
+        const value = entryValueIn(entry, environmentId)
+        if (value !== undefined) data[entry.key] = value
     }
     const metadata = { name: map.name, ...(namespace ? { namespace } : {}), labels: { [MANAGED_BY_LABEL]: MANAGED_BY } }
     const manifest =

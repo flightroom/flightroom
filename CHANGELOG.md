@@ -5,6 +5,12 @@ All notable changes to this project will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [Unreleased]
+
+### Added
+
+- **A Value For All Environments In Config Maps And Secrets**: each key takes a value every environment gets, and an environment overrides it with its own where it needs one; with neither the key stays unset there, as before. The table of a backend shows the value an environment inherits in grey. The API and the MCP tools take it as `value` on each entry, beside the overrides in `values`. Keys saved before keep their values per environment, now overrides
+
 ## [11.5.0] - 2026-10-31
 
 ### Added

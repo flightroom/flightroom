@@ -10,7 +10,7 @@ import type { VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import { cn } from "@/utils/styleUtils"
 import { VARIABLE_MAP_KINDS, type VariableEntryFormValue } from "./variableMaps"
 
-/** The keys of a config map or of a secret: a row per key, a value per environment. */
+/** The keys of a config map or of a secret: a row per key, the value of all environments and the ones each overrides it with. */
 export const VariableEntriesFields: React.FC<{ kind: VariableMapKind; environments: EnvironmentDTO[] }> = ({ kind, environments }) => {
     const { t } = useTranslation()
     const {
@@ -25,7 +25,8 @@ export const VariableEntriesFields: React.FC<{ kind: VariableMapKind; environmen
 
     const term = searchTerm.trim().toLowerCase()
     // A secret matches on its key only: its values are placeholders, or ones the user is typing in
-    const matches = (entry?: VariableEntryFormValue) => !term || entry?.key.toLowerCase().includes(term) || (!isSecret && entry?.values.some(value => value.toLowerCase().includes(term)))
+    const matches = (entry?: VariableEntryFormValue) =>
+        !term || entry?.key.toLowerCase().includes(term) || (!isSecret && [entry?.value ?? "", ...(entry?.values ?? [])].some(value => value.toLowerCase().includes(term)))
     // A key in error must stay in sight whatever the search
     const isVisible = (index: number) => matches(entries?.[index]) || Boolean(get(errors, `entries.${index}.key`))
     const visibleCount = fields.filter((_, index) => isVisible(index)).length
@@ -45,7 +46,7 @@ export const VariableEntriesFields: React.FC<{ kind: VariableMapKind; environmen
                         onClick={() => {
                             // The new key has no name yet: under a search it would vanish at the first letter typed
                             setSearchTerm("")
-                            append({ key: "", values: environments.map(() => ""), saved: false } satisfies VariableEntryFormValue)
+                            append({ key: "", value: "", values: environments.map(() => ""), saved: false } satisfies VariableEntryFormValue)
                         }}
                     >
                         <Plus />
@@ -97,13 +98,23 @@ export const VariableEntriesFields: React.FC<{ kind: VariableMapKind; environmen
                                     {keyError.message}
                                 </p>
                             )}
+                            <TextField
+                                name={`entries.${index}.value`}
+                                label={t("variableMaps.entries.value_all")}
+                                placeholder={t("variableMaps.entries.not_set")}
+                                type={isSecret ? "password" : undefined}
+                                // Not a login: keep password managers from filling one in
+                                autoComplete={isSecret ? "new-password" : "off"}
+                            />
+                            <p className="text-xs font-medium text-foreground-secondary">{t("variableMaps.entries.overrides")}</p>
                             <div className="flex flex-wrap gap-x-4 gap-y-2">
                                 {environments.map((environment, environmentIndex) => (
                                     <TextField
                                         key={environment._id}
                                         name={`entries.${index}.values.${environmentIndex}`}
                                         label={environment.name}
-                                        placeholder={t("variableMaps.entries.not_set")}
+                                        // Left blank, the environment gets the value above
+                                        placeholder={t(entries?.[index]?.value ? "variableMaps.entries.uses_all" : "variableMaps.entries.not_set")}
                                         type={isSecret ? "password" : undefined}
                                         // Not a login: keep password managers from filling one in
                                         autoComplete={isSecret ? "new-password" : "off"}

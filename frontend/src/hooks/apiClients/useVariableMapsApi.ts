@@ -6,9 +6,11 @@ import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 /** A config map holds values anyone who sees the project may read; a secret holds values never sent back once written */
 export type VariableMapKind = "configMap" | "secret"
 
-/** A key with its value per environment; an environment left out leaves it unset there */
+/** A key with the value of all environments and the ones an environment overrides it with; with neither it is unset there */
 export interface VariableMapEntry {
     key: string
+    /** The value of every environment without one of its own */
+    value?: string
     /** For a secret, the API sends a placeholder in place of every value, and sending it back keeps the stored one */
     values: { environmentId: string; value: string }[]
 }

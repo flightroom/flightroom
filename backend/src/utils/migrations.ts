@@ -52,8 +52,12 @@ export const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<v
         // snapshot: spelled out as a dotted path, a snapshot holding one already encrypted credential
         // beside a plaintext one would satisfy neither half on the element that still needs rewriting.
         ["deployment", Deployment as unknown as SecretHolder, { storages: { $elemMatch: anyPlaintextIn(STORAGE_SECRET_PATHS) } } as SecretFilter],
-        // Nested $elemMatch for the same reason, one level deeper: a key of a secret holds a value per environment.
-        ["secret", Secret as unknown as SecretHolder, { entries: { $elemMatch: { values: { $elemMatch: { value: NOT_ENCRYPTED } } } } } as SecretFilter],
+        // Nested $elemMatch for the same reason, one level deeper: a key of a secret holds a value per environment, beside the one of all.
+        [
+            "secret",
+            Secret as unknown as SecretHolder,
+            { $or: [{ entries: { $elemMatch: { value: NOT_ENCRYPTED } } }, { entries: { $elemMatch: { values: { $elemMatch: { value: NOT_ENCRYPTED } } } } }] } as SecretFilter
+        ],
         // $elemMatch again, at both levels a credential of a resource lives: its value and its overrides
         [
             "resource",

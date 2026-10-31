@@ -11,10 +11,11 @@ const entries = z
     .array(
         z.object({
             key: z.string().min(1).max(255).describe("Name of the environment variable it becomes, e.g. LOG_LEVEL"),
+            value: z.string().max(10_000).optional().describe("The value of every environment that has none of its own in values"),
             values: z
                 .array(z.object({ environmentId: objectId("Id of an environment of the project, from environments_list"), value: z.string().max(10_000).optional() }))
                 .optional()
-                .describe("The value in each environment; a blank or missing one leaves the key unset there")
+                .describe("The value an environment overrides value with; a blank or missing one takes value, or leaves the key unset there when value is blank too")
         })
     )
     .max(200)
@@ -24,8 +25,8 @@ const configMaps = (principal: ConstructorParameters<typeof VariableMapService>[
 const secrets = (principal: ConstructorParameters<typeof VariableMapService>[1]) => new VariableMapService("secret", principal)
 
 /**
- * The config maps and the secrets of the project, which its backends and DOCKER frontends
- * attach (configMapIds, secretIds). A save stays in the console: with GitOps on, the maps reach the
+ * The config maps and the secrets of the project, which its backends, DOCKER frontends and maintenance
+ * agents attach (configMapIds, secretIds). A save stays in the console: with GitOps on, the maps reach the
  * project's repository when an environment is deployed. Secrets are read with their values masked, and creating or
  * editing one stays in the console: its input is a secret, as for storages and databases.
  */
@@ -33,7 +34,8 @@ export const variableMapTools = [
     defineTool({
         name: "config_maps_list",
         title: "List config maps",
-        description: "The config maps of the project: named sets of keys with a value per environment, which backends and DOCKER frontends get as environment variables.",
+        description:
+            "The config maps of the project: named sets of keys, each with a value for all environments and the ones an environment overrides it with, which backends, DOCKER frontends and maintenance agents get as environment variables.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,
@@ -42,7 +44,7 @@ export const variableMapTools = [
     defineTool({
         name: "config_map_get",
         title: "Get config map",
-        description: "One config map of the project with its keys and their value in each environment.",
+        description: "One config map of the project with its keys, the value of all environments (value) and the ones an environment overrides it with (values).",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ configMapId }),
@@ -52,7 +54,7 @@ export const variableMapTools = [
         name: "config_map_create",
         title: "Create config map",
         description:
-            "Adds a config map to the project. Its values are readable by anyone who sees the project: put secrets in a secret, from the console. Attach it with backend_update or frontend_update (configMapIds).",
+            "Adds a config map to the project. Its values are readable by anyone who sees the project: put secrets in a secret, from the console. Attach it with backend_update, frontend_update or maintenance_agent_update (configMapIds).",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: z.object({
@@ -79,7 +81,8 @@ export const variableMapTools = [
     defineTool({
         name: "config_map_delete",
         title: "Delete config map",
-        description: "Deletes a config map of the project. Refused while a backend or a DOCKER frontend still attaches it.",
+        description:
+            "Deletes a config map of the project. Refused while a backend, a DOCKER frontend or a maintenance agent still attaches it: detach it first with backend_update, frontend_update or maintenance_agent_update (configMapIds).",
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
         inputSchema: z.object({ configMapId }),
@@ -91,7 +94,8 @@ export const variableMapTools = [
     defineTool({
         name: "secrets_list",
         title: "List secrets",
-        description: "The secrets of the project with their keys and the environments each has a value in. Values are masked; creating or editing a secret is only possible from the console.",
+        description:
+            "The secrets of the project with their keys, whether each has a value for all environments and the environments that override it. Values are masked; creating or editing a secret is only possible from the console.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,
@@ -109,7 +113,8 @@ export const variableMapTools = [
     defineTool({
         name: "secret_delete",
         title: "Delete secret",
-        description: "Deletes a secret of the project with its values. Refused while a backend or a DOCKER frontend still attaches it.",
+        description:
+            "Deletes a secret of the project with its values. Refused while a backend, a DOCKER frontend or a maintenance agent still attaches it: detach it first with backend_update, frontend_update or maintenance_agent_update (secretIds).",
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
         inputSchema: z.object({ secretId }),

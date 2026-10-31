@@ -330,6 +330,31 @@ describe("normalizeEntries", () => {
         expect(normalizeEntries([{ key: "A", values: [null] }], "configMap", environments)).toEqual([{ key: "A", values: [] }])
     })
 
+    it("given a value for all environments and an override, when the entries are normalised, then both are kept and a blank one for all is left out", () => {
+        expect(
+            normalizeEntries(
+                [
+                    { key: "A", value: "all", values: [{ environmentId: environment, value: "own" }] },
+                    { key: "B", value: "", values: [] }
+                ],
+                "configMap",
+                environments
+            )
+        ).toEqual([
+            { key: "A", value: "all", values: [{ environmentId: environment, value: "own" }] },
+            { key: "B", values: [] }
+        ])
+    })
+
+    it("given the value for all of a secret sent back as the placeholder, when the entries are normalised, then the stored one is kept, and without one it is refused", () => {
+        const stored = [{ key: "A", value: "stored", values: [] }]
+
+        expect(normalizeEntries([{ key: "A", value: SECRET_PLACEHOLDER, values: [] }], "secret", environments, stored)).toEqual([{ key: "A", value: "stored", values: [] }])
+        expect(() => normalizeEntries([{ key: "B", value: SECRET_PLACEHOLDER, values: [] }], "secret", environments, stored)).toThrow(
+            expect.objectContaining({ code: "VARIABLE_MAP_SECRET_VALUE_REQUIRED" })
+        )
+    })
+
     it("given a secret that looks like a ciphertext, when the entries are normalised, then it is refused", () => {
         const refusal = () => normalizeEntries([{ key: "A", values: [{ environmentId: environment, value: "enc:v1:a:b:c" }] }], "secret", environments)
 

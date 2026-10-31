@@ -10,9 +10,10 @@ export interface IVariableMapValue {
     value: string
 }
 
-/** A key of the map: an environment with no value leaves it unset there */
+/** A key of the map: the value of all, overridden per environment; an environment with neither leaves it unset there */
 export interface IVariableMapEntry {
     key: string
+    value?: string
     values: IVariableMapValue[]
 }
 
@@ -30,7 +31,7 @@ export interface IVariableMap extends Document<ObjectId> {
 }
 
 /** Encrypted at rest; every answer of the API carries the placeholder in their place */
-export const SECRET_ENCRYPTED_PATHS = ["entries.values.value"]
+export const SECRET_ENCRYPTED_PATHS = ["entries.value", "entries.values.value"]
 
 // No length limit here: on an update the validators see the ciphertext of a secret, not what was typed.
 // VariableMapService bounds the values before they get this far.
@@ -56,6 +57,9 @@ const variableMapEntrySchema = new Schema<IVariableMapEntry>(
             required: true,
             trim: true,
             match: BACKEND_VARIABLE_KEY
+        },
+        value: {
+            type: String
         },
         values: {
             type: [variableMapValueSchema],
@@ -110,6 +114,7 @@ secretSchema.plugin(encryptedFields, { model: "Secret", paths: SECRET_ENCRYPTED_
 secretSchema.set("toJSON", {
     transform: (_document, object) => {
         for (const entry of (object.entries ?? []) as IVariableMapEntry[]) {
+            if (entry.value) entry.value = SECRET_PLACEHOLDER
             for (const value of entry.values ?? []) {
                 value.value = SECRET_PLACEHOLDER
             }

@@ -27,10 +27,10 @@ const BACKEND_FIELD: Record<VariableMapKind, "configMapIds" | "secretIds"> = { c
 const isDuplicateKeyError = (error: unknown): boolean => (error as { code?: number })?.code === 11000
 
 /**
- * The entries as they are stored: keys valid and unique, blank values dropped (the key stays unset in
- * that environment), every environment one of the project and at most once per key. A secret that comes
- * back as the placeholder keeps the value stored for that key and environment; with none to keep, it
- * is refused rather than saved literally.
+ * The entries as they are stored: keys valid and unique, blank values dropped (the environment gets the value
+ * of all, or the key stays unset there), every environment one of the project and at most once per key. A
+ * secret that comes back as the placeholder keeps the value stored for that key and environment, or for all;
+ * with none to keep, it is refused rather than saved literally.
  */
 export const normalizeEntries = (entries: unknown, kind: VariableMapKind, environmentIds: Set<string>, stored: IVariableMapEntry[] = []): VariableMapEntryDTO[] => {
     if (!Array.isArray(entries) || entries.length > MAX_VARIABLE_MAP_ENTRIES) {
@@ -48,6 +48,26 @@ export const normalizeEntries = (entries: unknown, kind: VariableMapKind, enviro
         }
         keys.add(key)
 
+        const storedEntry = stored.find(secret => secret.key === key)
+        /** A typed value as it is stored, `kept` the one a placeholder stands for */
+        const checked = (value: string, kept: string | undefined, where: string): string => {
+            if (kind === "secret" && value === SECRET_PLACEHOLDER) {
+                if (!kept) {
+                    throw createBusinessException({ code: "VARIABLE_MAP_SECRET_VALUE_REQUIRED", message: `The secret "${key}" has no stored value ${where} to keep: type it` })
+                }
+                return kept
+            }
+            // Stored as typed, it would read as a ciphertext and make every load of the secret fail to decrypt
+            if (kind === "secret" && isEncryptedSecret(value)) {
+                throw createBusinessException({ code: "VARIABLE_MAP_VALUE_INVALID", message: `The value of "${key}" cannot start with "enc:v1:"` })
+            }
+            if (value.length > MAX_VARIABLE_MAP_VALUE_LENGTH) {
+                throw createBusinessException({ code: "VARIABLE_MAP_VALUE_TOO_LONG", message: `The value of "${key}" exceeds ${MAX_VARIABLE_MAP_VALUE_LENGTH} characters` })
+            }
+            return value
+        }
+
+        const value = typeof entry.value === "string" && entry.value !== "" ? checked(entry.value, storedEntry?.value, "for all environments") : undefined
         const environments = new Set<string>()
         const values = (Array.isArray(entry.values) ? entry.values : []).flatMap(item => {
             const { environmentId, value } = (item ?? {}) as { environmentId?: unknown; value?: unknown }
@@ -62,24 +82,11 @@ export const normalizeEntries = (entries: unknown, kind: VariableMapKind, enviro
             }
             environments.add(environment)
 
-            if (kind === "secret" && value === SECRET_PLACEHOLDER) {
-                const kept = stored.find(secret => secret.key === key)?.values.find(stored => String(stored.environmentId) === environment)?.value
-                if (!kept) {
-                    throw createBusinessException({ code: "VARIABLE_MAP_SECRET_VALUE_REQUIRED", message: `The secret "${key}" has no stored value for environment ${environment} to keep: type it` })
-                }
-                return [{ environmentId: environment, value: kept }]
-            }
-            // Stored as typed, it would read as a ciphertext and make every load of the secret fail to decrypt
-            if (kind === "secret" && isEncryptedSecret(value)) {
-                throw createBusinessException({ code: "VARIABLE_MAP_VALUE_INVALID", message: `The value of "${key}" cannot start with "enc:v1:"` })
-            }
-            if (value.length > MAX_VARIABLE_MAP_VALUE_LENGTH) {
-                throw createBusinessException({ code: "VARIABLE_MAP_VALUE_TOO_LONG", message: `The value of "${key}" exceeds ${MAX_VARIABLE_MAP_VALUE_LENGTH} characters` })
-            }
-            return [{ environmentId: environment, value }]
+            const kept = storedEntry?.values.find(stored => String(stored.environmentId) === environment)?.value
+            return [{ environmentId: environment, value: checked(value, kept, `for environment ${environment}`) }]
         })
 
-        return { key, values }
+        return { key, ...(value !== undefined && { value }), values }
     })
 }
 
