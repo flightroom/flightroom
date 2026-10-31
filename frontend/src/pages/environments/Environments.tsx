@@ -326,7 +326,7 @@ export default function EnvironmentsPage() {
             color: getRandomColor(),
             isProduction: false,
             logLevel: "info",
-            logJson: false
+            logJson: true
         })
         setIsDialogOpen(true)
     }

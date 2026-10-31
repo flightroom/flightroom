@@ -204,10 +204,10 @@ describe("renderApplicationValues", () => {
         expect(() => render({ environmentVersions })).toThrow()
     })
 
-    it("given an environment that never set its logging, when its values are rendered, then the container logs at info in plain text and gets no FRONTEND_URL", () => {
+    it("given an environment that never set its logging, when its values are rendered, then the container logs at info in JSON and gets no FRONTEND_URL", () => {
         expect(parse(render()).env).toEqual([
             { name: "LOG_LEVEL", value: "info" },
-            { name: "LOG_JSON", value: "false" }
+            { name: "LOG_JSON", value: "true" }
         ])
     })
 
@@ -219,6 +219,10 @@ describe("renderApplicationValues", () => {
             { name: "LOG_JSON", value: "true" },
             { name: "FRONTEND_URL", value: "https://dev.example.com/shop" }
         ])
+    })
+
+    it("given an environment that turned JSON logs off, when its values are rendered, then the container logs plain text", () => {
+        expect(parse(renderApplicationValues(application, { ...environment, logJson: false }, mapNames)).env[1]).toEqual({ name: "LOG_JSON", value: "false" })
     })
 
     it("given a log level that is not one, when its values are rendered, then the container logs at info", () => {

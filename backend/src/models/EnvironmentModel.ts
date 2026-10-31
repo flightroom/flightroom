@@ -68,7 +68,7 @@ const environmentSchema = new Schema<IEnvironment>(
         },
         logJson: {
             type: Boolean,
-            default: false
+            default: true
         },
         projectId: {
             type: Schema.Types.ObjectId,
