@@ -126,6 +126,9 @@ const smtpServer = [
 ]
 const smtpSender = [field("from", "FROM", { input: "email" }), field("fromName", "FROM_NAME", { required: false })]
 
+/** Where an Azure storage account lives, for a backend that manages it through Azure Resource Manager */
+const azureStorageScope = [field("subscriptionId", "SUBSCRIPTION_ID", { required: false }), field("resourceGroup", "RESOURCE_GROUP", { required: false })]
+
 /** A SharePoint site reached through Microsoft Graph: the variant is the way to authenticate, which the client reads rather than guesses */
 const sharepointVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
     id,
@@ -195,13 +198,13 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
         type: "mongodb",
         envPrefix: "MONGO",
         variants: [
-            { id: "connectionString", fields: [secret("connectionString", "URL"), field("database", "NAME", { required: false })] },
+            { id: "connectionString", fields: [secret("connectionString", "URL"), field("database", "DATABASE_NAME", { required: false })] },
             {
                 id: "credentials",
                 fields: [
                     field("host", "HOST", { connection: true }),
                     field("port", "PORT", { input: "number", default: "27017", connection: true }),
-                    field("database", "NAME", { connection: true }),
+                    field("database", "DATABASE_NAME", { connection: true }),
                     field("username", "USER"),
                     secret("password", "PASSWORD"),
                     field("authSource", "AUTH_SOURCE", { required: false, default: "admin" }),
@@ -272,12 +275,17 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             },
             {
                 id: "azureConnectionString",
-                fields: [field("containerName", "CONTAINER", { connection: true }), secret("connectionString", "CONNECTION_STRING")],
+                fields: [field("containerName", "CONTAINER", { connection: true }), ...azureStorageScope, secret("connectionString", "CONNECTION_STRING")],
                 fixed: { PROVIDER: "AZURE" }
             },
             {
                 id: "azureSharedKey",
-                fields: [field("accountName", "ACCOUNT_NAME", { connection: true }), field("containerName", "CONTAINER", { connection: true }), secret("accountKey", "ACCOUNT_KEY")],
+                fields: [
+                    field("accountName", "ACCOUNT_NAME", { connection: true }),
+                    field("containerName", "CONTAINER", { connection: true }),
+                    ...azureStorageScope,
+                    secret("accountKey", "ACCOUNT_KEY")
+                ],
                 fixed: { PROVIDER: "AZURE" }
             },
             {
@@ -285,6 +293,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
                 fields: [
                     field("accountName", "ACCOUNT_NAME", { connection: true }),
                     field("containerName", "CONTAINER", { connection: true }),
+                    ...azureStorageScope,
                     field("tenantId", "TENANT_ID"),
                     field("clientId", "CLIENT_ID"),
                     secret("clientSecret", "CLIENT_SECRET")
