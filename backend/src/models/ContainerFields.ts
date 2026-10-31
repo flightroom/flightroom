@@ -2,6 +2,7 @@ import { Schema } from "mongoose"
 import { BACKEND_HTTP_PATH } from "../types/BackendStack"
 import { isReplicaCount, MAX_REPLICAS, parseCpu, parseMemory } from "../types/ContainerResources"
 import { isExposurePath } from "../types/Exposure"
+import { isProbeSeconds, MAX_PROBE_SECONDS, PLATFORM_PROBE_PATHS, PROBE_TIMING_FIELDS, PROBE_TIMING_MINIMUMS, ProbeSettings } from "../types/Probes"
 
 /**
  * The fields of what runs as a container of its own: a backend, or a frontend built into an
@@ -18,7 +19,7 @@ export interface IBackendEnvVariable {
 }
 
 /** What a container gets when neither the caller nor a template says otherwise */
-export const CONTAINER_DEFAULTS = { port: 8080, livenessPath: "/health/live", readinessPath: "/health/ready" }
+export const CONTAINER_DEFAULTS = { port: 8080, ...PLATFORM_PROBE_PATHS }
 
 export const backendEnvVariableSchema = new Schema<IBackendEnvVariable>(
     {
@@ -48,9 +49,6 @@ const httpPathValidator = {
     validator: (value?: string | null) => value == null || BACKEND_HTTP_PATH.test(value),
     message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" must start with "/", have at most 256 characters and no whitespace`
 }
-
-/** A probe path: always set, the template or the platform default when not given */
-export const probePath = (defaultValue: string) => ({ type: String, default: defaultValue, trim: true, validate: httpPathValidator })
 
 /** An optional path: blank means the container has none, so it is stored as null rather than as "" */
 export const optionalPath = {
@@ -98,6 +96,30 @@ export const resourceFields = {
         }
     }
 }
+
+/** The initial delay and the period of the liveness and readiness probes, in seconds: blank means the default of the chart, so it is stored as null */
+export const probeTimingFields = Object.fromEntries(
+    PROBE_TIMING_FIELDS.map(field => [
+        field,
+        {
+            type: Number,
+            required: false,
+            validate: {
+                validator: (value?: number | null) => value == null || isProbeSeconds(value, PROBE_TIMING_MINIMUMS[field]),
+                message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" is not a whole number of seconds from ${PROBE_TIMING_MINIMUMS[field]} to ${MAX_PROBE_SECONDS}`
+            }
+        }
+    ])
+)
+
+/**
+ * The probe paths of a container: blank inherits the template of its project, so it is stored as null. One stored
+ * before the template, the platform's default included, stays its own.
+ */
+export const probePathFields = { livenessPath: optionalPath, readinessPath: optionalPath }
+
+/** The template of a project for the probes of its backends or of its frontends: each field left blank is the platform's */
+export const probeSettingsSchema = new Schema<ProbeSettings>({ ...probePathFields, ...probeTimingFields }, { _id: false })
 
 /** What one environment sets apart from the CPU, memory and replicas of the container: each one left blank is the container's */
 export interface IEnvironmentResources {

@@ -41,8 +41,14 @@ export interface MaintenanceAgent {
     /** A container only: the endpoint POSTed to when the agent runs */
     runPath?: string
     port?: number
-    livenessPath?: string
-    readinessPath?: string
+    /** As for a backend: null or absent inherits the probe template of the project */
+    livenessPath?: string | null
+    readinessPath?: string | null
+    /** As for a backend: seconds before the first probe and between two, per probe; null for the default of the chart (30) */
+    livenessInitialDelaySeconds?: number | null
+    livenessPeriodSeconds?: number | null
+    readinessInitialDelaySeconds?: number | null
+    readinessPeriodSeconds?: number | null
     /** Kubernetes quantities; blank or null for the default of the chart. A job's CronJob runs with them too */
     cpuRequest?: string | null
     cpuLimit?: string | null

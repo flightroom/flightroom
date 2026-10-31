@@ -61,7 +61,9 @@ describe("FrontendService.create, kind", () => {
     it("given a DOCKER without parents, when it is created, then it gets the backend defaults it was not given", async () => {
         const write = await create({ kind: FrontendKind.DOCKER, exposurePath: "/shell", parentIds: [], readinessPath: "/ready" })
 
-        expect(write.mock.calls[0][0]).toMatchObject({ kind: FrontendKind.DOCKER, port: 8080, livenessPath: "/health/live", readinessPath: "/ready" })
+        expect(write.mock.calls[0][0]).toMatchObject({ kind: FrontendKind.DOCKER, port: 8080, readinessPath: "/ready" })
+        // Left out, the liveness path follows the frontend template of the project
+        expect(write.mock.calls[0][0].livenessPath).toBeUndefined()
     })
 
     it("given a BUNDLE with parents, when it is created, then it is written without container fields", async () => {
@@ -147,7 +149,7 @@ describe("FrontendService.update, kind", () => {
 
         await serviceFor(frontend).update(String(frontend._id), { kind: FrontendKind.DOCKER, exposurePath: "/shell", parentIds: [] } as unknown as FrontendDTO)
 
-        expect(write.mock.calls[0][1]).toMatchObject({ kind: FrontendKind.DOCKER, parentIds: [], port: 8080, livenessPath: "/health/live", readinessPath: "/health/ready" })
+        expect(write.mock.calls[0][1]).toMatchObject({ kind: FrontendKind.DOCKER, parentIds: [], port: 8080 })
         expect(write.mock.calls[0][2]).toMatchObject({ new: true, runValidators: true })
     })
 

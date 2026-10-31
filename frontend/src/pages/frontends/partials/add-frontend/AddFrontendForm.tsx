@@ -179,7 +179,7 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                     {isDocker ? (
                         <TabsContent value="runtime" forceMount>
                             <div className="flex flex-col gap-6">
-                                <BackendRuntimeFields />
+                                <BackendRuntimeFields probeSide="frontend" />
                                 <BackendEndpointFields environments={environments} placeholder="/shell" />
                                 <BackendEnvFields />
                                 <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />

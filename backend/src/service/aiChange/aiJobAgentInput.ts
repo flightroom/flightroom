@@ -9,6 +9,7 @@ import { IUser } from "../../models/UserModel"
 import { ConfigMap, IVariableMap, Secret } from "../../models/VariableMapModel"
 import { effectiveDesignSystem, IDesignSystem } from "../../types/DesignSystem"
 import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
+import { effectiveProbes } from "../../types/Probes"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { projectDesignSystemOf } from "../ProjectService"
@@ -89,7 +90,7 @@ const uniqueIds = <T>(items: T[], pick: (item: T) => unknown[] | undefined) => [
  * URLs each one is reached at. A kind no backend attaches is not queried. `visibleResources`, for a job of a
  * domain-scoped member, keeps the resources they may read, as the console does: the agent is not told more.
  */
-const backendFactsOf = async (project: Pick<IProject, "_id" | "exposure">, components: RepositoryComponent[], visibleResources?: Set<string>): Promise<JobBackendFacts> => {
+const backendFactsOf = async (project: Pick<IProject, "_id" | "exposure" | "probes">, components: RepositoryComponent[], visibleResources?: Set<string>): Promise<JobBackendFacts> => {
     const backends = components.filter((component): component is BackendComponent => component.kind === "backend")
     const configMapIds = uniqueIds(backends, backend => backend.configMapIds)
     const secretIds = uniqueIds(backends, backend => backend.secretIds)
@@ -117,7 +118,11 @@ const backendFactsOf = async (project: Pick<IProject, "_id" | "exposure">, compo
         const backendConfigMaps = mapsOf(configMaps, backend.configMapIds ?? [])
         const backendSecrets = mapsOf(secrets, backend.secretIds ?? [])
         const backendResources = (backend.resourceIds ?? []).flatMap(id => resources.filter(resource => String(resource._id) === String(id)).map(toAgentResource))
+        // The paths it is probed on: its own, else the template of the project
+        const { livenessPath, readinessPath } = effectiveProbes(backend, project.probes?.backend)
         facts.set(String(backend._id), {
+            livenessPath,
+            readinessPath,
             ...(exposurePath ? { exposurePath } : {}),
             // The chart names the Kubernetes Service after the release, the slug of the backend, on port 80
             clusterUrl: `http://${backend.slug}`,

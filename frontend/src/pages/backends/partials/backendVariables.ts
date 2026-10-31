@@ -3,7 +3,7 @@ import * as z from "zod"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi, { type ProjectExposure } from "@/hooks/apiClients/useProjectApi"
 import useProjectStore from "@/store/useProjectStore"
-import { createResourceShape, type ResourceMessages } from "./containerResources"
+import { createResourceShape, probeSecondsField, type ResourceMessages } from "./containerResources"
 
 /** Same rule as the backend (BACKEND_HTTP_PATH): a probe or docs path is absolute, at most 256 characters, without whitespace */
 export const BACKEND_HTTP_PATH = /^\/\S{0,255}$/
@@ -20,8 +20,20 @@ const EXPOSURE_PATH = /^(?!.*%2[fF])(\/|(\/(?!\.{1,2}(\/|$))([-A-Za-z0-9._~!$&'(
  */
 export const createBackendRuntimeShape = (messages: { path: string } & ResourceMessages) => ({
     port: z.string().regex(/^\d{1,5}$/),
-    livenessPath: z.string().trim().regex(BACKEND_HTTP_PATH, messages.path),
-    readinessPath: z.string().trim().regex(BACKEND_HTTP_PATH, messages.path),
+    // Blank: inherited from the probe template of the project, else the platform default
+    livenessPath: z
+        .string()
+        .trim()
+        .refine(value => value === "" || BACKEND_HTTP_PATH.test(value), messages.path),
+    readinessPath: z
+        .string()
+        .trim()
+        .refine(value => value === "" || BACKEND_HTTP_PATH.test(value), messages.path),
+    // Blank: inherited from the probe template of the project, else the platform default, for the timing of each probe
+    livenessInitialDelaySeconds: probeSecondsField(0, messages.probeInitialDelayInvalid),
+    livenessPeriodSeconds: probeSecondsField(1, messages.probePeriodInvalid),
+    readinessInitialDelaySeconds: probeSecondsField(0, messages.probeInitialDelayInvalid),
+    readinessPeriodSeconds: probeSecondsField(1, messages.probePeriodInvalid),
     // Blank: the backend publishes no API docs
     docsPath: z
         .string()

@@ -62,10 +62,15 @@ export interface Backend {
         repository?: string
     }
     port: number
-    /** Kubernetes restarts the container when it fails */
-    livenessPath: string
+    /** Kubernetes restarts the container when it fails; null or absent inherits the probe template of the project */
+    livenessPath?: string | null
     /** Kubernetes sends traffic only while it answers */
-    readinessPath: string
+    readinessPath?: string | null
+    /** Seconds before the first probe (0..3600) and between two (1..3600), per probe; null for the default of the chart (30) */
+    livenessInitialDelaySeconds?: number | null
+    livenessPeriodSeconds?: number | null
+    readinessInitialDelaySeconds?: number | null
+    readinessPeriodSeconds?: number | null
     /** The UI of the public API documentation; blank or null when the backend has none */
     docsPath?: string | null
     /** Il path su cui e' esposto sull'host di ogni ambiente, es. /api/orders; null se non e' esposto */
@@ -98,7 +103,7 @@ export interface Backend {
 export type BackendDTO = Omit<Backend, "_id" | "projectId" | "stack" | "createdAt" | "updatedAt">
 
 /** Port and probe paths left out come from the template, the platform defaults after it. */
-export type BackendCreateDTO = Omit<BackendDTO, "port" | "livenessPath" | "readinessPath"> & Partial<Pick<BackendDTO, "port" | "livenessPath" | "readinessPath">>
+export type BackendCreateDTO = Omit<BackendDTO, "port"> & Partial<Pick<BackendDTO, "port">>
 
 export interface BuiltBackend {
     _id?: string

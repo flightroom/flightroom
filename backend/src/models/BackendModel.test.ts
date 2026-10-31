@@ -6,12 +6,12 @@ import BuiltBackend from "./BuiltBackendModel"
 const aBackend = () => new Backend({ projectId: new Types.ObjectId(), slug: "  Orders-API ", name: "Orders API" })
 
 describe("Backend model", () => {
-    it("given a backend with only the required fields, when it is built, then port, probes and env take their defaults and it has no API docs", async () => {
+    it("given a backend with only the required fields, when it is built, then port and env take their defaults, its probes follow the project and it has no API docs", async () => {
         const backend = aBackend()
 
         expect(backend.port).toBe(8080)
-        expect(backend.livenessPath).toBe("/health/live")
-        expect(backend.readinessPath).toBe("/health/ready")
+        expect(backend.livenessPath).toBeUndefined()
+        expect(backend.readinessPath).toBeUndefined()
         expect(backend.docsPath).toBeUndefined()
         expect(backend.openApiPath).toBeUndefined()
         expect(backend.env).toEqual([])
@@ -41,12 +41,29 @@ describe("Backend model", () => {
 
     it.each([
         ["livenessPath", "health/live"],
-        ["livenessPath", ""],
         ["readinessPath", "/health ready"],
         ["readinessPath", `/${"x".repeat(256)}`],
         ["docsPath", "docs"],
         ["docsPath", "/my\tdocs"],
         ["openApiPath", "https://example.com/openapi.json"]
+    ])("given the %s %j, when it is validated, then it is refused", async (field, value) => {
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", [field]: value })
+
+        await expect(backend.validate()).rejects.toMatchObject({ errors: { [field]: expect.anything() } })
+    })
+
+    it("given blank probe paths, when it is built, then they are stored as null, to inherit the template of the project", async () => {
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", livenessPath: "", readinessPath: "  " })
+
+        expect([backend.livenessPath, backend.readinessPath]).toEqual([null, null])
+        await expect(backend.validate()).resolves.toBeUndefined()
+    })
+
+    it.each([
+        ["livenessInitialDelaySeconds", -1],
+        ["livenessPeriodSeconds", 0],
+        ["readinessInitialDelaySeconds", 3601],
+        ["readinessPeriodSeconds", 1.5]
     ])("given the %s %j, when it is validated, then it is refused", async (field, value) => {
         const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", [field]: value })
 

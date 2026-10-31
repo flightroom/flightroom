@@ -19,6 +19,7 @@ import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVa
 import { EnvironmentResourcesValue, RESOURCE_LABELS, ReplicasValue, ResourceValue } from "@/pages/backends/partials/ContainerResourceFields"
 import { RESOURCE_FIELDS } from "@/pages/backends/partials/containerResources"
 import { EnvironmentVersionsValue } from "@/pages/backends/partials/EnvironmentVersionFields"
+import { ProbeValue } from "@/pages/backends/partials/ProbeFields"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
@@ -72,10 +73,22 @@ const ConfigurationSection: React.FC<{ agent: MaintenanceAgent; environments: En
                             </DescriptionItem>
                             <DescriptionItem label={t("backends.port")}>{agent.port ?? "—"}</DescriptionItem>
                             <DescriptionItem label={t("backends.liveness_path")}>
-                                <Path path={agent.livenessPath} />
+                                <ProbeValue side="backend" field="livenessPath" own={agent.livenessPath} />
+                            </DescriptionItem>
+                            <DescriptionItem label={t("backends.liveness_initial_delay")}>
+                                <ProbeValue side="backend" field="livenessInitialDelaySeconds" own={agent.livenessInitialDelaySeconds} />
+                            </DescriptionItem>
+                            <DescriptionItem label={t("backends.liveness_period")}>
+                                <ProbeValue side="backend" field="livenessPeriodSeconds" own={agent.livenessPeriodSeconds} />
                             </DescriptionItem>
                             <DescriptionItem label={t("backends.readiness_path")}>
-                                <Path path={agent.readinessPath} />
+                                <ProbeValue side="backend" field="readinessPath" own={agent.readinessPath} />
+                            </DescriptionItem>
+                            <DescriptionItem label={t("backends.readiness_initial_delay")}>
+                                <ProbeValue side="backend" field="readinessInitialDelaySeconds" own={agent.readinessInitialDelaySeconds} />
+                            </DescriptionItem>
+                            <DescriptionItem label={t("backends.readiness_period")}>
+                                <ProbeValue side="backend" field="readinessPeriodSeconds" own={agent.readinessPeriodSeconds} />
                             </DescriptionItem>
                         </>
                     )}

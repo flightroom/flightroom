@@ -31,7 +31,18 @@ import BackendResourcesFields from "../backends/partials/BackendResourcesFields"
 import BackendVariableMapsFields from "../backends/partials/BackendVariableMapsFields"
 import { isBackendTemplate } from "../backends/partials/backendTemplates"
 import { BACKEND_HTTP_PATH, BACKEND_VERSION } from "../backends/partials/backendVariables"
-import { createResourceShape, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "../backends/partials/containerResources"
+import {
+    createResourceShape,
+    PROBE_FIELDS,
+    probeFormValues,
+    probePaths,
+    probeSecondsField,
+    probeTimings,
+    type ResourceMessages,
+    refineResources,
+    resourceFormValues,
+    resourceMessages
+} from "../backends/partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "../backends/partials/environmentVersions"
 import DomainSelectField from "../domains/partials/DomainSelectField"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
@@ -80,8 +91,14 @@ const createFormSchema = (messages: FormMessages) =>
             // A container's only: a job has neither a port nor probes, so they are checked below
             port: z.string(),
             runPath: z.string().trim(),
+            // Blank: inherited from the probe template of the project, else the platform default
             livenessPath: z.string().trim(),
             readinessPath: z.string().trim(),
+            // Blank: the default of the chart for the timing of each probe
+            livenessInitialDelaySeconds: probeSecondsField(0, messages.probeInitialDelayInvalid),
+            livenessPeriodSeconds: probeSecondsField(1, messages.probePeriodInvalid),
+            readinessInitialDelaySeconds: probeSecondsField(0, messages.probeInitialDelayInvalid),
+            readinessPeriodSeconds: probeSecondsField(1, messages.probePeriodInvalid),
             // A job's too: its CronJob runs the image with them
             ...createResourceShape(messages),
             env: z.array(
@@ -122,7 +139,7 @@ const createFormSchema = (messages: FormMessages) =>
             if (data.kind !== "container") return
             if (!/^\d{1,5}$/.test(data.port)) ctx.addIssue({ code: "custom", message: messages.port, path: ["port"] })
             for (const field of ["runPath", "livenessPath", "readinessPath"] as const) {
-                if (!BACKEND_HTTP_PATH.test(data[field])) ctx.addIssue({ code: "custom", message: messages.path, path: [field] })
+                if (!(field !== "runPath" && data[field] === "") && !BACKEND_HTTP_PATH.test(data[field])) ctx.addIssue({ code: "custom", message: messages.path, path: [field] })
             }
         })
 
@@ -227,10 +244,9 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   timeZone: agent.timeZone ?? "",
                   port: String(agent.port ?? 8080),
                   runPath: agent.runPath ?? "/run",
-                  livenessPath: agent.livenessPath ?? "/health/live",
-                  readinessPath: agent.readinessPath ?? "/health/ready",
                   image: { repository: agent.image?.repository ?? "" },
                   ...resourceFormValues(agent),
+                  ...probeFormValues(agent),
                   env: agent.env ?? [],
                   // Only what still exists: one deleted meanwhile has no row to remove, and would make every save fail
                   configMapIds: (agent.configMapIds ?? []).filter(mapId => configMaps.some(map => map._id === mapId)),
@@ -254,10 +270,9 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   environmentVersions: [],
                   port: "8080",
                   runPath: "/run",
-                  livenessPath: "/health/live",
-                  readinessPath: "/health/ready",
                   image: { repository: "" },
                   ...resourceFormValues(),
+                  ...probeFormValues(),
                   env: [],
                   configMapIds: [],
                   secretIds: [],
@@ -275,7 +290,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
     })
 
     // What the last template filled in: a field still holding it was not edited by hand, so the next template may replace it
-    const prefilled = useRef<PrefilledValues>({ port: "8080", livenessPath: "/health/live", readinessPath: "/health/ready" })
+    const prefilled = useRef<PrefilledValues>({ port: "8080", livenessPath: "", readinessPath: "" })
     const selectedTemplate = form.watch("template")
     useEffect(() => {
         const defaults = templates.find(market => market.slug === selectedTemplate)?.backendDefaults
@@ -290,7 +305,8 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
     }, [selectedTemplate, templates, isEdit, hasRepositories, form])
 
     const onSubmit = async (data: FormValues) => {
-        const { scheduleMode, port, runPath, livenessPath, readinessPath, ...fields } = data
+        const { scheduleMode, port, runPath, ...fields } = data
+        for (const field of PROBE_FIELDS) delete fields[field]
         const schedule = scheduleMode === "manual" ? null : scheduleMode === "custom" ? normalizeCron(data.schedule) : SCHEDULE_PRESETS[scheduleMode as Exclude<ScheduleMode, "manual" | "custom">]
         const dto = {
             ...fields,
@@ -298,7 +314,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
             schedule,
             timeZone: schedule && data.timeZone ? data.timeZone : null,
             // A job has none of them: it runs and exits
-            ...(data.kind === "container" ? { port: Number(port), runPath, livenessPath, readinessPath } : {})
+            ...(data.kind === "container" ? { port: Number(port), runPath, ...probePaths(data), ...probeTimings(data) } : {})
         } as unknown as Partial<MaintenanceAgentDTO>
         const template = data.template || undefined
         // Sent only when typed here: saving the form must not move back a newer version the pipeline registered meanwhile

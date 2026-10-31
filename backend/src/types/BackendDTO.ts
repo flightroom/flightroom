@@ -1,5 +1,6 @@
 import { BackendStackDTO } from "./BackendStack"
 import FrontendDTO from "./FrontendDTO"
+import { ProbeTimings } from "./Probes"
 
 export interface BackendEnvVariableDTO {
     name: string
@@ -22,7 +23,8 @@ export interface EnvironmentVersionDTO {
     version?: string | null
 }
 
-interface BackendDTO {
+/** The probe timings are in seconds, null to inherit the template of the project, else the default of the chart (30) */
+interface BackendDTO extends ProbeTimings {
     id?: string
     name: string
     slug: string
@@ -41,8 +43,10 @@ interface BackendDTO {
         repository?: string
     }
     port?: number
-    livenessPath?: string
-    readinessPath?: string
+    /** Blank or null inherits the backend template of the project (its frontend one for a DOCKER), else /health/live */
+    livenessPath?: string | null
+    /** As the liveness path, else /health/ready */
+    readinessPath?: string | null
     /** The UI of the public API documentation; blank or null when the backend has none */
     docsPath?: string | null
     /** The OpenAPI spec; blank or null when the backend has none */

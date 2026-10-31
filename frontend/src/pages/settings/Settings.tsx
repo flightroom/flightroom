@@ -23,6 +23,7 @@ import {
     ProjectDesignSystemSection,
     ProjectExposureSection,
     ProjectInfoSection,
+    ProjectProbesSection,
     ProjectStatsSection,
     ProjectTechnologiesSection
 } from "./partials"
@@ -31,6 +32,7 @@ import type { ProjectContainerRegistryFormValues } from "./partials/ProjectConta
 import type { ProjectContextFormValues } from "./partials/ProjectContextSection"
 import type { ProjectExposureFormValues } from "./partials/ProjectExposureSection"
 import type { ProjectInfoFormValues } from "./partials/ProjectInfoSection"
+import type { ProjectProbesPayload } from "./partials/ProjectProbesSection"
 import type { ProjectTechnologiesFormValues } from "./partials/ProjectTechnologiesSection"
 
 const TABS = ["general", "context", "designSystem", "access", "resources", "delivery"] as const
@@ -114,6 +116,20 @@ export const Settings: React.FC = () => {
         },
         onError: () => {
             notifications.showErrorNotification({ message: t("technologies.settings.save_failed") })
+        }
+    })
+
+    const updateProbesMutation = useMutation({
+        // Un lato lasciato vuoto va tolto, che l'API esprime con un null esplicito
+        mutationFn: (probes: ProjectProbesPayload) => projectApi.updateProject(project._id, { probes }),
+        onSuccess: updated => {
+            // I form di backend, frontend e agenti leggono il template dallo store per i placeholder
+            setProject({ ...project, probes: updated.probes })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            notifications.showSuccessNotification({ message: t("settings.probes.saved") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("settings.probes.save_failed") })
         }
     })
 
@@ -202,6 +218,15 @@ export const Settings: React.FC = () => {
                                 technologies={projectData.technologies}
                                 onUpdate={values => updateTechnologiesMutation.mutate(values)}
                                 isUpdating={updateTechnologiesMutation.isPending}
+                            />
+                        )}
+
+                        {projectData && (
+                            <ProjectProbesSection
+                                key={projectData._id}
+                                probes={projectData.probes}
+                                onUpdate={values => updateProbesMutation.mutate(values)}
+                                isUpdating={updateProbesMutation.isPending}
                             />
                         )}
 

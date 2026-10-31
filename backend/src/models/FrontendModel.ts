@@ -4,7 +4,18 @@ import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
 import { IDesignSystem } from "../types/DesignSystem"
 import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
-import { backendEnvVariableSchema, environmentResourcesField, environmentVersionsField, exposurePath, IBackendEnvVariable, optionalPath, resourceFields } from "./ContainerFields"
+import { ProbeSettings } from "../types/Probes"
+import {
+    backendEnvVariableSchema,
+    environmentResourcesField,
+    environmentVersionsField,
+    exposurePath,
+    IBackendEnvVariable,
+    optionalPath,
+    probePathFields,
+    probeTimingFields,
+    resourceFields
+} from "./ContainerFields"
 import { designSystemSchema } from "./DesignSystemSchema"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
@@ -74,7 +85,7 @@ export interface IPosition {
  * BUNDLE document carries none of them; FrontendService fills the backend defaults in
  * when a DOCKER is created.
  */
-export interface IFrontendContainer extends Partial<BackendPaths>, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IFrontendContainer extends Partial<Omit<BackendPaths, "livenessPath" | "readinessPath">>, ProbeSettings, ContainerResourcesByEnvironment, VersionByEnvironment {
     image?: {
         /** Without tag, e.g. ghcr.io/acme/shell */
         repository?: string
@@ -396,8 +407,8 @@ const frontendSchema: Schema = new Schema<IFrontend>(
             type: Number,
             required: false
         },
-        livenessPath: optionalPath,
-        readinessPath: optionalPath,
+        ...probePathFields,
+        ...probeTimingFields,
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,

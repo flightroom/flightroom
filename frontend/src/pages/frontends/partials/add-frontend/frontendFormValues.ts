@@ -3,7 +3,7 @@ import type { ICodeRepository } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import { CanaryDeploymentType, CanaryType, type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import type { Storage } from "@/hooks/apiClients/useStorageApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
-import { replicaCount, resourceFormValues } from "@/pages/backends/partials/containerResources"
+import { probeFormValues, probePaths, probeTimings, replicaCount, resourceFormValues } from "@/pages/backends/partials/containerResources"
 import { environmentVersionFormValues } from "@/pages/backends/partials/environmentVersions"
 import { designSystemFormValues, toDesignSystem } from "@/pages/settings/partials/DesignSystemFields"
 import type { FormInput, FormValues } from "./frontendFormSchema"
@@ -40,8 +40,9 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
     // The backend defaults until it declares its own: a BUNDLE holds them only in case it is switched to DOCKER
     const containerDefaults = {
         port: String(frontend?.port ?? 8080),
-        livenessPath: frontend?.livenessPath ?? "/health/live",
-        readinessPath: frontend?.readinessPath ?? "/health/ready",
+        // Blank: inherited from the probe template of the project
+        livenessPath: frontend?.livenessPath ?? "",
+        readinessPath: frontend?.readinessPath ?? "",
         docsPath: frontend?.docsPath ?? "",
         openApiPath: frontend?.openApiPath ?? "",
         // A DOCKER is usually the shell, which browsers reach: exposed until said otherwise, both a new one and a BUNDLE
@@ -49,6 +50,7 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
         exposed: frontend?.exposurePath ? true : !frontend || frontend.kind !== FrontendKind.DOCKER,
         exposurePath: frontend?.exposurePath ?? "",
         ...resourceFormValues(frontend),
+        ...probeFormValues(frontend),
         environmentVersions: environmentVersionFormValues(frontend),
         image: { repository: frontend?.image?.repository ?? "" },
         env: frontend?.env ?? [],
@@ -115,6 +117,10 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         port,
         livenessPath,
         readinessPath,
+        livenessInitialDelaySeconds,
+        livenessPeriodSeconds,
+        readinessInitialDelaySeconds,
+        readinessPeriodSeconds,
         docsPath,
         openApiPath,
         cpuRequest,
@@ -145,8 +151,9 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         ...(data.kind === FrontendKind.DOCKER
             ? {
                   port: Number(port),
-                  livenessPath: livenessPath?.trim(),
-                  readinessPath: readinessPath?.trim(),
+                  // Blank: inherited from the probe template of the project
+                  ...probePaths({ livenessPath, readinessPath }),
+                  ...probeTimings({ livenessInitialDelaySeconds, livenessPeriodSeconds, readinessInitialDelaySeconds, readinessPeriodSeconds }),
                   docsPath: docsPath?.trim(),
                   openApiPath: openApiPath?.trim(),
                   // Empty: the default of the chart

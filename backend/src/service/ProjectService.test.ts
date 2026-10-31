@@ -330,6 +330,37 @@ describe("update", () => {
         expect(written).toBeUndefined()
     })
 
+    it("Given a backend probe template, when the project is updated, then that side is written whole with the fields set only, trimmed", async () => {
+        await update({ probes: { backend: { livenessPath: " /healthz ", readinessPath: "", livenessInitialDelaySeconds: 0, readinessPeriodSeconds: null } } })
+
+        expect(written).toEqual({ "probes.backend": { livenessPath: "/healthz", livenessInitialDelaySeconds: 0 } })
+    })
+
+    it("Given a frontend probe template removed, when the project is updated, then that side only is unset", async () => {
+        await update({ probes: { frontend: null } })
+
+        expect(written).toEqual({ $unset: { "probes.frontend": 1 } })
+    })
+
+    it("Given null probes, when the project is updated, then both templates are unset", async () => {
+        await update({ probes: null })
+
+        expect(written).toEqual({ $unset: { probes: 1 } })
+    })
+
+    it.each([
+        ["a relative path", { backend: { livenessPath: "healthz" } }],
+        ["a path with whitespace", { frontend: { readinessPath: "/ready now" } }],
+        ["a period of zero", { backend: { livenessPeriodSeconds: 0 } }],
+        ["a delay past an hour", { frontend: { readinessInitialDelaySeconds: 3601 } }],
+        ["a timing that is not whole", { backend: { readinessPeriodSeconds: 2.5 } }],
+        ["a side that is not an object", { backend: "/healthz" }],
+        ["something that is not an object", "/healthz"]
+    ])("Given probes with %s, when the project is updated, then it is refused with a 400 and nothing is written", async (_case, probes) => {
+        await expect(update({ probes } as never)).rejects.toMatchObject({ code: "PROJECT_PROBES_INVALID", statusCode: 400 })
+        expect(written).toBeUndefined()
+    })
+
     it("Given a design system, when the project is updated, then it is written whole, trimmed, its npmrc as pasted", async () => {
         await update({ designSystem: { packageName: " @acme/ui ", version: "^3.2.0", docsUrl: "", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" } })
 

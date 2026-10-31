@@ -16,6 +16,7 @@ import { DESIGN_SYSTEM_MAX_LENGTH, NPM_PACKAGE_NAME } from "../../types/DesignSy
 import { isExposurePath } from "../../types/Exposure"
 import FrontendDTO from "../../types/FrontendDTO"
 import { FrontendCompiler, FrontendFramework } from "../../types/FrontendStack"
+import { CHART_PROBE_DEFAULTS, MAX_PROBE_SECONDS, PLATFORM_PROBE_PATHS } from "../../types/Probes"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
@@ -35,6 +36,31 @@ const memoryQuantity = z
     .nullable()
     .optional()
 const replicaCount = z.number().int().min(0).max(MAX_REPLICAS).nullable().optional()
+const probeSeconds = (minimum: number) => z.number().int().min(minimum).max(MAX_PROBE_SECONDS).nullable().optional()
+
+/**
+ * The probe paths and timings of a container, or of a template of the project: each left out or null is what
+ * `inherited` names, then the platform's path or the chart's timing.
+ */
+export const probeFields = (inherited?: string) => {
+    const otherwise = (fallback: string | number) => `when null or omitted, ${inherited ? `${inherited}, else ` : ""}${fallback}`
+    return {
+        livenessPath: httpPath
+            .nullable()
+            .optional()
+            .describe(`Liveness probe path; ${otherwise(PLATFORM_PROBE_PATHS.livenessPath)}`),
+        readinessPath: httpPath
+            .nullable()
+            .optional()
+            .describe(`Readiness probe path; ${otherwise(PLATFORM_PROBE_PATHS.readinessPath)}`),
+        livenessInitialDelaySeconds: probeSeconds(0).describe(
+            `Seconds before the first liveness probe, 0 to ${MAX_PROBE_SECONDS}: raise it for a container that starts slowly, or it is restarted before it is up; ${otherwise(CHART_PROBE_DEFAULTS.initialDelaySeconds)}`
+        ),
+        livenessPeriodSeconds: probeSeconds(1).describe(`Seconds between two liveness probes, 1 to ${MAX_PROBE_SECONDS}; ${otherwise(CHART_PROBE_DEFAULTS.periodSeconds)}`),
+        readinessInitialDelaySeconds: probeSeconds(0).describe(`Seconds before the first readiness probe, 0 to ${MAX_PROBE_SECONDS}; ${otherwise(CHART_PROBE_DEFAULTS.initialDelaySeconds)}`),
+        readinessPeriodSeconds: probeSeconds(1).describe(`Seconds between two readiness probes, 1 to ${MAX_PROBE_SECONDS}; ${otherwise(CHART_PROBE_DEFAULTS.periodSeconds)}`)
+    }
+}
 
 /**
  * The fields of what runs as a container of its own: a backend, and a frontend of kind
@@ -46,8 +72,7 @@ export const containerFields = {
         .optional()
         .describe("Image repository without tag, e.g. ghcr.io/acme/orders-api. Learnt from the first version the CI registers when not set"),
     port: z.number().int().min(1).max(65535).optional().describe("Port the container listens on, 8080 when omitted"),
-    livenessPath: httpPath.optional().describe("Liveness probe path, /health/live when omitted"),
-    readinessPath: httpPath.optional().describe("Readiness probe path, /health/ready when omitted"),
+    ...probeFields("the probe template of the project (probes.backend of project_get, probes.frontend for a DOCKER frontend)"),
     docsPath: httpPath.nullable().optional().describe("Path of the API documentation UI, e.g. /docs; null when there is none"),
     openApiPath: httpPath.nullable().optional().describe("Path of the OpenAPI spec, e.g. /openapi.json; null when there is none"),
     cpuRequest: cpuQuantity.describe(`CPU the container asks for, e.g. 250m or 0.5; the chart default (${CHART_RESOURCE_DEFAULTS.cpuRequest}) when null or omitted`),

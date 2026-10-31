@@ -156,7 +156,26 @@ describe("renderApplicationValues", () => {
         const values = parse(render())
 
         expect(values.containerPort).toBe(3000)
-        expect(values.probes).toEqual({ liveness: { active: true, path: "/live" }, readiness: { active: false, path: "/" } })
+        expect(values.probes).toEqual({ liveness: { active: true, path: "/live" }, readiness: { active: true, path: "/health/ready" } })
+    })
+
+    it("given a probe template of the project, when its values are rendered, then what the application sets wins and the template fills in the rest", () => {
+        const template = { livenessPath: "/healthz", readinessPath: "/readyz", livenessInitialDelaySeconds: 60, readinessPeriodSeconds: 5 }
+        const values = parse(renderApplicationValues({ ...application, livenessInitialDelaySeconds: 90 }, environment, mapNames, undefined, undefined, undefined, template))
+
+        expect(values.probes).toEqual({
+            liveness: { active: true, path: "/live", initialDelaySeconds: 90 },
+            readiness: { active: true, path: "/readyz", periodSeconds: 5 }
+        })
+    })
+
+    it("given the timings of its probes, when its values are rendered, then each probe gets its own and leaves the others to the chart", () => {
+        const values = parse(render({ readinessPath: "/ready", livenessInitialDelaySeconds: 120, livenessPeriodSeconds: 10, readinessInitialDelaySeconds: 0, readinessPeriodSeconds: null }))
+
+        expect(values.probes).toEqual({
+            liveness: { active: true, path: "/live", initialDelaySeconds: 120, periodSeconds: 10 },
+            readiness: { active: true, path: "/ready", initialDelaySeconds: 0 }
+        })
     })
 
     it("given some of its CPU and memory, when its values are rendered, then only those are written, for the chart to fill in the others", () => {
@@ -375,6 +394,15 @@ describe("CHART_FILES", () => {
         expect(route.replaces![0]).not.toContain("ipAllowList")
         expect(route.replaces![0]).toContain("kind: HTTPRoute")
     })
+
+    it.each(["values.yaml", "templates/deployment.yaml"])("given %s, when it is listed, then the period of each probe comes from the values and it replaces the version with a fixed one", file => {
+        const chartFile = CHART_FILES.find(candidate => candidate.path === `${APPLICATIONS_CHART_FOLDER}/${file}`)!
+
+        expect(chartFile.content).toMatch(/periodSeconds: (30|\{\{ \.Values\.probes\.liveness\.periodSeconds \| default 30 \}\})/)
+        expect(chartFile.content).not.toContain("periodSeconds: 30\n          {{- end }}")
+        expect(chartFile.replaces).toHaveLength(1)
+        expect(chartFile.replaces![0]).not.toEqual(chartFile.content)
+    })
 })
 
 describe("containerEnvironment", () => {
@@ -437,8 +465,8 @@ probes:
     active: true
     path: /live
   readiness:
-    active: false
-    path: /
+    active: true
+    path: /health/ready
 environmentMaps:
   - logging
   - features
@@ -477,11 +505,11 @@ image:
 containerPort: 8080
 probes:
   liveness:
-    active: false
-    path: /
+    active: true
+    path: /health/live
   readiness:
-    active: false
-    path: /
+    active: true
+    path: /health/ready
 environmentMaps:
   - features
 secrets:

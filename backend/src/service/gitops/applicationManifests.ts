@@ -2,6 +2,7 @@ import { stringify } from "yaml"
 import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
 import { EnvironmentVersion, hasEnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
+import { CHART_PROBE_DEFAULTS, effectiveProbes, ProbeSettings } from "../../types/Probes"
 import { EnvironmentLogging, runtimeVariables } from "../../types/RuntimeVariables"
 import { serviceVariables } from "../../types/ServiceVariables"
 
@@ -18,7 +19,7 @@ export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: flightroom"
 
 /** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
-export interface GitOpsApplication extends ContainerResourcesByEnvironment {
+export interface GitOpsApplication extends ContainerResourcesByEnvironment, ProbeSettings {
     slug: string
     /** The latest version the CI registered, or the one set by hand: deployed only where an environment sets it */
     version?: string
@@ -28,8 +29,6 @@ export interface GitOpsApplication extends ContainerResourcesByEnvironment {
     port?: number
     /** The path it is exposed at on the host of every environment */
     exposurePath?: string | null
-    livenessPath?: string
-    readinessPath?: string
     configMapIds?: unknown[]
     secretIds?: unknown[]
     /** A backend or a maintenance agent: each one is a Secret of its own in the configuration repository */
@@ -299,6 +298,12 @@ export const containerEnvironment = (
     })
 }
 
+/** The timings a probe sets: those it leaves out are the chart's */
+const probeTimingValues = (initialDelaySeconds?: number | null, periodSeconds?: number | null) => ({
+    ...(initialDelaySeconds != null ? { initialDelaySeconds } : {}),
+    ...(periodSeconds != null ? { periodSeconds } : {})
+})
+
 /** The Gateway of the environment the HTTPRoute of an application attaches to, and the listener it attaches to */
 export interface ApplicationGateway {
     name: string
@@ -316,7 +321,8 @@ export interface ApplicationGateway {
  * the environment, an application with an exposure path gets a route on it. Its CPU, memory and replicas are those of
  * the environment where it sets some apart. Its version is the one of the environment. Without an image repository of
  * its own, the image is the one in the container registry of the project. Every container gets the variables of
- * {@link containerVariables} as `env`: Kubernetes puts them before what a config map of the same name says.
+ * {@link containerVariables} as `env`: Kubernetes puts them before what a config map of the same name says. Its probes
+ * are its own, else those of `probeTemplate`, the template of its project for its kind.
  */
 export const renderApplicationValues = (
     application: GitOpsApplication,
@@ -324,7 +330,8 @@ export const renderApplicationValues = (
     mapNames: ContainerMapNames,
     gateway?: ApplicationGateway,
     containerRegistry?: string,
-    frontendUrl?: string
+    frontendUrl?: string,
+    probeTemplate?: ProbeSettings
 ): string => {
     const repository = applicationImageRepository(application, containerRegistry)
     const version = versionIn(application, environment._id)
@@ -338,14 +345,15 @@ export const renderApplicationValues = (
             : undefined
     // What the environment sets apart, else what the application sets
     const resources = resourcesIn(application, environment._id)
+    const probes = effectiveProbes(application, probeTemplate)
     const values = {
         replicas: resources.replicas ?? CHART_REPLICAS_DEFAULT,
         image: { ...splitImage(repository), tag: version },
         containerPort: containerPortOf(application),
         ...resourceValues(resources),
         probes: {
-            liveness: { active: Boolean(application.livenessPath), path: application.livenessPath ?? "/" },
-            readiness: { active: Boolean(application.readinessPath), path: application.readinessPath ?? "/" }
+            liveness: { active: true, path: probes.livenessPath, ...probeTimingValues(probes.livenessInitialDelaySeconds, probes.livenessPeriodSeconds) },
+            readiness: { active: true, path: probes.readinessPath, ...probeTimingValues(probes.readinessInitialDelaySeconds, probes.readinessPeriodSeconds) }
         },
         environmentMaps: sources.filter(source => source.kind === "configMap").map(source => source.name),
         // The chart lists the secrets after the config maps: a resource's Secret and the platform's are secrets too
@@ -365,6 +373,52 @@ type: application
 `
 
 const CHART_VALUES = `replicas: 1
+
+resources:
+  requests:
+    cpu: ${CHART_RESOURCE_DEFAULTS.cpuRequest}
+    memory: ${CHART_RESOURCE_DEFAULTS.memoryRequest}
+  limits:
+    cpu: ${CHART_RESOURCE_DEFAULTS.cpuLimit}
+    memory: ${CHART_RESOURCE_DEFAULTS.memoryLimit}
+
+image:
+  host: docker.io
+
+probes:
+  liveness:
+    active: true
+    path: /health/live
+    initialDelaySeconds: ${CHART_PROBE_DEFAULTS.initialDelaySeconds}
+    periodSeconds: ${CHART_PROBE_DEFAULTS.periodSeconds}
+  readiness:
+    active: true
+    path: /health/ready
+    initialDelaySeconds: ${CHART_PROBE_DEFAULTS.initialDelaySeconds}
+    periodSeconds: ${CHART_PROBE_DEFAULTS.periodSeconds}
+
+containerPort: 8080
+
+expose:
+  service: true
+
+# ingress:
+#   className: nginx
+#   host: orders.example.com
+#   path: /
+#   annotations: {}
+
+# An HTTPRoute on the Gateway of the environment, which owns the host: the prefix is stripped
+# route:
+#   gateway: shop-1a2b3c
+#   listener: https
+#   path: /api/orders
+#   hsts: true
+#   ipAllowList: shop-1a2b3c-ip-allowlist   # the Traefik Middleware of the environment, when it allows some addresses only
+`
+
+/** The values before the probes had a period of their own: a branch still holding them as written gets the current ones */
+const CHART_VALUES_V1 = `replicas: 1
 
 resources:
   requests:
@@ -408,6 +462,89 @@ expose:
 `
 
 const DEPLOYMENT_TEMPLATE = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+    app.kubernetes.io/component: app
+    app.kubernetes.io/name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+    spec:
+      containers:
+        - name: {{ .Release.Name }}
+          image: {{ .Values.image.host }}/{{ .Values.image.name }}:{{ .Values.image.tag }}
+          {{- if .Values.probes.liveness.active }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds | default ${CHART_PROBE_DEFAULTS.periodSeconds} }}
+          {{- end }}
+          {{- if .Values.probes.readiness.active }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds | default ${CHART_PROBE_DEFAULTS.periodSeconds} }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+          env:
+            - name: HTTP_PORT
+              value: "{{ .Values.containerPort }}"
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          envFrom:
+            {{- range .Values.environmentMaps }}
+            - configMapRef:
+                name: {{ . }}
+            {{- end }}
+            {{- range .Values.secrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+          volumeMounts:
+            {{- range .Values.configMapVolumes }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              {{- if .subPath }}
+              subPath: {{ .subPath }}
+              {{- end }}
+              readOnly: true
+            {{- end }}
+      volumes:
+        {{- range .Values.configMapVolumes }}
+        - name: {{ .name }}
+          configMap:
+            name: {{ .name }}
+        {{- end }}
+`
+
+/** The template before the period of the probes came from the values: a branch still holding it as written gets the current one */
+const DEPLOYMENT_TEMPLATE_V1 = `apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}
@@ -700,8 +837,8 @@ spec:
  */
 export const CHART_FILES: Array<{ path: string; content: string; replaces?: string[] }> = [
     { path: `${APPLICATIONS_CHART_FOLDER}/Chart.yaml`, content: CHART_YAML },
-    { path: `${APPLICATIONS_CHART_FOLDER}/values.yaml`, content: CHART_VALUES },
-    { path: `${APPLICATIONS_CHART_FOLDER}/templates/deployment.yaml`, content: DEPLOYMENT_TEMPLATE },
+    { path: `${APPLICATIONS_CHART_FOLDER}/values.yaml`, content: CHART_VALUES, replaces: [CHART_VALUES_V1] },
+    { path: `${APPLICATIONS_CHART_FOLDER}/templates/deployment.yaml`, content: DEPLOYMENT_TEMPLATE, replaces: [DEPLOYMENT_TEMPLATE_V1] },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/service.yaml`, content: SERVICE_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/ingress.yaml`, content: INGRESS_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`, content: HTTPROUTE_TEMPLATE, replaces: [HTTPROUTE_TEMPLATE_V1] },

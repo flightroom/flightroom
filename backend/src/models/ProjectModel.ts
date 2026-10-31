@@ -3,8 +3,10 @@ import { CONTAINER_REGISTRY } from "../types/BackendStack"
 import { IDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
+import { ProjectProbes } from "../types/Probes"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
+import { probeSettingsSchema } from "./ContainerFields"
 import { designSystemSchema } from "./DesignSystemSchema"
 import type { ICodeRepositoryFrontend } from "./FrontendModel"
 
@@ -124,6 +126,11 @@ export interface IProject extends Document<ObjectId> {
      * a frontend or a backend, and are never enforced: another stack can still be chosen for any of them.
      */
     technologies?: IProjectTechnologies
+    /**
+     * The probes of its backends and maintenance agents, and of its DOCKER frontends: what each one does not set
+     * itself. Read by the deploy, so a change reaches the containers with the next deploy of each environment.
+     */
+    probes?: ProjectProbes
     /** The UI library the frontends are built with, unless one has its own; unset, the organization's. Guides users and AI agents, never enforced */
     designSystem?: IDesignSystem
     createdAt: Date
@@ -194,6 +201,10 @@ const projectSchema = new Schema<IProject>(
                 },
                 { _id: false }
             ),
+            required: false
+        },
+        probes: {
+            type: new Schema<ProjectProbes>({ backend: { type: probeSettingsSchema, required: false }, frontend: { type: probeSettingsSchema, required: false } }, { _id: false }),
             required: false
         },
         designSystem: { type: designSystemSchema, required: false }

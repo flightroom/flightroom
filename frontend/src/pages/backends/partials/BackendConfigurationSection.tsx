@@ -8,8 +8,9 @@ import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { exposedOrigin } from "./backendVariables"
 import { EnvironmentResourcesValue, RESOURCE_LABELS, ReplicasValue, ResourceValue } from "./ContainerResourceFields"
-import { RESOURCE_FIELDS } from "./containerResources"
+import { type ProbeSide, RESOURCE_FIELDS } from "./containerResources"
 import { EnvironmentVersionsValue } from "./EnvironmentVersionFields"
+import { ProbeValue } from "./ProbeFields"
 
 /** What a container declares: a backend, or a frontend served by its own container */
 export type ContainerConfiguration = Partial<
@@ -18,6 +19,10 @@ export type ContainerConfiguration = Partial<
         | "port"
         | "livenessPath"
         | "readinessPath"
+        | "livenessInitialDelaySeconds"
+        | "livenessPeriodSeconds"
+        | "readinessInitialDelaySeconds"
+        | "readinessPeriodSeconds"
         | "docsPath"
         | "openApiPath"
         | "exposurePath"
@@ -114,9 +119,11 @@ interface BackendConfigurationSectionProps {
     environments: EnvironmentDTO[]
     /** Under the title: whose container it is */
     description?: string
+    /** Whose template of the project the probes left blank inherit: a backend's, or a DOCKER frontend's */
+    probeSide?: ProbeSide
 }
 
-export const BackendConfigurationSection: React.FC<BackendConfigurationSectionProps> = ({ backend, environments, description }) => {
+export const BackendConfigurationSection: React.FC<BackendConfigurationSectionProps> = ({ backend, environments, description, probeSide = "backend" }) => {
     const { t } = useTranslation()
 
     return (
@@ -129,10 +136,22 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
                 <DescriptionList orientation="inline">
                     <DescriptionItem label={t("backends.port")}>{backend.port ?? "—"}</DescriptionItem>
                     <DescriptionItem label={t("backends.liveness_path")}>
-                        <BackendPath path={backend.livenessPath} />
+                        <ProbeValue side={probeSide} field="livenessPath" own={backend.livenessPath} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.liveness_initial_delay")}>
+                        <ProbeValue side={probeSide} field="livenessInitialDelaySeconds" own={backend.livenessInitialDelaySeconds} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.liveness_period")}>
+                        <ProbeValue side={probeSide} field="livenessPeriodSeconds" own={backend.livenessPeriodSeconds} />
                     </DescriptionItem>
                     <DescriptionItem label={t("backends.readiness_path")}>
-                        <BackendPath path={backend.readinessPath} />
+                        <ProbeValue side={probeSide} field="readinessPath" own={backend.readinessPath} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.readiness_initial_delay")}>
+                        <ProbeValue side={probeSide} field="readinessInitialDelaySeconds" own={backend.readinessInitialDelaySeconds} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.readiness_period")}>
+                        <ProbeValue side={probeSide} field="readinessPeriodSeconds" own={backend.readinessPeriodSeconds} />
                     </DescriptionItem>
                     <DescriptionItem label={t("backends.docs_path")}>
                         <BackendPath path={backend.docsPath} />

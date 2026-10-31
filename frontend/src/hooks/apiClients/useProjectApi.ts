@@ -1,4 +1,5 @@
 import { useTranslation } from "react-i18next"
+import type { ProbeTemplate } from "@/pages/backends/partials/containerResources"
 import type { BackendTechnology, FrontendTechnology, ProjectTechnologies } from "@/utils/technologies"
 import useApiClient from "../useApiClient"
 import { EnvironmentDTO } from "./useEnvironmentsApi"
@@ -60,6 +61,8 @@ export interface Project {
     containerRegistry?: string
     /** Le tecnologie di default per frontend e servizi: guidano template e agenti AI senza vincolare */
     technologies?: ProjectTechnologies
+    /** Il template delle probe Kubernetes di backend e frontend DOCKER: ogni campo assente e' il default della piattaforma */
+    probes?: { backend?: ProbeTemplate; frontend?: ProbeTemplate }
     /** Il design system dei frontend; nessuno quando il progetto eredita quello dell'organizzazione */
     designSystem?: DesignSystem
     /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
@@ -104,6 +107,8 @@ export interface ProjectUpdateDTO {
     containerRegistry?: string | null
     /** `null` toglie entrambe; un campo a `null` toglie solo quella tecnologia */
     technologies?: { frontend?: FrontendTechnology | null; backend?: BackendTechnology | null } | null
+    /** Un lato indicato e' sostituito per intero, un lato a `null` e' tolto, un lato omesso resta; `null` toglie entrambi */
+    probes?: { backend?: ProbeTemplate | null; frontend?: ProbeTemplate | null } | null
     /** Sostituito per intero; `null` lo toglie */
     designSystem?: DesignSystem | null
     /** Il repository si indica con l'id del provider: il backend verifica che la connessione lo raggiunga */

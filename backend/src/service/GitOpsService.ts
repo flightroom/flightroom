@@ -18,6 +18,7 @@ import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { variableMapModels } from "../models/VariableMapModel"
 import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
 import { cronWeekdays, kubeGreenSleeps } from "../types/KubeGreen"
+import { ProjectProbes } from "../types/Probes"
 import { ResourceWithValues, resourceEnvironmentValues, resourceSecretName } from "../types/ResourceCatalog"
 import { entryValueIn, VariableMapKind } from "../types/VariableMapDTO"
 import { getBackendUrl } from "../utils/backendUrl"
@@ -527,7 +528,7 @@ export class GitOpsService extends BaseAuthorizedService {
     }
 
     private async deployProject<T>(projectId: Schema.Types.ObjectId, environmentIds: Set<string>, deploy: (revisions: ApplicationRevisions) => Promise<T>, domainId?: string): Promise<T> {
-        const project = await Project.findById(projectId, { gitOps: 1, slug: 1, exposure: 1, containerRegistry: 1 })
+        const project = await Project.findById(projectId, { gitOps: 1, slug: 1, exposure: 1, containerRegistry: 1, probes: 1 })
         const gitOps = project?.gitOps
         if (!project || !gitOps?.enabled || !gitOps.codeRepository) return deploy(new Map())
 
@@ -561,7 +562,7 @@ export class GitOpsService extends BaseAuthorizedService {
         const withApplications = applicationsLink
             ? () =>
                   this.inRepository(projectId, "applications", applicationsLink, commit =>
-                      this.commitApplications(projectId, project.containerRegistry, deployed, maps, resources, gateways, commit, deploy, domainId)
+                      this.commitApplications(projectId, project.containerRegistry, project.probes, deployed, maps, resources, gateways, commit, deploy, domainId)
                   )
             : () => deploy(new Map())
 
@@ -613,6 +614,7 @@ export class GitOpsService extends BaseAuthorizedService {
     private async commitApplications<T>(
         projectId: Schema.Types.ObjectId,
         containerRegistry: string | undefined,
+        probes: ProjectProbes | undefined,
         deployed: Pick<IEnvironment, "_id" | "slug" | "logLevel" | "logJson">[],
         maps: Record<VariableMapKind, DeployedMap[]>,
         resources: DeployedResource[],
@@ -675,6 +677,8 @@ export class GitOpsService extends BaseAuthorizedService {
                 const kindOf = (application: GitOpsApplication & { _id?: unknown }): ContainerKind =>
                     frontendIds.has(String(application._id)) ? "frontend" : backendIds.has(String(application._id)) ? "backend" : "maintenanceAgent"
                 const frontendUrl = (application: GitOpsApplication & { _id?: unknown }) => containerFrontendUrl(kindOf(application), application, origin, callingFrontends)
+                // A maintenance agent is made from a backend template, and probed as a backend
+                const probeTemplate = (application: GitOpsApplication & { _id?: unknown }) => (kindOf(application) === "frontend" ? probes?.frontend : probes?.backend)
                 const files: GitOpsFile[] = [
                     ...CHART_FILES.map(file => ({ ...file, action: "update" as const, ifMissing: true })),
                     // Those with no version in the environment keep the values they have there, if any
@@ -683,7 +687,7 @@ export class GitOpsService extends BaseAuthorizedService {
                         .map(application => ({
                             path: applicationValuesPath(application),
                             action: "update" as const,
-                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, frontendUrl(application))
+                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, frontendUrl(application), probeTemplate(application))
                         }))
                 ]
                 const onPushed = (revision: string) => revisions.set(String(environment._id), revision)

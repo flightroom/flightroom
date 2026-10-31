@@ -2,8 +2,18 @@ import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
 import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { DEFAULT_RUN_PATH, MaintenanceAgentKind } from "../types/MaintenanceAgent"
+import { ProbeSettings } from "../types/Probes"
 import { IBackendStack } from "./BackendModel"
-import { backendEnvVariableSchema, CONTAINER_DEFAULTS, environmentResourcesField, environmentVersionsField, IBackendEnvVariable, probePath, resourceFields } from "./ContainerFields"
+import {
+    backendEnvVariableSchema,
+    CONTAINER_DEFAULTS,
+    environmentResourcesField,
+    environmentVersionsField,
+    IBackendEnvVariable,
+    probePathFields,
+    probeTimingFields,
+    resourceFields
+} from "./ContainerFields"
 import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
@@ -31,7 +41,7 @@ export interface IMaintenanceAgentRuntimeToken {
  * serving requests. Its slug names its values file in the GitOps repository, next to those of the backends and
  * the frontends: no two of them share one.
  */
-export interface IMaintenanceAgent extends Document<ObjectId>, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IMaintenanceAgent extends Document<ObjectId>, ProbeSettings, ContainerResourcesByEnvironment, VersionByEnvironment {
     projectId: Schema.Types.ObjectId
     domainId?: Schema.Types.ObjectId | null
     slug: string
@@ -53,8 +63,6 @@ export interface IMaintenanceAgent extends Document<ObjectId>, ContainerResource
     /** A CONTAINER only: what its CronJob POSTs to */
     runPath: string
     port: number
-    livenessPath?: string
-    readinessPath?: string
     env: IBackendEnvVariable[]
     configMapIds: Schema.Types.ObjectId[]
     secretIds: Schema.Types.ObjectId[]
@@ -98,8 +106,8 @@ const maintenanceAgentSchema = new Schema<IMaintenanceAgent>(
             validate: { validator: (value: string) => /^\/[A-Za-z0-9._~/-]*$/.test(value), message: "The run path starts with / and holds no spaces nor query" }
         },
         port: { type: Number, default: CONTAINER_DEFAULTS.port },
-        livenessPath: probePath(CONTAINER_DEFAULTS.livenessPath),
-        readinessPath: probePath(CONTAINER_DEFAULTS.readinessPath),
+        ...probePathFields,
+        ...probeTimingFields,
         ...resourceFields,
         environmentResources: environmentResourcesField,
         environmentVersions: environmentVersionsField,

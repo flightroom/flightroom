@@ -67,15 +67,10 @@ const ensureDockerHasNoParents = (kind: FrontendKind | undefined, parentIds: unk
 /** Matches a document with no parents: what a write making it a DOCKER requires of what is stored at that moment */
 const WITHOUT_PARENTS = { $or: [{ parentIds: { $exists: false } }, { parentIds: { $size: 0 } }] }
 
-/** The backend defaults a DOCKER gets for what neither the caller nor what is stored says */
-const withDockerDefaults = <T extends Pick<FrontendDTO, "kind" | "port" | "livenessPath" | "readinessPath">>(fields: T, existing?: IFrontend): T => {
+/** The port a DOCKER gets when neither the caller nor what is stored says: its probe paths left out follow the template of the project */
+const withDockerDefaults = <T extends Pick<FrontendDTO, "kind" | "port">>(fields: T, existing?: IFrontend): T => {
     if ((fields.kind ?? existing?.kind) !== FrontendKind.DOCKER) return fields
-    return {
-        ...fields,
-        port: fields.port ?? existing?.port ?? CONTAINER_DEFAULTS.port,
-        livenessPath: fields.livenessPath ?? existing?.livenessPath ?? CONTAINER_DEFAULTS.livenessPath,
-        readinessPath: fields.readinessPath ?? existing?.readinessPath ?? CONTAINER_DEFAULTS.readinessPath
-    }
+    return { ...fields, port: fields.port ?? existing?.port ?? CONTAINER_DEFAULTS.port }
 }
 
 export class FrontendService extends BaseAuthorizedService {

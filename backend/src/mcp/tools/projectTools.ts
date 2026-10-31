@@ -10,7 +10,7 @@ import { FrontendFramework } from "../../types/FrontendStack"
 import { BackendTechnology } from "../../types/ProjectTechnology"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
-import { designSystemInput } from "./frontendTools"
+import { designSystemInput, probeFields } from "./frontendTools"
 
 /** The focus of context_get, at most one of the ids: none reads the whole project. */
 const toFocus = ({ frontendId, backendId, domainId }: { frontendId?: string; backendId?: string; domainId?: string }): ContextFocus | undefined => {
@@ -69,7 +69,7 @@ export const projectTools = [
         name: "project_update",
         title: "Update project",
         description:
-            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole), its default technologies, its design system, where it is exposed or its container registry. Pass description, context, technologies, designSystem, exposure or containerRegistry null to remove it: without its own design system the project uses the organization's.",
+            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole), its default technologies, its design system, the probe templates of its backends and frontends, where it is exposed or its container registry. Pass description, context, technologies, designSystem, probes, exposure or containerRegistry null to remove it: without its own design system the project uses the organization's.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
@@ -112,6 +112,26 @@ export const projectTools = [
                 .nullable()
                 .optional()
                 .describe("The default technologies of the project: they guide who creates a frontend or a backend, and never block another choice"),
+            probes: z
+                .object({
+                    backend: z
+                        .object(probeFields())
+                        .nullable()
+                        .optional()
+                        .describe(
+                            "What the backends and the maintenance agents of kind container are probed with when they do not set it; null removes it, left out it stays as it is. Replaced as a whole"
+                        ),
+                    frontend: z
+                        .object(probeFields())
+                        .nullable()
+                        .optional()
+                        .describe("What the DOCKER frontends are probed with when they do not set it; null removes it, left out it stays as it is. Replaced as a whole")
+                })
+                .nullable()
+                .optional()
+                .describe(
+                    "The probe templates of the project: each backend, frontend or maintenance agent overrides any field by setting it, and inherits it when null. Applied by the next deploy of each environment"
+                ),
             designSystem: designSystemInput.describe("The design system of the frontends, which one may replace with its own; null goes back to the organization's. Replaced as a whole")
         }),
         run: (args, { principal, projectId }) => new ProjectService(principal).update(projectId, args)

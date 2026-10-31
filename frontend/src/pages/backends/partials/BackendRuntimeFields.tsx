@@ -4,6 +4,8 @@ import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 import useProjectStore from "@/store/useProjectStore"
 import ContainerResourceFields from "./ContainerResourceFields"
+import type { ProbeSide } from "./containerResources"
+import { ProbeFields } from "./ProbeFields"
 
 const WATCHED_FIELDS = ["image.repository", "version", "slug"] as const
 
@@ -23,7 +25,8 @@ const RuntimeGroup: React.FC<{ group: "image" | "probes" | "docs" | "resources";
 }
 
 /** The port, the probes, the docs paths, the image repository, the CPU and the memory of a container: a backend's, or a frontend's served by its own. */
-export const BackendRuntimeFields: React.FC = () => {
+/** `probeSide`: whose template of the project the blank probe fields inherit, the backends' or the frontends' */
+export const BackendRuntimeFields: React.FC<{ probeSide?: ProbeSide }> = ({ probeSide = "backend" }) => {
     const { t } = useTranslation()
     // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
     const [repository, version, slug] = useWatch({ name: WATCHED_FIELDS }) as (string | undefined)[]
@@ -53,8 +56,7 @@ export const BackendRuntimeFields: React.FC = () => {
                     <TextField name="port" type="number" label={t("backends.port")} description={t("backends.port_hint")} required />
                 </RuntimeGroup>
                 <RuntimeGroup group="probes">
-                    <TextField name="livenessPath" label={t("backends.liveness_path")} placeholder="/health/live" description={t("backends.liveness_path_hint")} required />
-                    <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
+                    <ProbeFields side={probeSide} />
                 </RuntimeGroup>
                 <RuntimeGroup group="docs">
                     <TextField name="docsPath" label={t("backends.docs_path")} placeholder="/docs" description={t("backends.docs_path_hint")} />

@@ -36,7 +36,7 @@ import BackendRuntimeFields from "./partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
-import { type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
+import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
 
 /** Same rule as the backend (BACKEND_SLUG): the slug names the workspace folder and the CI registration URL */
@@ -119,6 +119,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
         "image",
         "livenessPath",
         "readinessPath",
+        ...PROBE_TIMING_FIELDS,
         "docsPath",
         "openApiPath",
         "cpuRequest",
@@ -211,6 +212,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   exposed: Boolean(backend.exposurePath),
                   exposurePath: backend.exposurePath ?? "",
                   ...resourceFormValues(backend),
+                  ...probeFormValues(backend),
                   env: backend.env ?? [],
                   // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
                   configMapIds: (backend.configMapIds ?? []).filter(id => configMaps.some(map => map._id === id)),
@@ -227,14 +229,13 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   version: "",
                   environmentVersions: [],
                   port: "8080",
-                  livenessPath: "/health/live",
-                  readinessPath: "/health/ready",
                   docsPath: "",
                   openApiPath: "",
                   // Off until asked for: a new backend is reached from outside only when that is decided
                   exposed: false,
                   exposurePath: "",
                   ...resourceFormValues(),
+                  ...probeFormValues(),
                   image: { repository: "" },
                   env: [],
                   configMapIds: [],
@@ -251,7 +252,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
     })
 
     // What the last template filled in: a field still holding it was not edited by hand, so the next template may replace it
-    const prefilled = useRef<PrefilledValues>({ port: "8080", livenessPath: "/health/live", readinessPath: "/health/ready", docsPath: "", openApiPath: "" })
+    const prefilled = useRef<PrefilledValues>({ port: "8080", livenessPath: "", readinessPath: "", docsPath: "", openApiPath: "" })
     const selectedTemplate = form.watch("template")
     useEffect(() => {
         const defaults = backendTemplates.find(market => market.slug === selectedTemplate)?.backendDefaults
@@ -282,6 +283,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
             ...fields,
             domainId: data.domainId || null,
             port: Number(data.port),
+            ...probePaths(data),
+            ...probeTimings(data),
             // Null: not exposed on the host of the environments
             exposurePath: exposed ? data.exposurePath : null
         } as unknown as BackendDTO

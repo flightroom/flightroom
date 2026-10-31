@@ -150,7 +150,12 @@ const FrontendOverview: React.FC = () => {
                     {isDocker ? (
                         <>
                             <BackendVersionsTable versions={buildsQuery.data ?? []} />
-                            <BackendConfigurationSection backend={frontend} environments={environmentsQuery.data ?? []} description={t("frontend.overview.container_description")} />
+                            <BackendConfigurationSection
+                                probeSide="frontend"
+                                backend={frontend}
+                                environments={environmentsQuery.data ?? []}
+                                description={t("frontend.overview.container_description")}
+                            />
                             <BackendVariableMapsSection backend={frontend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                             <ApplicationLogsSection slug={frontend.slug} environments={environmentsQuery.data ?? []} />
                         </>

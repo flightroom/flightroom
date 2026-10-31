@@ -8,6 +8,7 @@ import TextField from "@/components/input/TextField.rhf"
 import type { MaintenanceAgentKind } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import ContainerResourceFields from "@/pages/backends/partials/ContainerResourceFields"
 import EnvironmentVersionFields from "@/pages/backends/partials/EnvironmentVersionFields"
+import { ProbeFields } from "@/pages/backends/partials/ProbeFields"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import { KindGlyph } from "./MaintenanceBadges"
@@ -277,8 +278,7 @@ export const MaintenanceRuntimeFields: React.FC = () => {
                     <>
                         <TextField name="runPath" label={t("maintenance.run_path")} placeholder="/run" description={t("maintenance.run_path_hint")} required />
                         <TextField name="port" type="number" label={t("backends.port")} required />
-                        <TextField name="livenessPath" label={t("backends.liveness_path")} placeholder="/health/live" description={t("backends.liveness_path_hint")} required />
-                        <TextField name="readinessPath" label={t("backends.readiness_path")} placeholder="/health/ready" description={t("backends.readiness_path_hint")} required />
+                        <ProbeFields side="backend" />
                     </>
                 )}
                 {/* A job's too: its CronJob runs the image with them */}

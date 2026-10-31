@@ -3,6 +3,7 @@ import { BackendPaths, BackendRuntime } from "../types/BackendStack"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
 import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendStackSource } from "../types/FrontendStack"
+import { ProbeSettings } from "../types/Probes"
 import {
     backendEnvVariableSchema,
     CONTAINER_DEFAULTS,
@@ -11,7 +12,8 @@ import {
     exposurePath,
     IBackendEnvVariable,
     optionalPath,
-    probePath,
+    probePathFields,
+    probeTimingFields,
     resourceFields
 } from "./ContainerFields"
 import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
@@ -27,7 +29,7 @@ export interface IBackendStack {
     detectedAt?: Date
 }
 
-export interface IBackend extends Document<ObjectId>, BackendPaths, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IBackend extends Document<ObjectId>, Omit<BackendPaths, "livenessPath" | "readinessPath">, ProbeSettings, ContainerResourcesByEnvironment, VersionByEnvironment {
     projectId: Schema.Types.ObjectId
     /** The functional domain it belongs to, if any */
     domainId?: Schema.Types.ObjectId | null
@@ -143,8 +145,8 @@ const backendSchema = new Schema<IBackend>(
             type: Number,
             default: CONTAINER_DEFAULTS.port
         },
-        livenessPath: probePath(CONTAINER_DEFAULTS.livenessPath),
-        readinessPath: probePath(CONTAINER_DEFAULTS.readinessPath),
+        ...probePathFields,
+        ...probeTimingFields,
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,

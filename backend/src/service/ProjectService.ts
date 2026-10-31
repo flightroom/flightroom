@@ -28,6 +28,7 @@ import { CONTAINER_REGISTRY } from "../types/BackendStack"
 import { designSystemOf, effectiveDesignSystem, IDesignSystem, plainDesignSystem } from "../types/DesignSystem"
 import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
+import { isProbePath, isProbeSeconds, MAX_PROBE_SECONDS, PROBE_PATH_FIELDS, PROBE_SIDES, PROBE_TIMING_FIELDS, PROBE_TIMING_MINIMUMS, ProbeSettings } from "../types/Probes"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
@@ -66,6 +67,11 @@ export interface ProjectUpdateInput {
     technologies?: { frontend?: string | null; backend?: string | null } | null
     /** The default design system of the frontends, replaced as a whole: `null` removes it */
     designSystem?: IDesignSystem | null
+    /**
+     * The probe templates of the backends and of the frontends: `null` removes both, a side is replaced as a whole,
+     * `null` removes it and left out it stays as it is. A field left out or null is the platform's
+     */
+    probes?: { backend?: ProbeSettings | null; frontend?: ProbeSettings | null } | null
 }
 
 /** The exposure to store, trimmed and in lowercase: refused with a 400 rather than by the model with a 500 */
@@ -129,6 +135,44 @@ const technologiesOf = (input: unknown): { set: Record<string, string>; unset: R
         else if (value !== undefined) {
             if (typeof value !== "string" || !TECHNOLOGIES[side].includes(value)) throw invalid()
             set[`technologies.${side}`] = value
+        }
+    }
+    return { set, unset }
+}
+
+/**
+ * What to write and unset of the probe templates, a side at a time so that one left out keeps its value: the fields
+ * set only, blank paths and null timings being the platform's. Refused with a 400 rather than by the model with a 500.
+ */
+const probesOf = (input: unknown): { set: Record<string, ProbeSettings>; unset: Record<string, 1> } => {
+    const invalid = () =>
+        createBusinessException({
+            code: "PROJECT_PROBES_INVALID",
+            message: `probes.backend and probes.frontend take livenessPath and readinessPath, starting with "/" with no whitespace, and the initial delays (0 to ${MAX_PROBE_SECONDS}) and periods (1 to ${MAX_PROBE_SECONDS}) of the probes in whole seconds`,
+            statusCode: 400
+        })
+    if (typeof input !== "object" || input === null || Array.isArray(input)) throw invalid()
+    const set: Record<string, ProbeSettings> = {}
+    const unset: Record<string, 1> = {}
+    for (const side of PROBE_SIDES) {
+        const value = (input as Record<string, unknown>)[side]
+        if (value === null) unset[`probes.${side}`] = 1
+        else if (value !== undefined) {
+            if (typeof value !== "object" || Array.isArray(value)) throw invalid()
+            const fields = value as Record<string, unknown>
+            const template: ProbeSettings = {}
+            for (const field of PROBE_PATH_FIELDS) {
+                const path = typeof fields[field] === "string" ? (fields[field] as string).trim() : fields[field]
+                if (path == null || path === "") continue
+                if (!isProbePath(path)) throw invalid()
+                template[field] = path
+            }
+            for (const field of PROBE_TIMING_FIELDS) {
+                if (fields[field] == null) continue
+                if (!isProbeSeconds(fields[field], PROBE_TIMING_MINIMUMS[field])) throw invalid()
+                template[field] = fields[field] as number
+            }
+            set[`probes.${side}`] = template
         }
     }
     return { set, unset }
@@ -519,6 +563,13 @@ export class ProjectService extends BaseAuthorizedService {
                 updateData.$unset = { ...updateData.$unset, technologies: 1 }
             } else if (projectData.technologies !== undefined) {
                 const { set, unset } = technologiesOf(projectData.technologies)
+                Object.assign(updateData, set)
+                if (Object.keys(unset).length > 0) updateData.$unset = { ...updateData.$unset, ...unset }
+            }
+            if (projectData.probes === null) {
+                updateData.$unset = { ...updateData.$unset, probes: 1 }
+            } else if (projectData.probes !== undefined) {
+                const { set, unset } = probesOf(projectData.probes)
                 Object.assign(updateData, set)
                 if (Object.keys(unset).length > 0) updateData.$unset = { ...updateData.$unset, ...unset }
             }

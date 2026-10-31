@@ -22,6 +22,10 @@ export const CHART_RESOURCE_DEFAULTS: Record<ResourceField, string> = { cpuReque
 export const CHART_REPLICAS_DEFAULT = 1
 export const MAX_REPLICAS = 20
 
+/** Same as the backend: the seconds before the first probe and between probes, for the liveness and the readiness ones; null for the default of the chart */
+export const CHART_PROBE_SECONDS_DEFAULT = 30
+export const MAX_PROBE_SECONDS = 3600
+
 const CPU_QUANTITY = /^(?:(\d{1,9})m|(\d{1,6}(?:\.\d{1,3})?))$/
 const MEMORY_QUANTITY = /^(\d{1,15}(?:\.\d{1,6})?)(Ki|Mi|Gi|Ti|Pi|Ei|k|M|G|T|P|E)?$/
 const MEMORY_UNITS: Record<string, number> = { "": 1, k: 1e3, M: 1e6, G: 1e9, T: 1e12, P: 1e15, E: 1e18, Ki: 2 ** 10, Mi: 2 ** 20, Gi: 2 ** 30, Ti: 2 ** 40, Pi: 2 ** 50, Ei: 2 ** 60 }
@@ -48,6 +52,8 @@ export interface ResourceMessages {
     cpuRequestAboveLimit: (limit: string) => string
     memoryRequestAboveLimit: (limit: string) => string
     replicasInvalid: string
+    probeInitialDelayInvalid: string
+    probePeriodInvalid: string
 }
 
 export const resourceMessages = (t: TFunction): ResourceMessages => ({
@@ -55,8 +61,17 @@ export const resourceMessages = (t: TFunction): ResourceMessages => ({
     memoryInvalid: t("backends.compute.memory_invalid"),
     cpuRequestAboveLimit: limit => t("backends.compute.cpu_request_above_limit", { limit }),
     memoryRequestAboveLimit: limit => t("backends.compute.memory_request_above_limit", { limit }),
-    replicasInvalid: t("backends.compute.replicas_invalid", { max: MAX_REPLICAS })
+    replicasInvalid: t("backends.compute.replicas_invalid", { max: MAX_REPLICAS }),
+    probeInitialDelayInvalid: t("backends.probe_initial_delay_invalid", { max: MAX_PROBE_SECONDS }),
+    probePeriodInvalid: t("backends.probe_period_invalid", { max: MAX_PROBE_SECONDS })
 })
+
+/** A blank field, or an integer from `min` to MAX_PROBE_SECONDS */
+export const probeSecondsField = (min: number, message: string) =>
+    z
+        .string()
+        .trim()
+        .refine(value => value === "" || (/^\d{1,4}$/.test(value) && Number(value) >= min && Number(value) <= MAX_PROBE_SECONDS), message)
 
 /** The five fields of a form, empty meaning the default of the chart, and those each environment sets apart, empty meaning the container's */
 export const createResourceShape = (messages: ResourceMessages) => {
@@ -112,6 +127,45 @@ const fieldValues = (container?: ContainerResources & ContainerReplicas): Record
 
 /** What the API receives for the replicas of the form: null for an empty field, the default of the chart */
 export const replicaCount = (value?: string): number | null => (value?.trim() ? Number(value) : null)
+
+/** The timings of the liveness and readiness probes: the seconds before the first one and between two */
+export const PROBE_TIMING_FIELDS = ["livenessInitialDelaySeconds", "livenessPeriodSeconds", "readinessInitialDelaySeconds", "readinessPeriodSeconds"] as const
+export type ProbeTimingField = (typeof PROBE_TIMING_FIELDS)[number]
+export type ProbeTimings = Partial<Record<ProbeTimingField, number | null>>
+
+/** The paths Kubernetes probes, with what the platform uses for one that neither the container nor the project template sets */
+export const PROBE_PATH_FIELDS = ["livenessPath", "readinessPath"] as const
+export type ProbePathField = (typeof PROBE_PATH_FIELDS)[number]
+export const PROBE_PATH_DEFAULTS: Record<ProbePathField, string> = { livenessPath: "/health/live", readinessPath: "/health/ready" }
+
+/** Same as the backend: the probe template of a project, for its backends (or frontends): null or absent is the platform default */
+export type ProbeTemplate = Partial<Record<ProbePathField, string | null>> & ProbeTimings
+export type ProbeSide = "backend" | "frontend"
+export type ProbeField = ProbePathField | ProbeTimingField
+export const PROBE_FIELDS: readonly ProbeField[] = [...PROBE_PATH_FIELDS, ...PROBE_TIMING_FIELDS]
+
+/** What the API receives for the probe timings of the form: null for an empty field, inherited from the project */
+export const probeTimings = (values: Record<ProbeTimingField, string | undefined>): Record<ProbeTimingField, number | null> =>
+    Object.fromEntries(PROBE_TIMING_FIELDS.map(field => [field, values[field]?.trim() ? Number(values[field]) : null])) as Record<ProbeTimingField, number | null>
+
+/** What the API receives for the probe paths of the form: null for a blank field, inherited from the project */
+export const probePaths = (values: Partial<Record<ProbePathField, string | undefined>>): Record<ProbePathField, string | null> =>
+    Object.fromEntries(PROBE_PATH_FIELDS.map(field => [field, values[field]?.trim() || null])) as Record<ProbePathField, string | null>
+
+/** The probe fields of a container in the form: empty to inherit the project template */
+export const probeFormValues = (container?: ProbeTimings & Partial<Record<ProbePathField, string | null>>): Record<ProbeField, string> =>
+    Object.fromEntries(PROBE_FIELDS.map(field => [field, container?.[field] != null ? String(container[field]) : ""])) as Record<ProbeField, string>
+
+/** Where the effective value of a probe field comes from */
+export type ProbeSource = "component" | "project" | "default"
+
+/** Same as the backend: the value of the component, else the template of the project, else the platform default */
+export const effectiveProbe = (field: ProbeField, own: string | number | null | undefined, template?: ProbeTemplate): { value: string | number; source: ProbeSource } => {
+    if (own != null && own !== "") return { value: own, source: "component" }
+    const inherited = template?.[field]
+    if (inherited != null && inherited !== "") return { value: inherited, source: "project" }
+    return { value: field in PROBE_PATH_DEFAULTS ? PROBE_PATH_DEFAULTS[field as ProbePathField] : CHART_PROBE_SECONDS_DEFAULT, source: "default" }
+}
 
 /** What the form holds for a container: empty for a value it does not set, and the environments that set some apart */
 export const resourceFormValues = (
