@@ -65,7 +65,7 @@ describe("EnvironmentReplicasService.scale", () => {
     const shell = { _id: newId(), name: "Shell", slug: "shell-fe", environmentVersions: [{ environmentId: uat._id, version: "3.1.0" }] }
     const watcher = { _id: newId(), name: "Watcher", slug: "watcher", environmentVersions: [{ environmentId: uat._id, version: "0.2.0" }] }
 
-    let updates: { model: string; filter: Record<string, unknown>; update: unknown }[]
+    let updates: { model: string; filter: Record<string, unknown>; update: unknown; options: unknown }[]
     let notViewer: ReturnType<typeof vi.fn>
 
     const service = () => {
@@ -92,8 +92,8 @@ describe("EnvironmentReplicasService.scale", () => {
             [Frontend, "frontend"],
             [MaintenanceAgent, "maintenanceAgent"]
         ] as const) {
-            vi.spyOn(model, "updateOne").mockImplementation(((filter: Record<string, unknown>, update: unknown) => {
-                updates.push({ model: name, filter, update })
+            vi.spyOn(model, "updateOne").mockImplementation(((filter: Record<string, unknown>, update: unknown, options: unknown) => {
+                updates.push({ model: name, filter, update, options })
                 return Promise.resolve({})
             }) as never)
         }
@@ -108,6 +108,8 @@ describe("EnvironmentReplicasService.scale", () => {
             ["maintenanceAgent", String(watcher._id)]
         ])
         expect(updates[0].update).toEqual(replicasUpdate(new Types.ObjectId(String(uat._id)), 0))
+        // Mongoose 9 refuses an aggregation pipeline as an update without it
+        expect(updates.every(update => (update.options as { updatePipeline?: boolean })?.updatePipeline)).toBe(true)
         expect(vi.mocked(MaintenanceAgent.find).mock.calls[0][0]).toMatchObject({ kind: "container" })
         expect(notViewer).toHaveBeenCalled()
     })

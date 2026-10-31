@@ -88,7 +88,7 @@ class EnvironmentReplicasService extends BaseAuthorizedService {
         const inScope = { projectId: environment.projectId, ...(await this.domainScopeFilter(environment.projectId)) }
         const update = replicasUpdate(new Types.ObjectId(String(environment._id)), replicas)
         for (const row of await this.rows(environment.projectId, environment._id)) {
-            await (MODELS[row.kind] as typeof Backend).updateOne({ _id: toObjectId(row._id), ...inScope }, update)
+            await (MODELS[row.kind] as typeof Backend).updateOne({ _id: toObjectId(row._id), ...inScope }, update, { updatePipeline: true })
         }
         return this.rows(environment.projectId, environment._id)
     }

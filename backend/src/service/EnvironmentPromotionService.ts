@@ -81,7 +81,7 @@ class EnvironmentPromotionService extends BaseAuthorizedService {
                     }
                 }
             ]
-            await (MODELS[row.kind] as typeof Backend).updateOne({ _id: toObjectId(row._id), ...inScope }, inTarget)
+            await (MODELS[row.kind] as typeof Backend).updateOne({ _id: toObjectId(row._id), ...inScope }, inTarget, { updatePipeline: true })
         }
         return this.rows(to.projectId, from._id, to._id)
     }

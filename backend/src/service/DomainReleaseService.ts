@@ -389,8 +389,8 @@ export class DomainReleaseService extends BaseAuthorizedService {
             }
         ]
         await Frontend.updateMany({ _id: { $in: idsOf("frontend") }, ...inDomain, kind: { $ne: FrontendKind.DOCKER } }, { $set: { version: release.version } })
-        await Frontend.updateMany({ _id: { $in: idsOf("frontend") }, ...inDomain, kind: FrontendKind.DOCKER }, inEnvironment)
-        await Backend.updateMany({ _id: { $in: idsOf("backend") }, ...inDomain }, inEnvironment)
+        await Frontend.updateMany({ _id: { $in: idsOf("frontend") }, ...inDomain, kind: FrontendKind.DOCKER }, inEnvironment, { updatePipeline: true })
+        await Backend.updateMany({ _id: { $in: idsOf("backend") }, ...inDomain }, inEnvironment, { updatePipeline: true })
     }
 }
 
