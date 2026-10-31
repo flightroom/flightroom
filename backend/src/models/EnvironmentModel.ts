@@ -1,5 +1,5 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
-import { KUBE_GREEN_DEFAULTS, KubeGreenSettings } from "../types/KubeGreen"
+import { KUBE_GREEN_DEFAULT_DAYS, KUBE_GREEN_DEFAULTS, KubeGreenSettings } from "../types/KubeGreen"
 import { DEFAULT_LOG_LEVEL, LOG_LEVELS } from "../types/RuntimeVariables"
 
 export interface IEnvironment extends Document<ObjectId> {
@@ -22,7 +22,7 @@ export interface IEnvironment extends Document<ObjectId> {
     logLevel: string
     /** Whether its containers log JSON rather than plain text, handed to them as LOG_JSON */
     logJson: boolean
-    /** When kube-green puts it to sleep, committed by GitOps as a SleepInfo in its namespace */
+    /** When kube-green puts it to sleep, committed by GitOps as SleepInfos in its namespace */
     kubeGreen: KubeGreenSettings
 }
 
@@ -76,9 +76,10 @@ const environmentSchema = new Schema<IEnvironment>(
         // A nested path, not a subdocument: an environment saved before it reads the defaults
         kubeGreen: {
             enabled: { type: Boolean, default: KUBE_GREEN_DEFAULTS.enabled },
-            weekdays: { type: String, default: KUBE_GREEN_DEFAULTS.weekdays },
-            sleepAt: { type: String, default: KUBE_GREEN_DEFAULTS.sleepAt },
-            wakeUpAt: { type: String, default: KUBE_GREEN_DEFAULTS.wakeUpAt },
+            days: {
+                type: [new Schema({ weekday: Number, awake: Boolean, wakeUpAt: String, sleepAt: String }, { _id: false })],
+                default: KUBE_GREEN_DEFAULT_DAYS
+            },
             timeZone: { type: String, default: KUBE_GREEN_DEFAULTS.timeZone },
             suspendDeployments: { type: Boolean, default: KUBE_GREEN_DEFAULTS.suspendDeployments },
             suspendStatefulSets: { type: Boolean, default: KUBE_GREEN_DEFAULTS.suspendStatefulSets },

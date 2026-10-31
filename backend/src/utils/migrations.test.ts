@@ -12,7 +12,7 @@ import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Storage from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
-import { encryptStoredSecrets, runMigrations, seedEnvironmentVersions } from "./migrations"
+import { convertKubeGreenSchedules, encryptStoredSecrets, runMigrations, seedEnvironmentVersions } from "./migrations"
 import { resetSecretEncryptionKeyCache } from "./secretCrypto"
 
 const logger = { info: vi.fn(), error: vi.fn() } as never
@@ -156,6 +156,38 @@ describe("seedEnvironmentVersions", () => {
 
         expect(Environment.find).not.toHaveBeenCalled()
         expect(Deployment.findOne).not.toHaveBeenCalled()
+    })
+})
+
+describe("convertKubeGreenSchedules", () => {
+    const holdingSchedules = (documents: object[]) => {
+        const updateOne = vi.fn().mockResolvedValue({})
+        vi.spyOn(Environment, "collection", "get").mockReturnValue({ find: () => ({ toArray: async () => documents }), updateOne } as never)
+        return updateOne
+    }
+
+    it("Given a schedule saved as one rule, when it runs, then its days are awake between the two times and the others asleep, and the rule is unset", async () => {
+        const _id = new Types.ObjectId()
+        const updateOne = holdingSchedules([{ _id, kubeGreen: { weekdays: "1-5", sleepAt: "20:00", wakeUpAt: "08:00" } }])
+
+        await convertKubeGreenSchedules(logger)
+
+        const [filter, update] = updateOne.mock.calls[0]
+        expect(filter).toEqual({ _id })
+        expect(update.$set["kubeGreen.days"]).toEqual([
+            { weekday: 0, awake: false, wakeUpAt: "", sleepAt: "" },
+            ...[1, 2, 3, 4, 5].map(weekday => ({ weekday, awake: true, wakeUpAt: "08:00", sleepAt: "20:00" })),
+            { weekday: 6, awake: false, wakeUpAt: "", sleepAt: "" }
+        ])
+        expect(update.$unset).toEqual({ "kubeGreen.weekdays": "", "kubeGreen.sleepAt": "", "kubeGreen.wakeUpAt": "" })
+    })
+
+    it("Given a rule with no wake up, when it runs, then its days are awake from midnight", async () => {
+        const updateOne = holdingSchedules([{ _id: new Types.ObjectId(), kubeGreen: { weekdays: "*", sleepAt: "22:00", wakeUpAt: "" } }])
+
+        await convertKubeGreenSchedules(logger)
+
+        expect(updateOne.mock.calls[0][1].$set["kubeGreen.days"]).toEqual([0, 1, 2, 3, 4, 5, 6].map(weekday => ({ weekday, awake: true, wakeUpAt: "", sleepAt: "22:00" })))
     })
 })
 

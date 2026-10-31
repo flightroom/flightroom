@@ -686,8 +686,9 @@ describe("GitOpsService.deploy", () => {
             expect(parse(applicationsCommit.mock.calls[0][1].find(file => file.path === "orders-api.yaml")!.content!).route.ipAllowList).toBe(middleware.metadata.name)
         })
 
-        it("given an environment that sleeps on a kube-green schedule, when it is deployed, then its SleepInfo is committed beside its Namespace", async () => {
+        it("given an environment that sleeps on a kube-green schedule, when it is deployed, then a SleepInfo per sleep within a day is committed beside its Namespace", async () => {
             exposedOn({ domain: "example.com" })
+            const workday = (weekday: number, sleepAt = "20:00") => ({ weekday, awake: true, wakeUpAt: "08:00", sleepAt })
             vi.spyOn(Environment, "find").mockResolvedValue([
                 { _id: development, slug: "development", subdomain: "dev", projectId },
                 {
@@ -697,9 +698,15 @@ describe("GitOpsService.deploy", () => {
                     projectId,
                     kubeGreen: {
                         enabled: true,
-                        weekdays: "1-5",
-                        sleepAt: "20:00",
-                        wakeUpAt: "",
+                        days: [
+                            { weekday: 0, awake: false, wakeUpAt: "", sleepAt: "" },
+                            workday(1),
+                            workday(2),
+                            workday(3),
+                            workday(4),
+                            workday(5, "18:00"),
+                            { weekday: 6, awake: false, wakeUpAt: "", sleepAt: "" }
+                        ],
                         timeZone: "Europe/Rome",
                         suspendDeployments: true,
                         suspendStatefulSets: false,
@@ -711,11 +718,19 @@ describe("GitOpsService.deploy", () => {
 
             await deployOf(production)()
 
-            const sleepInfo = parse(commit.mock.calls[0][1].find(file => file.path === "production/sleepinfo.yaml")!.content!)
-            expect(sleepInfo).toMatchObject({ apiVersion: "kube-green.com/v1alpha1", kind: "SleepInfo", metadata: { namespace: "production" } })
-            expect(sleepInfo.spec).toEqual({
-                weekdays: "1-5",
-                sleepAt: "20:00",
+            const sleepInfos = documentsOf(commit.mock.calls[0][1].find(file => file.path === "production/sleepinfo.yaml")!.content!)
+            expect(sleepInfos.map(sleepInfo => [sleepInfo.spec.weekdays, sleepInfo.spec.sleepAt, sleepInfo.spec.wakeUpAt])).toEqual([
+                ["1-5", "00:00", "08:00"],
+                ["0,6", "00:00", "23:59"],
+                ["5", "18:00", "23:59"],
+                ["1-4", "20:00", "23:59"]
+            ])
+            expect(new Set(sleepInfos.map(sleepInfo => sleepInfo.metadata.name)).size).toBe(4)
+            expect(sleepInfos[1]).toMatchObject({ apiVersion: "kube-green.com/v1alpha1", kind: "SleepInfo", metadata: { namespace: "production" } })
+            expect(sleepInfos[1].spec).toEqual({
+                weekdays: "0,6",
+                sleepAt: "00:00",
+                wakeUpAt: "23:59",
                 timeZone: "Europe/Rome",
                 suspendDeployments: true,
                 suspendStatefulSets: false,
@@ -724,11 +739,29 @@ describe("GitOpsService.deploy", () => {
             })
         })
 
+        it("given an environment awake all week, when it is deployed, then it has no SleepInfo", async () => {
+            exposedOn({ domain: "example.com" })
+            vi.spyOn(Environment, "find").mockResolvedValue([
+                { _id: development, slug: "development", subdomain: "dev", projectId },
+                {
+                    _id: production,
+                    slug: "production",
+                    subdomain: "app",
+                    projectId,
+                    kubeGreen: { enabled: true, days: [{ weekday: 1, awake: true, wakeUpAt: "", sleepAt: "" }], timeZone: "Europe/Rome" }
+                }
+            ] as never)
+
+            await deployOf(production)()
+
+            expect(commit.mock.calls[0][1].map(file => file.path)).not.toContain("production/sleepinfo.yaml")
+        })
+
         it("given an environment whose kube-green schedule was turned off, when it is deployed, then its SleepInfo is pruned", async () => {
             exposedOn({ domain: "example.com" })
             vi.spyOn(Environment, "find").mockResolvedValue([
                 { _id: development, slug: "development", subdomain: "dev", projectId },
-                { _id: production, slug: "production", subdomain: "app", projectId, kubeGreen: { enabled: false, weekdays: "1-5", sleepAt: "20:00", timeZone: "Europe/Rome" } }
+                { _id: production, slug: "production", subdomain: "app", projectId, kubeGreen: { enabled: false, days: [], timeZone: "Europe/Rome" } }
             ] as never)
 
             await deployOf(production)()

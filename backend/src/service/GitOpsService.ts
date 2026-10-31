@@ -17,6 +17,7 @@ import Resource, { IResource } from "../models/ResourceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { variableMapModels } from "../models/VariableMapModel"
 import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
+import { cronWeekdays, kubeGreenSleeps } from "../types/KubeGreen"
 import { ResourceWithValues, resourceEnvironmentValues, resourceSecretName } from "../types/ResourceCatalog"
 import { entryValueIn, VariableMapKind } from "../types/VariableMapDTO"
 import { getBackendUrl } from "../utils/backendUrl"
@@ -147,34 +148,41 @@ export const gatewayFilePath = (environment: Pick<IEnvironment, "slug">) => `${e
 export const sleepInfoFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${SLEEP_INFO_FILE}`
 
 /**
- * The kube-green SleepInfo of an environment, none when it does not sleep. Named after the project, as its Gateway:
- * two projects sharing a namespace do not take each other's. A cluster without the kube-green CRD must not keep the
+ * The kube-green SleepInfos of an environment, one per sleep its days make, none when it does not sleep. Named after the
+ * project, as its Gateway, so two projects sharing a namespace do not take each other's, and after the times of the
+ * sleep, so a day changing its own does not rename the others. A cluster without the kube-green CRD must not keep the
  * rest of the environment from syncing, as for the Gateway.
  */
 export const renderSleepInfo = (name: string, environment: Pick<IEnvironment, "slug" | "namespace" | "kubeGreen">): string | undefined => {
     const kubeGreen = environment.kubeGreen
     if (!kubeGreen?.enabled) return undefined
-    return stringify({
-        apiVersion: "kube-green.com/v1alpha1",
-        kind: "SleepInfo",
-        metadata: {
-            name,
-            namespace: environmentNamespace(environment),
-            labels: { [MANAGED_BY_LABEL]: MANAGED_BY },
-            annotations: { "argocd.argoproj.io/sync-options": "SkipDryRunOnMissingResource=true" }
-        },
-        spec: {
-            weekdays: kubeGreen.weekdays,
-            sleepAt: kubeGreen.sleepAt,
-            ...(kubeGreen.wakeUpAt ? { wakeUpAt: kubeGreen.wakeUpAt } : {}),
-            timeZone: kubeGreen.timeZone,
-            suspendDeployments: kubeGreen.suspendDeployments,
-            suspendStatefulSets: kubeGreen.suspendStatefulSets,
-            suspendCronJobs: kubeGreen.suspendCronJobs,
-            // The Deployment of an application is named after its slug, as its Helm release
-            ...(kubeGreen.excludeApplications?.length ? { excludeRef: kubeGreen.excludeApplications.map(slug => ({ apiVersion: "apps/v1", kind: "Deployment", name: slug })) } : {})
-        }
-    })
+    const sleeps = kubeGreenSleeps(kubeGreen.days ?? [])
+    if (sleeps.length === 0) return undefined
+    return sleeps
+        .map(sleep =>
+            stringify({
+                apiVersion: "kube-green.com/v1alpha1",
+                kind: "SleepInfo",
+                metadata: {
+                    name: `${name}-${sleep.sleepAt.replace(":", "")}-${sleep.wakeUpAt.replace(":", "")}`,
+                    namespace: environmentNamespace(environment),
+                    labels: { [MANAGED_BY_LABEL]: MANAGED_BY },
+                    annotations: { "argocd.argoproj.io/sync-options": "SkipDryRunOnMissingResource=true" }
+                },
+                spec: {
+                    weekdays: cronWeekdays(sleep.weekdays),
+                    sleepAt: sleep.sleepAt,
+                    wakeUpAt: sleep.wakeUpAt,
+                    timeZone: kubeGreen.timeZone,
+                    suspendDeployments: kubeGreen.suspendDeployments,
+                    suspendStatefulSets: kubeGreen.suspendStatefulSets,
+                    suspendCronJobs: kubeGreen.suspendCronJobs,
+                    // The Deployment of an application is named after its slug, as its Helm release
+                    ...(kubeGreen.excludeApplications?.length ? { excludeRef: kubeGreen.excludeApplications.map(slug => ({ apiVersion: "apps/v1", kind: "Deployment", name: slug })) } : {})
+                }
+            })
+        )
+        .join("---\n")
 }
 
 /** A project as its Gateways are named and exposed */
@@ -297,7 +305,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 
 - \`<environment>/namespace.yaml\`: the Namespace of the environment, named as set on it or as its slug in lowercase
 - \`<environment>/gateway.yaml\`: when the project has a domain, the Traefik Gateway answering on the host of the environment, its cert-manager Certificate and the redirect to HTTPS
-- \`<environment>/sleepinfo.yaml\`: when the environment sleeps on a schedule, the kube-green SleepInfo that scales it down and back up
+- \`<environment>/sleepinfo.yaml\`: when the environment sleeps on a schedule, the kube-green SleepInfos that scale it down and back up, one per sleep within a day
 - \`<environment>/configMaps/<name>.yaml\`: the ConfigMaps, in that namespace
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
 - \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a backend attaches, in that namespace, values base64 encoded (not encrypted)

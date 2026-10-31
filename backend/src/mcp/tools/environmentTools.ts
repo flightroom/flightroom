@@ -8,13 +8,15 @@ import EnvironmentService from "../../service/EnvironmentService"
 import { MAX_REPLICAS } from "../../types/ContainerResources"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange, SUBDOMAIN } from "../../types/Exposure"
-import { isTimeZone, KUBE_GREEN_TIME, KUBE_GREEN_WEEKDAYS } from "../../types/KubeGreen"
+import { isTimeZone } from "../../types/KubeGreen"
 import { LOG_LEVELS } from "../../types/RuntimeVariables"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
 
 const environmentId = objectId("Id of the environment")
 const deploymentId = objectId("Id of the deployment")
+
+const KUBE_GREEN_OPTIONAL_TIME = /^(([01]\d|2[0-3]):[0-5]\d)?$/
 
 export const environmentFields = {
     name: z.string().min(1).max(255),
@@ -56,17 +58,20 @@ export const environmentFields = {
     kubeGreen: z
         .object({
             enabled: z.boolean(),
-            weekdays: z
-                .string()
-                .regex(KUBE_GREEN_WEEKDAYS, "0 (Sunday) to 6, ranges and commas, or *")
+            days: z
+                .array(
+                    z.object({
+                        weekday: z.number().int().min(0).max(6).describe("0 (Sunday) to 6"),
+                        awake: z.boolean().describe("false: asleep all day, the times are ignored"),
+                        wakeUpAt: z.string().regex(KUBE_GREEN_OPTIONAL_TIME, "HH:MM or empty").optional().describe("When it is scaled up that day, HH:MM; empty, awake from midnight"),
+                        sleepAt: z.string().regex(KUBE_GREEN_OPTIONAL_TIME, "HH:MM or empty").optional().describe("When it is scaled down that day, HH:MM, after wakeUpAt; empty, awake until midnight")
+                    })
+                )
+                .max(7)
                 .optional()
-                .describe("Days the schedule applies to, in cron notation: 1-5 Monday to Friday, * every day"),
-            sleepAt: z.string().regex(KUBE_GREEN_TIME, "HH:MM").optional().describe("When the environment is scaled down, HH:MM"),
-            wakeUpAt: z
-                .string()
-                .regex(/^(([01]\d|2[0-3]):[0-5]\d)?$/, "HH:MM or empty")
-                .optional()
-                .describe("When it is scaled back up, HH:MM; empty, it sleeps until it is deployed again"),
+                .describe(
+                    "One entry per day of the week, each with its own hours; a day left out is awake all day. Every sleep ends at midnight: a night asleep is woken at 23:59 and put back to sleep at 00:00"
+                ),
             timeZone: z.string().refine(isTimeZone, "an IANA time zone, e.g. Europe/Rome").optional(),
             suspendDeployments: z.boolean().optional(),
             suspendStatefulSets: z.boolean().optional(),
@@ -75,7 +80,7 @@ export const environmentFields = {
         })
         .optional()
         .describe(
-            "The kube-green schedule the environment sleeps on, committed by GitOps as a SleepInfo in its namespace on its next deploy; the cluster needs the kube-green operator. It replaces the saved one as a whole: fields left out take their defaults (1-5, 20:00 to 08:00, Europe/Rome, Deployments and StatefulSets, not CronJobs)"
+            "The kube-green schedule the environment sleeps on, committed by GitOps as SleepInfos in its namespace on its next deploy; the cluster needs the kube-green operator. It replaces the saved one as a whole: fields left out take their defaults (awake 08:00 to 20:00 Monday to Friday, asleep at the weekend, Europe/Rome, Deployments and StatefulSets, not CronJobs)"
         )
 }
 

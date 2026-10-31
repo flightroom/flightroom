@@ -1,21 +1,7 @@
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-    Label,
-    SectionHeader,
-    SelectField,
-    SwitchField as Switch,
-    TextareaChipsField,
-    ToggleGroup,
-    ToggleGroupItem
-} from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle, SectionHeader, SelectField, SwitchField as Switch, TextareaChipsField } from "@flightroom/design-system"
 import { ExternalLink, Trash2 } from "lucide-react"
 import { useEffect, useId, useRef } from "react"
-import { FormProvider, useController, useForm } from "react-hook-form"
+import { FormProvider, useForm, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import ColorPicker from "@/components/input/ColorPicker.rhf"
@@ -25,7 +11,6 @@ import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS, type KubeGreen
 import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
-import { cn } from "@/utils/styleUtils"
 
 export interface EnvironmentFormData {
     name: string
@@ -42,36 +27,8 @@ export interface EnvironmentFormData {
     kubeGreen?: KubeGreenSettings
 }
 
-/** Come per il backend (KUBE_GREEN_WEEKDAYS): giorni da 0 (domenica) a 6, intervalli e virgole, oppure `*` */
-const KUBE_GREEN_WEEKDAYS = /^(\*|[0-6](-[0-6])?(,[0-6](-[0-6])?)*)$/
-
 /** Lunedi' per primo, come nel calendario italiano; 0 e' la domenica, come nel cron */
 const WEEK = [1, 2, 3, 4, 5, 6, 0]
-
-/** I giorni indicati da `1-5`, `1,3,5` o `*`; nessuno se il valore non e' valido */
-export const parseWeekdays = (value: string): number[] => {
-    const compact = value.replace(/\s+/g, "")
-    if (!KUBE_GREEN_WEEKDAYS.test(compact)) return []
-    if (compact === "*") return [...WEEK]
-    return compact.split(",").flatMap(part => {
-        const [from, to = from] = part.split("-").map(Number)
-        // Il backend accetta anche gli intervalli al contrario: 5-1 gira sulla settimana, da venerdi' a lunedi'
-        return Array.from({ length: ((to - from + 7) % 7) + 1 }, (_, offset) => (from + offset) % 7)
-    })
-}
-
-/** I giorni nella forma piu' corta: `*` per tutti, intervalli per i giorni consecutivi */
-export const formatWeekdays = (days: number[]): string => {
-    const sorted = [...new Set(days)].sort((a, b) => a - b)
-    if (sorted.length === WEEK.length) return "*"
-    const runs: number[][] = []
-    for (const day of sorted) {
-        const run = runs[runs.length - 1]
-        if (run && day === run[run.length - 1] + 1) run.push(day)
-        else runs.push([day])
-    }
-    return runs.map(run => (run.length > 1 ? `${run[0]}-${run[run.length - 1]}` : `${run[0]}`)).join(",")
-}
 
 /** Come per il backend (isTimeZone): un fuso orario IANA che il browser riconosce */
 const isTimeZone = (value: string) => {
@@ -124,48 +81,60 @@ export const slugFromName = (name: string) =>
 
 export const exposedHost = (domain: string, subdomain: string) => (subdomain ? `${subdomain}.${domain}` : domain)
 
-/** I giorni in cui kube-green spegne l'ambiente, uno per bottone; nel form resta la notazione cron che il backend si aspetta */
-function WeekdaysField() {
+/**
+ * Gli orari di accensione di ogni giorno, uno per riga dal lunedi'. I giorni sono in ordine dalla domenica, quindi il
+ * giorno e' anche l'indice nell'array del form.
+ */
+function DaysField() {
     const { t, i18n } = useTranslation()
-    const id = useId()
-    const { field, fieldState } = useController<EnvironmentFormData, "kubeGreen.weekdays">({
-        name: "kubeGreen.weekdays",
-        rules: { validate: value => parseWeekdays(value ?? "").length > 0 || t("environment.form.kube_green.weekdays_invalid") }
-    })
+    const { watch, getValues } = useFormContext<EnvironmentFormData>()
     // Il 4 gennaio 2026 e' una domenica: day giorni dopo cade il giorno day del cron
-    const dayName = (day: number, weekday: "short" | "long") => new Intl.DateTimeFormat(i18n.language, { weekday }).format(new Date(2026, 0, 4 + day))
-    const error = fieldState.error?.message
+    const dayName = (day: number) => new Intl.DateTimeFormat(i18n.language, { weekday: "long" }).format(new Date(2026, 0, 4 + day))
 
     return (
-        <div className="flex flex-col">
-            <Label id={`${id}-label`} className={cn("mb-1 block", error ? "text-destructive" : "text-foreground-secondary")}>
-                {t("environment.form.kube_green.weekdays")}
-            </Label>
-            <p id={`${id}-description`} className="mb-1 text-sm text-foreground-secondary">
-                {t("environment.form.kube_green.weekdays_description")}
-            </p>
-            <ToggleGroup
-                type="multiple"
-                variant="outline"
-                size="sm"
-                aria-labelledby={`${id}-label`}
-                aria-describedby={error ? `${id}-description ${id}-error` : `${id}-description`}
-                value={parseWeekdays(field.value ?? "").map(String)}
-                onValueChange={days => field.onChange(formatWeekdays(days.map(Number)))}
-                dataTestId="environment-kube-green-weekdays"
-                className="flex-wrap justify-start"
-            >
-                {WEEK.map(day => (
-                    <ToggleGroupItem key={day} value={String(day)} aria-label={dayName(day, "long")} className="capitalize">
-                        {dayName(day, "short")}
-                    </ToggleGroupItem>
-                ))}
-            </ToggleGroup>
-            {error && (
-                <p id={`${id}-error`} role="alert" className="mt-1 text-sm text-destructive">
-                    {error}
-                </p>
-            )}
+        <div className="flex flex-col gap-2" data-testid="environment-kube-green-days">
+            <div>
+                <h4 className="text-sm font-medium text-foreground-secondary">{t("environment.form.kube_green.days")}</h4>
+                <p className="text-sm text-foreground-secondary">{t("environment.form.kube_green.days_description")}</p>
+            </div>
+            {WEEK.map(day => {
+                const isAwake = watch(`kubeGreen.days.${day}.awake`)
+                return (
+                    <div key={day} className="flex flex-wrap items-start gap-x-4 gap-y-2 border-b border-border py-2 last:border-b-0">
+                        <div className="flex-[0_0_180px] pt-1">
+                            <Switch name={`kubeGreen.days.${day}.awake`} label={dayName(day).replace(/^./, first => first.toUpperCase())} dataTestId={`environment-kube-green-day-${day}-awake`} />
+                        </div>
+                        {isAwake ? (
+                            <>
+                                <TextField
+                                    name={`kubeGreen.days.${day}.wakeUpAt`}
+                                    type="time"
+                                    dataTestId={`environment-kube-green-day-${day}-wake-up-at`}
+                                    label={t("environment.form.kube_green.wake_up_at")}
+                                    containerClassName="flex-[1_1_120px]"
+                                />
+                                <TextField
+                                    name={`kubeGreen.days.${day}.sleepAt`}
+                                    type="time"
+                                    dataTestId={`environment-kube-green-day-${day}-sleep-at`}
+                                    label={t("environment.form.kube_green.sleep_at")}
+                                    rules={{
+                                        deps: [`kubeGreen.days.${day}.wakeUpAt`],
+                                        validate: sleepAt => {
+                                            const wakeUpAt = getValues(`kubeGreen.days.${day}.wakeUpAt`)
+                                            return !sleepAt || !wakeUpAt || wakeUpAt < sleepAt || t("environment.form.kube_green.sleep_at_before_wake_up")
+                                        }
+                                    }}
+                                    containerClassName="flex-[1_1_120px]"
+                                />
+                            </>
+                        ) : (
+                            <p className="flex-[1_1_240px] pt-1 text-sm text-foreground-secondary">{t("environment.form.kube_green.asleep_all_day")}</p>
+                        )}
+                    </div>
+                )
+            })}
+            <p className="text-sm text-foreground-secondary">{t("environment.form.kube_green.midnight_description")}</p>
         </div>
     )
 }
@@ -387,26 +356,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                     />
                                     {isKubeGreenEnabled && (
                                         <>
-                                            <WeekdaysField />
-                                            <div className="flex flex-wrap gap-x-4 gap-y-2">
-                                                <TextField
-                                                    name="kubeGreen.sleepAt"
-                                                    type="time"
-                                                    dataTestId="environment-kube-green-sleep-at"
-                                                    label={t("environment.form.kube_green.sleep_at")}
-                                                    rules={{ required: t("environment.form.kube_green.sleep_at_required") as string }}
-                                                    required
-                                                    containerClassName="flex-[1_1_200px]"
-                                                />
-                                                <TextField
-                                                    name="kubeGreen.wakeUpAt"
-                                                    type="time"
-                                                    dataTestId="environment-kube-green-wake-up-at"
-                                                    label={t("environment.form.kube_green.wake_up_at")}
-                                                    description={t("environment.form.kube_green.wake_up_at_description")}
-                                                    containerClassName="flex-[1_1_200px]"
-                                                />
-                                            </div>
+                                            <DaysField />
                                             <TextField
                                                 name="kubeGreen.timeZone"
                                                 dataTestId="environment-kube-green-time-zone"

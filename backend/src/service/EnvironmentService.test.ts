@@ -19,6 +19,7 @@ import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import { KUBE_GREEN_DEFAULT_DAYS } from "../types/KubeGreen"
 import EnvironmentService, { normalizeIpAllowList, normalizeKubeGreen } from "./EnvironmentService"
 
 const newId = () => new Types.ObjectId() as unknown as ObjectId
@@ -167,11 +168,9 @@ describe("normalizeIpAllowList", () => {
 
 describe("normalizeKubeGreen", () => {
     it("given a schedule with blanks and repeats, when it is normalized, then it is trimmed and filled in with the defaults", () => {
-        expect(normalizeKubeGreen({ enabled: true, weekdays: " 1-5 ", sleepAt: "19:30", excludeApplications: [" orders-api ", "", "orders-api"] })).toEqual({
+        expect(normalizeKubeGreen({ enabled: true, excludeApplications: [" orders-api ", "", "orders-api"] })).toEqual({
             enabled: true,
-            weekdays: "1-5",
-            sleepAt: "19:30",
-            wakeUpAt: "",
+            days: KUBE_GREEN_DEFAULT_DAYS(),
             timeZone: "Europe/Rome",
             suspendDeployments: true,
             suspendStatefulSets: true,
@@ -180,17 +179,41 @@ describe("normalizeKubeGreen", () => {
         })
     })
 
+    it("given some days of the week, when they are normalized, then every day is there, Sunday first, the days left out awake all day", () => {
+        const { days } = normalizeKubeGreen({
+            enabled: true,
+            days: [
+                { weekday: 5, awake: true, wakeUpAt: " 08:00 ", sleepAt: "18:00" },
+                { weekday: 6, awake: false }
+            ]
+        })
+
+        expect(days).toEqual([
+            { weekday: 0, awake: true, wakeUpAt: "", sleepAt: "" },
+            { weekday: 1, awake: true, wakeUpAt: "", sleepAt: "" },
+            { weekday: 2, awake: true, wakeUpAt: "", sleepAt: "" },
+            { weekday: 3, awake: true, wakeUpAt: "", sleepAt: "" },
+            { weekday: 4, awake: true, wakeUpAt: "", sleepAt: "" },
+            { weekday: 5, awake: true, wakeUpAt: "08:00", sleepAt: "18:00" },
+            { weekday: 6, awake: false, wakeUpAt: "", sleepAt: "" }
+        ])
+    })
+
     it.each([
-        ["days out of the week", { weekdays: "1-7" }],
-        ["a time with no minutes", { sleepAt: "20" }],
-        ["a wake up past midnight", { wakeUpAt: "24:00" }],
+        ["a time with no minutes", { days: [{ weekday: 1, awake: true, sleepAt: "20" }] }],
+        ["a wake up past midnight", { days: [{ weekday: 1, awake: true, wakeUpAt: "24:00" }] }],
+        ["a day going to sleep before it wakes up", { days: [{ weekday: 1, awake: true, wakeUpAt: "20:00", sleepAt: "08:00" }] }],
         ["an unknown time zone", { timeZone: "Europe/Atlantis" }]
     ])("given %s, when it is on, then it is refused", (_case, value) => {
         expect(() => normalizeKubeGreen({ enabled: true, ...value })).toThrow(expect.objectContaining({ code: "ENVIRONMENT_KUBE_GREEN_INVALID" }))
     })
 
+    it("given a day asleep all day, when it is normalized, then its times are not checked", () => {
+        expect(normalizeKubeGreen({ enabled: true, days: [{ weekday: 0, awake: false, wakeUpAt: "20:00", sleepAt: "08:00" }] }).days[0]).toMatchObject({ awake: false })
+    })
+
     it("given a schedule that is off, when it is normalized, then it is kept as it is, even when it would not parse", () => {
-        expect(normalizeKubeGreen({ enabled: false, weekdays: "1-7" })).toMatchObject({ enabled: false, weekdays: "1-7" })
+        expect(normalizeKubeGreen({ enabled: false, timeZone: "Europe/Atlantis" })).toMatchObject({ enabled: false, timeZone: "Europe/Atlantis" })
     })
 })
 
