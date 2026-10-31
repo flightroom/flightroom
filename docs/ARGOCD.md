@@ -48,6 +48,22 @@ that would take the same name stop it too: `orders-api` in `dev` and `orders` in
 `fr-<slug>-orders-api-dev-<hash>`, and a backend named `environments` would take the ApplicationSet of the
 environments. Rename one of them.
 
+### The repositories in Argo CD
+
+Under **Settings → Repositories**, Argo CD lists the two repositories of a project, without a name, and
+only one of them in a project:
+
+| Repository | Project column | Why |
+| --- | --- | --- |
+| Configuration | `fr-<slug>-<hash>` | It holds the secrets in plaintext: only the applications of the AppProject may read it. |
+| Applications | empty | The ApplicationSet of each backend and frontend finds the branches and the values files with a git generator. The ApplicationSet controller runs that generator outside of any AppProject, so it reads only global credentials. |
+
+An applications repository with an empty project is expected: nothing is missing. When two projects of
+the organization link the same applications repository, they share one global registration. The second
+project adds no row, and the registration stays as long as a project reads through it. A project column
+without the `fr-` prefix is an AppProject of 10.x: initialize that project again to move it (see
+[Re-running it](#re-running-it)).
+
 ### The Namespace is never pruned
 
 The Namespace manifest the console commits carries
