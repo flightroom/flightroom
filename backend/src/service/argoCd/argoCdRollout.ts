@@ -1,4 +1,5 @@
 import { Schema } from "mongoose"
+import { ArgoCdResource } from "../../client/ArgoCdClient"
 import Backend from "../../models/BackendModel"
 import Deployment, { IDeployment } from "../../models/DeploymentModel"
 import { IEnvironment } from "../../models/EnvironmentModel"
@@ -15,6 +16,15 @@ import { clientOf, projectOf } from "./argoCdProject"
 export const DEPLOYED_VERSIONS = "environmentId applicationsRevision backends._id backends.version backends.image frontends._id frontends.version frontends.image"
 
 type DeployedVersions = Pick<IDeployment, "_id" | "environmentId" | "applicationsRevision" | "backends" | "frontends">
+
+/** How long an Application still on the revision before the deploy is left to Argo CD before the rollout asks it to read the repository again */
+const REFRESH_AFTER_MS = 30_000
+
+/** Argo CD compared it with the repository long enough ago, or never: it is asked to read the repository again */
+const refreshDue = (application: ArgoCdResource) => {
+    const reconciledAt = Date.parse(application.status?.reconciledAt ?? "")
+    return Number.isNaN(reconciledAt) || Date.now() - reconciledAt > REFRESH_AFTER_MS
+}
 
 /**
  * Where the deploy stands in Argo CD, application by application, for a project that deploys through it.
@@ -60,16 +70,23 @@ export const followRollout = async (
     const applications = await Promise.all(
         members.map(async ({ kind, application }) => {
             const name = applicationName(String(projectId), project.slug, application.slug, slug)
-            const state = rolloutStateOf(byName.get(name), revisions)
+            const argoCdApplication = byName.get(name)
+            const state = rolloutStateOf(argoCdApplication, revisions)
+            // The refresh after the commit may have come before Argo CD saw it, and its own poll may be minutes away, or off.
+            // Not awaited: Argo CD answers once it has compared, and the next read sees it
+            if (state.state === "waiting" && argoCdApplication && refreshDue(argoCdApplication)) client.refreshApplication(name, projectName).catch(() => undefined)
             // Which container is still starting, or crashing: a failure to read them leaves the rest as it is
             const pods = state.state === "progressing" || state.state === "degraded" ? await client.listPods(name, projectName).catch(() => undefined) : undefined
             return { _id: String(application._id), kind, name: application.name, slug: application.slug, updated: updated(String(application._id)), ...state, ...(pods ? { pods } : {}) }
         })
     )
+    // Those the deploy updated, all of them when it updated none, as the overlay shows them: one it did not touch is not waited for
+    const changed = applications.filter(application => application.updated)
+    const awaited = changed.length > 0 ? changed : applications
     return {
         tracked: true,
         applications,
-        done: applications.every(application => application.state === "healthy"),
-        failed: applications.some(application => application.state === "failed")
+        done: awaited.every(application => application.state === "healthy"),
+        failed: awaited.some(application => application.state === "failed")
     }
 }

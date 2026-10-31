@@ -25,6 +25,8 @@ export interface ArgoCdApplicationStatus {
     sync?: { status?: string; revision?: string }
     /** Healthy, Progressing, Degraded, Suspended, Missing or Unknown */
     health?: { status?: string; message?: string }
+    /** When Argo CD last compared the Application with the repository */
+    reconciledAt?: string
     /** The last sync: Running, Succeeded, Failed, Error or Terminating, and the revision it applied */
     operationState?: {
         phase?: string

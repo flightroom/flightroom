@@ -955,6 +955,7 @@ describe("ArgoCdService.rollout", () => {
         vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, slug: "development", projectId } as never)
         vi.spyOn(ArgoCdService.prototype as unknown as { getDomainScope: () => Promise<undefined> }, "getDomainScope").mockResolvedValue(undefined)
         vi.spyOn(ArgoCdClient.prototype, "listPods").mockResolvedValue([{ name: "checkout-7d9-abc", namespace: "development", health: "Progressing", containers: "0/1" }])
+        vi.spyOn(ArgoCdClient.prototype, "refreshApplication").mockResolvedValue(undefined)
     })
 
     it("given a project deploying through no Argo CD, when the rollout is read, then it is not tracked and over with the commit", async () => {
@@ -1013,6 +1014,46 @@ describe("ArgoCdService.rollout", () => {
 
         expect(result.applications.every(application => application.state === "waiting")).toBe(true)
         expect(result.done).toBe(false)
+    })
+
+    it("given an application the deploy did not touch still on the revision before, when the rollout is read, then it does not hold the end of the rollout", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        const [orders, checkout] = [new Types.ObjectId(), new Types.ObjectId()]
+        vi.mocked(Backend.find).mockResolvedValue([{ _id: orders, slug: "orders", environmentVersions: [{ environmentId, version: "1.0.0" }], image: { repository: "ghcr.io/acme/orders" } }] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([
+            { _id: checkout, slug: "checkout", environmentVersions: [{ environmentId, version: "2.1.0" }], image: { repository: "ghcr.io/acme/checkout" } }
+        ] as never)
+        shipped = { backends: [{ _id: orders, version: "1.0.0" }], frontends: [{ _id: checkout, version: "2.1.0" }] }
+        before = { backends: [{ _id: orders, version: "1.0.0" }], frontends: [{ _id: checkout, version: "2.0.0" }] }
+        applications = [deployed("orders", synced("Healthy", "9f8e7d6")), deployed("checkout", synced("Healthy"))]
+
+        const result = await rollout()
+
+        expect(result.applications.map(application => [application.slug, application.state])).toEqual([
+            ["orders", "waiting"],
+            ["checkout", "healthy"]
+        ])
+        expect(result.done).toBe(true)
+    })
+
+    it("given Argo CD on the revision before the deploy, when the rollout is read, then it is asked to read the repository again unless it just did", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        const stale = { ...synced("Healthy", "9f8e7d6"), reconciledAt: new Date(Date.now() - 60_000).toISOString() }
+        const fresh = { ...synced("Healthy", "9f8e7d6"), reconciledAt: new Date().toISOString() }
+        applications = [deployed("orders", stale), deployed("checkout", fresh)]
+
+        await rollout()
+
+        expect(vi.mocked(ArgoCdClient.prototype.refreshApplication).mock.calls).toEqual([[applicationName(String(projectId), "shop", "orders", "development"), PROJECT_NAME]])
+    })
+
+    it("given Argo CD on the deploy's revision, when the rollout is read, then nothing is refreshed", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        applications = [deployed("orders", synced("Progressing")), deployed("checkout", synced("Healthy"))]
+
+        await rollout()
+
+        expect(ArgoCdClient.prototype.refreshApplication).not.toHaveBeenCalled()
     })
 
     it("given a later deploy pushed on the same branch, when the rollout is read, then Argo CD synced to it holds this deploy too", async () => {

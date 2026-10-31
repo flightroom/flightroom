@@ -33,9 +33,9 @@ export interface RolloutDTO {
     /** The project deploys through Argo CD: without it there is nothing to follow, the deploy is over with its commit */
     tracked: boolean
     applications: RolloutApplication[]
-    /** Every application runs what was deployed */
+    /** Every application the deploy updated runs what was deployed, every application when it updated none */
     done: boolean
-    /** Argo CD could not apply the commit for at least one application */
+    /** Argo CD could not apply the commit for at least one of those applications */
     failed: boolean
 }
 
