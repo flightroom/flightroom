@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, ConfirmByTypingDialog, DangerZoneCard } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Trash2 } from "lucide-react"
+import { Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -12,14 +12,26 @@ import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import useVariableMapsApi, { VariableMap, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
-import useProjectStore from "@/store/useProjectStore"
+import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { useProjectEnvironmentsQuery } from "../backends/partials/backendVariables"
+import { useMaintenanceAgentsQuery } from "../maintenance-agents/partials/maintenance"
 import VariableEntriesFields from "./partials/VariableEntriesFields"
-import { fromFormEntries, toFormEntries, VARIABLE_KEY, VARIABLE_MAP_KINDS, VARIABLE_MAP_NAME } from "./partials/variableMaps"
+import {
+    ATTACHING_PATHS,
+    type AttachingComponent,
+    fromFormEntries,
+    toFormEntries,
+    useDetachVariableMap,
+    VARIABLE_KEY,
+    VARIABLE_MAP_FIELD,
+    VARIABLE_MAP_KINDS,
+    VARIABLE_MAP_NAME
+} from "./partials/variableMaps"
 
 const createFormSchema = (messages: { name: string; key: string; keyDuplicated: string }) =>
     z
@@ -45,9 +57,11 @@ const createFormSchema = (messages: { name: string; key: string; keyDuplicated: 
 
 type FormSchema = ReturnType<typeof createFormSchema>
 
-/** Who receives the values of this map: each backend attaching it, linked */
-const UsedBySection: React.FC<{ backends: Backend[] }> = ({ backends }) => {
+/** Who receives the values of this map: each backend, DOCKER frontend or maintenance agent attaching it, linked */
+const UsedBySection: React.FC<{ kind: VariableMapKind; map: VariableMap; attaching: AttachingComponent[] }> = ({ kind, map, attaching }) => {
     const { t } = useTranslation()
+    const isViewer = useIsProjectViewer()
+    const detach = useDetachVariableMap(kind)
 
     return (
         <Card>
@@ -56,12 +70,28 @@ const UsedBySection: React.FC<{ backends: Backend[] }> = ({ backends }) => {
                 <CardDescription>{t("variableMaps.used_by.description")}</CardDescription>
             </CardHeader>
             <CardContent className="pt-3">
-                {backends.length > 0 ? (
+                {attaching.length > 0 ? (
                     <div className="flex flex-wrap gap-2">
-                        {backends.map(backend => (
-                            <Link key={backend._id} to={`/backend/${backend._id}`}>
-                                <Badge variant="outline">{backend.name}</Badge>
-                            </Link>
+                        {attaching.map(component => (
+                            <span key={component._id} className="inline-flex items-center">
+                                <Link to={ATTACHING_PATHS[component.kind](component._id)}>
+                                    <Badge variant="outline">{component.name}</Badge>
+                                </Link>
+                                {/* A viewer may look, not change what the containers receive */}
+                                {!isViewer && (
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon-sm"
+                                        disabled={detach.isPending}
+                                        aria-label={t("variableMaps.used_by.detach", { name: component.name })}
+                                        title={t("variableMaps.used_by.detach", { name: component.name })}
+                                        onClick={() => detach.mutate({ component, map })}
+                                    >
+                                        <X />
+                                    </Button>
+                                )}
+                            </span>
                         ))}
                     </div>
                 ) : (
@@ -126,18 +156,17 @@ const VariableMapDangerZone: React.FC<{ kind: VariableMapKind; map: VariableMap;
 interface VariableMapFormContentProps {
     kind: VariableMapKind
     environments: EnvironmentDTO[]
-    backends: Backend[]
+    attaching: AttachingComponent[]
     map?: VariableMap
 }
 
-const VariableMapFormContent: React.FC<VariableMapFormContentProps> = ({ kind, environments, backends, map }) => {
+const VariableMapFormContent: React.FC<VariableMapFormContentProps> = ({ kind, environments, attaching, map }) => {
     const { t } = useTranslation()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
     const notifications = useToastNotificationStore()
     const api = useVariableMapsApi(kind)
     const { listPath, detailPath, i18n: prefix } = VARIABLE_MAP_KINDS[kind]
-    const attaching = backends.filter(backend => (kind === "configMap" ? backend.configMapIds : backend.secretIds)?.includes(map?._id ?? ""))
 
     const formSchema = useMemo(
         () =>
@@ -194,7 +223,7 @@ const VariableMapFormContent: React.FC<VariableMapFormContentProps> = ({ kind, e
 
                     <VariableEntriesFields kind={kind} environments={environments} />
 
-                    {map && <UsedBySection backends={attaching} />}
+                    {map && <UsedBySection kind={kind} map={map} attaching={attaching} />}
 
                     {map && <VariableMapDangerZone kind={kind} map={map} inUse={attaching.length > 0} />}
 
@@ -219,16 +248,30 @@ const VariableMapForm: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
     const projectId = useProjectStore(state => state.project?._id)
     const api = useVariableMapsApi(kind)
     const backendsApi = useBackendsApi()
+    const frontendsApi = useFrontendsApi()
 
     const mapQuery = useQuery({ queryKey: ["variable-map", kind, id], queryFn: () => api.getSingle(id!), enabled: isEdit })
     const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
+    // Left out of the status handler: the backend refuses a delete they still block, the page need not wait for them
+    const frontendsQuery = useQuery({ queryKey: ["frontends-by-project-id", projectId], queryFn: () => frontendsApi.getByProjectId(projectId!), enabled: isEdit && !!projectId })
+    const agentsQuery = useMaintenanceAgentsQuery()
     // Before the form mounts: its default values hold one value per environment
     const environmentsQuery = useProjectEnvironmentsQuery()
+
+    // The same three the backend counts before a delete
+    const field = VARIABLE_MAP_FIELD[kind]
+    const attaching: AttachingComponent[] = [
+        ...(backendsQuery.data ?? []).map(component => ({ ...component, kind: "backend" as const })),
+        ...(frontendsQuery.data ?? []).map(component => ({ ...component, kind: "frontend" as const })),
+        ...(agentsQuery.data ?? []).map(component => ({ ...component, kind: "maintenanceAgent" as const }))
+    ]
+        .filter(component => !!id && component[field]?.includes(id))
+        .map(({ kind: componentKind, _id, name }) => ({ kind: componentKind, _id: _id!, name }))
 
     return (
         <ApiStatusHandler queries={[mapQuery, backendsQuery, environmentsQuery]} interceptEmpty={false}>
             {/* Keyed: going from one map to another reuses the route, and the form must start over */}
-            <VariableMapFormContent key={mapQuery.data?._id ?? "new"} kind={kind} environments={environmentsQuery.data ?? []} backends={backendsQuery.data ?? []} map={mapQuery.data} />
+            <VariableMapFormContent key={mapQuery.data?._id ?? "new"} kind={kind} environments={environmentsQuery.data ?? []} attaching={attaching} map={mapQuery.data} />
         </ApiStatusHandler>
     )
 }
