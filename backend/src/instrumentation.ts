@@ -4,9 +4,10 @@ import dotenv from "dotenv"
  * Azure Monitor Application Insights for the console itself, off unless the operator sets
  * APPLICATIONINSIGHTS_CONNECTION_STRING: the telemetry then goes to the operator's own resource, never to us
  * (docs/APPLICATION-INSIGHTS.md). Imported first by index.ts: OpenTelemetry instruments http, Fastify and MongoDB
- * only when it is set up before they are loaded, so the .env file is read here already.
+ * only when it is set up before they are loaded, so the .env file is read here already, and only here.
+ * Quiet: dotenv logs one line per call otherwise, an "injected env (0)" in every container that has no .env.
  */
-dotenv.config()
+dotenv.config({ quiet: true })
 
 if (process.env.APPLICATIONINSIGHTS_CONNECTION_STRING?.trim()) {
     // The cloud role of the console in the Application Map, unless the operator names it

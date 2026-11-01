@@ -1,5 +1,4 @@
 import fastifyEnv from "@fastify/env"
-import dotenv from "dotenv"
 import { FastifyInstance, FastifyPluginOptions } from "fastify"
 import fastifyPlugin from "fastify-plugin"
 import { LlmConfiguration, resolveLlmProvider } from "../service/llm"
@@ -7,8 +6,6 @@ import { OPENSHELL_DEFAULTS } from "../service/sandbox/OpenShellSandboxes"
 import { assertMcpConfigurationIsUsable } from "../utils/oauthConfig"
 import { assertSecretEncryptionKeyIsUsable, isSecretEncryptionEnabled } from "../utils/secretCrypto"
 import { TELEMETRY_DEFAULT_ENDPOINT, TELEMETRY_DEFAULT_INTERVAL_HOURS } from "../utils/telemetry"
-
-dotenv.config()
 
 const NODE_ENVS = Object.freeze<string[]>(["development", "prod", "test", "local"])
 

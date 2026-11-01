@@ -2,16 +2,11 @@
 import "./instrumentation"
 import AutoLoad from "@fastify/autoload"
 import * as Sentry from "@sentry/node"
-import dotenv from "dotenv"
 import Fastify from "fastify"
 import path from "path"
 import wellKnownRoutes from "./mcp/wellKnownRoutes"
 import { AppInstance } from "./types/fastify"
 import { parseTrustProxy, redactOAuthUrl } from "./utils/oauthConfig"
-
-// The instance below is built at import time, before `start` loads the .env file: TRUST_PROXY has to
-// be readable by then.
-dotenv.config()
 
 /**
  * How long a plugin is given to come up.
@@ -95,8 +90,6 @@ const initSentry = async (fastify: AppInstance) => {
 }
 
 const start = async () => {
-    dotenv.config()
-
     let fastify: AppInstance
 
     const start = performance.now()
