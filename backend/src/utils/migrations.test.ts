@@ -3,16 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import AiModel from "../models/AiModelModel"
 import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
+import Configuration from "../models/ConfigurationModel"
 import Database from "../models/DatabaseModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend from "../models/FrontendModel"
+import Frontend, { FrontendKind } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Storage from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
-import { convertKubeGreenSchedules, encryptStoredSecrets, runMigrations, seedEnvironmentVersions } from "./migrations"
+import { BUNDLE_VERSIONS_SEEDED, convertKubeGreenSchedules, encryptStoredSecrets, runMigrations, seedEnvironmentVersions } from "./migrations"
 import { resetSecretEncryptionKeyCache } from "./secretCrypto"
 
 const logger = { info: vi.fn(), error: vi.fn() } as never
@@ -70,10 +71,15 @@ describe("encryptStoredSecrets", () => {
 })
 
 /** The applications not seeded yet, as each model answers them */
-const unseeded = (documents: { backends?: object[]; frontends?: object[]; agents?: object[] } = {}) => {
+/** `frontends` are the DOCKER ones, `bundles` the BUNDLE ones; `bundlesSeeded` once the marker of the BUNDLE ones is written */
+const unseeded = (documents: { backends?: object[]; frontends?: object[]; bundles?: object[]; agents?: object[]; bundlesSeeded?: boolean } = {}) => {
     vi.spyOn(Backend, "find").mockReturnValue({ lean: () => Promise.resolve(documents.backends ?? []) } as never)
-    vi.spyOn(Frontend, "find").mockReturnValue({ lean: () => Promise.resolve(documents.frontends ?? []) } as never)
+    vi.spyOn(Frontend, "find").mockImplementation(((filter: { kind?: unknown }) => ({
+        lean: () => Promise.resolve((filter.kind === FrontendKind.DOCKER ? documents.frontends : documents.bundles) ?? [])
+    })) as never)
     vi.spyOn(MaintenanceAgent, "find").mockReturnValue({ lean: () => Promise.resolve(documents.agents ?? []) } as never)
+    vi.spyOn(Configuration, "exists").mockResolvedValue((documents.bundlesSeeded ? { _id: new Types.ObjectId() } : null) as never)
+    vi.spyOn(Configuration, "updateOne").mockResolvedValue({} as never)
 }
 
 describe("seedEnvironmentVersions", () => {
@@ -150,12 +156,59 @@ describe("seedEnvironmentVersions", () => {
     })
 
     it("Given every application seeded already, when it runs, then no environment nor deployment is read", async () => {
-        unseeded()
+        unseeded({ bundlesSeeded: true })
 
         await seedEnvironmentVersions(logger)
 
         expect(Environment.find).not.toHaveBeenCalled()
         expect(Deployment.findOne).not.toHaveBeenCalled()
+        expect(Configuration.updateOne).not.toHaveBeenCalled()
+    })
+
+    it("Given BUNDLE frontends with no version per environment, when it runs, then each environment gets the bundle its deployment serves, else the version of the frontend, and the marker is written last", async () => {
+        const otherBundleId = new Types.ObjectId()
+        unseeded({
+            bundles: [
+                { _id: frontendId, projectId, version: "2.1.0" },
+                { _id: otherBundleId, projectId }
+            ]
+        })
+
+        await seedEnvironmentVersions(logger)
+
+        const [filter, update] = vi.mocked(Frontend.updateOne).mock.calls[0]
+        // Written only while its list is still empty: a second run, or one cut short and taken again, changes nothing
+        expect(filter).toEqual({ _id: frontendId, kind: { $ne: FrontendKind.DOCKER }, $or: [{ environmentVersions: { $exists: false } }, { environmentVersions: { $size: 0 } }] })
+        expect(update).toEqual({
+            $set: {
+                environmentVersions: [
+                    { environmentId: production, version: "2.0.0" },
+                    { environmentId: staging, version: "2.1.0" }
+                ]
+            }
+        })
+        // Neither deployed nor with a version: deployed nowhere, as before
+        expect(vi.mocked(Frontend.updateOne).mock.calls[1][1]).toEqual({ $set: { environmentVersions: [] } })
+        expect(Configuration.updateOne).toHaveBeenCalledWith({ name: BUNDLE_VERSIONS_SEEDED }, { $setOnInsert: { value: expect.any(String) } }, { upsert: true })
+        expect(vi.mocked(Configuration.updateOne).mock.invocationCallOrder[0]).toBeGreaterThan(vi.mocked(Frontend.updateOne).mock.invocationCallOrder[1])
+    })
+
+    it("Given the BUNDLE frontends seeded once, when it runs again, then they are not looked for, even those with an empty list", async () => {
+        unseeded({ bundles: [{ _id: frontendId, projectId, version: "2.1.0" }], bundlesSeeded: true })
+
+        await seedEnvironmentVersions(logger)
+
+        expect(Frontend.find).toHaveBeenCalledTimes(1)
+        expect(Frontend.updateOne).not.toHaveBeenCalled()
+    })
+
+    it("Given an installation with no application to seed, when it runs, then the BUNDLE frontends are marked seeded at once", async () => {
+        unseeded()
+
+        await seedEnvironmentVersions(logger)
+
+        expect(Environment.find).not.toHaveBeenCalled()
+        expect(Configuration.updateOne).toHaveBeenCalledTimes(1)
     })
 })
 

@@ -84,7 +84,7 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
               designSystemOverride: false,
               designSystem: designSystemFormValues(),
               kind: FrontendKind.BUNDLE,
-              version: "1.0.0",
+              version: "",
               host: getStandardHost(storages),
               ...containerDefaults,
               ...(repositories && repositories.length > 0
@@ -152,9 +152,10 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         ...rest,
         // Null: it builds with the design system of the project, else the organization's
         designSystem: designSystemOverride ? toDesignSystem(designSystem) : null,
-        version: data.version === "custom" ? data.customVersion : data.version,
         // Blank: the frontend is in no domain
         domainId: data.domainId || null,
+        // Blank: not deployed in that environment, whatever its kind
+        environmentVersions: environmentVersions?.map(entry => ({ ...entry, version: entry.version.trim() })),
         // Only a DOCKER declares a container, and Flightroom runs no canary for it
         ...(data.kind === FrontendKind.DOCKER
             ? {
@@ -173,8 +174,6 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   replicas: replicaCount(replicas),
                   // Empty: the container's, as above
                   environmentResources: environmentResources?.map(entry => ({ ...entry, replicas: replicaCount(entry.replicas) })),
-                  // Blank: not deployed in that environment
-                  environmentVersions: environmentVersions?.map(entry => ({ ...entry, version: entry.version.trim() })),
                   // Null: not exposed on the host of the environments
                   exposurePath: exposed ? exposurePath?.trim() : null,
                   image,
@@ -184,12 +183,11 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   canary: data.canary && { ...data.canary, enabled: false }
               }
             : {})
-    } as Frontend & { customVersion?: string }
+    } as Frontend
 
-    delete dataToSend.customVersion
-    // A DOCKER frontend's version is the tag of its image: sent only when typed here, so that saving the form
-    // does not move back a newer one its pipeline registered meanwhile
-    if (data.kind === FrontendKind.DOCKER && (!dataToSend.version?.trim() || (isEdit && !isVersionDirty()))) delete dataToSend.version
+    // Sent only when typed here, so that saving the form does not move back a newer one a release, or the pipeline of a
+    // DOCKER, set meanwhile
+    if (!dataToSend.version?.trim() || (isEdit && !isVersionDirty())) delete dataToSend.version
 
     if (template) {
         if (!dataToSend.codeRepository?.createData) {

@@ -109,7 +109,7 @@ export interface IFrontend extends Document<ObjectId>, IFrontendContainer {
     stack?: IFrontendStack
     slug: string
     name: string
-    /** Unset on a DOCKER until its CI registers a first version */
+    /** The latest version, unset until one is set by hand or, on a DOCKER, registered by its CI: never deployed as it is */
     version: string
     continuousDeployment?: boolean
     path?: string
@@ -330,12 +330,11 @@ const frontendSchema: Schema = new Schema<IFrontend>(
             type: designSystemSchema,
             required: false
         },
+        // Set by hand, by a release or, on a DOCKER, by the versions its CI registers: never deployed as it is, each
+        // environment serves the version environmentVersions sets there
         version: {
             type: String,
-            // A DOCKER gets its first one from the first version its CI registers, as a backend
-            required: function (this: IFrontend) {
-                return this.kind !== FrontendKind.DOCKER
-            }
+            required: false
         },
         type: {
             type: String,

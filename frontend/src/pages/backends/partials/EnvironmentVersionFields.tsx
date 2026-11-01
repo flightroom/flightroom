@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
-import { useEffect } from "react"
+import { useEffect, useId } from "react"
 import { useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
@@ -11,10 +11,11 @@ import type { EnvironmentVersion, EnvironmentVersionFormValues } from "./environ
 
 /**
  * The version each environment runs, one field per environment in their order: left empty, the environment does not get
- * the container. The server drops the empty ones.
+ * the application. The server drops the empty ones. `suggestions`, the versions published so far, are offered in each.
  */
-export const EnvironmentVersionFields: React.FC<{ className?: string }> = ({ className }) => {
+export const EnvironmentVersionFields: React.FC<{ className?: string; suggestions?: string[] }> = ({ className, suggestions }) => {
     const { t } = useTranslation()
+    const suggestionsId = useId()
     const { control, setValue } = useFormContext()
     const entries: EnvironmentVersionFormValues[] = useWatch({ control, name: "environmentVersions" }) ?? []
     const environments = useProjectEnvironmentsQuery({ inForm: true }).data ?? []
@@ -35,9 +36,22 @@ export const EnvironmentVersionFields: React.FC<{ className?: string }> = ({ cla
             {environments.map(environment => {
                 const index = entries.findIndex(entry => entry.environmentId === environment._id)
                 return index >= 0 ? (
-                    <TextField key={environment._id} name={`environmentVersions.${index}.version`} label={environment.name} placeholder={t("backends.version_by_environment.not_deployed")} />
+                    <TextField
+                        key={environment._id}
+                        name={`environmentVersions.${index}.version`}
+                        label={environment.name}
+                        placeholder={t("backends.version_by_environment.not_deployed")}
+                        list={suggestions?.length ? suggestionsId : undefined}
+                    />
                 ) : null
             })}
+            {suggestions?.length ? (
+                <datalist id={suggestionsId}>
+                    {suggestions.map(version => (
+                        <option key={version} value={version} />
+                    ))}
+                </datalist>
+            ) : null}
         </div>
     )
 }

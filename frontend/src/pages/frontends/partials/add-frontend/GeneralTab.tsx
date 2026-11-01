@@ -33,7 +33,7 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ id, isEdit, isDocker, te
             {/* Domain and release first, side by side: what it belongs to and what is served, at a glance */}
             <div className="grid grid-cols-1 gap-6 md:grid-cols-2">
                 <DomainSection />
-                <ReleaseSection isEdit={isEdit} versions={versions} container={isDocker} />
+                <ReleaseSection versions={versions} container={isDocker} />
             </div>
             <Card>
                 <CardHeader>

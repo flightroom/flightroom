@@ -6,27 +6,26 @@ import { CanaryDeploymentType, CanaryType } from "@/hooks/apiClients/useFrontend
 import EnvironmentVersionFields from "@/pages/backends/partials/EnvironmentVersionFields"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_DESCRIPTION_KEYS, CANARY_TYPE_LABEL_KEYS } from "../labels"
 
-const WATCHED_FIELDS = ["canary.enabled", "canary.deploymentType", "canary.type", "version"] as const
+const WATCHED_FIELDS = ["canary.enabled", "canary.deploymentType", "canary.type"] as const
 
 interface ReleaseSectionProps {
-    isEdit?: boolean
+    /** Its published versions: the bundles uploaded, or the images registered for a DOCKER. Suggested in each environment */
     versions?: string[]
     /** Served by its own container, a backend or a DOCKER frontend: its version is the tag of its image. */
     container?: boolean
 }
 
 /** Version and canary settings: the two knobs that decide what gets served, in the General tab where the page opens. */
-export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions, container = false }) => {
+export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ versions, container = false }) => {
     const { t } = useTranslation()
     // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
-    const [canaryEnabled, deploymentType, watchedCanaryType, version] = useWatch({ name: WATCHED_FIELDS })
+    const [canaryEnabled, deploymentType, watchedCanaryType] = useWatch({ name: WATCHED_FIELDS })
     const canaryType = (watchedCanaryType as CanaryType | undefined) ?? CanaryType.ON_SESSION
-    const hasVersionHistory = Boolean(isEdit && versions && versions.length > 0)
     // On User is an explicit enrolment, not a split: there is no traffic share to set, so asking for a
     // percentage would only suggest it does something.
     const isPercentageBased = canaryType !== CanaryType.ON_USER
-    // A container is one Flightroom cannot split traffic for: no canary. Its version is the tag of its image, one per
-    // environment, with no bundle to pick from
+    // A container is one Flightroom cannot split traffic for: no canary. Either kind runs a version per environment:
+    // the tag of its image for a container, the name of an uploaded bundle otherwise
     const isDocker = container
 
     return (
@@ -36,42 +35,7 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ isEdit, versions
                 <CardDescription>{t(isDocker ? "frontend.release_settings_container_description" : "frontend.release_settings_description")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-3">
-                {isDocker ? (
-                    <EnvironmentVersionFields />
-                ) : (
-                    <div className="flex flex-wrap gap-x-4 gap-y-2">
-                        {hasVersionHistory ? (
-                            <>
-                                <SelectField
-                                    name="version"
-                                    label={t("frontend.version")}
-                                    options={[
-                                        ...versions.map(version => ({
-                                            value: version,
-                                            label: version
-                                        })),
-                                        { value: "custom", label: t("frontend.custom_version") }
-                                    ]}
-                                    required
-                                    containerClassName="flex-[1_1_240px]"
-                                    className="w-full"
-                                />
-                                {version === "custom" && (
-                                    <TextField
-                                        name="customVersion"
-                                        label={t("frontend.custom_version")}
-                                        textTransform={value => value.replace(" ", "")}
-                                        placeholder={t("frontend.version_placeholder")}
-                                        required
-                                        containerClassName="flex-[1_1_240px]"
-                                    />
-                                )}
-                            </>
-                        ) : (
-                            <TextField name="version" label={t("frontend.version")} placeholder={t("frontend.version_placeholder")} required containerClassName="flex-[1_1_240px]" />
-                        )}
-                    </div>
-                )}
+                <EnvironmentVersionFields suggestions={versions} />
 
                 {!isDocker && (
                     <div className="border-t border-border pt-4">

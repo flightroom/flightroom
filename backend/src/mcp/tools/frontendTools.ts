@@ -191,7 +191,12 @@ const frontendFields = {
     designSystem: designSystemInput.describe(
         "Its own design system, in place of the project's; null goes back to the project's (or the organization's, when the project has none). Replaced as a whole"
     ),
-    version: z.string().min(1).max(100).optional().describe("Required for a BUNDLE. A DOCKER may omit it: the first version its CI registers sets it"),
+    version: z
+        .string()
+        .min(1)
+        .max(100)
+        .optional()
+        .describe("The latest version, set by hand (or, for a DOCKER, by the first version its CI registers). Never deployed as it is: environmentVersions says what each environment runs"),
     type: z.enum(FrontendType).optional(),
     kind: z
         .enum(FrontendKind)
@@ -232,8 +237,11 @@ const frontendFields = {
             url: z.string().url().optional()
         })
         .optional(),
-    // Only meaningful for a DOCKER
+    // Only meaningful for a DOCKER, but the versions per environment
     ...containerFields,
+    environmentVersions: containerFields.environmentVersions.describe(
+        "The version each environment runs, e.g. 1.4.0 in DEV and 1.3.2 in PROD: for a DOCKER the tag of its image, for a BUNDLE the name of an uploaded bundle (frontend_versions). Required to deploy, whatever its kind: an environment with none does not get it, whatever the version above. Replaced as a whole; null or [] deploys it nowhere. One entry per environment; the next deploy of an environment writes its version"
+    ),
     exposurePath: containerFields.exposurePath.describe(
         "Path the DOCKER frontend is exposed at on the host of every environment (the subdomain of the environment on the domain of the project), e.g. / or /shell; null when it is not exposed. A BUNDLE frontend has none"
     )

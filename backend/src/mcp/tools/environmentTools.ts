@@ -147,7 +147,7 @@ export const environmentTools = [
         name: "environment_promotion_preview",
         title: "Preview version promotion",
         description:
-            "What promoting the versions of one environment to another would change, e.g. from development to UAT: each backend, DOCKER frontend and maintenance agent with the version it runs in the source (from) and in the target (to). One without a version in the source keeps what it runs in the target.",
+            "What promoting the versions of one environment to another would change, e.g. from development to UAT: each backend, frontend and maintenance agent with the version it runs in the source (from) and in the target (to). One without a version in the source keeps what it runs in the target.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ environmentId: objectId("Id of the environment the versions go to"), fromEnvironmentId: objectId("Id of the environment the versions come from") }),

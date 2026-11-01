@@ -93,6 +93,12 @@ describe("EnvironmentPromotionService.promote", () => {
         expect(pipeline.$set.environmentVersions.$concatArrays[1]).toEqual([{ environmentId: new Types.ObjectId(String(uat._id)), version: "1.2.0" }])
     })
 
+    it("promotes every frontend, a BUNDLE as a DOCKER: each serves a version per environment", async () => {
+        await service().preview(String(uat._id), String(dev._id))
+
+        expect(vi.mocked(Frontend.find).mock.calls[0][0]).toEqual({ projectId })
+    })
+
     it("changes only the applications picked", async () => {
         await service().promote(String(uat._id), { from: String(dev._id), applications: [{ kind: "frontend", _id: String(shell._id) }] })
 

@@ -7,7 +7,7 @@ import BuiltBackend from "../models/BuiltBackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
 import DomainRelease, { DomainReleaseStatus, DomainReleaseStep, IDomainRelease, IDomainReleaseMember, IDomainReleaseRollout, IDomainReleaseRolloutApplication } from "../models/DomainReleaseModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend, { FrontendKind } from "../models/FrontendModel"
+import Frontend from "../models/FrontendModel"
 import User, { UserStatus } from "../models/UserModel"
 import { BuildStatus } from "../types/BuildStatusDTO"
 import { DomainBuildRepository } from "../types/DomainDTO"
@@ -374,7 +374,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
     private async updateVersions(release: IDomainRelease) {
         const idsOf = (kind: IDomainReleaseMember["kind"]) => release.members.filter(member => member.kind === kind && member.tagged).map(member => member._id)
         const inDomain = { projectId: release.projectId, domainId: release.domainId }
-        // A container runs it in the environment of the release, in place of the version it had there
+        // Each member runs it in the environment of the release, in place of the version it had there
         // An aggregation pipeline is not cast by mongoose: an ObjectId, or the entry of the environment would never match
         const environmentId = new Types.ObjectId(String(release.environmentId))
         const inEnvironment = [
@@ -390,8 +390,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
                 }
             }
         ]
-        await Frontend.updateMany({ _id: { $in: idsOf("frontend") }, ...inDomain, kind: { $ne: FrontendKind.DOCKER } }, { $set: { version: release.version } })
-        await Frontend.updateMany({ _id: { $in: idsOf("frontend") }, ...inDomain, kind: FrontendKind.DOCKER }, inEnvironment, { updatePipeline: true })
+        await Frontend.updateMany({ _id: { $in: idsOf("frontend") }, ...inDomain }, inEnvironment, { updatePipeline: true })
         await Backend.updateMany({ _id: { $in: idsOf("backend") }, ...inDomain }, inEnvironment, { updatePipeline: true })
     }
 }

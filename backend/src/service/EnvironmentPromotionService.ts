@@ -3,13 +3,13 @@ import { createBusinessException } from "../errors/BusinessException"
 import { EnvironmentNotFoundError } from "../errors/EnvironmentNotFoundError"
 import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend, { FrontendKind } from "../models/FrontendModel"
+import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import { EnvironmentVersion, versionIn } from "../types/EnvironmentVersions"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 
-/** The applications that run a version per environment: a backend, a DOCKER frontend, a maintenance agent */
+/** The applications that run a version per environment: a backend, a frontend of either kind, a maintenance agent */
 export const PROMOTION_KINDS = ["backend", "frontend", "maintenanceAgent"] as const
 export type PromotionKind = (typeof PROMOTION_KINDS)[number]
 
@@ -119,9 +119,7 @@ class EnvironmentPromotionService extends BaseAuthorizedService {
         const fields = { name: 1, slug: 1, environmentVersions: 1 }
         const [backends, frontends, agents] = await Promise.all([
             Backend.find(inScope, fields).sort({ name: 1 }).lean<Promotable[]>(),
-            Frontend.find({ ...inScope, kind: FrontendKind.DOCKER }, fields)
-                .sort({ name: 1 })
-                .lean<Promotable[]>(),
+            Frontend.find(inScope, fields).sort({ name: 1 }).lean<Promotable[]>(),
             MaintenanceAgent.find(inScope, fields).sort({ name: 1 }).lean<Promotable[]>()
         ])
         return [...promotionRows("backend", backends, fromId, toId), ...promotionRows("frontend", frontends, fromId, toId), ...promotionRows("maintenanceAgent", agents, fromId, toId)]

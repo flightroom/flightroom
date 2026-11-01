@@ -116,10 +116,6 @@ export class FrontendService extends BaseAuthorizedService {
         await ensureAttachableMaps(scope, projectIdObj, frontend)
         ensureOnlyNewRepositoryLinked(scope, frontend.codeRepository)
         ensureRequestsWithinLimits(frontend, undefined, "FRONTEND_INVALID")
-        // A DOCKER starts without one, like a backend: its first registered version sets it
-        if (dto.kind !== FrontendKind.DOCKER && (typeof dto.version !== "string" || !dto.version.trim())) {
-            throw createBusinessException({ code: "BUNDLE_VERSION_REQUIRED", message: "A BUNDLE frontend needs a version" })
-        }
         // A maintenance agent's values file is named after its slug as well, next to the frontend's
         if ((await Frontend.exists({ slug: frontend.slug, projectId: projectIdObj })) || (await MaintenanceAgent.exists({ slug: frontend.slug, projectId: projectIdObj }))) {
             throw createBusinessException({

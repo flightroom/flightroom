@@ -3,6 +3,7 @@ import { Model, QueryFilter } from "mongoose"
 import AiModel, { AI_MODEL_SECRET_PATHS } from "../models/AiModelModel"
 import Backend from "../models/BackendModel"
 import CodeRepository, { CODE_REPOSITORY_SECRET_PATHS } from "../models/CodeRepositoryModel"
+import Configuration from "../models/ConfigurationModel"
 import Database, { DATABASE_SECRET_PATHS } from "../models/DatabaseModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
@@ -80,23 +81,50 @@ export const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<v
     }
 }
 
+/** Written once the BUNDLE frontends got the version each environment serves: they are not seeded again */
+export const BUNDLE_VERSIONS_SEEDED = "migration.bundle-environment-versions"
+
 /**
  * Gives the backends, the DOCKER frontends and the maintenance agents made before a version was set per environment the
  * one each environment runs: what its current deployment recorded, else the version of the application, which every
  * deploy wrote before. Without it, an environment would no longer get them. A document is seeded once: those made since
  * hold the field, empty or not.
+ *
+ * The BUNDLE frontends got theirs later, when they already held an empty list: those with none are seeded the same way,
+ * once for the whole installation, as the configuration BUNDLE_VERSIONS_SEEDED records. A marker rather than the empty
+ * list, which a BUNDLE created since, or taken out of every environment, holds on purpose. Written last, so that a run cut
+ * short is taken again: each document is written only while its list is still empty, so a second run changes nothing.
  */
 export const seedEnvironmentVersions = async (logger: FastifyBaseLogger): Promise<void> => {
     const unseeded = { environmentVersions: { $exists: false } }
+    // No kind: a BUNDLE stored before the kind existed
+    const unseededBundles = { kind: { $ne: FrontendKind.DOCKER }, $or: [unseeded, { environmentVersions: { $size: 0 } }] }
+    const bundlesSeeded = Boolean(await Configuration.exists({ name: BUNDLE_VERSIONS_SEEDED }))
     const fields = { projectId: 1, version: 1 }
     type Unseeded = { _id: unknown; projectId: unknown; version?: string }
     const kinds = [
-        { label: "backend", model: Backend, snapshot: "backends" as const, documents: await Backend.find(unseeded, fields).lean<Unseeded[]>() },
-        { label: "frontend", model: Frontend, snapshot: "frontends" as const, documents: await Frontend.find({ ...unseeded, kind: FrontendKind.DOCKER }, fields).lean<Unseeded[]>() },
+        { label: "backend", model: Backend, snapshot: "backends" as const, filter: unseeded, documents: await Backend.find(unseeded, fields).lean<Unseeded[]>() },
+        {
+            label: "frontend",
+            model: Frontend,
+            snapshot: "frontends" as const,
+            filter: { ...unseeded, kind: FrontendKind.DOCKER },
+            documents: await Frontend.find({ ...unseeded, kind: FrontendKind.DOCKER }, fields).lean<Unseeded[]>()
+        },
+        {
+            label: "BUNDLE frontend",
+            model: Frontend,
+            snapshot: "frontends" as const,
+            filter: unseededBundles,
+            documents: bundlesSeeded ? [] : await Frontend.find(unseededBundles, fields).lean<Unseeded[]>()
+        },
         // Not recorded by a deployment: every deploy wrote its version
-        { label: "maintenance agent", model: MaintenanceAgent, snapshot: undefined, documents: await MaintenanceAgent.find(unseeded, fields).lean<Unseeded[]>() }
+        { label: "maintenance agent", model: MaintenanceAgent, snapshot: undefined, filter: unseeded, documents: await MaintenanceAgent.find(unseeded, fields).lean<Unseeded[]>() }
     ]
-    if (kinds.every(kind => kind.documents.length === 0)) return
+    const markBundlesSeeded = async () => {
+        if (!bundlesSeeded) await Configuration.updateOne({ name: BUNDLE_VERSIONS_SEEDED }, { $setOnInsert: { value: new Date().toISOString() } }, { upsert: true })
+    }
+    if (kinds.every(kind => kind.documents.length === 0)) return markBundlesSeeded()
 
     // The current deployment of each environment of a project, read once per project
     type Recorded = { _id: unknown; version?: string }
@@ -116,17 +144,18 @@ export const seedEnvironmentVersions = async (logger: FastifyBaseLogger): Promis
         return current
     }
 
-    for (const { label, model, snapshot, documents } of kinds) {
+    for (const { label, model, snapshot, filter, documents } of kinds) {
         for (const document of documents) {
             const environmentVersions = (await currentOf(document.projectId)).flatMap(environment => {
                 const recorded = snapshot ? environment[snapshot].find(application => String(application._id) === String(document._id))?.version : undefined
                 const version = recorded?.trim() || document.version?.trim()
                 return version ? [{ environmentId: environment._id, version }] : []
             })
-            await (model as unknown as Model<Record<string, unknown>>).updateOne({ _id: document._id, ...unseeded }, { $set: { environmentVersions } })
+            await (model as unknown as Model<Record<string, unknown>>).updateOne({ _id: document._id, ...filter }, { $set: { environmentVersions } })
         }
         if (documents.length > 0) logger.info(`Set the version each environment runs on ${documents.length} ${label}(s)`)
     }
+    await markBundlesSeeded()
 }
 
 /** The days of a cron `weekdays`, e.g. `1-5`, `1,3,5` or `*`; a range backwards goes round the week, as it did in the editor */

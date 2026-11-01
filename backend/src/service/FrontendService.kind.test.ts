@@ -88,11 +88,33 @@ describe("FrontendService.create, kind", () => {
         expect((write.mock.calls[0][0] as Record<string, unknown>).version).toBeUndefined()
     })
 
-    it("given a BUNDLE without a version, when it is created, then it is refused", async () => {
+    it("given a BUNDLE without a version, when it is created, then it is written without one: each environment sets the bundle it serves", async () => {
+        const write = await create({ version: undefined })
+
+        expect((write.mock.calls[0][0] as Record<string, unknown>).version).toBeUndefined()
+    })
+
+    it("given a BUNDLE with a version per environment, when it is created, then each is written trimmed and a blank one left out", async () => {
+        const dev = new Types.ObjectId()
+        const prod = new Types.ObjectId()
+        vi.spyOn(Environment, "find").mockResolvedValue([{ _id: dev }, { _id: prod }] as never)
+
+        const write = await create({
+            environmentVersions: [
+                { environmentId: String(dev), version: " 1.2.0 " },
+                { environmentId: String(prod), version: "" }
+            ]
+        } as Partial<FrontendDTO>)
+
+        expect((write.mock.calls[0][0] as Record<string, unknown>).environmentVersions).toEqual([{ environmentId: String(dev), version: "1.2.0" }])
+    })
+
+    it("given a BUNDLE with a version per environment that is no bundle name, when it is created, then it is refused", async () => {
         const service = new FrontendService()
         vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
+        const dto = { name: "Cart", slug: "cart", environmentVersions: [{ environmentId: String(new Types.ObjectId()), version: "../1.0.0/x" }] }
 
-        expect(await codeOf(service.create({ name: "Cart", slug: "cart" } as FrontendDTO, String(projectId)))).toBe("BUNDLE_VERSION_REQUIRED")
+        expect(await codeOf(service.create(dto as unknown as FrontendDTO, String(projectId)))).toBe("BACKEND_VERSION_INVALID")
     })
 
     it("given an update operator, when a frontend is created, then it is refused as a frontend", async () => {

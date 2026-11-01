@@ -77,7 +77,6 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                 path: t("backends.path_invalid"),
                 exposurePath: t("backends.exposure_path_invalid"),
                 exposurePathRequired: t("backends.exposure_path_required"),
-                versionRequired: t("frontend.validation.version_required"),
                 versionInvalid: t("backends.version_invalid"),
                 hostUrlRequired: t("frontend.validation.host_url_required"),
                 canaryPercentage: t("frontend.validation.canary_percentage"),
@@ -115,11 +114,6 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
     const kind = form.watch("kind")
     const isDocker = kind === FrontendKind.DOCKER
     const designSystemOverride = form.watch("designSystemOverride")
-
-    // A new DOCKER starts with no version, which its pipeline or this form sets; a new BUNDLE starts at 1.0.0
-    useEffect(() => {
-        if (!isEdit) form.setValue("version", isDocker ? "" : "1.0.0")
-    }, [isDocker, isEdit, form])
 
     const { shownTab, selectTab, tabHasErrors, onInvalid } = useFrontendFormTabs({ form, isEdit, isDocker })
 

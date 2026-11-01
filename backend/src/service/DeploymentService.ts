@@ -173,10 +173,9 @@ class DeploymentService extends BaseAuthorizedService {
 
         const scope = await this.deployScope(environment.projectId, domainId, session)
         const inScope = { projectId: environment.projectId, ...(scope && { domainId: { $in: scope.map(id => toObjectId(id)) } }) }
-        // A container is recorded at the version of the environment, the one GitOps writes there: none when it sets none
-        const frontend = (await Frontend.find(inScope).session(session || null)).map(item =>
-            item.kind === FrontendKind.DOCKER ? { ...item.toObject(), version: versionIn(item, environment._id) } : item
-        )
+        // Recorded at the version of the environment, the one GitOps writes there for a container and the bundle served
+        // there for a BUNDLE: none when it sets none
+        const frontend = (await Frontend.find(inScope).session(session || null)).map(item => ({ ...item.toObject(), version: versionIn(item, environment._id) }))
         // With GitOps on, the deploy commits the values of these backends at this version
         const backend: IDeployedBackend[] = (
             await Backend.find(inScope, { slug: 1, name: 1, domainId: 1, version: 1, environmentVersions: 1, image: 1, exposurePath: 1 })
@@ -220,6 +219,9 @@ class DeploymentService extends BaseAuthorizedService {
             variables = previous.variables ?? []
             storages = previous.storages ?? []
         }
+        // A BUNDLE with no version in the environment is not served there: left out once merged, so that the deploy of
+        // a domain does not carry over the version it had
+        frontends = frontends.filter(item => (item as IFrontend).kind === FrontendKind.DOCKER || (item as IFrontend).version)
 
         const deployment = await new Deployment({
             environmentId: environment._id,

@@ -546,7 +546,9 @@ describe("project-level writes of a domain-scoped member", () => {
 
 describe("deployment of a domain-scoped member", () => {
     const environmentId = newId()
-    const own = { _id: newId(), slug: "cart", version: "2.0.0" }
+    /** As Frontend.find hands it back: the deploy copies it with toObject */
+    const asDocument = <T extends Record<string, unknown>>(fields: T) => ({ ...fields, toObject: () => ({ ...fields }) })
+    const own = asDocument({ _id: newId(), slug: "cart", version: "2.0.0", environmentVersions: [{ environmentId, version: "2.0.0" }] })
     const othersServed = { _id: newId(), slug: "catalog", version: "1.0.0" }
     const ownServed = { _id: own._id, slug: "cart", version: "1.0.0" }
     const ownBackend = { _id: newId(), slug: "cart-be", version: "3.0.0", environmentVersions: [{ environmentId, version: "3.0.0" }], domainId: OWN_DOMAIN }
@@ -603,7 +605,7 @@ describe("deployment of a domain-scoped member", () => {
     })
 
     it("Given frontends of their domains added, deleted, or moved out of their reach since, when a scoped member deploys, then the new one ships, the deleted one goes and the moved one keeps its version", async () => {
-        const added = { _id: newId(), slug: "reviews", version: "1.0.0" }
+        const added = asDocument({ _id: newId(), slug: "reviews", version: "1.0.0", environmentVersions: [{ environmentId, version: "1.0.0" }] })
         const deleted = { _id: newId(), slug: "wishlist", version: "1.0.0", domainId: OWN_DOMAIN }
         const moved = { _id: newId(), slug: "search", version: "1.0.0", domainId: OWN_DOMAIN }
         // Moved by someone of the whole project to a domain out of the scope: it still exists, unlike the deleted one
@@ -643,6 +645,27 @@ describe("deployment of a domain-scoped member", () => {
         const { environmentVersions: _, ...recorded } = ownBackend
         expect(saved?.backends).toEqual([recorded])
         expect(saved?.variables).toEqual([{ key: "API_URL", value: "unreleased" }])
+    })
+
+    it("Given a BUNDLE with a version of its own in the environment, when it is deployed, then it is recorded at that version and not at the latest one", async () => {
+        const bundle = asDocument({ _id: newId(), slug: "checkout", kind: FrontendKind.BUNDLE, version: "3.0.0", environmentVersions: [{ environmentId, version: "2.5.0" }] })
+        vi.mocked(Frontend.find).mockImplementation((() => queryResult([bundle])) as never)
+        serving(null)
+
+        await new DeploymentService(memberOf()).createRaw(String(environmentId))
+
+        expect(served()).toEqual(["checkout@2.5.0"])
+    })
+
+    it("Given a BUNDLE with no version in the environment, when it is deployed, then the environment does not serve it, nor keeps the version it served", async () => {
+        const elsewhere = newId()
+        const bundle = asDocument({ _id: own._id, slug: "cart", kind: FrontendKind.BUNDLE, version: "3.0.0", environmentVersions: [{ environmentId: elsewhere, version: "3.0.0" }] })
+        vi.mocked(Frontend.find).mockImplementation((() => queryResult([bundle])) as never)
+        serving({ frontends: [ownServed, othersServed], variables: [], storages: [] })
+
+        await new DeploymentService(memberOf([OWN_DOMAIN])).createRaw(String(environmentId))
+
+        expect(served()).toEqual(["catalog@1.0.0"])
     })
 
     it("Given config maps and secrets of the project, when a scoped member deploys, then the snapshot records the config maps with their values in the environment and the secrets by key only", async () => {

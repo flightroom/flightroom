@@ -9,7 +9,6 @@ export interface FormMessages extends ResourceMessages {
     path: string
     exposurePath: string
     exposurePathRequired: string
-    versionRequired: string
     versionInvalid: string
     hostUrlRequired: string
     canaryPercentage: string
@@ -36,9 +35,8 @@ export const createFormSchema = (messages: FormMessages) => {
             // Off, the frontend builds with the design system of the project, else the organization's
             designSystemOverride: z.boolean().default(false),
             designSystem: z.object({ packageName: z.string(), version: z.string(), docsUrl: z.string(), npmrc: z.string(), notes: z.string() }).partial().optional(),
-            // Required below for a BUNDLE only: a DOCKER frontend's is set here or by its pipeline on the first registration
+            // Never deployed as it is: each environment runs the version it sets in environmentVersions
             version: z.string().optional(),
-            customVersion: z.string().optional(),
             continuousDeployment: z.boolean().default(false),
 
             // Hosting Information
@@ -68,6 +66,7 @@ export const createFormSchema = (messages: FormMessages) => {
             environmentResources: z
                 .array(z.object({ environmentId: z.string(), cpuRequest: z.string(), cpuLimit: z.string(), memoryRequest: z.string(), memoryLimit: z.string(), replicas: z.string() }))
                 .optional(),
+            // Either kind: the tag of the image for a DOCKER, the name of an uploaded bundle for a BUNDLE
             environmentVersions: z.array(z.object({ environmentId: z.string(), version: z.string() })).optional(),
             exposed: z.boolean().optional(),
             exposurePath: z.string().optional(),
@@ -133,6 +132,12 @@ export const createFormSchema = (messages: FormMessages) => {
                     ctx.addIssue({ code: "custom", message: messages.designSystemDocsUrlInvalid, path: ["designSystem", "docsUrl"] })
                 }
             }
+            // The same rule for both kinds, a tag or the name of a bundle: it is a path segment of the bundle too
+            data.environmentVersions?.forEach((entry, index) => {
+                if (entry.version.trim() && !BACKEND_VERSION.test(entry.version.trim())) {
+                    ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["environmentVersions", index, "version"] })
+                }
+            })
             if (data.kind === FrontendKind.DOCKER) {
                 // Its container, with the same rules as a backend: every issue lands on the field it is about
                 const container = containerSchema.safeParse(data)
@@ -145,15 +150,7 @@ export const createFormSchema = (messages: FormMessages) => {
                 if (data.version?.trim() && !BACKEND_VERSION.test(data.version.trim())) {
                     ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["version"] })
                 }
-                data.environmentVersions?.forEach((entry, index) => {
-                    if (entry.version.trim() && !BACKEND_VERSION.test(entry.version.trim())) {
-                        ctx.addIssue({ code: "custom", message: messages.versionInvalid, path: ["environmentVersions", index, "version"] })
-                    }
-                })
                 return
-            }
-            if (!data.version) {
-                ctx.addIssue({ code: "custom", message: messages.versionRequired, path: ["version"] })
             }
             if (data.host.type === "CUSTOM_URL" && !data.host.url) {
                 ctx.addIssue({ code: "custom", message: messages.hostUrlRequired, path: ["host"] })
