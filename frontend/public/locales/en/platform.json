@@ -1057,7 +1057,8 @@
             "https": "Clone via HTTPS",
             "ssh": "Clone via SSH",
             "vscode": "Clone with VS Code",
-            "intellij": "Clone with IntelliJ IDEA"
+            "intellij": "Clone with IntelliJ IDEA",
+            "open_web": "Open the repository"
         },
         "dangerZone": {
             "title": "Danger Zone",

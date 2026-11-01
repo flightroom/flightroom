@@ -1244,7 +1244,8 @@
             "https": "Clona via HTTPS",
             "ssh": "Clona via SSH",
             "vscode": "Clona con VS Code",
-            "intellij": "Clona con IntelliJ IDEA"
+            "intellij": "Clona con IntelliJ IDEA",
+            "open_web": "Apri il repository"
         },
         "noFrontendsFound": "Nessun frontend trovato",
         "ofUsers": "degli utenti",

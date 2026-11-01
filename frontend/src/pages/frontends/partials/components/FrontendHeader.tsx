@@ -3,12 +3,12 @@ import { useTranslation } from "react-i18next"
 import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import LivePreviewButton from "@/components/LivePreviewButton"
-import RepositoryLink from "@/components/RepositoryLink"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import TechnologyBadge from "@/components/technology/TechnologyBadge"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useLivePreview from "@/hooks/useLivePreview"
 import { frontendTechnologyOf } from "@/utils/technologies"
+import CloneRepositoryPopover from "./CloneRepositoryPopover"
 
 /** Edit with AI needs both an AI provider on the installation and a repository the agent can work on. */
 export const isAiEditAvailable = (frontend: Frontend | undefined, assistantEnabled: boolean) => assistantEnabled && Boolean(frontend?.codeRepository?.enabled)
@@ -38,7 +38,7 @@ export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active
                 <>
                     {/* No version: each environment runs its own */}
                     {technology && <TechnologyBadge technology={technology} />}
-                    <RepositoryLink repository={frontend.codeRepository} />
+                    <CloneRepositoryPopover frontend={frontend} link />
                     <TemplateRepositoryLink slug={frontend.template} />
                     <ComponentWorkingAgents componentId={frontend._id} live />
                 </>

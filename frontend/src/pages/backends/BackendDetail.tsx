@@ -9,8 +9,8 @@ import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBra
 import ApplicationLogsSection from "@/components/application-logs/ApplicationLogsSection"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { ApiStatusHandler } from "@/components/organisms"
-import RepositoryLink from "@/components/RepositoryLink"
 import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
+import { CloneRepositoryPopover } from "@/pages/frontends/partials/components"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import { useIsProjectViewer } from "@/store/useProjectStore"
@@ -32,7 +32,7 @@ const BackendRepositorySection: React.FC<{ backend: Backend }> = ({ backend }) =
                 <CardTitle className="mb-0">{t("backends.code_repository")}</CardTitle>
             </CardHeader>
             <CardContent className="pt-3 text-sm">
-                {backend.codeRepository?.enabled ? <RepositoryLink repository={backend.codeRepository} /> : <p className="text-foreground-secondary">{t("backends.no_repository")}</p>}
+                {backend.codeRepository?.enabled ? <CloneRepositoryPopover frontend={backend} link /> : <p className="text-foreground-secondary">{t("backends.no_repository")}</p>}
             </CardContent>
         </Card>
     )

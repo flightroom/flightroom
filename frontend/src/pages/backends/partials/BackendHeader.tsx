@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next"
 import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
-import RepositoryLink from "@/components/RepositoryLink"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
+import { CloneRepositoryPopover } from "@/pages/frontends/partials/components"
 import RuntimeBadge from "./RuntimeBadge"
 
 interface BackendHeaderProps {
@@ -33,7 +33,7 @@ export const BackendHeader: React.FC<BackendHeaderProps> = ({ backend, active, a
                 <>
                     {/* No version: each environment runs its own */}
                     <RuntimeBadge backend={backend} />
-                    <RepositoryLink repository={backend.codeRepository} />
+                    <CloneRepositoryPopover frontend={backend} link />
                     <TemplateRepositoryLink slug={backend.template} />
                     <ComponentWorkingAgents componentId={backend._id} live />
                 </>

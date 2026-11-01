@@ -1,8 +1,9 @@
 import { CopyButton, Popover, PopoverContent, PopoverTrigger } from "@flightroom/design-system"
-import { Code, GitBranch, Terminal } from "lucide-react"
+import { Code, ExternalLink, GitBranch, Terminal } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import { ActionTile } from "@/components/EntityCardActions"
+import RepositoryLink, { repositoryWebUrl } from "@/components/RepositoryLink"
 import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { buildGitCloneCommand, buildIntelliJCloneUrl, buildVsCodeCloneUrl } from "@/utils/repositoryCloneUrls"
 
@@ -14,6 +15,8 @@ interface CloneRepositoryPopoverProps {
     iconOnly?: boolean
     /** Renders the trigger as a large square among the actions of a card. */
     tile?: boolean
+    /** Renders the trigger as the name of the repository, as a link to it reads; without clone urls, the link itself. */
+    link?: boolean
 }
 
 interface CloneUrlRowProps {
@@ -48,15 +51,16 @@ const IdeCloneButton: React.FC<IdeCloneButtonProps> = ({ label, href, icon, vari
     </Button>
 )
 
-export const CloneRepositoryPopover: React.FC<CloneRepositoryPopoverProps> = ({ frontend, className, iconOnly = false, tile = false }) => {
+export const CloneRepositoryPopover: React.FC<CloneRepositoryPopoverProps> = ({ frontend, className, iconOnly = false, tile = false, link = false }) => {
     const { t } = useTranslation("platform")
 
     const httpsUrl = frontend.codeRepository?.cloneUrlHttps
     const sshUrl = frontend.codeRepository?.cloneUrlSsh
     const ideUrl = httpsUrl || sshUrl
+    const webUrl = repositoryWebUrl(frontend.codeRepository)
 
     if (!frontend.codeRepository?.enabled || (!httpsUrl && !sshUrl)) {
-        return null
+        return link ? <RepositoryLink repository={frontend.codeRepository} /> : null
     }
 
     return (
@@ -64,6 +68,15 @@ export const CloneRepositoryPopover: React.FC<CloneRepositoryPopoverProps> = ({ 
             <PopoverTrigger asChild>
                 {tile ? (
                     <ActionTile label={t("frontend.clone.button")} icon={<GitBranch />} className={className} />
+                ) : link ? (
+                    <button
+                        type="button"
+                        className={`inline-flex min-w-0 items-center gap-1 underline-offset-4 hover:text-foreground hover:underline ${className ?? ""}`}
+                        title={frontend.codeRepository.name}
+                    >
+                        <GitBranch className="size-3.5 shrink-0" aria-hidden="true" />
+                        <span className="truncate">{frontend.codeRepository.name || t("frontend.clone.button")}</span>
+                    </button>
                 ) : (
                     <Button
                         variant="secondary"
@@ -91,6 +104,15 @@ export const CloneRepositoryPopover: React.FC<CloneRepositoryPopoverProps> = ({ 
                         <IdeCloneButton label={t("frontend.clone.vscode")} href={buildVsCodeCloneUrl(ideUrl)} icon={<Terminal />} variant="primary" />
                         <IdeCloneButton label={t("frontend.clone.intellij")} href={buildIntelliJCloneUrl(ideUrl)} icon={<Code />} variant="secondary" />
                     </>
+                )}
+                {/* Its page on the provider: where clicking its name led before the popover */}
+                {webUrl && (
+                    <Button asChild variant="ghost" size="sm" className="w-full justify-start">
+                        <a href={webUrl} target="_blank" rel="noreferrer">
+                            <ExternalLink />
+                            <span className="truncate">{t("frontend.clone.open_web")}</span>
+                        </a>
+                    </Button>
                 )}
             </PopoverContent>
         </Popover>

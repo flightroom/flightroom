@@ -7,14 +7,13 @@ import ApplicationLogsSection from "@/components/application-logs/ApplicationLog
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
-import RepositoryLink from "@/components/RepositoryLink"
 import useFrontendsApi, { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
 import BackendConfigurationSection from "@/pages/backends/partials/BackendConfigurationSection"
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
-import { FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
+import { CloneRepositoryPopover, FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS, HOST_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
@@ -28,7 +27,7 @@ const FrontendRepositorySection: React.FC<{ frontend: Frontend }> = ({ frontend 
                 <CardTitle className="mb-0">{t("frontend.code_repository")}</CardTitle>
             </CardHeader>
             <CardContent className="pt-3 text-sm">
-                {frontend.codeRepository?.enabled ? <RepositoryLink repository={frontend.codeRepository} /> : <p className="text-foreground-secondary">{t("frontend.overview.no_repository")}</p>}
+                {frontend.codeRepository?.enabled ? <CloneRepositoryPopover frontend={frontend} link /> : <p className="text-foreground-secondary">{t("frontend.overview.no_repository")}</p>}
             </CardContent>
         </Card>
     )
