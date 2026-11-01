@@ -1,6 +1,6 @@
 import { ColorSwatch, SectionHeader, SelectField, SwitchField as Switch, Tabs, TabsContent, TabsList, TabsTrigger, TextareaChipsField } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
-import { ExternalLink, FileText, Globe, LocateFixed, Moon, Shield, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
+import { ExternalLink, FileText, Globe, LocateFixed, Lock, Moon, Shield, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { type FieldErrors, FormProvider, useForm, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -329,7 +329,8 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                             {/* forceMount: i campi delle schede nascoste restano registrati, validati e inviati con gli altri */}
                             <TabsContent value="general" forceMount className="mt-6 data-[state=inactive]:hidden">
                                 <TabSection title={t("environment.page.form.sections.general")} description={t("environment.page.form.descriptions.general")}>
-                                    <div className="flex flex-wrap gap-x-4 gap-y-2">
+                                    {/* Il testo dello slug va sotto il campo: fra etichetta e campo abbasserebbe lo slug rispetto al nome */}
+                                    <div className="grid gap-x-4 gap-y-2 sm:grid-cols-2">
                                         <TextField
                                             name="name"
                                             dataTestId="environment-name"
@@ -339,21 +340,24 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                                 required: t("environment.form.name_required") as string
                                             }}
                                             required
-                                            containerClassName="flex-[1_1_200px]"
                                         />
                                         <TextField
                                             name="slug"
                                             dataTestId="environment-slug"
                                             label={t("environment.form.slug")}
                                             placeholder={t("environment.form.slug_placeholder")}
-                                            description={isEdit ? t("environment.form.slug_locked_description") : undefined}
                                             rules={{
                                                 required: t("environment.form.slug_required") as string
                                             }}
                                             disabled={isEdit}
                                             required
-                                            containerClassName="flex-[1_1_200px]"
                                         />
+                                        {isEdit && (
+                                            <p className="flex items-center gap-1.5 text-sm text-foreground-secondary sm:col-start-2">
+                                                <Lock className="size-3.5 shrink-0" aria-hidden="true" />
+                                                {t("environment.form.slug_locked_description")}
+                                            </p>
+                                        )}
                                     </div>
                                     <TextareaField name="description" label={t("environment.form.description")} placeholder={t("environment.form.description_placeholder")} />
                                     <div className="flex flex-row flex-wrap justify-between gap-4">
