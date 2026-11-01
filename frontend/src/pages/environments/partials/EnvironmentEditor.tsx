@@ -15,7 +15,7 @@ import {
 import { useMutation } from "@tanstack/react-query"
 import { ExternalLink, FileText, Globe, LocateFixed, Lock, Moon, Shield, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useId, useRef, useState } from "react"
-import { Controller, type FieldErrors, FormProvider, useForm, useFormContext } from "react-hook-form"
+import { Controller, type FieldErrors, FormProvider, useController, useForm, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
 import ColorPicker from "@/components/input/ColorPicker.rhf"
@@ -159,8 +159,8 @@ type EditorTab = "general" | "exposure" | "network" | "logs" | "kubeGreen" | "da
 
 /** I campi di ogni scheda: dicono quale scheda ha modifiche non salvate, e su quale portare chi salva con un errore */
 const TAB_FIELDS: Record<Exclude<EditorTab, "danger">, (keyof EnvironmentFormData)[]> = {
-    general: ["name", "slug", "description", "color", "isProduction", "domains"],
-    exposure: ["namespace", "subdomain"],
+    general: ["name", "slug", "description", "color", "isProduction"],
+    exposure: ["subdomain", "namespace", "domains"],
     network: ["ipAllowList"],
     logs: ["logLevel", "logJson"],
     kubeGreen: ["kubeGreen"]
@@ -212,13 +212,75 @@ function LogFormatField() {
     )
 }
 
-/** Una sezione di una scheda: titolo e spiegazione in cima, i campi sotto a tutta larghezza */
+/** Una sezione di una scheda: titolo e spiegazione a sinistra, in alto; i campi a destra */
 function TabSection({ title, description, icon, children, dataTestId }: { title: string; description?: string; icon?: ReactNode; children: ReactNode; dataTestId?: string }) {
     return (
-        <section className="flex flex-col gap-4" data-testid={dataTestId}>
+        // items-start: senza, la cella del titolo si allunga quanto i campi e il titolo finisce a meta' altezza
+        <section className="grid items-start gap-x-10 gap-y-4 lg:grid-cols-[220px_minmax(0,1fr)]" data-testid={dataTestId}>
             <SectionHeader as="h3" title={title} description={description} icon={icon} />
-            <div className="flex min-w-0 flex-col gap-4">{children}</div>
+            <div className="flex min-w-0 flex-col gap-5">{children}</div>
         </section>
+    )
+}
+
+/** Un campo con il suo testo d'aiuto sotto, invece che fra etichetta e campo: i campi restano allineati */
+function WithHelp({ help, helpId, children }: { help: string; helpId?: string; children: ReactNode }) {
+    return (
+        <div className="flex flex-col gap-1.5">
+            {children}
+            <p id={helpId} className="text-sm text-foreground-secondary">
+                {help}
+            </p>
+        </div>
+    )
+}
+
+/** Il sottodominio fra https:// e il dominio del progetto: mentre lo si scrive si legge l'indirizzo intero */
+function SubdomainField({ domain, help }: { domain?: string; help: string }) {
+    const { t } = useTranslation()
+    const inputId = useId()
+    const { field, fieldState } = useController<EnvironmentFormData, "subdomain">({
+        name: "subdomain",
+        // Il backend toglie gli spazi e porta in minuscolo: qui si controlla quello che salverà
+        rules: { validate: value => SUBDOMAIN.test((value ?? "").trim().toLowerCase()) || t("environment.form.subdomain_invalid") }
+    })
+    const affix = "flex shrink-0 items-center bg-muted px-3 font-mono text-sm text-foreground-secondary"
+
+    return (
+        <WithHelp help={help} helpId={`${inputId}-help`}>
+            <Label htmlFor={inputId}>{t("environment.form.subdomain")}</Label>
+            <div
+                className={cn(
+                    "flex overflow-hidden rounded-md border-2 border-input bg-background/75 shadow-input focus-within:border-primary",
+                    fieldState.error && "border-destructive focus-within:border-destructive"
+                )}
+            >
+                <span className={affix} aria-hidden="true">
+                    https://
+                </span>
+                <input
+                    {...field}
+                    id={inputId}
+                    value={field.value ?? ""}
+                    placeholder={t("environment.form.subdomain_placeholder")}
+                    autoComplete="off"
+                    aria-invalid={Boolean(fieldState.error)}
+                    aria-describedby={`${inputId}-help`}
+                    data-testid="environment-subdomain"
+                    className="min-w-0 flex-1 bg-transparent px-3 py-2 font-mono text-sm outline-none placeholder:text-foreground/50"
+                />
+                {domain && (
+                    <span className={affix} aria-hidden="true">
+                        .{domain}
+                    </span>
+                )}
+            </div>
+            {fieldState.error?.message && (
+                <p role="alert" className="text-sm font-medium text-destructive">
+                    {fieldState.error.message}
+                </p>
+            )}
+        </WithHelp>
     )
 }
 
@@ -268,8 +330,16 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
 
     // Senza GitOps i campi di esposizione, rete, log e kube-green non hanno effetto; eliminare vale solo per un ambiente salvato
     const tabs: EditorTab[] = ["general", ...(isGitOpsEnabled ? (["exposure", "network", "logs", "kubeGreen"] as const) : []), ...(isEdit ? (["danger"] as const) : [])]
-    const isTabDirty = (value: EditorTab) => value !== "danger" && TAB_FIELDS[value].some(field => hasDirty(dirtyFields[field]))
-    const isTabInvalid = (value: EditorTab) => value !== "danger" && TAB_FIELDS[value].some(field => field in errors)
+    // I domini delle pagine host stanno in Esposizione; senza GitOps quella scheda non c'e' e tornano in Generale
+    const fieldsOf = (value: EditorTab): (keyof EnvironmentFormData)[] => (value === "danger" ? [] : value === "general" && !isGitOpsEnabled ? [...TAB_FIELDS.general, "domains"] : TAB_FIELDS[value])
+    const isTabDirty = (value: EditorTab) => fieldsOf(value).some(field => hasDirty(dirtyFields[field]))
+    const isTabInvalid = (value: EditorTab) => fieldsOf(value).some(field => field in errors)
+    const namespaceHelpId = useId()
+    const domainsField = (
+        <WithHelp help={t("environment.form.domains_description")}>
+            <TextareaChipsField name="domains" label={t("environment.form.domains")} placeholder={t("environment.form.domains_placeholder")} />
+        </WithHelp>
+    )
 
     useEffect(() => {
         onDirtyChange?.(isDirty)
@@ -310,7 +380,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
 
     // Un errore in una scheda nascosta non si vedrebbe: si apre la prima scheda che ne ha uno
     const onInvalid = (invalid: FieldErrors<EnvironmentFormData>) => {
-        const first = tabs.find(value => value !== "danger" && TAB_FIELDS[value].some(field => field in invalid))
+        const first = tabs.find(value => fieldsOf(value).some(field => field in invalid))
         if (first) setTab(first)
     }
 
@@ -415,46 +485,40 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                         />
                                         <Switch name="isProduction" label={t("environment.is_production")} />
                                     </div>
-                                    <TextareaChipsField
-                                        name="domains"
-                                        label={t("environment.form.domains")}
-                                        placeholder={t("environment.form.domains_placeholder")}
-                                        description={t("environment.form.domains_description")}
-                                    />
+                                    {!isGitOpsEnabled && domainsField}
                                 </TabSection>
                             </TabsContent>
 
                             {isGitOpsEnabled && (
                                 <TabsContent value="exposure" forceMount className="mt-6 data-[state=inactive]:hidden">
                                     <TabSection title={t("environment.page.form.sections.exposure")} description={t("environment.page.form.descriptions.exposure")}>
-                                        <TextField
-                                            name="subdomain"
-                                            dataTestId="environment-subdomain"
-                                            label={t("environment.form.subdomain")}
-                                            placeholder={t("environment.form.subdomain_placeholder")}
-                                            description={
+                                        <SubdomainField
+                                            domain={domain}
+                                            help={
                                                 domain
                                                     ? t("environment.form.subdomain_description", {
                                                           host: exposedHost(domain, effectiveSubdomain({ slug: slug ?? "", subdomain: subdomain?.trim().toLowerCase(), isProduction }))
                                                       })
                                                     : t("environment.form.subdomain_description_no_domain")
                                             }
-                                            // Il backend toglie gli spazi e porta in minuscolo: qui si controlla quello che salverà
-                                            rules={{ validate: value => SUBDOMAIN.test((value ?? "").trim().toLowerCase()) || t("environment.form.subdomain_invalid") }}
                                         />
-                                        <TextField
-                                            name="namespace"
-                                            dataTestId="environment-namespace"
-                                            label={t("environment.form.namespace")}
-                                            placeholder={slug?.toLowerCase() || t("environment.form.namespace_placeholder")}
-                                            description={t("environment.form.namespace_description")}
-                                            rules={{
-                                                pattern: {
-                                                    value: /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)?$/,
-                                                    message: t("environment.form.namespace_invalid")
-                                                }
-                                            }}
-                                        />
+                                        <WithHelp help={t("environment.form.namespace_description")} helpId={namespaceHelpId}>
+                                            <TextField
+                                                name="namespace"
+                                                dataTestId="environment-namespace"
+                                                label={t("environment.form.namespace")}
+                                                placeholder={slug?.toLowerCase() || t("environment.form.namespace_placeholder")}
+                                                aria-describedby={namespaceHelpId}
+                                                className="font-mono"
+                                                rules={{
+                                                    pattern: {
+                                                        value: /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)?$/,
+                                                        message: t("environment.form.namespace_invalid")
+                                                    }
+                                                }}
+                                            />
+                                        </WithHelp>
+                                        {domainsField}
                                     </TabSection>
                                 </TabsContent>
                             )}
