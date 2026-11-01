@@ -26,7 +26,7 @@ import { sandboxLifecycle } from "./aiChangeSandboxes"
 import { AiChangeScriptRunner, ScriptRepository } from "./aiChangeScripts"
 
 export interface StandalonePreviewInput {
-    kind: "frontend" | "domain"
+    kind: "frontend" | "backend" | "domain"
     id: string
 }
 
@@ -44,6 +44,13 @@ const noFrontend = () =>
         statusCode: 422
     })
 
+const noBackend = () =>
+    createBusinessException({
+        code: "OPENSHELL_PREVIEW_NO_BACKEND",
+        message: "This backend has no code repository connected",
+        statusCode: 422
+    })
+
 const tooManyRepositories = () =>
     createBusinessException({
         code: "OPENSHELL_PREVIEW_TOO_MANY_REPOSITORIES",
@@ -52,6 +59,9 @@ const tooManyRepositories = () =>
     })
 
 const isConnected = (component: RepositoryComponent) => Boolean(component.codeRepository?.enabled && component.codeRepository.codeRepositoryId)
+
+/** An API has no page of its own at its root: its preview opens on its docs, when it has some. */
+export const backendPreviewUrl = (url: string, docsPath: string | undefined) => (docsPath ? `${url.replace(/\/+$/, "")}/${docsPath.replace(/^\/+/, "")}` : url)
 
 /** The frontend's own design system, else the project's, else the organization's: the npmrc of the one it builds with. */
 const scriptRepositoryOf = (
@@ -139,6 +149,14 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             components = [fromFrontend(frontend)]
             sources = [frontend]
             domainId = frontend.domainId
+        } else if (input.kind === "backend") {
+            const backend = await Backend.findById(input.id)
+            if (!backend || String(backend.projectId) !== String(projectObjectId)) throw new EntityNotFoundError(input.id)
+            await this.ensureAccessToBackend(backend)
+            await this.ensureNotViewer(backend.projectId, { code: "LIVE_PREVIEW_FORBIDDEN", message: "A viewer cannot start a live preview" })
+            components = [fromBackend(backend)]
+            sources = [backend]
+            domainId = backend.domainId
         } else {
             const domain = await Domain.findById(input.id)
             if (!domain || String(domain.projectId) !== String(projectObjectId)) throw new EntityNotFoundError(input.id)
@@ -152,7 +170,9 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
         }
 
         const connected = components.filter(isConnected)
-        if (!connected.some(component => component.kind === "frontend")) throw noFrontend()
+        // A backend opens on its own server; a frontend or a domain opens on a frontend
+        if (input.kind === "backend" && connected.length === 0) throw noBackend()
+        if (input.kind !== "backend" && !connected.some(component => component.kind === "frontend")) throw noFrontend()
         if (connected.length > 10) throw tooManyRepositories()
 
         const workspaceService = new RepositoryWorkspaceService(this.getUser())
@@ -197,16 +217,24 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
                       await workspaceService.prepare(ordered[index].workspace, ordered[index].workspace.defaultBranch)
                       return startLocked(index + 1)
                   })
-                : this.startRepositories(connected, repositories, runner)
+                : input.kind === "backend"
+                  ? this.startBackend(connected[0] as BackendComponent, repositories[0], runner)
+                  : this.startRepositories(connected, repositories, runner)
         try {
             const url = await startLocked(0)
-            if (!url) throw new Error("The frontend development server could not be started")
+            if (!url) throw new Error("The development server could not be started")
             await StandalonePreviewSession.updateOne({ _id: sessionObjectId }, { $set: { expiresAt: new Date(Date.now() + (await sandboxes.idleMs())) } })
             return { url }
         } catch (error) {
             await StandalonePreviewSession.updateOne({ _id: sessionObjectId }, { $set: { expiresAt: new Date(Date.now() + (await sandboxes.idleMs())) } })
             throw error
         }
+    }
+
+    /** A backend alone: its stack unrecognized and without a preview file, the preview fails saying so. */
+    private async startBackend(component: BackendComponent, repository: ScriptRepository, runner: AiChangeScriptRunner): Promise<string | undefined> {
+        const url = await runner.startPreview(repository, true)
+        return url && backendPreviewUrl(url, component.docsPath)
     }
 
     /**

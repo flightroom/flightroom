@@ -1,6 +1,6 @@
 import useApiClient from "../useApiClient"
 
-type LivePreviewTarget = { kind: "domain" | "frontend"; id: string }
+type LivePreviewTarget = { kind: "domain" | "frontend" | "backend"; id: string }
 
 const useLivePreviewsApi = () => {
     const apiClient = useApiClient()

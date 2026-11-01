@@ -9,7 +9,7 @@ const bodySchema = {
     required: ["kind", "id"],
     additionalProperties: false,
     properties: {
-        kind: { type: "string", enum: ["frontend", "domain"] },
+        kind: { type: "string", enum: ["frontend", "backend", "domain"] },
         id: { type: "string", pattern: "^[a-fA-F0-9]{24}$" }
     }
 }

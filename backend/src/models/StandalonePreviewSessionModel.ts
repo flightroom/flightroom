@@ -2,7 +2,7 @@ import mongoose, { Document, ObjectId, Schema } from "mongoose"
 
 export interface IStandalonePreviewSession extends Document<ObjectId> {
     projectId: Schema.Types.ObjectId
-    targetKind: "frontend" | "domain"
+    targetKind: "frontend" | "backend" | "domain"
     targetId: Schema.Types.ObjectId
     expiresAt: Date
 }
@@ -10,7 +10,7 @@ export interface IStandalonePreviewSession extends Document<ObjectId> {
 const standalonePreviewSessionSchema = new Schema<IStandalonePreviewSession>(
     {
         projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
-        targetKind: { type: String, enum: ["frontend", "domain"], required: true },
+        targetKind: { type: String, enum: ["frontend", "backend", "domain"], required: true },
         targetId: { type: Schema.Types.ObjectId, required: true },
         expiresAt: { type: Date, required: true }
     },

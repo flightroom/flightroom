@@ -7,7 +7,7 @@ import Environment from "../../models/EnvironmentModel"
 import Resource from "../../models/ResourceModel"
 import { ConfigMap, Secret } from "../../models/VariableMapModel"
 import { toObjectId } from "../../utils/mongooseUtils"
-import { previewEnvironments } from "./StandalonePreviewService"
+import { backendPreviewUrl, previewEnvironments } from "./StandalonePreviewService"
 
 const projectId = toObjectId(String(new Types.ObjectId()))
 const devId = new Types.ObjectId()
@@ -69,5 +69,16 @@ describe("previewEnvironments", () => {
 
         expect((await previewEnvironments(projectId, [{ _id: backendId, secretIds: [databaseId] }])).size).toBe(0)
         expect(Secret.find).not.toHaveBeenCalled()
+    })
+})
+
+describe("backendPreviewUrl", () => {
+    it("Given a backend with docs, then its preview opens on them, whatever slashes the two carry", () => {
+        expect(backendPreviewUrl("https://preview.example.test/", "/docs")).toBe("https://preview.example.test/docs")
+        expect(backendPreviewUrl("https://gateway.example.test/sandbox/abc", "api/docs")).toBe("https://gateway.example.test/sandbox/abc/api/docs")
+    })
+
+    it("Given a backend without docs, then its preview opens on its root", () => {
+        expect(backendPreviewUrl("https://preview.example.test/", undefined)).toBe("https://preview.example.test/")
     })
 })

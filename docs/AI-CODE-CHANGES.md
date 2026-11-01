@@ -31,9 +31,11 @@ code repository connected (GitHub, GitLab or Azure DevOps).
 
 ## How it works
 
-**View live preview** in a frontend or domain workspace starts the default branch in an isolated
-OpenShell sandbox, without creating an AI job. On a domain it starts the connected frontend and
-backend repositories together; the preview URL is the sandbox's frontend, not a deployed environment.
+**View live preview** in a frontend, backend or domain workspace starts the default branch in an isolated
+OpenShell sandbox, without creating an AI job, and shows only while the OpenShell gateway is online. On a
+domain it starts the connected frontend and backend repositories together; the preview URL is the sandbox's
+frontend, not a deployed environment. On a backend it starts that backend alone and opens on its docs path,
+else on its root.
 The sandbox is removed after the configured OpenShell idle period.
 
 1. The request is stored and a background job starts; the console follows it by polling.
@@ -451,7 +453,7 @@ are the repository's code, and the console holds the repository tokens, the data
   by default; set `OPENSHELL_PREVIEWS_ENABLED=false` to disable them. The preview process runs
   only until the conversation is idle: then its folder, or the whole sandbox, is swept. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
   the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
-  otherwise. The **View live preview** button in frontend and domain workspaces starts its own preview from the
+  otherwise. The **View live preview** button in frontend, backend and domain workspaces starts its own preview from the
   default branch, without an AI job (see [How it works](#how-it-works)); its URL is the sandbox's, not a
   deployed environment URL. Frontends that call a
   backend should use their normal local development proxy to the backend's configured port.

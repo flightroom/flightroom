@@ -1,13 +1,12 @@
 import { useMutation } from "@tanstack/react-query"
 import useLivePreviewsApi from "@/hooks/apiClients/useLivePreviewsApi"
 
-const useLivePreview = (target: { kind: "domain"; id: string } | { kind: "frontend"; id?: string }) => {
+const useLivePreview = (target: { kind: "domain" | "frontend" | "backend"; id?: string }) => {
     const api = useLivePreviewsApi()
     const startMutation = useMutation({
         mutationFn: () => {
-            if (target.kind === "domain") return api.start(target)
-            if (!target.id) throw new Error("The frontend id is unavailable")
-            return api.start({ kind: "frontend", id: target.id })
+            if (!target.id) throw new Error(`The ${target.kind} id is unavailable`)
+            return api.start({ kind: target.kind, id: target.id })
         }
     })
 

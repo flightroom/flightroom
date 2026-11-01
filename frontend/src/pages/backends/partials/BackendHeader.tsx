@@ -4,8 +4,10 @@ import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndi
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import CloneRepositoryPopover from "@/components/CloneRepositoryPopover"
+import LivePreviewButton from "@/components/LivePreviewButton"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
+import useLivePreview from "@/hooks/useLivePreview"
 import RuntimeBadge from "./RuntimeBadge"
 
 interface BackendHeaderProps {
@@ -23,6 +25,7 @@ const PAGE_TITLE_KEY: Record<BackendHeaderProps["active"], string> = { overview:
 export const BackendHeader: React.FC<BackendHeaderProps> = ({ backend, active, actions }) => {
     const { t } = useTranslation()
     const aiAvailable = isBackendAiAvailable(backend, useProjectAiModels().enabled)
+    const livePreview = useLivePreview({ kind: "backend", id: backend._id })
 
     return (
         <WorkspaceHeader
@@ -44,7 +47,12 @@ export const BackendHeader: React.FC<BackendHeaderProps> = ({ backend, active, a
                 { to: `/backend/${backend._id}/overview`, label: t("backends.nav_overview"), icon: Info },
                 { to: `/backend/${backend._id}/settings`, label: t("backends.nav_settings"), icon: Settings }
             ]}
-            actions={actions}
+            actions={
+                <>
+                    <LivePreviewButton start={livePreview.start} isPending={livePreview.isPending} />
+                    {actions}
+                </>
+            }
         />
     )
 }
