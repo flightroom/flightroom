@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793533685.2934532,
-    "ast_hash": "9775b2105963f79ab4c48817c3c99f6f",
+    "mtime": 1793537850.3213334,
+    "ast_hash": "f77df0900ef27694eb0975c1a035e752",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793533685.2920165,
-    "ast_hash": "fe2148fe2f47f7f94db06e26da97697d",
+    "mtime": 1793537850.3226871,
+    "ast_hash": "95887b6d94de8019e028c29003ab3830",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1005,8 +1005,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentList.tsx": {
-    "mtime": 1793464917.4811244,
-    "ast_hash": "2ba4d9160a7155d2751b171415288442",
+    "mtime": 1793537604.4394615,
+    "ast_hash": "272d67dd66e1c164ab95793d2560b2b6",
     "semantic_hash": ""
   },
   "frontend/src/pages/environment-variables/EnvironmentVariables.tsx": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793534562.7866294,
-    "ast_hash": "bbbbed8e0fffd3e8a745099b16188d6f",
+    "mtime": 1793537868.6287766,
+    "ast_hash": "97d2475b60d6839ce7ac0dc058614cc3",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3130,8 +3130,8 @@
     "semantic_hash": ""
   },
   "backend/src/controller/VariableMapController.ts": {
-    "mtime": 1793005820.5243561,
-    "ast_hash": "da1815964315f8eaed095fa73964ce85",
+    "mtime": 1793537795.6840017,
+    "ast_hash": "4405b0e435ba5260db092bb64384bb86",
     "semantic_hash": ""
   },
   "backend/src/models/VariableMapModel.ts": {
@@ -3150,8 +3150,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/VariableMapService.ts": {
-    "mtime": 1793534516.1587913,
-    "ast_hash": "d4484741ef2e72b49ca9f096b6ffa8e0",
+    "mtime": 1793537795.6834524,
+    "ast_hash": "53f6ffd88106c0ff07b22e1ac363b4e0",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/DomainPlanService.test.ts": {
@@ -3165,8 +3165,8 @@
     "semantic_hash": ""
   },
   "backend/src/types/VariableMapDTO.ts": {
-    "mtime": 1793449123.4784963,
-    "ast_hash": "2745dc265257c080fc739e221e37a294",
+    "mtime": 1793537868.6056323,
+    "ast_hash": "5e40aaba5084d6076a295ee5ea9c41ba",
     "semantic_hash": ""
   },
   "backend/src/models/VariableMapModel.test.ts": {
@@ -3175,8 +3175,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/VariableMapService.test.ts": {
-    "mtime": 1793530471.0759325,
-    "ast_hash": "59151eed001e47e9d5c14a4e70b24c0f",
+    "mtime": 1793537807.473016,
+    "ast_hash": "9cb64da33a8ea2ebfd25cc7cf9c3aff0",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainScaffoldDialog.tsx": {
@@ -3185,8 +3185,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useVariableMapsApi.ts": {
-    "mtime": 1793530389.6184137,
-    "ast_hash": "162dc7f661b2b55ac17d76cc25afbcae",
+    "mtime": 1793537850.3185148,
+    "ast_hash": "f696c0a6e8c9b665b4be4a4a6cab4741",
     "semantic_hash": ""
   },
   "frontend/src/pages/variable-maps/partials/VariableEntriesFields.tsx": {
@@ -3195,8 +3195,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/variable-maps/partials/VariableEntriesTable.tsx": {
-    "mtime": 1793449186.9183567,
-    "ast_hash": "5ae4a063be6f2563aa90c729c1d30232",
+    "mtime": 1793537850.3191996,
+    "ast_hash": "69dc655db379ddd20aec7bd03789da7b",
     "semantic_hash": ""
   },
   "frontend/src/pages/variable-maps/partials/variableMaps.ts": {
@@ -4625,8 +4625,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendVariableMapsSection.tsx": {
-    "mtime": 1793005820.624151,
-    "ast_hash": "bbc27adc50d6773801085b763d6c295b",
+    "mtime": 1793537850.3199005,
+    "ast_hash": "1520b58b9f4ff47ba62269ab2a3b53ed",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendVersionsTable.tsx": {
@@ -5837,6 +5837,11 @@
   "frontend/src/pages/backends/partials/ContainerEnvironmentCard.tsx": {
     "mtime": 1793529577.7718203,
     "ast_hash": "7a69feaf4527fe92ec0cf3612bbdd3ae",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/deployments/partials/DeploymentVariableMapCard.tsx": {
+    "mtime": 1793537591.4746392,
+    "ast_hash": "a139d4092ad763703a8edd3b07363bff",
     "semantic_hash": ""
   }
 }
