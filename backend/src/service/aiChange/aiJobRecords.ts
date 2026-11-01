@@ -28,11 +28,13 @@ export const event = (kind: IAiChangeEvent["kind"], message: string) => ({ $push
 /**
  * One progress line, on the job and on each of its requests: the page of every repository stays live.
  * What the model said or thought, and what a script printed, can repeat a secret: masked, as in the assistant's saved answers.
+ * With `endsLiveOutput`, the same write unsets what the script printed while it ran, which its "output" event now holds.
  */
-export const logJobEvent = async (jobId: string, kind: IAiChangeEvent["kind"], message: string) => {
+export const logJobEvent = async (jobId: string, kind: IAiChangeEvent["kind"], message: string, endsLiveOutput = false) => {
     const shown = kind === "text" || kind === "thinking" || kind === "output" ? redactSecrets(message) : message
+    const jobUpdate = endsLiveOutput ? { ...event(kind, shown), $unset: { liveOutput: 1 } } : event(kind, shown)
     // Written side by side: one line per event the agent sends, the job and its requests do not wait on each other.
-    await Promise.all([AiChangeJob.updateOne({ _id: toObjectId(jobId) }, event(kind, shown)), AiChangeRequest.updateMany({ jobId: toObjectId(jobId) }, event(kind, shown))])
+    await Promise.all([AiChangeJob.updateOne({ _id: toObjectId(jobId) }, jobUpdate), AiChangeRequest.updateMany({ jobId: toObjectId(jobId) }, event(kind, shown))])
 }
 
 /** Characters of a running script's output kept on the job: the end, where it is at. */
@@ -69,13 +71,26 @@ export class LiveJobOutput {
         }, LIVE_OUTPUT_EVERY_MS)
     }
 
-    /** Before the next event: what the script printed is in its "output" event from now on. Never throws. */
-    async end() {
+    /**
+     * Before the next event: stops showing what the script prints, its "output" event holds it from now on. Tells
+     * whether the job still shows some, for that event's own write to unset it. Never throws.
+     */
+    async stop() {
         clearTimeout(this.timer)
         this.timer = undefined
         this.text = ""
         this.cut = false
-        if (this.shown) this.write(undefined)
+        this.next = undefined
+        await this.writing
+        const shown = this.shown
+        this.shown = false
+        return shown
+    }
+
+    /** When the run ends, no event follows to unset what the job shows: unset here. Never throws. */
+    async end() {
+        if (!(await this.stop())) return
+        this.write(undefined)
         await this.writing
     }
 

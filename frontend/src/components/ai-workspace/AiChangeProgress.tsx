@@ -137,9 +137,17 @@ export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) 
     )
 }
 
+/** The progress of a job, or of a request of one: a new field of it reaches every page without touching them. */
+export interface JobProgress {
+    events?: AiChangeEvent[]
+    /** What the running script has printed so far. */
+    liveOutput?: string
+}
+
 /** What the agent did, step by step: `live` announces new steps to screen readers. */
-export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean; liveOutput?: string }> = ({ events, live, liveOutput }) => {
+export const ProgressLog: React.FC<{ progress: JobProgress; live: boolean }> = ({ progress, live }) => {
     const { t } = useTranslation()
+    const events = progress.events ?? []
     const containerRef = useRef<HTMLDivElement>(null)
 
     // Newest last, as in a terminal: keep the latest step in view while the agent works.
@@ -190,7 +198,7 @@ export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean; liv
                 )}
             </div>
             {/* Open, unlike a finished script's: an install can run for minutes, its output is what tells it is not stuck. */}
-            {liveOutput && <LiveOutput text={liveOutput} />}
+            {live && progress.liveOutput && <LiveOutput text={progress.liveOutput} />}
         </div>
     )
 }

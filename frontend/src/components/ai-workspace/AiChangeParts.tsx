@@ -2,8 +2,8 @@ import { Alert, AlertDescription, AlertTitle, CardDescription, CardHeader, CardT
 import { AlertTriangle, CheckCircle2, ExternalLink, GitBranch } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
-import type { AiChangeEvent, AiChangeRequest, AiChangeStatus } from "@/hooks/apiClients/useAiChangesApi"
-import { ProgressLog, StatusBadge } from "./AiChangeProgress"
+import type { AiChangeRequest, AiChangeStatus } from "@/hooks/apiClients/useAiChangesApi"
+import { type JobProgress, ProgressLog, StatusBadge } from "./AiChangeProgress"
 import { firstLine } from "./aiWorkspaceUtils"
 
 /** Set on the requests of a job over several repositories: the request is one part of a wider change. */
@@ -63,15 +63,15 @@ export const ActiveStatus: React.FC<{ status: AiChangeStatus }> = ({ status }) =
 }
 
 /** The log of the agent: live while it works, folded away once it is done. */
-export const ProgressSection: React.FC<{ events?: AiChangeEvent[]; live: boolean; liveOutput?: string }> = ({ events, live, liveOutput }) => {
+export const ProgressSection: React.FC<{ progress: JobProgress; live: boolean }> = ({ progress, live }) => {
     const { t } = useTranslation()
-    if (live) return <ProgressLog events={events ?? []} live liveOutput={liveOutput} />
-    if (!events?.length) return null
+    if (live) return <ProgressLog progress={progress} live />
+    if (!progress.events?.length) return null
     return (
         <details className="text-sm">
             <summary className="cursor-pointer text-muted-foreground">{t("frontend.aiChange.show_progress_log")}</summary>
             <div className="mt-2">
-                <ProgressLog events={events} live={false} />
+                <ProgressLog progress={progress} live={false} />
             </div>
         </details>
     )

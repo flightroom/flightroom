@@ -13,7 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **One Log Viewer For The Applications And The Sandboxes**: the logs of a sandbox on the **Installation** page open in the same viewer as the logs of backends, Docker frontends, maintenance agents and domains: 100 to 2000 lines to read (the API now takes up to 2000), a filter, **Follow** on by default (read again every 5 seconds, newest line in sight), JSON lines formatted and a download. The viewer now comes from `@flightroom/design-system` 2.2.0 (`LogViewer`, `LogViewerActions`, `LogLine`), so both pages share one component
+- **One Log Viewer For The Applications And The Sandboxes**: the logs of a sandbox on the **Installation** page open in the same viewer as the logs of backends, Docker frontends, maintenance agents and domains: 100 to 2000 lines to read (the API now takes up to 2000), a filter, **Follow** (read again every 5 seconds, newest line in sight), off until asked as for the applications, JSON lines formatted and a download. The viewer now comes from `@flightroom/design-system` 2.2.0 (`LogViewer`, `LogViewerActions`, `LogLine`), so both pages share one component
 
 ### Fixed
 

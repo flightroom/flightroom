@@ -164,13 +164,13 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
                 {job.startedAt && (active || job.finishedAt) && <JobDuration startedAt={job.startedAt} finishedAt={active ? undefined : job.finishedAt} />}
             </div>
             {active ? (
-                <ProgressLog events={job.events ?? []} live liveOutput={job.liveOutput} />
+                <ProgressLog progress={job} live />
             ) : (
                 Boolean(job.events?.length) && (
                     <details className="text-xs">
                         <summary className="cursor-pointer text-foreground-secondary">{t("frontend.aiChange.show_progress_log")}</summary>
                         <div className="mt-2">
-                            <ProgressLog events={job.events ?? []} live={false} />
+                            <ProgressLog progress={job} live={false} />
                         </div>
                     </details>
                 )

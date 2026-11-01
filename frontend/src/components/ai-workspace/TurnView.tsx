@@ -162,7 +162,7 @@ export const TurnView: React.FC<TurnViewProps> = ({ turn, labelled, superseded, 
 
             {actions}
 
-            <ProgressSection events={job.events} live={active} liveOutput={job.liveOutput} />
+            <ProgressSection progress={job} live={active} />
 
             {/* Live while the agent works: the cost of the job grows with every round. */}
             {(!active || job.usage.inputTokens > 0) && (

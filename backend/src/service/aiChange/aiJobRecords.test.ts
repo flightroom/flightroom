@@ -30,7 +30,17 @@ describe("LiveJobOutput", () => {
         expect(shown).not.toContain("npm_abcdefghijklmnopqrstuvwxyz0123456789")
     })
 
-    it("Given output shown, when the next event comes, then it is unset after the write it follows", async () => {
+    it("Given output shown, when the next event comes, then that event's write is told to unset it, after the write it follows", async () => {
+        const live = new LiveJobOutput(String(jobId))
+        live.add("added 12 packages\n")
+        await vi.advanceTimersByTimeAsync(2_000)
+
+        await expect(live.stop()).resolves.toBe(true)
+        expect(updates()).toEqual([{ $set: { liveOutput: "added 12 packages" } }])
+        await expect(live.stop()).resolves.toBe(false)
+    })
+
+    it("Given output shown, when the run ends, then it is unset", async () => {
         const live = new LiveJobOutput(String(jobId))
         live.add("added 12 packages\n")
         await vi.advanceTimersByTimeAsync(2_000)
@@ -62,6 +72,7 @@ describe("LiveJobOutput", () => {
     it("Given a script ending before the first write, then nothing is written", async () => {
         const live = new LiveJobOutput(String(jobId))
         live.add("done\n")
+        await expect(live.stop()).resolves.toBe(false)
         await live.end()
         await vi.advanceTimersByTimeAsync(5_000)
 

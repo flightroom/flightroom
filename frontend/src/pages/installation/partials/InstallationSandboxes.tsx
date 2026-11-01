@@ -74,7 +74,8 @@ const toViewerLine = (line: SandboxLogLine): LogViewerLine => ({
 })
 
 /**
- * The last lines of the log of one sandbox, in the same viewer as the logs of the applications, followed by default.
+ * The last lines of the log of one sandbox, in the same viewer as the logs of the applications, and like them not
+ * followed until asked: following reads the gateway again every few seconds.
  * One per sandbox opened: another sandbox starts from its own lines and choices, never from those of the last one.
  */
 const SandboxLogsDialog: React.FC<{ name: string; open: boolean; onClose: () => void }> = ({ name, open, onClose }) => {
@@ -82,7 +83,7 @@ const SandboxLogsDialog: React.FC<{ name: string; open: boolean; onClose: () => 
     const labels = useLogViewerLabels()
     const installationApi = useInstallationApi()
     const [tailLines, setTailLines] = useState(500)
-    const [follow, setFollow] = useState(true)
+    const [follow, setFollow] = useState(false)
     // The gateway has no filter: the lines read are filtered here
     const [filter, setFilter] = useState("")
     const logsQuery = useQuery({

@@ -77,7 +77,7 @@ const RequestView: React.FC<RequestViewProps> = ({ request, onRetry, onUpdated, 
                     </div>
                 )}
 
-                <ProgressSection events={request.events} live={active} />
+                <ProgressSection progress={request} live={active} />
 
                 {/* Live while the agent works: the cost of the job grows with every round. */}
                 {(finished || request.usage.inputTokens > 0) && (

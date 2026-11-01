@@ -449,10 +449,7 @@ export class AiChangeJobService extends AiChangeJobQueryService {
                 client,
                 input,
                 {
-                    onEvent: async (kind, message) => {
-                        await liveOutput.end()
-                        await logJobEvent(jobId, kind, message)
-                    },
+                    onEvent: async (kind, message) => logJobEvent(jobId, kind, message, await liveOutput.stop()),
                     onOutput: text => liveOutput.add(text),
                     onUsage: async usage => {
                         onUsage(usage)
