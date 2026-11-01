@@ -348,7 +348,7 @@ export const SandboxTemplates: React.FC<SandboxTemplatesProps> = ({ gatewayConfi
                     <CardDescription>{t("installation.templates.description")}</CardDescription>
                 </div>
                 {gatewayConfigured && (
-                    <Button size="sm" onClick={() => setEditing({ open: true })} dataTestId="installation-template-add">
+                    <Button size="sm" className="shrink-0" onClick={() => setEditing({ open: true })} dataTestId="installation-template-add">
                         <Plus className="size-4" aria-hidden="true" />
                         {t("installation.templates.add")}
                     </Button>
