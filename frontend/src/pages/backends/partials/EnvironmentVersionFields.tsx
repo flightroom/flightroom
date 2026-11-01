@@ -109,7 +109,8 @@ export const EnvironmentVersionsCard: React.FC<{
                                     className="flex flex-col gap-1 rounded-lg border border-divider p-3"
                                     style={environment.color ? { borderTopColor: environment.color, borderTopWidth: 3 } : undefined}
                                 >
-                                    <span className="flex items-center justify-between gap-2 text-sm text-foreground-secondary">
+                                    {/* As tall as the production badge in every tile, so the versions line up */}
+                                    <span className="flex min-h-7 items-center justify-between gap-2 text-sm text-foreground-secondary">
                                         <span className="truncate" title={environment.name}>
                                             {environment.name}
                                         </span>

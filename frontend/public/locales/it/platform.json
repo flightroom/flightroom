@@ -2452,6 +2452,9 @@
             "canary": "Come funziona il rilascio canary?",
             "storage": "Come collego un bucket S3?",
             "argocd": "Come si inizializza Argo CD?",
+            "getting_started": "Da dove inizio?",
+            "create_agent": "Come creo un nuovo agente?",
+            "create_app": "Come creo un'app?",
             "domains": "Quali domini ha il progetto?",
             "frontends": "Quali frontend ci sono e di che tipo?",
             "backends": "Quali backend ci sono e su che runtime?",
@@ -2811,10 +2814,7 @@
         },
         "configuration": {
             "title": "Configurazione",
-            "description": "Come viene eseguito il container del backend",
-            "copy_path": "Copia il percorso",
-            "path_copied": "Percorso copiato",
-            "copy_failed": "Impossibile copiare negli appunti"
+            "description": "Come viene eseguito il container del backend"
         },
         "build": {
             "action": "Crea versione",

@@ -284,6 +284,7 @@
   "282": "ArgoCdService",
   "283": "FrontendDependencyService",
   "284": "fastify.d.ts",
+  "285": "DomainController.test.ts",
   "286": ".getEnvironmentFomRefererAndProjectId",
   "287": "account_activation",
   "288": "ContainerEnvironmentCard.tsx",
@@ -308,6 +309,7 @@
   "307": "GitHub Actions Workflows",
   "308": "[Unreleased]",
   "309": "DeploymentController.ts",
+  "310": "OAuthProjectsPicker.tsx",
   "311": "actions",
   "312": "frontend_card",
   "313": "columns",
@@ -316,6 +318,7 @@
   "316": "useIsDark",
   "317": "[11.2.0] - 2026-10-31",
   "318": "[11.4.0] - 2026-10-31",
+  "319": "projectWizardStateMachine.ts",
   "320": "[11.4.1] - 2026-10-31",
   "321": "[2.2.0] - 2026-08-07",
   "322": "ArgoCdService.test.ts",
@@ -336,7 +339,9 @@
   "337": "AiChangeDiff.tsx",
   "338": "GitHub Logo (Octocat Mark)",
   "339": "[11.3.0] - 2026-10-31",
+  "340": "account_activation",
   "341": "OAuthProjectsPicker.tsx",
+  "342": "ChargeForce",
   "344": "[9.2.0] - 2026-10-28",
   "345": "[8.1.2] - 2026-10-26",
   "346": "ErrorBoundary",
@@ -346,6 +351,5 @@
   "358": "[13.5.0] - 2026-11-01",
   "361": "aiChangeSandboxes.test.ts",
   "368": "GoogleStorageAccount.test.ts",
-  "369": "GithubClient.test.ts",
-  "380": "[8.6.1] - 2026-10-27"
+  "369": "GithubClient.test.ts"
 }

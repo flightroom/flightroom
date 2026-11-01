@@ -55,7 +55,7 @@ const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
     "/deployments": ["deployments", "canary"],
     "/dependencies": ["dependencies"]
 }
-const GENERIC_SUGGESTIONS = ["environments", "ai_usage", "deployments", "live_preview", "canary", "storage", "argocd"]
+const GENERIC_SUGGESTIONS = ["getting_started", "create_agent", "create_app", "environments", "ai_usage", "deployments", "live_preview", "canary", "argocd"]
 
 const shuffled = <T,>(items: T[]) =>
     items
