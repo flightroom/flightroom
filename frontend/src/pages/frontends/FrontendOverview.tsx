@@ -1,6 +1,6 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { Boxes, Info, Rocket, ScrollText, Server, SlidersHorizontal, Variable } from "lucide-react"
+import { Boxes, Info, Rocket, ScrollText, Server, Variable } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
@@ -11,12 +11,13 @@ import { ApiStatusHandler } from "@/components/organisms"
 import useFrontendsApi, { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
 import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
-import BackendConfigurationSection, { BackendEndpointsCard, ContainerEnvSection } from "@/pages/backends/partials/BackendConfigurationSection"
+import { BackendEndpointsCard, ContainerComputeCard, ContainerEnvSection } from "@/pages/backends/partials/BackendConfigurationSection"
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import ContainerEnvironmentCard from "@/pages/backends/partials/ContainerEnvironmentCard"
 import { EnvironmentVersionsCard } from "@/pages/backends/partials/EnvironmentVersionFields"
+import { LogLevelCard } from "@/pages/backends/partials/LogLevelOverrideField"
 import { FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS, HOST_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
@@ -102,13 +103,12 @@ const FrontendHostingSection: React.FC<{ frontend: Frontend; storages: Storage[]
 }
 
 /** A DOCKER frontend has the tabs of a backend, a BUNDLE its release and its hosting */
-const CONTAINER_TABS = ["summary", "configuration", "resources", "logs", "variables"] as const
+const CONTAINER_TABS = ["summary", "resources", "logs", "variables"] as const
 const BUNDLE_TABS = ["summary", "release", "hosting"] as const
 type Tab = (typeof CONTAINER_TABS)[number] | (typeof BUNDLE_TABS)[number]
 
 const TAB_ICONS: Record<Tab, React.ComponentType> = {
     summary: Info,
-    configuration: SlidersHorizontal,
     resources: Boxes,
     logs: ScrollText,
     variables: Variable,
@@ -118,7 +118,6 @@ const TAB_ICONS: Record<Tab, React.ComponentType> = {
 
 const TAB_LABEL_KEYS: Record<Tab, string> = {
     summary: "backends.overview_tabs.summary",
-    configuration: "backends.overview_tabs.configuration",
     resources: "backends.overview_tabs.resources",
     logs: "backends.overview_tabs.logs",
     variables: "backends.overview_tabs.variables",
@@ -183,18 +182,17 @@ const FrontendOverview: React.FC = () => {
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
                             <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} container={isDocker ? frontend : undefined} />
                             {isDocker && <BackendEndpointsCard backend={frontend} environments={environmentsQuery.data ?? []} />}
+                            {/* Above the logs when they have a tab */}
+                            {isDocker && !tabs.includes("logs") && <LogLevelCard value={frontend.logLevel} />}
                             <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
                             {isDocker && <BackendVersionsTable versions={buildsQuery.data ?? []} />}
                         </TabsContent>
 
                         {isDocker ? (
                             <>
-                                <TabsContent value="configuration" className="mt-6 flex flex-col gap-6">
-                                    <BackendConfigurationSection backend={frontend} environments={environmentsQuery.data ?? []} description={t("frontend.overview.container_description")} />
-                                </TabsContent>
-
-                                {/* A frontend uses no resources: its config maps and secrets, and the variables it declares */}
+                                {/* A frontend uses no resources: its replicas, CPU and memory, its config maps and secrets, and the variables it declares */}
                                 <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
+                                    <ContainerComputeCard backend={frontend} environments={environmentsQuery.data ?? []} />
                                     <BackendVariableMapsSection
                                         backend={frontend}
                                         configMaps={configMapsQuery.data ?? []}
@@ -205,6 +203,7 @@ const FrontendOverview: React.FC = () => {
                                 </TabsContent>
 
                                 <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
+                                    <LogLevelCard value={frontend.logLevel} />
                                     <ApplicationLogsSection slug={frontend.slug} environments={environmentsQuery.data ?? []} />
                                 </TabsContent>
 

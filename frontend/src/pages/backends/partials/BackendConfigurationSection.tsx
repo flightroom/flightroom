@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
+import { Card, CardContent, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
 import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
@@ -7,7 +7,6 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { exposedOrigin } from "./backendVariables"
 import { EnvironmentResourcesValue } from "./ContainerResourceFields"
-import { LogLevelValue } from "./LogLevelOverrideField"
 
 /** What a container declares: a backend, or a frontend served by its own container */
 export type ContainerConfiguration = Partial<
@@ -46,7 +45,7 @@ const BackendLink: React.FC<{ href: string; label: string }> = ({ href, label })
 /** A path of the backend under the URL it is exposed at: the exposure path may end with a slash, the paths start with one */
 const joinPath = (base: string, path: string) => base.replace(/\/+$/, "") + path
 
-/** Where the backend answers in each environment, its exposure path on their host, with the docs and the OpenAPI spec reached from there */
+/** The port the backend listens on, and where it answers in each environment: its exposure path on their host, with the docs and the OpenAPI spec reached from there */
 export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; environments: EnvironmentDTO[] }> = ({ backend, environments }) => {
     const { t } = useTranslation()
     const exposure = useProjectStore(state => state.project?.exposure)
@@ -57,7 +56,10 @@ export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; e
             <CardHeader>
                 <CardTitle className="mb-0">{t("backends.urls.title")}</CardTitle>
             </CardHeader>
-            <CardContent className="pt-3">
+            <CardContent className="flex flex-col gap-4 pt-3">
+                <DescriptionList orientation="inline">
+                    <DescriptionItem label={t("backends.port")}>{backend.port ?? "—"}</DescriptionItem>
+                </DescriptionList>
                 {!path ? (
                     <p className="text-sm text-foreground-secondary">{t("backends.urls.not_exposed")}</p>
                 ) : !exposure?.domain ? (
@@ -90,28 +92,17 @@ export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; e
     )
 }
 
-interface BackendConfigurationSectionProps {
-    backend: ContainerConfiguration
-    environments: EnvironmentDTO[]
-    /** Under the title: whose container it is */
-    description?: string
-}
-
-export const BackendConfigurationSection: React.FC<BackendConfigurationSectionProps> = ({ backend, environments, description }) => {
+/** What the container gets in some environments instead of its own: replicas, CPU and memory */
+export const ContainerComputeCard: React.FC<{ backend: ContainerConfiguration; environments: EnvironmentDTO[] }> = ({ backend, environments }) => {
     const { t } = useTranslation()
 
     return (
         <Card>
             <CardHeader>
-                <CardTitle className="mb-0">{t("backends.configuration.title")}</CardTitle>
-                <CardDescription>{description ?? t("backends.configuration.description")}</CardDescription>
+                <CardTitle className="mb-0">{t("backends.compute.title")}</CardTitle>
             </CardHeader>
-            <CardContent className="flex flex-col gap-4 pt-3">
+            <CardContent className="pt-3">
                 <DescriptionList orientation="inline">
-                    <DescriptionItem label={t("backends.port")}>{backend.port ?? "—"}</DescriptionItem>
-                    <DescriptionItem label={t("backends.log_level")}>
-                        <LogLevelValue value={backend.logLevel} />
-                    </DescriptionItem>
                     <DescriptionItem label={t("backends.compute.by_environment.title")}>
                         <EnvironmentResourcesValue entries={backend.environmentResources} environments={environments} />
                     </DescriptionItem>
@@ -149,5 +140,3 @@ export const ContainerEnvSection: React.FC<{ backend: Pick<ContainerConfiguratio
         </Card>
     )
 }
-
-export default BackendConfigurationSection

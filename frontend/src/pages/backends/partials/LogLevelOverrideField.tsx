@@ -1,4 +1,4 @@
-import { Select, SelectContent, SelectControl, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
+import { Card, CardContent, DescriptionItem, DescriptionList, Select, SelectContent, SelectControl, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
 import { Controller, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import LogLevelOption from "@/components/molecules/LogLevelOption"
@@ -47,6 +47,23 @@ export const LogLevelValue: React.FC<{ value?: string | null }> = ({ value }) =>
     const { t } = useTranslation()
 
     return isLogLevel(value) ? <LogLevelOption level={value} /> : <span className="text-foreground-secondary">{t("backends.log_level_inherited")}</span>
+}
+
+/** The log level of a container above its logs, where it is looked for */
+export const LogLevelCard: React.FC<{ value?: string | null }> = ({ value }) => {
+    const { t } = useTranslation()
+
+    return (
+        <Card>
+            <CardContent>
+                <DescriptionList orientation="inline">
+                    <DescriptionItem label={t("backends.log_level")}>
+                        <LogLevelValue value={value} />
+                    </DescriptionItem>
+                </DescriptionList>
+            </CardContent>
+        </Card>
+    )
 }
 
 export default LogLevelOverrideField

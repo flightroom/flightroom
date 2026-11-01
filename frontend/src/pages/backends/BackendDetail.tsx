@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { Boxes, Info, ScrollText, SlidersHorizontal, Variable } from "lucide-react"
+import { Boxes, Info, ScrollText, Variable } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Navigate, useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
@@ -14,7 +14,7 @@ import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import BackendActions from "./partials/BackendActions"
-import BackendConfigurationSection, { BackendEndpointsCard, ContainerEnvSection } from "./partials/BackendConfigurationSection"
+import { BackendEndpointsCard, ContainerComputeCard, ContainerEnvSection } from "./partials/BackendConfigurationSection"
 import BackendHeader, { isBackendAiAvailable } from "./partials/BackendHeader"
 import BackendResourcesSection from "./partials/BackendResourcesSection"
 import BackendVariableMapsSection from "./partials/BackendVariableMapsSection"
@@ -22,6 +22,7 @@ import BackendVersionsTable from "./partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "./partials/backendVariables"
 import ContainerEnvironmentCard from "./partials/ContainerEnvironmentCard"
 import { EnvironmentVersionsCard } from "./partials/EnvironmentVersionFields"
+import { LogLevelCard } from "./partials/LogLevelOverrideField"
 
 /**
  * The landing screen of a backend: Edit with AI on its repository, the same workspace as a frontend's.
@@ -60,10 +61,10 @@ const BackendAiSection: React.FC<{ backendQuery: { isPending: boolean; isError: 
     )
 }
 
-const TABS = ["summary", "configuration", "resources", "logs", "variables"] as const
+const TABS = ["summary", "resources", "logs", "variables"] as const
 type Tab = (typeof TABS)[number]
 
-const TAB_ICONS: Record<Tab, React.ComponentType> = { summary: Info, configuration: SlidersHorizontal, resources: Boxes, logs: ScrollText, variables: Variable }
+const TAB_ICONS: Record<Tab, React.ComponentType> = { summary: Info, resources: Boxes, logs: ScrollText, variables: Variable }
 
 interface BackendDetailProps {
     /** The overview of the backend, or its Edit with AI workspace. */
@@ -104,7 +105,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         // The actions live in Edit with AI: here only when that screen does not exist
                         actions={!aiModels.isPending && !isBackendAiAvailable(backend, aiModels.enabled) && <BackendActions backend={backend} />}
                     />
-                    {/* One concern per tab: what the backend is, how it is configured, what it uses, what it logs, what the running container received. */}
+                    {/* One concern per tab: what the backend is and where it answers, what it uses, what it logs, what the running container received. */}
                     <Tabs value={tab} onValueChange={value => setSearchParams({ tab: value }, { replace: true })}>
                         <TabsList aria-label={t("backends.overview_tabs.label")}>
                             {tabs.map(value => {
@@ -121,22 +122,22 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
                             <EnvironmentVersionsCard entries={backend.environmentVersions} environments={environmentsQuery.data ?? []} container={backend} />
                             <BackendEndpointsCard backend={backend} environments={environmentsQuery.data ?? []} />
+                            {/* Above the logs when they have a tab */}
+                            {!tabs.includes("logs") && <LogLevelCard value={backend.logLevel} />}
                             <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
                             <BackendVersionsTable versions={versionsQuery.data ?? []} />
                         </TabsContent>
 
-                        <TabsContent value="configuration" className="mt-6 flex flex-col gap-6">
-                            <BackendConfigurationSection backend={backend} environments={environmentsQuery.data ?? []} />
-                        </TabsContent>
-
                         {/* What the container uses: its resources, config maps and secrets, and the variables it declares */}
                         <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
+                            <ContainerComputeCard backend={backend} environments={environmentsQuery.data ?? []} />
                             <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                             <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                             <ContainerEnvSection backend={backend} />
                         </TabsContent>
 
                         <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
+                            <LogLevelCard value={backend.logLevel} />
                             <ApplicationLogsSection slug={backend.slug} environments={environmentsQuery.data ?? []} />
                         </TabsContent>
 

@@ -1337,8 +1337,7 @@
             "no_repository": "No repository is linked to this frontend.",
             "published_versions": "Published versions",
             "no_versions": "No version published yet.",
-            "hosting_description": "Where Flightroom serves the frontend bundle from",
-            "container_description": "How the frontend container runs"
+            "hosting_description": "Where Flightroom serves the frontend bundle from"
         },
         "overview_tabs": {
             "release": "Release",
@@ -2792,10 +2791,6 @@
             "placeholder": "Architecture, conventions, useful commands...",
             "hint": "AI agents read this before changing the backend code."
         },
-        "configuration": {
-            "title": "Configuration",
-            "description": "How the backend container runs"
-        },
         "build": {
             "action": "Create version",
             "button": "Build",
@@ -2844,7 +2839,6 @@
         "overview_tabs": {
             "label": "Overview tabs",
             "summary": "Summary",
-            "configuration": "Configuration",
             "resources": "Resources",
             "logs": "Logs",
             "variables": "Injected variables"
