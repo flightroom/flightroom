@@ -1,8 +1,21 @@
-import { ColorSwatch, SectionHeader, SelectField, SwitchField as Switch, Tabs, TabsContent, TabsList, TabsTrigger, TextareaChipsField } from "@flightroom/design-system"
+import {
+    ColorSwatch,
+    Label,
+    SectionHeader,
+    SelectField,
+    SwitchField as Switch,
+    Tabs,
+    TabsContent,
+    TabsList,
+    TabsTrigger,
+    TextareaChipsField,
+    ToggleGroup,
+    ToggleGroupItem
+} from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { ExternalLink, FileText, Globe, LocateFixed, Lock, Moon, Shield, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useId, useRef, useState } from "react"
-import { type FieldErrors, FormProvider, useForm, useFormContext } from "react-hook-form"
+import { Controller, type FieldErrors, FormProvider, useForm, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
 import ColorPicker from "@/components/input/ColorPicker.rhf"
@@ -164,6 +177,40 @@ const TAB_ICONS: Record<EditorTab, ReactNode> = {
 
 /** dirtyFields segna true le foglie cambiate, dentro oggetti e array che rispecchiano il form */
 const hasDirty = (value: unknown): boolean => value === true || (typeof value === "object" && value !== null && Object.values(value).some(hasDirty))
+
+/** LOG_JSON come scelta fra due formati, JSON o testo semplice, invece di un interruttore */
+function LogFormatField() {
+    const { t } = useTranslation()
+    const { control } = useFormContext<EnvironmentFormData>()
+    const labelId = useId()
+
+    return (
+        <div className="flex flex-col gap-2">
+            <Label id={labelId}>{t("environment.form.log_format")}</Label>
+            <p className="text-sm text-foreground-secondary">{t("environment.form.log_json_description")}</p>
+            <Controller
+                control={control}
+                name="logJson"
+                render={({ field }) => (
+                    <ToggleGroup
+                        type="single"
+                        variant="outline"
+                        aria-labelledby={labelId}
+                        // Senza valore salvato vale JSON, come il default del backend
+                        value={field.value === false ? "text" : "json"}
+                        // Radix deseleziona con un secondo clic sulla voce attiva: una delle due resta sempre scelta
+                        onValueChange={value => value && field.onChange(value === "json")}
+                        className="justify-start"
+                        dataTestId="environment-log-format"
+                    >
+                        <ToggleGroupItem value="json">{t("environment.form.log_formats.json")}</ToggleGroupItem>
+                        <ToggleGroupItem value="text">{t("environment.form.log_formats.text")}</ToggleGroupItem>
+                    </ToggleGroup>
+                )}
+            />
+        </div>
+    )
+}
 
 /** Una sezione di una scheda: titolo e spiegazione in cima, i campi sotto a tutta larghezza */
 function TabSection({ title, description, icon, children, dataTestId }: { title: string; description?: string; icon?: ReactNode; children: ReactNode; dataTestId?: string }) {
@@ -450,9 +497,9 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                             {isGitOpsEnabled && (
                                 <TabsContent value="logs" forceMount className="mt-6 data-[state=inactive]:hidden">
                                     <TabSection title={t("environment.page.form.sections.logs")} description={t("environment.page.form.descriptions.logs")}>
-                                        <div className="flex flex-row flex-wrap items-start justify-between gap-4">
+                                        <div className="grid items-start gap-x-6 gap-y-4 sm:grid-cols-2">
                                             {/* SelectField non espone un test id: il wrapper dà ai test un aggancio stabile sul trigger. */}
-                                            <div data-testid="environment-log-level" className="flex-[1_1_200px]">
+                                            <div data-testid="environment-log-level">
                                                 <SelectField
                                                     name="logLevel"
                                                     label={t("environment.form.log_level")}
@@ -460,7 +507,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                                     options={LOG_LEVELS.map(level => ({ value: level, label: t(`environment.form.log_levels.${level}`) }))}
                                                 />
                                             </div>
-                                            <Switch name="logJson" label={t("environment.form.log_json")} description={t("environment.form.log_json_description")} />
+                                            <LogFormatField />
                                         </div>
                                     </TabSection>
                                 </TabsContent>

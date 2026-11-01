@@ -1491,6 +1491,8 @@
             "log_levels": { "trace": "Trace", "debug": "Debug", "info": "Info", "warn": "Warn", "error": "Error", "fatal": "Fatal" },
             "log_json": "JSON logs",
             "log_json_description": "Handed to every container as LOG_JSON: true for one JSON object per line, false for plain text.",
+            "log_format": "Log format",
+            "log_formats": { "json": "JSON", "text": "Text" },
             "kube_green": {
                 "description": "Puts the environment to sleep off hours to save resources and energy: from its next deploy GitOps commits SleepInfos to its namespace. The cluster needs the kube-green operator.",
                 "enabled": "Scheduled sleep",

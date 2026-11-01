@@ -893,6 +893,8 @@
             "log_levels": { "trace": "Trace", "debug": "Debug", "info": "Info", "warn": "Warn", "error": "Error", "fatal": "Fatal" },
             "log_json": "Log in JSON",
             "log_json_description": "Passato a ogni container come LOG_JSON: true per un oggetto JSON per riga, false per testo semplice.",
+            "log_format": "Formato dei log",
+            "log_formats": { "json": "JSON", "text": "Testo" },
             "kube_green": {
                 "description": "Spegne l'ambiente fuori orario per risparmiare risorse ed energia: dal prossimo deploy GitOps crea gli SleepInfo nel suo namespace. Il cluster deve avere l'operatore kube-green.",
                 "enabled": "Spegnimento programmato",
