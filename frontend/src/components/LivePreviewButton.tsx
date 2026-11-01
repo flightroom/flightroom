@@ -1,11 +1,30 @@
+import { useQuery } from "@tanstack/react-query"
 import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
+import useAiSandboxApi, { AI_SANDBOX_QUERY_KEY } from "@/hooks/apiClients/useAiSandboxApi"
+import useOrganizationStore from "@/store/useOrganizationStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
+/** The server asks the gateway at most every 30 seconds: polling faster would only read the same answer */
+const SANDBOX_REFRESH_MS = 60_000
+
+/** Starts a preview on the OpenShell gateway, so it is left out while the gateway is not online. */
 const LivePreviewButton: React.FC<{ start: () => Promise<string>; isPending?: boolean }> = ({ start, isPending = false }) => {
     const { t } = useTranslation()
     const notifications = useToastNotificationStore()
+    const organizationId = useOrganizationStore(state => state.organization?._id)
+    const aiSandboxApi = useAiSandboxApi()
+
+    // The same query as the status card of the organization settings, so the two share one answer
+    const sandboxQuery = useQuery({
+        queryKey: [AI_SANDBOX_QUERY_KEY, organizationId],
+        queryFn: () => aiSandboxApi.getStatus(organizationId as string),
+        enabled: Boolean(organizationId),
+        refetchInterval: SANDBOX_REFRESH_MS
+    })
+
+    if (sandboxQuery.data?.status !== "online") return null
 
     return (
         <Button
