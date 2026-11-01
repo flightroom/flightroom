@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.4.0] - 2026-11-01
+
 ### Added
 
 - **Gradle In The Sandboxes**: a repository with `build.gradle` or `build.gradle.kts` and no `gradlew` is checked with `gradle build --no-daemon -q` when the image of the sandbox has Gradle, as one without `mvnw` is with `mvn`; before, it was not checked at all. The default `OPENSHELL_REGISTRY_HOSTS` take `services.gradle.org`, `github.com` and `release-assets.githubusercontent.com`, where the Gradle wrapper downloads its distribution, so `./gradlew` works in a sandbox; a list of your own must add them. The policy changes with them, so warm sandboxes made before are replaced
