@@ -200,7 +200,7 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
                             <TextField<FormValues>
                                 name="previewUrl"
                                 label={t("installation.settings.fields.previewUrl.label")}
-                                placeholder={defaults.previewUrl ?? "https://*.sandbox.example.com"}
+                                placeholder={defaults.previewUrl ?? ""}
                                 description={environmentHint(t("installation.settings.fields.previewUrl.help"), defaults.previewUrl)}
                                 autoComplete="off"
                                 rules={previewUrlRules}
