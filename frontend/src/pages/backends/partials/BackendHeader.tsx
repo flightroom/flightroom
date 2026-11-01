@@ -3,7 +3,6 @@ import { useTranslation } from "react-i18next"
 import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
-import { Badge } from "@/components/atoms"
 import RepositoryLink from "@/components/RepositoryLink"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
@@ -32,9 +31,8 @@ export const BackendHeader: React.FC<BackendHeaderProps> = ({ backend, active, a
             pageTitle={t(PAGE_TITLE_KEY[active])}
             meta={
                 <>
-                    <span className="font-mono">{backend.slug}</span>
+                    {/* No version: each environment runs its own */}
                     <RuntimeBadge backend={backend} />
-                    {backend.version && <Badge variant="outline">{t("backends.version_short", { version: backend.version })}</Badge>}
                     <RepositoryLink repository={backend.codeRepository} />
                     <TemplateRepositoryLink slug={backend.template} />
                     <ComponentWorkingAgents componentId={backend._id} live />

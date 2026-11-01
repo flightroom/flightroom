@@ -2,7 +2,6 @@ import { Info, Settings, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
-import { Badge } from "@/components/atoms"
 import LivePreviewButton from "@/components/LivePreviewButton"
 import RepositoryLink from "@/components/RepositoryLink"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
@@ -37,9 +36,8 @@ export const FrontendHeader: React.FC<FrontendHeaderProps> = ({ frontend, active
             pageTitle={t(PAGE_TITLE_KEY[active])}
             meta={
                 <>
-                    <span className="font-mono">{frontend.slug}</span>
+                    {/* No version: each environment runs its own */}
                     {technology && <TechnologyBadge technology={technology} />}
-                    {frontend.version && <Badge variant="outline">{t("frontend.workspace.version", { version: frontend.version })}</Badge>}
                     <RepositoryLink repository={frontend.codeRepository} />
                     <TemplateRepositoryLink slug={frontend.template} />
                     <ComponentWorkingAgents componentId={frontend._id} live />

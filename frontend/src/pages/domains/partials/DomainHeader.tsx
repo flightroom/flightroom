@@ -25,12 +25,7 @@ export const DomainHeader: React.FC<DomainHeaderProps> = ({ domain, active }) =>
             back={{ to: "/domains", label: t("domains.detail.back") }}
             title={domain.name}
             pageTitle={t(active === "ai" ? "domains.ai.open" : active === "settings" ? "domains.workspace.nav_settings" : "domains.workspace.nav_overview")}
-            meta={
-                <>
-                    <span className="font-mono">{domain.slug}</span>
-                    {domain.description && <span>{domain.description}</span>}
-                </>
-            }
+            meta={domain.description && <span>{domain.description}</span>}
             navLabel={t("domains.workspace.nav_label")}
             // Edit with AI is always there: without an AI provider the workspace says so.
             tabs={[
