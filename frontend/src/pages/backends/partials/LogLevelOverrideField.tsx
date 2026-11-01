@@ -67,7 +67,8 @@ export const LogLevelCard: React.FC<{ value?: string | null; environments: Envir
         <Card>
             <CardContent>
                 <DescriptionList orientation="inline">
-                    <DescriptionItem label={t("backends.log_level")}>
+                    {/* On the baseline, not at the top: the chips are taller than the label, which stays on their first row when they wrap */}
+                    <DescriptionItem label={t("backends.log_level")} className="items-baseline">
                         {isLogLevel(value) ? (
                             <span className="flex flex-wrap items-center gap-2">
                                 <LogLevelChip level={value} />
