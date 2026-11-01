@@ -569,8 +569,6 @@
         "kind_frontend": "Frontend",
         "kind_backend": "Backend",
         "kind_resource": "Resource",
-        "kind_configMap": "Config map",
-        "kind_secret": "Secret",
         "no_domain": "Without a functional domain",
         "config_maps_title": "Config maps",
         "secrets_title": "Secrets",
