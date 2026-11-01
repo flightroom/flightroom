@@ -38,13 +38,18 @@ const previewOf = (message: string): { kind: "frontend" | "backend"; slug: strin
     }
 }
 
-/** The live frontend and API endpoints made available by the OpenShell gateway. */
-export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) => {
+/**
+ * The live frontend and API endpoints made available by the OpenShell gateway. `earlier` are the events of the previous
+ * messages of a conversation: their previews stay on screen until this message starts its own, as their dev servers
+ * keep running in the shared sandbox. A new `revision` reloads the frontend once: a dev server without hot reload
+ * shows the changes of a message when it ends.
+ */
+export const LivePreviews: React.FC<{ events: AiChangeEvent[]; earlier?: AiChangeEvent[]; revision?: string }> = ({ events, earlier = [], revision }) => {
     const { t } = useTranslation()
     const [selectedFrontend, setSelectedFrontend] = useState<string>()
     const [previewOpen, setPreviewOpen] = useState(false)
     const previews = new Map<string, { kind: "frontend" | "backend"; slug: string; url: string }>()
-    for (const event of events) {
+    for (const event of [...earlier, ...events]) {
         const preview = previewOf(event.message)
         if (preview) previews.set(`${preview.kind}:${preview.slug}`, preview)
     }
@@ -122,7 +127,7 @@ export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) 
                     )}
                     {activeFrontend && (
                         <iframe
-                            key={activeFrontend.slug}
+                            key={`${activeFrontend.slug}:${revision ?? ""}`}
                             src={activeFrontend.url}
                             title={t("frontend.aiChange.preview.for", { name: activeFrontend.slug })}
                             sandbox="allow-scripts allow-same-origin allow-forms"

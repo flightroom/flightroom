@@ -100,8 +100,12 @@ export const ConversationThread: React.FC<ConversationThreadProps> = ({ jobId, c
                 status={status}
             />
             <CardContent className="flex flex-col gap-6 pt-3">
-                {/* One preview for the whole conversation: the one of the message being worked on or reviewed. */}
-                <LivePreviews events={current.job.events ?? []} />
+                {/* One preview for the whole conversation: the one of the message being worked on or reviewed, or the previous one until it has its own; reloaded as each message ends. */}
+                <LivePreviews
+                    events={current.job.events ?? []}
+                    earlier={turns.slice(0, turns.indexOf(current)).flatMap(turn => turn.job.events ?? [])}
+                    revision={[...turns].reverse().find(turn => !isAiJobActive(turn.job.status))?.job._id}
+                />
 
                 <ol aria-label={t("frontend.aiChange.conversation_label")} className="flex flex-col gap-8">
                     {turns.map((turn, index) => {

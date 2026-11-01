@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The Log Level Of One Application**: a backend, a DOCKER frontend or a maintenance agent may set a **Log level** of its own, in the **Logs** box of its runtime settings or as `logLevel` of `backend_update`, `frontend_update` and `maintenance_agent_update`, to look into it alone without raising the one of the whole environment. It is handed as `LOG_LEVEL` in every environment instead of the environment's, from the next deploy, and in a live preview too; left on **The environment's**, each environment gives its own as before
 
+### Fixed
+
+- **The Live Preview Stays While The Agent Works On A Follow-Up**: in a conversation of Edit with AI, sending a new message emptied the **Live preview** box, which said the previews would appear once the development servers were ready, for the 20 to 30 seconds the new message took to report them again, on the same URL, as they never stopped in the sandbox. The preview of the previous messages now stays on screen until the new one reports its own, and the changes keep reaching it as they are made. It reloads once as each message ends, so a development server without hot reload shows them too
+- **Two Conversations Of A Shared Sandbox No Longer See Each Other's Preview**: the conversations of a domain share a sandbox, and the preview of each frontend asked for port 5173. Two starting together both found it free; Vite, refused it, took the next port, while the preview was waited for and exposed on 5173, and showed the code of the other conversation. The preview of a frontend now asks for a port of its own in each conversation, between 10000 and 29999, as does the gateway of a domain previewed whole instead of 8000, and Vite is started with `--strictPort`, so it stops instead of moving. A backend keeps its own port, and a preview file its `port`
+
 ## [13.4.0] - 2026-11-01
 
 ### Added

@@ -14,6 +14,7 @@ import {
     checkCommandFor,
     commandFor,
     commandWorkdir,
+    conversationPortOf,
     PREVIEW_FILE,
     PREVIEW_GATEWAY,
     parsePreviewOverride,
@@ -482,10 +483,25 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         await expect(runner.startPreview(repository)).resolves.toBe("https://preview.example.test")
 
         expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))).toEqual([
-            ["sh", "-c", expect.any(String), "/sandbox/logs/shop-preview.log", "/sandbox/previews/shop.pid", "npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
+            [
+                "sh",
+                "-c",
+                expect.any(String),
+                "/sandbox/logs/shop-preview.log",
+                "/sandbox/previews/shop.pid",
+                "npm",
+                "run",
+                "dev",
+                "--",
+                "--host",
+                "0.0.0.0",
+                "--port",
+                String(conversationPortOf("/sandbox/shop")),
+                "--strictPort"
+            ],
             expect.objectContaining({ workdir: "/sandbox/repositories/shop" })
         ])
-        expect(sandbox.exposeService).toHaveBeenCalledWith(5173, expect.stringMatching(/^preview-fe-/))
+        expect(sandbox.exposeService).toHaveBeenCalledWith(conversationPortOf("/sandbox/shop"), expect.stringMatching(/^preview-fe-/))
         expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|frontend|shop|https%3A%2F%2Fpreview.example.test")
         fs.rmSync(dir, { recursive: true, force: true })
     })
@@ -513,8 +529,8 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
 
         await new AiChangeScriptRunner([repository], async () => sandbox, { previewsEnabled: true }).startPreview(repository)
 
-        expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("exec node"))?.[0].slice(3, 5)).toEqual(["/sandbox/previews/shop.pid", "5173"])
-        expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))?.[0].slice(-2)).toEqual(["--port", "41234"])
+        expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("exec node"))?.[0].slice(3, 5)).toEqual(["/sandbox/previews/shop.pid", String(conversationPortOf("/sandbox/shop"))])
+        expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))?.[0].slice(-3)).toEqual(["--port", "41234", "--strictPort"])
         expect(sandbox.exposeService).toHaveBeenCalledWith(41234, expect.stringMatching(/^preview-fe-/))
         fs.rmSync(dir, { recursive: true, force: true })
     })
@@ -529,6 +545,8 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         await new AiChangeScriptRunner([repository], async () => second, { previewsEnabled: true }).startPreview(repository)
 
         expect(first.exposeService.mock.calls[0][1]).not.toBe(second.exposeService.mock.calls[0][1])
+        // Each asks for a port of its own: starting together, they no longer both find 5173 free and race for it.
+        expect(first.exposeService.mock.calls[0][0]).not.toBe(second.exposeService.mock.calls[0][0])
         fs.rmSync(dir, { recursive: true, force: true })
     })
 
@@ -549,15 +567,15 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const vite = previewPlanFor({ slug: "shop", kind: "frontend", workingCopy: workingCopyOf(os.tmpdir()) }, new Set(), { scripts: { dev: "vite", serve: "vite preview" } }, "npm")
         const angular = previewPlanFor({ slug: "shop", kind: "frontend", workingCopy: workingCopyOf(os.tmpdir()) }, new Set(), { scripts: { start: "ng serve" } }, "npm")
         const vueCli = previewPlanFor({ slug: "shop", kind: "frontend", workingCopy: workingCopyOf(os.tmpdir()) }, new Set(), { scripts: { serve: "vue-cli-service serve" } }, "npm")
-        expect(vite?.command).toEqual(["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"])
+        expect(vite?.command).toEqual(["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173", "--strictPort"])
         expect(angular?.command).toEqual(["npm", "run", "start", "--", "--host", "0.0.0.0", "--port", "5173"])
         expect(vueCli?.command).toEqual(["npm", "run", "serve", "--", "--host", "0.0.0.0", "--port", "5173"])
     })
 
     it("Given pnpm or yarn, then the flags of the preview reach the dev server without a `--` it would ignore them after", () => {
         const frontend = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(os.tmpdir()) }
-        expect(previewPlanFor(frontend, new Set(), { scripts: { dev: "vite" } }, "pnpm")?.command).toEqual(["corepack", "pnpm", "run", "dev", "--host", "0.0.0.0", "--port", "5173"])
-        expect(previewPlanFor(frontend, new Set(), { scripts: { dev: "vite" } }, "yarn")?.command).toEqual(["corepack", "yarn", "run", "dev", "--host", "0.0.0.0", "--port", "5173"])
+        expect(previewPlanFor(frontend, new Set(), { scripts: { dev: "vite" } }, "pnpm")?.command).toEqual(["corepack", "pnpm", "run", "dev", "--host", "0.0.0.0", "--port", "5173", "--strictPort"])
+        expect(previewPlanFor(frontend, new Set(), { scripts: { dev: "vite" } }, "yarn")?.command).toEqual(["corepack", "yarn", "run", "dev", "--host", "0.0.0.0", "--port", "5173", "--strictPort"])
     })
 
     it("Given registered Java, Python, Go and .NET stacks, then it chooses their local development servers and ports", () => {

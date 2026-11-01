@@ -197,6 +197,13 @@ export const parsePreviewOverride = (content: string): PreviewOverride => {
     return { start, ...(prepare?.trim() ? { prepare } : {}), ...(port !== undefined ? { port } : {}) }
 }
 
+/**
+ * The port the preview of a frontend asks for in one conversation, out of 10000-29999, below the ephemeral range. Two
+ * conversations of a shared sandbox asking both for 5173 found it free together, and the one that bound second was
+ * waited for on the port of the other, and showed its code. Given the folder of the conversation's copy.
+ */
+export const conversationPortOf = (folder: string) => 10_000 + (Number.parseInt(createHash("sha256").update(folder).digest("hex").slice(0, 8), 16) % 20_000)
+
 const previewPortOf = (repository: ScriptRepository, override?: PreviewOverride) => {
     if (override?.port) return override.port
     if (repository.kind === "frontend") return 5173
@@ -327,6 +334,8 @@ const packagePreview = (repository: ScriptRepository, manifest: PackageManifest,
     const command = commandFor(manager, script)
     // Only npm drops the `--`: pnpm and yarn hand it to the script, and the dev server then ignores the flags after it.
     if (repository.kind === "frontend") command.push(...(manager === "npm" ? ["--"] : []), "--host", "0.0.0.0", "--port", String(port))
+    // Vite takes the next port when its own is held, and the server waited for on it would be another conversation's.
+    if (repository.kind === "frontend" && /\bvite\b/.test(String(scripts[script]))) command.push("--strictPort")
     return {
         command,
         port,
@@ -724,7 +733,11 @@ export class AiChangeScriptRunner {
             await this.send(sandbox, repository)
             const { files, manifest, manager, override } = await this.previewInputsOf(repository)
             const pidfile = `${sandbox.root}/previews/${repository.slug}.pid`
-            const plan = previewPlanFor(repository, files, manifest, manager, await this.freePort(sandbox, pidfile, previewPortOf(repository, override)), override)
+            // The folder of the conversation: two conversations of a shared sandbox preview the same repository apart, on their own port and name.
+            const folder = `${sandbox.root}/${repository.slug}`
+            // A backend keeps its own port, which a server ignoring PORT listens on anyway.
+            const wanted = repository.kind === "frontend" && !override?.port ? conversationPortOf(folder) : previewPortOf(repository, override)
+            const plan = previewPlanFor(repository, files, manifest, manager, await this.freePort(sandbox, pidfile, wanted), override)
             if (!plan) throw new Error(`No development server is known for ${repository.runtime ?? repository.kind}: add ${PREVIEW_FILE} to the repository, with "start" and "port"`)
             if (plan.prepare) {
                 const prepared = await sandbox.exec(plan.prepare, {
@@ -754,8 +767,6 @@ export class AiChangeScriptRunner {
             if (!sandbox.exposeService) throw new Error("The sandbox does not support exposed services")
 
             const kind = repository.kind
-            // The folder of the conversation in the name: two conversations of a shared sandbox preview the same repository apart.
-            const folder = `${sandbox.root}/${repository.slug}`
             const name = `preview-${kind === "frontend" ? "fe" : "be"}-${createHash("sha256").update(folder).digest("hex").slice(0, 8)}`
             url = await sandbox.exposeService(plan.port, name)
         } catch (error) {
@@ -790,7 +801,7 @@ export class AiChangeScriptRunner {
         })
         const sandbox = await this.sandboxForRun()
         const pidfile = `${sandbox.root}/previews/gateway.pid`
-        const port = await this.freePort(sandbox, pidfile, 8000)
+        const port = await this.freePort(sandbox, pidfile, conversationPortOf(`${sandbox.root}/gateway`))
         const log = `${sandbox.root}/logs/gateway-preview.log`
         const started = await sandbox.exec(["sh", "-c", START_PREVIEW, log, pidfile, "node", "-e", PREVIEW_GATEWAY, String(port), String(fallback), ...pairs], {
             timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
