@@ -87,10 +87,8 @@ export const FrontendFlowNode: React.FC<NodeProps<FrontendFlowNodeType>> = ({ da
 
             {/* A row of its own, so a canary chip cannot make one node taller than the node beside it. */}
             <div className="mt-2 flex h-9 items-center gap-1.5 border-t border-divider px-3">
+                {/* No version: each environment serves its own */}
                 <FrontendKindBadge frontend={frontend} className="shrink-0" />
-                <Badge variant="outline" className="shrink-0" title={t("frontend.card.version", { version: frontend.version || "—" })}>
-                    {frontend.version || "—"}
-                </Badge>
                 {canaryLabel && (
                     <Badge className="min-w-0" title={canaryTitle}>
                         <span className="truncate">
