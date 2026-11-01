@@ -2,7 +2,12 @@ import {
     ColorSwatch,
     Label,
     SectionHeader,
-    SelectField,
+    Select,
+    SelectContent,
+    SelectControl,
+    SelectItem,
+    SelectTrigger,
+    SelectValue,
     SwitchField as Switch,
     Tabs,
     TabsContent,
@@ -177,6 +182,57 @@ const TAB_ICONS: Record<EditorTab, ReactNode> = {
 
 /** dirtyFields segna true le foglie cambiate, dentro oggetti e array che rispecchiano il form */
 const hasDirty = (value: unknown): boolean => value === true || (typeof value === "object" && value !== null && Object.values(value).some(hasDirty))
+
+/** I colori dei livelli, come nelle righe dei log: grigio per trace e debug, blu per info, ambra per warn, rosso per error e fatal */
+const LOG_LEVEL_COLORS: Record<LogLevel, { dot: string; text: string }> = {
+    trace: { dot: "bg-muted-foreground/50", text: "text-foreground-secondary" },
+    debug: { dot: "bg-muted-foreground", text: "text-foreground-secondary" },
+    info: { dot: "bg-info", text: "text-info" },
+    warn: { dot: "bg-warning", text: "text-warning" },
+    error: { dot: "bg-destructive", text: "text-destructive" },
+    fatal: { dot: "bg-destructive-active", text: "font-semibold text-destructive-active" }
+}
+
+function LogLevelOption({ level }: { level: LogLevel }) {
+    const { t } = useTranslation()
+    return (
+        <span className={cn("flex items-center gap-2", LOG_LEVEL_COLORS[level].text)}>
+            <span className={cn("size-2.5 shrink-0 rounded-full", LOG_LEVEL_COLORS[level].dot)} aria-hidden="true" />
+            {t(`environment.form.log_levels.${level}`)}
+        </span>
+    )
+}
+
+/** LOG_LEVEL con il colore di ogni livello: SelectField accetta solo etichette di testo */
+function LogLevelField() {
+    const { t } = useTranslation()
+    const { control } = useFormContext<EnvironmentFormData>()
+
+    return (
+        <Controller
+            control={control}
+            name="logLevel"
+            render={({ field }) => (
+                <SelectControl label={t("environment.form.log_level")}>
+                    <Select value={field.value ?? "info"} onValueChange={field.onChange}>
+                        <SelectTrigger dataTestId="environment-log-level">
+                            <SelectValue>
+                                <LogLevelOption level={field.value ?? "info"} />
+                            </SelectValue>
+                        </SelectTrigger>
+                        <SelectContent>
+                            {LOG_LEVELS.map(level => (
+                                <SelectItem key={level} value={level}>
+                                    <LogLevelOption level={level} />
+                                </SelectItem>
+                            ))}
+                        </SelectContent>
+                    </Select>
+                </SelectControl>
+            )}
+        />
+    )
+}
 
 /** LOG_JSON come scelta fra due formati, JSON o testo semplice, invece di un interruttore */
 function LogFormatField() {
@@ -581,15 +637,8 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                 <TabsContent value="logs" forceMount className="mt-6 data-[state=inactive]:hidden">
                                     <TabSection title={t("environment.page.form.sections.logs")} description={t("environment.page.form.descriptions.logs")}>
                                         <div className="grid items-start gap-x-6 gap-y-4 sm:grid-cols-2">
-                                            {/* SelectField non espone un test id: il wrapper dà ai test un aggancio stabile sul trigger. */}
                                             <WithHelp help={t("environment.form.log_level_help")}>
-                                                <div data-testid="environment-log-level">
-                                                    <SelectField
-                                                        name="logLevel"
-                                                        label={t("environment.form.log_level")}
-                                                        options={LOG_LEVELS.map(level => ({ value: level, label: t(`environment.form.log_levels.${level}`) }))}
-                                                    />
-                                                </div>
+                                                <LogLevelField />
                                             </WithHelp>
                                             <LogFormatField />
                                         </div>
