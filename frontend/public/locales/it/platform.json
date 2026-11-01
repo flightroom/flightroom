@@ -2817,7 +2817,8 @@
             "summary": "Riepilogo",
             "configuration": "Configurazione",
             "resources": "Risorse",
-            "logs": "Log"
+            "logs": "Log",
+            "variables": "Variabili iniettate"
         }
     },
     "domains": {

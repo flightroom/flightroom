@@ -37,7 +37,6 @@ import BackendRuntimeFields from "./partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
-import ContainerEnvironmentCard from "./partials/ContainerEnvironmentCard"
 import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
 
@@ -455,13 +454,12 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                         </div>
                     </TabsContent>
 
-                    {/* What the container gets: its own variables, the config maps, secrets and resources attached, and what the running one received */}
+                    {/* What the container gets: its own variables and the config maps, secrets and resources attached. What the running one received is in the overview */}
                     <TabsContent value="variables" forceMount>
                         <div className="flex flex-col gap-6">
                             <BackendEnvFields />
                             <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
                             <BackendResourcesFields resources={resources} />
-                            {id && <ContainerEnvironmentCard kind="backend" id={id} environments={environments} />}
                         </div>
                     </TabsContent>
 

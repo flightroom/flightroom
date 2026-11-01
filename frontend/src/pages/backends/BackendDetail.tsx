@@ -1,6 +1,6 @@
 import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
-import { Boxes, Info, ScrollText, SlidersHorizontal } from "lucide-react"
+import { Boxes, Info, ScrollText, SlidersHorizontal, Variable } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Navigate, useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
@@ -21,6 +21,7 @@ import BackendResourcesSection from "./partials/BackendResourcesSection"
 import BackendVariableMapsSection from "./partials/BackendVariableMapsSection"
 import BackendVersionsTable from "./partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "./partials/backendVariables"
+import ContainerEnvironmentCard from "./partials/ContainerEnvironmentCard"
 
 const BackendRepositorySection: React.FC<{ backend: Backend }> = ({ backend }) => {
     const { t } = useTranslation()
@@ -74,10 +75,10 @@ const BackendAiSection: React.FC<{ backendQuery: { isPending: boolean; isError: 
     )
 }
 
-const TABS = ["summary", "configuration", "resources", "logs"] as const
+const TABS = ["summary", "configuration", "resources", "logs", "variables"] as const
 type Tab = (typeof TABS)[number]
 
-const TAB_ICONS: Record<Tab, React.ComponentType> = { summary: Info, configuration: SlidersHorizontal, resources: Boxes, logs: ScrollText }
+const TAB_ICONS: Record<Tab, React.ComponentType> = { summary: Info, configuration: SlidersHorizontal, resources: Boxes, logs: ScrollText, variables: Variable }
 
 interface BackendDetailProps {
     /** The overview of the backend, or its Edit with AI workspace. */
@@ -93,7 +94,9 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
     // The tab lives in the URL (`?tab=logs`) so that a link can point straight to one of them, as in the settings.
     const [searchParams, setSearchParams] = useSearchParams()
     const requestedTab = searchParams.get("tab")
-    const tab: Tab = TABS.includes(requestedTab as Tab) ? (requestedTab as Tab) : "summary"
+    // A viewer does not read what runs, as with the logs: no tab for the variables the container received
+    const tabs = TABS.filter(value => value !== "variables" || !isViewer)
+    const tab: Tab = tabs.includes(requestedTab as Tab) ? (requestedTab as Tab) : "summary"
 
     const backendQuery = useQuery({ queryKey: ["backend", id], queryFn: () => backendsApi.getSingle(id!), enabled: !!id })
     const versionsQuery = useQuery({ queryKey: ["backend-versions", id], queryFn: () => backendsApi.getVersions(id!), enabled: !!id && view === "overview" })
@@ -116,10 +119,10 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         // The actions live in Edit with AI: here only when that screen does not exist
                         actions={!aiModels.isPending && !isBackendAiAvailable(backend, aiModels.enabled) && <BackendActions backend={backend} />}
                     />
-                    {/* One concern per tab: what the backend is, how it is configured, what it uses, what it logs. */}
+                    {/* One concern per tab: what the backend is, how it is configured, what it uses, what it logs, what the running container received. */}
                     <Tabs value={tab} onValueChange={value => setSearchParams({ tab: value }, { replace: true })}>
                         <TabsList aria-label={t("backends.overview_tabs.label")}>
-                            {TABS.map(value => {
+                            {tabs.map(value => {
                                 const Icon = TAB_ICONS[value]
                                 return (
                                     <TabsTrigger key={value} value={value} dataTestId={`backend-tab-${value}`}>
@@ -147,6 +150,10 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
 
                         <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
                             <ApplicationLogsSection slug={backend.slug} environments={environmentsQuery.data ?? []} />
+                        </TabsContent>
+
+                        <TabsContent value="variables" className="mt-6 flex flex-col gap-6">
+                            <ContainerEnvironmentCard kind="backend" id={backend._id!} environments={environmentsQuery.data ?? []} />
                         </TabsContent>
                     </Tabs>
                 </div>
