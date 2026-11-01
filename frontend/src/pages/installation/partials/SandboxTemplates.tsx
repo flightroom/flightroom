@@ -33,6 +33,7 @@ import { Badge, Button } from "@/components/atoms"
 import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
+import LanguageLogo from "@/components/technology/LanguageLogo"
 import useInstallationApi, {
     INSTALLATION_SANDBOXES_QUERY_KEY,
     SANDBOX_LANGUAGES,
@@ -162,6 +163,10 @@ const TemplateFormDialog: React.FC<TemplateFormDialogProps> = ({ open, onOpenCha
                 notifications.showErrorNotification({ message: t("installation.templates.errors.refused", { reason: refusalOf(error) ?? "" }) })
                 return
             }
+            if (code === "SANDBOX_GATEWAY_FORBIDDEN") {
+                notifications.showErrorNotification({ message: t("installation.templates.errors.forbidden", { reason: refusalOf(error) ?? "" }) })
+                return
+            }
             notifications.showErrorNotification({ message: t(code === "SANDBOX_GATEWAY_NOT_CONFIGURED" ? "installation.templates.errors.no_gateway" : "installation.templates.errors.save_failed") })
         }
     })
@@ -256,7 +261,8 @@ const TemplateFormDialog: React.FC<TemplateFormDialogProps> = ({ open, onOpenCha
                                                 onCheckedChange={checked => toggleLanguage(language, checked === true)}
                                                 dataTestId={`installation-template-language-${language}`}
                                             />
-                                            <Label htmlFor={`${languagesId}-${language}`} className="cursor-pointer">
+                                            <Label htmlFor={`${languagesId}-${language}`} className="flex cursor-pointer items-center gap-1.5">
+                                                <LanguageLogo language={language} />
                                                 {t(`installation.templates.language_names.${language}`)}
                                             </Label>
                                         </div>
@@ -324,8 +330,14 @@ export const SandboxTemplates: React.FC<SandboxTemplatesProps> = ({ gatewayConfi
             queryClient.invalidateQueries({ queryKey: [SANDBOX_TEMPLATES_QUERY_KEY] })
             notifications.showSuccessNotification({ message: t("installation.templates.delete.deleted") })
         },
-        onError: (error: Error) =>
-            notifications.showErrorNotification({ message: t(errorCodeOf(error) === "SANDBOX_TEMPLATE_IN_USE" ? "installation.templates.delete.in_use" : "installation.templates.delete.failed") })
+        onError: (error: Error) => {
+            const code = errorCodeOf(error)
+            if (code === "SANDBOX_GATEWAY_FORBIDDEN") {
+                notifications.showErrorNotification({ message: t("installation.templates.errors.forbidden", { reason: refusalOf(error) ?? "" }) })
+                return
+            }
+            notifications.showErrorNotification({ message: t(code === "SANDBOX_TEMPLATE_IN_USE" ? "installation.templates.delete.in_use" : "installation.templates.delete.failed") })
+        }
     })
 
     return (
@@ -345,6 +357,11 @@ export const SandboxTemplates: React.FC<SandboxTemplatesProps> = ({ gatewayConfi
             <CardContent className="pt-4">
                 {!gatewayConfigured ? (
                     <p className="text-sm text-foreground-secondary">{t("installation.templates.no_gateway")}</p>
+                ) : templatesQuery.error && errorCodeOf(templatesQuery.error) === "SANDBOX_GATEWAY_FORBIDDEN" ? (
+                    // The gateway says which role this installation lacks and the command that grants it
+                    <Alert variant="warning" data-testid="installation-templates-forbidden">
+                        <AlertDescription className="break-words">{t("installation.templates.errors.forbidden", { reason: refusalOf(templatesQuery.error) ?? "" })}</AlertDescription>
+                    </Alert>
                 ) : templatesQuery.data === undefined ? (
                     <ApiStatusHandler queries={[templatesQuery]}>{null}</ApiStatusHandler>
                 ) : templatesQuery.data.length === 0 ? (
@@ -387,7 +404,8 @@ export const SandboxTemplates: React.FC<SandboxTemplatesProps> = ({ gatewayConfi
                                             {template.languages.length ? (
                                                 <div className="flex flex-wrap gap-1">
                                                     {template.languages.map(language => (
-                                                        <Badge key={language} variant="info">
+                                                        <Badge key={language} variant="outline" className="gap-1">
+                                                            <LanguageLogo language={language} size={12} />
                                                             {t(`installation.templates.language_names.${language}`)}
                                                         </Badge>
                                                     ))}

@@ -87,6 +87,12 @@ const templateOf = (name: string, input: SandboxTemplateInput, previous?: Sandbo
 /** What the gateway refuses, told to the administrator; anything else stays a server error, its details in the log. */
 const refused = (error: unknown, name: string): unknown => {
     const { code, connectCode, message } = (error ?? {}) as { code?: unknown; connectCode?: number; message?: string }
+    // Unauthenticated or PermissionDenied: the identity of this installation lacks a role on the workspace, and the
+    // gateway says which one and how to grant it.
+    if (code === "auth") {
+        const reason = message?.replace(/^\[auth\] /, "") || "The gateway refused the credentials of this installation"
+        return createBusinessException({ code: "SANDBOX_GATEWAY_FORBIDDEN", message: reason, statusCode: 403 })
+    }
     if (code === "already_exists") return createBusinessException({ code: "SANDBOX_TEMPLATE_EXISTS", message: `A template named ${name} already exists`, statusCode: 409 })
     // The SDK names InvalidArgument invalid_config, the others rpc: the Connect code is what tells them apart.
     if (connectCode !== undefined && REFUSED.has(connectCode))
@@ -122,7 +128,9 @@ export default class SandboxTemplateService {
     async list(): Promise<SandboxTemplateItem[]> {
         if (!this.config.OPENSHELL_GATEWAY_URL) return []
         const [{ client, workspace }, inUse] = await Promise.all([this.gateway(), this.inUse()])
-        const templates = await client.listAll({ workspace })
+        const templates = await client.listAll({ workspace }).catch(error => {
+            throw refused(error, "")
+        })
         return templates.map(template => toItem(template, inUse)).sort((a, b) => a.name.localeCompare(b.name))
     }
 
@@ -144,9 +152,11 @@ export default class SandboxTemplateService {
         const { sandboxes, client, workspace } = await this.gateway()
         const previous = await client.get(name, { workspace }).catch(error => {
             if ((error as { code?: unknown })?.code === "not_found") throw new EntityNotFoundError(name, `No sandbox template ${name}`)
-            throw error
+            throw refused(error, name)
         })
-        await client.delete(name, { workspace, allowMissing: true })
+        await client.delete(name, { workspace, allowMissing: true }).catch(error => {
+            throw refused(error, name)
+        })
         // Gone or back, the templates this replica read are no longer what the gateway has.
         sandboxes.forgetTemplates()
         const saved = await client.create(templateOf(name, input, previous), { workspace }).catch(async error => {

@@ -4576,7 +4576,8 @@
                 "exists": "A template with this name already exists",
                 "refused": "The gateway refused the template: {{reason}}",
                 "no_gateway": "OPENSHELL_GATEWAY_URL is not set: there is no gateway to save the template on",
-                "save_failed": "The template could not be saved"
+                "save_failed": "The template could not be saved",
+                "forbidden": "The gateway does not let this installation manage the templates of its workspace: {{reason}}"
             },
             "delete": {
                 "open": "Delete the template {{name}}",

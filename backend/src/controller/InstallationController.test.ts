@@ -305,6 +305,28 @@ describe("InstallationController", () => {
             expect(unknown.statusCode).toBe(400)
         })
 
+        it("Given an identity of the installation the gateway does not let manage templates, when they are listed or saved, then it is forbidden with what the gateway says to do", async () => {
+            const auth = Object.assign(new Error("[auth] workspace role 'admin' required in workspace 'default'; ask a platform admin to run: openshell workspace member add"), {
+                code: "auth",
+                connectCode: 7
+            })
+            templateClient.listAll.mockRejectedValueOnce(auth)
+            templateClient.create.mockRejectedValueOnce(auth)
+            templateClient.get.mockResolvedValueOnce(NODE)
+            templateClient.delete.mockRejectedValueOnce(auth)
+
+            const listed = await app.inject({ method: "GET", url: "/installation/sandbox-templates" })
+            const created = await app.inject({ method: "POST", url: "/installation/sandbox-templates/jvm", payload: { image: "maven:3.9" } })
+            const changed = await app.inject({ method: "PUT", url: "/installation/sandbox-templates/flightroom-node", payload: { image: "node:24" } })
+
+            for (const response of [listed, created, changed]) {
+                expect(response.statusCode).toBe(403)
+                expect(response.json().error).toMatchObject({ code: "SANDBOX_GATEWAY_FORBIDDEN", message: expect.stringMatching(/^workspace role 'admin' required/) })
+            }
+            // Refused before anything was deleted: nothing to put back.
+            expect(templateClient.create).toHaveBeenCalledTimes(1)
+        })
+
         it("Given the template new sandboxes use, when it is changed, then it is created again with the settings not shown kept, and its revision changes so the warm sandboxes made from the previous one are replaced", async () => {
             inUse("flightroom-java")
             templateClient.get.mockResolvedValue({ ...KATA, metadata: { ...KATA.metadata, annotations: { owner: "platform" } } })
