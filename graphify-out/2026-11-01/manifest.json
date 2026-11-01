@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793572119.867851,
-    "ast_hash": "79e947cad7027ca3e4b98b4b02053652",
+    "mtime": 1793572441.0476902,
+    "ast_hash": "4880b54dad429963c61f43c60431d093",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2630,8 +2630,8 @@
     "semantic_hash": ""
   },
   "docs/AI-CODE-CHANGES.md": {
-    "mtime": 1793552414.0729985,
-    "ast_hash": "b2900b96d7249106740fe71293c2f1d5",
+    "mtime": 1793572432.0601234,
+    "ast_hash": "fbbd053bcc0ccf390e0cfc477b1d1a04",
     "semantic_hash": ""
   },
   "backend/src/service/llm/anthropicProvider.ts": {
@@ -3890,8 +3890,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/views/FrontendFlowNode.tsx": {
-    "mtime": 1793570988.203009,
-    "ast_hash": "94eea92afcc7bd1d108f981a3b289e82",
+    "mtime": 1793572261.783227,
+    "ast_hash": "ad346b39ce28f50fc844b00ffeb9f9ab",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/views/FrontendsFlow.tsx": {
@@ -4580,8 +4580,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendHeader.tsx": {
-    "mtime": 1793570988.1982682,
-    "ast_hash": "27ca192502ffddfe4ca0ea8179db220d",
+    "mtime": 1793572392.2587893,
+    "ast_hash": "d67f04ac92d5b008e9bd1e5dfd560036",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendResourcesFields.tsx": {
@@ -4785,28 +4785,28 @@
     "semantic_hash": ""
   },
   "backend/src/controller/LivePreviewController.ts": {
-    "mtime": 1793005820.5208075,
-    "ast_hash": "0f4904fea0f6aac81dfa4ec9be423dc7",
+    "mtime": 1793572392.2508836,
+    "ast_hash": "56606e1ee30f4fc5785b17d8e38ad388",
     "semantic_hash": ""
   },
   "backend/src/models/StandalonePreviewSessionModel.ts": {
-    "mtime": 1793005820.5374072,
-    "ast_hash": "5e31bd7d378a62b8bef5c0289e002a62",
+    "mtime": 1793572392.2505395,
+    "ast_hash": "bddc511b48c85b929f9a22fce091fed5",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/StandalonePreviewService.ts": {
-    "mtime": 1793558307.976187,
-    "ast_hash": "9fc3beb99bdb6b51a7541a5e2de7a320",
+    "mtime": 1793572392.2501032,
+    "ast_hash": "552334195c8c1341b62ec25b427384b0",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useLivePreviewsApi.ts": {
-    "mtime": 1793005820.6164396,
-    "ast_hash": "f5e278bac60b0c84e0493ded954ca884",
+    "mtime": 1793572392.2581844,
+    "ast_hash": "052ec6c4117095030501c4c3484dcc51",
     "semantic_hash": ""
   },
   "frontend/src/hooks/useLivePreview.ts": {
-    "mtime": 1793005820.6190176,
-    "ast_hash": "f4b6dc0d2e698234c5bff9dea947b1f1",
+    "mtime": 1793572392.258555,
+    "ast_hash": "d3c2c69bf9a5539ff437b7d61502bad2",
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/CostChip.tsx": {
@@ -5935,8 +5935,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/StandalonePreviewService.test.ts": {
-    "mtime": 1793555424.8187406,
-    "ast_hash": "f2a04c43bf4679c785bf9e90012bb41d",
+    "mtime": 1793572392.2577674,
+    "ast_hash": "6971171382e69777c4b1771b6f20dff5",
     "semantic_hash": ""
   },
   "frontend/src/components/molecules/LogLevelOption.tsx": {
