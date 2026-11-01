@@ -1,13 +1,25 @@
-import { execFileSync, spawnSync } from "node:child_process"
+import { execFileSync, spawn, spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import fs from "node:fs"
+import http from "node:http"
 import net from "node:net"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { CommandSandbox, SandboxExecOptions } from "../sandbox/commandSandbox"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
-import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, checkCommandFor, commandFor, commandWorkdir, previewPlanFor, ScriptRepository } from "./aiChangeScripts"
+import {
+    AI_SCRIPT_LIMITS,
+    AiChangeScriptRunner,
+    checkCommandFor,
+    commandFor,
+    commandWorkdir,
+    PREVIEW_FILE,
+    PREVIEW_GATEWAY,
+    parsePreviewOverride,
+    previewPlanFor,
+    ScriptRepository
+} from "./aiChangeScripts"
 import { AiChangeToolbox } from "./aiChangeToolbox"
 
 const hasTools = ["git", "tar", "npm"].every(tool => spawnSync(tool, ["--version"]).status === 0)
@@ -478,6 +490,21 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         fs.rmSync(dir, { recursive: true, force: true })
     })
 
+    it("Given a live preview opened from the console, when it starts, then the dependencies are installed first unless the copy already has them", async () => {
+        const dir = makeRepository({ "package.json": manifest({ dev: "vite" }), "pnpm-lock.yaml": "lockfileVersion: '9.0'\n" })
+        const sandbox = recording()
+        const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
+
+        await new AiChangeScriptRunner([repository], async () => sandbox, { previewsEnabled: true }).startPreview(repository, true)
+
+        const commands = sandbox.exec.mock.calls.map(([command]) => command)
+        const install = commands.findIndex(command => command[2]?.includes("node_modules ] ||"))
+        expect(commands[install]?.slice(3)).toEqual(["sh", "corepack", "pnpm", "install", "--config.confirmModulesPurge=false"])
+        expect(sandbox.exec.mock.calls[install]?.[1]?.environment).not.toHaveProperty("CI")
+        expect(install).toBeLessThan(commands.findIndex(command => command[2]?.includes("nohup")))
+        fs.rmSync(dir, { recursive: true, force: true })
+    })
+
     it("Given another conversation of the sandbox holding the port of the preview, when it starts, then it listens and is exposed on the free port the sandbox found", async () => {
         const dir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
         const sandbox = recording()
@@ -525,6 +552,12 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         expect(vite?.command).toEqual(["npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"])
         expect(angular?.command).toEqual(["npm", "run", "start", "--", "--host", "0.0.0.0", "--port", "5173"])
         expect(vueCli?.command).toEqual(["npm", "run", "serve", "--", "--host", "0.0.0.0", "--port", "5173"])
+    })
+
+    it("Given pnpm or yarn, then the flags of the preview reach the dev server without a `--` it would ignore them after", () => {
+        const frontend = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(os.tmpdir()) }
+        expect(previewPlanFor(frontend, new Set(), { scripts: { dev: "vite" } }, "pnpm")?.command).toEqual(["corepack", "pnpm", "run", "dev", "--host", "0.0.0.0", "--port", "5173"])
+        expect(previewPlanFor(frontend, new Set(), { scripts: { dev: "vite" } }, "yarn")?.command).toEqual(["corepack", "yarn", "run", "dev", "--host", "0.0.0.0", "--port", "5173"])
     })
 
     it("Given registered Java, Python, Go and .NET stacks, then it chooses their local development servers and ports", () => {
@@ -592,7 +625,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
         const runner = new AiChangeScriptRunner([repository], async () => recording(), { previewsEnabled: true })
 
-        await expect(runner.startPreview(repository, true)).rejects.toThrow("No development server is configured")
+        await expect(runner.startPreview(repository, true)).rejects.toThrow(`No development server is known for frontend: add ${PREVIEW_FILE}`)
         fs.rmSync(dir, { recursive: true, force: true })
     })
 
@@ -601,6 +634,163 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const repository = { slug: "orders", workingCopy: workingCopyOf(dir) }
         await expect(new AiChangeScriptRunner([repository], async () => recording()).run(repository, "install")).rejects.toThrow(/no package.json/)
         fs.rmSync(dir, { recursive: true, force: true })
+    })
+})
+
+describe("previewPlanFor of every stack", () => {
+    const anywhere = workingCopyOf(os.tmpdir())
+
+    it("Given Java, Go and .NET, then what they need is prepared before the server starts, not while it is waited for", () => {
+        const spring = previewPlanFor({ slug: "orders", kind: "backend", runtime: "JAVA", framework: "Spring Boot", port: 8081, workingCopy: anywhere }, new Set(["pom.xml", "mvnw"]), undefined)
+        const gradle = previewPlanFor({ slug: "orders", kind: "backend", runtime: "JAVA", framework: "Spring Boot", workingCopy: anywhere }, new Set(["build.gradle.kts"]), undefined)
+        const go = previewPlanFor({ slug: "ledger", kind: "backend", runtime: "GO", workingCopy: anywhere }, new Set(["go.mod"]), undefined)
+        const dotnet = previewPlanFor({ slug: "accounts", kind: "backend", runtime: "DOTNET", workingCopy: anywhere }, new Set(["Accounts.csproj"]), undefined)
+        expect(spring?.prepare).toEqual(["sh", "./mvnw", "-B", "-q", "-DskipTests", "compile"])
+        expect(gradle?.prepare).toEqual(["gradle", "classes", "--no-daemon", "-q"])
+        expect(go?.prepare).toEqual(["go", "build", "./..."])
+        expect(dotnet?.prepare).toEqual(["dotnet", "build", "./Accounts.csproj"])
+    })
+
+    it("Given a preview file, then its commands win over the stack, and a stack nobody recognizes previews too", () => {
+        const override = parsePreviewOverride(JSON.stringify({ prepare: "cargo build", start: "cargo run", port: 7000 }))
+        const rust = { slug: "billing", kind: "backend" as const, runtime: "RUST", workingCopy: anywhere }
+        expect(previewPlanFor(rust, new Set(["Cargo.toml"]), undefined)).toBeUndefined()
+        expect(previewPlanFor(rust, new Set(["Cargo.toml", PREVIEW_FILE]), undefined, undefined, 7000, override)).toEqual({
+            prepare: ["sh", "-c", "cargo build"],
+            command: ["sh", "-c", "cargo run"],
+            port: 7000,
+            environment: { HOST: "0.0.0.0", PORT: "7000", HTTP_PORT: "7000" }
+        })
+    })
+
+    it("Given a preview file without a start command, with a port that is none or not JSON, then it says what is wrong", () => {
+        expect(() => parsePreviewOverride("{")).toThrow("not valid JSON")
+        expect(() => parsePreviewOverride(JSON.stringify({ prepare: "make" }))).toThrow('needs "start"')
+        expect(() => parsePreviewOverride(JSON.stringify({ start: "make run", port: 70_000 }))).toThrow('"port"')
+        expect(parsePreviewOverride(JSON.stringify({ start: "make run", prepare: " " }))).toEqual({ start: "make run" })
+    })
+})
+
+describe.skipIf(!hasTools)("AiChangeScriptRunner live preview", () => {
+    let root: string
+    const dirs: string[] = []
+
+    beforeEach(() => {
+        root = fs.mkdtempSync(path.join(os.tmpdir(), "ai-change-preview-"))
+    })
+
+    afterEach(() => {
+        // The servers started here are stopped whole, their group as in the sandbox.
+        for (const pidfile of fs.existsSync(path.join(root, "previews")) ? fs.readdirSync(path.join(root, "previews")) : []) {
+            const pid = Number(fs.readFileSync(path.join(root, "previews", pidfile), "utf8"))
+            for (const target of [-pid, pid]) {
+                try {
+                    process.kill(target)
+                } catch {
+                    // Already gone
+                }
+            }
+        }
+        fs.rmSync(root, { recursive: true, force: true })
+        for (const dir of dirs.splice(0)) fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    const backendWith = (files: Record<string, string>, extra: Partial<ScriptRepository> = {}): ScriptRepository => {
+        const dir = makeRepository(files)
+        dirs.push(dir)
+        return { slug: "backend-orders-be", kind: "backend", runtime: "RUST", serviceSlug: "orders-be", workingCopy: workingCopyOf(dir), ...extra }
+    }
+
+    const exposing = () => Object.assign(new LocalSandbox(root), { exposeService: vi.fn(async (port: number, _name: string) => `https://preview.example.test/${port}`) })
+
+    it("Given a server that stops at once, when the preview starts, then the error says so with the end of its log, not after minutes", async () => {
+        const repository = backendWith({ [PREVIEW_FILE]: JSON.stringify({ start: "echo 'Cannot find module express'; exit 1" }) })
+        const startedAt = Date.now()
+
+        await expect(new AiChangeScriptRunner([repository], async () => exposing(), { previewsEnabled: true }).startPreview(repository, true)).rejects.toThrow(
+            /The development server stopped:\nCannot find module express/
+        )
+        expect(Date.now() - startedAt).toBeLessThan(15_000)
+    })
+
+    it("Given a backend of a stack nobody recognizes with a preview file, when it starts, then it runs prepare, listens on $PORT and is exposed", async () => {
+        const repository = backendWith({
+            [PREVIEW_FILE]: JSON.stringify({
+                prepare: "echo prepared > prepared.txt",
+                start: "exec node -e \"require('http').createServer((q, s) => s.end('ok')).listen(Number(process.env.PORT), '127.0.0.1')\""
+            })
+        })
+        const sandbox = exposing()
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox, { previewsEnabled: true })
+
+        expect(await runner.canPreview(repository)).toBe(true)
+        const url = await runner.startPreview(repository, true)
+
+        expect(fs.readFileSync(path.join(root, "repositories", "backend-orders-be", "prepared.txt"), "utf8").trim()).toBe("prepared")
+        const port = sandbox.exposeService.mock.calls[0][0]
+        expect(url).toBe(`https://preview.example.test/${port}`)
+        expect(await (await fetch(`http://127.0.0.1:${port}`)).text()).toBe("ok")
+    })
+
+    it("Given a backend of a stack nobody recognizes and no preview file, then it cannot be previewed", async () => {
+        const repository = backendWith({ "Cargo.toml": "[package]\n" })
+        expect(await new AiChangeScriptRunner([repository], async () => exposing(), { previewsEnabled: true }).canPreview(repository)).toBe(false)
+    })
+
+    it("Given a backend started first, when the frontend starts, then it reaches the backend as <SLUG>_URL, as in an environment", async () => {
+        const backend = backendWith({ "package.json": manifest({ dev: "node server.js" }) }, { runtime: "NODE", port: 8081 })
+        const frontendDir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
+        dirs.push(frontendDir)
+        const frontend: ScriptRepository = { slug: "frontend-shop-fe", kind: "frontend", serviceSlug: "shop-fe", workingCopy: workingCopyOf(frontendDir) }
+        const sandbox = {
+            root: "/sandbox",
+            exec: vi.fn(async (_command: string[], _options?: SandboxExecOptions) => ({ exitCode: 0, output: "", cutBytes: 0 })),
+            exposeService: vi.fn(async () => "https://preview.example.test")
+        }
+        const runner = new AiChangeScriptRunner([backend, frontend], async () => sandbox, { previewsEnabled: true })
+
+        await runner.startPreview(backend, true)
+        await runner.startPreview(frontend, true)
+
+        const starts = sandbox.exec.mock.calls.filter(([command]) => command[2]?.includes("nohup"))
+        expect(starts[0][1]?.environment).not.toHaveProperty("ORDERS_BE_URL")
+        expect(starts[1][1]?.environment).toMatchObject({ ORDERS_BE_URL: "http://127.0.0.1:8081" })
+    })
+
+    it("Given a frontend and a backend exposed under a path, when the gateway runs, then the path goes to the backend stripped and the rest to the frontend", async () => {
+        const listening = (handler: http.RequestListener) =>
+            new Promise<http.Server>(resolve => {
+                const server = http.createServer(handler)
+                server.listen(0, "127.0.0.1", () => resolve(server))
+            })
+        const portOf = (server: http.Server) => (server.address() as net.AddressInfo).port
+        const backend = await listening((request, response) => response.end(`backend ${request.url} ${request.headers["x-forwarded-host"]}`))
+        const frontend = await listening((request, response) => response.end(`frontend ${request.url} ${request.headers.host}`))
+        const free = await listening(() => undefined)
+        const port = portOf(free)
+        await new Promise(resolve => free.close(resolve))
+        const gateway = spawn("node", ["-e", PREVIEW_GATEWAY, String(port), String(portOf(frontend)), "/api/orders/", String(portOf(backend))], { stdio: "ignore" })
+
+        try {
+            const get = async (url: string) => {
+                for (let attempt = 0; ; attempt++) {
+                    try {
+                        return await (await fetch(`http://127.0.0.1:${port}${url}`)).text()
+                    } catch (error) {
+                        if (attempt > 40) throw error
+                        await new Promise(resolve => setTimeout(resolve, 100))
+                    }
+                }
+            }
+            expect(await get("/api/orders/items?page=2")).toBe(`backend /items?page=2 127.0.0.1:${port}`)
+            expect(await get("/api/orders")).toBe(`backend / 127.0.0.1:${port}`)
+            expect(await get("/api/orders-archive")).toBe(`frontend /api/orders-archive 127.0.0.1:${portOf(frontend)}`)
+            expect(await get("/src/main.tsx")).toBe(`frontend /src/main.tsx 127.0.0.1:${portOf(frontend)}`)
+        } finally {
+            gateway.kill()
+            backend.close()
+            frontend.close()
+        }
     })
 })
 

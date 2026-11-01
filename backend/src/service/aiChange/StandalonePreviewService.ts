@@ -46,6 +46,7 @@ const isConnected = (component: RepositoryComponent) => Boolean(component.codeRe
 
 const scriptRepositoryOf = (component: FrontendComponent | BackendComponent, workingCopy: ScriptRepository["workingCopy"]): ScriptRepository => ({
     slug: `${component.kind}-${component.slug}`,
+    serviceSlug: component.slug,
     workingCopy,
     kind: component.kind,
     ...(component.kind === "frontend" ? { framework: component.framework, npmrc: component.designSystem?.npmrc } : { framework: component.framework, runtime: component.runtime, port: component.port })
@@ -132,14 +133,26 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
         }
     }
 
+    /**
+     * The backends first, so that the frontends start knowing where they are (`<SLUG>_URL`). A backend whose stack is
+     * not recognized and that has no preview file is left out rather than stopping the preview of the frontend. With
+     * backends exposed under a path, the preview opens on a gateway that routes them as the host of an environment does.
+     */
     private async startRepositories(components: RepositoryComponent[], repositories: ScriptRepository[], runner: AiChangeScriptRunner): Promise<string | undefined> {
-        let frontendUrl: string | undefined
+        const routes: { path: string; repository: ScriptRepository }[] = []
         for (let index = 0; index < components.length; index++) {
             const component = components[index]
-            const url = await runner.startPreview(repositories[index], true)
-            if (component.kind === "frontend" && !frontendUrl) frontendUrl = url
-            if (component.kind === "backend" && !url) throw new Error(`The backend development server for ${component.slug} could not be started`)
+            if (component.kind !== "backend" || !(await runner.canPreview(repositories[index]))) continue
+            if (!(await runner.startPreview(repositories[index], true))) throw new Error(`The backend development server for ${component.slug} could not be started`)
+            if (component.exposurePath) routes.push({ path: component.exposurePath, repository: repositories[index] })
         }
-        return frontendUrl
+        let frontend: { url: string; repository: ScriptRepository } | undefined
+        for (let index = 0; index < components.length; index++) {
+            if (components[index].kind !== "frontend") continue
+            const url = await runner.startPreview(repositories[index], true)
+            if (url && !frontend) frontend = { url, repository: repositories[index] }
+        }
+        if (!frontend) return undefined
+        return routes.length ? runner.startGateway(frontend.repository, routes) : frontend.url
     }
 }

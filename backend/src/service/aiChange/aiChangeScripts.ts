@@ -3,6 +3,7 @@ import fs from "node:fs/promises"
 import { gunzipSync } from "node:zlib"
 import { redactSecrets } from "../../utils/redactSecrets"
 import { isLockfilePath, isProtectedPath, isSecretPath, resolveInsideWorkingCopy } from "../../utils/workspacePaths"
+import { serviceUrlVariable } from "../gitops/applicationManifests"
 import { LlmTool } from "../llm"
 import { CommandSandbox, SandboxCommandResult } from "../sandbox/commandSandbox"
 import { TarEntry, tarGz } from "../sandbox/tarArchive"
@@ -146,25 +147,59 @@ export interface ScriptRepository {
     port?: number
     /** The user configuration of its package manager in the sandbox (a private registry and its token): never part of the copy. */
     npmrc?: string
+    /** The slug of its frontend or backend: the previews started after it reach it as `<SLUG>_URL`, as the containers of an environment do. */
+    serviceSlug?: string
 }
 
+/** Every stack previews the same way: what it needs is prepared, the server is started, then it is waited for until it listens. */
 interface PreviewPlan {
+    /** Dependencies, a compile: run to the end before the server starts, with the time of a script. */
+    prepare?: string[]
     command: string[]
     port: number
     environment?: Record<string, string>
-    install?: string[]
 }
 
-const previewPortOf = (repository: ScriptRepository) => {
+/** How long a server is waited for once started: a Java one takes its time, the others answer as soon as they listen. */
+export const PREVIEW_READY_SECS = 180
+
+/** Where a repository tells how to preview it, when its stack is not recognized or is to be previewed otherwise. */
+export const PREVIEW_FILE = ".flightroom/preview.json"
+
+/** The preview a repository asks for: shell commands, the server listening on `port`, else on $PORT. */
+export interface PreviewOverride {
+    prepare?: string
+    start: string
+    port?: number
+}
+
+const isPort = (port: unknown): port is number => typeof port === "number" && Number.isInteger(port) && port > 0 && port <= 65_535
+
+export const parsePreviewOverride = (content: string): PreviewOverride => {
+    let parsed: unknown
+    try {
+        parsed = JSON.parse(content)
+    } catch {
+        throw new Error(`${PREVIEW_FILE} is not valid JSON`)
+    }
+    const { prepare, start, port } = (parsed && typeof parsed === "object" ? parsed : {}) as Record<string, unknown>
+    if (typeof start !== "string" || !start.trim()) throw new Error(`${PREVIEW_FILE} needs "start", the command that starts the development server`)
+    if (prepare !== undefined && typeof prepare !== "string") throw new Error(`"prepare" of ${PREVIEW_FILE} is a command`)
+    if (port !== undefined && !isPort(port)) throw new Error(`"port" of ${PREVIEW_FILE} is a port number`)
+    return { start, ...(prepare?.trim() ? { prepare } : {}), ...(port !== undefined ? { port } : {}) }
+}
+
+const previewPortOf = (repository: ScriptRepository, override?: PreviewOverride) => {
+    if (override?.port) return override.port
     if (repository.kind === "frontend") return 5173
-    const port = repository.port
-    return Number.isInteger(port) && port !== undefined && port > 0 && port <= 65_535 ? port : 3000
+    return isPort(repository.port) ? repository.port : 3000
 }
 
 /**
  * Stops the dev server an earlier run of the conversation left for the repository, its whole process group (the
  * package manager's children too), then prints the port its preview listens on: its own when free, else any free
- * one, as another conversation of a shared sandbox may hold it. Given the pid file, the port and the probe.
+ * one, as another conversation of a shared sandbox may hold it. Given the pid file, the port and the probes, with
+ * node or with python3: an image of Java or of Python may have no node.
  */
 // No `--` before the group: dash, the sh of Debian images, refuses it. The wait lets the old server free its port.
 const STOP_PREVIEW_AND_FIND_PORT = [
@@ -173,11 +208,99 @@ const STOP_PREVIEW_AND_FIND_PORT = [
     '  kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null',
     '  tries=0; while kill -0 "$pid" 2>/dev/null && [ "$tries" -lt 50 ]; do sleep 0.1; tries=$((tries + 1)); done',
     "fi",
-    'exec node -e "$2" "$1"'
+    'if command -v node >/dev/null 2>&1; then exec node -e "$2" "$1"; fi',
+    'if command -v python3 >/dev/null 2>&1; then exec python3 -c "$3" "$1"; fi',
+    "exit 1"
 ].join("\n")
 
 const FIND_PORT =
     "const net=require('net');const listen=port=>{const server=net.createServer();server.once('error',()=>port?listen(0):process.exit(1));server.listen(port,'0.0.0.0',()=>{const found=server.address().port;server.close(()=>console.log(found))})};listen(Number(process.argv[1]))"
+
+const FIND_PORT_PYTHON = [
+    "import socket, sys",
+    "for port in (int(sys.argv[1]), 0):",
+    "    server = socket.socket()",
+    "    try:",
+    "        server.bind(('0.0.0.0', port))",
+    "    except OSError:",
+    "        server.close()",
+    "        continue",
+    "    print(server.getsockname()[1])",
+    "    server.close()",
+    "    break",
+    "else:",
+    "    sys.exit(1)"
+].join("\n")
+
+/**
+ * Waits until something listens on the port, with whichever of node, python3 or bash the image has. Exits 0 once it
+ * does, 4 as soon as the server is gone (no point waiting for one that crashed), 3 with nothing to look with, 1 at the
+ * end of the time. Given the port, the pid file and the seconds.
+ */
+const WAIT_READY = [
+    "port=$0; pidfile=$1; until=$(($(date +%s) + $2))",
+    "probe() {",
+    `  if command -v node >/dev/null 2>&1; then node -e "require('net').connect(Number(process.argv[1]), '127.0.0.1').on('connect', () => process.exit(0)).on('error', () => process.exit(1))" "$port"`,
+    `  elif command -v python3 >/dev/null 2>&1; then python3 -c "import socket, sys; socket.create_connection(('127.0.0.1', int(sys.argv[1])), 2)" "$port" 2>/dev/null`,
+    `  elif command -v bash >/dev/null 2>&1; then bash -c 'exec 3<>"/dev/tcp/127.0.0.1/$0"' "$port" 2>/dev/null`,
+    "  else return 2; fi",
+    "}",
+    "while :; do",
+    "  probe; status=$?",
+    '  [ "$status" -eq 0 ] && exit 0',
+    '  [ "$status" -eq 2 ] && exit 3',
+    '  pid=$(cat "$pidfile" 2>/dev/null)',
+    '  if [ -n "$pid" ] && ! kill -0 "$pid" 2>/dev/null; then exit 4; fi',
+    '  [ "$(date +%s)" -ge "$until" ] && exit 1',
+    "  sleep 0.5",
+    "done"
+].join("\n")
+
+/**
+ * One address for a domain previewed whole, as its host is in an environment: each backend under its exposure path,
+ * the path stripped as the HTTPRoute does, everything else to the frontend; websockets too, the reload of the dev
+ * server among them. The host is the server's own, which a dev server checks. Given its port, the frontend's, then
+ * pairs of path and port. Run with node: a domain previewed has a frontend, so the sandbox has it.
+ */
+export const PREVIEW_GATEWAY = String.raw`
+const http = require("http"), net = require("net")
+const [port, fallback, ...pairs] = process.argv.slice(1)
+const routes = []
+for (let i = 0; i < pairs.length; i += 2) routes.push([pairs[i].replace(/\/+$/, ""), Number(pairs[i + 1])])
+routes.sort((left, right) => right[0].length - left[0].length)
+const target = url => {
+    for (const [prefix, to] of routes) {
+        if (url === prefix || url.startsWith(prefix + "/") || url.startsWith(prefix + "?")) {
+            const rest = url.slice(prefix.length)
+            return [to, rest.startsWith("/") ? rest : "/" + rest]
+        }
+    }
+    return [Number(fallback), url]
+}
+const headersFor = (request, to) => ({ ...request.headers, host: "127.0.0.1:" + to, "x-forwarded-host": request.headers.host || "" })
+http.createServer((request, response) => {
+    const [to, path] = target(request.url)
+    const upstream = http.request({ host: "127.0.0.1", port: to, path, method: request.method, headers: headersFor(request, to) }, answer => {
+        response.writeHead(answer.statusCode, answer.headers)
+        answer.pipe(response)
+    })
+    upstream.on("error", () => {
+        if (!response.headersSent) response.writeHead(502)
+        response.end()
+    })
+    request.pipe(upstream)
+}).on("upgrade", (request, socket, head) => {
+    const [to, path] = target(request.url)
+    const upstream = net.connect(to, "127.0.0.1", () => {
+        const headers = Object.entries(headersFor(request, to)).map(([name, value]) => name + ": " + value).join("\r\n")
+        upstream.write(request.method + " " + path + " HTTP/1.1\r\n" + headers + "\r\n\r\n")
+        upstream.write(head)
+        socket.pipe(upstream).pipe(socket)
+    })
+    upstream.on("error", () => socket.destroy())
+    socket.on("error", () => upstream.destroy())
+}).listen(Number(port), "0.0.0.0")
+`
 
 /** Starts the dev server in a session of its own, so that stopping its group stops it whole; writes its pid. Given the log, the pid file, then the command. */
 const START_PREVIEW = [
@@ -186,38 +309,52 @@ const START_PREVIEW = [
     'echo $! > "$pidfile"; echo $!'
 ].join("\n")
 
+/** Installs only when the copy has no dependencies yet: a live preview opened from the console runs no install of an agent first. */
+const INSTALL_IF_MISSING = '[ -d node_modules ] || exec "$@"'
+
 const packagePreview = (repository: ScriptRepository, manifest: PackageManifest, manager: PackageManager, port: number): PreviewPlan | undefined => {
     const scripts = manifest.scripts ?? {}
     const script = ["dev", "start", "serve"].find(name => typeof scripts[name] === "string")
     if (!script) return undefined
     const command = commandFor(manager, script)
-    if (repository.kind === "frontend") command.push("--", "--host", "0.0.0.0", "--port", String(port))
-    return { command, port, ...(repository.kind === "backend" ? { environment: { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) } } : {}) }
+    // Only npm drops the `--`: pnpm and yarn hand it to the script, and the dev server then ignores the flags after it.
+    if (repository.kind === "frontend") command.push(...(manager === "npm" ? ["--"] : []), "--host", "0.0.0.0", "--port", String(port))
+    return {
+        command,
+        port,
+        prepare: ["sh", "-c", INSTALL_IF_MISSING, "sh", ...commandFor(manager, INSTALL_SCRIPT)],
+        ...(repository.kind === "backend" ? { environment: { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) } } : {})
+    }
 }
 
-/** Builds a preview command from the registered runtime and files at the repository root, on its own port unless given another. */
+/**
+ * Builds a preview command from the preview file of the repository, else from the registered runtime and files at
+ * its root, on its own port unless given another. None when the stack is not recognized and there is no such file.
+ */
 export const previewPlanFor = (
     repository: ScriptRepository,
     files: Set<string>,
     manifest: PackageManifest | undefined,
     manager?: PackageManager,
-    port = previewPortOf(repository)
+    port = previewPortOf(repository),
+    override?: PreviewOverride
 ): PreviewPlan | undefined => {
     if (!repository.kind) return undefined
+    const environment = { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) }
+    if (override) return { command: ["sh", "-c", override.start], port, environment, ...(override.prepare ? { prepare: ["sh", "-c", override.prepare] } : {}) }
     if (repository.kind === "frontend" || !repository.runtime || repository.runtime === "NODE") {
         return manifest && manager ? packagePreview(repository, manifest, manager, port) : undefined
     }
 
-    const environment = { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) }
     switch (repository.runtime) {
         case "PYTHON": {
-            const install = files.has("requirements.txt")
+            const prepare = files.has("requirements.txt")
                 ? ["python3", "-m", "pip", "install", "-r", "requirements.txt"]
                 : files.has("pyproject.toml")
                   ? ["python3", "-m", "pip", "install", "-e", "."]
                   : undefined
             if (files.has("manage.py")) {
-                return { command: ["python3", "manage.py", "runserver", `0.0.0.0:${port}`], port, ...(install ? { install } : {}) }
+                return { command: ["python3", "manage.py", "runserver", `0.0.0.0:${port}`], port, ...(prepare ? { prepare } : {}) }
             }
             const framework = repository.framework?.toLowerCase() ?? ""
             if (framework.includes("flask")) {
@@ -225,7 +362,7 @@ export const previewPlanFor = (
                 return {
                     command: ["python3", "-m", "flask", "--app", app, "run", "--host", "0.0.0.0", "--port", String(port)],
                     port,
-                    ...(install ? { install } : {})
+                    ...(prepare ? { prepare } : {})
                 }
             }
             if (framework.includes("fastapi")) {
@@ -235,7 +372,7 @@ export const previewPlanFor = (
                     command: ["python3", "-m", "uvicorn", `${module}:app`, "--host", "0.0.0.0", "--port", String(port), "--reload"],
                     port,
                     environment: { ...environment, ...(pythonPath ? { PYTHONPATH: pythonPath } : {}) },
-                    ...(install ? { install } : {})
+                    ...(prepare ? { prepare } : {})
                 }
             }
             return undefined
@@ -247,6 +384,7 @@ export const previewPlanFor = (
                 const goal = framework.includes("quarkus") ? "quarkus:dev" : framework.includes("micronaut") ? "mn:run" : framework.includes("spring") ? "spring-boot:run" : undefined
                 if (!goal) return undefined
                 return {
+                    prepare: [...(wrapper ?? ["mvn"]), "-B", "-q", "-DskipTests", "compile"],
                     command: [...(wrapper ?? ["mvn"]), goal],
                     port,
                     environment: {
@@ -263,6 +401,7 @@ export const previewPlanFor = (
                 const goal = framework.includes("quarkus") ? "quarkusDev" : framework.includes("micronaut") ? "run" : framework.includes("spring") ? "bootRun" : undefined
                 if (!goal) return undefined
                 return {
+                    prepare: [...(wrapper ?? ["gradle"]), "classes", "--no-daemon", "-q"],
                     command: [...(wrapper ?? ["gradle"]), goal],
                     port,
                     environment: { ...environment, SERVER_ADDRESS: "0.0.0.0", SERVER_PORT: String(port) }
@@ -271,10 +410,12 @@ export const previewPlanFor = (
             return undefined
         }
         case "GO":
-            return files.has("go.mod") ? { command: ["go", "run", "."], port, environment } : undefined
+            return files.has("go.mod") ? { prepare: ["go", "build", "./..."], command: ["go", "run", "."], port, environment } : undefined
         case "DOTNET": {
             const project = [...files].find(file => file.endsWith(".csproj"))
-            return project ? { command: ["dotnet", "run", "--project", `./${project}`, "--", "--urls", `http://0.0.0.0:${port}`], port, environment } : undefined
+            return project
+                ? { prepare: ["dotnet", "build", `./${project}`], command: ["dotnet", "run", "--project", `./${project}`, "--", "--urls", `http://0.0.0.0:${port}`], port, environment }
+                : undefined
         }
         default:
             return undefined
@@ -400,6 +541,8 @@ export class AiChangeScriptRunner {
     private prepared = false
     private readonly copied = new Set<ScriptRepository>()
     private readonly previewStarted = new Set<ScriptRepository>()
+    /** The port each running preview listens on in the sandbox. */
+    private readonly previewPorts = new Map<ScriptRepository, number>()
     /** What the agent wrote or deleted since the repository was last sent. */
     private readonly unsent = new Map<ScriptRepository, Set<string>>()
     /** Whether the image of the sandbox has a program, asked once per run. */
@@ -542,6 +685,7 @@ export class AiChangeScriptRunner {
         this.prepared = false
         this.copied.clear()
         this.previewStarted.clear()
+        this.previewPorts.clear()
     }
 
     private sandboxForRun(): Promise<CommandSandbox> {
@@ -570,24 +714,18 @@ export class AiChangeScriptRunner {
         try {
             const sandbox = await this.sandboxForRun()
             await this.send(sandbox, repository)
-            const files = new Set(await repository.workingCopy.listFiles())
-            for (const change of await repository.workingCopy.changes()) {
-                if (change.action === "delete") files.delete(change.path)
-                else files.add(change.path)
-            }
-            const manifest = files.has("package.json") ? await this.manifestOf(repository) : undefined
-            const manager = manifest ? await this.managerOf(repository, manifest) : undefined
+            const { files, manifest, manager, override } = await this.previewInputsOf(repository)
             const pidfile = `${sandbox.root}/previews/${repository.slug}.pid`
-            const plan = previewPlanFor(repository, files, manifest, manager, await this.previewPort(sandbox, repository, pidfile))
-            if (!plan) throw new Error(`No development server is configured for ${repository.runtime ?? repository.kind}`)
-            if (plan.install) {
-                const installed = await sandbox.exec(plan.install, {
+            const plan = previewPlanFor(repository, files, manifest, manager, await this.freePort(sandbox, pidfile, previewPortOf(repository, override)), override)
+            if (!plan) throw new Error(`No development server is known for ${repository.runtime ?? repository.kind}: add ${PREVIEW_FILE} to the repository, with "start" and "port"`)
+            if (plan.prepare) {
+                const prepared = await sandbox.exec(plan.prepare, {
                     workdir: this.folderOf(sandbox, repository),
                     environment: this.environmentOf(sandbox, repository, true),
                     timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
                     signal: this.options.signal
                 })
-                ensureSucceeded("Installing preview dependencies", installed)
+                ensureSucceeded("Preparing the preview", prepared)
             }
 
             const log = `${sandbox.root}/logs/${repository.slug}-preview.log`
@@ -595,23 +733,15 @@ export class AiChangeScriptRunner {
                 workdir: this.folderOf(sandbox, repository),
                 environment: {
                     ...this.environmentOf(sandbox, repository, true),
+                    ...this.serviceUrls(),
                     ...plan.environment
                 },
                 timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
                 signal: this.options.signal
             })
             if (started.exitCode !== 0) throw new Error("The development server could not start")
-
-            const ready = await sandbox.exec(
-                [
-                    "node",
-                    "-e",
-                    "const port=Number(process.argv[1]);const until=Date.now()+30000;const check=()=>fetch(`http://127.0.0.1:${port}`).then(()=>process.exit(0),()=>Date.now()<until?setTimeout(check,250):process.exit(1));check()",
-                    String(plan.port)
-                ],
-                { workdir: this.folderOf(sandbox, repository), timeoutSecs: 35, signal: this.options.signal }
-            )
-            if (ready.exitCode !== 0) throw new Error("The development server did not become ready")
+            await this.waitReady(sandbox, plan.port, pidfile, log, "The development server")
+            this.previewPorts.set(repository, plan.port)
             if (!sandbox.exposeService) throw new Error("The sandbox does not support exposed services")
 
             const kind = repository.kind
@@ -630,14 +760,90 @@ export class AiChangeScriptRunner {
     }
 
     /**
-     * The port of the repository's preview, once the one an earlier run of the conversation left is stopped: its
-     * own unless another conversation of the sandbox holds it. Its own when the sandbox cannot tell.
+     * Whether a preview of the repository can be started: its stack is recognized, or it has a preview file. Read from
+     * the working copy, the sandbox is not needed.
      */
-    private async previewPort(sandbox: CommandSandbox, repository: ScriptRepository, pidfile: string): Promise<number> {
-        const wanted = previewPortOf(repository)
-        const found = await sandbox.exec(["sh", "-c", STOP_PREVIEW_AND_FIND_PORT, pidfile, String(wanted), FIND_PORT], { timeoutSecs: 35, signal: this.options.signal })
+    async canPreview(repository: ScriptRepository): Promise<boolean> {
+        const { files, manifest, manager, override } = await this.previewInputsOf(repository)
+        return previewPlanFor(repository, files, manifest, manager, previewPortOf(repository, override), override) !== undefined
+    }
+
+    /**
+     * One address for the previews started, as the host of an environment: each backend under its exposure path, the
+     * path stripped as its route does, the rest to the frontend, so the frontend calls them as it does once deployed.
+     */
+    async startGateway(frontend: ScriptRepository, routes: { path: string; repository: ScriptRepository }[]): Promise<string> {
+        const fallback = this.previewPorts.get(frontend)
+        if (fallback === undefined) throw new Error(`The preview of ${frontend.slug} is not running`)
+        const pairs = routes.flatMap(({ path, repository }) => {
+            const port = this.previewPorts.get(repository)
+            return port === undefined ? [] : [path, String(port)]
+        })
+        const sandbox = await this.sandboxForRun()
+        const pidfile = `${sandbox.root}/previews/gateway.pid`
+        const port = await this.freePort(sandbox, pidfile, 8000)
+        const log = `${sandbox.root}/logs/gateway-preview.log`
+        const started = await sandbox.exec(["sh", "-c", START_PREVIEW, log, pidfile, "node", "-e", PREVIEW_GATEWAY, String(port), String(fallback), ...pairs], {
+            timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
+            signal: this.options.signal
+        })
+        if (started.exitCode !== 0) throw new Error("The gateway of the preview could not start")
+        await this.waitReady(sandbox, port, pidfile, log, "The gateway of the preview")
+        if (!sandbox.exposeService) throw new Error("The sandbox does not support exposed services")
+        return sandbox.exposeService(port, `preview-gw-${createHash("sha256").update(sandbox.root).digest("hex").slice(0, 8)}`)
+    }
+
+    /** What decides the preview of a repository: its files as the agent left them, its package.json and its preview file. */
+    private async previewInputsOf(repository: ScriptRepository) {
+        const files = new Set(await repository.workingCopy.listFiles())
+        for (const change of await repository.workingCopy.changes()) {
+            if (change.action === "delete") files.delete(change.path)
+            else files.add(change.path)
+        }
+        const manifest = files.has("package.json") ? await this.manifestOf(repository) : undefined
+        const manager = manifest ? await this.managerOf(repository, manifest) : undefined
+        let override: PreviewOverride | undefined
+        if (files.has(PREVIEW_FILE)) {
+            const resolved = await resolveInsideWorkingCopy(repository.workingCopy.dir, PREVIEW_FILE)
+            override = parsePreviewOverride(await fs.readFile(resolved.absolute, "utf8"))
+        }
+        return { files, manifest, manager, override }
+    }
+
+    /** The previews already running, as the containers of an environment find each other: `<SLUG>_URL`. */
+    private serviceUrls(): Record<string, string> {
+        const urls: Record<string, string> = {}
+        for (const [repository, port] of this.previewPorts) {
+            if (repository.serviceSlug) urls[serviceUrlVariable(repository.serviceSlug)] = `http://127.0.0.1:${port}`
+        }
+        return urls
+    }
+
+    /**
+     * Waits for a server just started to listen. One that does not says why, with the end of its log: what the
+     * user needs to fix it, a missing dependency or a port of its own.
+     */
+    private async waitReady(sandbox: CommandSandbox, port: number, pidfile: string, log: string, what: string) {
+        const ready = await sandbox.exec(["sh", "-c", WAIT_READY, String(port), pidfile, String(PREVIEW_READY_SECS)], { timeoutSecs: PREVIEW_READY_SECS + 15, signal: this.options.signal })
+        if (ready.exitCode === 0) return
+        const reasons: Record<number, string> = {
+            3: "The sandbox has no node, python3 or bash to check that the server listens",
+            4: `${what} stopped`
+        }
+        const reason = reasons[ready.exitCode] ?? `${what} did not listen on port ${port} within ${PREVIEW_READY_SECS} seconds`
+        const tail = await sandbox.exec(["tail", "-n", "30", log], { timeoutSecs: 35, signal: this.options.signal }).catch(() => undefined)
+        const output = tail?.exitCode === 0 ? tail.output.trim() : ""
+        throw new Error(output ? `${reason}:\n${redactSecrets(output)}` : reason)
+    }
+
+    /**
+     * A port for a preview, once the server an earlier run of the conversation left on this pid file is stopped: the
+     * one wanted unless another conversation of the sandbox holds it. The one wanted when the sandbox cannot tell.
+     */
+    private async freePort(sandbox: CommandSandbox, pidfile: string, wanted: number): Promise<number> {
+        const found = await sandbox.exec(["sh", "-c", STOP_PREVIEW_AND_FIND_PORT, pidfile, String(wanted), FIND_PORT, FIND_PORT_PYTHON], { timeoutSecs: 35, signal: this.options.signal })
         const port = Number(found.output.trim())
-        return found.exitCode === 0 && Number.isInteger(port) && port > 0 && port <= 65_535 ? port : wanted
+        return found.exitCode === 0 && isPort(port) ? port : wanted
     }
 
     private folderOf(sandbox: CommandSandbox, repository: ScriptRepository) {
