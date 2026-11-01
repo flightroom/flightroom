@@ -40,7 +40,7 @@ export interface ContainerEnvironmentDTO {
 }
 
 /** What a map holds in one environment, by key: a key with no value there is left out, as the deploy leaves it out */
-const mapValues = (map: IVariableMap, environmentId: string): Record<string, string> =>
+export const mapValues = (map: IVariableMap, environmentId: string): Record<string, string> =>
     Object.fromEntries(
         (map.entries ?? []).flatMap(entry => {
             const value = entryValueIn(entry, environmentId)

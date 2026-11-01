@@ -3,12 +3,20 @@ import { createBusinessException } from "../../errors/BusinessException"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import Backend from "../../models/BackendModel"
 import Domain from "../../models/DomainModel"
+import Environment from "../../models/EnvironmentModel"
 import Frontend from "../../models/FrontendModel"
 import Project from "../../models/ProjectModel"
+import Resource from "../../models/ResourceModel"
 import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
+import { ConfigMap, Secret } from "../../models/VariableMapModel"
+import { effectiveDesignSystem, IDesignSystem } from "../../types/DesignSystem"
+import { resourceEnvironmentValues } from "../../types/ResourceCatalog"
+import { runtimeVariables } from "../../types/RuntimeVariables"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import BaseAuthorizedService, { AuthorizedPrincipal } from "../BaseAuthorizedService"
+import { mapValues } from "../ContainerEnvironmentService"
+import { projectDesignSystemOf } from "../ProjectService"
 import { OpenShellConfiguration, openShellSandboxes } from "../sandbox/OpenShellSandboxes"
 import { languagesOfComponents } from "../sandbox/sandboxLanguages"
 import { effectiveOpenShellConfig } from "../sandbox/sandboxSettings"
@@ -45,13 +53,63 @@ const tooManyRepositories = () =>
 
 const isConnected = (component: RepositoryComponent) => Boolean(component.codeRepository?.enabled && component.codeRepository.codeRepositoryId)
 
-const scriptRepositoryOf = (component: FrontendComponent | BackendComponent, workingCopy: ScriptRepository["workingCopy"]): ScriptRepository => ({
+/** The frontend's own design system, else the project's, else the organization's: the npmrc of the one it builds with. */
+const scriptRepositoryOf = (
+    component: FrontendComponent | BackendComponent,
+    workingCopy: ScriptRepository["workingCopy"],
+    projectDesignSystem: IDesignSystem | undefined,
+    environment: Record<string, string> | undefined
+): ScriptRepository => ({
     slug: `${component.kind}-${component.slug}`,
     serviceSlug: component.slug,
     workingCopy,
     kind: component.kind,
-    ...(component.kind === "frontend" ? { framework: component.framework, npmrc: component.designSystem?.npmrc } : { framework: component.framework, runtime: component.runtime, port: component.port })
+    ...(environment ? { environment } : {}),
+    ...(component.kind === "frontend"
+        ? { framework: component.framework, npmrc: effectiveDesignSystem(component.designSystem, projectDesignSystem)?.npmrc }
+        : { framework: component.framework, runtime: component.runtime, port: component.port })
 })
+
+/** What reaches the container of a frontend or a backend through `envFrom`. */
+interface ContainerSources {
+    _id: unknown
+    configMapIds?: unknown[]
+    secretIds?: unknown[]
+    resourceIds?: unknown[]
+}
+
+/**
+ * What the containers previewed get in the first environment that is not production, the one furthest back: their
+ * config maps, then their secrets, then their resources, a later one winning as in `envFrom`, then LOG_LEVEL, LOG_JSON
+ * and ENVIRONMENT, as in `env`. Not the URLs of the services: from a sandbox they reach nothing, and the previews
+ * started find each other on their own. By id of the component; empty when the project has no such environment.
+ */
+export const previewEnvironments = async (projectId: ReturnType<typeof toObjectId>, sources: ContainerSources[]): Promise<Map<string, Record<string, string>>> => {
+    const environment = await Environment.findOne({ projectId, isProduction: false }, { slug: 1, logLevel: 1, logJson: 1 }).sort({ order: 1 })
+    if (!environment) return new Map()
+    const id = String(environment._id)
+    const inProject = (ids: unknown[]) => ({ _id: { $in: ids.map(entry => toObjectId(String(entry))) }, projectId })
+    // Read through the models, as the deploy reads them: a secret comes back decrypted
+    const [configMaps, secrets, resources] = await Promise.all([
+        ConfigMap.find(inProject(sources.flatMap(source => source.configMapIds ?? []))),
+        Secret.find(inProject(sources.flatMap(source => source.secretIds ?? []))),
+        Resource.find(inProject(sources.flatMap(source => source.resourceIds ?? [])))
+    ])
+    const byId = (values: [unknown, Record<string, string>][]) => new Map(values.map(([key, value]) => [String(key), value]))
+    const held = {
+        configMaps: byId(configMaps.map(map => [map._id, mapValues(map, id)])),
+        secrets: byId(secrets.map(map => [map._id, mapValues(map, id)])),
+        resources: byId(resources.map(resource => [resource._id, resourceEnvironmentValues(resource, id)]))
+    }
+    const pick = (ids: unknown[] | undefined, values: Map<string, Record<string, string>>) => (ids ?? []).map(entry => values.get(String(entry)) ?? {})
+    const runtime = Object.fromEntries(runtimeVariables(environment).map(({ name, value }) => [name, value]))
+    return new Map(
+        sources.map(source => [
+            String(source._id),
+            Object.assign({}, ...pick(source.configMapIds, held.configMaps), ...pick(source.secretIds, held.secrets), ...pick(source.resourceIds, held.resources), runtime)
+        ])
+    )
+}
 
 export default class StandalonePreviewService extends BaseAuthorizedService {
     constructor(
@@ -68,6 +126,7 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
 
         const projectObjectId = toObjectId(projectId)
         let components: RepositoryComponent[]
+        let sources: ContainerSources[]
         // The domain the preview counts for: the one previewed, or the frontend's own.
         let domainId: unknown
         if (input.kind === "frontend") {
@@ -77,6 +136,7 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             await this.ensureAccessToFrontend(frontend)
             await this.ensureNotViewer(frontend.projectId, { code: "LIVE_PREVIEW_FORBIDDEN", message: "A viewer cannot start a live preview" })
             components = [fromFrontend(frontend)]
+            sources = [frontend]
             domainId = frontend.domainId
         } else {
             const domain = await Domain.findById(input.id)
@@ -86,6 +146,7 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             await this.ensureNotViewer(domain.projectId, { code: "LIVE_PREVIEW_FORBIDDEN", message: "A viewer cannot start a live preview" })
             const [frontends, backends] = await Promise.all([Frontend.find({ projectId: domain.projectId, domainId: domain._id }), Backend.find({ projectId: domain.projectId, domainId: domain._id })])
             components = [...frontends.map(fromFrontend), ...backends.map(fromBackend)]
+            sources = [...frontends, ...backends]
             domainId = domain._id
         }
 
@@ -102,10 +163,19 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
         await StandalonePreviewSession.updateOne({ _id: sessionObjectId }, { $set: { projectId: projectObjectId, targetKind: input.kind, targetId: input.id, expiresAt } }, { upsert: true })
 
         const ordered = [...workspaces].sort((left, right) => left.workspace.workingCopy.dir.localeCompare(right.workspace.workingCopy.dir))
-        const repositories = workspaces.map(({ component, workspace }) => scriptRepositoryOf(component, workspace.workingCopy))
+        const project = await Project.findById(projectObjectId, { organizationId: 1, designSystem: 1 }).lean()
+        // A preview runs no command of an agent: the secrets of the environment reach its development servers only.
+        const [{ designSystem: projectDesignSystem }, environments] = await Promise.all([
+            project ? projectDesignSystemOf(project) : { designSystem: undefined },
+            previewEnvironments(
+                projectObjectId,
+                sources.filter(source => connected.some(component => String(component._id) === String(source._id)))
+            )
+        ])
+        const repositories = workspaces.map(({ component, workspace }) => scriptRepositoryOf(component, workspace.workingCopy, projectDesignSystem, environments.get(String(component._id))))
         // A preview runs no command of an agent: only the lifetime of its sandbox is counted, against what it previews.
         // The organization the sandbox serves: a warm one goes back only to the organization it last served.
-        const organizationId = (await Project.findById(projectObjectId, { organizationId: 1 }).lean())?.organizationId
+        const organizationId = project?.organizationId
         const lifecycle = sandboxLifecycle({
             projectId: projectObjectId,
             organizationId,

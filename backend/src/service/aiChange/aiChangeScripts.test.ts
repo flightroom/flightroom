@@ -757,6 +757,33 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner live preview", () => {
         expect(starts[1][1]?.environment).toMatchObject({ ORDERS_BE_URL: "http://127.0.0.1:8081" })
     })
 
+    it("Given the variables of an environment, when the preview starts, then the server gets them, the sandbox's own and the previews' URLs winning", async () => {
+        const backend = backendWith({ "package.json": manifest({ dev: "node server.js" }) }, { runtime: "NODE", port: 8081 })
+        const frontendDir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
+        dirs.push(frontendDir)
+        const frontend: ScriptRepository = {
+            slug: "frontend-shop-fe",
+            kind: "frontend",
+            serviceSlug: "shop-fe",
+            workingCopy: workingCopyOf(frontendDir),
+            environment: { VITE_API_KEY: "dev-key", HOME: "/elsewhere", ORDERS_BE_URL: "http://orders-be" }
+        }
+        const sandbox = {
+            root: "/sandbox",
+            exec: vi.fn(async (_command: string[], _options?: SandboxExecOptions) => ({ exitCode: 0, output: "", cutBytes: 0 })),
+            exposeService: vi.fn(async () => "https://preview.example.test")
+        }
+        const runner = new AiChangeScriptRunner([backend, frontend], async () => sandbox, { previewsEnabled: true })
+
+        await runner.startPreview(backend, true)
+        await runner.startPreview(frontend, true)
+
+        const starts = sandbox.exec.mock.calls.filter(([command]) => command[2]?.includes("nohup"))
+        expect(starts[1][1]?.environment).toMatchObject({ VITE_API_KEY: "dev-key", HOME: "/sandbox/home", ORDERS_BE_URL: "http://127.0.0.1:8081" })
+        const install = sandbox.exec.mock.calls.find(([command]) => command.includes("install"))
+        expect(install?.[1]?.environment).not.toHaveProperty("VITE_API_KEY")
+    })
+
     it("Given a frontend and a backend exposed under a path, when the gateway runs, then the path goes to the backend stripped and the rest to the frontend", async () => {
         const listening = (handler: http.RequestListener) =>
             new Promise<http.Server>(resolve => {

@@ -152,6 +152,11 @@ export interface ScriptRepository {
     npmrc?: string
     /** The slug of its frontend or backend: the previews started after it reach it as `<SLUG>_URL`, as the containers of an environment do. */
     serviceSlug?: string
+    /**
+     * What its container gets in an environment, handed to its development server only: never to a script or a
+     * command of an agent, which would read the secrets. The sandbox's own variables and the previews' URLs win over it.
+     */
+    environment?: Record<string, string>
 }
 
 /** Every stack previews the same way: what it needs is prepared, the server is started, then it is waited for until it listens. */
@@ -735,6 +740,7 @@ export class AiChangeScriptRunner {
             const started = await sandbox.exec(["sh", "-c", START_PREVIEW, log, pidfile, ...plan.command], {
                 workdir: this.folderOf(sandbox, repository),
                 environment: {
+                    ...repository.environment,
                     ...this.environmentOf(sandbox, repository, true),
                     ...this.serviceUrls(),
                     ...plan.environment
