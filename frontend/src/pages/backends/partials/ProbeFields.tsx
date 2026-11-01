@@ -13,6 +13,9 @@ const TIMING_LABELS = {
     readinessPeriodSeconds: "backends.readiness_period"
 } as const
 
+/** Two columns filled top to bottom, liveness on the left and readiness on the right, across the whole parent grid */
+export const PROBE_GRID_CLASS = "grid grid-cols-1 gap-x-4 gap-y-2 md:grid-flow-col md:grid-cols-2 md:grid-rows-3"
+
 /** The six probe fields of a container: blank inherits the project template, shown as the placeholder */
 export const ProbeFields: React.FC<{ side: ProbeSide }> = ({ side }) => {
     const { t } = useTranslation()
@@ -20,7 +23,7 @@ export const ProbeFields: React.FC<{ side: ProbeSide }> = ({ side }) => {
     const placeholder = (field: ProbeField) => String(effectiveProbe(field, null, template).value)
 
     return (
-        <>
+        <div className={`${PROBE_GRID_CLASS} md:col-span-2`}>
             <TextField name="livenessPath" label={t("backends.liveness_path")} placeholder={placeholder("livenessPath")} description={t("backends.liveness_path_hint")} />
             <TextField
                 name="livenessInitialDelaySeconds"
@@ -51,7 +54,7 @@ export const ProbeFields: React.FC<{ side: ProbeSide }> = ({ side }) => {
                 placeholder={placeholder("readinessPeriodSeconds")}
                 description={t("backends.probe_timing_hint")}
             />
-        </>
+        </div>
     )
 }
 

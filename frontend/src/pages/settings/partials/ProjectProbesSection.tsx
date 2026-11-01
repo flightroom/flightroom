@@ -22,6 +22,7 @@ import {
     probeSecondsField,
     probeTimings
 } from "@/pages/backends/partials/containerResources"
+import { PROBE_GRID_CLASS } from "@/pages/backends/partials/ProbeFields"
 import { SettingsDetails } from "./SettingsDetails"
 
 const SIDES: ProbeSide[] = ["backend", "frontend"]
@@ -40,6 +41,7 @@ interface ProjectProbesSectionProps {
 
 const fieldsOf = (probes?: ProjectProbesSectionProps["probes"]): ProbeFormValues => ({ backend: probeFormValues(probes?.backend), frontend: probeFormValues(probes?.frontend) })
 
+/** In the order of the form: the liveness fields fill the left column, the readiness ones the right */
 const LABELS: Record<ProbeField, string> = {
     livenessPath: "backends.liveness_path",
     livenessInitialDelaySeconds: "backends.liveness_initial_delay",
@@ -106,8 +108,8 @@ export const ProjectProbesSection: React.FC<ProjectProbesSectionProps> = ({ prob
                                     <h3 className="text-sm font-semibold">{t(`settings.probes.${side}_title`)}</h3>
                                     <p className="text-sm text-foreground-secondary">{t(`settings.probes.${side}_description`)}</p>
                                 </div>
-                                <div className="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-2">
-                                    {PROBE_FIELDS.map(field => (
+                                <div className={PROBE_GRID_CLASS}>
+                                    {(Object.keys(LABELS) as ProbeField[]).map(field => (
                                         <TextField
                                             key={field}
                                             name={`${side}.${field}`}
