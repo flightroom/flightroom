@@ -1152,6 +1152,7 @@
                 "unavailable": "A development server could not be started for one of the repositories."
             },
             "script_output": "Command output",
+            "script_output_live": "Command output so far",
             "show_progress_log": "Show the agent's progress log",
             "show_prompt": "Show the full request",
             "request_meta": "{{date}} · base branch {{branch}}",

@@ -13,6 +13,8 @@ export interface SandboxExecOptions {
     stdin?: Buffer
     timeoutSecs?: number
     signal?: AbortSignal
+    /** Told what the command prints as it prints it, stdout and stderr in the order written. It must not throw. */
+    onOutput?: (text: string) => void
 }
 
 /**

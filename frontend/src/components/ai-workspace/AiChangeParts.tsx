@@ -63,9 +63,9 @@ export const ActiveStatus: React.FC<{ status: AiChangeStatus }> = ({ status }) =
 }
 
 /** The log of the agent: live while it works, folded away once it is done. */
-export const ProgressSection: React.FC<{ events?: AiChangeEvent[]; live: boolean }> = ({ events, live }) => {
+export const ProgressSection: React.FC<{ events?: AiChangeEvent[]; live: boolean; liveOutput?: string }> = ({ events, live, liveOutput }) => {
     const { t } = useTranslation()
-    if (live) return <ProgressLog events={events ?? []} live />
+    if (live) return <ProgressLog events={events ?? []} live liveOutput={liveOutput} />
     if (!events?.length) return null
     return (
         <details className="text-sm">

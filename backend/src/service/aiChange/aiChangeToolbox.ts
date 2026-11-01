@@ -53,11 +53,12 @@ export class AiChangeToolbox {
         signal?: AbortSignal,
         previewsEnabled = false,
         onPreview?: (kind: "info", message: string) => Promise<void> | void,
-        onExec?: (exec: SandboxExec) => Promise<void> | void
+        onExec?: (exec: SandboxExec) => Promise<void> | void,
+        onOutput?: (text: string) => void
     ) {
         if (repositories.length === 0) throw new Error("A toolbox needs at least one repository")
         this.maxWrittenBytes = agentLimitsFor(repositories.length).maxWrittenBytes
-        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal, previewsEnabled, onPreview, onExec) : undefined
+        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal, previewsEnabled, onPreview, onExec, onOutput) : undefined
         // A follow-up refines what its parent wrote: the limits hold for the whole proposal, not for each step.
         for (const repository of repositories) {
             // A lockfile comes from the install, not from the agent: alone it may weigh more than the agent may write.

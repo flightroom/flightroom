@@ -32,7 +32,8 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
         signal,
         input.previewsEnabled,
         hooks.onEvent,
-        input.onSandboxExec
+        input.onSandboxExec,
+        hooks.onOutput
     )
     // Sent with the new request only: the transcript keeps a note of them, not the images.
     const images = input.images?.length ? { images: input.images } : {}

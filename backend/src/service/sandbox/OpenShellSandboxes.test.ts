@@ -477,6 +477,20 @@ describe("OpenShellSandboxes", () => {
             expect(sandbox.execStream).toHaveBeenCalledWith(assigned()[0].name, ["npm", "test"], expect.objectContaining({ workdir: "/sandbox/repositories/shop", noLoginShell: true }))
         })
 
+        it("Given a command whose output is followed, when it prints a character across two chunks, then it is told as printed, the character whole", async () => {
+            const accented = Buffer.from("installing è\n")
+            sandbox.execStream.mockImplementation(async function* () {
+                yield { stream: "stdout", data: accented.subarray(0, 12) }
+                yield { stream: "stdout", data: accented.subarray(12) }
+                yield { type: "exit", exitCode: 0 }
+            })
+            const told: string[] = []
+            const acquired = await sandboxes().acquire(CONVERSATION)
+            await acquired.exec(["npm", "install"], { onOutput: text => told.push(text) })
+
+            expect(told).toEqual(["installing ", "è\n"])
+        })
+
         it("Given a conversation of a shared sandbox, when it is acquired, then its commands run in the folder of the conversation, with the home shared by them all", async () => {
             const key = "domain-65f1a2b3c4d5e6f708192a3c"
 

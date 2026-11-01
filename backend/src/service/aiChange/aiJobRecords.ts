@@ -8,6 +8,7 @@ import { redactSecrets } from "../../utils/redactSecrets"
 import { calculateAiUsageCost, recordAiUsage } from "../AiUsageService"
 import { LlmClient, LlmUsage } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
+import { TERMINAL_ESCAPES } from "./aiChangeScripts"
 import { loggable, PROPOSAL_TTL_MS, STALE_AFTER_MS } from "./aiChangeShared"
 import { JobProposal } from "./aiJobWorkingCopies"
 
@@ -32,6 +33,54 @@ export const logJobEvent = async (jobId: string, kind: IAiChangeEvent["kind"], m
     const shown = kind === "text" || kind === "thinking" || kind === "output" ? redactSecrets(message) : message
     // Written side by side: one line per event the agent sends, the job and its requests do not wait on each other.
     await Promise.all([AiChangeJob.updateOne({ _id: toObjectId(jobId) }, event(kind, shown)), AiChangeRequest.updateMany({ jobId: toObjectId(jobId) }, event(kind, shown))])
+}
+
+/** Characters of a running script's output kept on the job: the end, where it is at. */
+const LIVE_OUTPUT_CHARS = 4_000
+/** How often what a running script printed is written: the pages poll every few seconds, not at each line. */
+const LIVE_OUTPUT_EVERY_MS = 2_000
+
+/**
+ * What the script or the command the agent is running prints, shown on the job and its requests while it runs: an
+ * install can take minutes before its "output" event. Masked as that event is; unset once the next event is logged.
+ */
+export class LiveJobOutput {
+    private text = ""
+    private timer?: NodeJS.Timeout
+    private shown = false
+    private writing: Promise<void> = Promise.resolve()
+
+    constructor(private readonly jobId: string) {}
+
+    add(chunk: string) {
+        this.text = (this.text + chunk).slice(-LIVE_OUTPUT_CHARS)
+        this.timer ??= setTimeout(() => {
+            this.timer = undefined
+            this.write(redactSecrets(this.text.replace(TERMINAL_ESCAPES, "")))
+        }, LIVE_OUTPUT_EVERY_MS)
+    }
+
+    /** Before the next event: what the script printed is in its "output" event from now on. Never throws. */
+    async end() {
+        clearTimeout(this.timer)
+        this.timer = undefined
+        this.text = ""
+        if (this.shown) this.write(undefined)
+        await this.writing
+    }
+
+    /** One write after the other: an unset never lands before the write it follows. */
+    private write(text: string | undefined) {
+        this.shown = text !== undefined
+        const update = text === undefined ? { $unset: { liveOutput: 1 } } : { $set: { liveOutput: text } }
+        const id = toObjectId(this.jobId)
+        this.writing = this.writing
+            .then(() => Promise.all([AiChangeJob.updateOne({ _id: id }, update), AiChangeRequest.updateMany({ jobId: id }, update)]))
+            .then(
+                () => undefined,
+                error => fastify.log.warn({ error: loggable(error), aiJobId: this.jobId }, "AI job live output not written")
+            )
+    }
 }
 
 /**

@@ -138,15 +138,15 @@ export const LivePreviews: React.FC<{ events: AiChangeEvent[] }> = ({ events }) 
 }
 
 /** What the agent did, step by step: `live` announces new steps to screen readers. */
-export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean }> = ({ events, live }) => {
+export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean; liveOutput?: string }> = ({ events, live, liveOutput }) => {
     const { t } = useTranslation()
     const containerRef = useRef<HTMLDivElement>(null)
 
     // Newest last, as in a terminal: keep the latest step in view while the agent works.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: a new event is what must trigger the scroll
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a new event, or more of what a script prints, is what must trigger the scroll
     useEffect(() => {
         if (containerRef.current) containerRef.current.scrollTop = containerRef.current.scrollHeight
-    }, [events.length])
+    }, [events.length, liveOutput])
 
     return (
         <div
@@ -186,6 +186,13 @@ export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean }> =
                         </li>
                     ))}
                 </ol>
+            )}
+            {/* Open, unlike a finished script's: an install can run for minutes, its output is what tells it is not stuck. */}
+            {live && liveOutput && (
+                <div className="mt-2">
+                    <p className="text-muted-foreground">{t("frontend.aiChange.script_output_live")}</p>
+                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 font-mono">{liveOutput}</pre>
+                </div>
             )}
         </div>
     )

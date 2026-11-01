@@ -1340,6 +1340,7 @@
                 "unavailable": "Non è stato possibile avviare il server di sviluppo per uno dei repository."
             },
             "script_output": "Output del comando",
+            "script_output_live": "Output del comando in corso",
             "show_progress_log": "Mostra il registro di avanzamento dell'agente",
             "show_prompt": "Mostra la richiesta completa",
             "request_meta": "{{date}} · branch di partenza {{branch}}",

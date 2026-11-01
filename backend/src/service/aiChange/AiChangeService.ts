@@ -110,7 +110,7 @@ export class AiChangeService extends AiChangeBaseService {
         ])
         const requests = await AiChangeRequest.find(
             { ...owner, conversationId: { $in: conversations.map(conversation => conversation._id) } },
-            { "files.originalContent": 0, "files.proposedContent": 0, events: 0 }
+            { "files.originalContent": 0, "files.proposedContent": 0, events: 0, liveOutput: 0 }
         ).sort({ createdAt: -1 })
         for (const request of requests) {
             const outcome = staleOutcome(request)

@@ -125,6 +125,8 @@ export interface AiChangeAgentConsoleTools {
 export interface AiChangeAgentHooks {
     onEvent: (kind: "info" | "tool" | "output" | "text" | "thinking", message: string) => Promise<void> | void
     onUsage: (usage: LlmUsage) => Promise<void> | void
+    /** What a script or a command prints while it runs, before its "output" event: unmasked, it must not throw. */
+    onOutput?: (text: string) => void
 }
 
 export interface AiChangeAgentResult {

@@ -47,6 +47,8 @@ export interface AiChangeRequest {
     summary?: string
     /** Missing on the list endpoint. */
     events?: AiChangeEvent[]
+    /** What the script the agent is running has printed so far; missing between scripts and on the list endpoint. */
+    liveOutput?: string
     /** The feature branch the proposal is pushed on. */
     branch?: string
     /** On the feature branch while proposed, on the base once applied. */

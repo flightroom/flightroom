@@ -6,9 +6,9 @@ import { AI_CHANGE_DEFAULT_EFFORT } from "./aiChangeLimits"
 import { staleOutcome } from "./aiChangeShared"
 
 /** File contents stay out of every view: the diff is read from the request of each repository. */
-export const WITHOUT_CONTENTS = { "files.originalContent": 0, "files.proposedContent": 0, events: 0 } as const
+export const WITHOUT_CONTENTS = { "files.originalContent": 0, "files.proposedContent": 0, events: 0, liveOutput: 0 } as const
 /** Neither the progress nor the conversation of the agent: what lists of jobs read. */
-export const JOB_LISTED = { events: 0, transcript: 0 } as const
+export const JOB_LISTED = { events: 0, liveOutput: 0, transcript: 0 } as const
 
 export interface AiJobRepositoryView {
     requestId: string
@@ -49,6 +49,8 @@ export interface AiJobView {
     aiModelId?: string
     /** Left out of lists. */
     events?: { at: Date; kind: IAiChangeEvent["kind"]; message: string }[]
+    /** What the running script has printed so far, with the events only. */
+    liveOutput?: string
     summary?: string
     error?: string
     /** Set when a user stopped the agent before it finished. */
@@ -104,6 +106,7 @@ export const toJobView = (
     effort: job.effort ?? AI_CHANGE_DEFAULT_EFFORT,
     aiModelId: job.aiModelId,
     events: withEvents ? (job.events ?? []).map(entry => ({ at: entry.at, kind: entry.kind, message: entry.message })) : undefined,
+    liveOutput: withEvents ? job.liveOutput : undefined,
     summary: job.summary,
     error: job.error,
     stoppedAt: job.stoppedAt,

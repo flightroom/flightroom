@@ -67,6 +67,8 @@ export interface IAiChangeJob extends Document<ObjectId> {
     /** The AI the agent ran on: an id of the organization's AIs, or `system`. Unset on jobs from before AIs could be chosen. */
     aiModelId?: string
     events: IAiChangeEvent[]
+    /** The end of what the script or the command the agent is running has printed so far, masked: unset between them. */
+    liveOutput?: string
     summary?: string
     /**
      * The conversation of the agent with the user, up to and including this job, compacted: a
@@ -117,6 +119,7 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         effort: { type: String, enum: [...LLM_EFFORTS], default: "high" },
         aiModelId: { type: String },
         events: { type: [aiChangeEventSchema], default: [] },
+        liveOutput: { type: String },
         summary: { type: String },
         transcript: { type: [Schema.Types.Mixed], default: undefined },
         error: { type: String },

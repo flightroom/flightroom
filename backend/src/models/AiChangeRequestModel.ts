@@ -78,6 +78,8 @@ export interface IAiChangeRequest extends Document<ObjectId> {
     files: IAiChangeFile[]
     summary?: string
     events: IAiChangeEvent[]
+    /** The end of what the script or the command the agent is running has printed so far, masked: unset between them. */
+    liveOutput?: string
     /** The feature branch the proposal is pushed on: named by the first message of the conversation, every follow-up force-pushes it. */
     branch?: string
     /** The proposal's commit on `branch`, then, once applied, the commit on the base branch. */
@@ -140,6 +142,7 @@ const aiChangeRequestSchema = new Schema<IAiChangeRequest>(
         files: { type: [fileSchema], default: [] },
         summary: { type: String },
         events: { type: [aiChangeEventSchema], default: [] },
+        liveOutput: { type: String },
         branch: { type: String },
         commit: { type: String },
         pushError: { type: String },

@@ -1,5 +1,6 @@
 import { createHash, randomBytes, randomUUID } from "node:crypto"
 import { readFile } from "node:fs/promises"
+import { StringDecoder } from "node:string_decoder"
 import TelemetryService from "../TelemetryService"
 import { CommandSandbox, SandboxCommandResult, SandboxExecOptions } from "./commandSandbox"
 import { mongoSandboxPool, PooledSandbox, SandboxPool } from "./sandboxPool"
@@ -260,6 +261,8 @@ class OpenShellCommandSandbox implements CommandSandbox {
         let kept = 0
         let cutBytes = 0
         let exitCode: number | undefined
+        // A character split across two chunks is told whole, with the second.
+        const decoder = options.onOutput ? new StringDecoder("utf8") : undefined
         const events = this.client.sandbox.execStream(this.name, command, {
             workspace: this.workspace,
             workdir: options.workdir,
@@ -276,6 +279,7 @@ class OpenShellCommandSandbox implements CommandSandbox {
                 continue
             }
             chunks.push(event.data)
+            if (decoder) options.onOutput?.(decoder.write(event.data))
             kept += event.data.length
             // Whole chunks are dropped while what is left still fills the bound.
             while (chunks.length > 1 && kept - chunks[0].length >= MAX_OUTPUT_BYTES) {

@@ -61,6 +61,8 @@ export interface AiJob {
     status: AiJobStatus
     /** Missing on the list endpoint. */
     events?: AiChangeEvent[]
+    /** What the script the agent is running has printed so far; missing between scripts and on the list endpoint. */
+    liveOutput?: string
     summary?: string
     error?: string
     /** Set when a user stopped the agent before it finished: the job is FAILED, its requests DISCARDED. */

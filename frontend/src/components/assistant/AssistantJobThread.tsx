@@ -164,7 +164,7 @@ const JobEntry: React.FC<{ job: AiJob }> = ({ job }) => {
                 {job.startedAt && (active || job.finishedAt) && <JobDuration startedAt={job.startedAt} finishedAt={active ? undefined : job.finishedAt} />}
             </div>
             {active ? (
-                <ProgressLog events={job.events ?? []} live />
+                <ProgressLog events={job.events ?? []} live liveOutput={job.liveOutput} />
             ) : (
                 Boolean(job.events?.length) && (
                     <details className="text-xs">

@@ -117,7 +117,7 @@ const CHANGE_LINE = /^([0-9a-f]{64}) [ *]\.\/(.+)$/
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 
 // biome-ignore lint/suspicious/noControlCharactersInRegex: the escape sequences of terminal colours are what is removed
-const TERMINAL_ESCAPES = /\x1b\[[0-9;?]*[A-Za-z]/g
+export const TERMINAL_ESCAPES = /\x1b\[[0-9;?]*[A-Za-z]/g
 
 const looksBinary = (content: Buffer) => content.subarray(0, 8_000).includes(0)
 
@@ -411,7 +411,9 @@ export class AiChangeScriptRunner {
         private readonly previewsEnabled = false,
         private readonly onPreview?: (kind: "info", message: string) => Promise<void> | void,
         /** Told after each script and command, even one that throws: its time is what the sandbox costs. It must not throw. */
-        private readonly onExec?: (exec: SandboxExec) => Promise<void> | void
+        private readonly onExec?: (exec: SandboxExec) => Promise<void> | void,
+        /** Told what a script or a command prints while it runs, its output unmasked: whoever shows it masks it. It must not throw. */
+        private readonly onOutput?: (text: string) => void
     ) {
         for (const repository of repositories) {
             if (!SLUG.test(repository.slug)) throw new Error(`"${repository.slug}" cannot name a folder of the sandbox`)
@@ -522,7 +524,8 @@ export class AiChangeScriptRunner {
                     workdir: this.folderOf(sandbox, repository),
                     environment: this.environmentOf(sandbox, repository, run.install, run.npmrc),
                     timeoutSecs: run.timeoutSecs,
-                    signal: this.signal
+                    signal: this.signal,
+                    onOutput: this.onOutput
                 })
             } finally {
                 // Stopped at its timeout or aborted, it took the sandbox's time all the same.

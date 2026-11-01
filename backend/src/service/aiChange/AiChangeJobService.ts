@@ -22,7 +22,7 @@ import { AI_CHANGE_DEFAULT_EFFORT } from "./aiChangeLimits"
 import { aiJobEnded, beforeAiCapCheck, branchName, branchTopic, ensureNotBeingRefined, followUpRunning, loggable } from "./aiChangeShared"
 import { agentInputOf } from "./aiJobAgentInput"
 import { notifyAiJobEnded } from "./aiJobNotices"
-import { ACTIVE_JOB_STATUSES, addJobUsage, event, expiry, failJob, fresh, logJobEvent, saveProposals, UNFINISHED_REQUEST_STATUSES } from "./aiJobRecords"
+import { ACTIVE_JOB_STATUSES, addJobUsage, event, expiry, failJob, fresh, LiveJobOutput, logJobEvent, saveProposals, UNFINISHED_REQUEST_STATUSES } from "./aiJobRecords"
 import { AiJobView, JOB_LISTED, WITHOUT_CONTENTS } from "./aiJobViews"
 import { changedFiles, JobProposal, PushedProposal, pushProposal, RunningRepository, restorePrevious, sameFiles } from "./aiJobWorkingCopies"
 
@@ -444,11 +444,16 @@ export class AiChangeJobService extends AiChangeJobQueryService {
             const input = await agentInputOf(job, project, domain, memberDomains, repositories, visibleResources, this.getUser())
             // The agent may stop midway, the provider failing or its answer cut off: what it wrote until then is still proposed.
             let stopped: string | undefined
+            const liveOutput = new LiveJobOutput(jobId)
             const result = await runAiChangeAgent(
                 client,
                 input,
                 {
-                    onEvent: (kind, message) => logJobEvent(jobId, kind, message),
+                    onEvent: async (kind, message) => {
+                        await liveOutput.end()
+                        await logJobEvent(jobId, kind, message)
+                    },
+                    onOutput: text => liveOutput.add(text),
                     onUsage: async usage => {
                         onUsage(usage)
                         await addJobUsage(job, project, client, usage)
@@ -457,14 +462,17 @@ export class AiChangeJobService extends AiChangeJobQueryService {
                     }
                 },
                 abort.signal
-            ).catch(error => {
-                // Aborted, the job was declared dead: nothing of it is saved.
-                if (abort.signal.aborted) throw error
-                // The provider's own message stays in the log: it may quote what the endpoint answered.
-                stopped = aiProviderError(error).message
-                fastify.log.warn({ error: loggable(error), aiJobId: jobId }, "AI job agent stopped before finishing")
-                return undefined
-            })
+            )
+                .catch(error => {
+                    // Aborted, the job was declared dead: nothing of it is saved.
+                    if (abort.signal.aborted) throw error
+                    // The provider's own message stays in the log: it may quote what the endpoint answered.
+                    stopped = aiProviderError(error).message
+                    fastify.log.warn({ error: loggable(error), aiJobId: jobId }, "AI job agent stopped before finishing")
+                    return undefined
+                })
+                // Stopped in the middle of a script, the job keeps no half of its output.
+                .finally(() => liveOutput.end())
 
             // Stopped by a user meanwhile: nothing of it is saved nor pushed.
             if (abort.signal.aborted) return
