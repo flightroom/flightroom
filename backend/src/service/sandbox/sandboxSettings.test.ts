@@ -52,6 +52,15 @@ describe("the settings of the sandboxes", () => {
         expect(findById).toHaveBeenCalledTimes(3)
     })
 
+    it("Given the template in use changed from the console, then its revision reaches the configuration, though it is no setting", async () => {
+        stored({ template: "flightroom-node", templateRevision: "r2" })
+
+        const config = await effectiveOpenShellConfig(ENV, 0)
+
+        expect(config).toMatchObject({ OPENSHELL_SANDBOX_TEMPLATE: "flightroom-node", OPENSHELL_SANDBOX_TEMPLATE_REVISION: "r2" })
+        expect(storedSandboxSettings({ _id: "installation", templateRevision: "r2" } as never)).toEqual({})
+    })
+
     it("Given a read that fails, when the settings are asked for again, then the database is read again instead of failing for the cache time", async () => {
         findById.mockReturnValueOnce({ lean: () => Promise.reject(new Error("mongo down")) })
         await expect(effectiveOpenShellConfig(ENV, 0)).rejects.toThrow("mongo down")

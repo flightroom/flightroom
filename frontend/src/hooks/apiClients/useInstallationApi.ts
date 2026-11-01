@@ -50,7 +50,31 @@ export interface SandboxLogLine {
     message: string
 }
 
+/** What an installation administrator sets of a workload template of the gateway. */
+export interface SandboxTemplateInput {
+    image: string
+    cpu?: string | null
+    memory?: string | null
+    labels: Record<string, string>
+    environment: Record<string, string>
+}
+
+export interface SandboxTemplate {
+    name: string
+    image: string
+    cpu?: string
+    memory?: string
+    labels: Record<string, string>
+    environment: Record<string, string>
+    /** Settings this page does not show (runtime class, GPU, service level): kept when the template is changed here. */
+    advanced: boolean
+    createdAt?: string
+    /** Whether new sandboxes are created from it. */
+    inUse: boolean
+}
+
 export const SANDBOX_SETTINGS_QUERY_KEY = "installation-sandbox-settings"
+export const SANDBOX_TEMPLATES_QUERY_KEY = "installation-sandbox-templates"
 export const INSTALLATION_SANDBOXES_QUERY_KEY = "installation-sandboxes"
 
 /** The settings of the whole installation: only its administrators, those of INSTALLATION_ADMINS, are let in. */
@@ -72,7 +96,29 @@ const useInstallationApi = () => {
         await apiClient.doRequest({ url: `/api/installation/sandboxes/${name}`, method: "DELETE", silent: true })
     }
 
-    return { getSandboxSettings, updateSandboxSettings, getSandboxes, getSandboxLogs, deleteSandbox }
+    const getSandboxTemplates = async (): Promise<SandboxTemplate[]> => (await apiClient.doRequest<SandboxTemplate[]>({ url: "/api/installation/sandbox-templates", silent: true })).data
+
+    const createSandboxTemplate = async (name: string, values: SandboxTemplateInput): Promise<SandboxTemplate> =>
+        (await apiClient.doRequest<SandboxTemplate>({ url: `/api/installation/sandbox-templates/${name}`, method: "POST", data: values, silent: true })).data
+
+    const updateSandboxTemplate = async (name: string, values: SandboxTemplateInput): Promise<SandboxTemplate> =>
+        (await apiClient.doRequest<SandboxTemplate>({ url: `/api/installation/sandbox-templates/${name}`, method: "PUT", data: values, silent: true })).data
+
+    const deleteSandboxTemplate = async (name: string): Promise<void> => {
+        await apiClient.doRequest({ url: `/api/installation/sandbox-templates/${name}`, method: "DELETE", silent: true })
+    }
+
+    return {
+        getSandboxSettings,
+        updateSandboxSettings,
+        getSandboxes,
+        getSandboxLogs,
+        deleteSandbox,
+        getSandboxTemplates,
+        createSandboxTemplate,
+        updateSandboxTemplate,
+        deleteSandboxTemplate
+    }
 }
 
 export default useInstallationApi

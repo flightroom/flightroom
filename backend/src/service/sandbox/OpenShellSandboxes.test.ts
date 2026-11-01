@@ -440,6 +440,17 @@ describe("OpenShellSandboxes", () => {
             expect(warm()).toHaveLength(1)
         })
 
+        it("Given a warm sandbox created from the template before it was changed from the console, when one is acquired, then a new one is created from the template as it is now", async () => {
+            const template = { ...GATEWAY, OPENSHELL_SANDBOX_WARM: 1, OPENSHELL_SANDBOX_TEMPLATE: "flightroom-node", OPENSHELL_SANDBOX_TEMPLATE_REVISION: "r1" }
+            await sandboxes(template).sweep(async () => "idle")
+            sandbox.createFromTemplate.mockClear()
+
+            await sandboxes({ ...template, OPENSHELL_SANDBOX_TEMPLATE_REVISION: "r2" }).acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION)
+
+            expect(sandbox.createFromTemplate).toHaveBeenCalledTimes(1)
+            expect(warm()).toHaveLength(1)
+        })
+
         it("Given the sweep moving the sandbox back into the pool while it is looked up, when one is acquired, then the key gets another one", async () => {
             put("fr-0000000000000001", ours)
             pool.seed({ name: "fr-0000000000000001", sandboxId: "id-fr-0000000000000001", key: CONVERSATION })

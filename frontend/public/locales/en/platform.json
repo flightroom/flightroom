@@ -4497,7 +4497,8 @@
                 },
                 "template": {
                     "label": "Template",
-                    "help": "A workload template of the gateway: it wins over the image."
+                    "help": "A workload template of the gateway: it wins over the image.",
+                    "none": "none"
                 },
                 "registryHosts": {
                     "label": "Registry hosts",
@@ -4507,6 +4508,75 @@
                     "label": "Network executables",
                     "help": "Comma separated executables allowed to reach those hosts, by their real path."
                 }
+            }
+        },
+        "templates": {
+            "title": "Sandbox templates",
+            "description": "The workload templates of the OpenShell gateway: the image, resources, labels and environment variables a sandbox starts with. They are stored on the gateway, not in Flightroom: other installations on the same gateway workspace see and use them.",
+            "add": "New template",
+            "edit": "Edit the template {{name}}",
+            "empty": "The gateway has no templates yet: sandboxes start from the image.",
+            "no_gateway": "OPENSHELL_GATEWAY_URL is not set: there is no gateway to manage templates on.",
+            "in_use": "In use",
+            "resources": "{{cpu}} CPU · {{memory}}",
+            "no_limits": "No limits",
+            "created": "Template created",
+            "updated": "Template updated",
+            "columns": {
+                "name": "Name",
+                "image": "Image",
+                "resources": "Resources",
+                "labels": "Labels",
+                "actions": "Actions"
+            },
+            "form": {
+                "memory_placeholder": "2Gi",
+                "cpu_placeholder": "1",
+                "image_placeholder": "registry.example.com/node-worker:1.0.0",
+                "name_placeholder": "flightroom-node",
+                "add_title": "New template",
+                "edit_title": "Edit {{name}}",
+                "add_description": "The template is created on the gateway. To use it, choose it in the sandbox settings.",
+                "edit_description": "The gateway cannot update a template: it deletes it and creates it again. For a moment a sandbox starting from this template fails; if the gateway refuses the change, the previous template is restored.",
+                "in_use_warning": "New sandboxes start from this template: saving deletes the warm sandboxes, which are created again. Those already assigned keep the previous template until they are released.",
+                "advanced_kept": "This template has settings not shown here (runtime class, GPU, service level): they are kept.",
+                "name": "Name",
+                "name_help": "Lowercase letters, digits and dashes, at most 19 characters. It cannot change after creation.",
+                "image": "Image",
+                "image_help": "The container image, with a fixed version tag: do not use latest.",
+                "cpu": "CPU",
+                "cpu_help": "CPU limit, for example 1, 2 or 500m. Empty: no limit.",
+                "memory": "Memory",
+                "memory_help": "Memory limit, for example 2Gi or 512Mi. Empty: no limit.",
+                "labels": "Labels",
+                "labels_help": "One per line, as key=value.",
+                "environment": "Environment variables",
+                "environment_help": "One per line, as NAME=value. Installation administrators can read them: do not put secrets here."
+            },
+            "validation": {
+                "duplicate": "Each key may appear only once",
+                "too_many": "At most {{max}} lines",
+                "name": "Lowercase letters, digits and dashes, at most 19 characters, no dash at the start or end",
+                "cpu": "A number of CPUs, for example 1, 0.5 or 500m",
+                "memory": "An amount of memory, for example 2Gi or 512Mi",
+                "labels": "One label per line, key=value, with letters, digits, -, _ and .",
+                "environment": "One variable per line, NAME=value, with a name of letters, digits and _"
+            },
+            "errors": {
+                "lost": "The gateway refused the change and did not take the previous template back: {{name}} no longer exists on the gateway. Create it again.",
+                "exists": "A template with this name already exists",
+                "refused": "The gateway refused the template: {{reason}}",
+                "no_gateway": "OPENSHELL_GATEWAY_URL is not set: there is no gateway to save the template on",
+                "save_failed": "The template could not be saved"
+            },
+            "delete": {
+                "open": "Delete the template {{name}}",
+                "title": "Delete the template {{name}}?",
+                "description": "The template is deleted from the gateway, also for the other installations using it. Sandboxes already created are not touched.",
+                "deleting": "Deleting…",
+                "deleted": "Template deleted",
+                "in_use": "New sandboxes start from this template: choose another one in the settings before deleting it",
+                "failed": "The template could not be deleted"
             }
         },
         "sandboxes": {

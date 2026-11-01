@@ -68,6 +68,8 @@ export interface OpenShellConfiguration {
     OPENSHELL_WORKSPACE?: string
     /** A workload template defined on the gateway (image, resources, runtime class): it wins over the image. */
     OPENSHELL_SANDBOX_TEMPLATE?: string
+    /** No environment variable: changed when the template in use is changed from the console, so the sandboxes made from the previous one are not handed out. */
+    OPENSHELL_SANDBOX_TEMPLATE_REVISION?: string
     OPENSHELL_SANDBOX_IMAGE?: string
     OPENSHELL_SANDBOX_ROOT?: string
     /** Comma separated hosts the sandbox may reach on 443; empty leaves the network to the gateway's own policy. */
@@ -359,6 +361,11 @@ export class OpenShellSandboxes {
         return idleMsOf(await this.settings())
     }
 
+    /** The workload templates of the gateway, in the workspace of this installation's sandboxes. */
+    async templates(): Promise<{ client: OpenShellClient["sandboxTemplates"]; workspace?: string }> {
+        return { client: (await this.connect()).sandboxTemplates, workspace: this.workspace }
+    }
+
     private get workspace() {
         return this.config.OPENSHELL_WORKSPACE || undefined
     }
@@ -440,7 +447,9 @@ export class OpenShellSandboxes {
 
     /** What a sandbox is created as: one created otherwise, before the settings changed, is not handed out again. */
     private specHash(settings: OpenShellConfiguration) {
-        const spec = settings.OPENSHELL_SANDBOX_TEMPLATE ? { template: settings.OPENSHELL_SANDBOX_TEMPLATE } : { image: settings.OPENSHELL_SANDBOX_IMAGE || OPENSHELL_DEFAULTS.image }
+        const spec = settings.OPENSHELL_SANDBOX_TEMPLATE
+            ? { template: settings.OPENSHELL_SANDBOX_TEMPLATE, revision: settings.OPENSHELL_SANDBOX_TEMPLATE_REVISION }
+            : { image: settings.OPENSHELL_SANDBOX_IMAGE || OPENSHELL_DEFAULTS.image }
         return createHash("sha256")
             .update(JSON.stringify({ ...spec, policy: this.policy(settings) ?? null }))
             .digest("hex")

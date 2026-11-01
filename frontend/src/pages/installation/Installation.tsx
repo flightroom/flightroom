@@ -8,13 +8,14 @@ import useUserStore from "@/store/useUserStore"
 import { InstallationSandboxes } from "./partials/InstallationSandboxes"
 import { SandboxPoolStatus } from "./partials/SandboxPoolStatus"
 import { SandboxSettingsForm } from "./partials/SandboxSettingsForm"
+import { SandboxTemplates } from "./partials/SandboxTemplates"
 
 /** The pool counts move as sandboxes are claimed and refilled: read again as often as the server reads the gateway. */
 const REFRESH_MS = 30_000
 
 /**
  * The settings of the whole installation, for its administrators (INSTALLATION_ADMINS): the sandboxes of the coding
- * agent, how they are created and kept, and the ones alive now. Anybody else is told it is not theirs to see.
+ * agent, the templates of the gateway they are created from, how they are created and kept, and the ones alive now. Anybody else is told it is not theirs to see.
  */
 const Installation: React.FC = () => {
     const { t } = useTranslation()
@@ -33,6 +34,7 @@ const Installation: React.FC = () => {
                     {settingsQuery.data ? (
                         <div className="flex flex-col gap-6">
                             <SandboxPoolStatus summary={settingsQuery.data} />
+                            <SandboxTemplates gatewayConfigured={settingsQuery.data.gateway.status !== "notConfigured"} />
                             <SandboxSettingsForm summary={settingsQuery.data} />
                         </div>
                     ) : (

@@ -18,6 +18,8 @@ export interface ISandboxSettings {
     template?: string
     registryHosts?: string
     networkBinary?: string
+    /** Changed each time the template in use is changed from the console: not a setting, the sandboxes made before are no longer handed out. */
+    templateRevision?: string
     updatedBy?: Schema.Types.ObjectId
     updatedAt?: Date
 }
@@ -34,6 +36,7 @@ const sandboxSettingsSchema = new Schema<ISandboxSettings>(
         template: { type: String },
         registryHosts: { type: String },
         networkBinary: { type: String },
+        templateRevision: { type: String },
         updatedBy: { type: Schema.Types.ObjectId, ref: "User" }
     },
     { timestamps: { createdAt: false, updatedAt: true } }

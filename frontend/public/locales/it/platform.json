@@ -4516,7 +4516,8 @@
                 },
                 "template": {
                     "label": "Template",
-                    "help": "Un workload template del gateway: ha la precedenza sull'immagine."
+                    "help": "Un workload template del gateway: ha la precedenza sull'immagine.",
+                    "none": "nessuno"
                 },
                 "registryHosts": {
                     "label": "Host dei registry",
@@ -4526,6 +4527,75 @@
                     "label": "Eseguibili di rete",
                     "help": "Eseguibili separati da virgole autorizzati a raggiungere quegli host, con il loro percorso reale."
                 }
+            }
+        },
+        "templates": {
+            "title": "Template delle sandbox",
+            "description": "I workload template del gateway OpenShell: immagine, risorse, label e variabili d'ambiente con cui nasce una sandbox. Sono salvati sul gateway, non in Flightroom: le altre installazioni sullo stesso workspace del gateway li vedono e li usano.",
+            "add": "Nuovo template",
+            "edit": "Modifica il template {{name}}",
+            "empty": "Il gateway non ha ancora template: le sandbox nascono dall'immagine.",
+            "no_gateway": "OPENSHELL_GATEWAY_URL non è impostata: non c'è un gateway su cui gestire i template.",
+            "in_use": "In uso",
+            "resources": "{{cpu}} CPU · {{memory}}",
+            "no_limits": "Senza limiti",
+            "created": "Template creato",
+            "updated": "Template aggiornato",
+            "columns": {
+                "name": "Nome",
+                "image": "Immagine",
+                "resources": "Risorse",
+                "labels": "Label",
+                "actions": "Azioni"
+            },
+            "form": {
+                "memory_placeholder": "2Gi",
+                "cpu_placeholder": "1",
+                "image_placeholder": "registry.example.com/node-worker:1.0.0",
+                "name_placeholder": "flightroom-node",
+                "add_title": "Nuovo template",
+                "edit_title": "Modifica {{name}}",
+                "add_description": "Il template viene creato sul gateway. Per usarlo, sceglilo nelle impostazioni delle sandbox.",
+                "edit_description": "Il gateway non può aggiornare un template: lo elimina e lo ricrea. Per qualche istante una sandbox che nasce da questo template non parte; se il gateway rifiuta la modifica, il template precedente viene ripristinato.",
+                "in_use_warning": "Le nuove sandbox nascono da questo template: al salvataggio le sandbox pronte vengono eliminate e ricreate. Quelle già assegnate tengono il template precedente finché non vengono rilasciate.",
+                "advanced_kept": "Questo template ha impostazioni che qui non sono mostrate (runtime class, GPU, livello di servizio): vengono mantenute.",
+                "name": "Nome",
+                "name_help": "Lettere minuscole, cifre e trattini, al massimo 19 caratteri. Non si può cambiare dopo la creazione.",
+                "image": "Immagine",
+                "image_help": "L'immagine container, con un tag di versione fisso: non usare latest.",
+                "cpu": "CPU",
+                "cpu_help": "Limite di CPU, ad esempio 1, 2 o 500m. Vuoto: nessun limite.",
+                "memory": "Memoria",
+                "memory_help": "Limite di memoria, ad esempio 2Gi o 512Mi. Vuoto: nessun limite.",
+                "labels": "Label",
+                "labels_help": "Una per riga, nella forma chiave=valore.",
+                "environment": "Variabili d'ambiente",
+                "environment_help": "Una per riga, nella forma NOME=valore. Gli amministratori dell'installazione le possono leggere: non metterci segreti."
+            },
+            "validation": {
+                "duplicate": "Ogni chiave può comparire una volta sola",
+                "too_many": "Al massimo {{max}} righe",
+                "name": "Lettere minuscole, cifre e trattini, al massimo 19 caratteri, senza trattino all'inizio o alla fine",
+                "cpu": "Un numero di CPU, ad esempio 1, 0.5 o 500m",
+                "memory": "Una quantità di memoria, ad esempio 2Gi o 512Mi",
+                "labels": "Una label per riga, chiave=valore, con lettere, cifre, -, _ e .",
+                "environment": "Una variabile per riga, NOME=valore, con un nome fatto di lettere, cifre e _"
+            },
+            "errors": {
+                "lost": "Il gateway ha rifiutato la modifica e non ha ripreso il template precedente: {{name}} non esiste più sul gateway. Ricrealo.",
+                "exists": "Esiste già un template con questo nome",
+                "refused": "Il gateway ha rifiutato il template: {{reason}}",
+                "no_gateway": "OPENSHELL_GATEWAY_URL non è impostata: non c'è un gateway su cui salvare il template",
+                "save_failed": "Non è stato possibile salvare il template"
+            },
+            "delete": {
+                "open": "Elimina il template {{name}}",
+                "title": "Eliminare il template {{name}}?",
+                "description": "Il template viene eliminato dal gateway, anche per le altre installazioni che lo usano. Le sandbox già create non vengono toccate.",
+                "deleting": "Eliminazione…",
+                "deleted": "Template eliminato",
+                "in_use": "Le nuove sandbox nascono da questo template: scegline un altro nelle impostazioni prima di eliminarlo",
+                "failed": "Non è stato possibile eliminare il template"
             }
         },
         "sandboxes": {

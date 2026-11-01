@@ -1,5 +1,5 @@
 import { Alert, AlertDescription, AlertTitle, Card, CardContent, CardDescription, CardHeader, CardTitle, Form, SelectField } from "@flightroom/design-system"
-import { useMutation, useQueryClient } from "@tanstack/react-query"
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { ShieldAlert } from "lucide-react"
 import { useEffect } from "react"
@@ -7,7 +7,13 @@ import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
-import useInstallationApi, { SANDBOX_SETTINGS_QUERY_KEY, type SandboxSettingsSummary, type SandboxSettingsUpdate, type SandboxSettingsValues } from "@/hooks/apiClients/useInstallationApi"
+import useInstallationApi, {
+    SANDBOX_SETTINGS_QUERY_KEY,
+    SANDBOX_TEMPLATES_QUERY_KEY,
+    type SandboxSettingsSummary,
+    type SandboxSettingsUpdate,
+    type SandboxSettingsValues
+} from "@/hooks/apiClients/useInstallationApi"
 import useThemeStore from "@/store/useThemeStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
@@ -15,7 +21,7 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 const DEFAULT = "default"
 
 const NUMBER_FIELDS = { idleMinutes: [1, 1440], maxHours: [1, 720], warmSandboxes: [0, 50] } as const
-const TEXT_FIELDS = ["image", "template"] as const
+const TEXT_FIELDS = ["image"] as const
 const LIST_FIELDS = ["registryHosts", "networkBinary"] as const
 
 /** The same checks as the backend's: a host name, `*.` allowed in front; an absolute path without spaces nor commas. */
@@ -25,6 +31,8 @@ const PATH = /^\/[^\s,]*$/
 type NumberField = keyof typeof NUMBER_FIELDS
 
 type FormValues = Record<NumberField | (typeof TEXT_FIELDS)[number] | (typeof LIST_FIELDS)[number], string> & {
+    /** A template of the gateway, by name, or DEFAULT for the environment's. */
+    template: string
     sharing: typeof DEFAULT | "domain" | "conversation"
     previewsEnabled: typeof DEFAULT | "on" | "off"
 }
@@ -36,7 +44,7 @@ const toFormValues = (values: SandboxSettingsValues): FormValues => ({
     sharing: values.sharing ?? DEFAULT,
     previewsEnabled: values.previewsEnabled === undefined ? DEFAULT : values.previewsEnabled ? "on" : "off",
     image: values.image ?? "",
-    template: values.template ?? "",
+    template: values.template ?? DEFAULT,
     registryHosts: values.registryHosts ?? "",
     networkBinary: values.networkBinary ?? ""
 })
@@ -49,7 +57,7 @@ const toUpdate = (values: FormValues): SandboxSettingsUpdate => ({
     sharing: values.sharing === DEFAULT ? null : values.sharing,
     previewsEnabled: values.previewsEnabled === DEFAULT ? null : values.previewsEnabled === "on",
     image: values.image.trim() || null,
-    template: values.template.trim() || null,
+    template: values.template === DEFAULT ? null : values.template,
     registryHosts: values.registryHosts.trim() || null,
     networkBinary: values.networkBinary.trim() || null
 })
@@ -70,6 +78,12 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
     const queryClient = useQueryClient()
     const form = useForm<FormValues>({ defaultValues: toFormValues(summary.values) })
     const { defaults } = summary
+    // The templates the gateway has: the one saved stays among the choices even when the gateway does not list it (any longer).
+    const templatesQuery = useQuery({
+        queryKey: [SANDBOX_TEMPLATES_QUERY_KEY],
+        queryFn: installationApi.getSandboxTemplates,
+        enabled: summary.gateway.status !== "notConfigured"
+    })
 
     // The page reads the settings again every 30 seconds, gateway and pool included: only a change of what is stored,
     // saved on another tab or by another administrator, resets the form, and never over edits not saved yet.
@@ -122,6 +136,12 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
         },
         { value: "on", label: t("installation.settings.fields.previewsEnabled.on") },
         { value: "off", label: t("installation.settings.fields.previewsEnabled.off") }
+    ]
+
+    const templateNames = new Set([...(templatesQuery.data ?? []).map(template => template.name), ...(summary.values.template ? [summary.values.template] : [])])
+    const templateOptions = [
+        { value: DEFAULT, label: t("installation.settings.use_environment", { value: defaults.template ?? t("installation.settings.fields.template.none") }) },
+        ...[...templateNames].sort().map(name => ({ value: name, label: name }))
     ]
 
     return (
@@ -178,6 +198,14 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
                             <AlertTitle>{t("installation.settings.reach_warning.title")}</AlertTitle>
                             <AlertDescription>{t("installation.settings.reach_warning.description")}</AlertDescription>
                         </Alert>
+                        <div data-testid="installation-setting-template">
+                            <SelectField<FormValues>
+                                name="template"
+                                label={t("installation.settings.fields.template.label")}
+                                description={environmentHint(t("installation.settings.fields.template.help"), defaults.template)}
+                                options={templateOptions}
+                            />
+                        </div>
                         {TEXT_FIELDS.map(field => (
                             <TextField<FormValues>
                                 key={field}

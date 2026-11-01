@@ -50,7 +50,7 @@ export const effectiveOpenShellConfig = (env: OpenShellConfiguration, now = Date
     if (!cached || cached.env !== env || now - cached.at >= SANDBOX_SETTINGS_CACHE_MS) {
         const config = SandboxSettings.findById(SANDBOX_SETTINGS_ID)
             .lean()
-            .then(document => overlaySandboxSettings(env, storedSandboxSettings(document)))
+            .then(document => ({ ...overlaySandboxSettings(env, storedSandboxSettings(document)), OPENSHELL_SANDBOX_TEMPLATE_REVISION: document?.templateRevision }))
         const entry = { at: now, env, config }
         config.catch(() => {
             if (cached === entry) cached = undefined
