@@ -600,8 +600,8 @@
     "semantic_hash": ""
   },
   "frontend/package.json": {
-    "mtime": 1793548037.114192,
-    "ast_hash": "7d9273782afe9caf91b46c9adedac832",
+    "mtime": 1793565957.3294249,
+    "ast_hash": "d033ee74af3513c50ff97257743cd55d",
     "semantic_hash": ""
   },
   "frontend/postcss.config.js": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793561508.85557,
-    "ast_hash": "066f775f8ef3eb4984ba4e9a202f92e2",
+    "mtime": 1793566767.3452935,
+    "ast_hash": "3f0f2d2aed30b412e2fc183b93fe3ef0",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2920,8 +2920,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/Domains.tsx": {
-    "mtime": 1793565669.21748,
-    "ast_hash": "834560f6d113f30fdc592d606f2955d2",
+    "mtime": 1793566754.1464624,
+    "ast_hash": "f1d73e9d26d7e5d44c76bda2df0821b5",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainFilter.tsx": {
@@ -3835,8 +3835,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/CloneRepositoryPopover.tsx": {
-    "mtime": 1793005820.635414,
-    "ast_hash": "2da0891ce543581ec85c90ee7f899526",
+    "mtime": 1793566716.5694313,
+    "ast_hash": "fd581e776536b2606f7f104d95cd93f2",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/CodeRepositorySection.tsx": {
@@ -3850,8 +3850,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendCard.tsx": {
-    "mtime": 1793565659.6342769,
-    "ast_hash": "86f421c6ee2c5a3f68fa4ba951e08d2a",
+    "mtime": 1793566754.1460972,
+    "ast_hash": "f6a6ada225984397a6a3b7db7a599cee",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendHeader.tsx": {
@@ -4630,8 +4630,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendsGrid.tsx": {
-    "mtime": 1793565685.7858458,
-    "ast_hash": "10f5bcb1a32ea2ebe6a78c5604ffc609",
+    "mtime": 1793566760.1034524,
+    "ast_hash": "48fe8e94f375704483adb3c976a30f4a",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendsTable.tsx": {
@@ -5972,6 +5972,11 @@
   "frontend/src/pages/backends/partials/LogLevelOverrideField.tsx": {
     "mtime": 1793558420.1987154,
     "ast_hash": "935aa2c20ba89d0acf09856a2c809c29",
+    "semantic_hash": ""
+  },
+  "frontend/src/components/EntityCardActions.tsx": {
+    "mtime": 1793566684.0151966,
+    "ast_hash": "eaf19bf7777515be2dc8988c6dc8bc8d",
     "semantic_hash": ""
   }
 }
