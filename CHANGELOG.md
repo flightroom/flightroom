@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.0.0] - 2026-11-01
+
 ### Added
 
 - **Live Preview Of A Backend**: the header of a backend has the **Live preview** button too, as those of a frontend and of a domain: it starts the backend alone from its default branch in an OpenShell sandbox and opens on its docs path, else on its root. `POST /api/live-previews` takes `kind: "backend"`; a backend without a connected repository is refused (`OPENSHELL_PREVIEW_NO_BACKEND`)
