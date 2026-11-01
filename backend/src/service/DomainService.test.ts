@@ -17,8 +17,10 @@ import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import UserProject from "../models/UserProjectModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
+import BackendService from "./BackendService"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import DomainService, { resolveDomainId } from "./DomainService"
+import FrontendService from "./FrontendService"
 
 withNoMaintenanceAgents()
 
@@ -173,6 +175,36 @@ describe("DomainService.delete", () => {
         expect(deleteFrontends).not.toHaveBeenCalled()
         expect(deleteBackends).not.toHaveBeenCalled()
         expect(deleted).toBe(domain)
+    })
+
+    it("given a domain with members, when it is deleted with them, then each frontend and backend is deleted as its own delete does, before the domain", async () => {
+        const frontendIds = [new Types.ObjectId(), new Types.ObjectId()]
+        const backendIds = [new Types.ObjectId()]
+        vi.spyOn(Frontend, "find").mockResolvedValue(frontendIds.map(_id => ({ _id })) as never)
+        vi.spyOn(Backend, "find").mockResolvedValue(backendIds.map(_id => ({ _id })) as never)
+        const deleteFrontend = vi.spyOn(FrontendService.prototype, "delete").mockResolvedValue(null)
+        const deleteBackend = vi.spyOn(BackendService.prototype, "delete").mockResolvedValue(null)
+        vi.spyOn(Frontend, "updateMany").mockResolvedValue({ modifiedCount: 0 } as never)
+        vi.spyOn(Backend, "updateMany").mockResolvedValue({ modifiedCount: 0 } as never)
+        vi.spyOn(DomainLink, "deleteMany").mockResolvedValue({ deletedCount: 0 } as never)
+        vi.spyOn(UserProject, "updateMany").mockResolvedValue({ modifiedCount: 0 } as never)
+        const remove = vi.spyOn(Domain, "findByIdAndDelete").mockResolvedValue(domain as never)
+
+        await new DomainService().delete(String(domainId), true)
+
+        expect(deleteFrontend.mock.calls.map(([id]) => id)).toEqual(frontendIds)
+        expect(deleteBackend.mock.calls.map(([id]) => id)).toEqual(backendIds)
+        expect(deleteBackend.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0])
+    })
+
+    it("given a member that fails to go, when the domain is deleted with its members, then the domain stays", async () => {
+        vi.spyOn(Frontend, "find").mockResolvedValue([{ _id: new Types.ObjectId() }] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
+        vi.spyOn(FrontendService.prototype, "delete").mockRejectedValue(new Error("forbidden"))
+        const remove = vi.spyOn(Domain, "findByIdAndDelete")
+
+        await expect(new DomainService().delete(String(domainId), true)).rejects.toThrow("forbidden")
+        expect(remove).not.toHaveBeenCalled()
     })
 
     it("given an unknown domain, when it is deleted, then it is not found and no member is touched", async () => {

@@ -2868,6 +2868,23 @@
         }
     },
     "domains": {
+        "dangerZone": {
+            "title": "Zona pericolosa",
+            "subtitle": "Queste azioni sono irreversibili. Sii certo di quello che fai.",
+            "action_title": "Elimina questo dominio",
+            "action_description": "I suoi frontend e backend restano senza dominio, a meno che tu non scelga di eliminarli con lui.",
+            "button": "Elimina dominio",
+            "success": "Dominio eliminato",
+            "dialog": {
+                "title": "Elimina dominio",
+                "warning": "Attenzione!",
+                "description": "Il dominio \"{{name}}\" verrà eliminato definitivamente. I suoi frontend e backend restano, senza dominio.",
+                "description_with_members": "Il dominio \"{{name}}\" verrà eliminato definitivamente, insieme ai suoi frontend e backend con le loro versioni e i loro deploy.",
+                "with_members": "Elimina anche i frontend e i backend del dominio",
+                "confirmation": "Digita \"{{name}}\" per confermare.",
+                "confirm": "Elimina dominio"
+            }
+        },
         "sidebar_title": "Domini",
         "title": "Domini funzionali",
         "description": "Raggruppa frontend e backend del progetto per area funzionale",

@@ -207,7 +207,15 @@ describe("domain tools", () => {
         deleteDomain.mockResolvedValue(domain)
 
         expect(await run("domain_delete", { domainId: DOMAIN })).toBe(domain)
-        expect(deleteDomain).toHaveBeenCalledWith(DOMAIN)
+        expect(deleteDomain).toHaveBeenCalledWith(DOMAIN, false)
+    })
+
+    it("given withMembers, when a domain is deleted, then the service deletes its frontends and backends too", async () => {
+        deleteDomain.mockResolvedValue(domain)
+
+        await run("domain_delete", { domainId: DOMAIN, withMembers: true })
+
+        expect(deleteDomain).toHaveBeenCalledWith(DOMAIN, true)
     })
 
     it("given a domain of another project, when deleted, then the refusal surfaces", async () => {

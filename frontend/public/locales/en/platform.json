@@ -2848,6 +2848,23 @@
         }
     },
     "domains": {
+        "dangerZone": {
+            "title": "Danger zone",
+            "subtitle": "These actions cannot be undone. Be sure of what you are doing.",
+            "action_title": "Delete this domain",
+            "action_description": "Its frontends and backends stay without a domain, unless you choose to delete them with it.",
+            "button": "Delete domain",
+            "success": "Domain deleted",
+            "dialog": {
+                "title": "Delete domain",
+                "warning": "Warning!",
+                "description": "The domain \"{{name}}\" will be deleted for good. Its frontends and backends stay, without a domain.",
+                "description_with_members": "The domain \"{{name}}\" will be deleted for good, along with its frontends and backends, their versions and their deployments.",
+                "with_members": "Also delete the frontends and backends of the domain",
+                "confirmation": "Type \"{{name}}\" to confirm.",
+                "confirm": "Delete domain"
+            }
+        },
         "sidebar_title": "Domains",
         "title": "Functional domains",
         "description": "Group the project's frontends and backends by functional area",

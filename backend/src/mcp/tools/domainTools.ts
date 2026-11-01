@@ -169,10 +169,13 @@ export const domainTools = [
     defineTool({
         name: "domain_delete",
         title: "Delete domain",
-        description: 'Deletes a functional domain. Its frontends and backends are kept: they become "no domain".',
+        description: 'Deletes a functional domain. Its frontends and backends are kept: they become "no domain", unless withMembers deletes them too.',
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
-        inputSchema: z.object({ domainId }),
-        run: (args, { principal }) => new DomainService(principal).delete(args.domainId)
+        inputSchema: z.object({
+            domainId,
+            withMembers: z.boolean().optional().describe("true to delete the frontends and backends of the domain too, with their versions and deployments; its maintenance agents are kept")
+        }),
+        run: (args, { principal }) => new DomainService(principal).delete(args.domainId, args.withMembers === true)
     })
 ]

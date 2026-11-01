@@ -76,7 +76,8 @@ export default async function domainController(fastify: FastifyInstance) {
         return reply.send(await new DomainReleaseService(request.databaseUser).cancel(request.params.id, request.params.releaseId))
     })
 
-    fastify.delete<{ Params: { id: string } }>("/domains/:id", async (request, reply) => {
-        return reply.send(await new DomainService(request.databaseUser).delete(request.params.id))
+    // ?withMembers=true deletes its frontends and backends too
+    fastify.delete<{ Params: { id: string }; Querystring: { withMembers?: string } }>("/domains/:id", async (request, reply) => {
+        return reply.send(await new DomainService(request.databaseUser).delete(request.params.id, request.query.withMembers === "true"))
     })
 }

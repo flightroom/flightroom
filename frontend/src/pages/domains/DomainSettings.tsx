@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { useParams } from "react-router-dom"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
+import { useIsProjectViewer } from "@/store/useProjectStore"
+import DomainDangerZone from "./partials/DomainDangerZone"
 import DomainDetailsSection from "./partials/DomainDetailsSection"
 import DomainHeader from "./partials/DomainHeader"
 
@@ -11,6 +13,7 @@ const DomainSettings: React.FC = () => {
     const { t } = useTranslation()
     const { id } = useParams<{ id: string }>()
     const domainsApi = useDomainsApi()
+    const isViewer = useIsProjectViewer()
 
     // The same query as the overview: moving between the two tabs reads nothing again
     const domainQuery = useQuery({ queryKey: ["domain", id], queryFn: () => domainsApi.getSingle(id!), enabled: !!id })
@@ -36,6 +39,7 @@ const DomainSettings: React.FC = () => {
         <div className="flex min-h-full flex-col gap-6">
             <DomainHeader domain={domainQuery.data} active="settings" />
             <DomainDetailsSection domain={domainQuery.data} />
+            {!isViewer && <DomainDangerZone domain={domainQuery.data} />}
         </div>
     )
 }

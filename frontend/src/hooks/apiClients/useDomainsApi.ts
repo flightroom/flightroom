@@ -223,8 +223,9 @@ const useDomainsApi = () => {
         return response.data
     }
 
-    const deleteSingle = async (id: string) => {
-        const response = await apiClient.doRequest({ url: `/api/domains/${id}`, method: "DELETE" })
+    /** With `withMembers`, its frontends and backends go too; otherwise they stay without a domain */
+    const deleteSingle = async (id: string, withMembers = false) => {
+        const response = await apiClient.doRequest({ url: `/api/domains/${id}${withMembers ? "?withMembers=true" : ""}`, method: "DELETE" })
         return response.data
     }
 

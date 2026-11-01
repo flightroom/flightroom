@@ -14,8 +14,11 @@ import { isValidRefName } from "../utils/gitRefUtils"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import { slugify } from "../utils/slugUtils"
+// Both import this service back: they reach it only inside their methods, once every module is loaded
+import BackendService from "./BackendService"
 import BaseAuthorizedService, { DOMAIN_SCOPE_FORBIDDEN } from "./BaseAuthorizedService"
 import { deleteLinksOfDomain } from "./DomainLinkService"
+import FrontendService from "./FrontendService"
 import { repositoryKeys } from "./repositoryLinks"
 import TemplateScaffoldService from "./TemplateScaffoldService"
 import { pushTag, TagLookupError, TagTarget, tagCommit, tagExists } from "./templateScaffold/templateTags"
@@ -484,18 +487,27 @@ export class DomainService extends BaseAuthorizedService {
     }
 
     /**
-     * Deletes the domain only: its frontends and backends stay, without a domain. The memberships
-     * scoped to it lose it from their scope and stay scoped, even when it was their last domain: they
-     * then reach nothing rather than the whole project, until an owner gives them a new scope.
+     * Deletes the domain. Its frontends and backends stay, without a domain, unless `withMembers` deletes them too,
+     * each as its own delete does; its maintenance agents always stay. The memberships scoped to it lose it from
+     * their scope and stay scoped, even when it was their last domain: they then reach nothing rather than the
+     * whole project, until an owner gives them a new scope.
      */
-    async delete(id: string | ObjectId): Promise<IDomain | null> {
+    async delete(id: string | ObjectId, withMembers = false): Promise<IDomain | null> {
         const domain = await this.getById(id)
         if (!domain) {
             throw new EntityNotFoundError(String(id))
         }
         await this.ensureWholeProject(domain.projectId)
+        const members = { projectId: domain.projectId, domainId: domain._id }
+        if (withMembers) {
+            // Before the domain, and out of its transaction: a member that fails to go leaves the domain there, to delete again
+            const [frontends, backends] = await Promise.all([Frontend.find(members, { _id: 1 }), Backend.find(members, { _id: 1 })])
+            const frontendService = new FrontendService(this.user)
+            for (const frontend of frontends) await frontendService.delete(frontend._id)
+            const backendService = new BackendService(this.user)
+            for (const backend of backends) await backendService.delete(backend._id)
+        }
         return runInTransaction(async session => {
-            const members = { projectId: domain.projectId, domainId: domain._id }
             // null, as the forms store "no domain": the filters and the counts treat it as a missing domainId
             await Frontend.updateMany(members, { $set: { domainId: null } }, { session })
             await Backend.updateMany(members, { $set: { domainId: null } }, { session })
