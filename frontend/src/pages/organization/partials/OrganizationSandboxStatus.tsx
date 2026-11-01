@@ -1,10 +1,9 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Spinner } from "@flightroom/design-system"
-import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
 import { Container } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Badge, type IBadgeProps } from "@/components/atoms"
-import useAiSandboxApi, { AI_SANDBOX_QUERY_KEY, type AiSandboxStatus } from "@/hooks/apiClients/useAiSandboxApi"
+import { type AiSandboxStatus, useAiSandboxStatusQuery } from "@/hooks/apiClients/useAiSandboxApi"
 import useThemeStore from "@/store/useThemeStore"
 
 const BADGE_VARIANTS: Record<AiSandboxStatus, IBadgeProps["variant"]> = {
@@ -14,9 +13,6 @@ const BADGE_VARIANTS: Record<AiSandboxStatus, IBadgeProps["variant"]> = {
     notConfigured: "outline"
 }
 
-/** The server asks the gateway at most every 30 seconds: polling faster would only read the same answer */
-const REFRESH_MS = 60_000
-
 interface OrganizationSandboxStatusProps {
     organizationId: string
 }
@@ -25,13 +21,7 @@ interface OrganizationSandboxStatusProps {
 export const OrganizationSandboxStatus: React.FC<OrganizationSandboxStatusProps> = ({ organizationId }) => {
     const { t } = useTranslation()
     const themeStore = useThemeStore()
-    const aiSandboxApi = useAiSandboxApi()
-
-    const statusQuery = useQuery({
-        queryKey: [AI_SANDBOX_QUERY_KEY, organizationId],
-        queryFn: () => aiSandboxApi.getStatus(organizationId),
-        refetchInterval: REFRESH_MS
-    })
+    const statusQuery = useAiSandboxStatusQuery(organizationId)
     const summary = statusQuery.data
 
     return (
