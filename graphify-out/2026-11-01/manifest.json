@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793570440.8039734,
-    "ast_hash": "7fc46120b4724d693eb6398fb5cc0daf",
+    "mtime": 1793571641.522056,
+    "ast_hash": "0f2c6eb3f5468ac34ad93c28959b1e6c",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3245,8 +3245,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793570887.6443315,
-    "ast_hash": "e40e58b7e3929bed91522e7168c7cbee",
+    "mtime": 1793571826.642773,
+    "ast_hash": "6383acf2579ac491687fc521057e776a",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {
@@ -4550,8 +4550,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/BackendDetail.tsx": {
-    "mtime": 1793569693.2292395,
-    "ast_hash": "0b0503b33e2082ec7dec585178e60fc2",
+    "mtime": 1793571611.2542038,
+    "ast_hash": "f384daccd0780fd99df31203f7d086de",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/Backends.tsx": {
@@ -4775,8 +4775,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/LivePreviewButton.tsx": {
-    "mtime": 1793005820.6027799,
-    "ast_hash": "5244806807a9754e5f9072a0ce1ca179",
+    "mtime": 1793571821.1436052,
+    "ast_hash": "2fdd803d942f2963bca8de8636675949",
     "semantic_hash": ""
   },
   "frontend/src/utils/livePreview.ts": {
@@ -4845,18 +4845,18 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useAiSandboxApi.ts": {
-    "mtime": 1793045114.205937,
-    "ast_hash": "b0cb74ef7faa8c1c3b5b6cb71c58bfbd",
+    "mtime": 1793571821.143352,
+    "ast_hash": "2ddd1fc05534b995230f788267c9dc44",
     "semantic_hash": ""
   },
   "frontend/src/pages/organization/partials/OrganizationSandboxStatus.tsx": {
-    "mtime": 1793045141.5539534,
-    "ast_hash": "fcc7d286679a0118be9c0b644b0bdf9e",
+    "mtime": 1793571821.1439445,
+    "ast_hash": "f52bd2a0e0c237dd1491f3e9ff24e312",
     "semantic_hash": ""
   },
   "frontend/src/components/application-logs/ApplicationLogsSection.tsx": {
-    "mtime": 1793547172.4134727,
-    "ast_hash": "ace21d042e375c64ecf24d3d9048edbe",
+    "mtime": 1793571630.637234,
+    "ast_hash": "323ee7f6403dc71302a37c86c7dc2f47",
     "semantic_hash": ""
   },
   "frontend/src/components/mascot/Mascot.tsx": {
@@ -5800,8 +5800,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/ContainerEnvironmentCard.tsx": {
-    "mtime": 1793550134.6642246,
-    "ast_hash": "2367d71c9c0aa5d6a22c9def397b8dd8",
+    "mtime": 1793571611.2546434,
+    "ast_hash": "7de39f5812976cb83ee67104114c9b3c",
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/DeploymentVariableMapCard.tsx": {
@@ -5957,6 +5957,11 @@
   "frontend/src/components/CloneRepositoryPopover.tsx": {
     "mtime": 1793570988.1980429,
     "ast_hash": "fb51d9e41af8df455f70ffe4df16bf01",
+    "semantic_hash": ""
+  },
+  "frontend/src/hooks/useArgoCdInitialized.ts": {
+    "mtime": 1793571593.9336147,
+    "ast_hash": "ec8f7200397bcbe1f51d4358c37469ae",
     "semantic_hash": ""
   }
 }
