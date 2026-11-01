@@ -3150,6 +3150,9 @@
             "nav_overview": "Overview",
             "nav_settings": "Details & settings"
         },
+        "overview_tabs": {
+            "deployments": "Deployments"
+        },
         "settings": {
             "details_title": "Details"
         },

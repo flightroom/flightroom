@@ -3170,6 +3170,9 @@
             "nav_overview": "Panoramica",
             "nav_settings": "Dettagli e impostazioni"
         },
+        "overview_tabs": {
+            "deployments": "Deployment"
+        },
         "settings": {
             "details_title": "Dettagli"
         },

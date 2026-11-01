@@ -1,7 +1,8 @@
-import { Alert, AlertDescription, Spinner } from "@flightroom/design-system"
+import { Alert, AlertDescription, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
+import { Boxes, Info, Rocket, ScrollText } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useParams } from "react-router-dom"
+import { useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import ApplicationLogsSection, { LogsApplication } from "@/components/application-logs/ApplicationLogsSection"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
@@ -15,6 +16,23 @@ import DomainHeader from "./partials/DomainHeader"
 import DomainMembersSection from "./partials/DomainMembersSection"
 import DomainResourcesSection from "./partials/DomainResourcesSection"
 
+const TABS = ["summary", "deployments", "resources", "logs"] as const
+type Tab = (typeof TABS)[number]
+
+const TAB_ICONS: Record<Tab, React.ComponentType> = {
+    summary: Info,
+    deployments: Rocket,
+    resources: Boxes,
+    logs: ScrollText
+}
+
+const TAB_LABEL_KEYS: Record<Tab, string> = {
+    summary: "backends.overview_tabs.summary",
+    deployments: "domains.overview_tabs.deployments",
+    resources: "backends.overview_tabs.resources",
+    logs: "backends.overview_tabs.logs"
+}
+
 /** What the domain runs and reaches, next to Edit with AI: its frontends and backends, the versions deployed in each environment, the resources of its backends, the AI tokens it spent. */
 const DomainOverview: React.FC = () => {
     const { t } = useTranslation()
@@ -24,6 +42,8 @@ const DomainOverview: React.FC = () => {
     const domainDeploymentsApi = useDomainDeploymentsApi()
     const frontendsApi = useFrontendsApi()
     const backendsApi = useBackendsApi()
+    // The tab lives in the URL (`?tab=logs`), as in the overview of a backend
+    const [searchParams, setSearchParams] = useSearchParams()
 
     const domainQuery = useQuery({ queryKey: ["domain", id], queryFn: () => domainsApi.getSingle(id!), enabled: !!id })
     const deploymentsQuery = useQuery({ queryKey: ["domain-deployments", id], queryFn: () => domainDeploymentsApi.getByDomain(id!), enabled: !!id })
@@ -64,14 +84,46 @@ const DomainOverview: React.FC = () => {
         name: application.name
     }))
 
+    // Nothing in pods, nothing to read logs of: no tab for them
+    const tabs = TABS.filter(value => value !== "logs" || applications.length > 0)
+    const requestedTab = searchParams.get("tab") as Tab
+    const tab: Tab = tabs.includes(requestedTab) ? requestedTab : "summary"
+
     return (
         <div className="flex min-h-full flex-col gap-6">
             <DomainHeader domain={domainQuery.data} active="overview" />
-            <DomainMembersSection domain={domainQuery.data} frontends={frontendsQuery.data ?? []} backends={backendsQuery.data ?? []} />
-            {deploymentsQuery.data && <DomainDeploymentsSection deployments={deploymentsQuery.data} frontends={frontendsQuery.data ?? []} />}
-            <DomainResourcesSection backends={backends} />
-            <AiUsageSummary target={{ kind: "domain", id: id! }} />
-            {applications.length > 0 && <ApplicationLogsSection applications={applications} environments={environmentsQuery.data ?? []} />}
+            <Tabs value={tab} onValueChange={value => setSearchParams({ tab: value }, { replace: true })}>
+                <TabsList aria-label={t("backends.overview_tabs.label")}>
+                    {tabs.map(value => {
+                        const Icon = TAB_ICONS[value]
+                        return (
+                            <TabsTrigger key={value} value={value} dataTestId={`domain-tab-${value}`}>
+                                <Icon />
+                                {t(TAB_LABEL_KEYS[value])}
+                            </TabsTrigger>
+                        )
+                    })}
+                </TabsList>
+
+                <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
+                    <DomainMembersSection domain={domainQuery.data} frontends={frontendsQuery.data ?? []} backends={backendsQuery.data ?? []} />
+                    <AiUsageSummary target={{ kind: "domain", id: id! }} />
+                </TabsContent>
+
+                <TabsContent value="deployments" className="mt-6 flex flex-col gap-6">
+                    {deploymentsQuery.data && <DomainDeploymentsSection deployments={deploymentsQuery.data} frontends={frontendsQuery.data ?? []} />}
+                </TabsContent>
+
+                <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
+                    <DomainResourcesSection backends={backends} />
+                </TabsContent>
+
+                {applications.length > 0 && (
+                    <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
+                        <ApplicationLogsSection applications={applications} environments={environmentsQuery.data ?? []} />
+                    </TabsContent>
+                )}
+            </Tabs>
         </div>
     )
 }
