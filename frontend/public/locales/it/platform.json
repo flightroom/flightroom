@@ -2746,7 +2746,8 @@
         "version_by_environment": {
             "title": "Versione per ambiente",
             "description": "La versione che usa ogni ambiente, ad esempio l'ultima in sviluppo e una precedente in produzione. Lasciala vuota e l'ambiente non lo riceve: i suoi deploy lo lasciano fuori. La applica il prossimo deploy dell'ambiente.",
-            "not_deployed": "non deployato"
+            "not_deployed": "non deployato",
+            "summary": "Cosa gira dove: la versione che ogni ambiente ha ricevuto con il suo ultimo deploy, o che riceverà con il prossimo."
         },
         "urls": {
             "title": "Endpoint",

@@ -9,29 +9,15 @@ import { Badge } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useFrontendsApi, { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
-import BackendConfigurationSection from "@/pages/backends/partials/BackendConfigurationSection"
+import BackendConfigurationSection, { ContainerEnvSection } from "@/pages/backends/partials/BackendConfigurationSection"
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
-import { CloneRepositoryPopover, FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
+import { EnvironmentVersionsCard } from "@/pages/backends/partials/EnvironmentVersionFields"
+import { FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS, HOST_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
-
-const FrontendRepositorySection: React.FC<{ frontend: Frontend }> = ({ frontend }) => {
-    const { t } = useTranslation()
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="mb-0">{t("frontend.code_repository")}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3 text-sm">
-                {frontend.codeRepository?.enabled ? <CloneRepositoryPopover frontend={frontend} link /> : <p className="text-foreground-secondary">{t("frontend.overview.no_repository")}</p>}
-            </CardContent>
-        </Card>
-    )
-}
 
 /** The version served and the canary rolled out next to it, with the bundles published so far */
 const FrontendReleaseSection: React.FC<{ frontend: Frontend; versions: string[] }> = ({ frontend, versions }) => {
@@ -144,18 +130,14 @@ const FrontendOverview: React.FC = () => {
                         // The actions live in Edit with AI: here only when that screen does not exist
                         actions={!aiModels.isPending && !aiAvailable && <FrontendActions frontend={frontend} />}
                     />
-                    <FrontendRepositorySection frontend={frontend} />
+                    {isDocker && <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} />}
                     <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
                     {isDocker ? (
                         <>
                             <BackendVersionsTable versions={buildsQuery.data ?? []} />
-                            <BackendConfigurationSection
-                                probeSide="frontend"
-                                backend={frontend}
-                                environments={environmentsQuery.data ?? []}
-                                description={t("frontend.overview.container_description")}
-                            />
+                            <BackendConfigurationSection backend={frontend} environments={environmentsQuery.data ?? []} description={t("frontend.overview.container_description")} />
                             <BackendVariableMapsSection backend={frontend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                            <ContainerEnvSection backend={frontend} />
                             <ApplicationLogsSection slug={frontend.slug} environments={environmentsQuery.data ?? []} />
                         </>
                     ) : (

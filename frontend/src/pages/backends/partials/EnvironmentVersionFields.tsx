@@ -1,3 +1,4 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
 import { useEffect } from "react"
 import { useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -57,6 +58,55 @@ export const EnvironmentVersionsValue: React.FC<{ entries?: EnvironmentVersion[]
                 )
             })}
         </ul>
+    )
+}
+
+/**
+ * The version each environment runs, one tile per environment in their order, the version large: the first thing to know
+ * of a container is what runs where. An environment without one is not deployed.
+ */
+export const EnvironmentVersionsCard: React.FC<{ entries?: EnvironmentVersion[] | null; environments: EnvironmentDTO[] }> = ({ entries, environments }) => {
+    const { t } = useTranslation()
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="mb-0">{t("backends.version_by_environment.title")}</CardTitle>
+                <CardDescription>{t("backends.version_by_environment.summary")}</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-3">
+                {environments.length === 0 ? (
+                    <p className="text-sm text-foreground-secondary">{t("backends.urls.no_environments")}</p>
+                ) : (
+                    <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,12rem),1fr))] gap-3">
+                        {environments.map(environment => {
+                            const version = entries?.find(entry => entry.environmentId === environment._id)?.version
+                            return (
+                                <li
+                                    key={environment._id}
+                                    className="flex flex-col gap-1 rounded-lg border border-divider p-3"
+                                    style={environment.color ? { borderTopColor: environment.color, borderTopWidth: 3 } : undefined}
+                                >
+                                    <span className="flex items-center justify-between gap-2 text-sm text-foreground-secondary">
+                                        <span className="truncate" title={environment.name}>
+                                            {environment.name}
+                                        </span>
+                                        {environment.isProduction && <Badge variant="outline">{t("domains.deployments.production")}</Badge>}
+                                    </span>
+                                    {version ? (
+                                        <span className="truncate font-mono text-2xl font-semibold" title={version}>
+                                            {version}
+                                        </span>
+                                    ) : (
+                                        <span className="text-2xl font-semibold text-foreground-secondary">{t("backends.version_by_environment.not_deployed")}</span>
+                                    )}
+                                </li>
+                            )
+                        })}
+                    </ul>
+                )}
+            </CardContent>
+        </Card>
     )
 }
 

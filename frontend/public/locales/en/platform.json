@@ -2727,7 +2727,8 @@
         "version_by_environment": {
             "title": "Version per environment",
             "description": "The version each environment runs, e.g. the latest in development and an older one in production. Leave it empty and the environment does not get it: its deploys leave it out. The next deploy of the environment applies it.",
-            "not_deployed": "not deployed"
+            "not_deployed": "not deployed",
+            "summary": "What runs where: the version each environment got with its latest deploy, or will get with its next one."
         },
         "urls": {
             "title": "Endpoint",

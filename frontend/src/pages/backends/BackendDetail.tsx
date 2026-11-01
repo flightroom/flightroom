@@ -1,4 +1,4 @@
-import { Alert, AlertDescription, Card, CardContent, CardHeader, CardTitle, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { Alert, AlertDescription, Spinner, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { Boxes, Info, ScrollText, SlidersHorizontal, Variable } from "lucide-react"
 import { useTranslation } from "react-i18next"
@@ -10,33 +10,18 @@ import ApplicationLogsSection from "@/components/application-logs/ApplicationLog
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { ApiStatusHandler } from "@/components/organisms"
 import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
-import { CloneRepositoryPopover } from "@/pages/frontends/partials/components"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import BackendActions from "./partials/BackendActions"
-import BackendConfigurationSection from "./partials/BackendConfigurationSection"
+import BackendConfigurationSection, { ContainerEnvSection } from "./partials/BackendConfigurationSection"
 import BackendHeader, { isBackendAiAvailable } from "./partials/BackendHeader"
 import BackendResourcesSection from "./partials/BackendResourcesSection"
 import BackendVariableMapsSection from "./partials/BackendVariableMapsSection"
 import BackendVersionsTable from "./partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "./partials/backendVariables"
 import ContainerEnvironmentCard from "./partials/ContainerEnvironmentCard"
-
-const BackendRepositorySection: React.FC<{ backend: Backend }> = ({ backend }) => {
-    const { t } = useTranslation()
-
-    return (
-        <Card>
-            <CardHeader>
-                <CardTitle className="mb-0">{t("backends.code_repository")}</CardTitle>
-            </CardHeader>
-            <CardContent className="pt-3 text-sm">
-                {backend.codeRepository?.enabled ? <CloneRepositoryPopover frontend={backend} link /> : <p className="text-foreground-secondary">{t("backends.no_repository")}</p>}
-            </CardContent>
-        </Card>
-    )
-}
+import { EnvironmentVersionsCard } from "./partials/EnvironmentVersionFields"
 
 /**
  * The landing screen of a backend: Edit with AI on its repository, the same workspace as a frontend's.
@@ -134,18 +119,20 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         </TabsList>
 
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
-                            <BackendRepositorySection backend={backend} />
+                            <EnvironmentVersionsCard entries={backend.environmentVersions} environments={environmentsQuery.data ?? []} />
                             <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
                             <BackendVersionsTable versions={versionsQuery.data ?? []} />
                         </TabsContent>
 
                         <TabsContent value="configuration" className="mt-6 flex flex-col gap-6">
                             <BackendConfigurationSection backend={backend} environments={environmentsQuery.data ?? []} />
-                            <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                         </TabsContent>
 
+                        {/* What the container uses: its resources, config maps and secrets, and the variables it declares */}
                         <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
                             <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} canDetach={!isViewer} />
+                            <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                            <ContainerEnvSection backend={backend} />
                         </TabsContent>
 
                         <TabsContent value="logs" className="mt-6 flex flex-col gap-6">

@@ -1,17 +1,13 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
-import { Copy, ExternalLink } from "lucide-react"
+import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Badge, Button } from "@/components/atoms"
+import { Badge } from "@/components/atoms"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
-import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { exposedOrigin } from "./backendVariables"
-import { EnvironmentResourcesValue, RESOURCE_LABELS, ReplicasValue, ResourceValue } from "./ContainerResourceFields"
-import { type ProbeSide, RESOURCE_FIELDS } from "./containerResources"
-import { EnvironmentVersionsValue } from "./EnvironmentVersionFields"
+import { EnvironmentResourcesValue, ReplicasValue } from "./ContainerResourceFields"
 import { LogLevelValue } from "./LogLevelOverrideField"
-import { ProbeValue } from "./ProbeFields"
 
 /** What a container declares: a backend, or a frontend served by its own container */
 export type ContainerConfiguration = Partial<
@@ -39,32 +35,6 @@ export type ContainerConfiguration = Partial<
         | "environmentVersions"
     >
 >
-
-/** A path of the backend, as declared: no URL is made up from it, the host depends on where the backend runs */
-const BackendPath: React.FC<{ path?: string | null }> = ({ path }) => {
-    const { t } = useTranslation()
-    const notifications = useToastNotificationStore()
-
-    if (!path) return "—"
-
-    const copy = async () => {
-        try {
-            await navigator.clipboard.writeText(path)
-            notifications.showSuccessNotification({ message: t("backends.configuration.path_copied") })
-        } catch {
-            notifications.showErrorNotification({ message: t("backends.configuration.copy_failed") })
-        }
-    }
-
-    return (
-        <span className="inline-flex items-center gap-1">
-            <span className="font-mono">{path}</span>
-            <Button variant="ghost" size="icon-sm" onClick={copy} aria-label={t("backends.configuration.copy_path")} title={t("backends.configuration.copy_path")}>
-                <Copy />
-            </Button>
-        </span>
-    )
-}
 
 const BackendLink: React.FC<{ href: string; label: string }> = ({ href, label }) => (
     <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline-offset-4 hover:underline" title={href}>
@@ -121,11 +91,9 @@ interface BackendConfigurationSectionProps {
     environments: EnvironmentDTO[]
     /** Under the title: whose container it is */
     description?: string
-    /** Whose template of the project the probes left blank inherit: a backend's, or a DOCKER frontend's */
-    probeSide?: ProbeSide
 }
 
-export const BackendConfigurationSection: React.FC<BackendConfigurationSectionProps> = ({ backend, environments, description, probeSide = "backend" }) => {
+export const BackendConfigurationSection: React.FC<BackendConfigurationSectionProps> = ({ backend, environments, description }) => {
     const { t } = useTranslation()
 
     return (
@@ -137,70 +105,46 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
             <CardContent className="flex flex-col gap-4 pt-3">
                 <DescriptionList orientation="inline">
                     <DescriptionItem label={t("backends.port")}>{backend.port ?? "—"}</DescriptionItem>
-                    <DescriptionItem label={t("backends.liveness_path")}>
-                        <ProbeValue side={probeSide} field="livenessPath" own={backend.livenessPath} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.liveness_initial_delay")}>
-                        <ProbeValue side={probeSide} field="livenessInitialDelaySeconds" own={backend.livenessInitialDelaySeconds} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.liveness_period")}>
-                        <ProbeValue side={probeSide} field="livenessPeriodSeconds" own={backend.livenessPeriodSeconds} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.readiness_path")}>
-                        <ProbeValue side={probeSide} field="readinessPath" own={backend.readinessPath} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.readiness_initial_delay")}>
-                        <ProbeValue side={probeSide} field="readinessInitialDelaySeconds" own={backend.readinessInitialDelaySeconds} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.readiness_period")}>
-                        <ProbeValue side={probeSide} field="readinessPeriodSeconds" own={backend.readinessPeriodSeconds} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.docs_path")}>
-                        <BackendPath path={backend.docsPath} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.openapi_path")}>
-                        <BackendPath path={backend.openApiPath} />
-                    </DescriptionItem>
-                    <DescriptionItem label={t("backends.exposure_path")}>
-                        <BackendPath path={backend.exposurePath} />
-                    </DescriptionItem>
                     <DescriptionItem label={t("backends.log_level")}>
                         <LogLevelValue value={backend.logLevel} />
                     </DescriptionItem>
-                    <DescriptionItem label={t("backends.image_repository")}>{backend.image?.repository ? <span className="font-mono">{backend.image.repository}</span> : "—"}</DescriptionItem>
-                    {RESOURCE_FIELDS.map(field => (
-                        <DescriptionItem key={field} label={t(RESOURCE_LABELS[field])}>
-                            <ResourceValue field={field} value={backend[field]} />
-                        </DescriptionItem>
-                    ))}
                     <DescriptionItem label={t("backends.compute.replicas")}>
                         <ReplicasValue value={backend.replicas} />
                     </DescriptionItem>
                     <DescriptionItem label={t("backends.compute.by_environment.title")}>
                         <EnvironmentResourcesValue entries={backend.environmentResources} environments={environments} />
                     </DescriptionItem>
-                    <DescriptionItem label={t("backends.version_by_environment.title")}>
-                        <EnvironmentVersionsValue entries={backend.environmentVersions} environments={environments} />
-                    </DescriptionItem>
                 </DescriptionList>
                 <BackendUrls backend={backend} environments={environments} />
-                <div>
-                    <h3 className="mb-2 text-base font-semibold">{t("backends.env.title")}</h3>
-                    {backend.env?.length ? (
-                        <ul className="flex flex-col gap-2">
-                            {backend.env.map(variable => (
-                                <li key={variable.name} className="flex flex-wrap items-center gap-2 text-sm">
-                                    <span className="font-mono font-medium">{variable.name}</span>
-                                    {variable.required && <Badge variant="outline">{t("backends.env.required")}</Badge>}
-                                    {variable.secret && <Badge variant="outline">{t("backends.env.secret")}</Badge>}
-                                    {variable.description && <span className="text-foreground-secondary">{variable.description}</span>}
-                                </li>
-                            ))}
-                        </ul>
-                    ) : (
-                        <p className="text-sm text-foreground-secondary">{t("backends.env.empty")}</p>
-                    )}
-                </div>
+            </CardContent>
+        </Card>
+    )
+}
+
+/** The variables the container declares it reads: with its config maps, secrets and resources, what it uses */
+export const ContainerEnvSection: React.FC<{ backend: Pick<ContainerConfiguration, "env"> }> = ({ backend }) => {
+    const { t } = useTranslation()
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="mb-0">{t("backends.env.title")}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3">
+                {backend.env?.length ? (
+                    <ul className="flex flex-col gap-2">
+                        {backend.env.map(variable => (
+                            <li key={variable.name} className="flex flex-wrap items-center gap-2 text-sm">
+                                <span className="font-mono font-medium">{variable.name}</span>
+                                {variable.required && <Badge variant="outline">{t("backends.env.required")}</Badge>}
+                                {variable.secret && <Badge variant="outline">{t("backends.env.secret")}</Badge>}
+                                {variable.description && <span className="text-foreground-secondary">{variable.description}</span>}
+                            </li>
+                        ))}
+                    </ul>
+                ) : (
+                    <p className="text-sm text-foreground-secondary">{t("backends.env.empty")}</p>
+                )}
             </CardContent>
         </Card>
     )
