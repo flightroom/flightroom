@@ -1,7 +1,9 @@
+import { ArgoCdPod } from "../../client/ArgoCdClient"
 import GitlabClient from "../../client/GitlabClient"
 import { CodeRepositoryProvider, ICodeRepository } from "../../models/CodeRepositoryModel"
 import { ICodeRepositoryFrontend } from "../../models/FrontendModel"
 import { IArgoCdError, IArgoCdRepositoryCredential, IProjectArgoCd } from "../../models/ProjectModel"
+import { RolloutApplication } from "../gitops/rollout"
 
 /** The token and the repository token come back as the placeholder, or not at all, when they are not retyped */
 export interface ArgoCdInitializeInput {
@@ -62,4 +64,31 @@ export interface RepositoryTarget {
     repoUrl: string
     /** The AppProject the credentials are scoped to; global when unset */
     argoProject?: string
+}
+
+/** A backend or a container frontend an environment serves, as it is doing now */
+export interface EnvironmentApplicationStatus extends Omit<RolloutApplication, "updated" | "pods"> {
+    /** The version the deployment the environment serves ships it at */
+    version: string | null
+    pods?: Array<Omit<ArgoCdPod, "namespace" | "containerDetails">>
+}
+
+/** How the backends and container frontends of an environment are doing now */
+export interface EnvironmentStatusDTO {
+    environment: { _id: string; name: string; slug: string }
+    /** The deployment the environment serves, null when nothing was ever deployed there */
+    deployment: { _id: string; deploymentId: string; deployedAt?: Date } | null
+    /** The project deploys through Argo CD: without it there is nothing running to read */
+    tracked: boolean
+    applications: EnvironmentApplicationStatus[]
+    alignError?: IArgoCdError
+}
+
+/** The last lines a pod of an application a rollout left broken wrote */
+export interface RolloutPodLogs {
+    application: string
+    pod: string
+    /** Of the container before its last restart: what the crash printed */
+    previous: boolean
+    lines: string[]
 }

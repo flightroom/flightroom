@@ -92,7 +92,7 @@ export const backendTools = [
         name: "backend_trigger_build",
         title: "Trigger backend build",
         description:
-            "Tags the given branch of the backend's repository with the version, which starts its CI pipeline: it builds the image and registers the version. The version must not be tagged yet, even by a run that failed or was canceled: pick a new one.",
+            "Tags the given branch of the backend's repository with the version, which starts its CI pipeline: it builds the image and registers the version. The version must not be tagged yet, even by a run that failed or was canceled: pick a new one. build_wait waits for the version to be registered.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         inputSchema: z.object({

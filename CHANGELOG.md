@@ -7,6 +7,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **MCP: Logs Of Several Applications At Once**: `application_logs_search` reads the logs of several applications in one or more environments in one call, every backend and container frontend each environment runs unless `slugs` are given, from every pod without naming one, merged oldest first as `<time> <environment>/<pod> <text>`. `filter` and `exclude` ignore case, `minLevel` keeps the lines at a level or above, read from the level of a JSON line or a level word at the start of a text one, a stack trace following its error, and a pod that restarted gives the lines of the container before too. At most 60 pods are read; `sources` says what each application gave and why one could not be read. The `filter` of `application_logs_get` stays case sensitive, as its description now says
+- **MCP: Status Of The Environments**: `environment_status` says, for one or more environments, every one when none is given, the deployment each serves and, per backend and container frontend, the version it ships, where Argo CD stands with it and its pods with their restarts
+- **MCP: Waiting For A Build Or A Deploy**: `build_wait` waits up to 240 seconds for the version a `backend_trigger_build` or a `frontend_trigger_build` started to be registered, and says where its run stands, with the end of the logs of its failed jobs when it failed. `deployment_wait` waits as long for the deploys `deploy` returned to roll out through Argo CD, stopping once every application they updated is healthy, or one is degraded or failed, and answers with the last lines of the pods that restart or are not ready. The coding agent of Edit with AI gets neither
+- **MCP: The Project In One Call**: `project_overview` returns the environments, the frontends and backends of each domain with the version each environment runs, the latest version each backend built, and the maintenance agents. The MCP instructions point agents to the new tools
+
 ### Changed
 
 - **Starter Questions To Begin With**: the starter questions of the assistant drawn outside a section include where to start, how to create a new agent and how to create an app, and no longer how to connect an S3 bucket, which only the **Storages** page suggests

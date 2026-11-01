@@ -11,13 +11,25 @@ import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../mode
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind, ICodeRepositoryFrontend } from "../models/FrontendModel"
-import { BuildJobLogDTO, BuildRunDTO, BuildStatus, BuildUnavailableReason, ComponentBuildStatusDTO, ProjectBuildStatusDTO } from "../types/BuildStatusDTO"
+import { BuildJobLogDTO, BuildRunDTO, BuildStatus, BuildUnavailableReason, ComponentBuildStatusDTO, ProjectBuildStatusDTO, VersionBuildDTO, VersionBuildState } from "../types/BuildStatusDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { findLatestFrontendDeployments } from "./FrontendDeploymentService"
 
 /** How many runs per frontend or backend are read from the provider. */
 const RUNS_PER_COMPONENT = 5
+
+/** Where the build of a version stands while its run is listed: a successful run still has to register the version */
+const RUN_STATES: Record<BuildStatus, VersionBuildState> = {
+    [BuildStatus.QUEUED]: "queued",
+    [BuildStatus.RUNNING]: "running",
+    [BuildStatus.SUCCESS]: "registering",
+    [BuildStatus.FAILED]: "failed",
+    [BuildStatus.CANCELED]: "canceled",
+    [BuildStatus.UNKNOWN]: "running"
+}
+/** Which of the runs of one tag tells where its build stands: the first status found in this order */
+const RUN_PRECEDENCE = [BuildStatus.FAILED, BuildStatus.RUNNING, BuildStatus.QUEUED, BuildStatus.UNKNOWN, BuildStatus.CANCELED, BuildStatus.SUCCESS]
 
 /**
  * How long a snapshot is reused before the providers are asked again.
@@ -246,15 +258,32 @@ class BuildStatusService extends BaseAuthorizedService {
      * run at a time, when somebody wants to know why it failed.
      */
     async getFailedRunLogs(projectId: string, owner: BuildRunOwner, runId: string): Promise<BuildJobLogDTO[]> {
-        const isBackend = owner.backendId !== undefined
+        return this.failedRunLogsOf(await this.ownerOf(projectId, owner), owner.backendId !== undefined ? "backend" : "frontend", runId)
+    }
+
+    /**
+     * Where the build of `version` of a frontend or a backend stands: registered once its CI has registered the version,
+     * else as the runs its tag started say, read live from its CI provider. A tag may start several workflows: the one that
+     * failed, else one still on its way, tells, as a side one that succeeded says nothing of the build.
+     */
+    async buildOf(projectId: string, owner: BuildRunOwner, version: string): Promise<VersionBuildDTO> {
+        const component = await this.ownerOf(projectId, owner)
+        const registered = owner.backendId !== undefined ? await BuiltBackend.exists({ backendId: component._id, version }) : await BuiltFrontend.exists({ frontendId: component._id, version })
+        if (registered) return { version, state: "registered" }
+        const runs = (await this.runsOf(component, owner.backendId !== undefined ? "backend" : "frontend")).filter(candidate => candidate.ref === version)
+        const run = runs.sort((a, b) => RUN_PRECEDENCE.indexOf(a.status) - RUN_PRECEDENCE.indexOf(b.status))[0]
+        return run ? { version, state: RUN_STATES[run.status], run } : { version, state: "not_started" }
+    }
+
+    /** The frontend or the backend of a build, of the project and of the domains the user reaches */
+    private async ownerOf(projectId: string, owner: BuildRunOwner): Promise<BuildableComponent> {
         const component: BuildableComponent | null = owner.backendId !== undefined ? await Backend.findById(toObjectId(owner.backendId)) : await Frontend.findById(toObjectId(owner.frontendId))
-        const label = isBackend ? "Backend" : "Frontend"
         // A component of another project is reported as missing: the caller asked about this one.
         if (!component || component.projectId.toString() !== projectId) {
-            throw new Error(`${label} not found in this project`)
+            throw new Error(`${owner.backendId !== undefined ? "Backend" : "Frontend"} not found in this project`)
         }
         await this.ensureAccessToDomainMember(component)
-        return this.failedRunLogsOf(component, isBackend ? "backend" : "frontend", runId)
+        return component
     }
 
     /** As {@link getFailedRunLogs}, for a frontend or a backend already read. Whoever calls it checks who may. */

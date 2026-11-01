@@ -101,3 +101,20 @@ export interface ProjectBuildStatusDTO {
     /** Backend builds. */
     backends: BackendBuildStatusDTO[]
 }
+
+/**
+ * Where the build of one version stands:
+ * - registered: its CI registered it, it can be deployed
+ * - not_started: no run of its tag yet, the provider may not have picked it up
+ * - queued, running: its run is on its way
+ * - registering: its run succeeded, the version is not registered yet
+ * - failed, canceled: its run ended without it
+ */
+export type VersionBuildState = "registered" | "not_started" | "queued" | "running" | "registering" | "failed" | "canceled"
+
+export interface VersionBuildDTO {
+    version: string
+    state: VersionBuildState
+    /** The run its tag started, once the provider lists it */
+    run?: BuildRunDTO
+}

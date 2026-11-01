@@ -1,6 +1,12 @@
 import { z } from "zod"
 import { createBusinessException } from "../../errors/BusinessException"
+import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import { CONTEXT_MAX_LENGTH } from "../../models/ProjectModel"
+import BackendService from "../../service/BackendService"
+import { AuthorizedPrincipal } from "../../service/BaseAuthorizedService"
+import DomainDeploymentService from "../../service/DomainDeploymentService"
+import EnvironmentService from "../../service/EnvironmentService"
+import MaintenanceAgentService from "../../service/MaintenanceAgentService"
 import MarketService from "../../service/MarketService"
 import ProjectService, { ContextFocus } from "../../service/ProjectService"
 import { matchesProjectTechnology } from "../../service/RepositoryCreationService"
@@ -24,7 +30,73 @@ const toFocus = ({ frontendId, backendId, domainId }: { frontendId?: string; bac
     return undefined
 }
 
+type VersionsByEnvironment = Record<string, string | null>
+
+/**
+ * The project at a glance, from what the console already reads for its screens: its environments, the frontends and
+ * backends of each domain with the version each environment serves (as domain_deployments_get says it), and its
+ * maintenance agents. Of the domains the user reaches only.
+ */
+const projectOverview = async (principal: AuthorizedPrincipal, projectId: string) => {
+    const [project, environments, domains, backends, agents] = await Promise.all([
+        new ProjectService(principal).findById(projectId),
+        new EnvironmentService(principal).getByProjectId(projectId),
+        new DomainDeploymentService(principal).getByProjectId(projectId),
+        new BackendService(principal).getByProjectId(projectId),
+        new MaintenanceAgentService(principal).getByProjectId(projectId)
+    ])
+    if (!project) throw new EntityNotFoundError(projectId)
+    const latestVersions = new Map(backends.map(backend => [String(backend._id), backend.version ?? null]))
+    return {
+        project: { _id: String(project._id), name: project.name, slug: project.slug, description: project.description ?? null, technologies: project.technologies ?? null },
+        environments: environments.map(({ _id, name, slug, isProduction }) => ({ _id: String(_id), name, slug, isProduction: Boolean(isProduction) })),
+        domains: domains.map(({ domain, environments: served }) => {
+            const frontends = new Map<string, { _id: string; name: string; slug: string; kind: string; versions: VersionsByEnvironment }>()
+            const domainBackends = new Map<string, { _id: string; name: string; slug: string; latestVersion: string | null; versions: VersionsByEnvironment }>()
+            for (const { environment, frontends: servedFrontends, backends: servedBackends } of served) {
+                for (const frontend of servedFrontends) {
+                    const row = frontends.get(String(frontend._id)) ?? { _id: String(frontend._id), name: frontend.name, slug: frontend.slug, kind: frontend.kind, versions: {} }
+                    row.versions[environment.slug] = frontend.version
+                    frontends.set(row._id, row)
+                }
+                for (const backend of servedBackends) {
+                    const id = String(backend._id)
+                    const row = domainBackends.get(id) ?? { _id: id, name: backend.name, slug: backend.slug, latestVersion: latestVersions.get(id) ?? null, versions: {} }
+                    row.versions[environment.slug] = backend.version
+                    domainBackends.set(id, row)
+                }
+            }
+            return {
+                domain: domain ? { _id: String(domain._id), name: domain.name, slug: domain.slug } : null,
+                frontends: [...frontends.values()],
+                backends: [...domainBackends.values()]
+            }
+        }),
+        maintenanceAgents: agents.map(({ _id, name, slug, kind, schedule, version, domainId }) => ({
+            _id: String(_id),
+            name,
+            slug,
+            kind,
+            schedule: schedule ?? null,
+            version: version ?? null,
+            domainId: domainId ? String(domainId) : null
+        }))
+    }
+}
+
 export const projectTools = [
+    defineTool({
+        name: "project_overview",
+        title: "Project overview",
+        description:
+            "The project at a glance, in one call, with the ids every other tool takes: its environments in their order, its functional domains (domain null: the frontends and backends in none) with their frontends and backends, " +
+            "the version each one runs in every environment, keyed by environment slug (from the deployment the environment serves; null: not deployed there), and for a backend the latest version its CI registered, and its maintenance agents. " +
+            "Read context_get too before working on the code.",
+        scope: MCP_SCOPE_READ,
+        annotations: READ_ONLY,
+        inputSchema: NO_INPUT,
+        run: (_args, { principal, projectId }) => projectOverview(principal, projectId)
+    }),
     defineTool({
         name: "project_get",
         title: "Get project",

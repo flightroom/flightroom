@@ -40,13 +40,30 @@ import {
     RESOURCE_SECRET_SUFFIX,
     RunningContainerEnvironmentDTO
 } from "./argoCd/argoCdLiveEnvironment"
+import {
+    DEFAULT_SEARCH_MAX_LINES,
+    DEFAULT_SEARCH_TAIL_LINES,
+    inBatches,
+    isTroubled,
+    keptLines,
+    LogSearchDTO,
+    LogSearchInput,
+    LogSearchSource,
+    LogStream,
+    MAX_LINE_LENGTH,
+    MAX_SEARCH_TARGETS,
+    MAX_SEARCHED_PODS,
+    mergedLines,
+    SEARCH_CONCURRENCY
+} from "./argoCd/argoCdLogSearch"
 import { podLogsQuery, podOf } from "./argoCd/argoCdLogs"
 import { argoCdInUse, clientOf, deployableSlugs, environmentsOf, linksOf, normalizeUrl, projectOf, repoUrlOf, retyped } from "./argoCd/argoCdProject"
 import { DEPLOYED_VERSIONS, followRollout } from "./argoCd/argoCdRollout"
-import { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdRepositories, ArgoCdStatusDTO, PendingDeployToken, RepositoryTarget } from "./argoCd/argoCdTypes"
+import { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdRepositories, ArgoCdStatusDTO, EnvironmentStatusDTO, PendingDeployToken, RepositoryTarget, RolloutPodLogs } from "./argoCd/argoCdTypes"
 import BaseAuthorizedService, { domainScopeForbidden, secretRevealForbidden } from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import GitOpsService, { environmentNamespace, environmentSlug, gitOpsFilePath, resourceFilePath } from "./GitOpsService"
+import { isDeployable } from "./gitops/applicationManifests"
 import {
     ArgoCdEnvironment,
     applicationName,
@@ -60,13 +77,20 @@ import {
     PROJECT_ID_LABEL,
     projectIdOf
 } from "./gitops/argoCdManifests"
-import { RolloutDTO } from "./gitops/rollout"
+import { RolloutApplication, RolloutDTO } from "./gitops/rollout"
 import RepositoryFileService, { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 
 /** The pods whose live manifest is read when they are listed with details, one call each: as many as a Deployment may run */
 const MAX_DETAILED_PODS = 20
 /** The live manifests read at once */
 const POD_DETAIL_CONCURRENCY = 5
+/** Lines read from the end of a pod a rollout left crashing or not ready */
+const ROLLOUT_LOG_LINES = 40
+/** Pods of one application, and of a whole rollout, whose lines are read once it is left broken */
+const ROLLOUT_LOG_PODS_PER_APPLICATION = 2
+const MAX_ROLLOUT_LOG_PODS = 6
+
+const LOGS_FORBIDDEN = { code: "ARGOCD_LOGS_FORBIDDEN", message: "A viewer cannot read the logs of the applications" }
 
 /**
  * Hands the GitOps repositories of a project to an Argo CD instance that runs on another cluster, through its
@@ -145,6 +169,166 @@ class ArgoCdService extends BaseAuthorizedService {
         const pod = podOf(query)
         const { client, application, appProject } = await this.deployedApplication(projectId, slug, environment)
         return client.getPodLogs(application, appProject, podLogsQuery(query, pod, environmentNamespace(environment)))
+    }
+
+    /**
+     * What the applications of `input.slugs`, else every backend and container frontend each environment runs, wrote in the
+     * environments, read through Argo CD pod by pod and merged oldest first: the newest `maxLines` of the lines kept. A pod
+     * that restarted gives the lines of the container before too, unless `previous` is false. At most
+     * {@link MAX_SEARCHED_PODS} pods are read. An application that cannot be read says why in its source, the others are
+     * read anyway.
+     */
+    async searchLogs(projectId: string, input: LogSearchInput): Promise<LogSearchDTO> {
+        const projectIdObj = toObjectId(projectId)
+        await this.ensureAccessToProject(projectIdObj)
+        await this.ensureNotViewer(projectIdObj, LOGS_FORBIDDEN)
+        const project = await Project.findById(projectIdObj, { slug: 1, gitOps: 1, argoCd: 1, containerRegistry: 1 })
+        if (!project || !argoCdInUse(project)) throw notConfigured()
+        const environments = await this.environmentsAmong(projectIdObj, input.environmentIds)
+        const wanted = input.slugs?.length
+            ? environments.flatMap(environment => [...new Set(input.slugs)].map(slug => ({ environment, slug })))
+            : await this.runningApplications(projectIdObj, project.containerRegistry, environments)
+
+        const notes: string[] = []
+        const targets = wanted.slice(0, MAX_SEARCH_TARGETS)
+        if (targets.length < wanted.length) {
+            const left = wanted.slice(MAX_SEARCH_TARGETS).map(({ environment, slug }) => `${environment.slug}/${slug}`)
+            notes.push(`Not read, past the ${MAX_SEARCH_TARGETS} applications one search reads: ${left.join(", ")}`)
+        }
+        const streams: LogStream[] = []
+        let podsLeft = MAX_SEARCHED_PODS
+        const sources = await inBatches(targets, SEARCH_CONCURRENCY, async ({ environment, slug }) => {
+            const source: LogSearchSource = { environment: environment.slug, application: slug, pods: 0, matched: 0 }
+            // Argo CD is not asked once the search has read all the pods it reads
+            if (podsLeft <= 0) {
+                notes.push(`${environment.slug}/${slug}: not read, past the ${MAX_SEARCHED_PODS} pods one search reads`)
+                return source
+            }
+            try {
+                await this.readableEnvironment(projectId, slug, String(environment._id))
+                const { client, application, appProject } = await this.deployedApplication(projectIdObj, slug, environment)
+                const pods = await client.listPods(application, appProject)
+                // Taken before any wait: the applications read at once share what is left
+                const read = pods.slice(0, Math.max(podsLeft, 0))
+                podsLeft -= read.length
+                source.pods = pods.length
+                if (read.length < pods.length)
+                    notes.push(`${environment.slug}/${slug}: ${pods.length - read.length} of its ${pods.length} pods not read, past the ${MAX_SEARCHED_PODS} one search reads`)
+                const containers = read.flatMap(pod => [{ pod, previous: false }, ...(input.previous !== false && (pod.restarts ?? 0) > 0 ? [{ pod, previous: true }] : [])])
+                for (const { pod, previous } of containers) {
+                    const query = podLogsQuery({ tailLines: input.tailLines ?? DEFAULT_SEARCH_TAIL_LINES, sinceSeconds: input.sinceSeconds, previous }, pod.name, environmentNamespace(environment))
+                    // The container before a restart may be gone already: its lines come when there are some
+                    const lines = await client.getPodLogs(application, appProject, query).catch(error => (previous ? [] : Promise.reject(error)))
+                    const kept = keptLines(lines, input)
+                    source.matched += kept.length
+                    streams.push({ environment: environment.slug, pod: pod.name, previous, lines: kept })
+                }
+            } catch (error) {
+                if (!(error instanceof BusinessException) && !(error instanceof EntityNotFoundError)) fastify.log.warn({ error: toErrorMessage(error), slug }, "Argo CD logs not read for a search")
+                source.error = error instanceof BusinessException ? error.message : error instanceof EntityNotFoundError ? "Not found in this project" : "The logs could not be read"
+            }
+            return source
+        })
+        const { lines, matched } = mergedLines(streams, input.maxLines ?? DEFAULT_SEARCH_MAX_LINES)
+        return { lines, matched, truncated: matched > lines.length, sources, ...(notes.length ? { notes } : {}) }
+    }
+
+    /**
+     * How the backends and container frontends an environment serves are doing now, of those the user reaches: per
+     * application the version the deployment the environment serves ships, where Argo CD stands with it, as
+     * {@link rollout} says it, and its pods with their restarts. Not for a viewer: the pods are read as the logs are.
+     */
+    async environmentStatus(projectId: string, environmentId: string): Promise<EnvironmentStatusDTO> {
+        const projectIdObj = toObjectId(projectId)
+        await this.ensureAccessToProject(projectIdObj)
+        await this.ensureNotViewer(projectIdObj, LOGS_FORBIDDEN)
+        const [environment] = await this.environmentsAmong(projectIdObj, [environmentId])
+        const summary = { _id: String(environment._id), name: environment.name, slug: environment.slug }
+        // The active one, else the latest, as the environment serves it
+        const deployment = await Deployment.findOne({ environmentId: environment._id }, `${DEPLOYED_VERSIONS} deploymentId deployedAt`, { sort: { active: -1, deployedAt: -1 } })
+        if (!deployment) return { environment: summary, deployment: null, tracked: false, applications: [] }
+
+        const rollout = await this.rollout(projectIdObj, deployment._id)
+        const versions = new Map([...(deployment.backends ?? []), ...(deployment.frontends ?? [])].map(application => [String(application._id), application.version ?? null]))
+        const applications = await inBatches(rollout.applications, SEARCH_CONCURRENCY, async ({ updated: _updated, pods, ...application }) => {
+            // The rollout reads the pods of those not healthy only: those of the others still say how often they restarted
+            // Checked as the pods of one application are: a slug shared with an application of another domain is not read
+            const read =
+                pods ??
+                (await this.readableEnvironment(projectId, application.slug, String(environment._id))
+                    .then(() => this.podsOf(projectIdObj, application.slug, environment))
+                    .catch(() => undefined))
+            return {
+                ...application,
+                version: versions.get(application._id) ?? null,
+                ...(read ? { pods: read.map(({ namespace: _namespace, containerDetails: _details, ...pod }) => pod) } : {})
+            }
+        })
+        return {
+            environment: summary,
+            deployment: { _id: String(deployment._id), deploymentId: deployment.deploymentId, deployedAt: deployment.deployedAt },
+            tracked: rollout.tracked,
+            applications,
+            ...(rollout.alignError ? { alignError: rollout.alignError } : {})
+        }
+    }
+
+    /**
+     * The last lines of the pods a rollout of the deployment left crashing or not ready, of its applications not healthy:
+     * what a crash printed, read from the container before its restart when the pod restarted. Read as the logs are: not
+     * for a viewer, and of the applications the user reaches only. A pod whose lines cannot be read is left out.
+     */
+    async rolloutLogs(projectId: string, deploymentId: string, applications: RolloutApplication[]): Promise<RolloutPodLogs[]> {
+        const projectIdObj = toObjectId(projectId)
+        await this.ensureAccessToProject(projectIdObj)
+        await this.ensureNotViewer(projectIdObj, LOGS_FORBIDDEN)
+        if (!isValidObjectId(deploymentId)) throw new EntityNotFoundError(deploymentId)
+        const deployment = await Deployment.findById(toObjectId(deploymentId), { environmentId: 1 })
+        const environment = deployment ? await Environment.findOne({ _id: deployment.environmentId, projectId: projectIdObj }, { slug: 1, namespace: 1 }) : null
+        if (!environment) throw new EntityNotFoundError(deploymentId)
+
+        const troubled = applications
+            .filter(application => application.state !== "healthy")
+            .flatMap(application =>
+                (application.pods ?? [])
+                    .filter(isTroubled)
+                    .slice(0, ROLLOUT_LOG_PODS_PER_APPLICATION)
+                    .map(pod => ({ slug: application.slug, pod }))
+            )
+            .slice(0, MAX_ROLLOUT_LOG_PODS)
+        const read = await inBatches(troubled, SEARCH_CONCURRENCY, async ({ slug, pod }) => {
+            const previous = (pod.restarts ?? 0) > 0
+            const lines = await this.readableEnvironment(projectId, slug, String(environment._id))
+                .then(() => this.logsOf(projectIdObj, slug, environment, { pod: pod.name, tailLines: ROLLOUT_LOG_LINES, previous }))
+                .catch(() => [])
+            return { application: slug, pod: pod.name, previous, lines: lines.map(line => line.content.slice(0, MAX_LINE_LENGTH)) }
+        })
+        return read.filter(entry => entry.lines.length > 0)
+    }
+
+    /** The environments of `environmentIds`, in that order; one that is not the project's is not found */
+    private async environmentsAmong(projectId: Schema.Types.ObjectId, environmentIds: string[]) {
+        const ids = [...new Set(environmentIds)]
+        const invalid = ids.find(id => !isValidObjectId(id))
+        if (invalid) throw new EntityNotFoundError(invalid)
+        const environments = await Environment.find({ _id: { $in: ids.map(id => toObjectId(id)) }, projectId }, { name: 1, slug: 1, namespace: 1 })
+        return ids.map(id => {
+            const environment = environments.find(candidate => String(candidate._id) === id)
+            if (!environment) throw new EntityNotFoundError(id)
+            return environment
+        })
+    }
+
+    /** Every backend and container frontend each environment runs, of those the user reaches: those with a version and an image there */
+    private async runningApplications<Target extends { _id: unknown }>(projectId: Schema.Types.ObjectId, containerRegistry: string | undefined, environments: Target[]) {
+        const scope = { projectId, ...(await this.domainScopeFilter(projectId)) }
+        const fields = { slug: 1, environmentVersions: 1, image: 1 }
+        const [backends, frontends] = await allInOrder([Backend.find(scope, fields), Frontend.find({ ...scope, kind: FrontendKind.DOCKER }, fields)])
+        return environments.flatMap(environment => {
+            // A backend and a container frontend may share a slug: they run under one Application
+            const slugs = new Set([...backends, ...frontends].filter(application => isDeployable(application, containerRegistry, environment._id)).map(application => application.slug))
+            return [...slugs].map(slug => ({ environment, slug }))
+        })
     }
 
     /**
@@ -265,7 +449,7 @@ class ArgoCdService extends BaseAuthorizedService {
     private async readableEnvironment(projectId: string, slug: string, environmentId: string) {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
-        await this.ensureNotViewer(projectIdObj, { code: "ARGOCD_LOGS_FORBIDDEN", message: "A viewer cannot read the logs of the applications" })
+        await this.ensureNotViewer(projectIdObj, LOGS_FORBIDDEN)
         if (!isValidObjectId(environmentId)) throw new EntityNotFoundError(String(environmentId))
         const [environment, backend, frontend, agent] = await Promise.all([
             Environment.findOne({ _id: toObjectId(environmentId), projectId: projectIdObj }, { slug: 1, namespace: 1 }),

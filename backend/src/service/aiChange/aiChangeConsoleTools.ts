@@ -16,7 +16,7 @@ import { AiChangeAgentConsoleTools } from "./aiChangeAgentTypes"
  * providers, the npmrc of a design system, and where to clone a repository it already has a working copy of. And
  * those that help no change to the code, whose definitions it would pay for on every round: what other members
  * spent on AI, canary users, templates, the catalog of resource types, links between domains, dependency and
- * integration plans, the preview of a promotion.
+ * integration plans, the preview of a promotion, and the waits for a build or a deploy, which it never starts.
  */
 export const EXECUTOR_EXCLUDED_TOOLS = new Set([
     "secret_get",
@@ -40,7 +40,9 @@ export const EXECUTOR_EXCLUDED_TOOLS = new Set([
     "dependencies_report",
     "dependencies_alignment_plan",
     "integration_plan",
-    "environment_promotion_preview"
+    "environment_promotion_preview",
+    "build_wait",
+    "deployment_wait"
 ])
 
 /**

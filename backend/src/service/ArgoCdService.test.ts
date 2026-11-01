@@ -9,6 +9,7 @@ import { fastify } from ".."
 import ArgoCdClient, { ArgoCdResource } from "../client/ArgoCdClient"
 import GitlabClient from "../client/GitlabClient"
 import { createBusinessException } from "../errors/BusinessException"
+import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Deployment from "../models/DeploymentModel"
@@ -1230,5 +1231,199 @@ describe("ArgoCdService.rollout", () => {
         await rollout()
 
         expect(vi.mocked(Backend.find).mock.calls[0][0]).toMatchObject({ domainId: { $in: [toObjectId(scoped)] } })
+    })
+})
+
+describe("ArgoCdService.searchLogs", () => {
+    const environmentId = new Types.ObjectId()
+    const ORDERS = applicationName(String(projectId), "shop", "orders", "development")
+    const CHECKOUT = applicationName(String(projectId), "shop", "checkout", "development")
+    const at = (second: number) => `2026-11-02T10:00:0${second}Z`
+    const logs: Record<string, Array<{ content: string; timestamp?: string }>> = {
+        "orders-1": [
+            { content: "info ok", timestamp: at(1) },
+            { content: "ERROR Boom", timestamp: at(3) }
+        ],
+        "orders-1:previous": [{ content: "error before the restart", timestamp: at(0) }],
+        "checkout-1": [{ content: "Error in checkout", timestamp: at(2) }]
+    }
+
+    beforeEach(() => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        vi.spyOn(ArgoCdService.prototype as unknown as { ensureNotViewer: () => Promise<void> }, "ensureNotViewer").mockResolvedValue(undefined)
+        vi.mocked(Environment.find).mockResolvedValue([{ _id: environmentId, name: "Development", slug: "development" }] as never)
+        vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, slug: "development", projectId } as never)
+        vi.mocked(Backend.find).mockResolvedValue([
+            { slug: "orders", environmentVersions: [{ environmentId, version: "1.0.0" }], image: { repository: "ghcr.io/acme/orders" } },
+            { slug: "draft" }
+        ] as never)
+        vi.mocked(Frontend.find).mockResolvedValue([{ slug: "checkout", environmentVersions: [{ environmentId, version: "2.0.0" }], image: { repository: "ghcr.io/acme/checkout" } }] as never)
+        vi.spyOn(Backend, "exists").mockImplementation(((filter: { slug: string }) => Promise.resolve(filter.slug === "orders" ? { _id: new Types.ObjectId() } : null)) as never)
+        vi.spyOn(Frontend, "exists").mockImplementation(((filter: { slug: string }) => Promise.resolve(filter.slug === "checkout" ? { _id: new Types.ObjectId() } : null)) as never)
+        vi.spyOn(ArgoCdClient.prototype, "listPods").mockImplementation(async application =>
+            application === ORDERS ? [{ name: "orders-1", namespace: "development", restarts: 1 }] : [{ name: "checkout-1", namespace: "development", restarts: 0 }]
+        )
+        vi.spyOn(ArgoCdClient.prototype, "getPodLogs").mockImplementation(async (_application, _project, query) => logs[`${query.podName}${query.previous ? ":previous" : ""}`] ?? [])
+    })
+
+    const search = (input: Record<string, unknown> = {}) => new ArgoCdService().searchLogs(String(projectId), { environmentIds: [String(environmentId)], ...input })
+
+    it("given no slugs, when the logs are searched, then every application the environment runs is read and its lines merged oldest first, the case of the filter aside", async () => {
+        const result = await search({ filter: "ERROR" })
+
+        expect(result.lines).toEqual([
+            `${at(0)} development/orders-1 (previous) error before the restart`,
+            `${at(2)} development/checkout-1 Error in checkout`,
+            `${at(3)} development/orders-1 ERROR Boom`
+        ])
+        expect(result.sources).toEqual([
+            { environment: "development", application: "orders", pods: 1, matched: 2 },
+            { environment: "development", application: "checkout", pods: 1, matched: 1 }
+        ])
+        expect(result).toMatchObject({ matched: 3, truncated: false })
+        // Filtered here, whatever the case: Argo CD is asked for every line
+        expect(vi.mocked(ArgoCdClient.prototype.getPodLogs).mock.calls.map(call => call[2])).toContainEqual({
+            namespace: "development",
+            podName: "orders-1",
+            tailLines: 200,
+            sinceSeconds: undefined,
+            previous: false
+        })
+        expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledWith(CHECKOUT, PROJECT_NAME)
+    })
+
+    it("given previous false and a cut, when the logs are searched, then the container before the restart is not read and the newest lines are kept", async () => {
+        const result = await search({ previous: false, maxLines: 1 })
+
+        expect(result).toMatchObject({ lines: [`${at(3)} development/orders-1 ERROR Boom`], matched: 3, truncated: true })
+        expect(vi.mocked(ArgoCdClient.prototype.getPodLogs).mock.calls.some(call => call[2].previous)).toBe(false)
+    })
+
+    it("given a slug that is none of the project's, when the logs are searched, then it says so in its source and the others are read", async () => {
+        const result = await search({ slugs: ["orders", "payments"] })
+
+        expect(result.sources).toEqual([
+            { environment: "development", application: "orders", pods: 1, matched: 3 },
+            { environment: "development", application: "payments", pods: 0, matched: 0, error: "Not found in this project" }
+        ])
+    })
+
+    it("given an environment of another project, or a viewer, when the logs are searched, then it is refused before Argo CD is asked", async () => {
+        vi.mocked(Environment.find).mockResolvedValue([] as never)
+        await expect(search()).rejects.toBeInstanceOf(EntityNotFoundError)
+
+        vi.mocked((ArgoCdService.prototype as unknown as { ensureNotViewer: () => Promise<void> }).ensureNotViewer).mockRejectedValue(
+            createBusinessException({ code: "ARGOCD_LOGS_FORBIDDEN", message: "viewer", statusCode: 403 })
+        )
+        await expect(search()).rejects.toMatchObject({ code: "ARGOCD_LOGS_FORBIDDEN" })
+        expect(ArgoCdClient.prototype.listPods).not.toHaveBeenCalled()
+    })
+
+    it("given more applications than one search reads, when the logs are searched, then those past it are named in the notes and Argo CD is not asked for them", async () => {
+        const slugs = Array.from({ length: 41 }, (_, index) => (index === 0 ? "orders" : `extra-${index}`))
+
+        const result = await search({ slugs })
+
+        expect(result.sources).toHaveLength(40)
+        expect(result.notes).toEqual([expect.stringContaining("development/extra-40")])
+    })
+
+    it("given Argo CD not initialized, when the logs are searched, then it says so", async () => {
+        previous = undefined
+
+        await expect(search()).rejects.toMatchObject({ code: "ARGOCD_NOT_CONFIGURED" })
+    })
+})
+
+describe("ArgoCdService.environmentStatus", () => {
+    const environmentId = new Types.ObjectId()
+    const deploymentId = new Types.ObjectId()
+    const [orders, checkout] = [String(new Types.ObjectId()), String(new Types.ObjectId())]
+
+    beforeEach(() => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        vi.spyOn(ArgoCdService.prototype as unknown as { ensureNotViewer: () => Promise<void> }, "ensureNotViewer").mockResolvedValue(undefined)
+        vi.mocked(Environment.find).mockResolvedValue([{ _id: environmentId, name: "Development", slug: "development" }] as never)
+        vi.spyOn(Deployment, "findOne").mockResolvedValue({
+            _id: deploymentId,
+            deploymentId: "d-1",
+            environmentId,
+            backends: [{ _id: orders, version: "1.0.0" }],
+            frontends: [{ _id: checkout, version: "2.0.0" }]
+        } as never)
+        vi.spyOn(ArgoCdService.prototype, "rollout").mockResolvedValue({
+            tracked: true,
+            done: false,
+            failed: false,
+            applications: [
+                { _id: orders, kind: "backend", name: "Orders", slug: "orders", updated: true, state: "healthy" },
+                { _id: checkout, kind: "frontend", name: "Checkout", slug: "checkout", updated: false, state: "degraded", pods: [{ name: "checkout-1", namespace: "development", restarts: 4 }] }
+            ]
+        })
+        vi.spyOn(ArgoCdClient.prototype, "listPods").mockResolvedValue([{ name: "orders-1", namespace: "development", restarts: 0 }])
+        vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, slug: "development", projectId } as never)
+        vi.spyOn(Backend, "exists").mockImplementation(((filter: { slug: string }) => Promise.resolve(filter.slug === "orders" ? { _id: new Types.ObjectId() } : null)) as never)
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+    })
+
+    it("given an environment serving a deployment, when its status is read, then each application comes with its version, its state and its pods", async () => {
+        const status = await new ArgoCdService().environmentStatus(String(projectId), String(environmentId))
+
+        expect(status).toEqual({
+            environment: { _id: String(environmentId), name: "Development", slug: "development" },
+            deployment: { _id: String(deploymentId), deploymentId: "d-1", deployedAt: undefined },
+            tracked: true,
+            applications: [
+                { _id: orders, kind: "backend", name: "Orders", slug: "orders", state: "healthy", version: "1.0.0", pods: [{ name: "orders-1", restarts: 0 }] },
+                { _id: checkout, kind: "frontend", name: "Checkout", slug: "checkout", state: "degraded", version: "2.0.0", pods: [{ name: "checkout-1", restarts: 4 }] }
+            ]
+        })
+        // The rollout read those of the broken one already
+        expect(ArgoCdClient.prototype.listPods).toHaveBeenCalledTimes(1)
+        expect(ArgoCdService.prototype.rollout).toHaveBeenCalledWith(expect.anything(), deploymentId)
+    })
+
+    it("given an environment never deployed, when its status is read, then it has no deployment and Argo CD is not asked", async () => {
+        vi.mocked(Deployment.findOne).mockResolvedValue(null as never)
+
+        await expect(new ArgoCdService().environmentStatus(String(projectId), String(environmentId))).resolves.toMatchObject({ deployment: null, applications: [] })
+        expect(ArgoCdService.prototype.rollout).not.toHaveBeenCalled()
+    })
+})
+
+describe("ArgoCdService.rolloutLogs", () => {
+    const environmentId = new Types.ObjectId()
+    const deploymentId = new Types.ObjectId()
+
+    beforeEach(() => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        vi.spyOn(ArgoCdService.prototype as unknown as { ensureNotViewer: () => Promise<void> }, "ensureNotViewer").mockResolvedValue(undefined)
+        vi.spyOn(Deployment, "findById").mockResolvedValue({ _id: deploymentId, environmentId } as never)
+        vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, slug: "development", projectId } as never)
+        vi.spyOn(Backend, "exists").mockImplementation(((filter: { slug: string }) => Promise.resolve(filter.slug === "orders" ? { _id: new Types.ObjectId() } : null)) as never)
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(ArgoCdClient.prototype, "getPodLogs").mockResolvedValue([{ content: "Error: boom" }])
+    })
+
+    it("given an application left crashing, when the logs of the rollout are read, then those of its troubled pods come, from the container before the restart", async () => {
+        const logs = await new ArgoCdService().rolloutLogs(String(projectId), String(deploymentId), [
+            {
+                _id: "1",
+                kind: "backend",
+                name: "Orders",
+                slug: "orders",
+                state: "degraded",
+                pods: [
+                    { name: "orders-1", namespace: "development", restarts: 2, containers: "0/1" },
+                    { name: "orders-2", namespace: "development", restarts: 0, containers: "1/1" }
+                ]
+            },
+            { _id: "2", kind: "frontend", name: "Checkout", slug: "checkout", state: "healthy", pods: [{ name: "checkout-1", namespace: "development", restarts: 9 }] }
+        ])
+
+        expect(logs).toEqual([{ application: "orders", pod: "orders-1", previous: true, lines: ["Error: boom"] }])
+        expect(vi.mocked(ArgoCdClient.prototype.getPodLogs).mock.calls).toEqual([
+            [applicationName(String(projectId), "shop", "orders", "development"), PROJECT_NAME, expect.objectContaining({ podName: "orders-1", tailLines: 40, previous: true })]
+        ])
     })
 })

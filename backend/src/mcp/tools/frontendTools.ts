@@ -375,7 +375,7 @@ export const frontendTools = [
     defineTool({
         name: "frontend_trigger_build",
         title: "Trigger build",
-        description: "Tags the given branch of the frontend's repository with the version, which starts its CI pipeline.",
+        description: "Tags the given branch of the frontend's repository with the version, which starts its CI pipeline. build_wait waits for the version to be registered.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE_EXTERNAL,
         inputSchema: z.object({

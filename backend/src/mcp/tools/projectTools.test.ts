@@ -20,6 +20,14 @@ const getDesignSystemNpmrc = vi.fn()
 vi.mock("../../service/ProjectService", () => ({
     default: serviceClass({ findById: (...args: unknown[]) => findProject(...args), getDesignSystemNpmrc: (...args: unknown[]) => getDesignSystemNpmrc(...args) })
 }))
+const environments = vi.fn()
+const domainDeployments = vi.fn()
+const backends = vi.fn()
+const agents = vi.fn()
+vi.mock("../../service/EnvironmentService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => environments(...args) }) }))
+vi.mock("../../service/DomainDeploymentService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => domainDeployments(...args) }) }))
+vi.mock("../../service/BackendService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => backends(...args) }) }))
+vi.mock("../../service/MaintenanceAgentService", () => ({ default: serviceClass({ getByProjectId: (...args: unknown[]) => agents(...args) }) }))
 
 import { projectTools } from "./projectTools"
 
@@ -86,5 +94,42 @@ describe("project tools", () => {
 
         expect(await run("design_system_npmrc_get", { frontendId })).toEqual(whole)
         expect(getDesignSystemNpmrc).toHaveBeenCalledWith(PROJECT, frontendId)
+    })
+
+    it("given a project with domains, when its overview is read, then each frontend and backend comes once with its version per environment slug", async () => {
+        const [dev, prod, orders, checkout] = [new Types.ObjectId(), new Types.ObjectId(), new Types.ObjectId(), new Types.ObjectId()]
+        findProject.mockResolvedValue({ _id: PROJECT, name: "Shop", slug: "shop", context: "long notes", technologies: { backend: "NODE" } })
+        environments.mockResolvedValue([
+            { _id: dev, name: "Development", slug: "dev", isProduction: false, color: "#00f" },
+            { _id: prod, name: "Production", slug: "prod", isProduction: true, color: "#f00" }
+        ])
+        const served = (slug: string, ordersVersion: string | null, checkoutVersion: string | null) => ({
+            environment: { _id: slug, name: slug, slug, color: "#000", isProduction: false },
+            deployment: null,
+            frontends: [{ _id: checkout, slug: "checkout", name: "Checkout", kind: "DOCKER", version: checkoutVersion, canary: null }],
+            backends: [{ _id: orders, slug: "orders", name: "Orders", version: ordersVersion, deployedAt: null }]
+        })
+        domainDeployments.mockResolvedValue([{ domain: null, environments: [served("dev", "1.1.0", "2.0.0"), served("prod", "1.0.0", null)] }])
+        backends.mockResolvedValue([{ _id: orders, version: "1.2.0" }])
+        agents.mockResolvedValue([{ _id: "agent", name: "Doctor", slug: "doctor", kind: "CRON", schedule: "0 * * * *", version: "0.1.0", env: [] }])
+
+        const overview = await run("project_overview", {})
+
+        expect(overview).toEqual({
+            project: { _id: PROJECT, name: "Shop", slug: "shop", description: null, technologies: { backend: "NODE" } },
+            environments: [
+                { _id: String(dev), name: "Development", slug: "dev", isProduction: false },
+                { _id: String(prod), name: "Production", slug: "prod", isProduction: true }
+            ],
+            domains: [
+                {
+                    domain: null,
+                    frontends: [{ _id: String(checkout), name: "Checkout", slug: "checkout", kind: "DOCKER", versions: { dev: "2.0.0", prod: null } }],
+                    backends: [{ _id: String(orders), name: "Orders", slug: "orders", latestVersion: "1.2.0", versions: { dev: "1.1.0", prod: "1.0.0" } }]
+                }
+            ],
+            maintenanceAgents: [{ _id: "agent", name: "Doctor", slug: "doctor", kind: "CRON", schedule: "0 * * * *", version: "0.1.0", domainId: null }]
+        })
+        expect(domainDeployments).toHaveBeenCalledWith(PROJECT)
     })
 })

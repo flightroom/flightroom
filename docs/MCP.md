@@ -48,6 +48,20 @@ Two scopes, chosen on the consent page:
   through GitOps (`no_gitops`). A domain-scoped member reads these for the applications of their
   domains only: when a backend, a container frontend and a maintenance agent share a slug, every
   one of them must be in their domains.
+  Four tools save an agent the round-trips it makes most, under the same rules:
+  `application_logs_search` reads the logs of several applications in one or more environments at
+  once, every backend and container frontend each environment runs unless slugs are given, from
+  every pod without naming one, merged oldest first; its `filter` and `exclude` ignore case, and
+  `minLevel` keeps the lines at a level or above, from the level of a JSON line or a level word at
+  the start of a text one (a stack trace follows its error). `environment_status` says per
+  environment the version each backend and container frontend ships, where Argo CD stands with it
+  and its pods with their restarts. `deployment_wait` waits up to 240 seconds for the deploys
+  `deploy` returned to roll out and, unless they are done, answers with the last lines of the pods
+  that restart or are not ready (not to a VIEWER API key). `build_wait` waits up to 240 seconds for
+  a version started by `backend_trigger_build` or `frontend_trigger_build` to be registered, with
+  the end of the logs of its failed jobs when its run fails. `project_overview` returns in one call
+  the environments, the frontends and backends of each domain with the version every environment
+  runs, and the maintenance agents. The coding agent of Edit with AI gets none of the waits.
 - `mfe:write` — everything the console does inside a project, **deploy and rollback included**:
   create and edit frontends, backends, domains and environments, trigger builds, import
   repositories, change global variables, apply dependency alignments and integrations, revoke the
