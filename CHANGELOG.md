@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **The Sandbox Variables In The Helm Chart**: `values.yaml` documents `INSTALLATION_ADMINS` and every `OPENSHELL_*` variable of the coding agent's sandboxes under `env`, with their defaults, and the gateway credentials `OPENSHELL_TOKEN` and `OPENSHELL_OIDC_CLIENT_SECRET` under `envSecrets`. Left empty they are not set, as before, so an upgrade changes nothing until they are filled in
+- **Live Preview Of Any Stack And Of A Whole Domain**: a repository previews from `.flightroom/preview.json`, `{ "prepare": "...", "start": "...", "port": 8080 }`, when its stack is not recognized or is to be previewed otherwise: `prepare` runs to the end first, `start` gets `PORT`, `HTTP_PORT` and `HOST`. The live preview of a domain starts its backends first and hands every development server the others as `<SLUG>_URL`, as the `services.flightroom` ConfigMap does in an environment; with backends exposed under a path, it opens on a gateway in the sandbox that routes each path to its backend, the path stripped, and the rest to the frontend, as the host of an environment does. A backend of a stack not recognized and without the file is left out instead of stopping the preview
 
 ### Changed
 
@@ -17,6 +18,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **Live Previews That Never Started**: a live preview opened from the console did not install the dependencies of a Node.js repository, so its development server never started; with pnpm or yarn the host and port of the preview reached the server after a `--` it ignored. Every stack now prepares before it starts: the install (only when `node_modules` is missing), `pip install`, a Maven or Gradle compile, `go build`, `dotnet build`. The server is waited for up to 180 seconds instead of 30, with node, python3 or bash, so an image without Node.js can preview too; one that stops fails at once, with the last 30 lines of its log
 - **The Running Script's Output Shows Its Newest Lines**: while the coding agent runs a script, its output box scrolls to the newest line instead of staying on the oldest, a progress bar shows its last frame only, a credential cut by the start of the box is masked like the others, and screen readers no longer read the whole output again at each refresh
 - **The Logs Of One Sandbox At A Time**: on the **Installation** page, the logs of a sandbox no longer show those of the sandbox opened before while they load, a gateway line whose message is JSON is formatted, and a character printed across two pieces of output is no longer garbled
 - **The Installation Page Opens In The Same Tab**: the **Installation** link at the bottom of the sidebar opened the page in a new tab, as the links to the documentation do; it now navigates in the console like every other entry
