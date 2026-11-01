@@ -8,58 +8,28 @@ import { ApiStatusHandler } from "@/components/organisms"
 import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useEnvironmentsApi from "@/hooks/apiClients/useEnvironmentsApi"
 import { Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import { VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
-import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedBackend, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
 import DeploymentBackendCard from "./DeploymentBackendCard"
 import DeploymentFrontendCard from "./DeploymentFrontendCard"
 import DeploymentResourceCard from "./DeploymentResourceCard"
+import DeploymentVariableMapCard from "./DeploymentVariableMapCard"
 
-/** The config maps or the secrets of a deployment, each with the keys it set in the environment and a link to its page */
-const DeployedMaps: React.FC<{
-    title: string
-    maps: DeployedVariableMap[]
-    path: (id: string) => string
-    secret?: boolean
-}> = ({ title, maps, path, secret }) => {
-    const { t } = useTranslation()
-
-    return (
-        <div className="mt-4">
-            <h4 className="font-semibold text-primary-strong mb-1">{title}</h4>
+/** The config maps or the secrets of a deployment, as cards that open their page */
+const DeployedMaps: React.FC<{ title: string; maps: DeployedVariableMap[]; kind: VariableMapKind }> = ({ title, maps, kind }) => (
+    <div className="mt-4">
+        <h4 className="font-semibold text-primary-strong mb-2">{title}</h4>
+        <div className="grid grid-cols-[repeat(auto-fill,minmax(200px,1fr))] gap-4">
             {maps.map(map => (
-                <div key={map._id} className="mt-2">
-                    <p className="text-sm font-medium">
-                        <Link to={path(map._id)} className="underline-offset-4 hover:underline">
-                            {map.name}
-                        </Link>
-                    </p>
-                    {map.entries.length > 0 ? (
-                        <DescriptionList orientation="inline">
-                            {map.entries.map(entry => (
-                                <DescriptionItem key={entry.key} label={entry.key}>
-                                    {secret ? (
-                                        <span title={t("deployments.secret_value_hidden")}>
-                                            <span aria-hidden="true">••••••</span>
-                                            <span className="sr-only">{t("deployments.secret_value_hidden")}</span>
-                                        </span>
-                                    ) : (
-                                        entry.value
-                                    )}
-                                </DescriptionItem>
-                            ))}
-                        </DescriptionList>
-                    ) : (
-                        <p className="text-sm text-foreground-secondary">{t("deployments.map_no_keys")}</p>
-                    )}
-                </div>
+                <DeploymentVariableMapCard key={map._id} kind={kind} deployed={map} />
             ))}
         </div>
-    )
-}
+    </div>
+)
 
 interface DomainGroup {
     /** Undefined for the members of no domain, or of one deleted since */
@@ -160,8 +130,8 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO; active?: boolean 
                     </DescriptionList>
                 </div>
             )}
-            {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} path={VARIABLE_MAP_KINDS.configMap.detailPath} />}
-            {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} path={VARIABLE_MAP_KINDS.secret.detailPath} secret />}
+            {configMaps.length > 0 && <DeployedMaps title={t("deployments.config_maps_title")} maps={configMaps} kind="configMap" />}
+            {secrets.length > 0 && <DeployedMaps title={t("deployments.secrets_title")} maps={secrets} kind="secret" />}
             {resources.length > 0 && (
                 <div className="mt-4">
                     <h4 className="font-semibold text-primary-strong mb-2">{t("deployments.resources_title")}</h4>
