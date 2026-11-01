@@ -27,7 +27,7 @@ const BACKEND_FIELD: Record<VariableMapKind, "configMapIds" | "secretIds"> = { c
 const isDuplicateKeyError = (error: unknown): boolean => (error as { code?: number })?.code === 11000
 
 /**
- * The entries as they are stored: keys valid and unique, blank values dropped (the environment gets the value
+ * The entries as they are stored: at least one key, keys valid and unique, blank values dropped (the environment gets the value
  * of all, or the key stays unset there), every environment one of the project and at most once per key. A
  * secret that comes back as the placeholder keeps the value stored for that key and environment, or for all;
  * with none to keep, it is refused rather than saved literally.
@@ -35,6 +35,10 @@ const isDuplicateKeyError = (error: unknown): boolean => (error as { code?: numb
 export const normalizeEntries = (entries: unknown, kind: VariableMapKind, environmentIds: Set<string>, stored: IVariableMapEntry[] = []): VariableMapEntryDTO[] => {
     if (!Array.isArray(entries) || entries.length > MAX_VARIABLE_MAP_ENTRIES) {
         throw createBusinessException({ code: "VARIABLE_MAP_ENTRIES_INVALID", message: `entries must be a list of at most ${MAX_VARIABLE_MAP_ENTRIES} keys` })
+    }
+    // A map without keys gives a container nothing: it is refused rather than saved empty
+    if (entries.length === 0) {
+        throw createBusinessException({ code: "VARIABLE_MAP_ENTRIES_EMPTY", message: `A ${kind} needs at least one key` })
     }
 
     const keys = new Set<string>()

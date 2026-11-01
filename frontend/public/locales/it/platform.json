@@ -3317,12 +3317,14 @@
             "uses_all": "Usa il valore di tutti gli ambienti",
             "key_invalid": "Solo lettere, cifre e underscore, senza iniziare con una cifra",
             "key_duplicated": "Questa chiave compare più di una volta",
+            "empty_invalid": "Aggiungi almeno una chiave prima di salvare",
             "search_placeholder": "Cerca per chiave o valore",
             "search_placeholder_secret": "Cerca per chiave",
             "no_results": "Nessuna chiave corrisponde a \"{{searchTerm}}\"."
         },
         "list": {
-            "search_placeholder": "Cerca per nome, chiave o backend",
+            "search_placeholder": "Cerca per nome, chiave, valore o backend",
+            "search_placeholder_secret": "Cerca per nome, chiave o backend",
             "clear_search": "Cancella ricerca",
             "keys": "Chiavi",
             "no_results_title": "Nessun risultato",
@@ -3367,6 +3369,7 @@
             "name_invalid": "Al massimo 63 lettere minuscole, cifre o trattini, che iniziano e finiscono con una lettera o una cifra",
             "in_use": "È ancora agganciata a {{backends}}: sganciala prima",
             "secret_value_required": "Una chiave salvata è stata rinominata: inserisci di nuovo i suoi valori",
+            "entries_empty": "Aggiungi almeno una chiave prima di salvare",
             "key_clash": "{{key}} è impostata sia da {{first}} sia da {{second}}: un backend non può agganciarle entrambe",
             "map_unknown": "Una delle mappe selezionate non esiste più: ricarica la pagina",
             "description_invalid": "Al massimo 2000 caratteri"
@@ -3729,7 +3732,13 @@
             "clear_search": "Cancella ricerca",
             "keys": "Variabili",
             "no_results_title": "Nessun risultato",
-            "no_results_description": "Nessun elemento corrisponde a \"{{searchTerm}}\"."
+            "no_results_description": "Nessun elemento corrisponde a \"{{searchTerm}}\".",
+            "no_results_filtered": "Nessuna risorsa corrisponde ai filtri scelti.",
+            "filter_type": "Tipologia",
+            "all_types": "Tutte le tipologie",
+            "filter_backend": "Backend",
+            "all_backends": "Tutti i backend",
+            "reset_filters": "Azzera filtri"
         },
         "keys": {
             "title": "Variabili d'ambiente",

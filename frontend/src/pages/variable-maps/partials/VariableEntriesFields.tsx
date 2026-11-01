@@ -30,6 +30,8 @@ export const VariableEntriesFields: React.FC<{ kind: VariableMapKind; environmen
     // A key in error must stay in sight whatever the search
     const isVisible = (index: number) => matches(entries?.[index]) || Boolean(get(errors, `entries.${index}.key`))
     const visibleCount = fields.filter((_, index) => isVisible(index)).length
+    // The list as a whole: under `root` once it has rows, on the list itself while it has none
+    const entriesError = (get(errors, "entries.root") ?? get(errors, "entries")) as FieldError | undefined
 
     return (
         <Card>
@@ -68,6 +70,11 @@ export const VariableEntriesFields: React.FC<{ kind: VariableMapKind; environmen
                     />
                 )}
                 {fields.length === 0 && <p className="text-sm text-foreground-secondary">{t("variableMaps.entries.empty")}</p>}
+                {typeof entriesError?.message === "string" && (
+                    <p role="alert" className="text-sm font-medium text-destructive">
+                        {entriesError.message}
+                    </p>
+                )}
                 {fields.length > 0 && visibleCount === 0 && <p className="text-sm text-foreground-secondary">{t("variableMaps.entries.no_results", { searchTerm })}</p>}
                 {fields.map((field, index) => {
                     // A saved secret is sent back as placeholders, which the backend resolves by key: renaming it would orphan them

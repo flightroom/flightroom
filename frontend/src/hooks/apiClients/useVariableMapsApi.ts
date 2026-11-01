@@ -36,6 +36,7 @@ const ERROR_KEYS: Record<string, string> = {
     VARIABLE_MAP_DESCRIPTION_INVALID: "variableMaps.errors.description_invalid",
     VARIABLE_MAP_IN_USE: "variableMaps.errors.in_use",
     VARIABLE_MAP_SECRET_VALUE_REQUIRED: "variableMaps.errors.secret_value_required",
+    VARIABLE_MAP_ENTRIES_EMPTY: "variableMaps.errors.entries_empty",
     BACKEND_VARIABLE_KEY_DUPLICATED: "variableMaps.errors.key_clash",
     BACKEND_VARIABLE_MAP_UNKNOWN: "variableMaps.errors.map_unknown"
 }

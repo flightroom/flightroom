@@ -3298,12 +3298,14 @@
             "uses_all": "Uses the value of all environments",
             "key_invalid": "Letters, digits and underscores only, not starting with a digit",
             "key_duplicated": "This key appears more than once",
+            "empty_invalid": "Add at least one key before saving",
             "search_placeholder": "Search by key or value",
             "search_placeholder_secret": "Search by key",
             "no_results": "No key matches \"{{searchTerm}}\"."
         },
         "list": {
-            "search_placeholder": "Search by name, key or backend",
+            "search_placeholder": "Search by name, key, value or backend",
+            "search_placeholder_secret": "Search by name, key or backend",
             "clear_search": "Clear search",
             "keys": "Keys",
             "no_results_title": "No results",
@@ -3348,6 +3350,7 @@
             "name_invalid": "At most 63 lowercase letters, digits or dashes, starting and ending with a letter or digit",
             "in_use": "It is still attached to {{backends}}: detach it first",
             "secret_value_required": "A saved key was renamed: type its values again",
+            "entries_empty": "Add at least one key before saving",
             "key_clash": "{{key}} is set both by {{first}} and by {{second}}: a backend cannot attach both",
             "map_unknown": "One of the selected maps no longer exists: reload the page",
             "description_invalid": "At most 2000 characters"
@@ -3710,7 +3713,13 @@
             "clear_search": "Clear search",
             "keys": "Variables",
             "no_results_title": "No results",
-            "no_results_description": "Nothing matches \"{{searchTerm}}\"."
+            "no_results_description": "Nothing matches \"{{searchTerm}}\".",
+            "no_results_filtered": "No resource matches the chosen filters.",
+            "filter_type": "Type",
+            "all_types": "All types",
+            "filter_backend": "Backend",
+            "all_backends": "All backends",
+            "reset_filters": "Reset filters"
         },
         "keys": {
             "title": "Environment variables",

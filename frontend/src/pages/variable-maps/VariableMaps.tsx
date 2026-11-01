@@ -8,7 +8,7 @@ import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
-import type { VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
+import type { VariableMapEntry, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { useVariableMapsQuery, VARIABLE_MAP_KINDS } from "./partials/variableMaps"
 
@@ -30,10 +30,14 @@ const VariableMaps: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
     const filtered = useMemo(() => {
         const term = searchTerm.trim().toLowerCase()
         if (!term) return mapsQuery.data ?? []
+        // The values of a config map too; a secret's come back masked, so only its keys
+        const valuesOf = (entry: VariableMapEntry) => (kind === "configMap" ? [entry.value ?? "", ...(entry.values ?? []).map(item => item.value ?? "")] : [])
         return (mapsQuery.data ?? []).filter(map =>
-            [map.name, map.description ?? "", ...map.entries.map(entry => entry.key), ...backendsOf(map._id!).map(backend => backend.name)].some(text => text.toLowerCase().includes(term))
+            [map.name, map.description ?? "", ...map.entries.flatMap(entry => [entry.key, ...valuesOf(entry)]), ...backendsOf(map._id!).map(backend => backend.name)].some(text =>
+                text.toLowerCase().includes(term)
+            )
         )
-    }, [mapsQuery.data, searchTerm, backendsOf])
+    }, [mapsQuery.data, searchTerm, backendsOf, kind])
 
     const hasMaps = (mapsQuery.data?.length ?? 0) > 0
     const onCreate = () => navigate(detailPath("new"))
@@ -47,7 +51,7 @@ const VariableMaps: React.FC<{ kind: VariableMapKind }> = ({ kind }) => {
                 hasMaps ? (
                     <SearchInput
                         className="max-w-sm"
-                        placeholder={t("variableMaps.list.search_placeholder")}
+                        placeholder={t(kind === "configMap" ? "variableMaps.list.search_placeholder" : "variableMaps.list.search_placeholder_secret")}
                         value={searchTerm}
                         onValueChange={setSearchTerm}
                         onClear={() => setSearchTerm("")}

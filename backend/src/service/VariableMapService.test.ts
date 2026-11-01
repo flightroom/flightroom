@@ -321,7 +321,8 @@ describe("normalizeEntries", () => {
         ],
         ["a value for an environment of another project", [{ key: "A", values: [{ environmentId: new Types.ObjectId().toString(), value: "1" }] }], "VARIABLE_MAP_ENVIRONMENT_UNKNOWN"],
         ["a value too long", [{ key: "A", values: [{ environmentId: environment, value: "x".repeat(32 * 1024 + 1) }] }], "VARIABLE_MAP_VALUE_TOO_LONG"],
-        ["something that is not a list", { key: "A" }, "VARIABLE_MAP_ENTRIES_INVALID"]
+        ["something that is not a list", { key: "A" }, "VARIABLE_MAP_ENTRIES_INVALID"],
+        ["no key at all", [], "VARIABLE_MAP_ENTRIES_EMPTY"]
     ])("given %s, when the entries are normalised, then they are refused", (_case, entries, code) => {
         expect(() => normalizeEntries(entries, "configMap", environments)).toThrow(expect.objectContaining({ code }))
     })
@@ -375,18 +376,27 @@ describe("VariableMapService create and update of a map", () => {
         vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
     })
 
-    it("given a name, when a map is created, then it is written to the database for the project", async () => {
+    it("given a name and a key, when a map is created, then it is written to the database for the project", async () => {
         const create = vi.spyOn(ConfigMap, "create").mockResolvedValue(map as never)
 
-        await new VariableMapService("configMap").create({ name: "orders" }, projectId)
+        await new VariableMapService("configMap").create({ name: "orders", entries: [{ key: "LOG_LEVEL", value: "info" }] }, projectId)
 
-        expect(create.mock.calls[0][0]).toMatchObject({ name: "orders", entries: [], projectId: expect.anything() })
+        expect(create.mock.calls[0][0]).toMatchObject({ name: "orders", entries: [{ key: "LOG_LEVEL", value: "info", values: [] }], projectId: expect.anything() })
+    })
+
+    it("given no key, when a map is created, then it is refused as VARIABLE_MAP_ENTRIES_EMPTY and nothing is written", async () => {
+        const create = vi.spyOn(ConfigMap, "create")
+
+        await expect(new VariableMapService("configMap").create({ name: "orders" }, projectId)).rejects.toMatchObject({ code: "VARIABLE_MAP_ENTRIES_EMPTY" })
+        expect(create).not.toHaveBeenCalled()
     })
 
     it("given a name already taken, when a map is created, then the unique index error is refused as VARIABLE_MAP_NAME_TAKEN", async () => {
         vi.spyOn(ConfigMap, "create").mockRejectedValue({ code: 11000 })
 
-        await expect(new VariableMapService("configMap").create({ name: "orders" }, projectId)).rejects.toMatchObject({ code: "VARIABLE_MAP_NAME_TAKEN" })
+        await expect(new VariableMapService("configMap").create({ name: "orders", entries: [{ key: "LOG_LEVEL", value: "info" }] }, projectId)).rejects.toMatchObject({
+            code: "VARIABLE_MAP_NAME_TAKEN"
+        })
     })
 
     it("given a name already taken, when a map is renamed, then the unique index error is refused as VARIABLE_MAP_NAME_TAKEN", async () => {

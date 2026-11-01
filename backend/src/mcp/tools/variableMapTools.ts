@@ -19,8 +19,9 @@ const entries = z
                 .describe("The value an environment overrides value with; a blank or missing one takes value, or leaves the key unset there when value is blank too")
         })
     )
+    .min(1)
     .max(200)
-    .describe("The keys of the map, replaced as a whole")
+    .describe("The keys of the map, replaced as a whole: at least one")
 
 const configMaps = (principal: ConstructorParameters<typeof VariableMapService>[1]) => new VariableMapService("configMap", principal)
 const secrets = (principal: ConstructorParameters<typeof VariableMapService>[1]) => new VariableMapService("secret", principal)
@@ -61,7 +62,7 @@ export const variableMapTools = [
         inputSchema: z.object({
             name: z.string().regex(VARIABLE_MAP_NAME, "at most 63 lowercase letters, digits or dashes, starting and ending with a letter or digit"),
             description: z.string().max(2000).optional(),
-            entries: entries.optional()
+            entries
         }),
         run: (args, { principal, projectId }) => configMaps(principal).create(args as VariableMapDTO, projectId)
     }),

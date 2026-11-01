@@ -33,20 +33,23 @@ import {
     VARIABLE_MAP_NAME
 } from "./partials/variableMaps"
 
-const createFormSchema = (messages: { name: string; key: string; keyDuplicated: string }) =>
+const createFormSchema = (messages: { name: string; key: string; keyDuplicated: string; entriesEmpty: string }) =>
     z
         .object({
             name: z.string().trim().regex(VARIABLE_MAP_NAME, messages.name),
             // Same limit as the backend
             description: z.string().max(2000).optional(),
-            entries: z.array(
-                z.object({
-                    key: z.string().trim().regex(VARIABLE_KEY, messages.key),
-                    value: z.string(),
-                    values: z.array(z.string()),
-                    saved: z.boolean().default(false)
-                })
-            )
+            entries: z
+                .array(
+                    z.object({
+                        key: z.string().trim().regex(VARIABLE_KEY, messages.key),
+                        value: z.string(),
+                        values: z.array(z.string()),
+                        saved: z.boolean().default(false)
+                    })
+                )
+                // Same rule as the backend: a map without keys gives a container nothing
+                .min(1, messages.entriesEmpty)
         })
         .superRefine((values, context) => {
             const seen = new Set<string>()
@@ -174,7 +177,8 @@ const VariableMapFormContent: React.FC<VariableMapFormContentProps> = ({ kind, e
             createFormSchema({
                 name: t("variableMaps.name_invalid"),
                 key: t("variableMaps.entries.key_invalid"),
-                keyDuplicated: t("variableMaps.entries.key_duplicated")
+                keyDuplicated: t("variableMaps.entries.key_duplicated"),
+                entriesEmpty: t("variableMaps.entries.empty_invalid")
             }),
         [t]
     )
