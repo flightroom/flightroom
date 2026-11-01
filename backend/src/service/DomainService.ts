@@ -189,6 +189,41 @@ export function ensureBuildTarget(version: unknown, ref?: unknown, refs?: unknow
     Object.values(refs).forEach(ensureRef)
 }
 
+/** One frontend or backend of the domain, when a build or a release is of that member alone */
+export interface BuildMemberScope {
+    kind: "frontend" | "backend"
+    id: string
+}
+
+/** The member a build or a release is limited to, checked before anything is read: none for the whole domain */
+export const buildMemberScopeOf = (member: unknown): BuildMemberScope | undefined => {
+    if (member === undefined || member === null) return undefined
+    const { kind, id } = (typeof member === "object" ? member : {}) as Record<string, unknown>
+    if ((kind !== "frontend" && kind !== "backend") || typeof id !== "string" || !isValidObjectId(id)) {
+        throw createBusinessException({ code: "DOMAIN_BUILD_MEMBER_INVALID", message: "The member is a frontend or a backend, given by kind and id" })
+    }
+    return { kind, id }
+}
+
+/**
+ * The frontends and backends of the domain a build or a release takes: all of them, or the one member it is limited
+ * to. That member outside the domain is not found, as it is not one of its members.
+ */
+export const membersInScope = async <F, B>(
+    inDomain: { projectId: unknown; domainId: unknown },
+    scope: BuildMemberScope | undefined,
+    find: { frontends: (filter: object) => Promise<F[]>; backends: (filter: object) => Promise<B[]> }
+): Promise<[F[], B[]]> => {
+    const only = (kind: BuildMemberScope["kind"]) => (scope ? (scope.kind === kind ? { ...inDomain, _id: toObjectId(scope.id) } : undefined) : inDomain)
+    const frontendFilter = only("frontend")
+    const backendFilter = only("backend")
+    const found: [F[], B[]] = await Promise.all([frontendFilter ? find.frontends(frontendFilter) : [], backendFilter ? find.backends(backendFilter) : []])
+    if (scope && found[0].length + found[1].length === 0) {
+        throw createBusinessException({ code: "DOMAIN_BUILD_MEMBER_NOT_FOUND", message: `The ${scope.kind} ${scope.id} is not in this domain`, statusCode: 404 })
+    }
+    return found
+}
+
 /** The branch a domain build tags: main when none is given */
 export const buildBranchOf = (ref?: unknown): string => (typeof ref === "string" && ref ? ref : "main")
 
@@ -371,10 +406,11 @@ export class DomainService extends BaseAuthorizedService {
      * checked first (its connection, the domain scope, the ref, a tag of that name): when one fails, none is
      * tagged and the refusal lists each one. A tag that still fails afterwards leaves the others made, and the
      * result says which. A repository whose branch has not moved since the version of its members is left
-     * untagged: only the side that changed is built again.
+     * untagged: only the side that changed is built again. With `member`, only that frontend or backend of the domain is built.
      */
-    async build(id: string | ObjectId, version: unknown, ref?: unknown, refs?: unknown): Promise<DomainBuildResult> {
+    async build(id: string | ObjectId, version: unknown, ref?: unknown, refs?: unknown, member?: unknown): Promise<DomainBuildResult> {
         ensureBuildTarget(version, ref, refs)
+        const scope = buildMemberScopeOf(member)
         const branch = buildBranchOf(ref)
         const domain = await this.getById(id)
         if (!domain) {
@@ -384,7 +420,7 @@ export class DomainService extends BaseAuthorizedService {
 
         const inDomain = { projectId: domain.projectId, domainId: domain._id }
         const fields = { name: 1, version: 1, codeRepository: 1 }
-        const [frontends, backends] = await Promise.all([Frontend.find(inDomain, fields), Backend.find(inDomain, fields)])
+        const [frontends, backends] = await membersInScope(inDomain, scope, { frontends: filter => Frontend.find(filter, fields), backends: filter => Backend.find(filter, fields) })
         if (frontends.length + backends.length === 0) {
             throw createBusinessException({ code: "DOMAIN_BUILD_EMPTY", message: "The domain has no frontend nor backend to build" })
         }

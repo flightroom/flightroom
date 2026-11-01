@@ -7,7 +7,7 @@ import { useTranslation } from "react-i18next"
 import { z } from "zod"
 import { Badge, Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
-import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildRepository, type DomainBuildResult, singleRefOf } from "@/hooks/apiClients/useDomainsApi"
+import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildRepository, type DomainBuildResult, type DomainMemberScope, singleRefOf } from "@/hooks/apiClients/useDomainsApi"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
@@ -61,12 +61,14 @@ export const DomainBuildOutcomes: React.FC<{ result: DomainBuildResult }> = ({ r
  */
 interface DomainBuildButtonProps {
     domain: Domain
+    /** Only this frontend or backend of the domain is built: its name stands for the domain's */
+    member?: DomainMemberScope & { name: string }
     open?: boolean
     onOpenChange?: (open: boolean) => void
     showTrigger?: boolean
 }
 
-export const DomainBuildButton: React.FC<DomainBuildButtonProps> = ({ domain, open, onOpenChange, showTrigger = true }) => {
+export const DomainBuildButton: React.FC<DomainBuildButtonProps> = ({ domain, member, open, onOpenChange, showTrigger = true }) => {
     const { t } = useTranslation()
     const domainsApi = useDomainsApi()
     const notifications = useToastNotificationStore()
@@ -85,14 +87,14 @@ export const DomainBuildButton: React.FC<DomainBuildButtonProps> = ({ domain, op
 
     const onSubmit = async (values: z.infer<typeof schema>) => {
         try {
-            const built = await domainsApi.build(domain._id, values.version, values.branch.trim() || undefined)
+            const built = await domainsApi.build(domain._id, values.version, values.branch.trim() || undefined, member && { kind: member.kind, id: member.id })
             setResult(built)
             const failed = built.repositories.filter(repository => repository.status === "failed").length
             const tagged = built.repositories.filter(repository => repository.status === "tagged").length
             if (failed === 0 && tagged === 0) {
-                notifications.showInfoNotification({ message: t("domains.build.nothing_changed", { domain: domain.name }) })
+                notifications.showInfoNotification({ message: t("domains.build.nothing_changed", { domain: member?.name ?? domain.name }) })
             } else if (failed === 0) {
-                notifications.showSuccessNotification({ message: t("domains.build.success", { domain: domain.name, version: built.version, count: tagged }) })
+                notifications.showSuccessNotification({ message: t("domains.build.success", { domain: member?.name ?? domain.name, version: built.version, count: tagged }) })
             } else {
                 notifications.showWarningNotification({ message: t("domains.build.partial", { count: failed }) })
             }
@@ -125,7 +127,7 @@ export const DomainBuildButton: React.FC<DomainBuildButtonProps> = ({ domain, op
             <Dialog open={dialogOpen} onOpenChange={changeOpen}>
                 <DialogContent>
                     <DialogHeader>
-                        <DialogTitle>{t("domains.build.title", { domain: domain.name })}</DialogTitle>
+                        <DialogTitle>{t("domains.build.title", { domain: member?.name ?? domain.name })}</DialogTitle>
                         <DialogDescription>
                             {result
                                 ? singleRefOf(result)

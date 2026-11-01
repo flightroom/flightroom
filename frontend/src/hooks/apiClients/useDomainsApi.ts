@@ -35,6 +35,12 @@ export interface DomainMembersDTO {
 /** Why a repository of a domain build was not tagged */
 export type DomainBuildFailure = "CONNECTION_NOT_FOUND" | "DOMAIN_SCOPE_FORBIDDEN" | "REPOSITORY_NOT_FOUND" | "REF_NOT_FOUND" | "TAG_EXISTS" | "PROVIDER_ERROR"
 
+/** One frontend or backend of a domain, when a build or a build and deploy is of it alone */
+export interface DomainMemberScope {
+    kind: "frontend" | "backend"
+    id: string
+}
+
 /** One repository of a domain build, with the members linked to it */
 export interface DomainBuildRepository {
     /** Stable across builds: the connection, the repository id or name, and the GitLab path when there is one */
@@ -184,9 +190,9 @@ const useDomainsApi = () => {
         return response.data
     }
 
-    /** Tags the repository of every member with `version` on `ref` (main when left out): each tag starts the pipeline of its repository */
-    const build = async (id: string, version: string, ref?: string): Promise<DomainBuildResult> => {
-        const response = await apiClient.doRequest<DomainBuildResult>({ url: `/api/domains/${id}/build`, method: "POST", data: { version, ref }, customErrorMessage: errorMessage })
+    /** Tags the repository of every member, or of `member` alone, with `version` on `ref` (main when left out): each tag starts the pipeline of its repository */
+    const build = async (id: string, version: string, ref?: string, member?: DomainMemberScope): Promise<DomainBuildResult> => {
+        const response = await apiClient.doRequest<DomainBuildResult>({ url: `/api/domains/${id}/build`, method: "POST", data: { version, ref, member }, customErrorMessage: errorMessage })
         return response.data
     }
 
@@ -194,11 +200,11 @@ const useDomainsApi = () => {
      * Builds the domain now; the console then waits for the CI, sets the version on its members and deploys it to `environmentId`.
      * `refs` is the branch of each frontend or backend, by its id: one left out is tagged on `ref`, main when that is left out too.
      */
-    const startRelease = async (id: string, version: string, environmentId: string, ref?: string, refs?: Record<string, string>): Promise<DomainRelease> => {
+    const startRelease = async (id: string, version: string, environmentId: string, ref?: string, refs?: Record<string, string>, member?: DomainMemberScope): Promise<DomainRelease> => {
         const response = await apiClient.doRequest<DomainRelease>({
             url: `/api/domains/${id}/build-and-deploy`,
             method: "POST",
-            data: { version, ref, refs, environmentId },
+            data: { version, ref, refs, environmentId, member },
             customErrorMessage: errorMessage
         })
         return response.data

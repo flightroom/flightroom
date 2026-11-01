@@ -16,7 +16,7 @@ import ArgoCdService from "./ArgoCdService"
 import BaseAuthorizedService, { AuthorizedPrincipal } from "./BaseAuthorizedService"
 import BuildStatusService from "./BuildStatusService"
 import DeploymentService from "./DeploymentService"
-import DomainService, { buildBranchOf, ensureBuildTarget } from "./DomainService"
+import DomainService, { buildBranchOf, buildMemberScopeOf, ensureBuildTarget, membersInScope } from "./DomainService"
 import { RolloutApplication, RolloutDTO } from "./gitops/rollout"
 
 /** How long the CI of the tagged repositories is given to register the version: a release still waiting then fails */
@@ -86,10 +86,12 @@ export class DomainReleaseService extends BaseAuthorizedService {
     /**
      * Starts a build and deploy of the domain to `environmentId`: the build runs now, as {@link DomainService.build}
      * does it, with the same checks and the same refusal; the release tick takes the other steps. One release per
-     * domain at a time: a second one is refused while the first is not over.
+     * domain at a time: a second one is refused while the first is not over. With `member`, only that frontend or
+     * backend is built, and the deploy of the domain moves only it, the others keeping the version they run.
      */
-    async start(id: string | ObjectId, version: unknown, ref: unknown, environmentId: unknown, refs?: unknown): Promise<IDomainRelease | null> {
+    async start(id: string | ObjectId, version: unknown, ref: unknown, environmentId: unknown, refs?: unknown, member?: unknown): Promise<IDomainRelease | null> {
         ensureBuildTarget(version, ref, refs)
+        const scope = buildMemberScopeOf(member)
         if (typeof environmentId !== "string" || !isValidObjectId(environmentId)) {
             throw createBusinessException({ code: "DOMAIN_RELEASE_ENVIRONMENT_INVALID", message: "The environment to deploy to is required" })
         }
@@ -107,7 +109,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
         }
 
         const inDomain = { projectId: domain.projectId, domainId: domain._id }
-        const [frontends, backends] = await Promise.all([Frontend.find(inDomain, { name: 1 }), Backend.find(inDomain, { name: 1 })])
+        const [frontends, backends] = await membersInScope(inDomain, scope, { frontends: filter => Frontend.find(filter, { name: 1 }), backends: filter => Backend.find(filter, { name: 1 }) })
         let release: IDomainRelease
         try {
             release = await DomainRelease.create({
@@ -132,7 +134,7 @@ export class DomainReleaseService extends BaseAuthorizedService {
 
         let repositories: DomainBuildRepository[]
         try {
-            repositories = (await new DomainService(this.user).build(domain._id, version, ref, refs)).repositories
+            repositories = (await new DomainService(this.user).build(domain._id, version, ref, refs, scope)).repositories
         } catch (error) {
             // The refusal of the check goes back as the build gives it: the dialog lists it repository by repository
             await failRelease(release, DomainReleaseStatus.BUILDING, error, (error as BusinessException).details?.repositories)

@@ -391,6 +391,39 @@ describe("DomainService.build", () => {
         expect(result.repositories.map(repository => repository.status)).toEqual(["tagged"])
     })
 
+    it("given one member asked for, when the domain is built, then only its repository is tagged", async () => {
+        const cart = member("Cart", link("cart-fe", "1"))
+        const findFrontends = vi.spyOn(Frontend, "find").mockResolvedValue([cart] as never)
+        const findBackends = vi.spyOn(Backend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Domain, "findById").mockResolvedValue(domain as never)
+
+        const result = await new DomainService().build(String(domainId), "1.4.0", undefined, undefined, { kind: "frontend", id: String(cart._id) })
+
+        expect(String((findFrontends.mock.calls[0][0] as unknown as { _id: unknown })._id)).toBe(String(cart._id))
+        expect(findBackends).not.toHaveBeenCalled()
+        expect(createTag).toHaveBeenCalledTimes(1)
+        expect(createTag).toHaveBeenCalledWith("token", "cart-fe", "1.4.0", "sha-of-cart-fe", undefined, "acme")
+        expect(result.repositories.map(repository => repository.repository)).toEqual(["cart-fe"])
+    })
+
+    it("given a member asked for that is not in the domain, when the domain is built, then it is not found and nothing is tagged", async () => {
+        withMembers([], [])
+
+        await expect(new DomainService().build(String(domainId), "1.4.0", undefined, undefined, { kind: "backend", id: String(new Types.ObjectId()) })).rejects.toMatchObject({
+            code: "DOMAIN_BUILD_MEMBER_NOT_FOUND"
+        })
+        expect(createTag).not.toHaveBeenCalled()
+    })
+
+    it("given a member asked for of no known kind, when the domain is built, then it is refused before anything is read", async () => {
+        const findDomain = vi.spyOn(Domain, "findById")
+
+        await expect(new DomainService().build(String(domainId), "1.4.0", undefined, undefined, { kind: "agent", id: String(new Types.ObjectId()) })).rejects.toMatchObject({
+            code: "DOMAIN_BUILD_MEMBER_INVALID"
+        })
+        expect(findDomain).not.toHaveBeenCalled()
+    })
+
     it("given no branch, when the domain is built, then main is tagged", async () => {
         withMembers([member("Cart", link("cart-fe", "1"))])
 

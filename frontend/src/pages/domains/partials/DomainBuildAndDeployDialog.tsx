@@ -29,7 +29,16 @@ import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDial
 import type { RolloutState } from "@/hooks/apiClients/useArgoCdApi"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useBuildsApi, { BUILD_STATUS_QUERY_KEY, type BuildRun, BuildStatus, type ComponentBuildStatus } from "@/hooks/apiClients/useBuildsApi"
-import useDomainsApi, { buildCheckOf, type Domain, type DomainBuildResult, type DomainRelease, type DomainReleaseMember, isReleaseRunning, singleRefOf } from "@/hooks/apiClients/useDomainsApi"
+import useDomainsApi, {
+    buildCheckOf,
+    type Domain,
+    type DomainBuildResult,
+    type DomainMemberScope,
+    type DomainRelease,
+    type DomainReleaseMember,
+    isReleaseRunning,
+    singleRefOf
+} from "@/hooks/apiClients/useDomainsApi"
 import { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
@@ -101,7 +110,7 @@ const memberState = (member: DomainReleaseMember, runs: BuildRun[], unchanged: b
  * deploys the domain to the environment picked. The steps after the build run in the backend: the dialog only
  * follows them, and opened again while a release runs it shows that release instead of the form.
  */
-export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domain }) => {
+export const DomainBuildAndDeployButton: React.FC<{ domain: Domain; member?: DomainMemberScope & { name: string } }> = ({ domain, member }) => {
     const { t } = useTranslation()
     const domainsApi = useDomainsApi()
     const projectStore = useProjectStore()
@@ -131,12 +140,15 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
     const queryKey = ["domain-release", domain._id]
     const projectId = projectStore.project?._id
 
+    // Of one frontend or backend, it stands for the domain in what the dialog says, and only its repository is built
+    const subject = member?.name ?? domain.name
+    const inScope = (kind: DomainMemberScope["kind"], id?: string) => !member || (member.kind === kind && member.id === id)
     // The lists the AI workspace of the domain reads too: its members, each with its repository
     const frontendsQuery = useQuery({ queryKey: ["frontends-by-project-id", projectId], queryFn: () => frontendsApi.getByProjectId(projectId!), enabled: open && Boolean(projectId) })
     const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: open && Boolean(projectId) })
     const repositories = [
-        ...(frontendsQuery.data ?? []).filter(frontend => frontend.domainId === domain._id).flatMap(frontend => workspaceRepositoriesOf("frontend", frontend)),
-        ...(backendsQuery.data ?? []).filter(backend => backend.domainId === domain._id).flatMap(backend => workspaceRepositoriesOf("backend", backend))
+        ...(frontendsQuery.data ?? []).filter(frontend => frontend.domainId === domain._id && inScope("frontend", frontend._id)).flatMap(frontend => workspaceRepositoriesOf("frontend", frontend)),
+        ...(backendsQuery.data ?? []).filter(backend => backend.domainId === domain._id && inScope("backend", backend._id)).flatMap(backend => workspaceRepositoriesOf("backend", backend))
     ]
     // main for each, as the build tags when given no branch: a pick goes over it
     const pickedBranches: BaseBranches = { ...Object.fromEntries(repositories.map(({ id }) => [id, "main"])), ...branches }
@@ -164,23 +176,30 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
         if (!release || !ended) return
         const deployedTo = environments.find(candidate => candidate._id === release.environmentId)?.name
         if (release.status === "deployed") {
-            notifications.showSuccessNotification({ message: t("domains.release.success", { domain: domain.name, version: release.version, environment: deployedTo }) })
+            notifications.showSuccessNotification({ message: t("domains.release.success", { domain: subject, version: release.version, environment: deployedTo }) })
             void Promise.all([
                 queryClient.invalidateQueries({ queryKey: ["deployments", release.environmentId] }),
                 queryClient.invalidateQueries({ queryKey: ["domain-deployments"] }),
                 queryClient.invalidateQueries({ queryKey: ["domain-deployments-matrix"] })
             ])
         } else if (isCanceled(release)) {
-            notifications.showInfoNotification({ message: t("domains.release.canceled", { domain: domain.name, version: release.version }) })
+            notifications.showInfoNotification({ message: t("domains.release.canceled", { domain: subject, version: release.version }) })
         } else {
-            notifications.showErrorNotification({ message: t("domains.release.failed", { domain: domain.name, version: release.version }) })
+            notifications.showErrorNotification({ message: t("domains.release.failed", { domain: subject, version: release.version }) })
         }
-    }, [release, environments, domain.name, notifications, queryClient, t])
+    }, [release, environments, subject, notifications, queryClient, t])
 
     const onSubmit = async (values: z.infer<typeof schema>) => {
         if (!selected?._id) return
         try {
-            const started = await domainsApi.startRelease(domain._id, values.version, selected._id, undefined, pickedBaseBranches(repositories, pickedBranches))
+            const started = await domainsApi.startRelease(
+                domain._id,
+                values.version,
+                selected._id,
+                undefined,
+                pickedBaseBranches(repositories, pickedBranches),
+                member && { kind: member.kind, id: member.id }
+            )
             queryClient.setQueryData(queryKey, started)
             setFollowedId(started._id)
             form.reset()
@@ -366,10 +385,13 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                         </Button>
                     </DropdownMenuTrigger>
                     <DropdownMenuContent align="end">
-                        <DropdownMenuItem onSelect={() => setDeployOpen(true)} disabled={environments.length === 0} dataTestId="domain-deploy-menu-item">
-                            <Rocket className="mr-2 h-4 w-4" />
-                            {t("domains.deploy.action")}
-                        </DropdownMenuItem>
+                        {/* The deploy is of the whole domain: not offered from a frontend or a backend */}
+                        {!member && (
+                            <DropdownMenuItem onSelect={() => setDeployOpen(true)} disabled={environments.length === 0} dataTestId="domain-deploy-menu-item">
+                                <Rocket className="mr-2 h-4 w-4" />
+                                {t("domains.deploy.action")}
+                            </DropdownMenuItem>
+                        )}
                         <DropdownMenuItem onSelect={() => setBuildOpen(true)} dataTestId="domain-build-menu-item">
                             <Hammer className="mr-2 h-4 w-4" />
                             {t("domains.build.action")}
@@ -378,11 +400,11 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain }> = ({ domai
                 </DropdownMenu>
             </div>
             <DomainDeployButton domain={domain} open={deployOpen} onOpenChange={setDeployOpen} showTrigger={false} />
-            <DomainBuildButton domain={domain} open={buildOpen} onOpenChange={setBuildOpen} showTrigger={false} />
+            <DomainBuildButton domain={domain} member={member} open={buildOpen} onOpenChange={setBuildOpen} showTrigger={false} />
             <Dialog open={open} onOpenChange={changeOpen}>
                 <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
                     <DialogHeader>
-                        <DialogTitle>{t("domains.release.title", { domain: domain.name })}</DialogTitle>
+                        <DialogTitle>{t("domains.release.title", { domain: subject })}</DialogTitle>
                         <DialogDescription>
                             {refusal
                                 ? singleRefOf(refusal)
