@@ -185,9 +185,8 @@ function LogFormatField() {
     const labelId = useId()
 
     return (
-        <div className="flex flex-col gap-2">
+        <WithHelp help={t("environment.form.log_format_help")}>
             <Label id={labelId}>{t("environment.form.log_format")}</Label>
-            <p className="text-sm text-foreground-secondary">{t("environment.form.log_json_description")}</p>
             <Controller
                 control={control}
                 name="logJson"
@@ -200,15 +199,23 @@ function LogFormatField() {
                         value={field.value === false ? "text" : "json"}
                         // Radix deseleziona con un secondo clic sulla voce attiva: una delle due resta sempre scelta
                         onValueChange={value => value && field.onChange(value === "json")}
-                        className="justify-start"
+                        // Un controllo segmentato: le due voci si dividono la larghezza, quella scelta in bianco sul grigio
+                        className="grid w-full grid-cols-2 gap-1 rounded-md bg-muted p-1"
                         dataTestId="environment-log-format"
                     >
-                        <ToggleGroupItem value="json">{t("environment.form.log_formats.json")}</ToggleGroupItem>
-                        <ToggleGroupItem value="text">{t("environment.form.log_formats.text")}</ToggleGroupItem>
+                        {(["json", "text"] as const).map(format => (
+                            <ToggleGroupItem
+                                key={format}
+                                value={format}
+                                className="h-9 w-full rounded-sm border-0 bg-transparent font-medium text-foreground-secondary shadow-none hover:bg-background/60 data-[state=on]:bg-background data-[state=on]:font-semibold data-[state=on]:text-foreground data-[state=on]:shadow-input"
+                            >
+                                {t(`environment.form.log_formats.${format}`)}
+                            </ToggleGroupItem>
+                        ))}
                     </ToggleGroup>
                 )}
             />
-        </div>
+        </WithHelp>
     )
 }
 
@@ -304,10 +311,22 @@ interface EnvironmentEditorProps {
 export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, onDirtyChange }: EnvironmentEditorProps) {
     const { t } = useTranslation()
     const isEdit = Boolean(id)
-    // I campi di kube-green partono dai default anche per un ambiente salvato prima che ci fossero. Le liste partono vuote,
-    // non undefined: svuotato, un campo a chip vale [] e "Annulla" lascerebbe il form diverso dal punto di partenza
+    // I campi di kube-green partono dai default anche per un ambiente salvato prima che ci fossero. Gli altri partono dal
+    // valore che il loro campo scriverebbe ("", false, []), non da undefined: altrimenti, montati, rendono il form diverso
+    // dal punto di partenza e dopo la prima modifica "Annulla" lo lascerebbe segnato come modificato
     const form = useForm<EnvironmentFormData>({
-        defaultValues: { ...formData, domains: formData.domains ?? [], ipAllowList: formData.ipAllowList ?? [], kubeGreen: { ...KUBE_GREEN_DEFAULTS, ...formData.kubeGreen } }
+        defaultValues: {
+            ...formData,
+            description: formData.description ?? "",
+            isProduction: formData.isProduction ?? false,
+            namespace: formData.namespace ?? "",
+            subdomain: formData.subdomain ?? "",
+            domains: formData.domains ?? [],
+            ipAllowList: formData.ipAllowList ?? [],
+            logLevel: formData.logLevel ?? "info",
+            logJson: formData.logJson ?? true,
+            kubeGreen: { ...KUBE_GREEN_DEFAULTS, ...formData.kubeGreen }
+        }
     })
     const environmentsApi = useEnvironmentsApi()
     const notifications = useToastNotificationStore()
@@ -563,14 +582,15 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                     <TabSection title={t("environment.page.form.sections.logs")} description={t("environment.page.form.descriptions.logs")}>
                                         <div className="grid items-start gap-x-6 gap-y-4 sm:grid-cols-2">
                                             {/* SelectField non espone un test id: il wrapper dà ai test un aggancio stabile sul trigger. */}
-                                            <div data-testid="environment-log-level">
-                                                <SelectField
-                                                    name="logLevel"
-                                                    label={t("environment.form.log_level")}
-                                                    description={t("environment.form.log_level_description")}
-                                                    options={LOG_LEVELS.map(level => ({ value: level, label: t(`environment.form.log_levels.${level}`) }))}
-                                                />
-                                            </div>
+                                            <WithHelp help={t("environment.form.log_level_help")}>
+                                                <div data-testid="environment-log-level">
+                                                    <SelectField
+                                                        name="logLevel"
+                                                        label={t("environment.form.log_level")}
+                                                        options={LOG_LEVELS.map(level => ({ value: level, label: t(`environment.form.log_levels.${level}`) }))}
+                                                    />
+                                                </div>
+                                            </WithHelp>
                                             <LogFormatField />
                                         </div>
                                     </TabSection>
