@@ -8,5 +8,6 @@
     "editor.formatOnSave": true,
     "editor.codeActionsOnSave": {
         "source.addMissingImports": "explicit"
-    }
+    },
+    "window.autoDetectColorScheme": true
 }
