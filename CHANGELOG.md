@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The Sandbox Variables In The Helm Chart**: `values.yaml` documents `INSTALLATION_ADMINS` and every `OPENSHELL_*` variable of the coding agent's sandboxes under `env`, with their defaults, and the gateway credentials `OPENSHELL_TOKEN` and `OPENSHELL_OIDC_CLIENT_SECRET` under `envSecrets`. Left empty they are not set, as before, so an upgrade changes nothing until they are filled in
 
+### Changed
+
+- **One Log Viewer For The Applications And The Sandboxes**: the logs of a sandbox on the **Installation** page open in the same viewer as the logs of backends, Docker frontends, maintenance agents and domains: 100 to 2000 lines to read (the API now takes up to 2000), a filter, **Follow** on by default (read again every 5 seconds, newest line in sight), JSON lines formatted and a download. The viewer now comes from `@flightroom/design-system` 2.2.0 (`LogViewer`, `LogViewerActions`, `LogLine`), so both pages share one component
+
 ### Fixed
 
 - **The Installation Page Opens In The Same Tab**: the **Installation** link at the bottom of the sidebar opened the page in a new tab, as the links to the documentation do; it now navigates in the console like every other entry
