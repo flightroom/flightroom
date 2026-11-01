@@ -22,6 +22,7 @@ import BackendEnvFields from "@/pages/backends/partials/BackendEnvFields"
 import BackendRuntimeFields from "@/pages/backends/partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "@/pages/backends/partials/BackendVariableMapsFields"
 import ContainerEnvironmentCard from "@/pages/backends/partials/ContainerEnvironmentCard"
+import { ContainerComputeCard } from "@/pages/backends/partials/ContainerResourceFields"
 import { resourceMessages } from "@/pages/backends/partials/containerResources"
 import { DangerZoneRemoveFrontend, FrontendHeader, HostingSection, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { FetchDataTemplateCard } from "@/pages/templates-library/partials/"
@@ -186,6 +187,7 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                     {isDocker ? (
                         <TabsContent value="runtime" forceMount>
                             <div className="flex flex-col gap-6">
+                                <ContainerComputeCard />
                                 <BackendRuntimeFields probeSide="frontend" />
                                 <BackendEndpointFields environments={environments} placeholder="/shell" />
                                 <BackendEnvFields />

@@ -1,3 +1,4 @@
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
 import { Plus, Trash2 } from "lucide-react"
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -45,15 +46,16 @@ const EnvironmentResourceFields: React.FC = () => {
                         </Button>
                     </div>
                     <div className="grid grid-cols-1 gap-x-4 gap-y-2 md:grid-cols-2">
-                        {RESOURCE_FIELDS.map(field => (
-                            <TextField key={field} name={`environmentResources.${index}.${field}`} label={t(RESOURCE_LABELS[field])} placeholder={inherited(field)} />
-                        ))}
                         <TextField
                             name={`environmentResources.${index}.replicas`}
                             type="number"
                             label={t("backends.compute.replicas")}
                             placeholder={replicas?.trim() || String(CHART_REPLICAS_DEFAULT)}
                         />
+                        <div className="hidden md:block" />
+                        {RESOURCE_FIELDS.map(field => (
+                            <TextField key={field} name={`environmentResources.${index}.${field}`} label={t(RESOURCE_LABELS[field])} placeholder={inherited(field)} />
+                        ))}
                     </div>
                 </div>
             ))}
@@ -77,12 +79,21 @@ const EnvironmentResourceFields: React.FC = () => {
     )
 }
 
-/** CPU, memory and replicas of a container, for a two-column grid: each one left empty takes the default of the chart, shown as placeholder, and each environment may set its own */
+/** Replicas, CPU and memory of a container, for a two-column grid: each one left empty takes the default of the chart, shown as placeholder, and each environment may set its own */
+/** The replicas come first, on a row of their own: they decide whether the container runs at all */
 export const ContainerResourceFields: React.FC = () => {
     const { t } = useTranslation()
 
     return (
         <>
+            <TextField
+                name="replicas"
+                type="number"
+                label={t("backends.compute.replicas")}
+                placeholder={String(CHART_REPLICAS_DEFAULT)}
+                description={t("backends.compute.replicas_hint", { value: CHART_REPLICAS_DEFAULT, max: MAX_REPLICAS })}
+            />
+            <div className="hidden md:block" />
             {RESOURCE_FIELDS.map(field => (
                 <TextField
                     key={field}
@@ -92,15 +103,25 @@ export const ContainerResourceFields: React.FC = () => {
                     description={t("backends.compute.default_hint", { value: CHART_RESOURCE_DEFAULTS[field] })}
                 />
             ))}
-            <TextField
-                name="replicas"
-                type="number"
-                label={t("backends.compute.replicas")}
-                placeholder={String(CHART_REPLICAS_DEFAULT)}
-                description={t("backends.compute.replicas_hint", { value: CHART_REPLICAS_DEFAULT, max: MAX_REPLICAS })}
-            />
             <EnvironmentResourceFields />
         </>
+    )
+}
+
+/** Replicas, CPU and memory of a backend or of a DOCKER frontend, in a card of their own apart from the runtime and the endpoint */
+export const ContainerComputeCard: React.FC = () => {
+    const { t } = useTranslation()
+
+    return (
+        <Card>
+            <CardHeader>
+                <CardTitle className="mb-0">{t("backends.compute.title")}</CardTitle>
+                <CardDescription>{t("backends.compute.description")}</CardDescription>
+            </CardHeader>
+            <CardContent className="grid grid-cols-1 gap-x-4 gap-y-2 pt-3 md:grid-cols-2">
+                <ContainerResourceFields />
+            </CardContent>
+        </Card>
     )
 }
 

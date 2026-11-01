@@ -2631,10 +2631,6 @@
             "logs": {
                 "title": "Logs",
                 "description": "Optional: the log level of the container in every environment, to look into it without raising the one of the whole environment"
-            },
-            "resources": {
-                "title": "CPU, memory and replicas",
-                "description": "What Kubernetes reserves for the container, the most it may use and how many copies of it run"
             }
         },
         "injected_variables": {
@@ -2680,6 +2676,8 @@
         "exposure_path_invalid": "A path an HTTPRoute takes: starting with /, letters, digits and -._~!$&'()*+,;=:@ or %XX, without query, fragment, // nor . or .. segments",
         "path_invalid": "Must start with \"/\", with at most 256 characters and no spaces",
         "compute": {
+            "title": "Replicas, CPU and memory",
+            "description": "How many copies of the container run, what Kubernetes reserves for it and the most it may use",
             "cpu_request": "CPU request",
             "cpu_limit": "CPU limit",
             "memory_request": "Memory request",

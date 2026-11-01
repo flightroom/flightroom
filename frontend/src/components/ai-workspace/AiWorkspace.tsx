@@ -11,6 +11,7 @@ import { Button } from "@/components/atoms"
 import useAiChangesApi from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob } from "@/hooks/apiClients/useAiJobsApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
+import { cn } from "@/utils/styleUtils"
 import { LoadErrorAlert } from "./AiChangeParts"
 import { AiWorkspaceTarget, isRepositoryTarget, PROMPT_MAX_LENGTH } from "./aiWorkspaceUtils"
 import { AiWorkspaceComposerExtension, Composer } from "./Composer"
@@ -169,14 +170,22 @@ const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, c
         QUEUE_GROUPS.map(group => <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />)
 
     return (
-        // Both views keep the queue in a column on the left: the classic one opens its works beside it, the workshop draws them
-        <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
-            <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
-                {newChangeButton}
-                {viewSwitch}
-                {queueStatus}
-                {queueSections}
-            </aside>
+        // The classic view keeps the queue in a column on the left; the workshop takes the whole width, under a bar with the same controls
+        <div className={cn("grid items-start gap-6", !workshop && "lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]")}>
+            {workshop ? (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                    {newChangeButton}
+                    {viewSwitch}
+                    {queueStatus}
+                </div>
+            ) : (
+                <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
+                    {newChangeButton}
+                    {viewSwitch}
+                    {queueStatus}
+                    {queueSections}
+                </aside>
+            )}
 
             <div className="flex min-w-0 flex-col gap-6">
                 {workshop && queueQuery.data && (
@@ -222,6 +231,12 @@ const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, c
                             fallback={<LoadErrorAlert />}
                         />
                     ))}
+                {/* Applied and discarded works leave the scene: the queue under it still reaches them */}
+                {workshop && queueSections && (
+                    <section aria-label={t("frontend.aiChange.queue_label")} className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
+                        {queueSections}
+                    </section>
+                )}
             </div>
         </div>
     )

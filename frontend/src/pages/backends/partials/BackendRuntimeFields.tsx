@@ -3,7 +3,6 @@ import { useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextField from "@/components/input/TextField.rhf"
 import useProjectStore from "@/store/useProjectStore"
-import ContainerResourceFields from "./ContainerResourceFields"
 import type { ProbeSide } from "./containerResources"
 import LogLevelOverrideField from "./LogLevelOverrideField"
 import { ProbeFields } from "./ProbeFields"
@@ -11,7 +10,7 @@ import { ProbeFields } from "./ProbeFields"
 const WATCHED_FIELDS = ["image.repository", "version", "slug"] as const
 
 /** One box of the runtime card: fields about the same thing, under its title */
-const RuntimeGroup: React.FC<{ group: "image" | "probes" | "docs" | "logs" | "resources"; children: React.ReactNode }> = ({ group, children }) => {
+const RuntimeGroup: React.FC<{ group: "image" | "probes" | "docs" | "logs"; children: React.ReactNode }> = ({ group, children }) => {
     const { t } = useTranslation()
 
     return (
@@ -25,7 +24,7 @@ const RuntimeGroup: React.FC<{ group: "image" | "probes" | "docs" | "logs" | "re
     )
 }
 
-/** The port, the probes, the docs paths, the log level, the image repository, the CPU and the memory of a container: a backend's, or a frontend's served by its own. */
+/** The port, the probes, the docs paths, the log level and the image repository of a container: a backend's, or a frontend's served by its own. */
 /** `probeSide`: whose template of the project the blank probe fields inherit, the backends' or the frontends' */
 export const BackendRuntimeFields: React.FC<{ probeSide?: ProbeSide }> = ({ probeSide = "backend" }) => {
     const { t } = useTranslation()
@@ -65,9 +64,6 @@ export const BackendRuntimeFields: React.FC<{ probeSide?: ProbeSide }> = ({ prob
                 </RuntimeGroup>
                 <RuntimeGroup group="logs">
                     <LogLevelOverrideField />
-                </RuntimeGroup>
-                <RuntimeGroup group="resources">
-                    <ContainerResourceFields />
                 </RuntimeGroup>
             </CardContent>
         </Card>

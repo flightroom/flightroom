@@ -38,6 +38,7 @@ import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { BACKEND_STACK_CHOICES, stackChoiceOf } from "./partials/backendStacks"
 import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
+import { ContainerComputeCard } from "./partials/ContainerResourceFields"
 import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
 import { logLevelOf } from "./partials/LogLevelOverrideField"
@@ -487,6 +488,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
 
                     <TabsContent value="runtime" forceMount>
                         <div className="flex flex-col gap-6">
+                            <ContainerComputeCard />
                             <BackendRuntimeFields />
                             <BackendEndpointFields environments={environments} />
                         </div>
