@@ -4548,7 +4548,6 @@
                 "open": "Logs of {{name}}",
                 "title": "Logs of {{name}}",
                 "description": "The last lines the gateway keeps for this sandbox, up to 2000. Credentials are masked.",
-                "refresh": "Refresh",
                 "empty": "The gateway has no log line for this sandbox.",
                 "load_failed": "The logs of the sandbox could not be read."
             },

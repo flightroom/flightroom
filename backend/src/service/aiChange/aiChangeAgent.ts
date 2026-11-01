@@ -29,11 +29,7 @@ export const runAiChangeAgent = async (client: LlmClient, input: AiChangeAgentIn
             npmrc: repository.frontend?.designSystem?.npmrc
         })),
         input.sandbox,
-        signal,
-        input.previewsEnabled,
-        hooks.onEvent,
-        input.onSandboxExec,
-        hooks.onOutput
+        { signal, previewsEnabled: input.previewsEnabled, onPreview: hooks.onEvent, onExec: input.onSandboxExec, onOutput: hooks.onOutput }
     )
     // Sent with the new request only: the transcript keeps a note of them, not the images.
     const images = input.images?.length ? { images: input.images } : {}

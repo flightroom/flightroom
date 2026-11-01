@@ -143,57 +143,77 @@ export const ProgressLog: React.FC<{ events: AiChangeEvent[]; live: boolean; liv
     const containerRef = useRef<HTMLDivElement>(null)
 
     // Newest last, as in a terminal: keep the latest step in view while the agent works.
-    // biome-ignore lint/correctness/useExhaustiveDependencies: a new event, or more of what a script prints, is what must trigger the scroll
+    // biome-ignore lint/correctness/useExhaustiveDependencies: a new event is what must trigger the scroll
     useEffect(() => {
         if (containerRef.current) containerRef.current.scrollTop = containerRef.current.scrollHeight
-    }, [events.length, liveOutput])
+    }, [events.length])
 
     return (
-        <div
-            ref={containerRef}
-            role="log"
-            aria-live={live ? "polite" : "off"}
-            aria-label={t("frontend.aiChange.progress_log")}
-            className="max-h-64 overflow-auto rounded-md border border-divider bg-muted/40 p-3 text-xs"
-        >
-            {events.length === 0 ? (
-                <p className="text-muted-foreground">{t("frontend.aiChange.progress_empty")}</p>
-            ) : (
-                <ol className="flex flex-col gap-1">
-                    {events.map((event, index) => (
-                        <li key={`${event.at}-${index}`} className="flex gap-2">
-                            <time dateTime={event.at} className="shrink-0 font-mono text-muted-foreground">
-                                {format(new Date(event.at), "HH:mm:ss")}
-                            </time>
-                            {event.kind === "info" && <span className="font-medium">{t(`frontend.aiChange.events.${event.message}`, { defaultValue: event.message })}</span>}
-                            {event.kind === "tool" && <span className="break-all font-mono text-muted-foreground">{event.message}</span>}
-                            {/* Folded: a build log would push the steps out of view, it is opened when needed. */}
-                            {event.kind === "output" && (
-                                <details className="min-w-0 flex-1">
-                                    <summary className="cursor-pointer text-muted-foreground">{t("frontend.aiChange.script_output")}</summary>
-                                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 font-mono">{event.message}</pre>
-                                </details>
-                            )}
-                            {event.kind === "text" && <span className="whitespace-pre-wrap break-words">{event.message}</span>}
-                            {/* Muted and apart from what the agent said: how it reasoned, not what it did. */}
-                            {event.kind === "thinking" && (
-                                <span className="flex min-w-0 gap-1 italic text-muted-foreground">
-                                    <Brain className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
-                                    <span className="sr-only">{t("assistant.reasoning")}:</span>
-                                    <span className="whitespace-pre-wrap break-words">{event.message}</span>
-                                </span>
-                            )}
-                        </li>
-                    ))}
-                </ol>
-            )}
+        <div className="flex flex-col gap-2">
+            <div
+                ref={containerRef}
+                role="log"
+                aria-live={live ? "polite" : "off"}
+                aria-label={t("frontend.aiChange.progress_log")}
+                className="max-h-64 overflow-auto rounded-md border border-divider bg-muted/40 p-3 text-xs"
+            >
+                {events.length === 0 ? (
+                    <p className="text-muted-foreground">{t("frontend.aiChange.progress_empty")}</p>
+                ) : (
+                    <ol className="flex flex-col gap-1">
+                        {events.map((event, index) => (
+                            <li key={`${event.at}-${index}`} className="flex gap-2">
+                                <time dateTime={event.at} className="shrink-0 font-mono text-muted-foreground">
+                                    {format(new Date(event.at), "HH:mm:ss")}
+                                </time>
+                                {event.kind === "info" && <span className="font-medium">{t(`frontend.aiChange.events.${event.message}`, { defaultValue: event.message })}</span>}
+                                {event.kind === "tool" && <span className="break-all font-mono text-muted-foreground">{event.message}</span>}
+                                {/* Folded: a build log would push the steps out of view, it is opened when needed. */}
+                                {event.kind === "output" && (
+                                    <details className="min-w-0 flex-1">
+                                        <summary className="cursor-pointer text-muted-foreground">{t("frontend.aiChange.script_output")}</summary>
+                                        <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 font-mono">{event.message}</pre>
+                                    </details>
+                                )}
+                                {event.kind === "text" && <span className="whitespace-pre-wrap break-words">{event.message}</span>}
+                                {/* Muted and apart from what the agent said: how it reasoned, not what it did. */}
+                                {event.kind === "thinking" && (
+                                    <span className="flex min-w-0 gap-1 italic text-muted-foreground">
+                                        <Brain className="mt-0.5 size-3 shrink-0" aria-hidden="true" />
+                                        <span className="sr-only">{t("assistant.reasoning")}:</span>
+                                        <span className="whitespace-pre-wrap break-words">{event.message}</span>
+                                    </span>
+                                )}
+                            </li>
+                        ))}
+                    </ol>
+                )}
+            </div>
             {/* Open, unlike a finished script's: an install can run for minutes, its output is what tells it is not stuck. */}
-            {live && liveOutput && (
-                <div className="mt-2">
-                    <p className="text-muted-foreground">{t("frontend.aiChange.script_output_live")}</p>
-                    <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded bg-background p-2 font-mono">{liveOutput}</pre>
-                </div>
-            )}
+            {liveOutput && <LiveOutput text={liveOutput} />}
+        </div>
+    )
+}
+
+/**
+ * What the running script has printed so far, its newest line in view. Outside the log: screen readers are not read
+ * the whole output again at each poll, the steps say when the script ends.
+ */
+const LiveOutput: React.FC<{ text: string }> = ({ text }) => {
+    const { t } = useTranslation()
+    const outputRef = useRef<HTMLPreElement>(null)
+
+    // biome-ignore lint/correctness/useExhaustiveDependencies: more of what the script prints is what must trigger the scroll
+    useEffect(() => {
+        if (outputRef.current) outputRef.current.scrollTop = outputRef.current.scrollHeight
+    }, [text])
+
+    return (
+        <div className="text-xs">
+            <p className="text-muted-foreground">{t("frontend.aiChange.script_output_live")}</p>
+            <pre ref={outputRef} className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap break-all rounded-md border border-divider bg-muted/40 p-2 font-mono">
+                {text}
+            </pre>
         </div>
     )
 }

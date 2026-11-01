@@ -23,8 +23,9 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format, formatDistanceToNow } from "date-fns"
 import { FileText, Trash2 } from "lucide-react"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { followedLogQuery, useLogViewerLabels } from "@/components/application-logs/logViewerShared"
 import { Badge, Button, type IBadgeProps } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useInstallationApi, {
@@ -62,18 +63,23 @@ const TargetLabel: React.FC<{ sandbox: InstallationSandbox }> = ({ sandbox }) =>
 
 /** How many lines of a sandbox log can be read: the backend caps them at 2000. */
 const TAIL_OPTIONS = [100, 200, 500, 1000, 2000]
-/** While following, the log is read again this often, as for the logs of the applications */
-const FOLLOW_INTERVAL_MS = 5_000
 
-/** A line of the gateway as the viewer shows it: its source, level and target before the message, which may be JSON. */
+/**
+ * A line of the gateway as the viewer shows it: its source, level and target before the message. A JSON message is
+ * left alone, it carries its own level: the viewer formats a line only when it starts as an object.
+ */
 const toViewerLine = (line: SandboxLogLine): LogViewerLine => ({
     timestamp: line.timestampMs ? new Date(line.timestampMs).toISOString() : undefined,
-    content: [line.source && `[${line.source}]`, line.level, line.target, line.message].filter(Boolean).join(" ")
+    content: line.message.trimStart().startsWith("{") ? line.message : [line.source && `[${line.source}]`, line.level, line.target, line.message].filter(Boolean).join(" ")
 })
 
-/** The last lines of the log of one sandbox, in the same viewer as the logs of the applications, followed by default. */
-const SandboxLogsDialog: React.FC<{ name?: string; onClose: () => void }> = ({ name, onClose }) => {
+/**
+ * The last lines of the log of one sandbox, in the same viewer as the logs of the applications, followed by default.
+ * One per sandbox opened: another sandbox starts from its own lines and choices, never from those of the last one.
+ */
+const SandboxLogsDialog: React.FC<{ name: string; open: boolean; onClose: () => void }> = ({ name, open, onClose }) => {
     const { t } = useTranslation()
+    const labels = useLogViewerLabels()
     const installationApi = useInstallationApi()
     const [tailLines, setTailLines] = useState(500)
     const [follow, setFollow] = useState(true)
@@ -81,17 +87,18 @@ const SandboxLogsDialog: React.FC<{ name?: string; onClose: () => void }> = ({ n
     const [filter, setFilter] = useState("")
     const logsQuery = useQuery({
         queryKey: [INSTALLATION_SANDBOXES_QUERY_KEY, "logs", name, tailLines],
-        queryFn: () => installationApi.getSandboxLogs(name ?? "", tailLines),
-        enabled: !!name,
-        refetchInterval: follow ? FOLLOW_INTERVAL_MS : false,
-        // The lines of before stay, dimmed, while the next ones load: the box does not jump
-        placeholderData: previousLines => previousLines
+        queryFn: () => installationApi.getSandboxLogs(name, tailLines),
+        enabled: open,
+        ...followedLogQuery(follow)
     })
-    const needle = filter.toLowerCase()
-    const lines = (logsQuery.data ?? []).map(toViewerLine).filter(line => !needle || line.content.toLowerCase().includes(needle))
+    // The same array while nothing changed: the viewer scrolls to the end when it gets new lines
+    const lines = useMemo(() => {
+        const needle = filter.toLowerCase()
+        return (logsQuery.data ?? []).map(toViewerLine).filter(line => !needle || line.content.toLowerCase().includes(needle))
+    }, [logsQuery.data, filter])
 
     return (
-        <Dialog open={!!name} onOpenChange={open => !open && onClose()}>
+        <Dialog open={open} onOpenChange={opened => !opened && onClose()}>
             <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[1000px]">
                 <DialogHeader className="flex-row items-start justify-between gap-3">
                     <div className="min-w-0">
@@ -103,8 +110,7 @@ const SandboxLogsDialog: React.FC<{ name?: string; onClose: () => void }> = ({ n
                         onRefresh={() => void logsQuery.refetch()}
                         refreshing={logsQuery.isFetching}
                         downloadFileName={`${name}.log`}
-                        refreshLabel={t("applicationLogs.refresh")}
-                        downloadLabel={t("applicationLogs.download")}
+                        {...labels.actions}
                         className="mr-6"
                         dataTestId="installation-sandbox-logs"
                     />
@@ -114,19 +120,12 @@ const SandboxLogsDialog: React.FC<{ name?: string; onClose: () => void }> = ({ n
                     tailLines={tailLines}
                     tailOptions={TAIL_OPTIONS}
                     onTailLinesChange={setTailLines}
-                    tailLabel={t("applicationLogs.tail")}
-                    tailOptionLabel={count => t("applicationLogs.tail_option", { count })}
                     onFilterChange={setFilter}
-                    filterLabel={t("applicationLogs.filter")}
-                    filterPlaceholder={t("applicationLogs.filter_placeholder")}
                     follow={follow}
                     onFollowChange={setFollow}
-                    followLabel={t("applicationLogs.follow")}
-                    formatJsonLabel={t("applicationLogs.format_json")}
-                    formatJsonHint={t("applicationLogs.format_json_hint")}
+                    {...labels.viewer}
                     outputLabel={t("installation.sandboxes.logs.title", { name })}
                     emptyLabel={t(logsQuery.data?.length ? "applicationLogs.empty" : "installation.sandboxes.logs.empty")}
-                    loadingLabel={t("common.loading")}
                     error={logsQuery.isError && !logsQuery.data ? t("installation.sandboxes.logs.load_failed") : undefined}
                     pending={logsQuery.isPending}
                     placeholder={logsQuery.isPlaceholderData}
@@ -147,7 +146,8 @@ export const InstallationSandboxes: React.FC = () => {
     const installationApi = useInstallationApi()
     const notifications = useToastNotificationStore()
     const queryClient = useQueryClient()
-    const [logsOf, setLogsOf] = useState<string>()
+    // Kept while the dialog closes, for it to close on its lines
+    const [logsOf, setLogsOf] = useState<{ name: string; open: boolean }>()
     const [toDelete, setToDelete] = useState<InstallationSandbox>()
 
     const sandboxesQuery = useQuery({ queryKey: [INSTALLATION_SANDBOXES_QUERY_KEY], queryFn: installationApi.getSandboxes, refetchInterval: REFRESH_MS })
@@ -233,7 +233,7 @@ export const InstallationSandboxes: React.FC = () => {
                                                     aria-label={t("installation.sandboxes.logs.open", { name: sandbox.name })}
                                                     title={t("installation.sandboxes.logs.open", { name: sandbox.name })}
                                                     disabled={!sandbox.phase}
-                                                    onClick={() => setLogsOf(sandbox.name)}
+                                                    onClick={() => setLogsOf({ name: sandbox.name, open: true })}
                                                     dataTestId={`installation-sandbox-logs-${sandbox.name}`}
                                                 >
                                                     <FileText className="size-4" aria-hidden="true" />
@@ -258,7 +258,7 @@ export const InstallationSandboxes: React.FC = () => {
                 )}
             </CardContent>
 
-            <SandboxLogsDialog name={logsOf} onClose={() => setLogsOf(undefined)} />
+            {logsOf && <SandboxLogsDialog key={logsOf.name} name={logsOf.name} open={logsOf.open} onClose={() => setLogsOf({ ...logsOf, open: false })} />}
             <DeleteConfirmationDialog
                 isOpen={!!toDelete}
                 onOpenChange={open => !open && setToDelete(undefined)}

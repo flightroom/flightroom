@@ -313,7 +313,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner changes of a script", () => {
     it("Given a hook, when a script and a command run, then it is told how long each took", async () => {
         setUp({ build: "node -e 0" })
         const onExec = vi.fn()
-        const runner = new AiChangeScriptRunner([repository], async () => sandbox, undefined, false, undefined, onExec)
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox, { onExec })
 
         await runner.runCommand(repository, "true", { timeoutSecs: 30 })
         await runner.run(repository, "build")
@@ -333,7 +333,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner changes of a script", () => {
             })
         }
 
-        await expect(new AiChangeScriptRunner([repository], async () => failing, undefined, false, undefined, onExec).runCommand(repository, "sleep 600")).rejects.toThrow("deadline exceeded")
+        await expect(new AiChangeScriptRunner([repository], async () => failing, { onExec }).runCommand(repository, "sleep 600")).rejects.toThrow("deadline exceeded")
         expect(onExec).toHaveBeenCalledWith({ seconds: expect.any(Number) })
     })
 
@@ -364,7 +364,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner changes of a script", () => {
         const orders: ScriptRepository = { slug: "orders", kind: "backend", runtime: "NODE", port, workingCopy: workingCopyOf(backend) }
 
         try {
-            await new AiChangeScriptRunner([orders], async () => probing, undefined, true).startPreview(orders, true)
+            await new AiChangeScriptRunner([orders], async () => probing, { previewsEnabled: true }).startPreview(orders, true)
 
             // The stop waits for it to be gone before looking for a port.
             expect(alive()).toBe(false)
@@ -465,7 +465,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const sandbox = recording()
         const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
         const onPreview = vi.fn()
-        const runner = new AiChangeScriptRunner([repository], async () => sandbox, undefined, true, onPreview)
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox, { previewsEnabled: true, onPreview })
 
         await expect(runner.startPreview(repository)).resolves.toBe("https://preview.example.test")
 
@@ -484,7 +484,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         sandbox.exec.mockImplementation(async (command: string[]) => ({ exitCode: 0, output: command[2]?.includes("exec node") ? "41234\n" : "", cutBytes: 0 }))
         const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
 
-        await new AiChangeScriptRunner([repository], async () => sandbox, undefined, true).startPreview(repository)
+        await new AiChangeScriptRunner([repository], async () => sandbox, { previewsEnabled: true }).startPreview(repository)
 
         expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("exec node"))?.[0].slice(3, 5)).toEqual(["/sandbox/previews/shop.pid", "5173"])
         expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))?.[0].slice(-2)).toEqual(["--port", "41234"])
@@ -498,8 +498,8 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const second = { ...recording(), root: "/sandbox/spaces/two" }
         const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
 
-        await new AiChangeScriptRunner([repository], async () => first, undefined, true).startPreview(repository)
-        await new AiChangeScriptRunner([repository], async () => second, undefined, true).startPreview(repository)
+        await new AiChangeScriptRunner([repository], async () => first, { previewsEnabled: true }).startPreview(repository)
+        await new AiChangeScriptRunner([repository], async () => second, { previewsEnabled: true }).startPreview(repository)
 
         expect(first.exposeService.mock.calls[0][1]).not.toBe(second.exposeService.mock.calls[0][1])
         fs.rmSync(dir, { recursive: true, force: true })
@@ -511,7 +511,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
         const onPreview = vi.fn()
 
-        await new AiChangeScriptRunner([repository], async () => sandbox, undefined, true, onPreview).runCommand(repository, "npx vite build")
+        await new AiChangeScriptRunner([repository], async () => sandbox, { previewsEnabled: true, onPreview }).runCommand(repository, "npx vite build")
 
         expect(sandbox.exposeService).not.toHaveBeenCalled()
         expect(onPreview).not.toHaveBeenCalled()
@@ -575,7 +575,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         }
         const sandbox = recording()
         const onPreview = vi.fn()
-        const runner = new AiChangeScriptRunner([repository], async () => sandbox, undefined, true, onPreview)
+        const runner = new AiChangeScriptRunner([repository], async () => sandbox, { previewsEnabled: true, onPreview })
         runner.touch(repository, "requirements.txt")
         runner.touch(repository, "app/main.py")
         await runner.startPreview(repository)
@@ -590,7 +590,7 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
     it("Given a standalone preview, when no development server is configured, then the startup error can be propagated", async () => {
         const dir = makeRepository({ "package.json": manifest({}) })
         const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
-        const runner = new AiChangeScriptRunner([repository], async () => recording(), undefined, true)
+        const runner = new AiChangeScriptRunner([repository], async () => recording(), { previewsEnabled: true })
 
         await expect(runner.startPreview(repository, true)).rejects.toThrow("No development server is configured")
         fs.rmSync(dir, { recursive: true, force: true })
@@ -675,13 +675,10 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
             exposeService: vi.fn(async () => "https://preview.example.test")
         }
         const onPreview = vi.fn()
-        const toolbox = new AiChangeToolbox(
-            [{ slug: "catalog", kind: "backend", runtime: "PYTHON", framework: "FastAPI", port: 8000, workingCopy: workingCopyOf(dir) }],
-            async () => sandbox,
-            undefined,
-            true,
+        const toolbox = new AiChangeToolbox([{ slug: "catalog", kind: "backend", runtime: "PYTHON", framework: "FastAPI", port: 8000, workingCopy: workingCopyOf(dir) }], async () => sandbox, {
+            previewsEnabled: true,
             onPreview
-        )
+        })
 
         await expect(toolbox.run("finish", { summary: "API changed" })).resolves.toBe("Done.")
         expect(sandbox.exec.mock.calls.some(([command]) => command.includes("uvicorn"))).toBe(true)
@@ -704,9 +701,7 @@ describe.skipIf(!hasTools)("AiChangeToolbox run_script", () => {
                 { slug: "api", kind: "backend", runtime: "NODE", port: 3000, workingCopy: workingCopyOf(backendDir) }
             ],
             async () => sandbox,
-            undefined,
-            true,
-            onPreview
+            { previewsEnabled: true, onPreview }
         )
 
         await expect(toolbox.run("finish", { summary: "Domain changed" })).resolves.toBe("Done.")

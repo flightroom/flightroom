@@ -8,6 +8,7 @@ import RepositoryWorkspaceService from "../workspace/RepositoryWorkspaceService"
 import { componentIdOf, componentOf, findComponent, findComponents, ownerFields, RepositoryComponent, RepositoryComponentRef } from "../workspace/repositoryComponent"
 import AiChangeJobService from "./AiChangeJobService"
 import { AiChangeBaseService, ensureNotBeingRefined, loggable, staleOutcome } from "./aiChangeShared"
+import { WITHOUT_CONTENTS } from "./aiJobViews"
 
 const LISTED_CONVERSATIONS = 20
 
@@ -108,10 +109,7 @@ export class AiChangeService extends AiChangeBaseService {
             { $sort: { latestAt: -1 } },
             { $limit: LISTED_CONVERSATIONS }
         ])
-        const requests = await AiChangeRequest.find(
-            { ...owner, conversationId: { $in: conversations.map(conversation => conversation._id) } },
-            { "files.originalContent": 0, "files.proposedContent": 0, events: 0, liveOutput: 0 }
-        ).sort({ createdAt: -1 })
+        const requests = await AiChangeRequest.find({ ...owner, conversationId: { $in: conversations.map(conversation => conversation._id) } }, WITHOUT_CONTENTS).sort({ createdAt: -1 })
         for (const request of requests) {
             const outcome = staleOutcome(request)
             if (outcome) request.status = outcome

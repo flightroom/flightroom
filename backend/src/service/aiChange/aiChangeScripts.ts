@@ -7,6 +7,7 @@ import { LlmTool } from "../llm"
 import { CommandSandbox, SandboxCommandResult } from "../sandbox/commandSandbox"
 import { TarEntry, tarGz } from "../sandbox/tarArchive"
 import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
+import { maskedEnd } from "./commandOutput"
 
 export const AI_SCRIPT_LIMITS = {
     /** A test suite takes minutes; a dev server or a watcher never ends, and is stopped here. */
@@ -116,22 +117,11 @@ const CHANGE_LINE = /^([0-9a-f]{64}) [ *]\.\/(.+)$/
 
 const SLUG = /^[a-z0-9][a-z0-9-]*$/
 
-// biome-ignore lint/suspicious/noControlCharactersInRegex: the escape sequences of terminal colours are what is removed
-export const TERMINAL_ESCAPES = /\x1b\[[0-9;?]*[A-Za-z]/g
-
 const looksBinary = (content: Buffer) => content.subarray(0, 8_000).includes(0)
 
-/**
- * What the agent reads of a run: a credential the command printed is masked before it reaches the model. Masked
- * whole, then cut: a private key or a token across the cut would be masked by neither of its halves. The line the
- * cut falls in is left out, as it may be the end of a secret whose start is gone.
- */
+/** What the agent reads of a run: a credential the command printed is masked before it reaches the model. */
 const describeResult = (shown: string, result: SandboxCommandResult) => {
-    const output = redactSecrets(result.output.replace(TERMINAL_ESCAPES, "")).trimEnd()
-    let tail = output.length > AI_SCRIPT_LIMITS.maxOutputChars ? output.slice(-AI_SCRIPT_LIMITS.maxOutputChars) : output
-    const cut = result.cutBytes > 0 || tail.length < output.length
-    const firstLineEnd = tail.indexOf("\n")
-    if (cut && firstLineEnd !== -1) tail = tail.slice(firstLineEnd + 1)
+    const { text: tail, cut } = maskedEnd(result.output, AI_SCRIPT_LIMITS.maxOutputChars, result.cutBytes > 0)
     return [
         `$ ${redactSecrets(shown)}`,
         `exit code ${result.exitCode}${result.exitCode === 0 ? " (success)" : ""}`,
@@ -384,6 +374,17 @@ export const runCommandTool = (slugs?: string[]): LlmTool => ({
 /** The gateway no longer has the sandbox: deleted under the run, or its node lost. */
 const isGone = (error: unknown) => (error as { code?: unknown } | null)?.code === "not_found"
 
+/** What a run of scripts is bound to and tells: named, a hook cannot be passed in the place of another. */
+export interface ScriptRunnerOptions {
+    signal?: AbortSignal
+    previewsEnabled?: boolean
+    onPreview?: (kind: "info", message: string) => Promise<void> | void
+    /** Told after each script and command, even one that throws: its time is what the sandbox costs. It must not throw. */
+    onExec?: (exec: SandboxExec) => Promise<void> | void
+    /** Told what a script or a command prints while it runs, its output unmasked: whoever shows it masks it. It must not throw. */
+    onOutput?: (text: string) => void
+}
+
 /**
  * Runs the scripts of the repositories of one run, and the commands of the agent, in a sandbox. The sandbox
  * is asked for at the first script: a run that only reads and edits never creates one. Each repository is copied into it whole
@@ -407,13 +408,7 @@ export class AiChangeScriptRunner {
     constructor(
         private readonly repositories: ScriptRepository[],
         private readonly open: () => Promise<CommandSandbox>,
-        private readonly signal?: AbortSignal,
-        private readonly previewsEnabled = false,
-        private readonly onPreview?: (kind: "info", message: string) => Promise<void> | void,
-        /** Told after each script and command, even one that throws: its time is what the sandbox costs. It must not throw. */
-        private readonly onExec?: (exec: SandboxExec) => Promise<void> | void,
-        /** Told what a script or a command prints while it runs, its output unmasked: whoever shows it masks it. It must not throw. */
-        private readonly onOutput?: (text: string) => void
+        private readonly options: ScriptRunnerOptions = {}
     ) {
         for (const repository of repositories) {
             if (!SLUG.test(repository.slug)) throw new Error(`"${repository.slug}" cannot name a folder of the sandbox`)
@@ -452,7 +447,7 @@ export class AiChangeScriptRunner {
         let found = this.programs.get(program)
         if (!found) {
             found = this.sandboxForRun()
-                .then(sandbox => sandbox.exec(["sh", "-c", 'command -v "$0" >/dev/null', program], { timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal }))
+                .then(sandbox => sandbox.exec(["sh", "-c", 'command -v "$0" >/dev/null', program], { timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.options.signal }))
                 .then(result => result.exitCode === 0)
                 .catch(() => {
                     this.programs.delete(program)
@@ -505,7 +500,7 @@ export class AiChangeScriptRunner {
     /** A sandbox the gateway no longer has, deleted under the run, is replaced once before the agent hears of it. */
     private runRetried(repository: ScriptRepository, run: SandboxRun, refusal: (paths: string[]) => string | undefined): Promise<ScriptRun> {
         return this.runInSandbox(repository, run, refusal).catch(error => {
-            if (this.signal?.aborted || !isGone(error)) throw error
+            if (this.options.signal?.aborted || !isGone(error)) throw error
             return this.runInSandbox(repository, run, refusal)
         })
     }
@@ -515,7 +510,7 @@ export class AiChangeScriptRunner {
             const sandbox = await this.sandboxForRun()
             await this.send(sandbox, repository)
             const marker = `${sandbox.root}/markers/${repository.slug}`
-            const marked = await sandbox.exec(["sh", "-c", 'mkdir -p "$(dirname "$0")" && touch "$0"', marker], { timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal })
+            const marked = await sandbox.exec(["sh", "-c", 'mkdir -p "$(dirname "$0")" && touch "$0"', marker], { timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.options.signal })
             ensureSucceeded("Marking the start of the script", marked)
             const startedAt = Date.now()
             let result: SandboxCommandResult
@@ -524,12 +519,12 @@ export class AiChangeScriptRunner {
                     workdir: this.folderOf(sandbox, repository),
                     environment: this.environmentOf(sandbox, repository, run.install, run.npmrc),
                     timeoutSecs: run.timeoutSecs,
-                    signal: this.signal,
-                    onOutput: this.onOutput
+                    signal: this.options.signal,
+                    onOutput: this.options.onOutput
                 })
             } finally {
                 // Stopped at its timeout or aborted, it took the sandbox's time all the same.
-                await this.onExec?.({ seconds: (Date.now() - startedAt) / 1000 })
+                await this.options.onExec?.({ seconds: (Date.now() - startedAt) / 1000 })
             }
             // Read back whatever the exit code: lint --fix fails on what it could not fix, and still fixed the rest.
             const changes = await this.changesOf(sandbox, repository, marker, refusal)
@@ -556,7 +551,7 @@ export class AiChangeScriptRunner {
 
     /** Keep a running preview's files in step with edits without restarting its dev server. */
     async sync(repository: ScriptRepository) {
-        if (!this.previewsEnabled || !this.sandbox || !this.copied.has(repository)) return
+        if (!this.options.previewsEnabled || !this.sandbox || !this.copied.has(repository)) return
         try {
             await this.send(await this.sandbox, repository)
         } catch (error) {
@@ -568,7 +563,7 @@ export class AiChangeScriptRunner {
 
     /** Start and expose this repository's development server after its dependencies are installed. */
     async startPreview(repository: ScriptRepository, throwOnFailure = false): Promise<string | undefined> {
-        if (!this.previewsEnabled || !repository.kind || this.previewStarted.has(repository)) return undefined
+        if (!this.options.previewsEnabled || !repository.kind || this.previewStarted.has(repository)) return undefined
         this.previewStarted.add(repository)
 
         let url: string
@@ -590,7 +585,7 @@ export class AiChangeScriptRunner {
                     workdir: this.folderOf(sandbox, repository),
                     environment: this.environmentOf(sandbox, repository, true),
                     timeoutSecs: AI_SCRIPT_LIMITS.timeoutSecs,
-                    signal: this.signal
+                    signal: this.options.signal
                 })
                 ensureSucceeded("Installing preview dependencies", installed)
             }
@@ -603,7 +598,7 @@ export class AiChangeScriptRunner {
                     ...plan.environment
                 },
                 timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
-                signal: this.signal
+                signal: this.options.signal
             })
             if (started.exitCode !== 0) throw new Error("The development server could not start")
 
@@ -614,7 +609,7 @@ export class AiChangeScriptRunner {
                     "const port=Number(process.argv[1]);const until=Date.now()+30000;const check=()=>fetch(`http://127.0.0.1:${port}`).then(()=>process.exit(0),()=>Date.now()<until?setTimeout(check,250):process.exit(1));check()",
                     String(plan.port)
                 ],
-                { workdir: this.folderOf(sandbox, repository), timeoutSecs: 35, signal: this.signal }
+                { workdir: this.folderOf(sandbox, repository), timeoutSecs: 35, signal: this.options.signal }
             )
             if (ready.exitCode !== 0) throw new Error("The development server did not become ready")
             if (!sandbox.exposeService) throw new Error("The sandbox does not support exposed services")
@@ -625,12 +620,12 @@ export class AiChangeScriptRunner {
             const name = `preview-${kind === "frontend" ? "fe" : "be"}-${createHash("sha256").update(folder).digest("hex").slice(0, 8)}`
             url = await sandbox.exposeService(plan.port, name)
         } catch (error) {
-            if (this.signal?.aborted) throw error
-            await this.onPreview?.("info", `preview-failed|${repository.kind}`)
+            if (this.options.signal?.aborted) throw error
+            await this.options.onPreview?.("info", `preview-failed|${repository.kind}`)
             if (throwOnFailure) throw error
             return undefined
         }
-        await this.onPreview?.("info", `preview-ready|${repository.kind}|${repository.slug}|${encodeURIComponent(url)}`)
+        await this.options.onPreview?.("info", `preview-ready|${repository.kind}|${repository.slug}|${encodeURIComponent(url)}`)
         return url
     }
 
@@ -640,7 +635,7 @@ export class AiChangeScriptRunner {
      */
     private async previewPort(sandbox: CommandSandbox, repository: ScriptRepository, pidfile: string): Promise<number> {
         const wanted = previewPortOf(repository)
-        const found = await sandbox.exec(["sh", "-c", STOP_PREVIEW_AND_FIND_PORT, pidfile, String(wanted), FIND_PORT], { timeoutSecs: 35, signal: this.signal })
+        const found = await sandbox.exec(["sh", "-c", STOP_PREVIEW_AND_FIND_PORT, pidfile, String(wanted), FIND_PORT], { timeoutSecs: 35, signal: this.options.signal })
         const port = Number(found.output.trim())
         return found.exitCode === 0 && Number.isInteger(port) && port > 0 && port <= 65_535 ? port : wanted
     }
@@ -676,7 +671,7 @@ export class AiChangeScriptRunner {
      * be proposed is sent again before the next script, so the copy goes back to what the working copy holds.
      */
     private async changesOf(sandbox: CommandSandbox, repository: ScriptRepository, marker: string, refusal: (paths: string[]) => string | undefined): Promise<Omit<ScriptRun, "output">> {
-        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal }
+        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.options.signal }
         const listing = await sandbox.exec(["sh", "-c", LIST_CHANGES, marker], options)
         ensureSucceeded("Listing what the script changed", listing)
         const lines = listing.output.split("\n").filter(Boolean)
@@ -738,7 +733,7 @@ export class AiChangeScriptRunner {
      * 64 KB, and a lockfile is bigger. Undefined when it holds more than `maxBytes`.
      */
     private async download(sandbox: CommandSandbox, repository: ScriptRepository, relative: string, maxBytes: number): Promise<Buffer | undefined> {
-        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal }
+        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.options.signal }
         const archive = `${sandbox.root}/downloads/${repository.slug}-${randomUUID()}.gz`
         const what = `Reading ${relative} back from the sandbox`
         try {
@@ -787,7 +782,7 @@ export class AiChangeScriptRunner {
         if (!this.prepared) {
             const result = await sandbox.exec(["sh", "-c", PREPARE_REPOSITORIES, `${sandbox.root}/repositories`, ...this.repositories.map(({ slug }) => slug)], {
                 timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
-                signal: this.signal
+                signal: this.options.signal
             })
             ensureSucceeded("Preparing the sandbox", result)
             this.prepared = true
@@ -811,7 +806,7 @@ export class AiChangeScriptRunner {
         const written = await sandbox.exec(["sh", "-c", 'mkdir -p "$(dirname "$0")" && umask 077 && cat > "$0"', this.npmrcOf(sandbox, repository)], {
             stdin: Buffer.from(`${npmrc.trimEnd()}\n`, "utf8"),
             timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs,
-            signal: this.signal
+            signal: this.options.signal
         })
         ensureSucceeded(`Writing the .npmrc of ${repository.slug} into the sandbox`, written)
     }
@@ -843,7 +838,7 @@ export class AiChangeScriptRunner {
      * to a file of the sandbox in pieces, each a command of its own.
      */
     private async extract(sandbox: CommandSandbox, repository: ScriptRepository, archive: Buffer | undefined, before: string, args: string[]) {
-        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.signal }
+        const options = { workdir: this.folderOf(sandbox, repository), timeoutSecs: AI_SCRIPT_LIMITS.uploadTimeoutSecs, signal: this.options.signal }
         const what = `Copying ${repository.slug} into the sandbox`
         if (!archive) {
             ensureSucceeded(what, await sandbox.exec(["sh", "-c", before, "sh", ...args], options))

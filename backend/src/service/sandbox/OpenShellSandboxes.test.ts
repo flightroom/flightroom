@@ -491,6 +491,21 @@ describe("OpenShellSandboxes", () => {
             expect(told).toEqual(["installing ", "è\n"])
         })
 
+        it("Given a command whose output is followed, when a character of stdout is split around a chunk of stderr, then neither stream garbles the other", async () => {
+            const accented = Buffer.from("è\n")
+            sandbox.execStream.mockImplementation(async function* () {
+                yield { stream: "stdout", data: accented.subarray(0, 1) }
+                yield { stream: "stderr", data: Buffer.from("warn\n") }
+                yield { stream: "stdout", data: accented.subarray(1) }
+                yield { type: "exit", exitCode: 0 }
+            })
+            const told: string[] = []
+            const acquired = await sandboxes().acquire(CONVERSATION)
+            await acquired.exec(["npm", "install"], { onOutput: text => told.push(text) })
+
+            expect(told.join("")).toBe("warn\nè\n")
+        })
+
         it("Given a conversation of a shared sandbox, when it is acquired, then its commands run in the folder of the conversation, with the home shared by them all", async () => {
             const key = "domain-65f1a2b3c4d5e6f708192a3c"
 

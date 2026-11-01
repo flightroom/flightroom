@@ -19,6 +19,7 @@ import { AxiosError } from "axios"
 import { ScrollText } from "lucide-react"
 import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { followedLogQuery, useLogViewerLabels } from "@/components/application-logs/logViewerShared"
 import useArgoCdApi from "@/hooks/apiClients/useArgoCdApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import { GitOpsErrorDetails, useGitOpsErrorTranslation } from "@/hooks/apiClients/useGitOpsErrorMessage"
@@ -26,8 +27,7 @@ import { errorCodeOf } from "@/hooks/useApiClient"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 
 const TAIL_OPTIONS = [100, 500, 1000, 5000]
-/** While following, the logs are read again this often, and the pods, which come and go with a rollout, less often */
-const FOLLOW_INTERVAL_MS = 5_000
+/** While following, the pods, which come and go with a rollout, are read again less often than the logs */
 const PODS_INTERVAL_MS = 15_000
 /** The refusals of the logs themselves; those of Argo CD translate as on the settings screen */
 const LOGS_ERROR_KEYS: Record<string, string> = {
@@ -68,6 +68,7 @@ type ApplicationLogsSectionProps = {
  */
 const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: fixedSlug, applications, environments }) => {
     const { t } = useTranslation()
+    const labels = useLogViewerLabels()
     const id = useId()
     const projectId = useProjectStore(state => state.project?._id)
     const isViewer = useIsProjectViewer()
@@ -105,9 +106,7 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
         queryKey: ["argocd-logs", projectId, selectedEnvironment, slug, selectedPod, tailLines, previous, filter],
         queryFn: () => argoCdApi.getLogs(projectId!, selectedEnvironment!, slug!, { pod: selectedPod!, tailLines, previous, filter }),
         enabled: ready && !!selectedPod,
-        refetchInterval: follow ? FOLLOW_INTERVAL_MS : false,
-        // The lines of before stay, dimmed, while the next ones load: the box does not jump
-        placeholderData: previousLines => previousLines
+        ...followedLogQuery(follow)
     })
     const lines = logsQuery.data ?? []
 
@@ -143,8 +142,7 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
                         onRefresh={refresh}
                         refreshing={podsQuery.isFetching || logsQuery.isFetching}
                         downloadFileName={`${slug}-${selectedPod}.log`}
-                        refreshLabel={t("applicationLogs.refresh")}
-                        downloadLabel={t("applicationLogs.download")}
+                        {...labels.actions}
                     />
                 )}
             </CardHeader>
@@ -217,16 +215,10 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
                             tailLines={tailLines}
                             tailOptions={TAIL_OPTIONS}
                             onTailLinesChange={setTailLines}
-                            tailLabel={t("applicationLogs.tail")}
-                            tailOptionLabel={count => t("applicationLogs.tail_option", { count })}
                             onFilterChange={setFilter}
-                            filterLabel={t("applicationLogs.filter")}
-                            filterPlaceholder={t("applicationLogs.filter_placeholder")}
                             follow={follow}
                             onFollowChange={setFollow}
-                            followLabel={t("applicationLogs.follow")}
-                            formatJsonLabel={t("applicationLogs.format_json")}
-                            formatJsonHint={t("applicationLogs.format_json_hint")}
+                            {...labels.viewer}
                             toggles={
                                 <div className="flex items-center gap-2">
                                     <Checkbox id={`${id}-previous`} checked={previous} onCheckedChange={checked => setPrevious(checked === true)} />
@@ -237,7 +229,6 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
                             }
                             outputLabel={t("applicationLogs.title")}
                             emptyLabel={t("applicationLogs.empty")}
-                            loadingLabel={t("common.loading")}
                             error={error}
                             pending={logsQuery.isPending}
                             placeholder={logsQuery.isPlaceholderData}

@@ -8,9 +8,9 @@ import { redactSecrets } from "../../utils/redactSecrets"
 import { calculateAiUsageCost, recordAiUsage } from "../AiUsageService"
 import { LlmClient, LlmUsage } from "../llm"
 import { toErrorMessage } from "../RepositoryFileService"
-import { TERMINAL_ESCAPES } from "./aiChangeScripts"
 import { loggable, PROPOSAL_TTL_MS, STALE_AFTER_MS } from "./aiChangeShared"
 import { JobProposal } from "./aiJobWorkingCopies"
+import { maskedEnd } from "./commandOutput"
 
 export const ACTIVE_JOB_STATUSES = [AiJobStatus.PENDING, AiJobStatus.RUNNING]
 /** The requests of a job its agent has not finished with yet. */
@@ -37,26 +37,35 @@ export const logJobEvent = async (jobId: string, kind: IAiChangeEvent["kind"], m
 
 /** Characters of a running script's output kept on the job: the end, where it is at. */
 const LIVE_OUTPUT_CHARS = 4_000
+/** Characters read before masking: a secret starting before the shown end is still recognised whole. */
+const LIVE_READ_CHARS = 2 * LIVE_OUTPUT_CHARS
 /** How often what a running script printed is written: the pages poll every few seconds, not at each line. */
 const LIVE_OUTPUT_EVERY_MS = 2_000
 
 /**
- * What the script or the command the agent is running prints, shown on the job and its requests while it runs: an
- * install can take minutes before its "output" event. Masked as that event is; unset once the next event is logged.
+ * What the script or the command the agent is running prints, shown on the job while it runs: an install can take
+ * minutes before its "output" event. Only on the job: a request of a job is followed through its conversation.
+ * Masked whole, then cut, as that event is; unset once the next event is logged.
  */
 export class LiveJobOutput {
     private text = ""
+    /** Whether the start of the output was dropped from `text`: the line it falls in is not shown. */
+    private cut = false
     private timer?: NodeJS.Timeout
     private shown = false
     private writing: Promise<void> = Promise.resolve()
+    /** The write waiting for the one in flight: a newer one takes its place, a slow database does not pile them up. */
+    private next?: UpdateQuery<IAiChangeJob>
 
     constructor(private readonly jobId: string) {}
 
     add(chunk: string) {
-        this.text = (this.text + chunk).slice(-LIVE_OUTPUT_CHARS)
+        const text = this.text + chunk
+        this.cut ||= text.length > LIVE_READ_CHARS
+        this.text = text.slice(-LIVE_READ_CHARS)
         this.timer ??= setTimeout(() => {
             this.timer = undefined
-            this.write(redactSecrets(this.text.replace(TERMINAL_ESCAPES, "")))
+            this.write(maskedEnd(this.text, LIVE_OUTPUT_CHARS, this.cut).text)
         }, LIVE_OUTPUT_EVERY_MS)
     }
 
@@ -65,6 +74,7 @@ export class LiveJobOutput {
         clearTimeout(this.timer)
         this.timer = undefined
         this.text = ""
+        this.cut = false
         if (this.shown) this.write(undefined)
         await this.writing
     }
@@ -72,10 +82,15 @@ export class LiveJobOutput {
     /** One write after the other: an unset never lands before the write it follows. */
     private write(text: string | undefined) {
         this.shown = text !== undefined
-        const update = text === undefined ? { $unset: { liveOutput: 1 } } : { $set: { liveOutput: text } }
-        const id = toObjectId(this.jobId)
+        const queued = this.next !== undefined
+        this.next = text === undefined ? { $unset: { liveOutput: 1 } } : { $set: { liveOutput: text } }
+        if (queued) return
         this.writing = this.writing
-            .then(() => Promise.all([AiChangeJob.updateOne({ _id: id }, update), AiChangeRequest.updateMany({ jobId: id }, update)]))
+            .then(() => {
+                const update = this.next
+                this.next = undefined
+                return update && AiChangeJob.updateOne({ _id: toObjectId(this.jobId) }, update)
+            })
             .then(
                 () => undefined,
                 error => fastify.log.warn({ error: loggable(error), aiJobId: this.jobId }, "AI job live output not written")

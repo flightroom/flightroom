@@ -4567,7 +4567,6 @@
                 "open": "Log di {{name}}",
                 "title": "Log di {{name}}",
                 "description": "Le ultime righe che il gateway conserva per questa sandbox, fino a 2000. Le credenziali sono mascherate.",
-                "refresh": "Aggiorna",
                 "empty": "Il gateway non ha righe di log per questa sandbox.",
                 "load_failed": "Non è stato possibile leggere i log della sandbox."
             },

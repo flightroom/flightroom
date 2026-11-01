@@ -113,7 +113,7 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             frontendIds: connected.filter(component => component.kind === "frontend").map(component => component._id),
             backendIds: connected.filter(component => component.kind === "backend").map(component => component._id)
         })
-        const runner = new AiChangeScriptRunner(repositories, () => sandboxes.acquire(sessionId, lifecycle, sessionId, organizationId ? String(organizationId) : undefined), undefined, true)
+        const runner = new AiChangeScriptRunner(repositories, () => sandboxes.acquire(sessionId, lifecycle, sessionId, organizationId ? String(organizationId) : undefined), { previewsEnabled: true })
         const startLocked = (index: number): Promise<string | undefined> =>
             index < ordered.length
                 ? withRepositoryLock(ordered[index].workspace.workingCopy.dir, async () => {

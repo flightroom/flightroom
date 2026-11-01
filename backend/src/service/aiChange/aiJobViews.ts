@@ -6,7 +6,7 @@ import { AI_CHANGE_DEFAULT_EFFORT } from "./aiChangeLimits"
 import { staleOutcome } from "./aiChangeShared"
 
 /** File contents stay out of every view: the diff is read from the request of each repository. */
-export const WITHOUT_CONTENTS = { "files.originalContent": 0, "files.proposedContent": 0, events: 0, liveOutput: 0 } as const
+export const WITHOUT_CONTENTS = { "files.originalContent": 0, "files.proposedContent": 0, events: 0 } as const
 /** Neither the progress nor the conversation of the agent: what lists of jobs read. */
 export const JOB_LISTED = { events: 0, liveOutput: 0, transcript: 0 } as const
 

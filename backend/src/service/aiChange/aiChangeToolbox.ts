@@ -7,7 +7,7 @@ import { GitWorkingCopy } from "../workspace/GitWorkingCopy"
 import { AiChangeRepositoryMap, AiChangeToolboxChange } from "./aiChangeAgentTypes"
 import { decodeStart, describeLayout, linesHolding, linesOf, looksBinary, matchingLines, normalizeFolder, underPrefix, withoutLeadingSlash } from "./aiChangeFiles"
 import { AI_CHANGE_LIMITS, agentLimitsFor, REPOSITORY_MAP_PATH } from "./aiChangeLimits"
-import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, BUILD_SCRIPT, commandWorkdir, RepositoryCheck, runCommandTool, runScriptTool, SandboxExec, ScriptRun } from "./aiChangeScripts"
+import { AI_SCRIPT_LIMITS, AiChangeScriptRunner, BUILD_SCRIPT, commandWorkdir, RepositoryCheck, runCommandTool, runScriptTool, ScriptRun, ScriptRunnerOptions } from "./aiChangeScripts"
 import { readCount, readString, toolsFor } from "./aiChangeTools"
 
 /** Instructions a team writes for coding agents, the first one found shown in the repository map. */
@@ -50,15 +50,11 @@ export class AiChangeToolbox {
     constructor(
         private readonly repositories: AiChangeToolboxRepository[],
         sandbox?: () => Promise<CommandSandbox>,
-        signal?: AbortSignal,
-        previewsEnabled = false,
-        onPreview?: (kind: "info", message: string) => Promise<void> | void,
-        onExec?: (exec: SandboxExec) => Promise<void> | void,
-        onOutput?: (text: string) => void
+        options: ScriptRunnerOptions = {}
     ) {
         if (repositories.length === 0) throw new Error("A toolbox needs at least one repository")
         this.maxWrittenBytes = agentLimitsFor(repositories.length).maxWrittenBytes
-        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, signal, previewsEnabled, onPreview, onExec, onOutput) : undefined
+        this.scripts = sandbox ? new AiChangeScriptRunner(repositories, sandbox, options) : undefined
         // A follow-up refines what its parent wrote: the limits hold for the whole proposal, not for each step.
         for (const repository of repositories) {
             // A lockfile comes from the install, not from the agent: alone it may weigh more than the agent may write.

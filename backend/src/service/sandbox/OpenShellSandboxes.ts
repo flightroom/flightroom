@@ -261,8 +261,8 @@ class OpenShellCommandSandbox implements CommandSandbox {
         let kept = 0
         let cutBytes = 0
         let exitCode: number | undefined
-        // A character split across two chunks is told whole, with the second.
-        const decoder = options.onOutput ? new StringDecoder("utf8") : undefined
+        // A character split across two chunks of a stream is told whole, with the second: one decoder per stream.
+        const decoders = { stdout: new StringDecoder("utf8"), stderr: new StringDecoder("utf8") }
         const events = this.client.sandbox.execStream(this.name, command, {
             workspace: this.workspace,
             workdir: options.workdir,
@@ -279,7 +279,7 @@ class OpenShellCommandSandbox implements CommandSandbox {
                 continue
             }
             chunks.push(event.data)
-            if (decoder) options.onOutput?.(decoder.write(event.data))
+            options.onOutput?.(decoders[event.stream].write(event.data))
             kept += event.data.length
             // Whole chunks are dropped while what is left still fills the bound.
             while (chunks.length > 1 && kept - chunks[0].length >= MAX_OUTPUT_BYTES) {
@@ -288,6 +288,9 @@ class OpenShellCommandSandbox implements CommandSandbox {
                 cutBytes += dropped.length
             }
         }
+        // A character the end of a stream cut is told too, as the replacement character.
+        const rest = decoders.stdout.end() + decoders.stderr.end()
+        if (rest) options.onOutput?.(rest)
         let output = Buffer.concat(chunks)
         if (output.length > MAX_OUTPUT_BYTES) {
             cutBytes += output.length - MAX_OUTPUT_BYTES
