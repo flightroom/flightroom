@@ -14,7 +14,7 @@ import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import BackendActions from "./partials/BackendActions"
-import BackendConfigurationSection, { ContainerEnvSection } from "./partials/BackendConfigurationSection"
+import BackendConfigurationSection, { BackendEndpointsCard, ContainerEnvSection } from "./partials/BackendConfigurationSection"
 import BackendHeader, { isBackendAiAvailable } from "./partials/BackendHeader"
 import BackendResourcesSection from "./partials/BackendResourcesSection"
 import BackendVariableMapsSection from "./partials/BackendVariableMapsSection"
@@ -120,6 +120,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
 
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
                             <EnvironmentVersionsCard entries={backend.environmentVersions} environments={environmentsQuery.data ?? []} container={backend} />
+                            <BackendEndpointsCard backend={backend} environments={environmentsQuery.data ?? []} />
                             <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
                             <BackendVersionsTable versions={versionsQuery.data ?? []} />
                         </TabsContent>

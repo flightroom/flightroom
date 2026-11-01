@@ -11,7 +11,7 @@ import { ApiStatusHandler } from "@/components/organisms"
 import useFrontendsApi, { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
 import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
-import BackendConfigurationSection, { ContainerEnvSection } from "@/pages/backends/partials/BackendConfigurationSection"
+import BackendConfigurationSection, { BackendEndpointsCard, ContainerEnvSection } from "@/pages/backends/partials/BackendConfigurationSection"
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
@@ -182,6 +182,7 @@ const FrontendOverview: React.FC = () => {
                         {/* What runs where, for either kind: only a container has replicas */}
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
                             <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} container={isDocker ? frontend : undefined} />
+                            {isDocker && <BackendEndpointsCard backend={frontend} environments={environmentsQuery.data ?? []} />}
                             <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
                             {isDocker && <BackendVersionsTable versions={buildsQuery.data ?? []} />}
                         </TabsContent>

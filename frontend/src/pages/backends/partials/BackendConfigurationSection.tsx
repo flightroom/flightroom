@@ -6,7 +6,7 @@ import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { exposedOrigin } from "./backendVariables"
-import { EnvironmentResourcesValue, ReplicasValue } from "./ContainerResourceFields"
+import { EnvironmentResourcesValue } from "./ContainerResourceFields"
 import { LogLevelValue } from "./LogLevelOverrideField"
 
 /** What a container declares: a backend, or a frontend served by its own container */
@@ -47,42 +47,46 @@ const BackendLink: React.FC<{ href: string; label: string }> = ({ href, label })
 const joinPath = (base: string, path: string) => base.replace(/\/+$/, "") + path
 
 /** Where the backend answers in each environment, its exposure path on their host, with the docs and the OpenAPI spec reached from there */
-const BackendUrls: React.FC<{ backend: ContainerConfiguration; environments: EnvironmentDTO[] }> = ({ backend, environments }) => {
+export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; environments: EnvironmentDTO[] }> = ({ backend, environments }) => {
     const { t } = useTranslation()
     const exposure = useProjectStore(state => state.project?.exposure)
     const path = backend.exposurePath
 
     return (
-        <div>
-            <h3 className="mb-2 text-base font-semibold">{t("backends.urls.title")}</h3>
-            {!path ? (
-                <p className="text-sm text-foreground-secondary">{t("backends.urls.not_exposed")}</p>
-            ) : !exposure?.domain ? (
-                // No host to put it on: the path is all there is to show
-                <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                    <span className="font-mono">{path}</span>
-                    <span className="text-foreground-secondary">{t("backends.urls.no_domain")}</span>
-                </p>
-            ) : environments.length === 0 ? (
-                <p className="text-sm text-foreground-secondary">{t("backends.urls.no_environments")}</p>
-            ) : (
-                <ul className="flex flex-col gap-2">
-                    {environments.map(environment => {
-                        const url = exposedOrigin(exposure, environment) + path
-                        return (
-                            <li key={environment._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
-                                <Badge variant="outline">{environment.name}</Badge>
-                                <span className="min-w-0 break-all font-mono">
-                                    <BackendLink href={url} label={url} />
-                                </span>
-                                {backend.docsPath && <BackendLink href={joinPath(url, backend.docsPath)} label={t("backends.urls.open_docs")} />}
-                                {backend.openApiPath && <BackendLink href={joinPath(url, backend.openApiPath)} label={t("backends.urls.open_openapi")} />}
-                            </li>
-                        )
-                    })}
-                </ul>
-            )}
-        </div>
+        <Card>
+            <CardHeader>
+                <CardTitle className="mb-0">{t("backends.urls.title")}</CardTitle>
+            </CardHeader>
+            <CardContent className="pt-3">
+                {!path ? (
+                    <p className="text-sm text-foreground-secondary">{t("backends.urls.not_exposed")}</p>
+                ) : !exposure?.domain ? (
+                    // No host to put it on: the path is all there is to show
+                    <p className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                        <span className="font-mono">{path}</span>
+                        <span className="text-foreground-secondary">{t("backends.urls.no_domain")}</span>
+                    </p>
+                ) : environments.length === 0 ? (
+                    <p className="text-sm text-foreground-secondary">{t("backends.urls.no_environments")}</p>
+                ) : (
+                    <ul className="flex flex-col gap-2">
+                        {environments.map(environment => {
+                            const url = exposedOrigin(exposure, environment) + path
+                            return (
+                                <li key={environment._id} className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
+                                    <Badge variant="outline">{environment.name}</Badge>
+                                    <span className="min-w-0 break-all font-mono">
+                                        <BackendLink href={url} label={url} />
+                                    </span>
+                                    {backend.docsPath && <BackendLink href={joinPath(url, backend.docsPath)} label={t("backends.urls.open_docs")} />}
+                                    {backend.openApiPath && <BackendLink href={joinPath(url, backend.openApiPath)} label={t("backends.urls.open_openapi")} />}
+                                </li>
+                            )
+                        })}
+                    </ul>
+                )}
+            </CardContent>
+        </Card>
     )
 }
 
@@ -108,14 +112,10 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
                     <DescriptionItem label={t("backends.log_level")}>
                         <LogLevelValue value={backend.logLevel} />
                     </DescriptionItem>
-                    <DescriptionItem label={t("backends.compute.replicas")}>
-                        <ReplicasValue value={backend.replicas} />
-                    </DescriptionItem>
                     <DescriptionItem label={t("backends.compute.by_environment.title")}>
                         <EnvironmentResourcesValue entries={backend.environmentResources} environments={environments} />
                     </DescriptionItem>
                 </DescriptionList>
-                <BackendUrls backend={backend} environments={environments} />
             </CardContent>
         </Card>
     )
