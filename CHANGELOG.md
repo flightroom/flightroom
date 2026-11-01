@@ -13,6 +13,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **The Logs Of A Sandbox Are Followed When Opened**: on the **Installation** page the log dialog of a sandbox opens with **Follow** on, reading the gateway again every 5 seconds while it stays open; it can still be turned off. The logs of the applications stay off until asked
 - **The Languages Of A Template With Their Logos**: on the **Installation** page the languages of each template, in the list and in its form, show the logo of Node.js, Java, Python, Go and .NET
 
 ### Fixed
