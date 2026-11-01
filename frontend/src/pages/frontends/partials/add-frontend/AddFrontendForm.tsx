@@ -1,6 +1,7 @@
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { StatusDot, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Cloud, Container, Settings2, Sparkles, TriangleAlert } from "lucide-react"
 import { useEffect, useMemo } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -19,6 +20,7 @@ import BackendEndpointFields from "@/pages/backends/partials/BackendEndpointFiel
 import BackendEnvFields from "@/pages/backends/partials/BackendEnvFields"
 import BackendRuntimeFields from "@/pages/backends/partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "@/pages/backends/partials/BackendVariableMapsFields"
+import ContainerEnvironmentCard from "@/pages/backends/partials/ContainerEnvironmentCard"
 import { resourceMessages } from "@/pages/backends/partials/containerResources"
 import { DangerZoneRemoveFrontend, FrontendHeader, HostingSection, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { FetchDataTemplateCard } from "@/pages/templates-library/partials/"
@@ -29,11 +31,12 @@ import { frontendFormDefaults, toFrontendPayload } from "./frontendFormValues"
 import { GeneralTab } from "./GeneralTab"
 import { type FormTab, useFrontendFormTabs } from "./useFrontendFormTabs"
 
-const ErrorDot: React.FC = () => <span className="ml-2 inline-block size-1.5 rounded-full bg-destructive align-middle" aria-hidden="true" />
+const ErrorDot: React.FC = () => <StatusDot tone="destructive" size="sm" className="ml-2 align-middle" />
 
 /** A tab of the form, with a dot when a field it owns failed validation */
-const FormTabTrigger: React.FC<{ value: FormTab; label: string; hasErrors: boolean }> = ({ value, label, hasErrors }) => (
-    <TabsTrigger value={value} className="flex-1">
+const FormTabTrigger: React.FC<{ value: FormTab; icon: React.ComponentType; label: string; hasErrors: boolean }> = ({ value, icon: Icon, label, hasErrors }) => (
+    <TabsTrigger value={value}>
+        <Icon />
         {label}
         {hasErrors && <ErrorDot />}
     </TabsTrigger>
@@ -150,18 +153,19 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
                 <FetchDataTemplateCard slug={template} />
 
-                <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)} tabsListPosition="fullWidth">
+                <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)}>
                     <TabsList>
-                        <FormTabTrigger value="general" label={t("frontend.tabs.general")} hasErrors={tabHasErrors("general")} />
-                        <FormTabTrigger value="context" label={t("frontend.tabs.context")} hasErrors={tabHasErrors("context")} />
+                        <FormTabTrigger value="general" icon={Settings2} label={t("frontend.tabs.general")} hasErrors={tabHasErrors("general")} />
+                        <FormTabTrigger value="context" icon={Sparkles} label={t("frontend.tabs.context")} hasErrors={tabHasErrors("context")} />
                         {/* A DOCKER runs a container, as a backend: the same Runtime tab */}
                         {isDocker ? (
-                            <FormTabTrigger value="runtime" label={t("backends.tabs.runtime")} hasErrors={tabHasErrors("runtime")} />
+                            <FormTabTrigger value="runtime" icon={Container} label={t("backends.tabs.runtime")} hasErrors={tabHasErrors("runtime")} />
                         ) : (
-                            <FormTabTrigger value="hosting" label={t("frontend.tabs.hosting")} hasErrors={tabHasErrors("hosting")} />
+                            <FormTabTrigger value="hosting" icon={Cloud} label={t("frontend.tabs.hosting")} hasErrors={tabHasErrors("hosting")} />
                         )}
                         {isEdit && (
-                            <TabsTrigger value="danger" className="flex-1">
+                            <TabsTrigger value="danger">
+                                <TriangleAlert />
                                 {t("frontend.tabs.danger_zone")}
                             </TabsTrigger>
                         )}
@@ -183,6 +187,7 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                                 <BackendEndpointFields environments={environments} placeholder="/shell" />
                                 <BackendEnvFields />
                                 <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                                {id && <ContainerEnvironmentCard kind="frontend" id={id} environments={environments} />}
                             </div>
                         </TabsContent>
                     ) : (

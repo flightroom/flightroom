@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Injected Variables Of The Running Container In The Runtime Tab**: the runtime tab of a backend and of a DOCKER frontend lists, for the environment chosen, the variables its running container got, read through Argo CD from the live manifest of one of its pods, a running one first: its `env` (`HTTP_PORT`, `LOG_LEVEL`, `LOG_JSON`, `EXPOSURE_URL`, OpenTelemetry), then what the config maps, secrets and resources of its `envFrom` hold in the cluster, read through the Application of the environment, each with its source and, when another source sets the same name and wins, which one. Of a secret and a resource only the names are shown, as Argo CD hides their values. It names the pod and when its container started: a config map changed since reaches it at its next restart. A viewer does not see it, as with the logs. The API answers at `GET /api/backends/:id/environments/:environmentId/variables` and `GET /api/frontends/:id/environments/:environmentId/variables`; `container_environment_get` keeps telling what the next deploy hands the container
+
 ## [12.0.0] - 2026-11-01
 
 ### Changed

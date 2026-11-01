@@ -1,6 +1,7 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, StatusDot, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { Container, Settings2, Sparkles, TriangleAlert } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -36,6 +37,7 @@ import BackendRuntimeFields from "./partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
+import ContainerEnvironmentCard from "./partials/ContainerEnvironmentCard"
 import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
 
@@ -138,7 +140,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     danger: []
 }
 
-const ErrorDot: React.FC = () => <span className="ml-2 inline-block size-1.5 rounded-full bg-destructive align-middle" aria-hidden="true" />
+const ErrorDot: React.FC = () => <StatusDot tone="destructive" size="sm" className="ml-2 align-middle" />
 
 interface AddBackendFormProps {
     repositories: ICodeRepository[]
@@ -332,22 +334,26 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
     const content = (
         <FormProvider {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-                <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)} tabsListPosition="fullWidth">
+                <Tabs value={shownTab} onValueChange={value => selectTab(value as FormTab)}>
                     <TabsList>
-                        <TabsTrigger value="general" className="flex-1">
+                        <TabsTrigger value="general">
+                            <Settings2 />
                             {t("backends.tabs.general")}
                             {tabHasErrors("general") && <ErrorDot />}
                         </TabsTrigger>
-                        <TabsTrigger value="context" className="flex-1">
+                        <TabsTrigger value="context">
+                            <Sparkles />
                             {t("backends.tabs.context")}
                             {tabHasErrors("context") && <ErrorDot />}
                         </TabsTrigger>
-                        <TabsTrigger value="runtime" className="flex-1">
+                        <TabsTrigger value="runtime">
+                            <Container />
                             {t("backends.tabs.runtime")}
                             {tabHasErrors("runtime") && <ErrorDot />}
                         </TabsTrigger>
                         {isEdit && (
-                            <TabsTrigger value="danger" className="flex-1">
+                            <TabsTrigger value="danger">
+                                <TriangleAlert />
                                 {t("backends.tabs.danger_zone")}
                             </TabsTrigger>
                         )}
@@ -447,6 +453,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                             <BackendEnvFields />
                             <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
                             <BackendResourcesFields resources={resources} />
+                            {id && <ContainerEnvironmentCard kind="backend" id={id} environments={environments} />}
                         </div>
                     </TabsContent>
 

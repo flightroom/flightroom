@@ -109,6 +109,9 @@ export interface ArgoCdPodContainer {
     lastTermination?: { reason?: string; message?: string; exitCode?: number; finishedAt?: string }
 }
 
+/** How an error names a live object it could not read */
+const LIVE_OBJECT_NAMES = { Pod: "pod", ConfigMap: "config map", Secret: "secret" } as const
+
 /** A message a container writes when it ends is its own text: only its start is kept */
 const CONTAINER_MESSAGE_MAX_LENGTH = 500
 
@@ -350,14 +353,23 @@ class ArgoCdClient {
      * requests and limits nor why a container last stopped. Null when the pod is gone or its manifest unreadable.
      */
     async getPodContainers(application: string, project: string, pod: Pick<ArgoCdPod, "name" | "namespace">): Promise<ArgoCdPodContainer[] | null> {
-        const resource = await this.find(`read the pod ${pod.name}`, () =>
+        const manifest = await this.getLiveManifest(application, project, { kind: "Pod", ...pod })
+        return manifest ? podContainers(manifest) : null
+    }
+
+    /**
+     * The live manifest of a core (v1) object the Application manages, as Kubernetes holds it now: none when the
+     * Application does not manage it or it is gone. Argo CD hides the values of a Secret's data, its keys stay.
+     */
+    async getLiveManifest(application: string, project: string, object: { kind: "Pod" | "ConfigMap" | "Secret"; name: string; namespace: string }): Promise<unknown> {
+        const resource = await this.find(`read the ${LIVE_OBJECT_NAMES[object.kind]} ${object.name}`, () =>
             this.api.get<{ manifest?: string }>(`/applications/${encodeURIComponent(application)}/resource`, {
-                params: { namespace: pod.namespace, resourceName: pod.name, group: "", version: "v1", kind: "Pod", project }
+                params: { namespace: object.namespace, resourceName: object.name, group: "", version: "v1", kind: object.kind, project }
             })
         )
         if (!resource?.manifest) return null
         try {
-            return podContainers(JSON.parse(resource.manifest))
+            return JSON.parse(resource.manifest)
         } catch {
             return null
         }

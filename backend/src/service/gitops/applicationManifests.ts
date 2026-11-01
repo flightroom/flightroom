@@ -232,6 +232,22 @@ export interface ContainerSourceValues {
 const PLATFORM_SECRET_KEYS = [MAINTENANCE_AGENT_API_URL_VARIABLE, MAINTENANCE_AGENT_TOKEN_VARIABLE]
 
 /**
+ * The variables of a container in the order Kubernetes reads them, `env` then each `envFrom` source, with the one it
+ * drops of a name set twice marked by the source that wins: `env` over `envFrom`, and within each the later one.
+ */
+export const withOverrides = (variables: Array<ContainerVariable & { fromEnv: boolean }>): ContainerVariable[] => {
+    const winners = new Map<string, number>()
+    variables.forEach((variable, index) => {
+        const current = winners.get(variable.name)
+        if (current === undefined || variable.fromEnv || !variables[current].fromEnv) winners.set(variable.name, index)
+    })
+    return variables.map(({ fromEnv: _fromEnv, ...variable }, index) => {
+        const winner = winners.get(variable.name) ?? index
+        return winner === index ? variable : { ...variable, overriddenBy: variables[winner].source }
+    })
+}
+
+/**
  * Every variable the container of `application` gets in `environment`, in the order the chart lists them: HTTP_PORT
  * and the rest of `env`, then each `envFrom` source. A name set twice is there twice, the one Kubernetes drops marked
  * with the source that wins: `env` over `envFrom`, and within each the later one. Values of Secrets, a resource's
@@ -260,15 +276,7 @@ export const containerEnvironment = (
             variables.push({ name, source: `${source.kind} ${source.name}`, ...(source.kind === "configMap" ? { value } : { masked: { set: true, length: value.length } }), fromEnv: false })
         }
     }
-    const winners = new Map<string, number>()
-    variables.forEach((variable, index) => {
-        const current = winners.get(variable.name)
-        if (current === undefined || variable.fromEnv || !variables[current].fromEnv) winners.set(variable.name, index)
-    })
-    return variables.map(({ fromEnv: _fromEnv, ...variable }, index) => {
-        const winner = winners.get(variable.name) ?? index
-        return winner === index ? variable : { ...variable, overriddenBy: variables[winner].source }
-    })
+    return withOverrides(variables)
 }
 
 /** The timings a probe sets: those it leaves out are the chart's */

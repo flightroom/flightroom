@@ -28,6 +28,7 @@ import {
 } from "./argoCd/argoCdErrors"
 import { deleteLeftovers, earlierAppProjects, ensureNamesFree, repositoryTargets, sharedRepositories } from "./argoCd/argoCdInitialization"
 import { acquire, LEASE_MS, Lease, release, save } from "./argoCd/argoCdLease"
+import { LivePod, liveContainerOf, liveContainerVariables, liveData, liveSourcesOf, liveStartedAt, RunningContainerEnvironmentDTO } from "./argoCd/argoCdLiveEnvironment"
 import { podLogsQuery, podOf } from "./argoCd/argoCdLogs"
 import { argoCdInUse, clientOf, deployableSlugs, environmentsOf, linksOf, normalizeUrl, projectOf, repoUrlOf, retyped } from "./argoCd/argoCdProject"
 import { DEPLOYED_VERSIONS, followRollout } from "./argoCd/argoCdRollout"
@@ -44,6 +45,7 @@ import {
     buildArgoCdState,
     clashingName,
     ENVIRONMENT_LABEL,
+    environmentApplicationName,
     PROJECT_ID_LABEL,
     projectIdOf
 } from "./gitops/argoCdManifests"
@@ -135,6 +137,46 @@ class ArgoCdService extends BaseAuthorizedService {
     }
 
     /**
+     * The variables the running container of a backend or a DOCKER frontend got in the environment, from the live
+     * manifest of one of its pods, a running one first, read through Argo CD: its `env`, then what the ConfigMaps
+     * and Secrets of its `envFrom` hold now in the cluster, read through the Application of the environment, which
+     * applies them. Argo CD hides the values of a Secret: only its keys are listed. Who may read the logs may read them.
+     */
+    async runningEnvironment(projectId: string, target: { kind: "backend" | "frontend"; id: string }, environmentId: string): Promise<RunningContainerEnvironmentDTO> {
+        const projectIdObj = toObjectId(projectId)
+        await this.ensureAccessToProject(projectIdObj)
+        if (!isValidObjectId(target.id)) throw new EntityNotFoundError(target.id)
+        const component =
+            target.kind === "backend"
+                ? await Backend.findOne({ _id: toObjectId(target.id), projectId: projectIdObj }, { slug: 1 })
+                : await Frontend.findOne({ _id: toObjectId(target.id), projectId: projectIdObj, kind: FrontendKind.DOCKER }, { slug: 1 })
+        if (!component) throw new EntityNotFoundError(target.id)
+        const environment = await this.readableEnvironment(projectId, component.slug, environmentId)
+        const { client, application, appProject, environmentApplication } = await this.deployedApplication(projectIdObj, component.slug, environment)
+        const pods = await client.listPods(application, appProject)
+        const pod = pods.find(candidate => candidate.status === "Running") ?? pods[0]
+        const manifest = pod ? ((await client.getLiveManifest(application, appProject, { kind: "Pod", name: pod.name, namespace: pod.namespace })) as LivePod | null) : null
+        const container = manifest ? liveContainerOf(manifest, component.slug) : undefined
+        if (!pod || !manifest || !container) return { state: "no_pod", variables: [] }
+
+        const notes: string[] = []
+        const data = new Map<string, Record<string, string> | null>()
+        for (const source of liveSourcesOf(container)) {
+            const object = await client.getLiveManifest(environmentApplication, appProject, { ...source, namespace: pod.namespace })
+            if (object) data.set(`${source.kind}/${source.name}`, liveData(object))
+            else notes.push(`${source.kind} ${source.name} not read: the Application of the environment does not manage it`)
+        }
+        const startedAt = liveStartedAt(manifest, container)
+        return {
+            state: "running",
+            pod: pod.name,
+            ...(startedAt ? { startedAt } : {}),
+            variables: liveContainerVariables(container, data),
+            ...(notes.length ? { notes } : {})
+        }
+    }
+
+    /**
      * Where the deploy `deploymentId` stands, application by application: Argo CD applies what it committed, then
      * Kubernetes replaces the pods. Followed are the backends and the container frontends a deploy installs through
      * Argo CD, of `domainId` for the deploy of a domain, otherwise of the domains the user reaches. Not tracked when
@@ -197,7 +239,9 @@ class ArgoCdService extends BaseAuthorizedService {
         return {
             client: clientOf(argoCd),
             application: applicationName(String(projectId), project.slug, slug, environmentSlug(environment)),
-            appProject: appProjectName(String(projectId), project.slug)
+            appProject: appProjectName(String(projectId), project.slug),
+            // The Application of the environment: it applies its config maps and secrets
+            environmentApplication: environmentApplicationName(String(projectId), project.slug, environmentSlug(environment))
         }
     }
 

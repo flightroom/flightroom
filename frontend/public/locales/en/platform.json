@@ -2607,6 +2607,20 @@
                 "description": "What Kubernetes reserves for the container, the most it may use and how many copies of it run"
             }
         },
+        "injected_variables": {
+            "title": "Injected variables",
+            "description": "The environment variables of the container running in the chosen environment, read from its pod through Argo CD: the platform's and those of config maps, secrets and resources. Of secrets only the names are shown",
+            "environment": "Environment",
+            "name": "Name",
+            "value": "Value",
+            "source": "Source",
+            "platform": "Platform",
+            "masked": "Set, hidden",
+            "masked_length": "Set, hidden ({{length}} characters)",
+            "overridden_by": "overridden by {{source}}",
+            "running": "Pod {{pod}}, container started on {{startedAt}}. Config map values are those in the cluster now: if they changed after the start, the container keeps the previous ones until it restarts",
+            "no_pod": "No pod of this container runs in the environment"
+        },
         "port": "Port",
         "port_hint": "The port the container listens on, on 0.0.0.0. It also gets it in the HTTP_PORT environment variable",
         "liveness_path": "Liveness probe path",
