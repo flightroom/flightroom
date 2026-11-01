@@ -17,6 +17,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **The Running Script's Output Shows Its Newest Lines**: while the coding agent runs a script, its output box scrolls to the newest line instead of staying on the oldest, a progress bar shows its last frame only, a credential cut by the start of the box is masked like the others, and screen readers no longer read the whole output again at each refresh
+- **The Logs Of One Sandbox At A Time**: on the **Installation** page, the logs of a sandbox no longer show those of the sandbox opened before while they load, a gateway line whose message is JSON is formatted, and a character printed across two pieces of output is no longer garbled
 - **The Installation Page Opens In The Same Tab**: the **Installation** link at the bottom of the sidebar opened the page in a new tab, as the links to the documentation do; it now navigates in the console like every other entry
 - **No Flash On The Installation Page**: the settings, the pool and the list of sandboxes no longer blink every 20–30 seconds while they refresh, and an edit being typed in the settings form is no longer lost at each refresh
 
