@@ -363,6 +363,11 @@ export default fastifyPlugin(
                     type: "number",
                     default: 14
                 },
+                // Comma separated emails of the installation administrators: they change, from the console, the settings
+                // of the whole installation (the sandboxes of the coding agent). Empty: nobody.
+                INSTALLATION_ADMINS: {
+                    type: "string"
+                },
                 // The OpenShell gateway the coding agent runs install, lint, test and build through, in one
                 // sandbox per conversation. Unset, the agent is offered no tool that runs code. See docs/AI-CODE-CHANGES.md.
                 OPENSHELL_GATEWAY_URL: {
@@ -431,6 +436,24 @@ export default fastifyPlugin(
                 OPENSHELL_SANDBOX_IDLE_MINUTES: {
                     type: "number",
                     default: OPENSHELL_DEFAULTS.idleMinutes
+                },
+                // Past this age a sandbox is deleted at the first sweep that finds none of its jobs waiting or running.
+                OPENSHELL_SANDBOX_MAX_HOURS: {
+                    type: "number",
+                    default: OPENSHELL_DEFAULTS.maxHours
+                },
+                // "domain": the jobs of a domain (else of a project) share a sandbox, each conversation in its own folder.
+                // "conversation": one sandbox per conversation.
+                OPENSHELL_SANDBOX_SHARING: {
+                    type: "string",
+                    enum: ["domain", "conversation"],
+                    default: "domain"
+                },
+                // How many sandboxes are kept created and unassigned, so that a new conversation does not wait for one.
+                OPENSHELL_SANDBOX_WARM: {
+                    type: "number",
+                    minimum: 0,
+                    default: OPENSHELL_DEFAULTS.warmSandboxes
                 },
                 // Preview URLs do not inherit project authorization; set false to disable them.
                 OPENSHELL_PREVIEWS_ENABLED: {

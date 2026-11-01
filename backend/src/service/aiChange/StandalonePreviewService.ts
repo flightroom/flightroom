@@ -4,11 +4,13 @@ import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import Backend from "../../models/BackendModel"
 import Domain from "../../models/DomainModel"
 import Frontend from "../../models/FrontendModel"
+import Project from "../../models/ProjectModel"
 import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import BaseAuthorizedService, { AuthorizedPrincipal } from "../BaseAuthorizedService"
 import { OpenShellConfiguration, openShellSandboxes } from "../sandbox/OpenShellSandboxes"
+import { effectiveOpenShellConfig } from "../sandbox/sandboxSettings"
 import { RepositoryWorkspaceService } from "../workspace/RepositoryWorkspaceService"
 import { BackendComponent, FrontendComponent, fromBackend, fromFrontend, RepositoryComponent } from "../workspace/repositoryComponent"
 import { sandboxLifecycle } from "./aiChangeSandboxes"
@@ -58,7 +60,7 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
     }
 
     async start(projectId: string, input: StandalonePreviewInput): Promise<{ url: string }> {
-        if (!this.config.OPENSHELL_PREVIEWS_ENABLED) throw unavailable()
+        if (!(await effectiveOpenShellConfig(this.config)).OPENSHELL_PREVIEWS_ENABLED) throw unavailable()
         const sandboxes = openShellSandboxes(this.config)
         if (!sandboxes) throw unavailable()
 
@@ -100,15 +102,18 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
         const ordered = [...workspaces].sort((left, right) => left.workspace.workingCopy.dir.localeCompare(right.workspace.workingCopy.dir))
         const repositories = workspaces.map(({ component, workspace }) => scriptRepositoryOf(component, workspace.workingCopy))
         // A preview runs no command of an agent: only the lifetime of its sandbox is counted, against what it previews.
+        // The organization the sandbox serves: a warm one goes back only to the organization it last served.
+        const organizationId = (await Project.findById(projectObjectId, { organizationId: 1 }).lean())?.organizationId
         const lifecycle = sandboxLifecycle({
             projectId: projectObjectId,
+            organizationId,
             userId: this.getUser()?._id,
             source: "preview",
             ...(domainId ? { domainId: String(domainId) } : {}),
             frontendIds: connected.filter(component => component.kind === "frontend").map(component => component._id),
             backendIds: connected.filter(component => component.kind === "backend").map(component => component._id)
         })
-        const runner = new AiChangeScriptRunner(repositories, () => sandboxes.acquire(sessionId, lifecycle), undefined, true)
+        const runner = new AiChangeScriptRunner(repositories, () => sandboxes.acquire(sessionId, lifecycle, sessionId, organizationId ? String(organizationId) : undefined), undefined, true)
         const startLocked = (index: number): Promise<string | undefined> =>
             index < ordered.length
                 ? withRepositoryLock(ordered[index].workspace.workingCopy.dir, async () => {
@@ -119,10 +124,10 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
         try {
             const url = await startLocked(0)
             if (!url) throw new Error("The frontend development server could not be started")
-            await StandalonePreviewSession.updateOne({ _id: sessionObjectId }, { $set: { expiresAt: new Date(Date.now() + sandboxes.idleMs) } })
+            await StandalonePreviewSession.updateOne({ _id: sessionObjectId }, { $set: { expiresAt: new Date(Date.now() + (await sandboxes.idleMs())) } })
             return { url }
         } catch (error) {
-            await StandalonePreviewSession.updateOne({ _id: sessionObjectId }, { $set: { expiresAt: new Date(Date.now() + sandboxes.idleMs) } })
+            await StandalonePreviewSession.updateOne({ _id: sessionObjectId }, { $set: { expiresAt: new Date(Date.now() + (await sandboxes.idleMs())) } })
             throw error
         }
     }

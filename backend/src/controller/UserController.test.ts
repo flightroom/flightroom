@@ -2,10 +2,12 @@ import Fastify, { FastifyInstance } from "fastify"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 
 const register = vi.fn()
+const getProfile = vi.fn()
 
 vi.mock("../service/UserService", () => ({
     default: class {
         register = register
+        getProfile = getProfile
     }
 }))
 
@@ -64,5 +66,40 @@ describe("UserController registration", () => {
 
         expect(response.statusCode).toBe(403)
         expect(register).not.toHaveBeenCalled()
+    })
+})
+
+/** The console shows the installation page to its administrators only: the profile says who they are. */
+describe("UserController profile", () => {
+    let app: FastifyInstance
+
+    const profileOf = async (email: string, admins?: string) => {
+        app = Fastify()
+        app.decorate("config", { INSTALLATION_ADMINS: admins } as unknown as FastifyInstance["config"])
+        app.addHook("onRequest", async request => {
+            ;(request as unknown as { databaseUser: { _id: string; email: string } }).databaseUser = { _id: "user-1", email }
+        })
+        await app.register(errorHandler)
+        await app.register(UserController)
+        await app.ready()
+        return (await app.inject({ method: "GET", url: "/users/profile" })).json()
+    }
+
+    beforeEach(() => {
+        getProfile.mockReset().mockResolvedValue({ _id: "user-1", email: "ops@example.com", role: "admin" })
+    })
+
+    afterEach(async () => {
+        await app.close()
+    })
+
+    it("Given a user among INSTALLATION_ADMINS, when they read their profile, then it says they administer the installation", async () => {
+        expect(await profileOf("ops@example.com", "admin@example.com, OPS@example.com")).toMatchObject({ email: "ops@example.com", installationAdmin: true })
+    })
+
+    it("Given a user not listed, even with the admin role, or no list at all, when they read their profile, then it says they do not", async () => {
+        expect((await profileOf("ops@example.com", "admin@example.com")).installationAdmin).toBe(false)
+        await app.close()
+        expect((await profileOf("ops@example.com")).installationAdmin).toBe(false)
     })
 })

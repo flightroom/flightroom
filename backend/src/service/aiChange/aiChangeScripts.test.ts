@@ -1,6 +1,7 @@
 import { execFileSync, spawnSync } from "node:child_process"
 import { randomBytes } from "node:crypto"
 import fs from "node:fs"
+import net from "node:net"
 import os from "node:os"
 import path from "node:path"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
@@ -335,6 +336,47 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner changes of a script", () => {
         await expect(new AiChangeScriptRunner([repository], async () => failing, undefined, false, undefined, onExec).runCommand(repository, "sleep 600")).rejects.toThrow("deadline exceeded")
         expect(onExec).toHaveBeenCalledWith({ seconds: expect.any(Number) })
     })
+
+    it("Given the dev server an earlier run of the conversation left and its port taken by another, when the preview starts again, then the earlier one is stopped and a free port is used", async () => {
+        const taken = net.createServer()
+        await new Promise<void>(resolve => taken.listen(0, "0.0.0.0", resolve))
+        const port = (taken.address() as net.AddressInfo).port
+        // Started by a shell that exits at once, as the dev server is: init reaps it once stopped, so it does not linger as a zombie.
+        const leftover = Number(execFileSync("sh", ["-c", "sleep 60 >/dev/null 2>&1 & echo $!"], { encoding: "utf8" }).trim())
+        const alive = () => {
+            try {
+                process.kill(leftover, 0)
+                return true
+            } catch {
+                return false
+            }
+        }
+        fs.mkdirSync(path.join(root, "previews"))
+        fs.writeFileSync(path.join(root, "previews", "orders.pid"), String(leftover))
+        const exposed = vi.fn(async (_port: number, _name: string) => "https://preview.example.test")
+        // Only the stop and the search for a port really run: no dev server is started here.
+        const probing: CommandSandbox = {
+            root,
+            exec: async (command, options) => (command[2]?.includes("exec node") ? sandbox.exec(command, options) : { exitCode: 0, output: "", cutBytes: 0 }),
+            exposeService: exposed
+        }
+        const backend = makeRepository({ "package.json": manifest({ dev: "node server.js" }) })
+        const orders: ScriptRepository = { slug: "orders", kind: "backend", runtime: "NODE", port, workingCopy: workingCopyOf(backend) }
+
+        try {
+            await new AiChangeScriptRunner([orders], async () => probing, undefined, true).startPreview(orders, true)
+
+            // The stop waits for it to be gone before looking for a port.
+            expect(alive()).toBe(false)
+            expect(fs.existsSync(path.join(root, "previews", "orders.pid"))).toBe(false)
+            expect(exposed).toHaveBeenCalledWith(expect.any(Number), expect.any(String))
+            expect(exposed.mock.calls[0][0]).not.toBe(port)
+        } finally {
+            if (alive()) process.kill(leftover)
+            taken.close()
+            fs.rmSync(backend, { recursive: true, force: true })
+        }
+    })
 })
 
 describe("checkCommandFor", () => {
@@ -428,11 +470,38 @@ describe.skipIf(!hasTools)("AiChangeScriptRunner package manager", () => {
         await expect(runner.startPreview(repository)).resolves.toBe("https://preview.example.test")
 
         expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))).toEqual([
-            ["sh", "-c", expect.any(String), "/sandbox/logs/shop-preview.log", "npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
+            ["sh", "-c", expect.any(String), "/sandbox/logs/shop-preview.log", "/sandbox/previews/shop.pid", "npm", "run", "dev", "--", "--host", "0.0.0.0", "--port", "5173"],
             expect.objectContaining({ workdir: "/sandbox/repositories/shop" })
         ])
         expect(sandbox.exposeService).toHaveBeenCalledWith(5173, expect.stringMatching(/^preview-fe-/))
         expect(onPreview).toHaveBeenCalledWith("info", "preview-ready|frontend|shop|https%3A%2F%2Fpreview.example.test")
+        fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    it("Given another conversation of the sandbox holding the port of the preview, when it starts, then it listens and is exposed on the free port the sandbox found", async () => {
+        const dir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
+        const sandbox = recording()
+        sandbox.exec.mockImplementation(async (command: string[]) => ({ exitCode: 0, output: command[2]?.includes("exec node") ? "41234\n" : "", cutBytes: 0 }))
+        const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
+
+        await new AiChangeScriptRunner([repository], async () => sandbox, undefined, true).startPreview(repository)
+
+        expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("exec node"))?.[0].slice(3, 5)).toEqual(["/sandbox/previews/shop.pid", "5173"])
+        expect(sandbox.exec.mock.calls.find(([command]) => command[2]?.includes("nohup"))?.[0].slice(-2)).toEqual(["--port", "41234"])
+        expect(sandbox.exposeService).toHaveBeenCalledWith(41234, expect.stringMatching(/^preview-fe-/))
+        fs.rmSync(dir, { recursive: true, force: true })
+    })
+
+    it("Given two conversations of one sandbox, when each previews the same frontend, then their services are named apart", async () => {
+        const dir = makeRepository({ "package.json": manifest({ dev: "vite" }) })
+        const first = { ...recording(), root: "/sandbox/spaces/one" }
+        const second = { ...recording(), root: "/sandbox/spaces/two" }
+        const repository = { slug: "shop", kind: "frontend" as const, workingCopy: workingCopyOf(dir) }
+
+        await new AiChangeScriptRunner([repository], async () => first, undefined, true).startPreview(repository)
+        await new AiChangeScriptRunner([repository], async () => second, undefined, true).startPreview(repository)
+
+        expect(first.exposeService.mock.calls[0][1]).not.toBe(second.exposeService.mock.calls[0][1])
         fs.rmSync(dir, { recursive: true, force: true })
     })
 

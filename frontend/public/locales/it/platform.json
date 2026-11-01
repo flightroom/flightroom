@@ -4451,5 +4451,135 @@
             "forbidden": "Chi ha il ruolo di viewer non può leggere i log delle applicazioni.",
             "invalid": "Scegli il pod di cui leggere i log."
         }
+    },
+    "installation": {
+        "navigation": "Installazione",
+        "title": "Installazione",
+        "subtitle": "Impostazioni dell'intera installazione, per i suoi amministratori: le sandbox in cui Modifica con AI esegue il codice.",
+        "not_admin": "Solo un amministratore dell'installazione, una delle email di INSTALLATION_ADMINS, può vedere questa pagina.",
+        "pool": {
+            "warm": "Pronte da assegnare",
+            "creating": "In creazione per il pool",
+            "assigned": "Al servizio di un dominio, progetto o conversazione",
+            "hint": "Una nuova conversazione prende una sandbox pronta invece di aspettarne una. Una sandbox torna solo all'organizzazione che ha servito per ultima: le cache nella sua home possono contenere i pacchetti privati di quell'organizzazione. Il tempo passato nel pool non è addebitato a nessuno."
+        },
+        "settings": {
+            "title": "Impostazioni delle sandbox",
+            "description": "Lascia un campo vuoto per usare il valore della sua variabile d'ambiente, mostrato come segnaposto. Una modifica arriva a tutte le repliche entro 30 secondi.",
+            "updated_at": "Ultima modifica {{time}}.",
+            "saved": "Impostazioni delle sandbox salvate",
+            "save_failed": "Non è stato possibile salvare le impostazioni delle sandbox",
+            "environment_value": "Ambiente: {{value}}.",
+            "unset": "non impostato",
+            "use_environment": "Valore dell'ambiente ({{value}})",
+            "reach_warning": {
+                "title": "Cosa esegue e cosa raggiunge la sandbox",
+                "description": "Immagine, template, host dei registry ed eseguibili di rete decidono quale codice esegue la sandbox e quali host può raggiungere: ogni host aggiunto è raggiungibile dagli script di installazione e dai test dei repository. Valgono solo per le nuove sandbox; quelle pronte create diversamente vengono sostituite al passaggio successivo."
+            },
+            "validation": {
+                "range": "Un numero intero da {{min}} a {{max}}",
+                "no_spaces": "Gli spazi non sono ammessi",
+                "hosts": "Nomi host separati da virgole, con *. iniziale ammesso (senza schema, porta o percorso)",
+                "paths": "Percorsi assoluti separati da virgole, senza spazi"
+            },
+            "fields": {
+                "idleMinutes": {
+                    "label": "Minuti di inattività",
+                    "help": "Una sandbox viene rilasciata quando nessuno la usa da questo tempo (da 1 a 1440)."
+                },
+                "maxHours": {
+                    "label": "Età massima (ore)",
+                    "help": "Oltre questa età una sandbox viene rilasciata al primo momento di quiete (da 1 a 720)."
+                },
+                "warmSandboxes": {
+                    "label": "Sandbox pronte",
+                    "help": "Quante sandbox tenere sempre pronte per le nuove conversazioni (da 0 a 50)."
+                },
+                "sharing": {
+                    "label": "Condivisione",
+                    "help": "Per dominio, le conversazioni di un dominio condividono una sandbox, ognuna nella sua cartella; per conversazione, ognuna ha la sua.",
+                    "options": {
+                        "domain": "Per dominio",
+                        "conversation": "Per conversazione"
+                    }
+                },
+                "previewsEnabled": {
+                    "label": "Anteprime live",
+                    "help": "Gli URL delle anteprime non ereditano i permessi del progetto: chiunque raggiunga il gateway li raggiunge.",
+                    "on": "Attive",
+                    "off": "Disattivate"
+                },
+                "image": {
+                    "label": "Immagine",
+                    "help": "L'immagine container delle nuove sandbox, quando non è impostato un template."
+                },
+                "template": {
+                    "label": "Template",
+                    "help": "Un workload template del gateway: ha la precedenza sull'immagine."
+                },
+                "registryHosts": {
+                    "label": "Host dei registry",
+                    "help": "Host separati da virgole che le nuove sandbox possono raggiungere sulla porta 443, in sola lettura."
+                },
+                "networkBinary": {
+                    "label": "Eseguibili di rete",
+                    "help": "Eseguibili separati da virgole autorizzati a raggiungere quegli host, con il loro percorso reale."
+                }
+            }
+        },
+        "sandboxes": {
+            "title": "Sandbox",
+            "description": "Le sandbox di questa installazione sul gateway, aggiornate ogni 20 secondi. Quelle di altre installazioni che condividono il gateway non sono mostrate.",
+            "empty": "Nessuna sandbox al momento.",
+            "phase_unknown": "in creazione",
+            "shared": "condivisa",
+            "columns": {
+                "name": "Nome",
+                "pool": "Stato",
+                "target": "Al servizio di",
+                "organization": "Organizzazione",
+                "usage": "Utilizzo",
+                "age": "Età",
+                "actions": "Azioni"
+            },
+            "pool": {
+                "warm": "Pronta",
+                "creating": "In creazione",
+                "assigned": "Assegnata",
+                "legacy": "Precedente al pool",
+                "orphan": "Orfana"
+            },
+            "usage": {
+                "running": "In esecuzione",
+                "busy": "Occupata",
+                "idle": "Inattiva",
+                "unknown": "Sconosciuto"
+            },
+            "target": {
+                "domain": "Dominio",
+                "project": "Progetto",
+                "conversation": "Conversazione",
+                "preview": "Anteprima live",
+                "none": "Nessuno: in attesa nel pool"
+            },
+            "logs": {
+                "open": "Log di {{name}}",
+                "title": "Log di {{name}}",
+                "description": "Le ultime 500 righe che il gateway conserva per questa sandbox. Le credenziali sono mascherate.",
+                "refresh": "Aggiorna",
+                "empty": "Il gateway non ha righe di log per questa sandbox.",
+                "load_failed": "Non è stato possibile leggere i log della sandbox."
+            },
+            "delete": {
+                "open": "Elimina {{name}}",
+                "title": "Eliminare la sandbox {{name}}?",
+                "description": "La sandbox viene eliminata dal gateway con tutto il suo contenuto.",
+                "running": "Un job o un'anteprima live sta usando questa sandbox in questo momento: la sua anteprima live si ferma, e il suo prossimo comando crea una nuova sandbox e reinstalla tutto.",
+                "warm": "Il passaggio successivo crea un'altra sandbox pronta al suo posto.",
+                "deleting": "Eliminazione...",
+                "deleted": "Sandbox eliminata",
+                "failed": "Non è stato possibile eliminare la sandbox"
+            }
+        }
     }
 }

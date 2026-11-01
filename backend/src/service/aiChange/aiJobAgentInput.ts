@@ -13,11 +13,12 @@ import { effectiveProbes } from "../../types/Probes"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { projectDesignSystemOf } from "../ProjectService"
+import { effectiveOpenShellConfig } from "../sandbox/sandboxSettings"
 import { keysOnly } from "../VariableMapService"
 import { BackendComponent, componentsOfJob, RepositoryComponent } from "../workspace/repositoryComponent"
 import { AiChangeAgentBackend, AiChangeAgentDomain, AiChangeAgentInput, AiChangeAgentRepository, AiChangeAgentResource } from "./aiChangeAgentTypes"
 import { AiChangeConsoleTools } from "./aiChangeConsoleTools"
-import { jobSandboxOwner, sandboxExecRecorder, sandboxForJob } from "./aiChangeSandboxes"
+import { jobSandboxOwner, sandboxExecRecorder, sandboxForJob, sandboxKeyOf } from "./aiChangeSandboxes"
 import { RunningRepository } from "./aiJobWorkingCopies"
 import { AiChangeApiSpecSource } from "./apiSpecReader"
 
@@ -259,12 +260,14 @@ export const agentInputOf = async (
 ): Promise<AiChangeAgentInput> => {
     const components = repositories.map(repository => repository.component)
     // Independent reads, side by side
-    const [history, { designSystem: projectDesignSystem }, facts, domainResources] = await Promise.all([
+    const [history, { designSystem: projectDesignSystem }, facts, domainResources, sandboxSettings] = await Promise.all([
         historyOf(job),
         // The one a frontend without its own builds with: the project's, else the organization's
         projectDesignSystemOf(project),
         backendFactsOf(project, components, visibleResources),
-        domain ? domainResourcesOf(job.projectId, domain, visibleResources) : []
+        domain ? domainResourcesOf(job.projectId, domain, visibleResources) : [],
+        // What an installation administrator set in the console over the environment
+        effectiveOpenShellConfig(fastify.config)
     ])
     const slugs = pathSlugs(components)
     // The sandbox time of the job is counted as its tokens are: against its organization, project, user, domain and repositories.
@@ -295,9 +298,9 @@ export const agentInputOf = async (
         previousRequests: history ? undefined : await previousRequests(job),
         history,
         ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {}),
-        sandbox: sandboxForJob(fastify.config, job, sandboxOwner),
+        sandbox: sandboxForJob(fastify.config, job, sandboxKeyOf(sandboxSettings.OPENSHELL_SANDBOX_SHARING, job, components), sandboxOwner),
         onSandboxExec: sandboxExecRecorder(job, sandboxOwner),
-        previewsEnabled: fastify.config.OPENSHELL_PREVIEWS_ENABLED,
+        previewsEnabled: sandboxSettings.OPENSHELL_PREVIEWS_ENABLED,
         ...(user ? { consoleTools: new AiChangeConsoleTools(user, String(job.projectId), String(job._id), fastify.log) } : {})
     }
 }

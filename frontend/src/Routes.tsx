@@ -43,6 +43,7 @@ const Integration = lazy(() => import("./pages/integration/Integration"))
 const Environments = lazy(() => import("./pages/environments/Environments"))
 const ProjectUsers = lazy(() => import("./pages/project-users/ProjectUsers"))
 const OrganizationSettings = lazy(() => import("./pages/organization/OrganizationSettings"))
+const Installation = lazy(() => import("./pages/installation/Installation"))
 const Storages = lazy(() => import("./pages/storages/Storages"))
 const AddStorage = lazy(() => import("./pages/storages/AddStorage"))
 const Databases = lazy(() => import("./pages/databases/Databases"))
@@ -170,6 +171,7 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/integration" element={<RouteWithSuspense element={<Integration />} />} />
                 <Route path="/project-users" element={<RouteWithSuspense element={<ProjectUsers />} />} />
                 <Route path="/organization" element={<RouteWithSuspense element={<OrganizationSettings />} />} />
+                <Route path="/installation" element={<RouteWithSuspense element={<Installation />} />} />
                 <Route path="/storages" element={<RouteWithSuspense element={<Storages />} />} />
                 <Route path="/storages/new" element={<RouteWithSuspense element={<AddStorage />} />} />
                 <Route path="/storages/:id" element={<RouteWithSuspense element={<AddStorage />} />} />

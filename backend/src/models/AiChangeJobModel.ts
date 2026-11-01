@@ -56,6 +56,11 @@ export interface IAiChangeJob extends Document<ObjectId> {
     frontendIds: Schema.Types.ObjectId[]
     /** The backends among them, shown after the frontends. */
     backendIds: Schema.Types.ObjectId[]
+    /**
+     * The sandbox the job runs its commands in, set before it asks for one: its domain's, its project's, or its
+     * conversation's. The sweep keeps a sandbox while one of its jobs waits or runs.
+     */
+    sandboxKey?: string
     status: AiJobStatus
     /** How hard the agent reasons: the user's choice, else the parent's for a follow-up, else `high`. */
     effort: LlmEffort
@@ -106,6 +111,7 @@ const aiChangeJobSchema = new Schema<IAiChangeJob>(
         domainId: { type: Schema.Types.ObjectId, ref: "Domain" },
         frontendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Frontend" }], default: [] },
         backendIds: { type: [{ type: Schema.Types.ObjectId, ref: "Backend" }], default: [] },
+        sandboxKey: { type: String },
         status: { type: String, enum: Object.values(AiJobStatus), default: AiJobStatus.PENDING, required: true },
         // Jobs from before the effort could be chosen ran at high: they read so.
         effort: { type: String, enum: [...LLM_EFFORTS], default: "high" },
@@ -136,6 +142,8 @@ aiChangeJobSchema.index({ projectId: 1, userId: 1, createdAt: -1 })
 aiChangeJobSchema.index({ projectId: 1, status: 1 })
 aiChangeJobSchema.index({ projectId: 1, domainId: 1, createdAt: -1 })
 aiChangeJobSchema.index({ parentJobId: 1 })
+// Whether a shared sandbox is still used: the sweep asks once a minute.
+aiChangeJobSchema.index({ sandboxKey: 1, status: 1 }, { partialFilterExpression: { sandboxKey: { $exists: true } } })
 // The jobs of a conversation, and those ended that it has not heard of yet.
 aiChangeJobSchema.index({ assistantConversationId: 1, status: 1 }, { partialFilterExpression: { assistantConversationId: { $exists: true } } })
 aiChangeJobSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 })

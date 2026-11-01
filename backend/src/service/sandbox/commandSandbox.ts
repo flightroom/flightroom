@@ -20,8 +20,10 @@ export interface SandboxExecOptions {
  * console, its credentials, nor the network beyond what its policy allows.
  */
 export interface CommandSandbox {
-    /** The folder everything lives under: the copies of the repositories, the home of the commands. */
+    /** The folder everything of one conversation lives under: the copies of the repositories, its markers and logs. */
     readonly root: string
+    /** The home of the commands, with the caches of the package managers, shared by the conversations of the sandbox; under the root when missing. */
+    readonly home?: string
     /** Runs a program, never through a shell unless the command is one. */
     exec(command: string[], options?: SandboxExecOptions): Promise<SandboxCommandResult>
     /** Exposes a loopback HTTP service through the gateway, when the sandbox supports it. */

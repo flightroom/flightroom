@@ -1,9 +1,10 @@
 import { Sidebar as DesignSystemSidebar, type SidebarProps as DesignSystemSidebarProps, type SidebarNavItemProps } from "@flightroom/design-system"
-import { BookOpen } from "lucide-react"
+import { BookOpen, ServerCog } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
 import { Link, useLocation } from "react-router-dom"
 import useBranding from "@/hooks/useBranding"
+import useUserStore from "@/store/useUserStore"
 import { UserButton } from "./partials/UserButton"
 
 export type { SidebarNavItemProps }
@@ -20,6 +21,9 @@ export type SidebarProps = Omit<DesignSystemSidebarProps, "logo" | "title" | "ma
 }
 
 const EXTERNAL_NAV_ITEMS: SidebarNavItemProps[] = [{ name: "Documentation", path: "https://flightroom.dev/documentation/", icon: <BookOpen /> }]
+
+/** The settings of the whole installation, at the bottom of the sidebar: only its administrators see the link. */
+const INSTALLATION_PATH = "/installation"
 
 /**
  * A section stays highlighted on its detail pages: `/backends` also covers `/backend/:id/...`, and
@@ -41,9 +45,22 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
     const { t } = useTranslation()
     const branding = useBranding()
     const location = useLocation()
+    const { user } = useUserStore()
 
     const mainNavItems = mainNavSections.flatMap(section => section.items).map(item => ({ ...item, active: item.path ? isActivePath(location.pathname, item.path) : false }))
     // La sidebar del design system accetta una lista piatta: il titolo di una sezione lo rende la sua prima voce.
+    const secondaryNavItems: SidebarNavItemProps[] = user?.installationAdmin
+        ? [
+              {
+                  name: t("installation.navigation"),
+                  path: INSTALLATION_PATH,
+                  icon: <ServerCog />,
+                  active: location.pathname === INSTALLATION_PATH,
+                  dataTestId: "sidebar-installation"
+              },
+              ...EXTERNAL_NAV_ITEMS
+          ]
+        : EXTERNAL_NAV_ITEMS
     const sectionTitleByPath = new Map(mainNavSections.flatMap(section => (section.title && section.items[0]?.path ? [[section.items[0].path, section.title] as const] : [])))
 
     return (
@@ -60,7 +77,7 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
                 </Link>
             }
             mainNavItems={mainNavItems}
-            secondaryNavItems={EXTERNAL_NAV_ITEMS}
+            secondaryNavItems={secondaryNavItems}
             footer={({ isCollapsed }) => <UserButton isSidebarCollapsed={isCollapsed} />}
             renderLink={({ href, className, children, onClick }) => {
                 const sectionTitle = sectionTitleByPath.get(href)

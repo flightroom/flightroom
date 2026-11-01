@@ -19,6 +19,8 @@ export interface User {
     marketingConsent?: boolean
     marketingConsentAt?: string
     marketingConsentVersion?: string
+    /** Among INSTALLATION_ADMINS: sees the installation page. Sent with the caller's own profile only. */
+    installationAdmin?: boolean
 }
 
 export interface UserProfileUpdateDTO {

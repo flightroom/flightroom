@@ -4432,5 +4432,135 @@
             "forbidden": "A viewer cannot read the logs of the applications.",
             "invalid": "Choose the pod to read the logs of."
         }
+    },
+    "installation": {
+        "navigation": "Installation",
+        "title": "Installation",
+        "subtitle": "Settings of the whole installation, for its administrators: the sandboxes where Edit with AI runs code.",
+        "not_admin": "Only an installation administrator, one of the emails in INSTALLATION_ADMINS, can see this page.",
+        "pool": {
+            "warm": "Warm, ready to hand out",
+            "creating": "Being created for the pool",
+            "assigned": "Serving a domain, project or conversation",
+            "hint": "A new conversation takes a warm sandbox instead of waiting for one. A sandbox goes back only to the organization it last served: the caches in its home may hold that organization's private packages. Its time in the pool is billed to nobody."
+        },
+        "settings": {
+            "title": "Sandbox settings",
+            "description": "Leave a field empty to use the value of its environment variable, shown as the placeholder. A change reaches every replica within 30 seconds.",
+            "updated_at": "Last changed {{time}}.",
+            "saved": "Sandbox settings saved",
+            "save_failed": "The sandbox settings could not be saved",
+            "environment_value": "Environment: {{value}}.",
+            "unset": "not set",
+            "use_environment": "Environment value ({{value}})",
+            "reach_warning": {
+                "title": "What the sandbox runs and may reach",
+                "description": "The image, the template, the registry hosts and the network executables decide what code the sandbox runs and which hosts it can reach: every host you add can be reached by the repositories' install scripts and tests. They apply to new sandboxes only; warm sandboxes created otherwise are replaced at the next sweep."
+            },
+            "validation": {
+                "range": "A whole number from {{min}} to {{max}}",
+                "no_spaces": "No spaces allowed",
+                "hosts": "Comma separated host names, a leading *. allowed (no scheme, port or path)",
+                "paths": "Comma separated absolute paths, without spaces"
+            },
+            "fields": {
+                "idleMinutes": {
+                    "label": "Idle minutes",
+                    "help": "A sandbox is let go once nobody has used it for this long (1 to 1440)."
+                },
+                "maxHours": {
+                    "label": "Maximum age (hours)",
+                    "help": "Past this age a sandbox is let go at the first quiet moment (1 to 720)."
+                },
+                "warmSandboxes": {
+                    "label": "Warm sandboxes",
+                    "help": "How many sandboxes are always kept ready for new conversations (0 to 50)."
+                },
+                "sharing": {
+                    "label": "Sharing",
+                    "help": "By domain, the conversations of a domain share a sandbox, each in its own folder; by conversation, each has its own.",
+                    "options": {
+                        "domain": "By domain",
+                        "conversation": "By conversation"
+                    }
+                },
+                "previewsEnabled": {
+                    "label": "Live previews",
+                    "help": "Preview URLs do not inherit project permissions: anyone who reaches the gateway reaches them.",
+                    "on": "Enabled",
+                    "off": "Disabled"
+                },
+                "image": {
+                    "label": "Image",
+                    "help": "The container image of new sandboxes, when no template is set."
+                },
+                "template": {
+                    "label": "Template",
+                    "help": "A workload template of the gateway: it wins over the image."
+                },
+                "registryHosts": {
+                    "label": "Registry hosts",
+                    "help": "Comma separated hosts new sandboxes may reach on port 443, read-only."
+                },
+                "networkBinary": {
+                    "label": "Network executables",
+                    "help": "Comma separated executables allowed to reach those hosts, by their real path."
+                }
+            }
+        },
+        "sandboxes": {
+            "title": "Sandboxes",
+            "description": "The sandboxes of this installation on the gateway, refreshed every 20 seconds. Those of other installations sharing the gateway are not shown.",
+            "empty": "No sandbox at the moment.",
+            "phase_unknown": "being created",
+            "shared": "shared",
+            "columns": {
+                "name": "Name",
+                "pool": "State",
+                "target": "Serves",
+                "organization": "Organization",
+                "usage": "Usage",
+                "age": "Age",
+                "actions": "Actions"
+            },
+            "pool": {
+                "warm": "Warm",
+                "creating": "Creating",
+                "assigned": "Assigned",
+                "legacy": "Before the pool",
+                "orphan": "Orphan"
+            },
+            "usage": {
+                "running": "Running",
+                "busy": "Busy",
+                "idle": "Idle",
+                "unknown": "Unknown"
+            },
+            "target": {
+                "domain": "Domain",
+                "project": "Project",
+                "conversation": "Conversation",
+                "preview": "Live preview",
+                "none": "Nothing: waiting in the pool"
+            },
+            "logs": {
+                "open": "Logs of {{name}}",
+                "title": "Logs of {{name}}",
+                "description": "The last 500 lines the gateway keeps for this sandbox. Credentials are masked.",
+                "refresh": "Refresh",
+                "empty": "The gateway has no log line for this sandbox.",
+                "load_failed": "The logs of the sandbox could not be read."
+            },
+            "delete": {
+                "open": "Delete {{name}}",
+                "title": "Delete sandbox {{name}}?",
+                "description": "The sandbox is deleted from the gateway with everything in it.",
+                "running": "A job or a live preview is using this sandbox right now: its live preview stops, and its next command creates a new sandbox and installs everything again.",
+                "warm": "The next sweep creates another warm sandbox in its place.",
+                "deleting": "Deleting...",
+                "deleted": "Sandbox deleted",
+                "failed": "The sandbox could not be deleted"
+            }
+        }
     }
 }

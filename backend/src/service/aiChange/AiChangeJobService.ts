@@ -230,9 +230,10 @@ export class AiChangeJobService extends AiChangeJobQueryService {
         // The transcript keeps no provider's own data, so a follow-up may run on another AI than its parent.
         const aiModel = await this.aiModels().resolveForProject(parent.projectId, input.aiModelId, parent.aiModelId)
         if (parent.status !== AiJobStatus.DONE) throw notDone()
-        // Two follow-ups of the same job would both start from its proposals, and the second to finish would win.
-        const runningChild = await AiChangeJob.exists({ parentJobId: parent._id, status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh() })
-        if (runningChild) throw followUpRunning("A follow-up of this job is still running: wait for it to finish")
+        // Two follow-ups of the same job would both start from its proposals, and the second to finish would win; two of
+        // one conversation, even of different jobs, would also share the folder of its copies in the sandbox.
+        const runningInChain = await AiChangeJob.exists({ rootJobId: parent.rootJobId, status: { $in: ACTIVE_JOB_STATUSES }, updatedAt: fresh() })
+        if (runningInChain) throw followUpRunning("A job of this conversation is still running: wait for it to finish")
 
         const parentRequests = await AiChangeRequest.find({ jobId: parent._id }, WITHOUT_CONTENTS)
         const requestOf = (componentId: string) => parentRequests.find(request => componentIdOf(request) === componentId)

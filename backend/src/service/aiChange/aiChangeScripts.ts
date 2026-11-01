@@ -171,22 +171,51 @@ const previewPortOf = (repository: ScriptRepository) => {
     return Number.isInteger(port) && port !== undefined && port > 0 && port <= 65_535 ? port : 3000
 }
 
-const packagePreview = (repository: ScriptRepository, manifest: PackageManifest, manager: PackageManager): PreviewPlan | undefined => {
+/**
+ * Stops the dev server an earlier run of the conversation left for the repository, its whole process group (the
+ * package manager's children too), then prints the port its preview listens on: its own when free, else any free
+ * one, as another conversation of a shared sandbox may hold it. Given the pid file, the port and the probe.
+ */
+// No `--` before the group: dash, the sh of Debian images, refuses it. The wait lets the old server free its port.
+const STOP_PREVIEW_AND_FIND_PORT = [
+    'if [ -f "$0" ]; then',
+    '  pid=$(cat "$0"); rm -f "$0"',
+    '  kill -TERM "-$pid" 2>/dev/null || kill -TERM "$pid" 2>/dev/null',
+    '  tries=0; while kill -0 "$pid" 2>/dev/null && [ "$tries" -lt 50 ]; do sleep 0.1; tries=$((tries + 1)); done',
+    "fi",
+    'exec node -e "$2" "$1"'
+].join("\n")
+
+const FIND_PORT =
+    "const net=require('net');const listen=port=>{const server=net.createServer();server.once('error',()=>port?listen(0):process.exit(1));server.listen(port,'0.0.0.0',()=>{const found=server.address().port;server.close(()=>console.log(found))})};listen(Number(process.argv[1]))"
+
+/** Starts the dev server in a session of its own, so that stopping its group stops it whole; writes its pid. Given the log, the pid file, then the command. */
+const START_PREVIEW = [
+    'set -e; log=$0; pidfile=$1; shift; mkdir -p "$(dirname "$log")" "$(dirname "$pidfile")"',
+    'if command -v setsid >/dev/null 2>&1; then setsid nohup "$@" </dev/null >"$log" 2>&1 & else nohup "$@" </dev/null >"$log" 2>&1 & fi',
+    'echo $! > "$pidfile"; echo $!'
+].join("\n")
+
+const packagePreview = (repository: ScriptRepository, manifest: PackageManifest, manager: PackageManager, port: number): PreviewPlan | undefined => {
     const scripts = manifest.scripts ?? {}
     const script = ["dev", "start", "serve"].find(name => typeof scripts[name] === "string")
     if (!script) return undefined
-    const port = previewPortOf(repository)
     const command = commandFor(manager, script)
     if (repository.kind === "frontend") command.push("--", "--host", "0.0.0.0", "--port", String(port))
     return { command, port, ...(repository.kind === "backend" ? { environment: { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) } } : {}) }
 }
 
-/** Builds a preview command from the registered runtime and files at the repository root. */
-export const previewPlanFor = (repository: ScriptRepository, files: Set<string>, manifest: PackageManifest | undefined, manager?: PackageManager): PreviewPlan | undefined => {
+/** Builds a preview command from the registered runtime and files at the repository root, on its own port unless given another. */
+export const previewPlanFor = (
+    repository: ScriptRepository,
+    files: Set<string>,
+    manifest: PackageManifest | undefined,
+    manager?: PackageManager,
+    port = previewPortOf(repository)
+): PreviewPlan | undefined => {
     if (!repository.kind) return undefined
-    const port = previewPortOf(repository)
     if (repository.kind === "frontend" || !repository.runtime || repository.runtime === "NODE") {
-        return manifest && manager ? packagePreview(repository, manifest, manager) : undefined
+        return manifest && manager ? packagePreview(repository, manifest, manager, port) : undefined
     }
 
     const environment = { HOST: "0.0.0.0", PORT: String(port), HTTP_PORT: String(port) }
@@ -550,7 +579,8 @@ export class AiChangeScriptRunner {
             }
             const manifest = files.has("package.json") ? await this.manifestOf(repository) : undefined
             const manager = manifest ? await this.managerOf(repository, manifest) : undefined
-            const plan = previewPlanFor(repository, files, manifest, manager)
+            const pidfile = `${sandbox.root}/previews/${repository.slug}.pid`
+            const plan = previewPlanFor(repository, files, manifest, manager, await this.previewPort(sandbox, repository, pidfile))
             if (!plan) throw new Error(`No development server is configured for ${repository.runtime ?? repository.kind}`)
             if (plan.install) {
                 const installed = await sandbox.exec(plan.install, {
@@ -563,7 +593,7 @@ export class AiChangeScriptRunner {
             }
 
             const log = `${sandbox.root}/logs/${repository.slug}-preview.log`
-            const started = await sandbox.exec(["sh", "-c", 'set -e; mkdir -p "$(dirname "$0")"; nohup "$@" </dev/null >"$0" 2>&1 & echo $!', log, ...plan.command], {
+            const started = await sandbox.exec(["sh", "-c", START_PREVIEW, log, pidfile, ...plan.command], {
                 workdir: this.folderOf(sandbox, repository),
                 environment: {
                     ...this.environmentOf(sandbox, repository, true),
@@ -587,7 +617,9 @@ export class AiChangeScriptRunner {
             if (!sandbox.exposeService) throw new Error("The sandbox does not support exposed services")
 
             const kind = repository.kind
-            const name = `preview-${kind === "frontend" ? "fe" : "be"}-${createHash("sha256").update(repository.slug).digest("hex").slice(0, 8)}`
+            // The folder of the conversation in the name: two conversations of a shared sandbox preview the same repository apart.
+            const folder = `${sandbox.root}/${repository.slug}`
+            const name = `preview-${kind === "frontend" ? "fe" : "be"}-${createHash("sha256").update(folder).digest("hex").slice(0, 8)}`
             url = await sandbox.exposeService(plan.port, name)
         } catch (error) {
             if (this.signal?.aborted) throw error
@@ -597,6 +629,17 @@ export class AiChangeScriptRunner {
         }
         await this.onPreview?.("info", `preview-ready|${repository.kind}|${repository.slug}|${encodeURIComponent(url)}`)
         return url
+    }
+
+    /**
+     * The port of the repository's preview, once the one an earlier run of the conversation left is stopped: its
+     * own unless another conversation of the sandbox holds it. Its own when the sandbox cannot tell.
+     */
+    private async previewPort(sandbox: CommandSandbox, repository: ScriptRepository, pidfile: string): Promise<number> {
+        const wanted = previewPortOf(repository)
+        const found = await sandbox.exec(["sh", "-c", STOP_PREVIEW_AND_FIND_PORT, pidfile, String(wanted), FIND_PORT], { timeoutSecs: 35, signal: this.signal })
+        const port = Number(found.output.trim())
+        return found.exitCode === 0 && Number.isInteger(port) && port > 0 && port <= 65_535 ? port : wanted
     }
 
     private folderOf(sandbox: CommandSandbox, repository: ScriptRepository) {
@@ -618,7 +661,7 @@ export class AiChangeScriptRunner {
         return {
             ...(install ? {} : { CI: "true" }),
             ...(npmrc && repository.npmrc ? { npm_config_userconfig: this.npmrcOf(sandbox, repository) } : {}),
-            HOME: `${sandbox.root}/home`,
+            HOME: sandbox.home ?? `${sandbox.root}/home`,
             COREPACK_ENABLE_DOWNLOAD_PROMPT: "0",
             NO_COLOR: "1",
             FORCE_COLOR: "0"

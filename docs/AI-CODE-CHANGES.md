@@ -325,15 +325,64 @@ under CI pnpm and yarn freeze the lockfile and the install fails as soon as the 
 The code runs in a sandbox, never in the console's pod: install scripts, build configurations and tests
 are the repository's code, and the console holds the repository tokens, the database and the model keys.
 
-- **One sandbox per conversation.** It is created at the first script of a request and named after the
-  first job of the chain, so the follow-ups reuse it and find `node_modules` already installed.
-- **Deleted when idle.** Once no job of the conversation has waited, run or ended for
-  `OPENSHELL_SANDBOX_IDLE_MINUTES` (5), the sandbox is deleted. Every replica sweeps once a minute and
-  tells what is idle from the database, so a sandbox outlives neither the replica that created it nor a
-  restart.
+- **One sandbox per domain.** With `OPENSHELL_SANDBOX_SHARING=domain` (the default) the conversations of a
+  domain share a sandbox: a request on a domain uses that domain's, one on single frontends or backends
+  uses the domain they are all in, and anything else (repositories of several domains, or of none) uses
+  the project's. The sandbox is created at the first script of the first of them. Each conversation
+  keeps its copies, markers, logs and previews in a folder of its own (`spaces/<first job of the chain>`),
+  so requests running side by side never touch each other's files, and its follow-ups find
+  `node_modules` already installed. The home of the commands, with the caches of npm, pnpm, Maven and pip,
+  is shared: an install already done by another conversation of the domain downloads almost nothing.
+  Its users see the same code anyway; a command can still read the other folders and stop the other
+  processes of the sandbox. Size the requests and limits of the sandbox template for several
+  conversations at once: one running out of memory takes the others down with it.
+  `OPENSHELL_SANDBOX_SHARING=conversation` goes back to one sandbox per conversation.
+- **Let go when idle.** Once no job using a sandbox has waited, run or ended for
+  `OPENSHELL_SANDBOX_IDLE_MINUTES` (5), the sandbox goes back into the warm pool when the pool lacks
+  one, else it is deleted. In a shared sandbox still in use, the
+  folder of each conversation idle for as long is removed and its dev servers stopped, within five
+  minutes. Past `OPENSHELL_SANDBOX_MAX_HOURS` (24) a sandbox is deleted at the first sweep that finds
+  none of its jobs waiting or running, so a domain always busy still gets a clean one every day. Every
+  replica sweeps once a minute and tells what is idle from the database, so a sandbox outlives neither
+  the replica that created it nor a restart.
+- **Warm pool.** With `OPENSHELL_SANDBOX_WARM` above 0 (the default is 0) the installation keeps that many
+  sandboxes created and unassigned, so a new conversation does not wait minutes for its image to be
+  pulled. A sandbox let go returns to the pool while it lacks one, emptied: the dev servers of its
+  conversations stopped, every conversation folder removed, the home with the caches of the package
+  managers kept; nobody can claim it until it is, and one where something was written in the last two
+  minutes is deleted instead. It goes back only to the organization it last served, never to another one: those
+  caches may hold the private packages of its registry. A key without a sandbox takes a warm one
+  recycled by its organization first, else one never used, else a new one is created. A sandbox past
+  `OPENSHELL_SANDBOX_MAX_HOURS`, or created with another image, template or network policy than the
+  current ones, is deleted instead of being handed out again, and the sweep creates the warm sandboxes
+  missing. Its lifetime counts from when a key takes it to when it lets it go: the minutes it waits in
+  the pool are billed to nobody, as the ledger counts against a project. What each sandbox serves is
+  kept in the database (`aisandboxes`), since the labels of a sandbox cannot change on the gateway: one
+  sandbox per key and one per slot of the pool, so replicas creating, claiming or recycling at once end
+  up with one each. Sandboxes made before the pool keep the conversation label and go as they did.
+- **Settings from the console.** An installation administrator, a user whose email is in
+  `INSTALLATION_ADMINS` (comma separated, any case; unset, nobody), sees **Installation** at the bottom
+  of the sidebar. The email alone grants it: without SMTP registration verifies no address, so list
+  only emails whose account already exists, or whoever signs up first with one becomes administrator.
+  A template set in the environment wins over the image saved here, and the page cannot clear it. Its page changes for the whole installation the idle minutes, the maximum age, the
+  sharing, the live previews, the warm sandboxes, the image, the template, the registry hosts and the
+  network executables: a field left empty is its environment variable's value, which stays the
+  default. Each replica reads them again at most every 30 seconds. The image, the template and the
+  network policy apply to new sandboxes only, and decide what the sandbox runs and may reach: the page
+  says so, and the API checks every host and path. Each save is logged with
+  `audit: "sandbox_settings_updated"`. The same page shows the gateway, the pool and the sandboxes of
+  this installation (never another one's): what each one serves, its organization, whether it is
+  used, its age, the last 500 lines of its log with credentials masked, and a button that deletes it
+  with its lifetime closed (`audit: "sandbox_deleted"`). A job using a sandbox deleted there loses its
+  live preview and runs its next command in a new one. The API is under `/api/installation`, for
+  console sessions only.
+- **One job of a conversation at a time.** A follow-up is refused while any job of the same
+  conversation still waits or runs, not only a follow-up of the same job: two of them would share the
+  conversation's folder.
 - **Owned by the installation.** Each sandbox carries the label `flightroom.dev/owner`, the installation
-  id kept in the database (or `OPENSHELL_SANDBOX_OWNER`), and its name hashes it together with the
-  conversation. Installations sharing a gateway and a workspace see each other's sandboxes, and the sweep
+  id kept in the database (or `OPENSHELL_SANDBOX_OWNER`), and a random name, as a sandbox of the pool
+  serves one key after another; one made before the pool has a name that hashes the owner together with
+  the conversation. Installations sharing a gateway and a workspace see each other's sandboxes, and the sweep
   deletes only its own: a conversation it has no record of is another installation's, not an idle one.
   Two installations restored from one database share its id: give each its own `OPENSHELL_SANDBOX_OWNER`.
   Changing the owner leaves the sandboxes of the old one to nobody: delete them by their label. Every
@@ -368,7 +417,10 @@ are the repository's code, and the console holds the repository tokens, the data
   database, no Docker, no internal service, so a command cannot run integration tests that need them.
 - **Live previews.** When OpenShell is configured, frontend development scripts (`dev`,
   `start` or `serve`) for React, Vue and Angular, and backend servers for Node.js, FastAPI/Flask/Django,
-  Spring Boot/Quarkus/Micronaut, Go and .NET. Frontends use port 5173; backends use their configured port.
+  Spring Boot/Quarkus/Micronaut, Go and .NET. Frontends use port 5173 and backends their configured
+  port, each a free one instead when another conversation of the sandbox holds it (a backend must read
+  its port from `PORT` or `HTTP_PORT`). A new preview of the same repository in the same conversation stops the one
+  before it.
   Python requirements are installed from `requirements.txt` or `pyproject.toml`; Java build tools, Go and
   .NET restore dependencies when their development command starts. The default `node:24-bookworm-slim`
   image only contains Node.js: use `OPENSHELL_SANDBOX_TEMPLATE` or `OPENSHELL_SANDBOX_IMAGE` with the
@@ -378,8 +430,7 @@ are the repository's code, and the console holds the repository tokens, the data
   backend previews are started when the agent finishes so frontends can call their APIs; select a
   frontend to switch the embedded view, and use the backend links to open APIs. Previews are enabled
   by default; set `OPENSHELL_PREVIEWS_ENABLED=false` to disable them. The preview process runs
-  only until the sandbox is swept after the conversation is
-  idle. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
+  only until the conversation is idle: then its folder, or the whole sandbox, is swept. OpenShell service URLs do not inherit Flightroom project authorization: anyone able to reach
   the gateway URL can reach the preview. Enable this only on a trusted, isolated gateway; disable it
   otherwise. The **View live preview** button in frontend and domain workspaces starts its own preview from the
   default branch, without an AI job (see [How it works](#how-it-works)); its URL is the sandbox's, not a
@@ -409,7 +460,9 @@ on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime clas
 | `OPENSHELL_SANDBOX_ROOT`         | `/sandbox`              | Where the copies and the caches live inside the sandbox.                         |
 | `OPENSHELL_REGISTRY_HOSTS`       | npm, Maven, PyPI, Go, NuGet | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
 | `OPENSHELL_NETWORK_BINARY`       | Node, Java, Python, Go, .NET | Comma separated executables allowed to reach them: their real paths, not symlinks. |
-| `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is deleted once its conversation has been idle this long.              |
+| `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is let go once its conversation has been idle this long.               |
+| `OPENSHELL_SANDBOX_WARM`         | `0`                     | How many sandboxes are kept created and unassigned for new conversations.        |
+| `INSTALLATION_ADMINS`            |                         | Comma separated emails of who changes the sandbox settings from the console.     |
 | `OPENSHELL_SANDBOX_OWNER`        | installation id         | The owner label of this installation's sandboxes. Set it apart on installations that share a gateway and were restored from one database. |
 | `OPENSHELL_PREVIEWS_ENABLED`     | `true`                  | Starts and exposes development servers; set `false` to disable. Preview URLs are public to anyone who can reach the gateway. |
 
@@ -427,4 +480,5 @@ per user, like the assistant. The token usage of each request is stored and show
 missions apart from the others; when its AI has configured token rates, the estimated cost, in the currency of
 the AI (USD or EUR), is shown alongside it. With a sandbox the console also counts, by job, mission or live
 preview, the scripts and commands run and how long they ran, and how long each sandbox lived from its creation
-to its deletion, idle minutes included: a sandbox still alive is counted once it is deleted.
+to its deletion, idle minutes included: a sandbox still alive is counted once it is deleted. A sandbox of the
+warm pool counts from when a key takes it to when it lets it go; its minutes in the pool are nobody's.

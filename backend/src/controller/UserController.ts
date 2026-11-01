@@ -11,9 +11,13 @@ import { UserInvitationDTO } from "../types/UserInvitationDTO"
 import UserLoginDTO from "../types/UserLoginDTO"
 import UserProfileUpdateDTO from "../types/UserProfileUpdateDTO"
 import UserRegistrationDTO from "../types/UserRegistrationDTO"
+import { isInstallationAdmin } from "../utils/installationAdmins"
 
 export async function UserController(fastify: FastifyInstance) {
     const userService = new UserService()
+    // Every answer about the caller's own account says whether they administer the installation: the console stores the
+    // profile it gets back, and shows the installation page only to them.
+    const ownProfile = <T extends object>(profile: T, email: string | undefined) => ({ ...profile, installationAdmin: isInstallationAdmin(email, fastify.config.INSTALLATION_ADMINS) })
 
     fastify.post<{
         Body: UserRegistrationDTO
@@ -74,7 +78,7 @@ export async function UserController(fastify: FastifyInstance) {
     })
 
     fastify.get("/users/profile", async (req, res) => {
-        return res.send(await userService.getProfile(req.databaseUser._id))
+        return res.send(ownProfile(await userService.getProfile(req.databaseUser._id), req.databaseUser.email))
     })
 
     fastify.post<{
@@ -98,18 +102,21 @@ export async function UserController(fastify: FastifyInstance) {
         // caller's own account, so anything extra that arrived here would be a
         // user editing parts of their document they are not allowed to touch.
         return res.send(
-            await userService.updateProfile(
-                {
-                    name: req.body.name,
-                    surname: req.body.surname
-                },
-                req.databaseUser._id
+            ownProfile(
+                await userService.updateProfile(
+                    {
+                        name: req.body.name,
+                        surname: req.body.surname
+                    },
+                    req.databaseUser._id
+                ),
+                req.databaseUser.email
             )
         )
     })
 
     fastify.put<{ Body: { marketingConsent: boolean } }>("/users/marketing-consent", async (req, res) => {
-        return res.send(await userService.setMarketingConsent(req.body.marketingConsent === true, req.databaseUser._id))
+        return res.send(ownProfile(await userService.setMarketingConsent(req.body.marketingConsent === true, req.databaseUser._id), req.databaseUser.email))
     })
 
     fastify.get("/users/profile/avatar", async (req, res) => {
