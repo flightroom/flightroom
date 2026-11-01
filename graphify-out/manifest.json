@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793568800.9844468,
-    "ast_hash": "b6bd66ae078955bfa5852f1de72a8109",
+    "mtime": 1793568967.587443,
+    "ast_hash": "bcb1eb7d94b0d86c390482e73cd9bed7",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4690,8 +4690,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendActions.tsx": {
-    "mtime": 1793005820.6224751,
-    "ast_hash": "39aa355e6bd166a09e8c6116601c86c0",
+    "mtime": 1793568948.8877113,
+    "ast_hash": "8ebf79e86f91e76e3a18be7d690d2781",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/ComponentBuildAndDeployButton.tsx": {
@@ -4700,8 +4700,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendActions.tsx": {
-    "mtime": 1793005820.6358767,
-    "ast_hash": "af047627953fe526061a8a7a90c6bae5",
+    "mtime": 1793568948.8880079,
+    "ast_hash": "2a0c401e8ce694bef08e82dac6b9feec",
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.test.ts": {

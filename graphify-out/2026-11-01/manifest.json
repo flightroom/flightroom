@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793568270.7866876,
-    "ast_hash": "7633f993712f2354833bb1be3079a31e",
+    "mtime": 1793568744.246173,
+    "ast_hash": "486dc35017765a09387a4cbd81defb6b",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793568270.7847457,
-    "ast_hash": "f5739b7060ea1a0a0ce4fa7a052855e7",
+    "mtime": 1793568744.2445703,
+    "ast_hash": "606c6cba0d5f26d3ad00636a115f878c",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793568281.07324,
-    "ast_hash": "77bc13c5b944f2bebefba579b022c42e",
+    "mtime": 1793568800.9844468,
+    "ast_hash": "b6bd66ae078955bfa5852f1de72a8109",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4560,8 +4560,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/BackendDetail.tsx": {
-    "mtime": 1793568062.6987329,
-    "ast_hash": "3de5cb9d0771b546e371e930595e0142",
+    "mtime": 1793568788.765211,
+    "ast_hash": "87791fb6dbcaff6cbd821ea9a2f619f3",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/Backends.tsx": {
@@ -4665,13 +4665,13 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendConfigurationSection.tsx": {
-    "mtime": 1793558461.1409597,
-    "ast_hash": "964bbfda2de95689b5e5d7bbec28264d",
+    "mtime": 1793568766.5101304,
+    "ast_hash": "5a00584b8928229fac84d4248ad14784",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/FrontendOverview.tsx": {
-    "mtime": 1793568062.1073263,
-    "ast_hash": "3faec5fbb643f721d4caf9bfca5f4bd7",
+    "mtime": 1793568788.765211,
+    "ast_hash": "4646eb7a6d8d6365ae62a78e46ea12da",
     "semantic_hash": ""
   },
   "frontend/src/pages/project-users/partials/MemberAiTokens.tsx": {
@@ -5605,8 +5605,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/EnvironmentVersionFields.tsx": {
-    "mtime": 1793373895.7689986,
-    "ast_hash": "781d84a7f3a53180012a5bc29b7a2911",
+    "mtime": 1793568733.2217941,
+    "ast_hash": "edc49f992871c19875d1cccc1b582eff",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/environmentVersions.ts": {
