@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793566767.3452935,
-    "ast_hash": "3f0f2d2aed30b412e2fc183b93fe3ef0",
+    "mtime": 1793567499.2796378,
+    "ast_hash": "1e175c2a9c571ae4fd8744f7d46500bb",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2920,8 +2920,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/Domains.tsx": {
-    "mtime": 1793566754.1464624,
-    "ast_hash": "f1d73e9d26d7e5d44c76bda2df0821b5",
+    "mtime": 1793567489.9964967,
+    "ast_hash": "a09fc5b6eef4d0052d1659fc8361b9ea",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainFilter.tsx": {
@@ -3850,8 +3850,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendCard.tsx": {
-    "mtime": 1793566754.1460972,
-    "ast_hash": "f6a6ada225984397a6a3b7db7a599cee",
+    "mtime": 1793567454.8021684,
+    "ast_hash": "7ee5ef73c16fcfa22a747d167022a3c7",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendHeader.tsx": {
@@ -4630,8 +4630,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendsGrid.tsx": {
-    "mtime": 1793566760.1034524,
-    "ast_hash": "48fe8e94f375704483adb3c976a30f4a",
+    "mtime": 1793567454.8050454,
+    "ast_hash": "abf5d148ca4e99304019c2aa2afb6bd8",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendsTable.tsx": {
@@ -5975,8 +5975,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/EntityCardActions.tsx": {
-    "mtime": 1793566684.0151966,
-    "ast_hash": "eaf19bf7777515be2dc8988c6dc8bc8d",
+    "mtime": 1793567463.824591,
+    "ast_hash": "eeac01c010620674db0d7cedefda01be",
     "semantic_hash": ""
   }
 }

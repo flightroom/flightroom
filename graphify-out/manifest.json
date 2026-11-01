@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793567499.2796378,
-    "ast_hash": "1e175c2a9c571ae4fd8744f7d46500bb",
+    "mtime": 1793567543.7328858,
+    "ast_hash": "a4adf3c65d482b76f65201a999f68cf4",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3850,8 +3850,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendCard.tsx": {
-    "mtime": 1793567454.8021684,
-    "ast_hash": "7ee5ef73c16fcfa22a747d167022a3c7",
+    "mtime": 1793567535.9431045,
+    "ast_hash": "0988c3a4c65f6ca09b47fe8aa6308956",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendHeader.tsx": {
@@ -4630,8 +4630,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendsGrid.tsx": {
-    "mtime": 1793567454.8050454,
-    "ast_hash": "abf5d148ca4e99304019c2aa2afb6bd8",
+    "mtime": 1793567535.9483514,
+    "ast_hash": "b139e84200f400bc961af0006047f136",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendsTable.tsx": {
