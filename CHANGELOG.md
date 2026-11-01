@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **The Screens Of A Card As Three Squares**: the cards of the **Domains**, **Frontends** and **Backends** pages open Edit with AI, the overview and the settings from three large squares side by side, each with its icon alone and its name in the tooltip and to screen readers, instead of a full-width button and two labelled ones. On a frontend and on a backend a fourth square clones the repository, the popover with the HTTPS and SSH commands and the VS Code and IntelliJ links, which the card of a backend had not; a card without Edit with AI or without a repository has one square fewer. The cards no longer show the slug under the name nor the name of the repository, and the card of a backend no longer repeats its technology in a badge: its logo already shows it
+
 ## [13.5.0] - 2026-11-01
 
 ### Added

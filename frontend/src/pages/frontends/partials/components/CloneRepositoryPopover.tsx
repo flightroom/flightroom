@@ -2,14 +2,18 @@ import { CopyButton, Popover, PopoverContent, PopoverTrigger } from "@flightroom
 import { Code, GitBranch, Terminal } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
+import { ActionTile } from "@/components/EntityCardActions"
 import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { buildGitCloneCommand, buildIntelliJCloneUrl, buildVsCodeCloneUrl } from "@/utils/repositoryCloneUrls"
 
 interface CloneRepositoryPopoverProps {
-    frontend: Frontend
+    /** A frontend or a backend: both keep their repository the same way. */
+    frontend: Pick<Frontend, "codeRepository">
     className?: string
     /** Renders the trigger as a compact icon-only button, for tight spots like the flow nodes. */
     iconOnly?: boolean
+    /** Renders the trigger as a large square among the actions of a card. */
+    tile?: boolean
 }
 
 interface CloneUrlRowProps {
@@ -44,7 +48,7 @@ const IdeCloneButton: React.FC<IdeCloneButtonProps> = ({ label, href, icon, vari
     </Button>
 )
 
-export const CloneRepositoryPopover: React.FC<CloneRepositoryPopoverProps> = ({ frontend, className, iconOnly = false }) => {
+export const CloneRepositoryPopover: React.FC<CloneRepositoryPopoverProps> = ({ frontend, className, iconOnly = false, tile = false }) => {
     const { t } = useTranslation("platform")
 
     const httpsUrl = frontend.codeRepository?.cloneUrlHttps
@@ -58,10 +62,20 @@ export const CloneRepositoryPopover: React.FC<CloneRepositoryPopoverProps> = ({ 
     return (
         <Popover>
             <PopoverTrigger asChild>
-                <Button variant="secondary" size={iconOnly ? "icon-sm" : "sm"} className={className} title={iconOnly ? t("frontend.clone.button") : undefined} aria-label={t("frontend.clone.button")}>
-                    <GitBranch />
-                    {!iconOnly && t("frontend.clone.button")}
-                </Button>
+                {tile ? (
+                    <ActionTile label={t("frontend.clone.button")} icon={<GitBranch />} className={className} />
+                ) : (
+                    <Button
+                        variant="secondary"
+                        size={iconOnly ? "icon-sm" : "sm"}
+                        className={className}
+                        title={iconOnly ? t("frontend.clone.button") : undefined}
+                        aria-label={t("frontend.clone.button")}
+                    >
+                        <GitBranch />
+                        {!iconOnly && t("frontend.clone.button")}
+                    </Button>
+                )}
             </PopoverTrigger>
             <PopoverContent align="end" className="flex w-80 flex-col gap-3">
                 <div>

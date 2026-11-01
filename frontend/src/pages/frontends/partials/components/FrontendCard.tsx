@@ -1,10 +1,11 @@
-import { DescriptionItem, DescriptionList, EntityCard, Meter } from "@flightroom/design-system"
-import { GitBranch, Info, Settings, Sparkles, UsersRound } from "lucide-react"
+import { EntityCard, Meter } from "@flightroom/design-system"
+import { Info, Settings, Sparkles, UsersRound } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
-import { Badge, Button } from "@/components/atoms"
+import { Badge } from "@/components/atoms"
+import EntityCardActions from "@/components/EntityCardActions"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { cn } from "@/utils/styleUtils"
@@ -26,7 +27,6 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
     // On User has no traffic share: the canary goes to the enrolled users, so a bar at 0% would read
     // as "nobody sees it".
     const showCanaryShare = Boolean(canary) && canary?.type !== CanaryType.ON_USER
-    const hasRepository = Boolean(mfe.codeRepository?.enabled)
     const agents = useWorkingAgents(mfe._id)
     const aiAvailable = isAiEditAvailable(mfe, useProjectAiModels().enabled)
     const technology = frontendTechnologyOf(mfe)
@@ -34,7 +34,6 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
     return (
         <EntityCard
             name={mfe.name}
-            subtitle={mfe.slug}
             logo={technology && <TechnologyLogo technology={technology} />}
             status={agents > 0 && <WorkingAgentsIndicator agents={agents} className="max-w-full" />}
             badges={
@@ -45,46 +44,18 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
             }
             className={cn(agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}
             // The screens of the frontend, as in its header, and the clone of its repository
-            primaryAction={
-                aiAvailable && (
-                    <Button variant="primary" size="sm" onClick={() => navigate(`/frontend/${mfe._id}`)}>
-                        <Sparkles />
-                        {t("frontend.workspace.nav_ai")}
-                    </Button>
-                )
-            }
             actions={
-                <>
-                    <Button variant="secondary" size="sm" onClick={() => navigate(`/frontend/${mfe._id}/overview`)}>
-                        <Info />
-                        {t("frontend.workspace.nav_overview")}
-                    </Button>
-                    <Button variant="secondary" size="sm" onClick={() => navigate(`/frontend/${mfe._id}/settings`)}>
-                        <Settings />
-                        {t("frontend.workspace.nav_settings")}
-                    </Button>
-                </>
+                <EntityCardActions
+                    actions={[
+                        aiAvailable && { label: t("frontend.workspace.nav_ai"), icon: <Sparkles />, onClick: () => navigate(`/frontend/${mfe._id}`), primary: true },
+                        { label: t("frontend.workspace.nav_overview"), icon: <Info />, onClick: () => navigate(`/frontend/${mfe._id}/overview`) },
+                        { label: t("frontend.workspace.nav_settings"), icon: <Settings />, onClick: () => navigate(`/frontend/${mfe._id}/settings`) }
+                    ]}
+                >
+                    <CloneRepositoryPopover frontend={mfe} tile />
+                </EntityCardActions>
             }
-            footer={<CloneRepositoryPopover frontend={mfe} />}
         >
-            {hasRepository && (
-                <DescriptionList orientation="inline">
-                    <DescriptionItem
-                        className="flex-nowrap items-center"
-                        label={
-                            <>
-                                <GitBranch className="size-4 shrink-0" aria-hidden="true" />
-                                <span className="sr-only">{t("frontend.card.repository")}</span>
-                            </>
-                        }
-                    >
-                        <span className="block truncate" title={mfe.codeRepository?.name}>
-                            {mfe.codeRepository?.name || t("frontend.card.repository")}
-                        </span>
-                    </DescriptionItem>
-                </DescriptionList>
-            )}
-
             {canary && (
                 <div className="rounded-md border border-divider bg-primary/5 p-3">
                     <div className="flex items-center justify-between gap-2">

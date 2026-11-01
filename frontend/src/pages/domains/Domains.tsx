@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Button } from "@/components/atoms"
+import EntityCardActions from "@/components/EntityCardActions"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
@@ -210,26 +211,16 @@ const Domains = () => {
                                             <EntityCard
                                                 key={domain._id}
                                                 name={domain.name}
-                                                subtitle={domain.slug}
                                                 dataTestId={`domain-card-${domain.slug}`}
                                                 // The screens of the domain, as in its header. Edit with AI says why it cannot run when no AI provider is configured.
-                                                primaryAction={
-                                                    <Button variant="primary" size="sm" onClick={() => navigate(`/domain/${domain._id}`)}>
-                                                        <Sparkles />
-                                                        {t("domains.ai.open")}
-                                                    </Button>
-                                                }
                                                 actions={
-                                                    <>
-                                                        <Button variant="secondary" size="sm" onClick={() => navigate(`/domain/${domain._id}/overview`)}>
-                                                            <Info />
-                                                            {t("domains.workspace.nav_overview")}
-                                                        </Button>
-                                                        <Button variant="secondary" size="sm" onClick={() => navigate(`/domain/${domain._id}/settings`)}>
-                                                            <Settings />
-                                                            {t("domains.workspace.nav_settings")}
-                                                        </Button>
-                                                    </>
+                                                    <EntityCardActions
+                                                        actions={[
+                                                            { label: t("domains.ai.open"), icon: <Sparkles />, onClick: () => navigate(`/domain/${domain._id}`), primary: true },
+                                                            { label: t("domains.workspace.nav_overview"), icon: <Info />, onClick: () => navigate(`/domain/${domain._id}/overview`) },
+                                                            { label: t("domains.workspace.nav_settings"), icon: <Settings />, onClick: () => navigate(`/domain/${domain._id}/settings`) }
+                                                        ]}
+                                                    />
                                                 }
                                             >
                                                 {domain.description && <p className="line-clamp-3 text-foreground-secondary">{domain.description}</p>}
