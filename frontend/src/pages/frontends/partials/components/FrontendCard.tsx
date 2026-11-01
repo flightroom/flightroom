@@ -15,9 +15,11 @@ import FrontendKindBadge from "./FrontendKindBadge"
 
 interface FrontendCardProps {
     mfe: Frontend
+    /** Without the badge of its kind: where the section already says who serves it */
+    hideKind?: boolean
 }
 
-export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
+export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe, hideKind }) => {
     const { t } = useTranslation("platform")
     const navigate = useNavigate()
 
@@ -36,7 +38,7 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
             logo={technology && <TechnologyLogo technology={technology} />}
             status={agents > 0 && <WorkingAgentsIndicator agents={agents} className="max-w-full" />}
             // No version: each environment runs its own
-            badges={<FrontendKindBadge frontend={mfe} />}
+            badges={!hideKind && <FrontendKindBadge frontend={mfe} />}
             className={cn(HIDE_EMPTY_CARD_BODY, agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}
             // The screens of the frontend, as in its header, and the clone of its repository
             actions={

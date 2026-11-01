@@ -53,7 +53,7 @@ export const BackendsGrid: React.FC<{ backends?: Backend[]; frontends?: Frontend
                 <BackendCard key={backend._id} backend={backend} assistantEnabled={assistantEnabled} />
             ))}
             {frontends.map(frontend => (
-                <FrontendCard key={frontend._id} mfe={frontend} />
+                <FrontendCard key={frontend._id} mfe={frontend} hideKind />
             ))}
             {onAdd && <AddTile aspect="auto" onClick={onAdd} icon={<Plus />} label={t("backends.add_new")} description={t("backends.click_to_create")} />}
         </div>
