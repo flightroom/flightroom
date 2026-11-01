@@ -99,11 +99,12 @@ export interface EmailStrings {
 const inDays = (days: number) => (days <= 1 ? "tomorrow" : `in ${days} days`)
 const traGiorni = (days: number) => (days <= 1 ? "domani" : `tra ${days} giorni`)
 
-// Role labels as the console shows them (frontend/public/locales/*/platform.json, project_users.roles and organization_users.roles)
-const en: EmailStrings = {
+// Role labels as the console shows them (frontend/public/locales/*/platform.json, project_users.roles and organization_users.roles).
+// `product` is the name of the installation: INSTALLATION_NAME when set, else Flightroom.
+const en = (product: string): EmailStrings => ({
     greeting: name => (name ? `Hello ${name},` : "Hello,"),
     copyLink: "Or copy and paste this link into your browser:",
-    footer: "Flightroom — this is an automated message, please do not reply.",
+    footer: `${product} — this is an automated message, please do not reply.`,
     projectRoles: {
         [RoleInProject.OWNER]: "Admin",
         [RoleInProject.MEMBER]: "Editor",
@@ -117,8 +118,8 @@ const en: EmailStrings = {
     accountActivation: {
         subject: "🎉 Activate Your Account",
         header: "Welcome Aboard!",
-        preheader: "Confirm your email address to start using Flightroom.",
-        intro: "Welcome to Flightroom! We're excited to have you on board. Please verify your email address by clicking the button below:",
+        preheader: `Confirm your email address to start using ${product}.`,
+        intro: `Welcome to ${product}! We're excited to have you on board. Please verify your email address by clicking the button below:`,
         button: "Activate Account",
         ignore: "If you didn't create an account, you can safely ignore this email.",
         expiry: "This activation link will expire in 24 hours."
@@ -126,7 +127,7 @@ const en: EmailStrings = {
     passwordReset: {
         subject: "🔑 Reset Your Password",
         header: "Reset Your Password",
-        preheader: "Choose a new password for your Flightroom account. The link expires in 1 hour.",
+        preheader: `Choose a new password for your ${product} account. The link expires in 1 hour.`,
         intro: "You've requested to reset your password. Click the button below to set a new password:",
         button: "Reset Password",
         ignore: "If you didn't request this, you can safely ignore this email. Your password will remain unchanged.",
@@ -135,7 +136,7 @@ const en: EmailStrings = {
     projectInvitation: {
         subject: target => `🎉 You're invited to join ${target}`,
         header: "You're Invited!",
-        preheader: ({ inviter, target }) => (inviter ? `${inviter} invited you to join ${target} on Flightroom.` : `You've been invited to join ${target} on Flightroom.`),
+        preheader: ({ inviter, target }) => (inviter ? `${inviter} invited you to join ${target} on ${product}.` : `You've been invited to join ${target} on ${product}.`),
         intro: ({ inviter, target, role }) => (inviter ? `${inviter} invited you to join ${target} as ${role}.` : `You've been invited to join ${target} as ${role}.`),
         prompt: "Click the button below to accept this invitation and get started:",
         button: "Accept Invitation",
@@ -145,7 +146,7 @@ const en: EmailStrings = {
     organizationInvitation: {
         subject: target => `🎉 You're invited to join ${target}`,
         header: "You're Invited!",
-        preheader: ({ inviter, target }) => (inviter ? `${inviter} invited you to join ${target} on Flightroom.` : `You've been invited to join ${target} on Flightroom.`),
+        preheader: ({ inviter, target }) => (inviter ? `${inviter} invited you to join ${target} on ${product}.` : `You've been invited to join ${target} on ${product}.`),
         intro: ({ inviter, target, role }) =>
             inviter ? `${inviter} invited you to join the organization ${target} as ${role}.` : `You've been invited to join the organization ${target} as ${role}.`,
         prompt: "Click the button below to accept this invitation and get started:",
@@ -181,18 +182,18 @@ const en: EmailStrings = {
             button: "Open the Job"
         },
         target: (target, name) => (target.kind === "repositories" ? `on ${target.count} repositories` : `on the ${target.kind} ${name}`),
-        ignore: "If you have already seen it in Flightroom, you can ignore this email.",
-        reason: "You receive this email because you started this job and were away from Flightroom when it ended."
+        ignore: `If you have already seen it in ${product}, you can ignore this email.`,
+        reason: `You receive this email because you started this job and were away from ${product} when it ended.`
     }
-}
+})
 
 /** "a Demo Project" but "ad Acme": the euphonic d before a word starting with a, also when wrapped in a tag. */
 const toTarget = (target: string) => (/^(?:<[^>]*>)*a/i.test(target) ? `ad ${target}` : `a ${target}`)
 
-const it: EmailStrings = {
+const it = (product: string): EmailStrings => ({
     greeting: name => (name ? `Ciao ${name},` : "Ciao,"),
     copyLink: "Oppure copia e incolla questo link nel browser:",
-    footer: "Flightroom — questo è un messaggio automatico, non rispondere.",
+    footer: `${product} — questo è un messaggio automatico, non rispondere.`,
     projectRoles: {
         [RoleInProject.OWNER]: "Amministratore",
         [RoleInProject.MEMBER]: "Editore",
@@ -206,8 +207,8 @@ const it: EmailStrings = {
     accountActivation: {
         subject: "🎉 Attiva il tuo account",
         header: "Ti diamo il benvenuto!",
-        preheader: "Conferma il tuo indirizzo email per iniziare a usare Flightroom.",
-        intro: "Ti diamo il benvenuto su Flightroom, siamo felici di averti a bordo! Conferma il tuo indirizzo email con il pulsante qui sotto:",
+        preheader: `Conferma il tuo indirizzo email per iniziare a usare ${product}.`,
+        intro: `Ti diamo il benvenuto su ${product}, siamo felici di averti a bordo! Conferma il tuo indirizzo email con il pulsante qui sotto:`,
         button: "Attiva l'account",
         ignore: "Se non hai creato un account, puoi ignorare questa email.",
         expiry: "Questo link scade tra 24 ore."
@@ -215,7 +216,7 @@ const it: EmailStrings = {
     passwordReset: {
         subject: "🔑 Reimposta la password",
         header: "Reimposta la password",
-        preheader: "Scegli una nuova password per il tuo account Flightroom. Il link scade tra 1 ora.",
+        preheader: `Scegli una nuova password per il tuo account ${product}. Il link scade tra 1 ora.`,
         intro: "Abbiamo ricevuto una richiesta di reimpostazione della password. Usa il pulsante qui sotto per sceglierne una nuova:",
         button: "Reimposta la password",
         ignore: "Se non hai fatto tu questa richiesta, puoi ignorare questa email: la password resterà invariata.",
@@ -224,7 +225,7 @@ const it: EmailStrings = {
     projectInvitation: {
         subject: target => `🎉 Invito a unirti ${toTarget(target)}`,
         header: "Hai ricevuto un invito!",
-        preheader: ({ inviter, target }) => (inviter ? `${inviter} ti ha invitato a unirti ${toTarget(target)} su Flightroom.` : `Hai ricevuto un invito a unirti ${toTarget(target)} su Flightroom.`),
+        preheader: ({ inviter, target }) => (inviter ? `${inviter} ti ha invitato a unirti ${toTarget(target)} su ${product}.` : `Hai ricevuto un invito a unirti ${toTarget(target)} su ${product}.`),
         intro: ({ inviter, target, role }) =>
             inviter ? `${inviter} ti ha invitato a unirti ${toTarget(target)} con il ruolo ${role}.` : `Hai ricevuto un invito a unirti ${toTarget(target)} con il ruolo ${role}.`,
         prompt: "Usa il pulsante qui sotto per accettare l'invito e iniziare:",
@@ -235,7 +236,7 @@ const it: EmailStrings = {
     organizationInvitation: {
         subject: target => `🎉 Invito a unirti ${toTarget(target)}`,
         header: "Hai ricevuto un invito!",
-        preheader: ({ inviter, target }) => (inviter ? `${inviter} ti ha invitato a unirti ${toTarget(target)} su Flightroom.` : `Hai ricevuto un invito a unirti ${toTarget(target)} su Flightroom.`),
+        preheader: ({ inviter, target }) => (inviter ? `${inviter} ti ha invitato a unirti ${toTarget(target)} su ${product}.` : `Hai ricevuto un invito a unirti ${toTarget(target)} su ${product}.`),
         intro: ({ inviter, target, role }) =>
             inviter ? `${inviter} ti ha invitato a unirti all'organizzazione ${target} con il ruolo ${role}.` : `Hai ricevuto un invito a unirti all'organizzazione ${target} con il ruolo ${role}.`,
         prompt: "Usa il pulsante qui sotto per accettare l'invito e iniziare:",
@@ -272,9 +273,10 @@ const it: EmailStrings = {
         },
         target: (target, name) =>
             target.kind === "repositories" ? `su ${target.count} repository` : `${{ frontend: "sul frontend", backend: "sul backend", domain: "sul dominio" }[target.kind]} ${name}`,
-        ignore: "Se l'hai già visto su Flightroom, puoi ignorare questa email.",
-        reason: "Ricevi questa email perché hai avviato questo job e non eri su Flightroom quando è terminato."
+        ignore: `Se l'hai già visto su ${product}, puoi ignorare questa email.`,
+        reason: `Ricevi questa email perché hai avviato questo job e non eri su ${product} quando è terminato.`
     }
-}
+})
 
-export const emailStrings: Record<EmailLanguage, EmailStrings> = { en, it }
+/** The strings of an email in `language`, naming the installation `product`. */
+export const emailStrings = (language: EmailLanguage, product: string): EmailStrings => ({ en, it })[language](product)

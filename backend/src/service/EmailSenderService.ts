@@ -70,7 +70,7 @@ class EmailSenderService {
     /** `inviter` is whoever sends the invitation; without one (or for an API key) the email names nobody. */
     async sendUserInvitationEmail(user: IUser, project: IProject, role: RoleInProject, token: string, inviter?: AuthorizedPrincipal) {
         const language = toEmailLanguage(user.language)
-        const t = emailStrings[language]
+        const t = this.strings(language)
         const strings = t.projectInvitation
         const invitation: InvitationText = { inviter: this.inviterName(inviter), target: project.name, role: t.projectRoles[role] }
 
@@ -95,7 +95,7 @@ class EmailSenderService {
 
     async sendOrganizationInvitationEmail(user: IUser, organization: IOrganization, role: RoleInOrganization, token: string, inviter?: AuthorizedPrincipal) {
         const language = toEmailLanguage(user.language)
-        const t = emailStrings[language]
+        const t = this.strings(language)
         const strings = t.organizationInvitation
         const invitation: InvitationText = { inviter: this.inviterName(inviter), target: organization.name, role: t.organizationRoles[role] }
 
@@ -121,7 +121,7 @@ class EmailSenderService {
     /** Warns an administrator of the project that one of its API keys expires in `daysLeft` days. */
     async sendApiKeyExpiryEmail(user: Pick<IUser, "email" | "name" | "language">, project: Pick<IProject, "name">, apiKey: Pick<IApiKey, "name" | "expiresAt">, daysLeft: number): Promise<void> {
         const language = toEmailLanguage(user.language)
-        const t = emailStrings[language]
+        const t = this.strings(language)
         const strings = t.apiKeyExpiry
         // UTC as the console stores it: a key expiring at midnight would otherwise show the day before or after
         const date = new Intl.DateTimeFormat(language, { dateStyle: "long", timeZone: "UTC" }).format(apiKey.expiresAt)
@@ -156,7 +156,7 @@ class EmailSenderService {
         job: { label: string; failed: boolean; target: AiJobTarget; path: string }
     ): Promise<void> {
         const language = toEmailLanguage(user.language)
-        const t = emailStrings[language]
+        const t = this.strings(language)
         const strings = t.aiJobEnded
         const outcome = job.failed ? strings.failed : strings.done
         const targetName = job.target.kind === "repositories" ? "" : job.target.name
@@ -186,7 +186,7 @@ class EmailSenderService {
     /** `language` is the one stored on the recipient (`IUser.language`). */
     async sendResetPasswordEmail(email: string, token: string, language?: string): Promise<void> {
         const lang = toEmailLanguage(language)
-        const t = emailStrings[lang]
+        const t = this.strings(lang)
         const strings = t.passwordReset
 
         await this.send({
@@ -203,7 +203,7 @@ class EmailSenderService {
     /** `language` is the one stored on the recipient (`IUser.language`). */
     async sendVerificationEmail(email: string, token: string, language?: string): Promise<void> {
         const lang = toEmailLanguage(language)
-        const t = emailStrings[lang]
+        const t = this.strings(lang)
         const strings = t.accountActivation
 
         await this.send({
@@ -219,13 +219,14 @@ class EmailSenderService {
 
     /** Renders the template, inlines its CSS and sends it together with a plain text part built from the same strings. */
     private async send(message: EmailMessage): Promise<void> {
-        const t = emailStrings[message.language]
+        const t = this.strings(message.language)
         const html = pug.renderFile(path.join(__dirname, `../templates/emails/${message.template}.pug`), {
             cache: true,
             ...message,
             ...message.locals,
             lang: message.language,
-            logoUrl: `${this.config.FRONTEND_URL}/img/logo.png`,
+            product: this.product(),
+            logoUrl: this.logoUrl(),
             copyLink: t.copyLink,
             footer: t.footer,
             footerText: message.expiry
@@ -240,6 +241,21 @@ class EmailSenderService {
             html: juice(html),
             text
         })
+    }
+
+    /** The name of the installation, as the console shows it: INSTALLATION_NAME when set, else Flightroom. */
+    private product(): string {
+        return this.config.INSTALLATION_NAME?.trim() || "Flightroom"
+    }
+
+    /** The logo the console shows, INSTALLATION_LOGO_URL when set; a path is served by the console, so it gets its address. */
+    private logoUrl(): string {
+        const logo = this.config.INSTALLATION_LOGO_URL?.trim() || "/img/logo.png"
+        return /^https?:\/\//i.test(logo) ? logo : `${this.config.FRONTEND_URL}${logo.startsWith("/") ? "" : "/"}${logo}`
+    }
+
+    private strings(language: EmailLanguage) {
+        return emailStrings(language, this.product())
     }
 
     private inviterName(inviter?: AuthorizedPrincipal): string | undefined {

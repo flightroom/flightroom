@@ -6,6 +6,7 @@ vi.mock("..", () => ({
 }))
 
 import type { SendMailOptions, Transporter } from "nodemailer"
+import { fastify } from ".."
 import { IOrganization } from "../models/OrganizationModel"
 import { IProject } from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
@@ -207,6 +208,56 @@ describe("API key expiry email", () => {
         const { html } = sentMessage()
         expect(html).toContain("&lt;b&gt;Evil&lt;/b&gt;")
         expect(html).not.toContain("<b>Evil</b>")
+    })
+})
+
+describe("branding", () => {
+    const config = fastify.config as unknown as Record<string, string | undefined>
+
+    afterEach(() => {
+        delete config.INSTALLATION_NAME
+        delete config.INSTALLATION_LOGO_URL
+    })
+
+    it("given no installation name, when an email is sent, then it names Flightroom", async () => {
+        await service.sendVerificationEmail("new.user@example.com", "token", "en")
+
+        const { html, text } = sentMessage()
+        expect(text).toContain("Welcome to Flightroom!")
+        expect(html).toContain('alt="Flightroom"')
+    })
+
+    it("given an installation name and logo URL, when an email is sent, then it carries them in place of Flightroom's", async () => {
+        config.INSTALLATION_NAME = " Acme Cloud "
+        config.INSTALLATION_LOGO_URL = "https://cdn.example.com/acme.png"
+
+        await service.sendUserInvitationEmail(anInvitee("it"), { name: "Demo Project" } as IProject, RoleInProject.MEMBER, "token", INVITER)
+
+        const { html, text } = sentMessage()
+        expect(html).toContain('src="https://cdn.example.com/acme.png"')
+        expect(html).toContain('alt="Acme Cloud"')
+        expect(html).toContain("Jane Doe ti ha invitato a unirti a Demo Project su Acme Cloud.")
+        expect(text).toContain("Acme Cloud — questo è un messaggio automatico, non rispondere.")
+        expect(`${html}${text}`).not.toContain("Flightroom")
+    })
+
+    it("given a logo path served by the console, when an email is sent, then it points at the console", async () => {
+        config.INSTALLATION_LOGO_URL = "branding/acme.svg"
+
+        await service.sendResetPasswordEmail("someone@example.com", "token", "en")
+
+        expect(sentMessage().html).toContain(`src="${FRONTEND_URL}/branding/acme.svg"`)
+    })
+
+    it("given empty values, as the chart ships them, when an email is sent, then Flightroom's are used", async () => {
+        config.INSTALLATION_NAME = ""
+        config.INSTALLATION_LOGO_URL = "  "
+
+        await service.sendResetPasswordEmail("someone@example.com", "token", "en")
+
+        const { html } = sentMessage()
+        expect(html).toContain(`src="${FRONTEND_URL}/img/logo.png"`)
+        expect(html).toContain("your Flightroom account")
     })
 })
 
