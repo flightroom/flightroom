@@ -82,7 +82,7 @@ export default class GlobalVariablesService extends BaseAuthorizedService {
     async update(id: string, variableData: GlobalVariableDTO, environmentId: string): Promise<IGlobalVariable> {
         await this.ensureAccessToEnvironment(environmentId)
         await this.ensureWholeProjectOfEnvironment(environmentId)
-        const updatedVariable = await GlobalVariable.findOneAndUpdate({ _id: toObjectId(id), environmentId: toObjectId(environmentId) }, variableData, { new: true, runValidators: true })
+        const updatedVariable = await GlobalVariable.findOneAndUpdate({ _id: toObjectId(id), environmentId: toObjectId(environmentId) }, variableData, { returnDocument: "after", runValidators: true })
 
         if (!updatedVariable) {
             throw new EntityNotFoundError(id)
@@ -103,7 +103,7 @@ export default class GlobalVariablesService extends BaseAuthorizedService {
                     return GlobalVariable.findOneAndUpdate(
                         { key: body.originalKey, environmentId: toObjectId(value.environmentId) },
                         { key: body.key, value: value.value },
-                        { new: true, runValidators: true }
+                        { returnDocument: "after", runValidators: true }
                     )
                 })
         )

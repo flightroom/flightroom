@@ -78,7 +78,11 @@ export class AiChangeService extends AiChangeBaseService {
         const request = await this.getRequest(id)
         const outcome = staleOutcome(request)
         if (outcome) {
-            const failed = await AiChangeRequest.findOneAndUpdate({ _id: request._id, status: request.status }, { status: outcome, error: "The job stopped without finishing" }, { new: true })
+            const failed = await AiChangeRequest.findOneAndUpdate(
+                { _id: request._id, status: request.status },
+                { status: outcome, error: "The job stopped without finishing" },
+                { returnDocument: "after" }
+            )
             return failed ?? request
         }
         return request
@@ -121,7 +125,7 @@ export class AiChangeService extends AiChangeBaseService {
         await this.ensureCanAct(request)
         // A follow-up running on it pushes the same branch: deleting it now would take the follow-up's work away.
         await ensureNotBeingRefined(request)
-        const discarded = await AiChangeRequest.findOneAndUpdate({ _id: request._id, status: AiChangeStatus.PROPOSED }, { status: AiChangeStatus.DISCARDED }, { new: true })
+        const discarded = await AiChangeRequest.findOneAndUpdate({ _id: request._id, status: AiChangeStatus.PROPOSED }, { status: AiChangeStatus.DISCARDED }, { returnDocument: "after" })
         if (!discarded) throw createBusinessException({ code: "AI_CHANGE_NOT_PROPOSED", message: "Only a proposal can be discarded", statusCode: 409 })
         // Detached: the remote may take seconds to answer, and nothing waits for the branch to go.
         this.dropBranch(discarded).catch(error => fastify.log.warn({ error: loggable(error), aiChangeId: id }, "Could not delete the branch of a discarded change"))
@@ -164,7 +168,11 @@ export class AiChangeService extends AiChangeBaseService {
         await ensureNotBeingRefined(request)
 
         // The status flip is the guard against a double click: only one apply leaves PROPOSED.
-        const claimed = await AiChangeRequest.findOneAndUpdate({ _id: request._id, status: AiChangeStatus.PROPOSED }, { status: AiChangeStatus.APPLYING, $unset: { error: 1 } }, { new: true })
+        const claimed = await AiChangeRequest.findOneAndUpdate(
+            { _id: request._id, status: AiChangeStatus.PROPOSED },
+            { status: AiChangeStatus.APPLYING, $unset: { error: 1 } },
+            { returnDocument: "after" }
+        )
         if (!claimed) throw createBusinessException({ code: "AI_CHANGE_NOT_PROPOSED", message: "This change is not waiting for approval", statusCode: 409 })
         return this.applyClaimed(request, files)
     }

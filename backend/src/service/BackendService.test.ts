@@ -362,7 +362,7 @@ describe("BackendService.update", () => {
 
         await new BackendService().update(String(backendId), { name: "Orders", ...paths } as BackendDTO)
 
-        expect(write).toHaveBeenCalledWith(backendId, { name: "Orders", ...paths }, { new: true, runValidators: true })
+        expect(write).toHaveBeenCalledWith(backendId, { name: "Orders", ...paths }, { returnDocument: "after", runValidators: true })
     })
 
     it("given a connection of another project, when a backend is linked to it, then it is not found and nothing is written", async () => {

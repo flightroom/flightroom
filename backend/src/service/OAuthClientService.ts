@@ -194,7 +194,7 @@ export class OAuthClientService {
                 },
                 $setOnInsert: { unusedExpiresAt: new Date(Date.now() + UNUSED_CLIENT_TTL_MS) }
             },
-            { upsert: true, new: true }
+            { upsert: true, returnDocument: "after" }
         )
         return updated ?? undefined
     }

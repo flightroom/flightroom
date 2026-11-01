@@ -406,7 +406,7 @@ export class AiMissionService extends AiChangeBaseService {
         const stopped = await AiMission.findOneAndUpdate(
             { _id: mission._id, status: AiMissionStatus.RUNNING },
             { status: AiMissionStatus.STOPPED, stoppedAt: new Date(), expiresAt: expiry() },
-            { new: true }
+            { returnDocument: "after" }
         )
         if (!stopped) throw notRunning()
         const jobs = this.jobs()

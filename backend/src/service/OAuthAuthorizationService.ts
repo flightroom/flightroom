@@ -191,7 +191,7 @@ export class OAuthAuthorizationService {
         const request = await OAuthAuthorizationRequest.findOneAndUpdate(
             { handleHash: hashOpaqueToken(handle), expiresAt: { $gt: new Date() }, $or: [{ boundUserId: null }, { boundUserId: user._id }] },
             { boundUserId: user._id },
-            { new: true }
+            { returnDocument: "after" }
         )
         const client = request ? await OAuthClient.findOne({ clientId: request.clientId }) : null
         if (!request || !client) {

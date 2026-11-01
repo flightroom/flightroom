@@ -86,7 +86,11 @@ export const failIfStale = async <T extends Pick<IAiChangeJob, "_id" | "status" 
     if (!isStale(job)) return job
     const error = "The job stopped without finishing"
     // It ended when it was last heard of, not when somebody noticed.
-    const failed = await AiChangeJob.findOneAndUpdate({ _id: job._id, status: job.status }, { status: AiJobStatus.FAILED, error, finishedAt: job.updatedAt, expiresAt: expiry() }, { new: true })
+    const failed = await AiChangeJob.findOneAndUpdate(
+        { _id: job._id, status: job.status },
+        { status: AiJobStatus.FAILED, error, finishedAt: job.updatedAt, expiresAt: expiry() },
+        { returnDocument: "after" }
+    )
     await AiChangeRequest.updateMany({ jobId: job._id, status: { $in: UNFINISHED_REQUEST_STATUSES } }, { status: AiChangeStatus.FAILED, error, expiresAt: expiry() })
     return failed ?? job
 }

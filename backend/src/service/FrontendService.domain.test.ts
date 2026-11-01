@@ -87,6 +87,6 @@ describe("FrontendService.update domain", () => {
     it("given a project, a slug and an _id in the updates, when a frontend is updated, then none of them is written", async () => {
         await update({ name: "Cart", projectId: new Types.ObjectId().toString(), slug: "renamed", _id: new Types.ObjectId().toString() })
 
-        expect(write).toHaveBeenCalledWith(frontendId, { name: "Cart" }, { new: true, runValidators: true })
+        expect(write).toHaveBeenCalledWith(frontendId, { name: "Cart" }, { returnDocument: "after", runValidators: true })
     })
 })

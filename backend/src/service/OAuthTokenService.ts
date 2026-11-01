@@ -111,7 +111,7 @@ export type RefreshTokenConsumption = { status: "consumed"; grantId: string; tok
 export const consumeRefreshToken = async (token: string, clientId: string): Promise<RefreshTokenConsumption> => {
     const tokenHash = hashOpaqueToken(token)
     const now = new Date()
-    const consumed = await OAuthRefreshToken.findOneAndUpdate({ tokenHash, clientId, usedAt: null, expiresAt: { $gt: now } }, { usedAt: now }, { new: true })
+    const consumed = await OAuthRefreshToken.findOneAndUpdate({ tokenHash, clientId, usedAt: null, expiresAt: { $gt: now } }, { usedAt: now }, { returnDocument: "after" })
     if (consumed) {
         return { status: "consumed", grantId: consumed.grantId.toString(), tokenId: consumed._id.toString() }
     }

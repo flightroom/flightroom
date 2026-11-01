@@ -428,7 +428,7 @@ describe("agent updates", () => {
             await sweepAgentUpdates(config)
 
             expect(staleFind.mock.calls[0][0]).toMatchObject({ assistantConversationId: { $exists: true } })
-            expect(failed).toHaveBeenCalledWith({ _id: "job-stale", status: "RUNNING" }, expect.objectContaining({ status: "FAILED" }), { new: true })
+            expect(failed).toHaveBeenCalledWith({ _id: "job-stale", status: "RUNNING" }, expect.objectContaining({ status: "FAILED" }), { returnDocument: "after" })
         })
 
         it("Given many conversations with agents ended unheard of, when swept, then each gets its update, 3 at a time", async () => {

@@ -505,7 +505,7 @@ export class ResourceService extends BaseAuthorizedService {
         const { apiSpec, ...set } = fields
         const write = apiSpec === null ? { $set: set, $unset: { apiSpec: "", apiSpecBytes: "" } } : { $set: { ...set, ...(apiSpec !== undefined && { apiSpec }) } }
         try {
-            return await Resource.findByIdAndUpdate(resource._id, write, { new: true, runValidators: true })
+            return await Resource.findByIdAndUpdate(resource._id, write, { returnDocument: "after", runValidators: true })
         } catch (error) {
             this.refuseTakenName(error, fields.name)
         }

@@ -157,7 +157,7 @@ export class OrganizationService extends BaseAuthorizedService {
             }
 
             const updated = await Organization.findByIdAndUpdate(organizationIdObj, updateData, {
-                new: true,
+                returnDocument: "after",
                 runValidators: true
             })
 

@@ -167,7 +167,7 @@ export class StorageService extends BaseAuthorizedService {
         const updated = await Storage.findByIdAndUpdate(
             storage._id,
             { ...withUnchangedSecrets(storageData, storage), projectId: storage.projectId },
-            { new: true, runValidators: true, context: "query" }
+            { returnDocument: "after", runValidators: true, context: "query" }
         ).session(session || null)
 
         if (!updated) {

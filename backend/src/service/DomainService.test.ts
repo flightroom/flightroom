@@ -253,7 +253,7 @@ describe("DomainService.update", () => {
 
         await new DomainService().update(String(domainId), { name: "Billing", description: "Invoices", slug: "billing", projectId: "x" } as never)
 
-        expect(write).toHaveBeenCalledWith(domainId, { name: "Billing", description: "Invoices" }, { new: true, runValidators: true })
+        expect(write).toHaveBeenCalledWith(domainId, { name: "Billing", description: "Invoices" }, { returnDocument: "after", runValidators: true })
     })
 
     it("given a context, when a domain is updated, then it is written, and null clears it", async () => {
@@ -265,8 +265,8 @@ describe("DomainService.update", () => {
         await new DomainService().update(String(domainId), { context: "Prices are in cents" } as never)
         await new DomainService().update(String(domainId), { context: null } as never)
 
-        expect(write).toHaveBeenNthCalledWith(1, domainId, { context: "Prices are in cents" }, { new: true, runValidators: true })
-        expect(write).toHaveBeenNthCalledWith(2, domainId, { context: null }, { new: true, runValidators: true })
+        expect(write).toHaveBeenNthCalledWith(1, domainId, { context: "Prices are in cents" }, { returnDocument: "after", runValidators: true })
+        expect(write).toHaveBeenNthCalledWith(2, domainId, { context: null }, { returnDocument: "after", runValidators: true })
     })
 
     it("given a context that is not a string, when a domain is updated, then it is refused with a 400 and nothing is written", async () => {

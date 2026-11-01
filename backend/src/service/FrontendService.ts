@@ -277,10 +277,10 @@ export class FrontendService extends BaseAuthorizedService {
         }
 
         if (kind !== FrontendKind.DOCKER || fields.parentIds !== undefined) {
-            return await Frontend.findByIdAndUpdate(frontendIdObj, allowed, { new: true, runValidators: true })
+            return await Frontend.findByIdAndUpdate(frontendIdObj, allowed, { returnDocument: "after", runValidators: true })
         }
         // Conditional on the parents stored when it is written: a relation set since the check above makes it miss
-        const result = await Frontend.findOneAndUpdate({ _id: frontend._id, ...WITHOUT_PARENTS }, allowed, { new: true, runValidators: true })
+        const result = await Frontend.findOneAndUpdate({ _id: frontend._id, ...WITHOUT_PARENTS }, allowed, { returnDocument: "after", runValidators: true })
         if (!result) {
             throw dockerCannotHaveParents(frontend.slug)
         }
@@ -543,7 +543,7 @@ export class FrontendService extends BaseAuthorizedService {
                     },
                     ...(Object.keys(unset).length > 0 && { $unset: unset })
                 },
-                { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+                { upsert: true, returnDocument: "after", runValidators: true, setDefaultsOnInsert: true }
             )
         let built
         try {
@@ -583,7 +583,7 @@ export class FrontendService extends BaseAuthorizedService {
         ensureDockerHasNoParents(remote.kind, [host._id], remote.slug)
 
         // Conditional on the kind stored when it is written: a switch to DOCKER since the check above makes it miss
-        const updated = await Frontend.findOneAndUpdate({ _id: remote._id, kind: { $ne: FrontendKind.DOCKER } }, { $addToSet: { parentIds: host._id } }, { new: true })
+        const updated = await Frontend.findOneAndUpdate({ _id: remote._id, kind: { $ne: FrontendKind.DOCKER } }, { $addToSet: { parentIds: host._id } }, { returnDocument: "after" })
         if (!updated) {
             throw dockerCannotHaveParents(remote.slug)
         }

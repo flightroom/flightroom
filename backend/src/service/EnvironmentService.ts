@@ -177,7 +177,7 @@ class EnvironmentService extends BaseAuthorizedService {
         const environmentIdObj = toObjectId(environmentId)
         const current = updateData.ipAllowList === undefined ? null : await Environment.findById(environmentIdObj, { ipAllowList: 1 })
         const updatedEnvironment = await Environment.findOneAndUpdate({ _id: environmentIdObj }, normalized(updateData, Array.isArray(current?.ipAllowList)), {
-            new: true
+            returnDocument: "after"
         })
 
         if (!updatedEnvironment) {

@@ -389,7 +389,7 @@ export class BackendService extends BaseAuthorizedService {
                 }
             }
         }
-        return await Backend.findByIdAndUpdate(backend._id, allowed, { new: true, runValidators: true })
+        return await Backend.findByIdAndUpdate(backend._id, allowed, { returnDocument: "after", runValidators: true })
     }
 
     async delete(id: string | ObjectId): Promise<IBackend | null> {
@@ -478,7 +478,7 @@ export class BackendService extends BaseAuthorizedService {
                     },
                     ...(Object.keys(unset).length > 0 && { $unset: unset })
                 },
-                { upsert: true, new: true, runValidators: true, setDefaultsOnInsert: true }
+                { upsert: true, returnDocument: "after", runValidators: true, setDefaultsOnInsert: true }
             )
         let built
         try {

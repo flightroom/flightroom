@@ -577,7 +577,7 @@ export class AiChangeJobService extends AiChangeJobQueryService {
         const stopped = await AiChangeJob.findOneAndUpdate(
             { _id: job._id, status: { $in: ACTIVE_JOB_STATUSES }, "events.message": { $ne: "pushing" } },
             { status: AiJobStatus.FAILED, error: STOPPED_ERROR, stoppedAt: new Date(), finishedAt: new Date(), expiresAt: expiry(), ...event("info", "stopped") },
-            { new: true }
+            { returnDocument: "after" }
         )
         if (!stopped) throw notRunning()
         await AiChangeRequest.updateMany(

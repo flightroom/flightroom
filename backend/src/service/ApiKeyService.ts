@@ -62,7 +62,7 @@ export class ApiKeyService extends BaseAuthorizedService {
         await this.ensureAccessToProject(apiKey.projectId, session)
         await this.ensureWholeProject(apiKey.projectId)
 
-        const updated = await ApiKey.findByIdAndUpdate(apiKeyId, { status }, { new: true, runValidators: true }).session(session || null)
+        const updated = await ApiKey.findByIdAndUpdate(apiKeyId, { status }, { returnDocument: "after", runValidators: true }).session(session || null)
 
         if (!updated) {
             throw new EntityNotFoundError(apiKeyId)

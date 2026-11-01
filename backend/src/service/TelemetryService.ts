@@ -26,11 +26,11 @@ class TelemetryService {
      * keeping it would make every future ping fail.
      */
     async getInstallationId(): Promise<string> {
-        const configuration = await Configuration.findOneAndUpdate({ name: INSTALLATION_ID_CONFIGURATION_NAME }, { $setOnInsert: { value: randomUUID() } }, { new: true, upsert: true })
+        const configuration = await Configuration.findOneAndUpdate({ name: INSTALLATION_ID_CONFIGURATION_NAME }, { $setOnInsert: { value: randomUUID() } }, { returnDocument: "after", upsert: true })
         if (configuration && UUID_PATTERN.test(configuration.value ?? "")) {
             return configuration.value
         }
-        const repaired = await Configuration.findOneAndUpdate({ name: INSTALLATION_ID_CONFIGURATION_NAME }, { value: randomUUID() }, { new: true, upsert: true })
+        const repaired = await Configuration.findOneAndUpdate({ name: INSTALLATION_ID_CONFIGURATION_NAME }, { value: randomUUID() }, { returnDocument: "after", upsert: true })
         if (!repaired || !UUID_PATTERN.test(repaired.value ?? "")) {
             throw new Error("Unable to read or create the anonymous telemetry installation id")
         }

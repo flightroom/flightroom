@@ -245,7 +245,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
             }
         }
         try {
-            return await MaintenanceAgent.findByIdAndUpdate(agent._id, allowed, { new: true, runValidators: true })
+            return await MaintenanceAgent.findByIdAndUpdate(agent._id, allowed, { returnDocument: "after", runValidators: true })
         } catch (error) {
             if ((error as { name?: string }).name === "ValidationError") throw invalid("MAINTENANCE_AGENT_INVALID", (error as Error).message)
             throw error

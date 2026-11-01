@@ -155,7 +155,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
     async setPipelines(codeRepositoryId: string, input: PipelineTemplatesInput | null): Promise<ICodeRepository> {
         const connection = await this.findForPipelines(codeRepositoryId)
         const pipelines = input === null ? undefined : await this.resolvePipelines(connection, input)
-        const updated = await CodeRepository.findOneAndUpdate({ _id: connection._id }, pipelines ? { pipelines } : { $unset: { pipelines: 1 } }, { new: true })
+        const updated = await CodeRepository.findOneAndUpdate({ _id: connection._id }, pipelines ? { pipelines } : { $unset: { pipelines: 1 } }, { returnDocument: "after" })
         if (!updated) throw new EntityNotFoundError(codeRepositoryId)
         return updated
     }
@@ -204,7 +204,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
         await this.findForWrite(repositoryId)
 
         try {
-            const updated = await CodeRepository.findOneAndUpdate({ _id: toObjectId(repositoryId) }, repositoryData, { new: true, runValidators: true })
+            const updated = await CodeRepository.findOneAndUpdate({ _id: toObjectId(repositoryId) }, repositoryData, { returnDocument: "after", runValidators: true })
 
             if (!updated) {
                 throw new EntityNotFoundError(repositoryId)

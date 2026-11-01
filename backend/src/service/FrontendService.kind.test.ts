@@ -150,7 +150,7 @@ describe("FrontendService.update, kind", () => {
         await serviceFor(frontend).update(String(frontend._id), { kind: FrontendKind.DOCKER, exposurePath: "/shell", parentIds: [] } as unknown as FrontendDTO)
 
         expect(write.mock.calls[0][1]).toMatchObject({ kind: FrontendKind.DOCKER, parentIds: [], port: 8080 })
-        expect(write.mock.calls[0][2]).toMatchObject({ new: true, runValidators: true })
+        expect(write.mock.calls[0][2]).toMatchObject({ returnDocument: "after", runValidators: true })
     })
 
     it("given a BUNDLE, when it is updated, then the update runs the validators", async () => {
@@ -159,7 +159,7 @@ describe("FrontendService.update, kind", () => {
 
         await serviceFor(frontend).update(String(frontend._id), { name: "Cart" } as FrontendDTO)
 
-        expect(write.mock.calls[0][2]).toMatchObject({ new: true, runValidators: true })
+        expect(write.mock.calls[0][2]).toMatchObject({ returnDocument: "after", runValidators: true })
     })
 
     it("given a frontend with no parents, when it is made a DOCKER, then the write requires no parents stored and its canary is turned off", async () => {
@@ -278,7 +278,7 @@ describe("FrontendService.setRelation, kind", () => {
 
         const saved = await serviceFor(host, remote).setRelation(String(host._id), String(remote._id))
 
-        expect(write).toHaveBeenCalledWith({ _id: remote._id, kind: { $ne: FrontendKind.DOCKER } }, { $addToSet: { parentIds: host._id } }, { new: true })
+        expect(write).toHaveBeenCalledWith({ _id: remote._id, kind: { $ne: FrontendKind.DOCKER } }, { $addToSet: { parentIds: host._id } }, { returnDocument: "after" })
         expect(saved.parentIds?.map(String)).toEqual([String(host._id)])
     })
 

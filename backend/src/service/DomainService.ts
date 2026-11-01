@@ -317,7 +317,7 @@ export class DomainService extends BaseAuthorizedService {
             allowed.context = updates.context
         }
         try {
-            return await Domain.findByIdAndUpdate(domain._id, allowed, { new: true, runValidators: true })
+            return await Domain.findByIdAndUpdate(domain._id, allowed, { returnDocument: "after", runValidators: true })
         } catch (error) {
             throw toDomainError(error, domain.slug)
         }

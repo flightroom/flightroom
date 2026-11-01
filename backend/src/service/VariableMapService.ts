@@ -362,7 +362,7 @@ export class VariableMapService extends BaseAuthorizedService {
             await this.ensureNoClashInAttachingBackends(map, fields.entries)
         }
         try {
-            return await this.model.findByIdAndUpdate(map._id, { $set: fields }, { new: true, runValidators: true })
+            return await this.model.findByIdAndUpdate(map._id, { $set: fields }, { returnDocument: "after", runValidators: true })
         } catch (error) {
             this.refuseTakenName(error, fields.name)
         }

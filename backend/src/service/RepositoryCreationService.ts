@@ -97,7 +97,7 @@ export class RepositoryCreationService extends BaseAuthorizedService {
             if (entryPoint && entryPoint !== frontend.host.entryPoint) set["host.entryPoint"] = entryPoint
         }
         // Linked meanwhile by another request: the repository just created stays at the provider, unlinked
-        const saved = await Frontend.findOneAndUpdate({ _id: frontend._id, ...NOT_LINKED }, set, { new: true })
+        const saved = await Frontend.findOneAndUpdate({ _id: frontend._id, ...NOT_LINKED }, set, { returnDocument: "after" })
         if (!saved) throw alreadyLinked("frontend")
         return saved
     }
@@ -116,7 +116,7 @@ export class RepositoryCreationService extends BaseAuthorizedService {
         if (!backend.template) set.template = template.slug
         if (!backend.stack?.framework) set.stack = { runtime: parseRuntime(template.framework), framework: template.framework, source: FrontendStackSource.TEMPLATE }
         // Linked meanwhile by another request: the repository just created stays at the provider, unlinked
-        const saved = await Backend.findOneAndUpdate({ _id: backend._id, ...NOT_LINKED }, set, { new: true })
+        const saved = await Backend.findOneAndUpdate({ _id: backend._id, ...NOT_LINKED }, set, { returnDocument: "after" })
         if (!saved) throw alreadyLinked("backend")
         return saved
     }

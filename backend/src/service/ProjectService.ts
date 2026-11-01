@@ -587,7 +587,7 @@ export class ProjectService extends BaseAuthorizedService {
             }
 
             const updated = await Project.findByIdAndUpdate(projectId, updateData, {
-                new: true,
+                returnDocument: "after",
                 runValidators: true
             })
 

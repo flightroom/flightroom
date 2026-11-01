@@ -394,7 +394,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
             const applied = await AiChangeRequest.findByIdAndUpdate(
                 request._id,
                 { status: AiChangeStatus.APPLIED, ...result, $unset: { expiresAt: 1, pushError: 1 }, $push: { events: { at: new Date(), kind: "info", message: "applied" } } },
-                { new: true }
+                { returnDocument: "after" }
             )
             // The push is done: failing to keep the history must not turn the request back into a proposal.
             await keepConversation(request).catch(error => fastify.log.warn({ error: loggable(error), aiChangeId: String(request._id) }, "Could not keep the AI conversation"))
@@ -450,7 +450,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
                     .filter(Boolean)
                     .join("\n\n")
             })
-            const opened = await AiChangeRequest.findByIdAndUpdate(request._id, { pullRequestUrl, $unset: { pullRequestError: 1 } }, { new: true })
+            const opened = await AiChangeRequest.findByIdAndUpdate(request._id, { pullRequestUrl, $unset: { pullRequestError: 1 } }, { returnDocument: "after" })
             // A follow-up started meanwhile pushes the same branch: it carries the pull request on, or applying it would delete the branch under it.
             const owner = request.backendId ? { backendId: request.backendId } : { frontendId: request.frontendId }
             await AiChangeRequest.updateMany(
@@ -467,7 +467,7 @@ export abstract class AiChangeBaseService extends BaseAuthorizedService {
         } catch (error) {
             // The branch is pushed: the change is not lost, the user can open the pull request by hand.
             fastify.log.warn({ error: loggable(error), aiChangeId: String(request._id) }, "Could not open the pull request")
-            return (await AiChangeRequest.findByIdAndUpdate(request._id, { pullRequestError: toErrorMessage(error) }, { new: true }))!
+            return (await AiChangeRequest.findByIdAndUpdate(request._id, { pullRequestError: toErrorMessage(error) }, { returnDocument: "after" }))!
         }
     }
 
