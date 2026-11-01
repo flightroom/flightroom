@@ -9,6 +9,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Added
 
+- **Revealing The Values Of A Secret**: in the variables tab of a backend, each attached secret has a **Show values** button that shows its values in clear, per environment, until **Hide values**. Only an owner or a member of the project, or an administrator of its organization, sees them: a viewer keeps the keys only and an API key is refused whatever its role. The API answers at `GET /api/secrets/:id/values`, and each reveal is logged with the secret and the user
+- **Config Maps And Secrets As Cards In The Deployments**: a deployment shows its config maps and its secrets as cards, like its resources, each with its kind, its name and how many keys it set; a click anywhere on a card opens the map
 - **What Deleting A Map Leaves Behind**: with GitOps on, the dialog that deletes a config map or a secret says it stays in the configuration repository and in the cluster until the next deploy of each environment; for a secret, also that its values stay in the history of the repository, base64 encoded and not encrypted, and should be rotated if they were sensitive
 
 ### Fixed
