@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.3.0] - 2026-11-01
+
 ### Added
 
 - **A Sandbox Template Per Language**: on the **Installation** page each workload template of the gateway says which languages its image holds (Node.js, Java, Python, Go, .NET), shown as a column of the list and stored on the gateway as one label each, `languages.flightroom.dev/<language>: "true"`. A new sandbox of the coding agent is created from the template holding every language it needs: Node.js for a frontend, the runtime of a backend, and for the sandbox of a domain those of every repository of the domain. The template in use is kept when it holds them all, so the warm sandboxes serve it; otherwise the one with the fewest languages. With none holding them all, or none naming a language, sandboxes are created as before. The API takes `languages` on `/api/installation/sandbox-templates`
