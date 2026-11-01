@@ -1,10 +1,11 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
-import { ExternalLink } from "lucide-react"
+import { Copy, ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { Badge } from "@/components/atoms"
+import { Badge, Button } from "@/components/atoms"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
+import useToastNotificationStore from "@/store/useToastNotificationStore"
 import { exposedOrigin } from "./backendVariables"
 import { EnvironmentResourcesValue, ReplicasValue } from "./ContainerResourceFields"
 import { LogLevelValue } from "./LogLevelOverrideField"
@@ -35,6 +36,32 @@ export type ContainerConfiguration = Partial<
         | "environmentVersions"
     >
 >
+
+/** A path of the backend, as declared: no URL is made up from it, the host depends on where the backend runs */
+const BackendPath: React.FC<{ path?: string | null }> = ({ path }) => {
+    const { t } = useTranslation()
+    const notifications = useToastNotificationStore()
+
+    if (!path) return "—"
+
+    const copy = async () => {
+        try {
+            await navigator.clipboard.writeText(path)
+            notifications.showSuccessNotification({ message: t("backends.configuration.path_copied") })
+        } catch {
+            notifications.showErrorNotification({ message: t("backends.configuration.copy_failed") })
+        }
+    }
+
+    return (
+        <span className="inline-flex items-center gap-1">
+            <span className="font-mono">{path}</span>
+            <Button variant="ghost" size="icon-sm" onClick={copy} aria-label={t("backends.configuration.copy_path")} title={t("backends.configuration.copy_path")}>
+                <Copy />
+            </Button>
+        </span>
+    )
+}
 
 const BackendLink: React.FC<{ href: string; label: string }> = ({ href, label }) => (
     <a href={href} target="_blank" rel="noreferrer" className="inline-flex items-center gap-1 underline-offset-4 hover:underline" title={href}>
@@ -105,6 +132,15 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
             <CardContent className="flex flex-col gap-4 pt-3">
                 <DescriptionList orientation="inline">
                     <DescriptionItem label={t("backends.port")}>{backend.port ?? "—"}</DescriptionItem>
+                    <DescriptionItem label={t("backends.exposure_path")}>
+                        <BackendPath path={backend.exposurePath} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.docs_path")}>
+                        <BackendPath path={backend.docsPath} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.openapi_path")}>
+                        <BackendPath path={backend.openApiPath} />
+                    </DescriptionItem>
                     <DescriptionItem label={t("backends.log_level")}>
                         <LogLevelValue value={backend.logLevel} />
                     </DescriptionItem>

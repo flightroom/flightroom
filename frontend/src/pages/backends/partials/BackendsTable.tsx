@@ -11,8 +11,6 @@ import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { CloneRepositoryPopover, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { backendTechnologyOf, frontendTechnologyOf, type Technology } from "@/utils/technologies"
 import { isBackendAiAvailable } from "./BackendHeader"
-import FrontendBadge from "./FrontendBadge"
-import RuntimeBadge from "./RuntimeBadge"
 
 const NameCell: React.FC<{ id: string; name: string; technology?: Technology }> = ({ id, name, technology }) => (
     <TableCell className="max-w-[16rem] font-medium">
@@ -44,7 +42,7 @@ export const BackendsTable: React.FC<{ backends?: Backend[]; frontends?: Fronten
                 <TableHeader>
                     <TableRow className="bg-muted/60 hover:bg-muted/60">
                         <TableHead>{t("common.name")}</TableHead>
-                        <TableHead>{t("backends.runtime.label")}</TableHead>
+                        <TableHead>{t("backends.slug")}</TableHead>
                         <TableHead className="text-right">{t("common.actions")}</TableHead>
                     </TableRow>
                 </TableHeader>
@@ -52,8 +50,8 @@ export const BackendsTable: React.FC<{ backends?: Backend[]; frontends?: Fronten
                     {backends.map(backend => (
                         <TableRow key={backend._id} className="cursor-pointer border-divider hover:bg-primary/5" onClick={() => navigate(`/backend/${backend._id}`)}>
                             <NameCell id={backend._id} name={backend.name} technology={backendTechnologyOf(backend)} />
-                            <TableCell>
-                                <RuntimeBadge backend={backend} />
+                            <TableCell className="max-w-[14rem] truncate text-foreground-secondary" title={backend.slug}>
+                                {backend.slug}
                             </TableCell>
                             <ActionsCell
                                 actions={[
@@ -78,8 +76,8 @@ export const BackendsTable: React.FC<{ backends?: Backend[]; frontends?: Fronten
                             onClick={() => navigate(isAiEditAvailable(frontend, assistantEnabled) ? `/frontend/${frontend._id}` : `/frontend/${frontend._id}/overview`)}
                         >
                             <NameCell id={frontend._id} name={frontend.name} technology={frontendTechnologyOf(frontend)} />
-                            <TableCell>
-                                <FrontendBadge />
+                            <TableCell className="max-w-[14rem] truncate text-foreground-secondary" title={frontend.slug}>
+                                {frontend.slug}
                             </TableCell>
                             <ActionsCell
                                 actions={[

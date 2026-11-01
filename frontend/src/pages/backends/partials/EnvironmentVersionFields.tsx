@@ -6,6 +6,7 @@ import { Badge } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import { useProjectEnvironmentsQuery } from "./backendVariables"
+import { CHART_REPLICAS_DEFAULT, type ContainerReplicas, type EnvironmentResources } from "./containerResources"
 import type { EnvironmentVersion, EnvironmentVersionFormValues } from "./environmentVersions"
 
 /**
@@ -63,9 +64,14 @@ export const EnvironmentVersionsValue: React.FC<{ entries?: EnvironmentVersion[]
 
 /**
  * The version each environment runs, one tile per environment in their order, the version large: the first thing to know
- * of a container is what runs where. An environment without one is not deployed.
+ * of a container is what runs where. An environment without one is not deployed. Given the container, each tile also
+ * tells how many replicas it runs there: those of the environment, else its own, else the default of the chart.
  */
-export const EnvironmentVersionsCard: React.FC<{ entries?: EnvironmentVersion[] | null; environments: EnvironmentDTO[] }> = ({ entries, environments }) => {
+export const EnvironmentVersionsCard: React.FC<{
+    entries?: EnvironmentVersion[] | null
+    environments: EnvironmentDTO[]
+    container?: ContainerReplicas & { environmentResources?: EnvironmentResources[] | null }
+}> = ({ entries, environments, container }) => {
     const { t } = useTranslation()
 
     return (
@@ -81,6 +87,8 @@ export const EnvironmentVersionsCard: React.FC<{ entries?: EnvironmentVersion[] 
                     <ul className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,12rem),1fr))] gap-3">
                         {environments.map(environment => {
                             const version = entries?.find(entry => entry.environmentId === environment._id)?.version
+                            const replicas =
+                                container && (container.environmentResources?.find(entry => entry.environmentId === environment._id)?.replicas ?? container.replicas ?? CHART_REPLICAS_DEFAULT)
                             return (
                                 <li
                                     key={environment._id}
@@ -100,6 +108,8 @@ export const EnvironmentVersionsCard: React.FC<{ entries?: EnvironmentVersion[] 
                                     ) : (
                                         <span className="text-2xl font-semibold text-foreground-secondary">{t("backends.version_by_environment.not_deployed")}</span>
                                     )}
+                                    {/* Not deployed, it runs none whatever it sets */}
+                                    {version && replicas != null && <span className="text-sm text-foreground-secondary">{t("backends.version_by_environment.replicas", { count: replicas })}</span>}
                                 </li>
                             )
                         })}

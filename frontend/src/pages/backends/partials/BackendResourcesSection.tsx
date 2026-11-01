@@ -1,13 +1,12 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
-import { X } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
-import { Badge, Button } from "@/components/atoms"
+import { Badge } from "@/components/atoms"
 import ResourceIcon from "@/components/resource/ResourceIcon"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import type { Resource, ResourceEnvKey } from "@/hooks/apiClients/useResourcesApi"
-import { resourcePath, typeLabel, useDetachResource, variantLabel } from "@/pages/resources/partials/resources"
+import { resourcePath, typeLabel, variantLabel } from "@/pages/resources/partials/resources"
 
 /** What a variable of the resource is in one environment: the override there, the value of all otherwise; a credential is only set or not */
 const valueIn = (resource: Resource, key: ResourceEnvKey, environmentId?: string): { value?: string; set: boolean } => {
@@ -19,16 +18,10 @@ const valueIn = (resource: Resource, key: ResourceEnvKey, environmentId?: string
 
 /**
  * What the backend receives from the resources it attaches, a table per resource: a column per environment, a credential never shown.
- * `canDetach`: each can be detached from here, without going through the settings.
+ * Read only: they are attached and detached in the settings.
  */
-export const BackendResourcesSection: React.FC<{ backend: Pick<Backend, "_id" | "name" | "resourceIds">; resources: Resource[]; environments: EnvironmentDTO[]; canDetach?: boolean }> = ({
-    backend,
-    resources,
-    environments,
-    canDetach = false
-}) => {
+export const BackendResourcesSection: React.FC<{ backend: Pick<Backend, "resourceIds">; resources: Resource[]; environments: EnvironmentDTO[] }> = ({ backend, resources, environments }) => {
     const { t } = useTranslation()
-    const detach = useDetachResource()
     const attached = resources.filter(resource => backend.resourceIds?.includes(resource._id!))
 
     return (
@@ -48,20 +41,6 @@ export const BackendResourcesSection: React.FC<{ backend: Pick<Backend, "_id" | 
                             </Link>
                             <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
                             <span className="text-xs text-foreground-secondary">{variantLabel(t, resource.type, resource.variant)}</span>
-                            {canDetach && (
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon-sm"
-                                    className="ml-auto"
-                                    disabled={detach.isPending}
-                                    aria-label={t("resources.attach.detach", { name: resource.name })}
-                                    title={t("resources.attach.detach", { name: resource.name })}
-                                    onClick={() => detach.mutate({ backend, resource })}
-                                >
-                                    <X />
-                                </Button>
-                            )}
                         </div>
                         <div className="overflow-x-auto rounded-lg border-2 border-border bg-card">
                             <Table>

@@ -19,10 +19,12 @@ import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS, HOST_TYPE_LA
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 
-/** The version served and the canary rolled out next to it, with the bundles published so far */
+/** The canary rolled out next to the versions the environments serve, with the bundles published so far */
 const FrontendReleaseSection: React.FC<{ frontend: Frontend; versions: string[] }> = ({ frontend, versions }) => {
     const { t } = useTranslation()
     const canary = frontend.canary?.enabled ? frontend.canary : undefined
+    // The bundles some environment serves, set apart from those only published
+    const served = new Set((frontend.environmentVersions ?? []).map(entry => entry.version).filter(Boolean))
 
     return (
         <Card>
@@ -32,7 +34,6 @@ const FrontendReleaseSection: React.FC<{ frontend: Frontend; versions: string[] 
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-3">
                 <DescriptionList orientation="inline">
-                    <DescriptionItem label={t("frontend.version")}>{frontend.version ? <span className="font-mono">{frontend.version}</span> : "—"}</DescriptionItem>
                     <DescriptionItem label={t("frontend.card.canary")}>{canary ? (canary.type ? t(CANARY_TYPE_LABEL_KEYS[canary.type]) : "—") : t("frontend.canary_none")}</DescriptionItem>
                     {/* On User goes to the enrolled users: it has no traffic share */}
                     {canary && (
@@ -56,7 +57,7 @@ const FrontendReleaseSection: React.FC<{ frontend: Frontend; versions: string[] 
                         <ul className="flex flex-wrap gap-2">
                             {versions.map(version => (
                                 <li key={version}>
-                                    <Badge variant={version === frontend.version ? "default" : "outline"}>{version}</Badge>
+                                    <Badge variant={served.has(version) ? "default" : "outline"}>{version}</Badge>
                                 </li>
                             ))}
                         </ul>
@@ -130,7 +131,8 @@ const FrontendOverview: React.FC = () => {
                         // The actions live in Edit with AI: here only when that screen does not exist
                         actions={!aiModels.isPending && !aiAvailable && <FrontendActions frontend={frontend} />}
                     />
-                    {isDocker && <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} />}
+                    {/* What runs where, for either kind: only a container has replicas */}
+                    <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} container={isDocker ? frontend : undefined} />
                     <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
                     {isDocker ? (
                         <>

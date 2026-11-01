@@ -119,7 +119,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         </TabsList>
 
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
-                            <EnvironmentVersionsCard entries={backend.environmentVersions} environments={environmentsQuery.data ?? []} />
+                            <EnvironmentVersionsCard entries={backend.environmentVersions} environments={environmentsQuery.data ?? []} container={backend} />
                             <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
                             <BackendVersionsTable versions={versionsQuery.data ?? []} />
                         </TabsContent>
@@ -130,7 +130,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
 
                         {/* What the container uses: its resources, config maps and secrets, and the variables it declares */}
                         <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
-                            <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} canDetach={!isViewer} />
+                            <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                             <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
                             <ContainerEnvSection backend={backend} />
                         </TabsContent>

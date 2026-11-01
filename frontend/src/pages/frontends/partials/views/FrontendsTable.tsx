@@ -1,15 +1,15 @@
 import { EmptyStateRow, Meter, Table, TableBody, TableCell, TableHead, TableHeader, TableRow, Tooltip, TooltipContent, TooltipTrigger } from "@flightroom/design-system"
-import { Cloud, Cog, Hammer, Link as LinkIcon, LucideIcon, Server, Sparkles } from "lucide-react"
-import React, { useState } from "react"
+import { Cloud, Info, Link as LinkIcon, LucideIcon, Server, Settings, Sparkles } from "lucide-react"
+import React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import { useWorkingAgents, WorkingAgentsIndicator } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
-import { Badge, Button } from "@/components/atoms"
+import { Badge } from "@/components/atoms"
+import EntityCardActions from "@/components/EntityCardActions"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
-import { BuildDialog, CloneRepositoryPopover, FrontendKindBadge, isAiEditAvailable } from "@/pages/frontends/partials/components"
-import { useIsProjectViewer } from "@/store/useProjectStore"
+import { CloneRepositoryPopover, FrontendKindBadge, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { cn } from "@/utils/styleUtils"
 import { frontendTechnologyOf } from "@/utils/technologies"
 import { HOST_TYPE_LABEL_KEYS } from "../labels"
@@ -18,7 +18,7 @@ interface FrontendsTableProps {
     frontends: Frontend[]
 }
 
-const COLUMN_COUNT = 8
+const COLUMN_COUNT = 7
 
 /** The host is a single value out of three, so it reads as an icon and spells itself out on hover. */
 const HOST_TYPE_ICONS: Record<HostedOn, LucideIcon> = {
@@ -89,10 +89,6 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
     const { t } = useTranslation("platform")
     const navigate = useNavigate()
 
-    const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false)
-    // A viewer may look, not release
-    const isViewer = useIsProjectViewer()
-    const hasRepository = Boolean(mfe.codeRepository?.enabled)
     const agents = useWorkingAgents(mfe._id)
     const aiAvailable = isAiEditAvailable(mfe, useProjectAiModels().enabled)
     // Served by its own container: Flightroom neither hosts it nor runs a canary for it
@@ -119,28 +115,22 @@ const FrontendRow: React.FC<{ mfe: Frontend }> = ({ mfe }) => {
             <TableCell>
                 <FrontendKindBadge frontend={mfe} className="whitespace-nowrap" />
             </TableCell>
-            <TableCell>{mfe.version ? <Badge>{mfe.version}</Badge> : <span className="text-foreground-secondary">—</span>}</TableCell>
             <TableCell>{isDocker ? <span className="text-foreground-secondary">—</span> : <HostCell host={mfe.host} />}</TableCell>
             <TableCell>{isDocker ? <span className="text-foreground-secondary">—</span> : <CanaryCell canary={mfe.canary} />}</TableCell>
             <TableCell className="whitespace-nowrap">
                 <CanaryVersionCell canary={mfe.canary} />
             </TableCell>
-            {/* The buttons, and the dialog rendered from here, must not also open the frontend: React bubbles portal clicks too. */}
-            <TableCell className="cursor-default whitespace-nowrap text-right" onClick={event => event.stopPropagation()}>
-                <div className="flex justify-end gap-2">
-                    <CloneRepositoryPopover frontend={mfe} />
-                    {hasRepository && !isViewer && (
-                        <Button variant="secondary" size="sm" onClick={() => setIsBuildDialogOpen(true)}>
-                            <Hammer />
-                            {t("frontend.card.build")}
-                        </Button>
-                    )}
-                    <Button variant={aiAvailable ? "primary" : "secondary"} size="sm" onClick={() => navigate(openPath)}>
-                        {aiAvailable ? <Sparkles /> : <Cog />}
-                        {aiAvailable ? t("frontend.workspace.nav_ai") : t("common.configuration")}
-                    </Button>
-                </div>
-                <BuildDialog open={isBuildDialogOpen} onOpenChange={setIsBuildDialogOpen} frontendId={mfe._id} frontendName={mfe.name} />
+            {/* The buttons of its card, as in the table of the backends: they must not also open the row, and React bubbles the clicks of the clone popover too. */}
+            <TableCell className="w-56 cursor-default" onClick={event => event.stopPropagation()}>
+                <EntityCardActions
+                    actions={[
+                        aiAvailable && { label: t("frontend.workspace.nav_ai"), icon: <Sparkles />, onClick: () => navigate(`/frontend/${mfe._id}`), primary: true },
+                        { label: t("frontend.workspace.nav_overview"), icon: <Info />, onClick: () => navigate(`/frontend/${mfe._id}/overview`) },
+                        { label: t("frontend.workspace.nav_settings"), icon: <Settings />, onClick: () => navigate(`/frontend/${mfe._id}/settings`) }
+                    ]}
+                >
+                    <CloneRepositoryPopover frontend={mfe} tile />
+                </EntityCardActions>
             </TableCell>
         </TableRow>
     )
@@ -157,7 +147,6 @@ export const FrontendsTable: React.FC<FrontendsTableProps> = ({ frontends }) => 
                         <TableHead>{t("common.name")}</TableHead>
                         <TableHead>{t("frontend.slug")}</TableHead>
                         <TableHead>{t("frontend.kind.label")}</TableHead>
-                        <TableHead>{t("frontend.version")}</TableHead>
                         <TableHead>{t("frontend.host")}</TableHead>
                         <TableHead>{t("frontend.canary_release")}</TableHead>
                         <TableHead>{t("frontend.canary_version")}</TableHead>

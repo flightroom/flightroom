@@ -542,7 +542,7 @@
             "from": "From",
             "to": "To",
             "same_environment": "Pick two different environments.",
-            "empty": "No backend, container frontend or maintenance agent to promote.",
+            "empty": "No backend, frontend or maintenance agent to promote.",
             "aligned": "Already at the same version",
             "not_in_source": "Not deployed in {{environment}}: left as it is",
             "none": "not deployed",
@@ -879,7 +879,6 @@
             "build_tag_exists": "This version already exists in the repository: pick a new one"
         },
         "validation": {
-            "version_required": "The version is required",
             "host_url_required": "The URL is required for custom hosting",
             "canary_percentage": "The canary percentage must be between 1 and 100 when the canary is enabled"
         },
@@ -908,19 +907,6 @@
             "filteredCount_one": "{{count}} of {{total}} frontends",
             "filteredCount_other": "{{count}} of {{total}} frontends"
         },
-        "build": {
-            "title": "Build {{name}}",
-            "branch": "Branch",
-            "selectBranch": "Select branch",
-            "loadingBranches": "Loading branches...",
-            "defaultBranch": "default",
-            "version": "Version",
-            "versionPlaceholder": "Enter version (e.g., 1.0.0)",
-            "custom_version": "Custom version",
-            "building": "Building...",
-            "startBuild": "Start Build",
-            "buildSuccess": "Build started for {{name}}"
-        },
         "import": {
             "action": "Import from repository",
             "title": "Import repositories",
@@ -948,7 +934,6 @@
             "storage": "Storage",
             "version": "Version {{version}}",
             "users": "{{count}} user{{count, plural, =1 {} other {s}}}",
-            "build": "Build",
             "workingAgents_one": "One agent at work",
             "workingAgents_other": "{{count}} agents at work"
         },
@@ -969,8 +954,6 @@
         "description": "Description",
         "description_placeholder": "Enter a brief description",
         "version": "Version",
-        "version_placeholder": "e.g., 1.0.0",
-        "custom_version": "Custom version",
         "continuous_deployment": "Continuous Deployment",
         "continuous_deployment_description": "Enable automatic deployment of new versions",
         "status": "Status",
@@ -1003,7 +986,7 @@
         "custom_url": "Custom URL",
         "custom_source": "Custom Source",
         "release_settings": "Release",
-        "release_settings_description": "The version served to your users and how the canary is rolled out",
+        "release_settings_description": "The bundle each environment serves and how the canary is rolled out",
         "release_settings_container_description": "The version deployed: the tag of the container image",
         "tabs": {
             "general": "General",
@@ -2728,6 +2711,8 @@
             "title": "Version per environment",
             "description": "The version each environment runs, e.g. the latest in development and an older one in production. Leave it empty and the environment does not get it: its deploys leave it out. The next deploy of the environment applies it.",
             "not_deployed": "not deployed",
+            "replicas_one": "{{count}} replica",
+            "replicas_other": "{{count}} replicas",
             "summary": "What runs where: the version each environment got with its latest deploy, or will get with its next one."
         },
         "urls": {
@@ -2778,7 +2763,6 @@
             "createFromTemplate": "Create from a template",
             "noResultsTitle": "No results",
             "noResultsDescription": "No backend matches \"{{searchTerm}}\".",
-            "frontendBadge": "Frontend",
             "backendsSection": "Backend",
             "dockerFrontendsSection": "Docker frontends"
         },
@@ -3164,21 +3148,7 @@
             "nav_settings": "Details & settings"
         },
         "settings": {
-            "details_title": "Details",
-            "versions_title": "Versions",
-            "versions_description": "The version of every frontend and backend of the domain: the one the deploy of the domain ships. For a BUNDLE frontend it names an uploaded bundle, for a DOCKER frontend and a backend it is the image tag.",
-            "version_all": "Same version for all",
-            "version_all_hint": "Fills in the version of every frontend and backend below; then save.",
-            "version_all_apply": "Apply to all",
-            "kind_bundle": "BUNDLE frontend",
-            "kind_docker": "DOCKER frontend",
-            "current_version": "current {{version}}",
-            "no_version": "no version",
-            "versions_changed_one": "{{count}} version changed",
-            "versions_changed_other": "{{count}} versions changed",
-            "versions_save": "Save versions",
-            "versions_saved_one": "Version updated for {{count}} component",
-            "versions_saved_other": "Versions updated for {{count}} components"
+            "details_title": "Details"
         },
         "deploy": {
             "action": "Deploy",
