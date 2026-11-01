@@ -22,10 +22,13 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **A Version Per Environment For A Bundle Frontend**: a BUNDLE frontend serves in each environment the bundle that environment sets, in its **Version per environment** fields, which suggest the published versions, instead of its one **Version** in every environment; an environment that sets none no longer serves it from its next deploy. A release sets its version in the environment of the release, and promoting the versions of an environment brings those of the BUNDLE frontends too. Its overview opens on the version of each environment, and its published versions highlight those some environment serves. The version of a frontend is no longer required to create a BUNDLE one, and is never served as it is. Each environment of an existing BUNDLE frontend gets, once, the bundle it serves now, else its version
 - **Live Preview Only With OpenShell Online**: the **Live preview** button of the header of a domain and of a frontend shows only while the OpenShell gateway is online, as the **AI sandbox** card of the organization settings reports it, instead of failing to start the preview when the gateway is down, degraded or not configured
 - **Logs And Injected Variables Only With Argo CD Initialized**: the **Logs** and **Injected variables** tabs of the overview of a backend, the logs of the overview of a DOCKER frontend and of a domain, and the injected variables of the runtime settings of a DOCKER frontend show only once Argo CD is initialized for the project, instead of a card asking to initialize it or one that could not read the pod
+- **A Template Library Per Kind**: opened from the **Frontends** page the templates library offers frontend templates and frameworks only, and a new backend starts from a library of its own. The framework of a saved frontend is chosen by hand in its settings, and detection no longer overwrites it
+- **Starter Questions Of Vega Drawn At Random**: the questions Vega suggests in an empty conversation are three drawn at random, those of the section open first, among questions each answered by one list or one search of the docs, so a click costs few tokens; they change from page to page and in a new conversation
 
 ### Fixed
 
 - **The Console Runs Locally Again**: the backend started with `pnpm dev` no longer stops on the test files beside its plugins and controllers, and `.env.example` sets `NODE_ENV=local`, so the routes answer where the proxy of Vite sends them instead of a 401 on every call
+- **The New Template Button Keeps Its Width**: in the sandbox templates of the installation, the button that adds one no longer shrinks beside a long description
 
 ### Removed
 

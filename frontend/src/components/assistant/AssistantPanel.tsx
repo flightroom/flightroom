@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, Textarea } from "@flightroom/design-system"
 import { ArrowUp, Bot, GitBranchPlus, History, Mic, RotateCcw, Sparkles, Square, X } from "lucide-react"
-import { useEffect, useRef, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
 import { Button } from "@/components/atoms"
@@ -38,20 +38,38 @@ const PLACEHOLDER_BY_VOICE_PHASE: Record<VoicePhase, string> = {
 /** The page that shows the assistant full width, as a chat of its own. */
 export const ASSISTANT_PAGE_PATH = "/assistant"
 
-/** Starter questions, page-specific first: they show what the assistant can look up from here. */
+/**
+ * Starter questions, each answered by one list or one search of the docs, so a click costs few tokens. By prefix, so
+ * the list and the screens of one entity share them: the assistant does not know which entity is open.
+ */
 const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
+    "/domain": ["domains"],
+    "/frontend": ["frontends", "canary"],
+    "/backend": ["backends", "live_preview"],
+    "/maintenance-agent": ["maintenance"],
+    "/config-map": ["variables"],
+    "/secret": ["variables"],
+    "/resource": ["resources"],
+    "/storages": ["storage"],
     "/builds": ["builds"],
-    "/deployments": ["deployments"],
-    "/dependencies": ["dependencies"],
-    "/environment-variables": ["variables"]
+    "/deployments": ["deployments", "canary"],
+    "/dependencies": ["dependencies"]
 }
-const GENERIC_SUGGESTIONS = ["overview", "canary", "storage"]
+const GENERIC_SUGGESTIONS = ["environments", "ai_usage", "deployments", "live_preview", "canary", "storage", "argocd"]
+
+const shuffled = <T,>(items: T[]) =>
+    items
+        .map(item => ({ item, order: Math.random() }))
+        .sort((left, right) => left.order - right.order)
+        .map(({ item }) => item)
 
 const NO_TABS: AssistantJobTab[] = []
 
+/** Three at random, at most two of the section first, so they read differently each time */
 const suggestionsFor = (pathname: string) => {
     const pageKey = Object.keys(SUGGESTIONS_BY_PAGE).find(prefix => pathname.startsWith(prefix))
-    return [...(pageKey ? SUGGESTIONS_BY_PAGE[pageKey] : []), ...GENERIC_SUGGESTIONS].slice(0, 3)
+    const page = shuffled(pageKey ? SUGGESTIONS_BY_PAGE[pageKey] : []).slice(0, 2)
+    return [...page, ...shuffled(GENERIC_SUGGESTIONS.filter(key => !page.includes(key)))].slice(0, 3)
 }
 
 interface AnswerBubbleProps {
@@ -132,6 +150,10 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
     const { enabled, selected: aiModel, setSelected: setAiModel } = useProjectAiModels()
     const location = useLocation()
     const { isOpen, messages, close, toggle, reset } = useAssistantStore()
+    const empty = messages.length === 0
+    // Drawn again on another page or in a new conversation, not while typing
+    // biome-ignore lint/correctness/useExhaustiveDependencies: `empty` only asks for a new draw
+    const suggestions = useMemo(() => suggestionsFor(location.pathname), [location.pathname, empty])
     const pendingQuestion = useAssistantStore(state => state.pendingQuestion)
     const projectId = useProjectStore(state => state.project?._id)
     const [effort, setEffort] = useEffort("assistant")
@@ -314,7 +336,7 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
                                             <p className={cn("font-medium text-foreground", isPage && "text-2xl font-semibold")}>{t("assistant.empty_title")}</p>
                                             <p className={cn("text-sm text-foreground-secondary", isPage && "max-w-xl")}>{t("assistant.empty_description")}</p>
                                             <div className={cn("flex flex-col gap-2", isPage && "mt-4 grid w-full sm:grid-cols-3")}>
-                                                {suggestionsFor(location.pathname).map(key => (
+                                                {suggestions.map(key => (
                                                     <button
                                                         key={key}
                                                         type="button"

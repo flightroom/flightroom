@@ -2425,13 +2425,21 @@
             "busy": "Vega is answering an update from the agents of this conversation: wait a moment and ask again."
         },
         "suggestions": {
-            "overview": "Give me an overview of the project",
+            "environments": "Which environments does the project have?",
+            "ai_usage": "How many AI tokens have I used this month?",
+            "deployments": "What was the latest deployment?",
+            "live_preview": "How does the live preview work?",
             "canary": "How do canary releases work?",
             "storage": "How do I connect an S3 bucket?",
-            "builds": "Are there failed builds? Why?",
-            "deployments": "What changed in the latest deployment?",
-            "dependencies": "Are there conflicts between shared dependencies?",
-            "variables": "Is any environment missing variables?"
+            "argocd": "How do I initialize Argo CD?",
+            "domains": "Which domains does the project have?",
+            "frontends": "Which frontends are there, and of which kind?",
+            "backends": "Which backends are there, and on which runtime?",
+            "maintenance": "Which maintenance agents are there, and when do they run?",
+            "variables": "Which config maps and secrets does the project have?",
+            "resources": "Which resources does the project have?",
+            "builds": "Which was the latest failed build?",
+            "dependencies": "Are there conflicts between shared dependencies?"
         },
         "actions": {
             "explain_build": "Explain the failure",
