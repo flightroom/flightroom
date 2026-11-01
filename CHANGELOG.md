@@ -11,6 +11,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **What Deleting A Map Leaves Behind**: with GitOps on, the dialog that deletes a config map or a secret says it stays in the configuration repository and in the cluster until the next deploy of each environment; for a secret, also that its values stay in the history of the repository, base64 encoded and not encrypted, and should be rotated if they were sensitive
 
+### Fixed
+
+- **No Refused Connection On Every Request**: nginx reaches the backend at `127.0.0.1:3000` instead of `localhost:3000`, which it tried first over IPv6, where the backend does not listen: every request logged a `connect() failed (111: Connection refused)` error and a warning before going through over IPv4
+- **No `injected env (0) from .env` At Startup**: the backend reads its `.env` file once, quietly, instead of four times with a line each
+- **No Mongoose Deprecation Warning**: the updates that return the updated document ask for it with `returnDocument: "after"` instead of the deprecated `new: true`
+
 ## [13.0.0] - 2026-11-01
 
 ### Changed
