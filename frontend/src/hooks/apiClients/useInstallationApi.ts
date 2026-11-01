@@ -65,8 +65,8 @@ const useInstallationApi = () => {
 
     const getSandboxes = async (): Promise<InstallationSandbox[]> => (await apiClient.doRequest<InstallationSandbox[]>({ url: "/api/installation/sandboxes", silent: true })).data
 
-    const getSandboxLogs = async (name: string): Promise<SandboxLogLine[]> =>
-        (await apiClient.doRequest<SandboxLogLine[]>({ url: `/api/installation/sandboxes/${name}/logs`, params: { lines: 500 }, silent: true })).data
+    const getSandboxLogs = async (name: string, lines: number): Promise<SandboxLogLine[]> =>
+        (await apiClient.doRequest<SandboxLogLine[]>({ url: `/api/installation/sandboxes/${name}/logs`, params: { lines }, silent: true })).data
 
     const deleteSandbox = async (name: string): Promise<void> => {
         await apiClient.doRequest({ url: `/api/installation/sandboxes/${name}`, method: "DELETE", silent: true })

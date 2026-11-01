@@ -10,7 +10,9 @@ import {
     DialogDescription,
     DialogHeader,
     DialogTitle,
-    Spinner,
+    LogViewer,
+    LogViewerActions,
+    type LogViewerLine,
     Table,
     TableBody,
     TableCell,
@@ -20,7 +22,7 @@ import {
 } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { format, formatDistanceToNow } from "date-fns"
-import { FileText, RefreshCw, Trash2 } from "lucide-react"
+import { FileText, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge, Button, type IBadgeProps } from "@/components/atoms"
@@ -29,6 +31,7 @@ import useInstallationApi, {
     INSTALLATION_SANDBOXES_QUERY_KEY,
     type InstallationSandbox,
     SANDBOX_SETTINGS_QUERY_KEY,
+    type SandboxLogLine,
     type SandboxPoolState,
     type SandboxUsage
 } from "@/hooks/apiClients/useInstallationApi"
@@ -57,50 +60,78 @@ const TargetLabel: React.FC<{ sandbox: InstallationSandbox }> = ({ sandbox }) =>
     )
 }
 
-/** The last lines of the log of one sandbox, read again on demand. */
+/** How many lines of a sandbox log can be read: the backend caps them at 2000. */
+const TAIL_OPTIONS = [100, 200, 500, 1000, 2000]
+/** While following, the log is read again this often, as for the logs of the applications */
+const FOLLOW_INTERVAL_MS = 5_000
+
+/** A line of the gateway as the viewer shows it: its source, level and target before the message, which may be JSON. */
+const toViewerLine = (line: SandboxLogLine): LogViewerLine => ({
+    timestamp: line.timestampMs ? new Date(line.timestampMs).toISOString() : undefined,
+    content: [line.source && `[${line.source}]`, line.level, line.target, line.message].filter(Boolean).join(" ")
+})
+
+/** The last lines of the log of one sandbox, in the same viewer as the logs of the applications, followed by default. */
 const SandboxLogsDialog: React.FC<{ name?: string; onClose: () => void }> = ({ name, onClose }) => {
     const { t } = useTranslation()
-    const themeStore = useThemeStore()
     const installationApi = useInstallationApi()
-    const logsQuery = useQuery({ queryKey: [INSTALLATION_SANDBOXES_QUERY_KEY, "logs", name], queryFn: () => installationApi.getSandboxLogs(name ?? ""), enabled: !!name })
+    const [tailLines, setTailLines] = useState(500)
+    const [follow, setFollow] = useState(true)
+    // The gateway has no filter: the lines read are filtered here
+    const [filter, setFilter] = useState("")
+    const logsQuery = useQuery({
+        queryKey: [INSTALLATION_SANDBOXES_QUERY_KEY, "logs", name, tailLines],
+        queryFn: () => installationApi.getSandboxLogs(name ?? "", tailLines),
+        enabled: !!name,
+        refetchInterval: follow ? FOLLOW_INTERVAL_MS : false,
+        // The lines of before stay, dimmed, while the next ones load: the box does not jump
+        placeholderData: previousLines => previousLines
+    })
+    const needle = filter.toLowerCase()
+    const lines = (logsQuery.data ?? []).map(toViewerLine).filter(line => !needle || line.content.toLowerCase().includes(needle))
 
     return (
         <Dialog open={!!name} onOpenChange={open => !open && onClose()}>
-            <DialogContent className="max-h-[90vh] sm:max-w-[900px]">
-                <DialogHeader>
-                    <DialogTitle>{t("installation.sandboxes.logs.title", { name })}</DialogTitle>
-                    <DialogDescription>{t("installation.sandboxes.logs.description")}</DialogDescription>
+            <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-[1000px]">
+                <DialogHeader className="flex-row items-start justify-between gap-3">
+                    <div className="min-w-0">
+                        <DialogTitle>{t("installation.sandboxes.logs.title", { name })}</DialogTitle>
+                        <DialogDescription>{t("installation.sandboxes.logs.description")}</DialogDescription>
+                    </div>
+                    <LogViewerActions
+                        lines={lines}
+                        onRefresh={() => void logsQuery.refetch()}
+                        refreshing={logsQuery.isFetching}
+                        downloadFileName={`${name}.log`}
+                        refreshLabel={t("applicationLogs.refresh")}
+                        downloadLabel={t("applicationLogs.download")}
+                        className="mr-6"
+                        dataTestId="installation-sandbox-logs"
+                    />
                 </DialogHeader>
-                <div className="flex justify-end">
-                    <Button
-                        variant="secondary"
-                        size="sm"
-                        onClick={() => logsQuery.refetch()}
-                        loading={logsQuery.isFetching}
-                        loadingLabel={t("common.loading")}
-                        dataTestId="installation-sandbox-logs-refresh"
-                    >
-                        <RefreshCw className="size-4" aria-hidden="true" />
-                        {t("installation.sandboxes.logs.refresh")}
-                    </Button>
-                </div>
-                {logsQuery.isPending ? (
-                    <Spinner size={16} centerScreen={false} label={t("common.loading")} />
-                ) : logsQuery.isError ? (
-                    <p className="text-sm text-foreground-secondary">{t("installation.sandboxes.logs.load_failed")}</p>
-                ) : logsQuery.data.length === 0 ? (
-                    <p className="text-sm text-foreground-secondary">{t("installation.sandboxes.logs.empty")}</p>
-                ) : (
-                    <pre className="max-h-[60vh] overflow-auto rounded-md border border-divider p-3 text-xs" data-testid="installation-sandbox-logs">
-                        {logsQuery.data
-                            .map(line =>
-                                [line.timestampMs ? format(new Date(line.timestampMs), "Pp", { locale: themeStore.getLocale() }) : "", line.source, line.level, line.target, line.message]
-                                    .filter(Boolean)
-                                    .join("  ")
-                            )
-                            .join("\n")}
-                    </pre>
-                )}
+                <LogViewer
+                    lines={lines}
+                    tailLines={tailLines}
+                    tailOptions={TAIL_OPTIONS}
+                    onTailLinesChange={setTailLines}
+                    tailLabel={t("applicationLogs.tail")}
+                    tailOptionLabel={count => t("applicationLogs.tail_option", { count })}
+                    onFilterChange={setFilter}
+                    filterLabel={t("applicationLogs.filter")}
+                    filterPlaceholder={t("applicationLogs.filter_placeholder")}
+                    follow={follow}
+                    onFollowChange={setFollow}
+                    followLabel={t("applicationLogs.follow")}
+                    formatJsonLabel={t("applicationLogs.format_json")}
+                    formatJsonHint={t("applicationLogs.format_json_hint")}
+                    outputLabel={t("installation.sandboxes.logs.title", { name })}
+                    emptyLabel={t(logsQuery.data?.length ? "applicationLogs.empty" : "installation.sandboxes.logs.empty")}
+                    loadingLabel={t("common.loading")}
+                    error={logsQuery.isError && !logsQuery.data ? t("installation.sandboxes.logs.load_failed") : undefined}
+                    pending={logsQuery.isPending}
+                    placeholder={logsQuery.isPlaceholderData}
+                    dataTestId="installation-sandbox-logs"
+                />
             </DialogContent>
         </Dialog>
     )

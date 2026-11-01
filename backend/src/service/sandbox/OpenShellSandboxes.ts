@@ -224,8 +224,8 @@ export interface SandboxLifecycle {
 const MAX_OUTPUT_BYTES = 64_000
 /** Creating a sandbox may pull its image: minutes on a cold node. */
 const READY_TIMEOUT_SECS = 300
-/** The most log lines one call returns. */
-export const MAX_LOG_LINES = 500
+/** The most log lines one call returns: the console lets an installation administrator pick up to these. */
+export const MAX_LOG_LINES = 2000
 
 /** A sandbox in one of these runs nothing again: it is replaced. */
 const DEAD_PHASES = new Set(["error", "deleting", "stopping", "stopped", "completed"])

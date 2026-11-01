@@ -170,7 +170,7 @@ describe("InstallationController", () => {
         expect(response.json()[0].message).not.toContain("npm_abcdefghijklmnopqrstuvwxyz0123456789")
         expect(response.json()[0].message).toContain("[REDACTED]")
         expect(sandboxes.logs).toHaveBeenCalledWith("fr-0123456789abcdef", 100)
-        expect((await app.inject({ method: "GET", url: "/installation/sandboxes/fr-0123456789abcdef/logs?lines=501" })).statusCode).toBe(400)
+        expect((await app.inject({ method: "GET", url: "/installation/sandboxes/fr-0123456789abcdef/logs?lines=2001" })).statusCode).toBe(400)
     })
 
     it("Given a sandbox of the installation, when it is deleted, then it goes with its lifetime closed and the deletion is audited; a name that is no sandbox's is refused, one of another installation not found", async () => {

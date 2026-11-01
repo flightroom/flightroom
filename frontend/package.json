@@ -20,7 +20,7 @@
         "@auth0/auth0-react": "^2.29.0",
         "@azure/msal-browser": "^5.27.0",
         "@azure/msal-react": "^5.7.4",
-        "@flightroom/design-system": "^2.1.0",
+        "@flightroom/design-system": "^2.2.0",
         "@heroicons/react": "^2.2.0",
         "@hookform/resolvers": "^6.0.2",
         "@microsoft/applicationinsights-web": "^3.4.5",

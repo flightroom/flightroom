@@ -372,7 +372,9 @@ are the repository's code, and the console holds the repository tokens, the data
   says so, and the API checks every host and path. Each save is logged with
   `audit: "sandbox_settings_updated"`. The same page shows the gateway, the pool and the sandboxes of
   this installation (never another one's): what each one serves, its organization, whether it is
-  used, its age, the last 500 lines of its log with credentials masked, and a button that deletes it
+  used, its age, its log with credentials masked (in the same viewer as the logs of the applications:
+  100 to 2000 lines, a filter, followed every 5 seconds by default, JSON lines formatted, a download),
+  and a button that deletes it
   with its lifetime closed (`audit: "sandbox_deleted"`). A job using a sandbox deleted there loses its
   live preview and runs its next command in a new one. The API is under `/api/installation`, for
   console sessions only.

@@ -1025,7 +1025,7 @@ describe("OpenShellSandboxes", () => {
             const lines = await sandboxes().logs("fr-0000000000000001", 9_999)
 
             expect(lines).toEqual([{ timestampMs: 1_800_000_000_250, level: "INFO", source: "gateway", target: "supervisor", message: "started" }])
-            expect(raw.getSandboxLogs).toHaveBeenCalledWith(expect.objectContaining({ sandbox: "fr-0000000000000001", lines: 500 }))
+            expect(raw.getSandboxLogs).toHaveBeenCalledWith(expect.objectContaining({ sandbox: "fr-0000000000000001", lines: 2000 }))
             await expect(sandboxes().logs("fr-0000000000000002")).resolves.toBeUndefined()
             await expect(sandboxes().logs("../etc")).resolves.toBeUndefined()
             expect(raw.getSandboxLogs).toHaveBeenCalledTimes(1)
