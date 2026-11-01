@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, StatusDot, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
-import { Container, Settings2, Sparkles, TriangleAlert } from "lucide-react"
+import { Container, Settings2, Sparkles, TriangleAlert, Variable } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -107,7 +107,7 @@ type FormInput = z.input<FormSchema>
 type FormValues = z.output<FormSchema>
 
 /** Tabs that own validated fields, in the order they are shown: the first one with an error is the one we jump to. */
-const FORM_TABS = ["general", "context", "runtime"] as const
+const FORM_TABS = ["general", "context", "runtime", "variables"] as const
 
 type FormTab = (typeof FORM_TABS)[number] | "danger"
 
@@ -131,12 +131,9 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
         "replicas",
         "environmentResources",
         "exposed",
-        "exposurePath",
-        "env",
-        "configMapIds",
-        "secretIds",
-        "resourceIds"
+        "exposurePath"
     ],
+    variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     danger: []
 }
 
@@ -351,6 +348,11 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                             {t("backends.tabs.runtime")}
                             {tabHasErrors("runtime") && <ErrorDot />}
                         </TabsTrigger>
+                        <TabsTrigger value="variables">
+                            <Variable />
+                            {t("backends.tabs.variables")}
+                            {tabHasErrors("variables") && <ErrorDot />}
+                        </TabsTrigger>
                         {isEdit && (
                             <TabsTrigger value="danger">
                                 <TriangleAlert />
@@ -450,6 +452,12 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                         <div className="flex flex-col gap-6">
                             <BackendRuntimeFields />
                             <BackendEndpointFields environments={environments} />
+                        </div>
+                    </TabsContent>
+
+                    {/* What the container gets: its own variables, the config maps, secrets and resources attached, and what the running one received */}
+                    <TabsContent value="variables" forceMount>
+                        <div className="flex flex-col gap-6">
                             <BackendEnvFields />
                             <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
                             <BackendResourcesFields resources={resources} />
