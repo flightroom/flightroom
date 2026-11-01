@@ -18,7 +18,6 @@ const Domains = lazy(() => import("./pages/domains/Domains"))
 const DomainAiWorkspace = lazy(() => import("./pages/domains/DomainAiWorkspace"))
 const DomainOverview = lazy(() => import("./pages/domains/DomainOverview"))
 const DomainSettings = lazy(() => import("./pages/domains/DomainSettings"))
-const DomainDeploymentsMatrix = lazy(() => import("./pages/domains/DomainDeploymentsMatrix"))
 const Frontends = lazy(() => import("./pages/frontends/Frontends"))
 const AddFrontend = lazy(() => import("./pages/frontends/AddFrontend"))
 const FrontendAiWorkspace = lazy(() => import("./pages/frontends/FrontendAiWorkspace"))
@@ -134,7 +133,6 @@ const PrivateProjectRoutes: React.FC = () => {
             <RRDRoutes>
                 <Route path="/assistant" element={<RouteWithSuspense element={<AssistantPage />} />} />
                 <Route path="/domains" element={<RouteWithSuspense element={<Domains />} />} />
-                <Route path="/domains/deployments" element={<RouteWithSuspense element={<DomainDeploymentsMatrix />} />} />
                 <Route path="/domain/:id" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
                 <Route path="/domain/:id/ai" element={<RouteWithSuspense element={<DomainAiWorkspace />} />} />
                 <Route path="/domain/:id/overview" element={<RouteWithSuspense element={<DomainOverview />} />} />

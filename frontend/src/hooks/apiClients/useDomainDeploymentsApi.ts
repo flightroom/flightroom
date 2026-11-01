@@ -43,19 +43,13 @@ export interface DomainDeployments {
 const useDomainDeploymentsApi = () => {
     const apiClient = useApiClient()
 
-    /** Every domain of the project, then the members in no domain when there are any */
-    const getByProject = async (): Promise<DomainDeployments[]> => {
-        const response = await apiClient.doRequest<DomainDeployments[]>({ url: "/api/domains/deployments" })
-        return response.data
-    }
-
     /** One domain, its environments in their order */
     const getByDomain = async (domainId: string): Promise<DomainDeployments> => {
         const response = await apiClient.doRequest<DomainDeployments>({ url: `/api/domains/${domainId}/deployments` })
         return response.data
     }
 
-    return { getByProject, getByDomain }
+    return { getByDomain }
 }
 
 export default useDomainDeploymentsApi

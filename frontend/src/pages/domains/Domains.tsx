@@ -1,6 +1,6 @@
-import { EmptyState, EntityCard, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { AddTile, EmptyState, EntityCard, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CirclePlus, FolderOpen, Info, LayoutGrid, Orbit, Rocket, SearchX, Settings, Sparkles, Workflow } from "lucide-react"
+import { CirclePlus, FolderOpen, Info, LayoutGrid, Orbit, Plus, SearchX, Settings, Sparkles, Workflow } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -156,10 +156,6 @@ const Domains = () => {
                                         </TabsTrigger>
                                     ))}
                                 </TabsList>
-                                <Button variant="secondary" onClick={() => navigate("/domains/deployments")} dataTestId="domain-deployments-matrix">
-                                    <Rocket />
-                                    {t("domains.deployments.open")}
-                                </Button>
                                 <Button variant="primary" onClick={openCreate} dataTestId="domain-create">
                                     <CirclePlus />
                                     {t("domains.add_new")}
@@ -249,6 +245,7 @@ const Domains = () => {
                                                 {domain.description && <p className="line-clamp-3 text-foreground-secondary">{domain.description}</p>}
                                             </EntityCard>
                                         ))}
+                                        <AddTile aspect="auto" onClick={openCreate} icon={<Plus />} label={t("domains.add_new")} description={t("domains.click_to_create")} />
                                     </div>
                                 </TabsContent>
                             </>

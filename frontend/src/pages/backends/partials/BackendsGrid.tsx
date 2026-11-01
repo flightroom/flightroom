@@ -1,5 +1,5 @@
-import { EntityCard } from "@flightroom/design-system"
-import { Info, Settings, Sparkles } from "lucide-react"
+import { AddTile, EntityCard } from "@flightroom/design-system"
+import { Info, Plus, Settings, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
@@ -41,8 +41,9 @@ const BackendCard: React.FC<{ backend: Backend; assistantEnabled: boolean }> = (
     )
 }
 
-/** Backends, or frontends served by their own container: these get the card of a frontend. */
-export const BackendsGrid: React.FC<{ backends?: Backend[]; frontends?: Frontend[] }> = ({ backends = [], frontends = [] }) => {
+/** Backends, or frontends served by their own container: these get the card of a frontend. With `onAdd`, a last tile creates one. */
+export const BackendsGrid: React.FC<{ backends?: Backend[]; frontends?: Frontend[]; onAdd?: () => void }> = ({ backends = [], frontends = [], onAdd }) => {
+    const { t } = useTranslation()
     const assistantEnabled = useProjectAiModels().enabled
 
     return (
@@ -53,6 +54,7 @@ export const BackendsGrid: React.FC<{ backends?: Backend[]; frontends?: Frontend
             {frontends.map(frontend => (
                 <FrontendCard key={frontend._id} mfe={frontend} />
             ))}
+            {onAdd && <AddTile aspect="auto" onClick={onAdd} icon={<Plus />} label={t("backends.add_new")} description={t("backends.click_to_create")} />}
         </div>
     )
 }

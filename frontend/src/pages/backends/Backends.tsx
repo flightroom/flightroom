@@ -221,7 +221,7 @@ const Backends = () => {
                     ) : (
                         <>
                             <TabsContent value="grid" className="mt-0 flex flex-col gap-6">
-                                {renderSections(<BackendsGrid backends={filtered} />, <BackendsGrid frontends={filteredFrontends} />)}
+                                {renderSections(<BackendsGrid backends={filtered} onAdd={onCreate} />, <BackendsGrid frontends={filteredFrontends} />)}
                             </TabsContent>
                             <TabsContent value="table" className="mt-0 flex flex-col gap-6">
                                 {renderSections(<BackendsTable backends={filtered} />, <BackendsTable frontends={filteredFrontends} />)}
