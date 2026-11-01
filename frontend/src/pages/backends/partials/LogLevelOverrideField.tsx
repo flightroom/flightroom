@@ -71,7 +71,7 @@ export const LogLevelCard: React.FC<{ value?: string | null; environments: Envir
                         {isLogLevel(value) ? (
                             <span className="flex flex-wrap items-center gap-2">
                                 <LogLevelChip level={value} />
-                                <Badge variant="accent">{t("backends.log_level_custom")}</Badge>
+                                <Badge variant="accent">{t("backends.custom")}</Badge>
                             </span>
                         ) : (
                             <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">

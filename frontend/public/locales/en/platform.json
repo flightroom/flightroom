@@ -2661,7 +2661,7 @@
         "port": "Port",
         "log_level": "Log level",
         "log_level_inherited": "The environment's",
-        "log_level_custom": "Custom",
+        "custom": "Custom",
         "log_level_hint": "Handed to the container as LOG_LEVEL in every environment instead of the environment's, from the next deploy",
         "port_hint": "The port the container listens on, on 0.0.0.0. It also gets it in the HTTP_PORT environment variable",
         "liveness_path": "Liveness probe path",
@@ -2702,6 +2702,8 @@
             "replicas": "Replicas",
             "replicas_hint": "Optional. How many pods run the container, from 0 to {{max}}: 0 runs none and leaves its route out. Left empty, the default of the chart: {{value}}",
             "replicas_invalid": "A whole number from 0 to {{max}}",
+            "cpu": "CPU",
+            "memory": "Memory",
             "by_environment": {
                 "title": "Per environment",
                 "description": "Different CPU, memory and replicas in some environments, e.g. more in production. Each value left empty is the container's, shown as placeholder.",

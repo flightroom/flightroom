@@ -6,7 +6,8 @@ import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { exposedOrigin } from "./backendVariables"
-import { EnvironmentResourcesValue } from "./ContainerResourceFields"
+import { RESOURCE_LABELS } from "./ContainerResourceFields"
+import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, type ResourceField } from "./containerResources"
 
 /** What a container declares: a backend, or a frontend served by its own container */
 export type ContainerConfiguration = Partial<
@@ -92,7 +93,7 @@ export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; e
     )
 }
 
-/** What the container gets in some environments instead of its own: replicas, CPU and memory */
+/** The replicas, CPU and memory the container runs with in each environment: its own, else the chart's, unless the environment sets them apart, marked custom */
 export const ContainerComputeCard: React.FC<{ backend: ContainerConfiguration; environments: EnvironmentDTO[] }> = ({ backend, environments }) => {
     const { t } = useTranslation()
 
@@ -102,11 +103,33 @@ export const ContainerComputeCard: React.FC<{ backend: ContainerConfiguration; e
                 <CardTitle className="mb-0">{t("backends.compute.title")}</CardTitle>
             </CardHeader>
             <CardContent className="pt-3">
-                <DescriptionList orientation="inline">
-                    <DescriptionItem label={t("backends.compute.by_environment.title")}>
-                        <EnvironmentResourcesValue entries={backend.environmentResources} environments={environments} />
-                    </DescriptionItem>
-                </DescriptionList>
+                <ul className="flex flex-col gap-2">
+                    {environments.map(environment => {
+                        const entry = backend.environmentResources?.find(resources => resources.environmentId === environment._id)
+                        const value = (field: ResourceField) => entry?.[field] || backend[field] || CHART_RESOURCE_DEFAULTS[field]
+                        const pair = (request: ResourceField, limit: ResourceField) => ({
+                            value: `${value(request)} / ${value(limit)}`,
+                            title: `${t(RESOURCE_LABELS[request])} / ${t(RESOURCE_LABELS[limit])}`
+                        })
+                        const cpu = pair("cpuRequest", "cpuLimit")
+                        const memory = pair("memoryRequest", "memoryLimit")
+                        return (
+                            <li key={environment._id} className="flex flex-wrap items-center gap-2 text-sm">
+                                <span className="min-w-24 font-medium">{environment.name}</span>
+                                <Badge variant="outline">
+                                    {t("backends.compute.replicas")} <span className="font-mono">{entry?.replicas ?? backend.replicas ?? CHART_REPLICAS_DEFAULT}</span>
+                                </Badge>
+                                <Badge variant="outline" title={cpu.title}>
+                                    {t("backends.compute.cpu")} <span className="font-mono">{cpu.value}</span>
+                                </Badge>
+                                <Badge variant="outline" title={memory.title}>
+                                    {t("backends.compute.memory")} <span className="font-mono">{memory.value}</span>
+                                </Badge>
+                                {entry && <Badge variant="accent">{t("backends.custom")}</Badge>}
+                            </li>
+                        )
+                    })}
+                </ul>
             </CardContent>
         </Card>
     )
