@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793567543.7328858,
-    "ast_hash": "a4adf3c65d482b76f65201a999f68cf4",
+    "mtime": 1793567982.6389267,
+    "ast_hash": "fc757e1ee245080cfd2b8cb864edf3b8",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3275,8 +3275,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainHeader.tsx": {
-    "mtime": 1793005820.6312861,
-    "ast_hash": "4045afd2d9f8f72735a7c478771be5e1",
+    "mtime": 1793567966.100742,
+    "ast_hash": "0d53cca0842ab710464a01bc9e37d932",
     "semantic_hash": ""
   },
   "backend/src/client/SqlDatabaseClient.ts": {
@@ -3855,8 +3855,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendHeader.tsx": {
-    "mtime": 1793005820.636046,
-    "ast_hash": "9cc240a180f1601f4b82e976af458acf",
+    "mtime": 1793567971.5153358,
+    "ast_hash": "c82e0e7945eaf1de2b9e3532582b3bcf",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/FrontendKindBadge.tsx": {
@@ -4595,8 +4595,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendHeader.tsx": {
-    "mtime": 1793005820.6232712,
-    "ast_hash": "766ab7cb46af3c70fc2e0abe2fb809c0",
+    "mtime": 1793567971.5145576,
+    "ast_hash": "5b65c087a2f7d5858602c657b4dc786a",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendResourcesFields.tsx": {
