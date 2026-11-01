@@ -1,4 +1,4 @@
-import { Card, CardContent, CardFooter, CardHeader, CardTitle, EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
+import { EmptyState, EntityCard, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { CirclePlus, FolderOpen, Info, LayoutDashboard, LayoutGrid, Orbit, Rocket, SearchX, Server, Settings, Sparkles, Workflow } from "lucide-react"
 import { useMemo, useState } from "react"
@@ -207,44 +207,43 @@ const Domains = () => {
                                 <TabsContent value="cards" className="mt-0">
                                     <div className="grid grid-cols-[repeat(auto-fill,minmax(min(100%,300px),1fr))] gap-4">
                                         {filteredDomains.map(domain => (
-                                            <Card key={domain._id} className="flex h-full flex-col transition-colors duration-200 hover:border-primary" data-testid={`domain-card-${domain.slug}`}>
-                                                <CardHeader>
-                                                    <CardTitle className="mb-0 truncate" title={domain.name}>
-                                                        {domain.name}
-                                                    </CardTitle>
-                                                    <p className="truncate text-sm text-foreground-secondary" title={domain.slug}>
-                                                        {domain.slug}
-                                                    </p>
-                                                </CardHeader>
-                                                <CardContent className="flex flex-grow flex-col gap-3 py-3 text-sm">
-                                                    {domain.description && <p className="line-clamp-3 text-foreground-secondary">{domain.description}</p>}
-                                                    <div className="flex flex-wrap gap-4">
-                                                        <span className="flex items-center gap-1.5">
-                                                            <LayoutDashboard className="size-4" aria-hidden="true" />
-                                                            {t("domains.frontend_count", { count: domain.frontendsCount ?? 0 })}
-                                                        </span>
-                                                        <span className="flex items-center gap-1.5">
-                                                            <Server className="size-4" aria-hidden="true" />
-                                                            {t("domains.backend_count", { count: domain.backendsCount ?? 0 })}
-                                                        </span>
-                                                    </div>
-                                                </CardContent>
-                                                <CardFooter className="flex-wrap gap-2 border-t border-divider pt-3">
-                                                    {/* The screens of the domain, as in its header. Edit with AI says why it cannot run when no AI provider is configured. */}
-                                                    <Button variant="primary" size="sm" className="basis-full" onClick={() => navigate(`/domain/${domain._id}`)}>
+                                            <EntityCard
+                                                key={domain._id}
+                                                name={domain.name}
+                                                subtitle={domain.slug}
+                                                dataTestId={`domain-card-${domain.slug}`}
+                                                // The screens of the domain, as in its header. Edit with AI says why it cannot run when no AI provider is configured.
+                                                primaryAction={
+                                                    <Button variant="primary" size="sm" onClick={() => navigate(`/domain/${domain._id}`)}>
                                                         <Sparkles />
                                                         {t("domains.ai.open")}
                                                     </Button>
-                                                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => navigate(`/domain/${domain._id}/overview`)}>
-                                                        <Info />
-                                                        {t("domains.workspace.nav_overview")}
-                                                    </Button>
-                                                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => navigate(`/domain/${domain._id}/settings`)}>
-                                                        <Settings />
-                                                        {t("domains.workspace.nav_settings")}
-                                                    </Button>
-                                                </CardFooter>
-                                            </Card>
+                                                }
+                                                actions={
+                                                    <>
+                                                        <Button variant="secondary" size="sm" onClick={() => navigate(`/domain/${domain._id}/overview`)}>
+                                                            <Info />
+                                                            {t("domains.workspace.nav_overview")}
+                                                        </Button>
+                                                        <Button variant="secondary" size="sm" onClick={() => navigate(`/domain/${domain._id}/settings`)}>
+                                                            <Settings />
+                                                            {t("domains.workspace.nav_settings")}
+                                                        </Button>
+                                                    </>
+                                                }
+                                            >
+                                                {domain.description && <p className="line-clamp-3 text-foreground-secondary">{domain.description}</p>}
+                                                <div className="flex flex-wrap gap-4">
+                                                    <span className="flex items-center gap-1.5">
+                                                        <LayoutDashboard className="size-4" aria-hidden="true" />
+                                                        {t("domains.frontend_count", { count: domain.frontendsCount ?? 0 })}
+                                                    </span>
+                                                    <span className="flex items-center gap-1.5">
+                                                        <Server className="size-4" aria-hidden="true" />
+                                                        {t("domains.backend_count", { count: domain.backendsCount ?? 0 })}
+                                                    </span>
+                                                </div>
+                                            </EntityCard>
                                         ))}
                                     </div>
                                 </TabsContent>
