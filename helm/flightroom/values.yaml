@@ -163,6 +163,66 @@ env:
   CODE_REPOSITORY_GITHUB_CLIENT_ID: ""
   # CODE_REPOSITORY_GITHUB_CLIENT_SECRET -> envSecrets
 
+  ## --- Installation administrators ------------------------------------------
+  # Comma separated emails (any case) of who sees the Installation page and
+  # changes the sandbox settings from the console. The email alone grants it:
+  # list only accounts that already exist, as without SMTP registration
+  # verifies no address. default: empty, nobody
+  INSTALLATION_ADMINS: ""
+
+  ## --- OpenShell sandboxes of the coding agent ------------------------------
+  # Where Edit with AI installs, lints, tests and builds. Without
+  # OPENSHELL_GATEWAY_URL the agent gets no tool that runs code. The values
+  # from OPENSHELL_SANDBOX_TEMPLATE down to OPENSHELL_PREVIEWS_ENABLED are
+  # only defaults: an installation administrator overrides them from the
+  # Installation page. See docs/AI-CODE-CHANGES.md.
+  OPENSHELL_GATEWAY_URL: ""
+  # OPENSHELL_TOKEN, OPENSHELL_OIDC_CLIENT_SECRET -> envSecrets
+  # OIDC client credentials, renewed before they expire (instead of a token).
+  OPENSHELL_OIDC_ISSUER: ""
+  OPENSHELL_OIDC_CLIENT_ID: ""
+  OPENSHELL_OIDC_AUDIENCE: ""
+  # Space or comma separated.
+  OPENSHELL_OIDC_SCOPES: ""
+  # CA of the gateway as PEM text; it wins over OPENSHELL_CA_CERT_FILE.
+  OPENSHELL_CA_CERT: ""
+  # PEM files mounted in the container: the CA of the gateway, and the client
+  # certificate a local gateway asks for (mTLS).
+  OPENSHELL_CA_CERT_FILE: ""
+  OPENSHELL_CLIENT_CERT_FILE: ""
+  OPENSHELL_CLIENT_KEY_FILE: ""
+  OPENSHELL_WORKSPACE: ""
+  # Workload template of the gateway (image, resources, runtime class); it wins
+  # over the image, also over one saved in the console. Size it for several
+  # conversations at once when sandboxes are shared by domain.
+  OPENSHELL_SANDBOX_TEMPLATE: ""
+  # default: node:24-bookworm-slim
+  OPENSHELL_SANDBOX_IMAGE: ""
+  # Folder of the copies and caches inside the sandbox. default: /sandbox
+  OPENSHELL_SANDBOX_ROOT: ""
+  # Comma separated hosts the sandbox may reach on 443, read-only, only through
+  # the comma separated OPENSHELL_NETWORK_BINARY. default: the public package
+  # registries (npm, Maven, PyPI, Go, NuGet, Azure Artifacts, GitHub Packages)
+  OPENSHELL_REGISTRY_HOSTS: ""
+  OPENSHELL_NETWORK_BINARY: ""
+  # A sandbox, or a conversation's folder in a shared one, goes once unused for
+  # this long. default: 5
+  OPENSHELL_SANDBOX_IDLE_MINUTES: ""
+  # Past this age a sandbox is deleted at the first quiet moment. default: 24
+  OPENSHELL_SANDBOX_MAX_HOURS: ""
+  # domain (the conversations of a domain share a sandbox) | conversation.
+  # default: domain
+  OPENSHELL_SANDBOX_SHARING: ""
+  # Sandboxes kept created and unassigned, so a new conversation does not wait
+  # for one. default: 0
+  OPENSHELL_SANDBOX_WARM: ""
+  # Live previews; their URLs do not inherit project authorization. default: true
+  OPENSHELL_PREVIEWS_ENABLED: ""
+  # Owner label of this installation's sandboxes on the gateway. Set it when two
+  # installations restored from one database share a gateway.
+  # default: the installation id
+  OPENSHELL_SANDBOX_OWNER: ""
+
   ## --- Dependencies ----------------------------------------------------------
   # Registry the cross-repository dependency analysis queries for published
   # versions. default: https://registry.npmjs.org
@@ -197,6 +257,10 @@ envSecrets:
   EMAIL_SMTP_PASSWORD: ""
   GOOGLE_CLIENT_SECRET: ""
   CODE_REPOSITORY_GITHUB_CLIENT_SECRET: ""
+  # Credentials of the OpenShell gateway: an OIDC token already issued, or the
+  # secret of the client credentials of env.OPENSHELL_OIDC_CLIENT_ID.
+  OPENSHELL_TOKEN: ""
+  OPENSHELL_OIDC_CLIENT_SECRET: ""
   # Your own Application Insights, for the console's backend and browser
   # telemetry. Empty, nothing is sent. See docs/APPLICATION-INSIGHTS.md.
   APPLICATIONINSIGHTS_CONNECTION_STRING: ""
