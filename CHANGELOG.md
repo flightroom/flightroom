@@ -7,11 +7,14 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.2.0] - 2026-11-01
+
 ### Added
 
 - **The Sandbox Variables In The Helm Chart**: `values.yaml` documents `INSTALLATION_ADMINS` and every `OPENSHELL_*` variable of the coding agent's sandboxes under `env`, with their defaults, and the gateway credentials `OPENSHELL_TOKEN` and `OPENSHELL_OIDC_CLIENT_SECRET` under `envSecrets`. Left empty they are not set, as before, so an upgrade changes nothing until they are filled in
 - **Sandbox Templates From The Installation Page**: the **Installation** page lists the workload templates of the OpenShell gateway (name, image, CPU, memory, labels, which one new sandboxes use) and creates, edits and deletes them, instead of `apply-templates.py` on the gateway. They stay stored on the gateway, shared by every installation on its workspace. The gateway has no update, so an edit deletes the template and creates it again, putting the previous one back if the gateway refuses the new one; settings this page does not show (runtime class, GPU, service level) are kept. Editing the template in use lets the warm sandboxes go, so the pool refills from the new one; deleting it is refused. The **Template** setting becomes a list of the gateway's templates. Changes are audited (`sandbox_template_created`, `sandbox_template_updated`, `sandbox_template_deleted`), and the API is `/api/installation/sandbox-templates`
 - **Live Preview Of Any Stack And Of A Whole Domain**: a repository previews from `.flightroom/preview.json`, `{ "prepare": "...", "start": "...", "port": 8080 }`, when its stack is not recognized or is to be previewed otherwise: `prepare` runs to the end first, `start` gets `PORT`, `HTTP_PORT` and `HOST`. The live preview of a domain starts its backends first and hands every development server the others as `<SLUG>_URL`, as the `services.flightroom` ConfigMap does in an environment; with backends exposed under a path, it opens on a gateway in the sandbox that routes each path to its backend, the path stripped, and the rest to the frontend, as the host of an environment does. A backend of a stack not recognized and without the file is left out instead of stopping the preview
+- **What A Running Script Prints, While It Runs**: the progress of the coding agent shows the output of a running command (an install, a build) as it comes, instead of nothing until it ends: the sandbox streams it, the end of it is kept masked on the job and its request, written every 2 seconds and gone at the next event, so a long install no longer looks stuck
 
 ### Changed
 
@@ -24,6 +27,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Logs Of One Sandbox At A Time**: on the **Installation** page, the logs of a sandbox no longer show those of the sandbox opened before while they load, a gateway line whose message is JSON is formatted, and a character printed across two pieces of output is no longer garbled
 - **The Installation Page Opens In The Same Tab**: the **Installation** link at the bottom of the sidebar opened the page in a new tab, as the links to the documentation do; it now navigates in the console like every other entry
 - **No Flash On The Installation Page**: the settings, the pool and the list of sandboxes no longer blink every 20–30 seconds while they refresh, and an edit being typed in the settings form is no longer lost at each refresh
+- **No Kind Chip On The Map Cards Of A Deployment**: the config map and secret cards of a deployment no longer repeat their kind in a chip, as the section they are in already names it
 
 ## [13.1.0] - 2026-11-01
 
