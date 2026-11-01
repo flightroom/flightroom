@@ -1,7 +1,8 @@
+import { parse } from "yaml"
 import { ContainerVariable, withOverrides } from "../gitops/applicationManifests"
 
 /** The suffix of the Secret of a resource: its variables are told apart from a secret map's */
-const RESOURCE_SECRET_SUFFIX = ".resource"
+export const RESOURCE_SECRET_SUFFIX = ".resource"
 
 interface LiveEnvFrom {
     prefix?: string
@@ -63,10 +64,10 @@ const sourceLabel = (source: LiveSource) => (source.kind === "ConfigMap" ? `conf
 /**
  * The variables a running container got, from its live pod: `env` as the platform wrote it, each value in clear
  * unless Kubernetes takes it from a Secret or a field, then each `envFrom` source with the keys its live object holds,
- * a ConfigMap's value in clear and a Secret's masked. `data` holds what each source holds by `kind/name`; a source
- * missing from it could not be read and gives no variable.
+ * a ConfigMap's value in clear and a Secret's masked, unless `revealed` holds it. `data` holds what each source holds
+ * by `kind/name`; a source missing from it could not be read and gives no variable.
  */
-export const liveContainerVariables = (container: LiveContainer, data: Map<string, Record<string, string> | null>): ContainerVariable[] =>
+export const liveContainerVariables = (container: LiveContainer, data: Map<string, Record<string, string> | null>, revealed: Map<string, Record<string, string>> = new Map()): ContainerVariable[] =>
     withOverrides([
         ...(container.env ?? []).flatMap(variable =>
             variable.name ? [{ name: variable.name, source: "platform", ...(variable.valueFrom ? { masked: { set: true as const } } : { value: variable.value ?? "" }), fromEnv: true }] : []
@@ -75,10 +76,12 @@ export const liveContainerVariables = (container: LiveContainer, data: Map<strin
             const [source] = liveSourcesOf({ envFrom: [from] })
             const held = source ? data.get(`${source.kind}/${source.name}`) : undefined
             if (!source || !held) return []
-            return Object.entries(held).map(([key, value]) => ({
+            // A ConfigMap's value is the live one; a Secret's is masked by Argo CD, so only `revealed` may give it
+            const clear = source.kind === "ConfigMap" ? held : (revealed.get(`${source.kind}/${source.name}`) ?? {})
+            return Object.keys(held).map(key => ({
                 name: `${from.prefix ?? ""}${key}`,
                 source: sourceLabel(source),
-                ...(source.kind === "ConfigMap" ? { value } : { masked: { set: true as const } }),
+                ...(clear[key] !== undefined ? { value: clear[key] } : { masked: { set: true as const } }),
                 fromEnv: false
             }))
         })
@@ -88,4 +91,11 @@ export const liveContainerVariables = (container: LiveContainer, data: Map<strin
 export const liveData = (manifest: unknown): Record<string, string> => {
     const object = (manifest ?? {}) as { data?: Record<string, string>; binaryData?: Record<string, string> }
     return { ...(object.binaryData ?? {}), ...(object.data ?? {}) }
+}
+
+/** What a Secret manifest committed by the deploy holds, by key, decoded: `data` is base64, `stringData` in clear and wins */
+export const committedSecretData = (raw: string): Record<string, string> => {
+    const object = (parse(raw) ?? {}) as { data?: Record<string, string> | null; stringData?: Record<string, string> | null }
+    const decoded = Object.fromEntries(Object.entries(object.data ?? {}).map(([key, value]) => [key, Buffer.from(String(value), "base64").toString("utf8")]))
+    return { ...decoded, ...(object.stringData ?? {}) }
 }

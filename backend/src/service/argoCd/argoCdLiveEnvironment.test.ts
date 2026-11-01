@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest"
-import { liveContainerOf, liveContainerVariables, liveData, liveSourcesOf, liveStartedAt } from "./argoCdLiveEnvironment"
+import { committedSecretData, liveContainerOf, liveContainerVariables, liveData, liveSourcesOf, liveStartedAt } from "./argoCdLiveEnvironment"
 
 const container = {
     name: "orders",
@@ -31,6 +31,38 @@ describe("liveContainerVariables", () => {
             { name: "SHOWN", source: "resource cache.resource", masked: { set: true } },
             { name: "X_FLAG", source: "configMap extra", value: "on" }
         ])
+    })
+
+    it("given the values of a Secret revealed, when the variables are read, then its keys come in clear and a Secret not revealed stays masked", () => {
+        const data = new Map<string, Record<string, string> | null>([
+            ["Secret/orders-db", { DB_PASSWORD: "++++++++", DB_USER: "++++++++" }],
+            ["Secret/cache.resource", { REDIS_HOST: "++++++++" }]
+        ])
+        const revealed = new Map([["Secret/orders-db", { DB_PASSWORD: "s3cret" }]])
+
+        expect(liveContainerVariables({ envFrom: [{ secretRef: { name: "orders-db" } }, { secretRef: { name: "cache.resource" } }] }, data, revealed)).toEqual([
+            { name: "DB_PASSWORD", source: "secret orders-db", value: "s3cret" },
+            { name: "DB_USER", source: "secret orders-db", masked: { set: true } },
+            { name: "REDIS_HOST", source: "resource cache.resource", masked: { set: true } }
+        ])
+    })
+
+    it("given a Secret manifest the deploy committed, when it is read, then data is decoded and stringData wins", () => {
+        const raw = [
+            "apiVersion: v1",
+            "kind: Secret",
+            "metadata:",
+            "  name: orders-db",
+            "type: Opaque",
+            "data:",
+            `  DB_PASSWORD: ${Buffer.from("pässw0rd").toString("base64")}`,
+            `  KEPT: ${Buffer.from("old").toString("base64")}`,
+            "stringData:",
+            "  KEPT: new"
+        ].join("\n")
+
+        expect(committedSecretData(raw)).toEqual({ DB_PASSWORD: "pässw0rd", KEPT: "new" })
+        expect(committedSecretData("kind: Secret\ndata:\n")).toEqual({})
     })
 
     it("given a source that could not be read, when the variables are read, then it gives none", () => {

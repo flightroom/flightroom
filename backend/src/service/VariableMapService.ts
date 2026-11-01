@@ -5,17 +5,14 @@ import Backend, { IBackend } from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import Project from "../models/ProjectModel"
 import Resource, { IResource } from "../models/ResourceModel"
-import { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrganizationModel"
-import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, IVariableMap, IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
 import { BACKEND_VARIABLE_KEY } from "../types/BackendStack"
 import { ResourceNaming, resourceEnvKeys } from "../types/ResourceCatalog"
 import VariableMapDTO, { VARIABLE_MAP_NAME, VariableMapEntryDTO, VariableMapKind } from "../types/VariableMapDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import { isEncryptedSecret, SECRET_PLACEHOLDER } from "../utils/secretCrypto"
-import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedService"
+import BaseAuthorizedService, { domainScopeForbidden, secretRevealForbidden } from "./BaseAuthorizedService"
 
 /** Per map: well past any real backend, short of a document Mongo would refuse */
 const MAX_VARIABLE_MAP_ENTRIES = 200
@@ -313,20 +310,10 @@ export class VariableMapService extends BaseAuthorizedService {
      */
     async reveal(id: string | ObjectId): Promise<IVariableMapEntry[]> {
         const map = await this.getById(id)
-        if (this.kind !== "secret" || !(await this.changesProject(map.projectId))) {
-            throw createBusinessException({ code: "SECRET_REVEAL_FORBIDDEN", message: "Only an owner or a member of the project sees the values of its secrets", statusCode: 403 })
+        if (this.kind !== "secret" || !(await this.mayRevealSecrets(map.projectId))) {
+            throw secretRevealForbidden()
         }
         return map.toObject().entries
-    }
-
-    private async changesProject(projectId: Schema.Types.ObjectId): Promise<boolean> {
-        const caller = this.user
-        if (!caller || caller.apiKeyId) return false
-        const membership = await UserProject.findOne({ userId: toObjectId(String(caller._id)), projectId: toObjectId(projectId), invitationToken: null }, { role: 1 }).lean()
-        if (membership?.role === RoleInProject.OWNER || membership?.role === RoleInProject.MEMBER) return true
-        const project = await Project.findById(toObjectId(projectId), { organizationId: 1 }).lean()
-        const role = project && (await this.findRoleInOrganization(project.organizationId))
-        return Boolean(role && ORGANIZATION_ADMIN_ROLES.includes(role))
     }
 
     /**

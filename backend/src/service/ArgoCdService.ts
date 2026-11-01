@@ -28,14 +28,25 @@ import {
 } from "./argoCd/argoCdErrors"
 import { deleteLeftovers, earlierAppProjects, ensureNamesFree, repositoryTargets, sharedRepositories } from "./argoCd/argoCdInitialization"
 import { acquire, LEASE_MS, Lease, release, save } from "./argoCd/argoCdLease"
-import { LivePod, liveContainerOf, liveContainerVariables, liveData, liveSourcesOf, liveStartedAt, RunningContainerEnvironmentDTO } from "./argoCd/argoCdLiveEnvironment"
+import {
+    committedSecretData,
+    LivePod,
+    LiveSource,
+    liveContainerOf,
+    liveContainerVariables,
+    liveData,
+    liveSourcesOf,
+    liveStartedAt,
+    RESOURCE_SECRET_SUFFIX,
+    RunningContainerEnvironmentDTO
+} from "./argoCd/argoCdLiveEnvironment"
 import { podLogsQuery, podOf } from "./argoCd/argoCdLogs"
 import { argoCdInUse, clientOf, deployableSlugs, environmentsOf, linksOf, normalizeUrl, projectOf, repoUrlOf, retyped } from "./argoCd/argoCdProject"
 import { DEPLOYED_VERSIONS, followRollout } from "./argoCd/argoCdRollout"
 import { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdRepositories, ArgoCdStatusDTO, PendingDeployToken, RepositoryTarget } from "./argoCd/argoCdTypes"
-import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedService"
+import BaseAuthorizedService, { domainScopeForbidden, secretRevealForbidden } from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
-import GitOpsService, { environmentNamespace, environmentSlug } from "./GitOpsService"
+import GitOpsService, { environmentNamespace, environmentSlug, gitOpsFilePath, resourceFilePath } from "./GitOpsService"
 import {
     ArgoCdEnvironment,
     applicationName,
@@ -50,7 +61,7 @@ import {
     projectIdOf
 } from "./gitops/argoCdManifests"
 import { RolloutDTO } from "./gitops/rollout"
-import { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
+import RepositoryFileService, { repositoryNameFor, toErrorMessage } from "./RepositoryFileService"
 
 /** The pods whose live manifest is read when they are listed with details, one call each: as many as a Deployment may run */
 const MAX_DETAILED_PODS = 20
@@ -141,10 +152,18 @@ class ArgoCdService extends BaseAuthorizedService {
      * manifest of one of its pods, a running one first, read through Argo CD: its `env`, then what the ConfigMaps
      * and Secrets of its `envFrom` hold now in the cluster, read through the Application of the environment, which
      * applies them. Argo CD hides the values of a Secret: only its keys are listed. Who may read the logs may read them.
+     * With `reveal`, for whoever may see the values of the project's secrets, a Secret's values come in clear, from
+     * the manifest of the configuration repository at the revision Argo CD synced the environment to.
      */
-    async runningEnvironment(projectId: string, target: { kind: "backend" | "frontend"; id: string }, environmentId: string): Promise<RunningContainerEnvironmentDTO> {
+    async runningEnvironment(
+        projectId: string,
+        target: { kind: "backend" | "frontend"; id: string },
+        environmentId: string,
+        options: { reveal?: boolean } = {}
+    ): Promise<RunningContainerEnvironmentDTO> {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
+        if (options.reveal && !(await this.mayRevealSecrets(projectIdObj))) throw secretRevealForbidden()
         if (!isValidObjectId(target.id)) throw new EntityNotFoundError(target.id)
         const component =
             target.kind === "backend"
@@ -161,19 +180,57 @@ class ArgoCdService extends BaseAuthorizedService {
 
         const notes: string[] = []
         const data = new Map<string, Record<string, string> | null>()
-        for (const source of liveSourcesOf(container)) {
+        const sources = liveSourcesOf(container)
+        for (const source of sources) {
             const object = await client.getLiveManifest(environmentApplication, appProject, { ...source, namespace: pod.namespace })
             if (object) data.set(`${source.kind}/${source.name}`, liveData(object))
             else notes.push(`${source.kind} ${source.name} not read: the Application of the environment does not manage it`)
         }
+        const secrets = sources.filter(source => source.kind === "Secret" && data.has(`Secret/${source.name}`))
+        const revealed = options.reveal && secrets.length ? await this.committedSecrets(projectIdObj, environment, { client, appProject, environmentApplication }, secrets, notes) : undefined
         const startedAt = liveStartedAt(manifest, container)
         return {
             state: "running",
             pod: pod.name,
             ...(startedAt ? { startedAt } : {}),
-            variables: liveContainerVariables(container, data),
+            variables: liveContainerVariables(container, data, revealed),
             ...(notes.length ? { notes } : {})
         }
+    }
+
+    /**
+     * What the Secrets of `secrets` hold in the environment, by `Secret/name`: Argo CD hides it in their live manifests,
+     * so it is read from those the deploy committed to the configuration repository, at the revision Argo CD synced
+     * the environment to, which is what it applied to the cluster. A Secret not found there stays masked, with a note.
+     */
+    private async committedSecrets(
+        projectId: Schema.Types.ObjectId,
+        environment: { slug: string },
+        argoCd: { client: ArgoCdClient; appProject: string; environmentApplication: string },
+        secrets: LiveSource[],
+        notes: string[]
+    ): Promise<Map<string, Record<string, string>>> {
+        const [project, application] = await Promise.all([Project.findById(projectId, { gitOps: 1 }), argoCd.client.getApplication(argoCd.environmentApplication, argoCd.appProject)])
+        const link = project?.gitOps?.codeRepository
+        const revision = application?.status?.sync?.revision
+        if (!link || !revision) {
+            notes.push("Secret values not shown: Argo CD reports no revision of the configuration repository synced to the environment")
+            return new Map()
+        }
+        const connection = await new GitOpsService(this.user).connectionOf(link, projectId)
+        const repository = { codeRepository: connection, repositoryName: repositoryNameFor(link, connection) }
+        const files = new RepositoryFileService(this.user)
+        const read = await Promise.all(
+            secrets.map(async ({ name }) => {
+                const path = name.endsWith(RESOURCE_SECRET_SUFFIX)
+                    ? resourceFilePath(environment, { name: name.slice(0, -RESOURCE_SECRET_SUFFIX.length) })
+                    : gitOpsFilePath("secret", environment, name)
+                const file = await files.readFile(repository, path, revision, "commit")
+                if (!file) notes.push(`Secret ${name}: values not shown, ${path} is not in the configuration repository at ${revision.slice(0, 7)}`)
+                return file ? ([`Secret/${name}`, committedSecretData(file.raw)] as const) : undefined
+            })
+        )
+        return new Map(read.filter(entry => entry !== undefined))
     }
 
     /**

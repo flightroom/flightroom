@@ -2662,7 +2662,7 @@
         },
         "injected_variables": {
             "title": "Variabili iniettate",
-            "description": "Le variabili d'ambiente del container in esecuzione nell'ambiente scelto, lette dal suo pod tramite Argo CD: quelle della piattaforma e quelle di config map, secret e risorse. Dei secret si vedono solo i nomi",
+            "description": "Le variabili d'ambiente del container in esecuzione nell'ambiente scelto, lette dal suo pod tramite Argo CD: quelle della piattaforma e quelle di config map, secret e risorse. I valori dei secret restano nascosti: owner e member possono mostrarli su richiesta",
             "environment": "Ambiente",
             "name": "Nome",
             "value": "Valore",
@@ -2672,7 +2672,8 @@
             "masked_length": "Impostato, nascosto ({{length}} caratteri)",
             "overridden_by": "sovrascritta da {{source}}",
             "running": "Pod {{pod}}, container avviato il {{startedAt}}. I valori delle config map sono quelli presenti ora nel cluster: se sono cambiati dopo l'avvio, il container ha ancora i precedenti fino al prossimo riavvio",
-            "no_pod": "Nessun pod di questo container è in esecuzione nell'ambiente"
+            "no_pod": "Nessun pod di questo container è in esecuzione nell'ambiente",
+            "revealed_from_cluster": "Valori dei secret presenti ora nel cluster, letti dal repository di configurazione alla revisione applicata da Argo CD: se sono cambiati dopo l'avvio, il container ha ancora i precedenti fino al prossimo riavvio"
         },
         "port": "Porta",
         "port_hint": "La porta su cui il container è in ascolto, su 0.0.0.0. La riceve anche nella variabile d'ambiente HTTP_PORT",
@@ -4544,7 +4545,8 @@
                 "image": "Immagine",
                 "resources": "Risorse",
                 "labels": "Label",
-                "actions": "Azioni"
+                "actions": "Azioni",
+                "languages": "Linguaggi"
             },
             "form": {
                 "memory_placeholder": "2Gi",
@@ -4568,7 +4570,9 @@
                 "labels": "Label",
                 "labels_help": "Una per riga, nella forma chiave=valore.",
                 "environment": "Variabili d'ambiente",
-                "environment_help": "Una per riga, nella forma NOME=valore. Gli amministratori dell'installazione le possono leggere: non metterci segreti."
+                "environment_help": "Una per riga, nella forma NOME=valore. Gli amministratori dell'installazione le possono leggere: non metterci segreti.",
+                "languages": "Linguaggi",
+                "languages_help": "Cosa l'immagine sa compilare ed eseguire. Una nuova sandbox nasce dal template che ha tutti i linguaggi dei suoi repository (Node.js per ogni frontend): quello in uso se li ha, altrimenti quello con meno linguaggi. Se nessuno li ha tutti si usa il template in uso, e i controlli che non può eseguire vengono saltati."
             },
             "validation": {
                 "duplicate": "Ogni chiave può comparire una volta sola",
@@ -4594,7 +4598,15 @@
                 "deleted": "Template eliminato",
                 "in_use": "Le nuove sandbox nascono da questo template: scegline un altro nelle impostazioni prima di eliminarlo",
                 "failed": "Non è stato possibile eliminare il template"
-            }
+            },
+            "language_names": {
+                "node": "Node.js",
+                "java": "Java",
+                "python": "Python",
+                "go": "Go",
+                "dotnet": ".NET"
+            },
+            "no_languages": "Nessuno"
         },
         "sandboxes": {
             "title": "Sandbox",

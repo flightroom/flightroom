@@ -725,7 +725,15 @@ class AzureDevOpsClient {
     /**
      * Reads a text file from a repository. Returns null when the file does not exist on the branch.
      */
-    async getFileContent(token: string, organization: string, project: string, repositoryId: string, filePath: string, branchName: string): Promise<string | null> {
+    async getFileContent(
+        token: string,
+        organization: string,
+        project: string,
+        repositoryId: string,
+        filePath: string,
+        branchName: string,
+        versionType: "branch" | "commit" = "branch"
+    ): Promise<string | null> {
         const url = `https://dev.azure.com/${organization}/${project}/_apis/git/repositories/${repositoryId}/items?api-version=7.1-preview.1`
 
         try {
@@ -735,7 +743,7 @@ class AzureDevOpsClient {
                     path: filePath.startsWith("/") ? filePath : `/${filePath}`,
                     includeContent: true,
                     "versionDescriptor.version": branchName,
-                    "versionDescriptor.versionType": "branch",
+                    "versionDescriptor.versionType": versionType,
                     $format: "json"
                 },
                 headers: {

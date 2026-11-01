@@ -38,6 +38,10 @@ export type AuthorizedPrincipal = IUser & {
 /** Code of the refusal of an action outside the functional domains a member is assigned to. */
 export const DOMAIN_SCOPE_FORBIDDEN = "DOMAIN_SCOPE_FORBIDDEN"
 
+/** The refusal of the values of a secret, in clear, to whoever {@link BaseAuthorizedService.mayRevealSecrets} turns away */
+export const secretRevealForbidden = () =>
+    createBusinessException({ code: "SECRET_REVEAL_FORBIDDEN", message: "Only an owner or a member of the project sees the values of its secrets", statusCode: 403 })
+
 export const domainScopeForbidden = () => createBusinessException({ code: DOMAIN_SCOPE_FORBIDDEN, message: "This action is outside the domains you are assigned to", statusCode: 403 })
 
 /**
@@ -487,6 +491,21 @@ export default abstract class BaseAuthorizedService {
         const role = project ? await this.findRoleInOrganization(project.organizationId) : undefined
         if (role && ORGANIZATION_ADMIN_ROLES.includes(role)) return
         throw createBusinessException({ ...forbidden, statusCode: 403 })
+    }
+
+    /**
+     * Whether the caller may read the values of the project's secrets in clear: an owner or a member of the project, or an
+     * administrator of its organization. A viewer may not, and an API key is refused whatever its role: a key that leaks
+     * must not hand out the secrets with it.
+     */
+    protected async mayRevealSecrets(projectId: string | Schema.Types.ObjectId | ObjectId): Promise<boolean> {
+        const caller = this.user
+        if (!caller || caller.apiKeyId) return false
+        const membership = await UserProject.findOne({ userId: toObjectId(String(caller._id)), projectId: toObjectId(projectId), invitationToken: null }, { role: 1 }).lean()
+        if (membership?.role === RoleInProject.OWNER || membership?.role === RoleInProject.MEMBER) return true
+        const project = await Project.findById(toObjectId(projectId), { organizationId: 1 }).lean()
+        const role = project && (await this.findRoleInOrganization(project.organizationId))
+        return Boolean(role && ORGANIZATION_ADMIN_ROLES.includes(role))
     }
 
     /**

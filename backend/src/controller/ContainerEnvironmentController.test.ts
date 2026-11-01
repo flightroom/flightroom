@@ -41,8 +41,15 @@ describe("ContainerEnvironmentController", () => {
         const response = await app.inject({ method: "GET", url: `/${path}/${CONTAINER}/environments/${ENVIRONMENT}/variables`, headers: { "project-id": PROJECT } })
 
         expect(response.statusCode).toBe(200)
-        expect(get).toHaveBeenCalledWith(PROJECT, { kind, id: CONTAINER }, ENVIRONMENT)
+        expect(get).toHaveBeenCalledWith(PROJECT, { kind, id: CONTAINER }, ENVIRONMENT, { reveal: false })
         expect(response.json().variables).toEqual([{ name: "PUBLIC_URL", source: "platform", value: "https://dev.example.com/orders" }])
+    })
+
+    it("given reveal=true, when the variables are read, then the service is asked for the values of the Secrets too", async () => {
+        const response = await app.inject({ method: "GET", url: `/backends/${CONTAINER}/environments/${ENVIRONMENT}/variables?reveal=true`, headers: { "project-id": PROJECT } })
+
+        expect(response.statusCode).toBe(200)
+        expect(get).toHaveBeenCalledWith(PROJECT, { kind: "backend", id: CONTAINER }, ENVIRONMENT, { reveal: true })
     })
 
     it("given no project header, when the variables are read, then it is refused before the service is asked", async () => {

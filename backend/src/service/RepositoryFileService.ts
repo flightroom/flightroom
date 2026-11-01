@@ -148,8 +148,8 @@ export class RepositoryFileService extends BaseAuthorizedService {
         }
     }
 
-    /** Content of `path` on `branch`, or null when the file (or the branch) is not there. */
-    async readFile(target: RepositoryTarget, path: string, branch: string): Promise<RepositoryFile | null> {
+    /** Content of `path` on `branch`, or at a commit with `refType` "commit", or null when the file (or the branch) is not there. */
+    async readFile(target: Pick<RepositoryTarget, "codeRepository" | "repositoryName">, path: string, branch: string, refType: "branch" | "commit" = "branch"): Promise<RepositoryFile | null> {
         const { codeRepository, repositoryName } = target
 
         switch (codeRepository.provider) {
@@ -177,7 +177,9 @@ export class RepositoryFileService extends BaseAuthorizedService {
                     codeRepository.azureData!.projectId,
                     repositoryName,
                     path,
-                    branch
+                    branch,
+                    // GitHub and GitLab take a branch or a commit as the same ref, Azure DevOps has to be told which
+                    refType
                 )
                 return raw === null || raw === undefined ? null : { raw }
             }

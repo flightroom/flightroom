@@ -18,13 +18,17 @@ import {
     TableRow
 } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
+import { Eye, EyeOff } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
-import { Badge } from "@/components/atoms"
+import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useContainerEnvironmentApi, { type ContainerKind, type ContainerVariable } from "@/hooks/apiClients/useContainerEnvironmentApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import { useIsProjectViewer } from "@/store/useProjectStore"
+
+/** The sources whose values Argo CD masks and the console can show: a secret map's Secret, a resource's */
+const REVEALABLE_SOURCES = ["secret ", "resource "]
 
 const ValueCell: React.FC<{ variable: ContainerVariable }> = ({ variable }) => {
     const { t } = useTranslation()
@@ -49,12 +53,19 @@ export const ContainerEnvironmentCard: React.FC<{ kind: ContainerKind; id: strin
     const environmentId = chosenId ?? environments[0]?._id
     const selected = environments.find(environment => environment._id === environmentId)
 
+    // Argo CD masks what a Secret holds: on request, the backend reads it where the deploy committed it
+    const [revealed, setRevealed] = useState(false)
     const query = useQuery({
-        queryKey: ["container-environment", kind, id, environmentId],
-        queryFn: () => get(kind, id, environmentId!),
-        enabled: Boolean(environmentId) && !isViewer
+        queryKey: ["container-environment", kind, id, environmentId, revealed],
+        queryFn: () => get(kind, id, environmentId!, revealed),
+        enabled: Boolean(environmentId) && !isViewer,
+        // The table of the same environment stays while its values come or go: the button shows the wait
+        placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[4] === environmentId ? previous : undefined),
+        // Values in clear are not kept around once hidden
+        ...(revealed ? { gcTime: 0 } : {})
     })
     const data = query.data
+    const revealable = revealed || (data?.variables ?? []).some(variable => variable.masked && REVEALABLE_SOURCES.some(prefix => variable.source.startsWith(prefix)))
 
     if (isViewer) return null
 
@@ -86,6 +97,21 @@ export const ContainerEnvironmentCard: React.FC<{ kind: ContainerKind; id: strin
                             <p className="text-sm text-foreground-secondary">
                                 {t("backends.injected_variables.running", { pod: data.pod, startedAt: data.startedAt ? new Date(data.startedAt).toLocaleString() : "—" })}
                             </p>
+                            {revealable && (
+                                <div className="flex flex-wrap items-center gap-2">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        onClick={() => setRevealed(current => !current)}
+                                        loading={revealed && query.isPlaceholderData}
+                                        loadingLabel={t("variableMaps.secret.revealing")}
+                                    >
+                                        {revealed ? <EyeOff /> : <Eye />}
+                                        {revealed ? t("variableMaps.secret.hide_values") : t("variableMaps.secret.show_values")}
+                                    </Button>
+                                    {revealed && !query.isPlaceholderData && <p className="text-xs text-foreground-secondary">{t("backends.injected_variables.revealed_from_cluster")}</p>}
+                                </div>
+                            )}
                             <Table>
                                 <TableHeader tinted={false}>
                                     <TableRow>

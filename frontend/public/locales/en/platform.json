@@ -2643,7 +2643,7 @@
         },
         "injected_variables": {
             "title": "Injected variables",
-            "description": "The environment variables of the container running in the chosen environment, read from its pod through Argo CD: the platform's and those of config maps, secrets and resources. Of secrets only the names are shown",
+            "description": "The environment variables of the container running in the chosen environment, read from its pod through Argo CD: the platform's and those of config maps, secrets and resources. Secret values stay hidden: owners and members can show them on request",
             "environment": "Environment",
             "name": "Name",
             "value": "Value",
@@ -2653,7 +2653,8 @@
             "masked_length": "Set, hidden ({{length}} characters)",
             "overridden_by": "overridden by {{source}}",
             "running": "Pod {{pod}}, container started on {{startedAt}}. Config map values are those in the cluster now: if they changed after the start, the container keeps the previous ones until it restarts",
-            "no_pod": "No pod of this container runs in the environment"
+            "no_pod": "No pod of this container runs in the environment",
+            "revealed_from_cluster": "Secret values in the cluster now, read from the configuration repository at the revision Argo CD applied: if they changed after the start, the container keeps the previous ones until it restarts"
         },
         "port": "Port",
         "port_hint": "The port the container listens on, on 0.0.0.0. It also gets it in the HTTP_PORT environment variable",
@@ -4525,7 +4526,8 @@
                 "image": "Image",
                 "resources": "Resources",
                 "labels": "Labels",
-                "actions": "Actions"
+                "actions": "Actions",
+                "languages": "Languages"
             },
             "form": {
                 "memory_placeholder": "2Gi",
@@ -4549,7 +4551,9 @@
                 "labels": "Labels",
                 "labels_help": "One per line, as key=value.",
                 "environment": "Environment variables",
-                "environment_help": "One per line, as NAME=value. Installation administrators can read them: do not put secrets here."
+                "environment_help": "One per line, as NAME=value. Installation administrators can read them: do not put secrets here.",
+                "languages": "Languages",
+                "languages_help": "What the image can build and run. A new sandbox is created from the template that holds every language of its repositories (Node.js for every frontend): the one in use when it does, otherwise the one with the fewest languages. When none holds them all, the template in use is used and the checks it cannot run are skipped."
             },
             "validation": {
                 "duplicate": "Each key may appear only once",
@@ -4575,7 +4579,15 @@
                 "deleted": "Template deleted",
                 "in_use": "New sandboxes start from this template: choose another one in the settings before deleting it",
                 "failed": "The template could not be deleted"
-            }
+            },
+            "language_names": {
+                "node": "Node.js",
+                "java": "Java",
+                "python": "Python",
+                "go": "Go",
+                "dotnet": ".NET"
+            },
+            "no_languages": "None"
         },
         "sandboxes": {
             "title": "Sandboxes",

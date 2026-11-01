@@ -32,8 +32,9 @@ export interface RunningContainerEnvironment {
 const useContainerEnvironmentApi = () => {
     const apiClient = useApiClient()
 
-    const get = async (kind: ContainerKind, id: string, environmentId: string): Promise<RunningContainerEnvironment> => {
-        const response = await apiClient.doRequest<RunningContainerEnvironment>({ url: `/api/${kind}s/${id}/environments/${environmentId}/variables` })
+    /** With `reveal`, for an owner or a member of the project, the values of its Secrets in clear */
+    const get = async (kind: ContainerKind, id: string, environmentId: string, reveal = false): Promise<RunningContainerEnvironment> => {
+        const response = await apiClient.doRequest<RunningContainerEnvironment>({ url: `/api/${kind}s/${id}/environments/${environmentId}/variables`, params: reveal ? { reveal: "true" } : undefined })
         return response.data
     }
 
