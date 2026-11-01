@@ -1,4 +1,4 @@
-/** A config map holds values anyone who sees the project may read; a secret holds values never sent back once written */
+/** A config map holds values anyone who sees the project may read; a secret holds values sent back only to whoever may change them, when asked */
 export type VariableMapKind = "configMap" | "secret"
 
 /** What a map is called: a Kubernetes object name (DNS label), so it can become one as it is */

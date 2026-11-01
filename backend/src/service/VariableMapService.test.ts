@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
+import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
+import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
@@ -419,5 +421,40 @@ describe("VariableMapService create and update of a map", () => {
         await new VariableMapService("configMap").delete(mapId.toString())
 
         expect(ConfigMap.findByIdAndDelete).toHaveBeenCalledWith(mapId)
+    })
+})
+
+describe("VariableMapService.reveal", () => {
+    const secretId = new Types.ObjectId()
+    const entries = [{ key: "DATABASE_PASSWORD", values: [{ environmentId: production, value: "stored-password" }] }]
+    const userId = new Types.ObjectId().toString()
+
+    beforeEach(() => {
+        allowAccess()
+        vi.spyOn(VariableMapService.prototype as unknown as { getDomainScope: () => Promise<undefined> }, "getDomainScope").mockResolvedValue(undefined)
+        vi.spyOn(Secret, "findById").mockResolvedValue({ _id: secretId, projectId, toObject: () => ({ entries }) } as never)
+        vi.spyOn(Project, "findById").mockReturnValue({ lean: async () => null } as never)
+    })
+
+    const asRole = (role?: RoleInProject) => vi.spyOn(UserProject, "findOne").mockReturnValue({ lean: async () => (role ? { role } : null) } as never)
+    const reveal = (user: object = { _id: userId }) => new VariableMapService("secret", user as never).reveal(String(secretId))
+
+    it.each([RoleInProject.OWNER, RoleInProject.MEMBER])("given a %s of the project, when they reveal a secret, then they get its values in clear", async role => {
+        asRole(role)
+
+        expect(await reveal()).toEqual(entries)
+    })
+
+    it("given a viewer of the project, when they reveal a secret, then they are refused", async () => {
+        asRole(RoleInProject.VIEWER)
+
+        await expect(reveal()).rejects.toMatchObject({ code: "SECRET_REVEAL_FORBIDDEN" })
+    })
+
+    it("given an API key, when it reveals a secret, then it is refused whatever its role", async () => {
+        const membership = asRole(RoleInProject.OWNER)
+
+        await expect(reveal({ _id: userId, apiKeyId: "key" })).rejects.toMatchObject({ code: "SECRET_REVEAL_FORBIDDEN" })
+        expect(membership).not.toHaveBeenCalled()
     })
 })

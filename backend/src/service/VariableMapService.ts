@@ -5,7 +5,10 @@ import Backend, { IBackend } from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import Project from "../models/ProjectModel"
 import Resource, { IResource } from "../models/ResourceModel"
+import { ORGANIZATION_ADMIN_ROLES } from "../models/UserOrganizationModel"
+import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, IVariableMap, IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
 import { BACKEND_VARIABLE_KEY } from "../types/BackendStack"
 import { ResourceNaming, resourceEnvKeys } from "../types/ResourceCatalog"
@@ -301,6 +304,29 @@ export class VariableMapService extends BaseAuthorizedService {
             throw domainScopeForbidden()
         }
         return map
+    }
+
+    /**
+     * The values of a secret in clear, for whoever may change it: an owner or a member of the project, or an administrator
+     * of its organization. A viewer keeps reading the keys only, and an API key is refused whatever its role: a key that
+     * leaks must not hand out the secrets with it.
+     */
+    async reveal(id: string | ObjectId): Promise<IVariableMapEntry[]> {
+        const map = await this.getById(id)
+        if (this.kind !== "secret" || !(await this.changesProject(map.projectId))) {
+            throw createBusinessException({ code: "SECRET_REVEAL_FORBIDDEN", message: "Only an owner or a member of the project sees the values of its secrets", statusCode: 403 })
+        }
+        return map.toObject().entries
+    }
+
+    private async changesProject(projectId: Schema.Types.ObjectId): Promise<boolean> {
+        const caller = this.user
+        if (!caller || caller.apiKeyId) return false
+        const membership = await UserProject.findOne({ userId: toObjectId(String(caller._id)), projectId: toObjectId(projectId), invitationToken: null }, { role: 1 }).lean()
+        if (membership?.role === RoleInProject.OWNER || membership?.role === RoleInProject.MEMBER) return true
+        const project = await Project.findById(toObjectId(projectId), { organizationId: 1 }).lean()
+        const role = project && (await this.findRoleInOrganization(project.organizationId))
+        return Boolean(role && ORGANIZATION_ADMIN_ROLES.includes(role))
     }
 
     /**

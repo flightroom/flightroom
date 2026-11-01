@@ -3,7 +3,7 @@ import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf } from "../useApiClient"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 
-/** A config map holds values anyone who sees the project may read; a secret holds values never sent back once written */
+/** A config map holds values anyone who sees the project may read; a secret holds values sent back only to whoever may change them, when asked */
 export type VariableMapKind = "configMap" | "secret"
 
 /** A key with the value of all environments and the ones an environment overrides it with; with neither it is unset there */
@@ -94,7 +94,13 @@ const useVariableMapsApi = (kind: VariableMapKind) => {
         return response.data
     }
 
-    return { getAll, getSingle, create, update, deleteSingle }
+    /** A secret only, for an owner or a member of the project: its values in clear */
+    const reveal = async (id: string): Promise<VariableMapEntry[]> => {
+        const response = await apiClient.doRequest<VariableMapEntry[]>({ url: `${url}/${id}/values` })
+        return response.data
+    }
+
+    return { getAll, getSingle, create, update, deleteSingle, reveal }
 }
 
 export default useVariableMapsApi

@@ -4,9 +4,15 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import type { VariableMapEntry, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import { cn } from "@/utils/styleUtils"
 
-/** The keys of a config map or of a secret, read only: a column per environment, the value of all in grey where it applies, a secret never shown. */
-export const VariableEntriesTable: React.FC<{ kind: VariableMapKind; entries?: VariableMapEntry[]; environments: EnvironmentDTO[] }> = ({ kind, entries = [], environments }) => {
+/** The keys of a config map or of a secret, read only: a column per environment, the value of all in grey where it applies, a secret shown only once `revealed`. */
+export const VariableEntriesTable: React.FC<{ kind: VariableMapKind; entries?: VariableMapEntry[]; environments: EnvironmentDTO[]; revealed?: boolean }> = ({
+    kind,
+    entries = [],
+    environments,
+    revealed
+}) => {
     const { t } = useTranslation()
+    const hidden = kind === "secret" && !revealed
 
     return (
         <div className="overflow-x-auto rounded-lg border-2 border-border bg-card">
@@ -31,10 +37,10 @@ export const VariableEntriesTable: React.FC<{ kind: VariableMapKind; entries?: V
                                         <TableCell
                                             key={environment._id}
                                             className={cn("max-w-[16rem] truncate font-mono text-xs", !own && "text-foreground-secondary")}
-                                            title={kind === "configMap" ? value : undefined}
+                                            title={hidden ? undefined : value}
                                         >
                                             {value ? (
-                                                kind === "secret" ? (
+                                                hidden ? (
                                                     <span className="text-foreground-secondary">{t("variableMaps.secret.set")}</span>
                                                 ) : (
                                                     value

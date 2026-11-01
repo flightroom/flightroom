@@ -23,6 +23,14 @@ export default async function variableMapController(fastify: FastifyInstance) {
             return reply.send(await new VariableMapService(kind, request.databaseUser).getById(request.params.id))
         })
 
+        if (kind === "secret") {
+            fastify.get<{ Params: { id: string } }>(`${path}/:id/values`, async (request, reply) => {
+                const entries = await new VariableMapService(kind, request.databaseUser).reveal(request.params.id)
+                request.log.info({ secretId: request.params.id, userId: String(request.databaseUser?._id) }, "Secret values revealed")
+                return reply.send(entries)
+            })
+        }
+
         fastify.post<{ Body: VariableMapDTO }>(path, async (request, reply) => {
             const projectId = getProjectIdFromRequest(request)
             if (!projectId) {
