@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793558523.023893,
-    "ast_hash": "6bd14633fd522855218aea2a74526b41",
+    "mtime": 1793560634.7590282,
+    "ast_hash": "71f3b6c6488e01a2edaf684f42f5d369",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3250,8 +3250,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiChangeProgress.tsx": {
-    "mtime": 1793547791.8799667,
-    "ast_hash": "19a072d12d42a7325665203e0b5ff4fe",
+    "mtime": 1793560600.4872878,
+    "ast_hash": "3f5d98724fabd5802075eab333886344",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
@@ -4750,13 +4750,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeScripts.test.ts": {
-    "mtime": 1793555034.8781474,
-    "ast_hash": "6e34bdfb86989f4fc0c094a5a2e96f80",
+    "mtime": 1793560609.4319065,
+    "ast_hash": "4fe4ce310543b5a4f8cfbf77c5161457",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeScripts.ts": {
-    "mtime": 1793555034.0030825,
-    "ast_hash": "79a6dc37eaab5f456406362a9a77446a",
+    "mtime": 1793560609.2478406,
+    "ast_hash": "02f168c71d5e30fce94b98a078bd5bbc",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.test.ts": {
@@ -5170,8 +5170,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/ConversationThread.tsx": {
-    "mtime": 1793357121.8502367,
-    "ast_hash": "cccc51690bafb7874b90b6a6fba8564a",
+    "mtime": 1793560600.4877408,
+    "ast_hash": "278cf5a57ef4044d9045ad3c9b1a0a57",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/FollowUpForm.tsx": {
