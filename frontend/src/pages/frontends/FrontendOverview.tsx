@@ -183,7 +183,7 @@ const FrontendOverview: React.FC = () => {
                             <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} container={isDocker ? frontend : undefined} />
                             {isDocker && <BackendEndpointsCard backend={frontend} environments={environmentsQuery.data ?? []} />}
                             {/* Above the logs when they have a tab */}
-                            {isDocker && !tabs.includes("logs") && <LogLevelCard value={frontend.logLevel} />}
+                            {isDocker && !tabs.includes("logs") && <LogLevelCard value={frontend.logLevel} environments={environmentsQuery.data ?? []} />}
                             <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
                             {isDocker && <BackendVersionsTable versions={buildsQuery.data ?? []} />}
                         </TabsContent>
@@ -203,7 +203,7 @@ const FrontendOverview: React.FC = () => {
                                 </TabsContent>
 
                                 <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
-                                    <LogLevelCard value={frontend.logLevel} />
+                                    <LogLevelCard value={frontend.logLevel} environments={environmentsQuery.data ?? []} />
                                     <ApplicationLogsSection slug={frontend.slug} environments={environmentsQuery.data ?? []} />
                                 </TabsContent>
 

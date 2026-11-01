@@ -2661,6 +2661,7 @@
         "port": "Port",
         "log_level": "Log level",
         "log_level_inherited": "The environment's",
+        "log_level_custom": "Custom",
         "log_level_hint": "Handed to the container as LOG_LEVEL in every environment instead of the environment's, from the next deploy",
         "port_hint": "The port the container listens on, on 0.0.0.0. It also gets it in the HTTP_PORT environment variable",
         "liveness_path": "Liveness probe path",

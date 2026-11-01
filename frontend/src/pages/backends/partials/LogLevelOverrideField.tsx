@@ -1,8 +1,9 @@
 import { Card, CardContent, DescriptionItem, DescriptionList, Select, SelectContent, SelectControl, SelectItem, SelectTrigger, SelectValue } from "@flightroom/design-system"
 import { Controller, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
+import { Badge } from "@/components/atoms"
 import LogLevelOption from "@/components/molecules/LogLevelOption"
-import { LOG_LEVELS, type LogLevel } from "@/hooks/apiClients/useEnvironmentsApi"
+import { type EnvironmentDTO, LOG_LEVELS, type LogLevel } from "@/hooks/apiClients/useEnvironmentsApi"
 
 /** The Select takes no empty value: what stands for the level of each environment, empty in the form */
 const INHERITED = "environment"
@@ -49,8 +50,17 @@ export const LogLevelValue: React.FC<{ value?: string | null }> = ({ value }) =>
     return isLogLevel(value) ? <LogLevelOption level={value} /> : <span className="text-foreground-secondary">{t("backends.log_level_inherited")}</span>
 }
 
-/** The log level of a container above its logs, where it is looked for */
-export const LogLevelCard: React.FC<{ value?: string | null }> = ({ value }) => {
+/** The level an environment hands its containers when it sets none, as the deploy does */
+const DEFAULT_LOG_LEVEL: LogLevel = "info"
+
+const LogLevelChip: React.FC<{ level: LogLevel }> = ({ level }) => (
+    <Badge variant="outline">
+        <LogLevelOption level={level} />
+    </Badge>
+)
+
+/** The log level of a container above its logs, where it is looked for: its own in every environment, marked custom, else the one of each environment */
+export const LogLevelCard: React.FC<{ value?: string | null; environments: EnvironmentDTO[] }> = ({ value, environments }) => {
     const { t } = useTranslation()
 
     return (
@@ -58,7 +68,21 @@ export const LogLevelCard: React.FC<{ value?: string | null }> = ({ value }) => 
             <CardContent>
                 <DescriptionList orientation="inline">
                     <DescriptionItem label={t("backends.log_level")}>
-                        <LogLevelValue value={value} />
+                        {isLogLevel(value) ? (
+                            <span className="flex flex-wrap items-center gap-2">
+                                <LogLevelChip level={value} />
+                                <Badge variant="accent">{t("backends.log_level_custom")}</Badge>
+                            </span>
+                        ) : (
+                            <ul className="flex flex-wrap items-center gap-x-4 gap-y-2">
+                                {environments.map(environment => (
+                                    <li key={environment._id} className="flex items-center gap-2 text-sm">
+                                        <span className="font-medium">{environment.name}</span>
+                                        <LogLevelChip level={environment.logLevel ?? DEFAULT_LOG_LEVEL} />
+                                    </li>
+                                ))}
+                            </ul>
+                        )}
                     </DescriptionItem>
                 </DescriptionList>
             </CardContent>

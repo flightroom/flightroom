@@ -123,7 +123,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                             <EnvironmentVersionsCard entries={backend.environmentVersions} environments={environmentsQuery.data ?? []} container={backend} />
                             <BackendEndpointsCard backend={backend} environments={environmentsQuery.data ?? []} />
                             {/* Above the logs when they have a tab */}
-                            {!tabs.includes("logs") && <LogLevelCard value={backend.logLevel} />}
+                            {!tabs.includes("logs") && <LogLevelCard value={backend.logLevel} environments={environmentsQuery.data ?? []} />}
                             <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
                             <BackendVersionsTable versions={versionsQuery.data ?? []} />
                         </TabsContent>
@@ -137,7 +137,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         </TabsContent>
 
                         <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
-                            <LogLevelCard value={backend.logLevel} />
+                            <LogLevelCard value={backend.logLevel} environments={environmentsQuery.data ?? []} />
                             <ApplicationLogsSection slug={backend.slug} environments={environmentsQuery.data ?? []} />
                         </TabsContent>
 
