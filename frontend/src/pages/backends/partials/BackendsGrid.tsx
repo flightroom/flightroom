@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
-import { Badge } from "@/components/atoms"
 import EntityCardActions, { HIDE_EMPTY_CARD_BODY } from "@/components/EntityCardActions"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
@@ -26,7 +25,6 @@ const BackendCard: React.FC<{ backend: Backend; assistantEnabled: boolean }> = (
             name={backend.name}
             logo={technology && <TechnologyLogo technology={technology} />}
             status={agents > 0 && <WorkingAgentsIndicator agents={agents} className="max-w-full" />}
-            badges={backend.version && <Badge>{backend.version}</Badge>}
             className={cn(HIDE_EMPTY_CARD_BODY, agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}
             actions={
                 <EntityCardActions

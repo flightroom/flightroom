@@ -4,7 +4,6 @@ import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
-import { Badge } from "@/components/atoms"
 import EntityCardActions, { HIDE_EMPTY_CARD_BODY } from "@/components/EntityCardActions"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
@@ -36,12 +35,8 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
             name={mfe.name}
             logo={technology && <TechnologyLogo technology={technology} />}
             status={agents > 0 && <WorkingAgentsIndicator agents={agents} className="max-w-full" />}
-            badges={
-                <>
-                    <Badge>{mfe.version || "—"}</Badge>
-                    <FrontendKindBadge frontend={mfe} />
-                </>
-            }
+            // No version: each environment runs its own
+            badges={<FrontendKindBadge frontend={mfe} />}
             className={cn(HIDE_EMPTY_CARD_BODY, agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}
             // The screens of the frontend, as in its header, and the clone of its repository
             actions={
