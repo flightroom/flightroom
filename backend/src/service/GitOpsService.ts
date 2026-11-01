@@ -41,7 +41,9 @@ import {
     MAINTENANCE_AGENT_API_URL_VARIABLE,
     MAINTENANCE_AGENT_TOKEN_VARIABLE,
     maintenanceAgentSecretName,
-    renderApplicationValues
+    renderApplicationValues,
+    SERVICES_CONFIG_MAP,
+    serviceUrls
 } from "./gitops/applicationManifests"
 import { applicationListener, EnvironmentGateway, gatewayName, HTTPS_LISTENER, ipAllowListMiddleware, renderGateway } from "./gitops/gatewayManifests"
 import { maintenanceApplications } from "./gitops/maintenanceApplications"
@@ -93,6 +95,9 @@ export const GATEWAY_FILE = "gateway.yaml"
 
 /** The kube-green SleepInfo of the environment, when it sleeps on a schedule, in the folder of the environment */
 export const SLEEP_INFO_FILE = "sleepinfo.yaml"
+
+/** The ConfigMap of an environment with the in-cluster URL of each backend and DOCKER frontend deployed there */
+export const SERVICES_FILE = "services.yaml"
 
 /** Local branch the commit is made on before it is pushed onto the default one */
 const GITOPS_BRANCH = "flightroom-gitops"
@@ -148,6 +153,8 @@ export const namespaceFilePath = (environment: Pick<IEnvironment, "slug">) => `$
 export const gatewayFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${GATEWAY_FILE}`
 
 export const sleepInfoFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${SLEEP_INFO_FILE}`
+
+export const servicesFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${SERVICES_FILE}`
 
 /**
  * The kube-green SleepInfos of an environment, one per sleep its days make, none when it does not sleep. Named after the
@@ -266,6 +273,13 @@ export const renderResourceManifest = (resource: ResourceWithValues, environment
 }
 
 /**
+ * The ConfigMap of the URLs of the backends and DOCKER frontends in one environment, {@link serviceUrls}. Written even with none: every
+ * container names it in its `envFrom`, and a pod whose ConfigMap is missing does not start.
+ */
+export const renderServicesManifest = (urls: Record<string, string>, namespace?: string): string =>
+    stringify({ apiVersion: "v1", kind: "ConfigMap", metadata: { name: SERVICES_CONFIG_MAP, ...(namespace ? { namespace } : {}), labels: { [MANAGED_BY_LABEL]: MANAGED_BY } }, data: urls })
+
+/**
  * The Kubernetes Secret of a maintenance agent in one environment: where the console API answers and the token the
  * agent reads the logs and the builds of its targets with, there only. Base64 encoded, not encrypted, as a secret map is.
  */
@@ -308,6 +322,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 - \`<environment>/namespace.yaml\`: the Namespace of the environment, named as set on it or as its slug in lowercase
 - \`<environment>/gateway.yaml\`: when the project has a domain, the Traefik Gateway answering on the host of the environment, its cert-manager Certificate and the redirect to HTTPS
 - \`<environment>/sleepinfo.yaml\`: when the environment sleeps on a schedule, the kube-green SleepInfos that scale it down and back up, one per sleep within a day
+- \`<environment>/services.yaml\`: the ConfigMap \`services.flightroom\` every container reads first, with the URL each backend and DOCKER frontend deployed there answers on inside the cluster, as \`<SLUG>_URL\` (\`orders-be\` is \`ORDERS_BE_URL=http://orders-be\`)
 - \`<environment>/configMaps/<name>.yaml\`: the ConfigMaps, in that namespace
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
 - \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a backend attaches, in that namespace, values base64 encoded (not encrypted)
@@ -360,9 +375,9 @@ const environmentOfPath = (path: string): string => path.split("/")[0]
 
 const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER, MAINTENANCE_AGENTS_FOLDER])
 
-const ENVIRONMENT_FILES = new Set([NAMESPACE_FILE, GATEWAY_FILE, SLEEP_INFO_FILE])
+const ENVIRONMENT_FILES = new Set([NAMESPACE_FILE, GATEWAY_FILE, SLEEP_INFO_FILE, SERVICES_FILE])
 
-/** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, `<slug>/sleepinfo.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
+/** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, `<slug>/sleepinfo.yaml`, `<slug>/services.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
 const isConfigurationManifest = (path: string) => {
     const [, second, third, ...rest] = path.split("/")
     return rest.length === 0 && (third === undefined ? ENVIRONMENT_FILES.has(second) : KIND_FOLDERS.has(second) && third.endsWith(".yaml"))
@@ -375,8 +390,8 @@ type DeployedMap = CommittedVariableMap & { _id: unknown }
 type DeployedResource = ResourceWithValues & { _id: unknown }
 
 /**
- * What a deploy of one environment ships: its Namespace, its Gateway when it has one, every config map and
- * secret of the project as they are in it, and every resource a backend attaches. A Gateway left out is
+ * What a deploy of one environment ships: its Namespace, its Gateway when it has one, the URLs of its applications,
+ * every config map and secret of the project as they are in it, and every resource a backend attaches. A Gateway left out is
  * pruned, with the project's domain gone, and so is a resource no backend attaches any longer, and the
  * SleepInfo of an environment that no longer sleeps.
  */
@@ -386,11 +401,13 @@ const environmentFiles = (
     resources: DeployedResource[],
     gateway?: EnvironmentGateway,
     agents: Array<{ slug: string; token: string }> = [],
-    sleepInfo?: string
+    sleepInfo?: string,
+    services: Record<string, string> = {}
 ): GitOpsFile[] => {
     const namespace = environmentNamespace(environment)
     return [
         { path: namespaceFilePath(environment), action: "update", content: renderNamespace(environment) },
+        { path: servicesFilePath(environment), action: "update", content: renderServicesManifest(services, namespace) },
         ...(gateway ? [{ path: gatewayFilePath(environment), action: "update" as const, content: renderGateway(gateway) }] : []),
         ...(sleepInfo ? [{ path: sleepInfoFilePath(environment), action: "update" as const, content: sleepInfo }] : []),
         ...(Object.keys(GITOPS_FOLDER) as VariableMapKind[]).flatMap(kind =>
@@ -547,6 +564,8 @@ export class GitOpsService extends BaseAuthorizedService {
         const resources = await Resource.find({ projectId })
         // Every one of the project as well, those of other domains too: the prune would take away the Secret their containers read
         const agents = await MaintenanceAgent.find({ projectId }, { slug: 1 })
+        // Every backend and DOCKER frontend of the project, whatever the domain of the deploy: the URLs are one map for all of them
+        const services = [...(await Backend.find({ projectId })), ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }))]
         const agentTokens = await ensureRuntimeTokens(
             agents.map(agent => agent._id),
             deployed.map(environment => environment._id)
@@ -579,7 +598,8 @@ export class GitOpsService extends BaseAuthorizedService {
                         resources,
                         gateways.get(String(environment._id)),
                         agentSecrets(environment),
-                        renderSleepInfo(gatewayName(String(project._id), project.slug), environment)
+                        renderSleepInfo(gatewayName(String(project._id), project.slug), environment),
+                        serviceUrls(services, environment._id, project.containerRegistry)
                     )
                 ),
                 { prune: path => isConfigurationManifest(path) && (deployedSlugs.has(environmentOfPath(path)) || !existingSlugs.has(environmentOfPath(path))) }

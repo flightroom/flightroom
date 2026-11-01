@@ -13,7 +13,7 @@ import { entryValueIn } from "../types/VariableMapDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { environmentGateway } from "./GitOpsService"
-import { ContainerVariable, containerEnvironment, containerPublicUrl, GitOpsApplication, gatewayOrigin, isDeployable } from "./gitops/applicationManifests"
+import { ContainerVariable, containerEnvironment, containerPublicUrl, GitOpsApplication, gatewayOrigin, isDeployable, serviceUrls } from "./gitops/applicationManifests"
 
 /** A value shown in clear is the team's configuration, not a document: past this it is cut */
 const MAX_VALUE_CHARS = 2_000
@@ -87,10 +87,13 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
 
         const inProject = (ids: unknown[] | undefined) => ({ _id: { $in: (ids ?? []).map(id => toObjectId(String(id))) }, projectId: projectIdObj })
         // Read through the models, as the deploy reads them: a secret comes back decrypted, and only its length goes out
-        const [configMaps, secrets, resources] = await Promise.all([
+        const [configMaps, secrets, resources, backends, frontends] = await Promise.all([
             ConfigMap.find(inProject(application.configMapIds)),
             Secret.find(inProject(application.secretIds)),
-            Resource.find(inProject(application.resourceIds))
+            Resource.find(inProject(application.resourceIds)),
+            // Every backend and DOCKER frontend of the project, as the deploy reads them for the URLs every container gets
+            Backend.find({ projectId: projectIdObj }),
+            Frontend.find({ projectId: projectIdObj, kind: FrontendKind.DOCKER })
         ])
         const id = String(environment._id)
         const notes: string[] = []
@@ -110,6 +113,7 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
                 resources: new Map(resources.map(resource => [String(resource._id), resourceSecretName(resource)]))
             },
             {
+                services: serviceUrls([...backends, ...frontends], environment._id, project.containerRegistry),
                 configMaps: new Map(configMaps.map(map => [String(map._id), mapValues(map, id)])),
                 secrets: new Map(secrets.map(map => [String(map._id), mapValues(map, id)])),
                 resources: new Map(resources.map(resource => [String(resource._id), resourceEnvironmentValues(resource, id)]))

@@ -14,6 +14,8 @@ import {
     MANAGED_VALUES_MARKER,
     PAUSED_SCHEDULE,
     renderApplicationValues,
+    serviceUrls,
+    serviceUrlVariable,
     splitImage
 } from "./applicationManifests"
 
@@ -127,7 +129,7 @@ describe("renderApplicationValues", () => {
     it("given maps attached by id, when its values are rendered, then they go by name and an unknown id is left out", () => {
         const values = parse(render())
 
-        expect(values.environmentMaps).toEqual(["logging"])
+        expect(values.environmentMaps).toEqual(["services.flightroom", "logging"])
         expect(values.secrets).toEqual(["database"])
     })
 
@@ -411,8 +413,9 @@ describe("containerEnvironment", () => {
         maintenance: { kind: MaintenanceAgentKind.CONTAINER, schedule: "@hourly", runPath: "/run", targets: [{ kind: "service" as const, slug: "orders", url: "http://orders" }] }
     }
     const values = {
+        services: { ORDERS_URL: "http://orders", PAYMENTS_BE_URL: "http://payments-be" },
         configMaps: new Map<string, Record<string, string>>([
-            ["c1", { LOG_LEVEL: "warn", LOG_FORMAT: "pretty", FEATURE_X: "off" }],
+            ["c1", { LOG_LEVEL: "warn", LOG_FORMAT: "pretty", FEATURE_X: "off", PAYMENTS_BE_URL: "https://payments.example.com" }],
             ["c2", { FEATURE_X: "on" }]
         ]),
         secrets: new Map([["s1", { DB_PASSWORD: "hunter2-very-secret", FEATURE_X: "secret-on" }]]),
@@ -442,6 +445,7 @@ probes:
     active: true
     path: /health/ready
 environmentMaps:
+  - services.flightroom
   - logging
   - features
 secrets:
@@ -487,6 +491,7 @@ probes:
     active: true
     path: /health/ready
 environmentMaps:
+  - services.flightroom
   - features
 secrets:
   - database
@@ -550,8 +555,18 @@ maintenance:
         expect(json).not.toContain("db.internal")
     })
 
+    it("given the URLs of the backends, when the environment is built, then they come first of the envFrom, and a config map of the team setting one wins", () => {
+        expect(named("ORDERS_URL")).toEqual([{ name: "ORDERS_URL", source: "configMap services.flightroom", value: "http://orders" }])
+        expect(named("PAYMENTS_BE_URL")).toEqual([
+            { name: "PAYMENTS_BE_URL", source: "configMap services.flightroom", value: "http://payments-be", overriddenBy: "configMap logging" },
+            { name: "PAYMENTS_BE_URL", source: "configMap logging", value: "https://payments.example.com" }
+        ])
+    })
+
     it("given a config map deleted since, when the environment is built, then it is left out as the deploy leaves it out", () => {
-        expect(new Set(variables().map(variable => variable.source))).toEqual(new Set(["platform", "configMap logging", "configMap features", "secret database", "resource orders-db.resource"]))
+        expect(new Set(variables().map(variable => variable.source))).toEqual(
+            new Set(["platform", "configMap services.flightroom", "configMap logging", "configMap features", "secret database", "resource orders-db.resource"])
+        )
     })
 
     it("given a CONTAINER maintenance agent, whose Deployment runs it, when its environment is built, then it gets HTTP_PORT, its targets and the platform's Secret masked, without the token read", () => {
@@ -573,6 +588,27 @@ maintenance:
 
         expect(names).not.toContain("HTTP_PORT")
         expect(names).toContain("MAINTAINED_TARGETS")
+    })
+})
+
+describe("serviceUrls", () => {
+    it.each([
+        ["orders-be", "ORDERS_BE_URL"],
+        ["payments", "PAYMENTS_URL"],
+        ["v2-api", "V2_API_URL"]
+    ])("given the backend %s, when its variable is named, then it is %s", (slug, name) => {
+        expect(serviceUrlVariable(slug)).toBe(name)
+    })
+
+    it("given backends with and without a version in the environment, when the URLs are listed, then only those it runs are there, by slug, on port 80 of their Service", () => {
+        const backends = [
+            { slug: "orders-be", environmentVersions: [{ environmentId: "e1", version: "1.0.0" }], image: { repository: "ghcr.io/acme/orders-be" } },
+            { slug: "billing-be", environmentVersions: [{ environmentId: "e2", version: "1.0.0" }], image: { repository: "ghcr.io/acme/billing-be" } },
+            { slug: "audit-be", environmentVersions: [{ environmentId: "e1", version: "1.0.0" }] }
+        ]
+
+        expect(serviceUrls(backends, "e1")).toEqual({ ORDERS_BE_URL: "http://orders-be" })
+        expect(serviceUrls(backends, "e1", "registry.example.com")).toEqual({ AUDIT_BE_URL: "http://audit-be", ORDERS_BE_URL: "http://orders-be" })
     })
 })
 

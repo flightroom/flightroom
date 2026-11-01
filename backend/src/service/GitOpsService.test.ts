@@ -317,11 +317,44 @@ describe("GitOpsService.deploy", () => {
         expect(message).toBe("Deploy production")
         expect(files.map(file => [file.path, file.action])).toEqual([
             ["production/namespace.yaml", "update"],
+            ["production/services.yaml", "update"],
             ["production/configMaps/logging.yaml", "update"],
             ["production/secrets/database.yaml", "update"]
         ])
         expect(parse(files[0].content!)).toMatchObject({ kind: "Namespace", metadata: { name: "production" } })
         expect(commit.mock.invocationCallOrder[0]).toBeLessThan(run.mock.invocationCallOrder[0])
+    })
+
+    it("given backends and DOCKER frontends of every domain, one with no version in production, when production is deployed, then the ConfigMap of the URLs lists those it runs", async () => {
+        gitOpsOn()
+        vi.spyOn(Backend, "find").mockResolvedValue([
+            { slug: "orders-be", environmentVersions: [{ environmentId: production, version: "1.4.0" }], image: { repository: "ghcr.io/acme/orders-be" } },
+            { slug: "billing-be", environmentVersions: [{ environmentId: development, version: "0.1.0" }], image: { repository: "ghcr.io/acme/billing-be" } },
+            { slug: "audit-be", environmentVersions: [{ environmentId: production, version: "2.0.0" }], image: { repository: "ghcr.io/acme/audit-be" } }
+        ] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([
+            { slug: "shop-fe", environmentVersions: [{ environmentId: production, version: "3.0.0" }], image: { repository: "ghcr.io/acme/shop-fe" } }
+        ] as never)
+
+        await deployOf(production)()
+
+        const services = parse(commit.mock.calls[0][1].find(file => file.path === "production/services.yaml")!.content!)
+        expect(services).toEqual({
+            apiVersion: "v1",
+            kind: "ConfigMap",
+            metadata: { name: "services.flightroom", namespace: "production", labels: { "app.kubernetes.io/managed-by": "flightroom" } },
+            data: { AUDIT_BE_URL: "http://audit-be", ORDERS_BE_URL: "http://orders-be", SHOP_FE_URL: "http://shop-fe" }
+        })
+        expect(Backend.find).toHaveBeenCalledWith({ projectId: expect.anything() })
+        expect(Frontend.find).toHaveBeenCalledWith({ projectId: expect.anything(), kind: "DOCKER" })
+    })
+
+    it("given no backend, when production is deployed, then the ConfigMap of the URLs is written empty: every container names it", async () => {
+        gitOpsOn()
+
+        await deployOf(production)()
+
+        expect(parse(commit.mock.calls[0][1].find(file => file.path === "production/services.yaml")!.content!).data).toEqual({})
     })
 
     it("given two environments deployed, when they are committed, then each one gets its files in the same commit", async () => {
@@ -370,12 +403,13 @@ describe("GitOpsService.deploy", () => {
             const files = commit.mock.calls[0][1]
             expect(files.map(file => file.path)).toEqual([
                 "production/namespace.yaml",
+                "production/services.yaml",
                 "production/configMaps/logging.yaml",
                 "production/secrets/database.yaml",
                 "production/resources/orders.yaml",
                 "production/resources/unused.yaml"
             ])
-            expect(parse(files[3].content!)).toMatchObject({
+            expect(parse(files[4].content!)).toMatchObject({
                 kind: "Secret",
                 metadata: { name: "orders.resource", namespace: "production" },
                 data: { REDIS_ORDERS_URL: Buffer.from("redis://cache").toString("base64") }
@@ -389,8 +423,6 @@ describe("GitOpsService.deploy", () => {
             await deployOf(production)()
 
             expect(commit.mock.calls[0][1].map(file => file.path)).toContain("production/resources/unused.yaml")
-            // The backends are not read to tell which ones are attached
-            expect(Backend.find).not.toHaveBeenCalled()
         })
 
         it("given a resource deleted since the last deploy, when production is deployed, then its manifest is among those the commit prunes", async () => {
@@ -481,10 +513,9 @@ describe("GitOpsService.deploy", () => {
         await deployOf(production)(vi.fn())
 
         const [, files] = commit.mock.calls[0]
-        expect(files.map(file => file.path)).toEqual(["production/namespace.yaml", "production/configMaps/logging.yaml", "production/secrets/database.yaml"])
+        expect(files.map(file => file.path)).toEqual(["production/namespace.yaml", "production/services.yaml", "production/configMaps/logging.yaml", "production/secrets/database.yaml"])
         expect(parse(files[0].content!)).toMatchObject({ kind: "Namespace", metadata: { name: "shop-prod" } })
-        expect(parse(files[1].content!).metadata.namespace).toBe("shop-prod")
-        expect(parse(files[2].content!).metadata.namespace).toBe("shop-prod")
+        expect(files.slice(1).map(file => parse(file.content!).metadata.namespace)).toEqual(["shop-prod", "shop-prod", "shop-prod"])
     })
 
     it("given an environment with no namespace, when it is deployed, then the maps go in the namespace named as its slug", async () => {
@@ -554,8 +585,14 @@ describe("GitOpsService.deploy", () => {
             await deployOf(production)()
 
             const [, files] = commit.mock.calls[0]
-            expect(files.map(file => file.path)).toEqual(["production/namespace.yaml", "production/gateway.yaml", "production/configMaps/logging.yaml", "production/secrets/database.yaml"])
-            const [certificate, gateway, redirect] = documentsOf(files[1].content!)
+            expect(files.map(file => file.path)).toEqual([
+                "production/namespace.yaml",
+                "production/services.yaml",
+                "production/gateway.yaml",
+                "production/configMaps/logging.yaml",
+                "production/secrets/database.yaml"
+            ])
+            const [certificate, gateway, redirect] = documentsOf(files[2].content!)
             expect(certificate).toMatchObject({
                 kind: "Certificate",
                 metadata: { namespace: "production" },
@@ -893,7 +930,11 @@ describe("GitOpsService.deploy", () => {
             expect(options?.branch).toBe("production")
             const values = files.filter(file => !file.path.startsWith("microservice-chart/"))
             expect(values.map(file => file.path)).toEqual(["orders-api.yaml"])
-            expect(parse(values[0].content!)).toMatchObject({ image: { host: "ghcr.io", name: "acme/orders-api", tag: "1.4.0" }, environmentMaps: ["logging"], secrets: ["database"] })
+            expect(parse(values[0].content!)).toMatchObject({
+                image: { host: "ghcr.io", name: "acme/orders-api", tag: "1.4.0" },
+                environmentMaps: ["services.flightroom", "logging"],
+                secrets: ["database"]
+            })
         })
 
         it("given a backend attaching a resource, when the applications are committed, then its values list the Secret of the resource after those of its secrets", async () => {
@@ -904,7 +945,7 @@ describe("GitOpsService.deploy", () => {
             await deployOf(production)()
 
             const values = applicationsCommit.mock.calls[0][1].filter(file => !file.path.startsWith("microservice-chart/"))
-            expect(parse(values[0].content!)).toMatchObject({ environmentMaps: ["logging"], secrets: ["database", "cache.resource"] })
+            expect(parse(values[0].content!)).toMatchObject({ environmentMaps: ["services.flightroom", "logging"], secrets: ["database", "cache.resource"] })
             expect(commit.mock.calls[0][1].map(file => file.path)).toContain("production/resources/cache.yaml")
         })
 
@@ -954,8 +995,9 @@ describe("GitOpsService.deploy", () => {
 
             await new GitOpsService().deploy([production] as never, async () => "deployed", String(domainId))
 
-            expect(vi.mocked(Backend.find).mock.calls[0][0]).toEqual({ projectId: String(projectId), domainId: String(domainId) })
-            expect(vi.mocked(Frontend.find).mock.calls[0][0]).toMatchObject({ projectId: String(projectId), domainId: String(domainId) })
+            // Every backend and frontend of the project is read too, once, for the URLs every container gets
+            expect(vi.mocked(Backend.find).mock.calls.map(call => call[0])).toContainEqual({ projectId: String(projectId), domainId: String(domainId) })
+            expect(vi.mocked(Frontend.find).mock.calls.map(call => call[0])).toContainEqual(expect.objectContaining({ projectId: String(projectId), domainId: String(domainId) }))
         })
 
         it("given the configuration and the applications commits, when an environment is deployed, then the deploy runs after both", async () => {

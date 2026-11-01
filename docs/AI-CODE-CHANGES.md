@@ -201,7 +201,8 @@ diagnoses before changing code:
   (`OOMKilled`, exit code), and what they log (`application_pods_list`, `application_logs_get`);
 - the environment variables a container gets (`container_environment_get`), built by the same function the deploy
   writes the Helm values with: `HTTP_PORT`, `LOG_LEVEL`, `LOG_JSON`, `ENVIRONMENT`, `PUBLIC_URL`, the OpenTelemetry
-  variables, then the config maps, secrets and resources in the order of the chart's `envFrom`, each with its source and,
+  variables, then the URLs of the backends and DOCKER frontends of the environment (`services.flightroom`, first of the `envFrom`), the
+  config maps, secrets and resources in the order of the chart's `envFrom`, each with its source and,
   when another source sets the same name and wins (`env` over `envFrom`, a later `envFrom` over an earlier one),
   `overriddenBy`. Values of secrets and resources are masked (set, and their length). Global variables are not
   there: they reach the browsers, not the containers. `state` says what the list is: `next_deploy`, what the next

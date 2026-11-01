@@ -54,6 +54,8 @@ describe("ContainerEnvironmentService.get", () => {
         vi.spyOn(base, "ensureAccessToProject").mockResolvedValue(undefined)
         vi.spyOn(base, "getDomainScope").mockResolvedValue(undefined)
         vi.spyOn(Backend, "findOne").mockResolvedValue(backend() as never)
+        // The backends of the project, for the URLs every container gets: this one only
+        vi.spyOn(Backend, "find").mockResolvedValue([backend()] as never)
         vi.spyOn(Frontend, "findOne").mockResolvedValue(null as never)
         vi.spyOn(Frontend, "find").mockResolvedValue([
             {
@@ -120,6 +122,25 @@ describe("ContainerEnvironmentService.get", () => {
         expect(json).not.toContain("s3cr3t-value")
         expect(json).not.toContain("redis-pass")
         expect(json).not.toContain("redis.internal")
+    })
+
+    it("given another backend and a DOCKER frontend deployed in the environment, when the environment is read, then their URLs inside the cluster come from the platform's ConfigMap", async () => {
+        vi.mocked(Backend.find).mockResolvedValue([
+            backend(),
+            backend({ _id: new Types.ObjectId(), slug: "payments" }),
+            backend({ _id: new Types.ObjectId(), slug: "billing", environmentVersions: [] })
+        ] as never)
+
+        const result = await get()
+
+        const services = result.variables.filter(variable => variable.source === "configMap services.flightroom")
+        expect(services).toEqual([
+            { name: "ORDERS_URL", source: "configMap services.flightroom", value: "http://orders" },
+            { name: "PAYMENTS_URL", source: "configMap services.flightroom", value: "http://payments" },
+            { name: "SHOP_URL", source: "configMap services.flightroom", value: "http://shop" }
+        ])
+        expect(Frontend.find).toHaveBeenCalledWith({ projectId: String(projectId), kind: "DOCKER" })
+        expect(result.missing).toEqual([])
     })
 
     it("given an environment that sets no version of it, when its environment is read, then it says the deploy leaves it out, an earlier container possibly still running", async () => {

@@ -75,6 +75,26 @@ export const MAINTENANCE_AGENT_TOKEN_VARIABLE = "FLIGHTROOM_AGENT_TOKEN"
 /** A container application of the environment answers on port 80 of the Service named after it */
 export const inClusterUrl = (slug: string, path = "") => `http://${slug}${path}`
 
+/** The ConfigMap of each environment with the in-cluster URL of every backend and DOCKER frontend deployed there: a user's map has no dot in its name */
+export const SERVICES_CONFIG_MAP = "services.flightroom"
+
+/** The variable the URL of a backend or a frontend goes by in that ConfigMap: `orders-be` is ORDERS_BE_URL */
+export const serviceUrlVariable = (slug: string) => `${slug.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_URL`
+
+/**
+ * What that ConfigMap holds in one environment: the URL each backend and DOCKER frontend deployed there answers on
+ * inside the cluster, port 80 of its Service in the same namespace. One the environment runs no version of has no
+ * Service: left out.
+ */
+export const serviceUrls = (applications: GitOpsApplication[], environmentId: unknown, containerRegistry?: string): Record<string, string> =>
+    Object.fromEntries(
+        applications
+            .filter(application => isDeployable(application, containerRegistry, environmentId))
+            .map(application => application.slug)
+            .sort()
+            .map(slug => [serviceUrlVariable(slug), inClusterUrl(slug)])
+    )
+
 /**
  * The values a maintenance agent adds. A CONTAINER keeps its Deployment, and its CronJob POSTs to its run path;
  * a JOB has a Deployment with no replicas, as the chart of a branch may be one written before the CronJob, and its
@@ -176,9 +196,12 @@ export interface ContainerMapNames {
     resources?: Map<string, string>
 }
 
-/** What a container takes whole through `envFrom`: a config map, a secret, the Secret of a resource, or the platform's Secret of a maintenance agent */
+/**
+ * What a container takes whole through `envFrom`: the platform's ConfigMap of the URLs of the applications, a config map,
+ * a secret, the Secret of a resource, or the platform's Secret of a maintenance agent
+ */
 export interface ContainerEnvSource {
-    kind: "configMap" | "secret" | "resource" | "platform"
+    kind: "services" | "configMap" | "secret" | "resource" | "platform"
     /** The id of the config map, the secret or the resource; none for the platform's */
     id?: string
     /** The ConfigMap or the Secret, as Kubernetes names it */
@@ -186,8 +209,9 @@ export interface ContainerEnvSource {
 }
 
 /**
- * The `envFrom` of the container, in the order the chart lists it: config maps, then secrets, the Secrets of the
- * resources and, for a maintenance agent, its own. An id with no name is a map deleted since: left out.
+ * The `envFrom` of the container, in the order the chart lists it: the URLs of the backends and frontends first, so that a config
+ * map of the team can point one elsewhere, then the config maps, the secrets, the Secrets of the resources and, for a
+ * maintenance agent, its own. An id with no name is a map deleted since: left out.
  */
 export const containerEnvSources = (application: GitOpsApplication, mapNames: ContainerMapNames): ContainerEnvSource[] => {
     const named = (kind: "configMap" | "secret" | "resource", ids: unknown[] | undefined, byId: Map<string, string>): ContainerEnvSource[] =>
@@ -196,6 +220,7 @@ export const containerEnvSources = (application: GitOpsApplication, mapNames: Co
             return name ? [{ kind, id: String(id), name }] : []
         })
     return [
+        { kind: "services", name: SERVICES_CONFIG_MAP },
         ...named("configMap", application.configMapIds, mapNames.configMaps),
         ...named("secret", application.secretIds, mapNames.secrets),
         ...named("resource", application.resourceIds, mapNames.resources ?? new Map()),
@@ -218,6 +243,8 @@ export interface ContainerVariable {
 
 /** What each `envFrom` source holds in the environment, by id, as the deploy commits it: a key with no value there is left out */
 export interface ContainerSourceValues {
+    /** What the ConfigMap of the URLs of the backends and frontends holds in the environment: {@link serviceUrls} */
+    services: Record<string, string>
     configMaps: Map<string, Record<string, string>>
     secrets: Map<string, Record<string, string>>
     resources: Map<string, Record<string, string>>
@@ -264,6 +291,10 @@ export const containerEnvironment = (
     for (const source of containerEnvSources(application, mapNames)) {
         if (source.kind === "platform") {
             for (const name of PLATFORM_SECRET_KEYS) variables.push({ name, source: "platform", masked: { set: true }, fromEnv: false })
+            continue
+        }
+        if (source.kind === "services") {
+            for (const [name, value] of Object.entries(values.services)) variables.push({ name, source: `configMap ${source.name}`, value, fromEnv: false })
             continue
         }
         const held = { configMap: values.configMaps, secret: values.secrets, resource: values.resources }[source.kind].get(source.id ?? "") ?? {}
@@ -331,9 +362,9 @@ export const renderApplicationValues = (
             liveness: { active: true, path: probes.livenessPath, ...probeTimingValues(probes.livenessInitialDelaySeconds, probes.livenessPeriodSeconds) },
             readiness: { active: true, path: probes.readinessPath, ...probeTimingValues(probes.readinessInitialDelaySeconds, probes.readinessPeriodSeconds) }
         },
-        environmentMaps: sources.filter(source => source.kind === "configMap").map(source => source.name),
+        environmentMaps: sources.filter(source => source.kind === "services" || source.kind === "configMap").map(source => source.name),
         // The chart lists the secrets after the config maps: a resource's Secret and the platform's are secrets too
-        secrets: sources.filter(source => source.kind !== "configMap").map(source => source.name),
+        secrets: sources.filter(source => source.kind !== "services" && source.kind !== "configMap").map(source => source.name),
         env: containerVariables(application, environment, version, publicUrl),
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
