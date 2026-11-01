@@ -15,6 +15,7 @@ import {
     TabsList,
     TabsTrigger
 } from "@flightroom/design-system"
+import { Network, Terminal } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
@@ -82,12 +83,14 @@ export const FrontendIntegration = ({ deployment }: { deployment: DeploymentDTO 
                 <IntegrateFrontendsDialog isOpen={isIntegrateDialogOpen} onOpenChange={setIsIntegrateDialogOpen} onlyFrontendId={integrateOnly} />
 
                 {selectedFrontend ? (
-                    <Tabs value={activeTab} onValueChange={setActiveTab} tabsListPosition="fullWidth">
+                    <Tabs value={activeTab} onValueChange={setActiveTab}>
                         <TabsList>
-                            <TabsTrigger className="flex-[1_1_120px]" value="federation">
+                            <TabsTrigger value="federation">
+                                <Network />
                                 {t("integration.fe_integration_tab.federation_tab")}
                             </TabsTrigger>
-                            <TabsTrigger className="flex-[1_1_120px]" value="curl">
+                            <TabsTrigger value="curl">
+                                <Terminal />
                                 {t("integration.fe_integration_tab.curl.title")}
                             </TabsTrigger>
                         </TabsList>

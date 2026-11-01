@@ -1,5 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
+import { Monitor, Variable } from "lucide-react"
 import React, { useState } from "react"
 import { useTranslation } from "react-i18next"
 import EnvironmentSelector from "@/components/molecules/EnvironmentSelector"
@@ -40,12 +41,14 @@ export const Integration: React.FC = () => {
                         {!deploymentQuery.data ? (
                             <p>{t("deployments.no_deployments")}</p>
                         ) : (
-                            <Tabs value={activeSection} onValueChange={setActiveSection} tabsListPosition="fullWidth">
+                            <Tabs value={activeSection} onValueChange={setActiveSection}>
                                 <TabsList>
-                                    <TabsTrigger value="frontend" className="flex-1">
+                                    <TabsTrigger value="frontend">
+                                        <Monitor />
                                         {t("integration.fe_integration_tab.title")}
                                     </TabsTrigger>
-                                    <TabsTrigger value="env-vars" className="flex-1">
+                                    <TabsTrigger value="env-vars">
+                                        <Variable />
                                         {t("integration.env_vars_integration_tab.title")}
                                     </TabsTrigger>
                                 </TabsList>

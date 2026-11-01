@@ -1,6 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField, StatusDot, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useQuery, useQueryClient } from "@tanstack/react-query"
+import { CalendarClock, Container, GitBranch, Settings2, TriangleAlert, Variable } from "lucide-react"
 import { useEffect, useMemo, useRef, useState } from "react"
 import { FieldErrors, FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -175,6 +176,15 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     repository: ["codeRepository"],
     danger: []
+}
+
+const TAB_ICONS: Record<FormTab, React.ComponentType> = {
+    general: Settings2,
+    schedule: CalendarClock,
+    runtime: Container,
+    variables: Variable,
+    repository: GitBranch,
+    danger: TriangleAlert
 }
 
 const ErrorDot: React.FC = () => <StatusDot tone="destructive" size="sm" className="ml-2 align-middle" />
@@ -358,17 +368,21 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
         if (firstTabWithErrors) setActiveTab(firstTabWithErrors)
     }
 
-    const tabTrigger = (tab: FormTab) => (
-        <TabsTrigger value={tab} className="flex-1">
-            {t(`maintenance.tabs.${tab}`)}
-            {tab !== "danger" && tabHasErrors(tab) && <ErrorDot />}
-        </TabsTrigger>
-    )
+    const tabTrigger = (tab: FormTab) => {
+        const Icon = TAB_ICONS[tab]
+        return (
+            <TabsTrigger value={tab}>
+                <Icon />
+                {t(`maintenance.tabs.${tab}`)}
+                {tab !== "danger" && tabHasErrors(tab) && <ErrorDot />}
+            </TabsTrigger>
+        )
+    }
 
     const content = (
         <FormProvider {...form}>
             <form onSubmit={form.handleSubmit(onSubmit, onInvalid)} className="space-y-6">
-                <Tabs value={shownTab} onValueChange={value => setActiveTab(value as FormTab)} tabsListPosition="fullWidth">
+                <Tabs value={shownTab} onValueChange={value => setActiveTab(value as FormTab)}>
                     <TabsList>
                         {tabTrigger("general")}
                         {tabTrigger("schedule")}

@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793528583.1306946,
-    "ast_hash": "d141356a3f02d5a82b5d69c398babcb7",
+    "mtime": 1793528822.4391415,
+    "ast_hash": "266c7b358cc6b36b693e125dbc22d38b",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2265,8 +2265,8 @@
     "semantic_hash": ""
   },
   "backend/src/mcp/server.ts": {
-    "mtime": 1793441058.679652,
-    "ast_hash": "57a3456de579e6f899aa96936b58f59d",
+    "mtime": 1793528770.664397,
+    "ast_hash": "107e78a9abc5aaae45547e63c22dd4a3",
     "semantic_hash": ""
   },
   "backend/src/mcp/toolDefinition.ts": {
@@ -2635,8 +2635,8 @@
     "semantic_hash": ""
   },
   "docs/AI-CODE-CHANGES.md": {
-    "mtime": 1793477176.69141,
-    "ast_hash": "98bf85a3f68fd87dc702b9a1c9683ef6",
+    "mtime": 1793528770.672887,
+    "ast_hash": "bb5d573384cfbcf45b89f3a746520a81",
     "semantic_hash": ""
   },
   "backend/src/service/llm/anthropicProvider.ts": {
@@ -3370,13 +3370,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/GitOpsService.test.ts": {
-    "mtime": 1793452387.2031054,
-    "ast_hash": "499d7a4caa88c65203c66371a1545975",
+    "mtime": 1793528770.6673086,
+    "ast_hash": "247d8ae0f1ecb38d6c119b6070ab30fa",
     "semantic_hash": ""
   },
   "backend/src/service/GitOpsService.ts": {
-    "mtime": 1793479420.3881035,
-    "ast_hash": "fe4e4ccb21bbff853d777a690c15c265",
+    "mtime": 1793528770.665739,
+    "ast_hash": "e5a4335a298d97aa098f88498086a92c",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useGitOpsErrorMessage.ts": {
@@ -3525,13 +3525,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/gitops/applicationManifests.test.ts": {
-    "mtime": 1793528582.2366524,
-    "ast_hash": "aaad4d88e5c2fd414463a983eb7dda6b",
+    "mtime": 1793528770.671991,
+    "ast_hash": "4c69a0e04317d71ea486a01fe63a78a5",
     "semantic_hash": ""
   },
   "backend/src/service/gitops/applicationManifests.ts": {
-    "mtime": 1793528580.4889479,
-    "ast_hash": "720f586675b7799388b45a4b5a0924cf",
+    "mtime": 1793528770.6709793,
+    "ast_hash": "641eeb30b57167f5f0d856e093a251fa",
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.ts": {
@@ -5130,8 +5130,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangePrompt.ts": {
-    "mtime": 1793473013.6891983,
-    "ast_hash": "b166a97e5e1ca1fffc8c25e6a619ada9",
+    "mtime": 1793528770.6695545,
+    "ast_hash": "1cb70bebc77f447863b7e0e8900565b7",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeToolbox.ts": {
@@ -5655,8 +5655,8 @@
     "semantic_hash": ""
   },
   "backend/src/types/RuntimeVariables.ts": {
-    "mtime": 1793442061.8712306,
-    "ast_hash": "4ef615bf868b8a464f11827da9137ef1",
+    "mtime": 1793528770.6633415,
+    "ast_hash": "20210ce8ad784fc162a2c72b9543c7d8",
     "semantic_hash": ""
   },
   "frontend/src/pages/deployments/partials/ScaleReplicasDialog.tsx": {
@@ -5730,13 +5730,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/ContainerEnvironmentService.test.ts": {
-    "mtime": 1793473122.9708095,
-    "ast_hash": "4b4aad9cf95b149874cebf79fb1e5d54",
+    "mtime": 1793528770.668621,
+    "ast_hash": "2b84dfe19c28a0fa841e4464b2166864",
     "semantic_hash": ""
   },
   "backend/src/service/ContainerEnvironmentService.ts": {
-    "mtime": 1793473101.0894544,
-    "ast_hash": "b3ccff5e741a46129b98ae454324bf63",
+    "mtime": 1793528770.667908,
+    "ast_hash": "a235547a080e857a59cc4285c35553c9",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeConsoleTools.test.ts": {
