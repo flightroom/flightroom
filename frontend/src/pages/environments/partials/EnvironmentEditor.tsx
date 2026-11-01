@@ -1,20 +1,4 @@
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardFooter,
-    CardHeader,
-    CardTitle,
-    ColorSwatch,
-    SectionHeader,
-    SelectField,
-    SwitchField as Switch,
-    Tabs,
-    TabsContent,
-    TabsList,
-    TabsTrigger,
-    TextareaChipsField
-} from "@flightroom/design-system"
+import { ColorSwatch, SectionHeader, SelectField, SwitchField as Switch, Tabs, TabsContent, TabsList, TabsTrigger, TextareaChipsField } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { ExternalLink, FileText, Globe, LocateFixed, Moon, Shield, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useId, useRef, useState } from "react"
@@ -287,23 +271,22 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
     }
 
     return (
-        <Card dataTestId="environment-editor">
+        // Niente card attorno: l'editor sta sullo sfondo della pagina, come la striscia degli ambienti sopra
+        <div data-testid="environment-editor">
             <FormProvider {...form}>
                 <form onSubmit={form.handleSubmit(onSubmit, onInvalid)}>
-                    <CardHeader className="flex flex-row flex-wrap items-center gap-3">
+                    <div className="flex flex-row flex-wrap items-center gap-3">
                         <ColorSwatch size="md" color={color} />
                         <div className="flex min-w-0 flex-1 flex-col gap-1">
                             <div className="flex flex-wrap items-center gap-2">
-                                <CardTitle as="h2" className="mb-0">
-                                    {isEdit ? formData.name : t("environment.page.form.create_title")}
-                                </CardTitle>
+                                <h2 className="text-xl font-semibold">{isEdit ? formData.name : t("environment.page.form.create_title")}</h2>
                                 {isEdit && <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground-secondary">{formData.slug}</span>}
                                 {isEdit && (
                                     <Badge variant={formData.isProduction ? "warning" : "outline"}>{t(formData.isProduction ? "environment.production" : "environment.page.not_production")}</Badge>
                                 )}
                             </div>
                             {(savedHost || savedNamespace) && (
-                                <CardDescription className="flex flex-wrap items-center gap-x-2 font-mono text-sm">
+                                <p className="flex flex-wrap items-center gap-x-2 font-mono text-sm text-foreground-secondary">
                                     {savedHost && (
                                         <a
                                             href={`https://${savedHost}`}
@@ -318,11 +301,11 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                     )}
                                     {savedHost && savedNamespace && <span aria-hidden="true">·</span>}
                                     {savedNamespace && <span className="text-foreground-secondary">{t("environment.page.namespace_label", { namespace: savedNamespace })}</span>}
-                                </CardDescription>
+                                </p>
                             )}
                         </div>
-                    </CardHeader>
-                    <CardContent className="pt-3">
+                    </div>
+                    <div className="mt-5">
                         <Tabs value={tab} onValueChange={value => setTab(value as EditorTab)}>
                             <TabsList aria-label={t("environment.page.tabs.label")}>
                                 {tabs.map(value => (
@@ -553,10 +536,10 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                 </TabsContent>
                             )}
                         </Tabs>
-                    </CardContent>
+                    </div>
                     {/* La zona pericolosa non ha campi da salvare */}
                     {tab !== "danger" && (
-                        <CardFooter className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="mt-6 flex flex-wrap items-center justify-between gap-2 border-t-2 border-border pt-4">
                             {isDirty ? (
                                 <span className="flex items-center gap-2 text-sm font-medium text-foreground-secondary">
                                     <span className="size-2 rounded-full bg-primary" aria-hidden="true" />
@@ -580,11 +563,11 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                     {isEdit ? t("environment.page.form.update") : t("environment.page.form.create")}
                                 </Button>
                             </div>
-                        </CardFooter>
+                        </div>
                     )}
                 </form>
             </FormProvider>
-        </Card>
+        </div>
     )
 }
 
