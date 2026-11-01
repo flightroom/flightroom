@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793576441.5626647,
-    "ast_hash": "4cf5aabc065c22fd484e11ded5329132",
+    "mtime": 1793576542.6364307,
+    "ast_hash": "a14ae7d06a316af9948f229b718a55dc",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793576441.560305,
-    "ast_hash": "7887d335c181ddcf84e2d03e6b7720e3",
+    "mtime": 1793576542.6346235,
+    "ast_hash": "c0ff38390a88dac49d01354ae9f1594a",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -2915,8 +2915,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainsApi.ts": {
-    "mtime": 1793569329.2990673,
-    "ast_hash": "c2dc6cb3047e45cd6a1f5e4fd6499285",
+    "mtime": 1793576530.198481,
+    "ast_hash": "459620c3535d86f9afdb1bb72c6ed7eb",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/Domains.tsx": {
@@ -4760,8 +4760,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/DomainSettings.tsx": {
-    "mtime": 1793569399.0506706,
-    "ast_hash": "f985c375c4a0bb129f55df3c1eb50a49",
+    "mtime": 1793576530.1988344,
+    "ast_hash": "ca93efc346b8ac92ddd06411f3b8441e",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainDeployDialog.tsx": {
@@ -5962,6 +5962,11 @@
   "frontend/src/hooks/useArgoCdInitialized.ts": {
     "mtime": 1793571593.9336147,
     "ast_hash": "ec8f7200397bcbe1f51d4358c37469ae",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/DomainDangerZone.tsx": {
+    "mtime": 1793576530.16117,
+    "ast_hash": "a639b91b936a7391092e0e82a39a57f0",
     "semantic_hash": ""
   }
 }

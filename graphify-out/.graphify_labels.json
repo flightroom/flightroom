@@ -371,5 +371,8 @@
   "369": "[11.7.0] - 2026-10-31",
   "370": "GitHub Logo (Octocat Mark)",
   "371": "FrontendsEmptyState.tsx",
-  "372": "downloadAndExtractZip"
+  "372": "downloadAndExtractZip",
+  "373": "[Unreleased]",
+  "374": "RouteWithSuspense.tsx",
+  "375": "readOAuthResume"
 }

@@ -363,5 +363,13 @@
   "361": "aiChangeSandboxes.test.ts",
   "362": "[2.2.0] - 2026-08-07",
   "363": "StartChoice.tsx",
-  "368": "GoogleStorageAccount.test.ts"
+  "364": "document",
+  "365": "InvalidCredentialsError",
+  "366": "projectWizardStateMachine.ts",
+  "367": "[11.2.0] - 2026-10-31",
+  "368": "GoogleStorageAccount.test.ts",
+  "369": "[11.7.0] - 2026-10-31",
+  "370": "GitHub Logo (Octocat Mark)",
+  "371": "FrontendsEmptyState.tsx",
+  "372": "downloadAndExtractZip"
 }
