@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793550533.3710546,
-    "ast_hash": "e5be9edc94128440fd314a599004682f",
+    "mtime": 1793550844.5916388,
+    "ast_hash": "7394a40f002f45ffb52cafa4082f3950",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793550533.3732538,
-    "ast_hash": "bc8ae1f0b8c22c040c8cbc391cbc575b",
+    "mtime": 1793550844.5934162,
+    "ast_hash": "4c54e717410e1ae552d8d4b4e0ba3865",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793550561.1827738,
-    "ast_hash": "0192e482dc1d931288d3af7587d36569",
+    "mtime": 1793550855.132127,
+    "ast_hash": "d74bac088d06eddd3eaa4dd2bfa6d976",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2635,8 +2635,8 @@
     "semantic_hash": ""
   },
   "docs/AI-CODE-CHANGES.md": {
-    "mtime": 1793550561.182054,
-    "ast_hash": "bbf2a23c04a4e39d412a2da7a32e9590",
+    "mtime": 1793550855.1329577,
+    "ast_hash": "584a7ac1a8e5edb5f8cc68d9817cc3a1",
     "semantic_hash": ""
   },
   "backend/src/service/llm/anthropicProvider.ts": {
@@ -4070,8 +4070,8 @@
     "semantic_hash": ""
   },
   "backend/src/types/ProjectTechnology.ts": {
-    "mtime": 1793550499.0297117,
-    "ast_hash": "ba094c80928baba7d608fd6b0cc39ef9",
+    "mtime": 1793550814.1589267,
+    "ast_hash": "2ef41164e493ca5e0798aae001ac1dba",
     "semantic_hash": ""
   },
   "frontend/src/components/technology/TechnologyBadge.tsx": {
@@ -4085,8 +4085,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/technology/technologyIcons.ts": {
-    "mtime": 1793005820.611459,
-    "ast_hash": "81d419709d961f343a4e9a6ea7f3638a",
+    "mtime": 1793550844.5811005,
+    "ast_hash": "143d9031a6ebfc7394cb79cf1136326a",
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/partials/ProjectTechnologiesSection.tsx": {
@@ -4530,13 +4530,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/BackendService.test.ts": {
-    "mtime": 1793550507.052171,
-    "ast_hash": "a20114a2907bb6bc776469c4f765b77d",
+    "mtime": 1793550949.934552,
+    "ast_hash": "f0f18e4a71e0ae72cafafae30f47401c",
     "semantic_hash": ""
   },
   "backend/src/service/BackendService.ts": {
-    "mtime": 1793550507.020416,
-    "ast_hash": "612ddcd16073e82977f01c28222d5634",
+    "mtime": 1793550814.1944437,
+    "ast_hash": "2882cb54c61f55f1c49ce1fc826e6f34",
     "semantic_hash": ""
   },
   "backend/src/service/FrontendService.backends.test.ts": {
@@ -4555,8 +4555,8 @@
     "semantic_hash": ""
   },
   "backend/src/types/BackendStack.ts": {
-    "mtime": 1793005820.570268,
-    "ast_hash": "722a1227994029ea0c55131b16a80933",
+    "mtime": 1793550814.1950946,
+    "ast_hash": "2b227a360e0b44a3515e616ea6f5414e",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useBackendsApi.ts": {
@@ -4565,8 +4565,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/AddBackend.tsx": {
-    "mtime": 1793550533.3684661,
-    "ast_hash": "244e0b6178d1a840dad7bd1f4a7130e8",
+    "mtime": 1793550844.9273863,
+    "ast_hash": "9284bd3b395a7a50c4b5bb28796461e8",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/BackendDetail.tsx": {
@@ -4740,8 +4740,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeSandboxes.test.ts": {
-    "mtime": 1793550241.6141331,
-    "ast_hash": "b339e17667e75151a8d2f6834fbb2fe2",
+    "mtime": 1793550961.8459284,
+    "ast_hash": "afca26e399cffa8756cc1bf31cb78d2e",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeSandboxes.ts": {
@@ -5952,6 +5952,11 @@
   "backend/src/service/sandbox/sandboxLanguages.test.ts": {
     "mtime": 1793550418.4496117,
     "ast_hash": "42ed785e80a313a8b039f8c5a68007ff",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/backends/partials/backendStacks.ts": {
+    "mtime": 1793550844.5503767,
+    "ast_hash": "8cc60dbd654c4cf1f847da22b2473219",
     "semantic_hash": ""
   }
 }
