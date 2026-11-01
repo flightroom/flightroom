@@ -298,7 +298,7 @@ export const agentInputOf = async (
         previousRequests: history ? undefined : await previousRequests(job),
         history,
         ...(facts.apiSpecs.length ? { apiSpecs: facts.apiSpecs } : {}),
-        sandbox: sandboxForJob(fastify.config, job, sandboxKeyOf(sandboxSettings.OPENSHELL_SANDBOX_SHARING, job, components), sandboxOwner),
+        sandbox: sandboxForJob(fastify.config, job, sandboxKeyOf(sandboxSettings.OPENSHELL_SANDBOX_SHARING, job, components), sandboxOwner, components),
         onSandboxExec: sandboxExecRecorder(job, sandboxOwner),
         previewsEnabled: sandboxSettings.OPENSHELL_PREVIEWS_ENABLED,
         ...(user ? { consoleTools: new AiChangeConsoleTools(user, String(job.projectId), String(job._id), fastify.log) } : {})

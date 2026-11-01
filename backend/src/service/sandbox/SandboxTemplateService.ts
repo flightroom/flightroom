@@ -4,6 +4,7 @@ import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import SandboxSettings, { SANDBOX_SETTINGS_ID } from "../../models/SandboxSettingsModel"
 import { ensureInstallationAdmin } from "../../utils/installationAdmins"
 import { OpenShellConfiguration, OpenShellSandboxes, openShellSandboxes } from "./OpenShellSandboxes"
+import { languagesOfLabels, SandboxLanguage, withLanguageLabels, withoutLanguageLabels } from "./sandboxLanguages"
 import { invalidateSandboxSettings } from "./sandboxSettings"
 
 /** ESM only: the types alone, the SDK itself is loaded by OpenShellSandboxes. */
@@ -18,6 +19,8 @@ export interface SandboxTemplateInput {
     memory?: string | null
     labels?: Record<string, string>
     environment?: Record<string, string>
+    /** The languages its image holds: a sandbox needing them is created from it. Missing, those it had stay. */
+    languages?: SandboxLanguage[]
 }
 
 /** A workload template of the gateway as the installation page lists it. */
@@ -26,8 +29,10 @@ export interface SandboxTemplateItem {
     image: string
     cpu?: string
     memory?: string
+    /** Without those of the languages, listed apart. */
     labels: Record<string, string>
     environment: Record<string, string>
+    languages: SandboxLanguage[]
     /** Whether it has settings this page does not show (runtime class, GPU, service level): they are kept when it is changed here. */
     advanced: boolean
     createdAt?: Date
@@ -50,8 +55,9 @@ const toItem = (template: SandboxWorkloadTemplate, inUse: string | undefined): S
         image: workload?.image ?? "",
         cpu: workload?.resources?.cpu || undefined,
         memory: workload?.resources?.memory || undefined,
-        labels: { ...template.metadata?.labels },
+        labels: withoutLanguageLabels(template.metadata?.labels),
         environment: { ...workload?.environment },
+        languages: languagesOfLabels(template.metadata?.labels),
         advanced: Boolean(
             (driverConfig && Object.keys(driverConfig).length) || template.spec?.desiredServiceLevel || workload?.resources?.gpu || Object.keys(template.metadata?.annotations ?? {}).length
         ),
@@ -65,7 +71,11 @@ const templateOf = (name: string, input: SandboxTemplateInput, previous?: Sandbo
     const gpu = previous?.spec?.workload?.resources?.gpu
     const resources = input.cpu || input.memory || gpu ? { cpu: input.cpu ?? "", memory: input.memory ?? "", gpu } : undefined
     return {
-        metadata: { name, labels: input.labels ?? {}, annotations: previous?.metadata?.annotations },
+        metadata: {
+            name,
+            labels: withLanguageLabels(input.labels, input.languages ?? languagesOfLabels(previous?.metadata?.labels)),
+            annotations: previous?.metadata?.annotations
+        },
         spec: {
             workload: { image: input.image, environment: input.environment ?? {}, resources },
             driverConfig: previous?.spec?.driverConfig,
@@ -117,10 +127,11 @@ export default class SandboxTemplateService {
     }
 
     async create(name: string, input: SandboxTemplateInput): Promise<SandboxTemplateItem> {
-        const { client, workspace } = await this.gateway()
+        const { sandboxes, client, workspace } = await this.gateway()
         const created = await client.create(templateOf(name, input), { workspace }).catch(error => {
             throw refused(error, name)
         })
+        sandboxes.forgetTemplates()
         return toItem(created, await this.inUse())
     }
 
@@ -130,12 +141,14 @@ export default class SandboxTemplateService {
      * sandboxes made from the previous one are no longer handed out, and the pool replaces them.
      */
     async replace(name: string, input: SandboxTemplateInput, lost?: TemplateLost): Promise<SandboxTemplateItem> {
-        const { client, workspace } = await this.gateway()
+        const { sandboxes, client, workspace } = await this.gateway()
         const previous = await client.get(name, { workspace }).catch(error => {
             if ((error as { code?: unknown })?.code === "not_found") throw new EntityNotFoundError(name, `No sandbox template ${name}`)
             throw error
         })
         await client.delete(name, { workspace, allowMissing: true })
+        // Gone or back, the templates this replica read are no longer what the gateway has.
+        sandboxes.forgetTemplates()
         const saved = await client.create(templateOf(name, input, previous), { workspace }).catch(async error => {
             const restored = await client
                 .create({ metadata: { name, labels: previous.metadata?.labels, annotations: previous.metadata?.annotations }, spec: previous.spec }, { workspace })
@@ -162,10 +175,11 @@ export default class SandboxTemplateService {
         if (name === (await this.inUse())) {
             throw createBusinessException({ code: "SANDBOX_TEMPLATE_IN_USE", message: `New sandboxes are created from ${name}: choose another template first`, statusCode: 409 })
         }
-        const { client, workspace } = await this.gateway()
+        const { sandboxes, client, workspace } = await this.gateway()
         const result = await client.delete(name, { workspace, allowMissing: true }).catch(error => {
             throw refused(error, name)
         })
+        sandboxes.forgetTemplates()
         if (result.outcome === "already_absent") throw new EntityNotFoundError(name, `No sandbox template ${name}`)
     }
 }

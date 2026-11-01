@@ -10,6 +10,7 @@ import { toObjectId } from "../../utils/mongooseUtils"
 import { withRepositoryLock } from "../../utils/repositoryLock"
 import BaseAuthorizedService, { AuthorizedPrincipal } from "../BaseAuthorizedService"
 import { OpenShellConfiguration, openShellSandboxes } from "../sandbox/OpenShellSandboxes"
+import { languagesOfComponents } from "../sandbox/sandboxLanguages"
 import { effectiveOpenShellConfig } from "../sandbox/sandboxSettings"
 import { RepositoryWorkspaceService } from "../workspace/RepositoryWorkspaceService"
 import { BackendComponent, FrontendComponent, fromBackend, fromFrontend, RepositoryComponent } from "../workspace/repositoryComponent"
@@ -114,7 +115,11 @@ export default class StandalonePreviewService extends BaseAuthorizedService {
             frontendIds: connected.filter(component => component.kind === "frontend").map(component => component._id),
             backendIds: connected.filter(component => component.kind === "backend").map(component => component._id)
         })
-        const runner = new AiChangeScriptRunner(repositories, () => sandboxes.acquire(sessionId, lifecycle, sessionId, organizationId ? String(organizationId) : undefined), { previewsEnabled: true })
+        const runner = new AiChangeScriptRunner(
+            repositories,
+            () => sandboxes.acquire(sessionId, lifecycle, sessionId, organizationId ? String(organizationId) : undefined, languagesOfComponents(connected)),
+            { previewsEnabled: true }
+        )
         const startLocked = (index: number): Promise<string | undefined> =>
             index < ordered.length
                 ? withRepositoryLock(ordered[index].workspace.workingCopy.dir, async () => {

@@ -12,7 +12,7 @@ import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
-import { technologyIconUrl } from "@/components/technology/technologyIcons"
+import { iconUrl, technologyIconUrl } from "@/components/technology/technologyIcons"
 import useBackendsApi, { Backend, BackendDTO } from "@/hooks/apiClients/useBackendsApi"
 import useCodeRepositoriesApi, { ICodeRepository } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
@@ -35,10 +35,12 @@ import BackendHeader from "./partials/BackendHeader"
 import BackendResourcesFields from "./partials/BackendResourcesFields"
 import BackendRuntimeFields from "./partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
+import { BACKEND_STACK_CHOICES, stackChoiceOf } from "./partials/backendStacks"
 import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
 import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
+import { RUNTIME_LABEL_KEYS } from "./partials/labels"
 
 /** Same rule as the backend (BACKEND_SLUG): the slug names the workspace folder and the CI registration URL */
 const BACKEND_SLUG = /^[a-z0-9][a-z0-9-]{1,49}$/
@@ -72,6 +74,8 @@ const createFormSchema = (messages: FormMessages) =>
             domainId: z.string().nullable().optional(),
             context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
             template: z.string().optional(),
+            // Blank: not known. A language, or a framework that brings its language with it: sent as the stack, chosen by hand
+            technology: z.string().optional(),
             // Blank: none yet, until the pipeline registers a first one
             version: z
                 .string()
@@ -113,7 +117,7 @@ type FormTab = (typeof FORM_TABS)[number] | "danger"
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["template", "name", "slug", "version", "environmentVersions", "description", "domainId", "codeRepository"],
+    general: ["template", "technology", "name", "slug", "version", "environmentVersions", "description", "domainId", "codeRepository"],
     context: ["context"],
     runtime: [
         "port",
@@ -204,6 +208,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   version: backend.version ?? "",
                   environmentVersions: environmentVersionFormValues(backend),
                   domainId: backend.domainId ?? "",
+                  technology: stackChoiceOf(backend.stack)?.value ?? "",
                   port: String(backend.port),
                   docsPath: backend.docsPath ?? "",
                   openApiPath: backend.openApiPath ?? "",
@@ -222,6 +227,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   name: "",
                   description: "",
                   domainId: initialDomainId ?? "",
+                  technology: "",
                   context: "",
                   template: initialTemplate,
                   version: "",
@@ -276,7 +282,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
 
     const onSubmit = async (data: FormValues) => {
         // Blank: the backend is in no domain
-        const { exposed, ...fields } = data
+        const { exposed, technology, ...fields } = data
         const dto = {
             ...fields,
             domainId: data.domainId || null,
@@ -289,6 +295,11 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
         const template = data.template || undefined
         // Sent only when typed here: saving the form must not move back a newer version the pipeline registered meanwhile
         if (!data.version || !form.formState.dirtyFields.version) delete dto.version
+        // Sent only when chosen here: the stack a template set stays as it was
+        if (form.formState.dirtyFields.technology) {
+            const choice = BACKEND_STACK_CHOICES.find(candidate => candidate.value === technology)
+            dto.stack = { runtime: choice?.runtime, framework: choice?.framework }
+        }
 
         if (!isEdit && template && dto.codeRepository) {
             dto.codeRepository.createData = { ...dto.codeRepository.createData, template, name: dto.codeRepository.createData?.name || data.slug }
@@ -391,6 +402,26 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                                             })}
                                             addClearButton
                                             clearLabel={t("technologies.clear_template")}
+                                            className="w-full"
+                                        />
+                                    )}
+                                    {/* A template says it at creation */}
+                                    {(isEdit || !selectedTemplate) && (
+                                        <SelectField
+                                            name="technology"
+                                            label={t("backends.technology.label")}
+                                            placeholder={t("backends.technology.placeholder")}
+                                            description={t("backends.technology.help")}
+                                            options={BACKEND_STACK_CHOICES.map(choice => {
+                                                const language = t(RUNTIME_LABEL_KEYS[choice.runtime])
+                                                return {
+                                                    value: choice.value,
+                                                    label: choice.framework ? t("backends.technology.framework_option", { framework: choice.framework, language }) : language,
+                                                    icon: iconUrl(choice.icon, (choice.framework ?? language).charAt(0))
+                                                }
+                                            })}
+                                            addClearButton
+                                            clearLabel={t("backends.technology.clear")}
                                             className="w-full"
                                         />
                                     )}

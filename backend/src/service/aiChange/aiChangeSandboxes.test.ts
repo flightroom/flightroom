@@ -12,6 +12,8 @@ vi.mock("../sandbox/OpenShellSandboxes", async importOriginal => {
 })
 
 import AiChangeJob, { AiJobStatus } from "../../models/AiChangeJobModel"
+import Backend from "../../models/BackendModel"
+import Frontend from "../../models/FrontendModel"
 import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
 import { closeSandboxLifetime, openSandboxLifetime, recordSandboxUsage } from "../SandboxUsageService"
 import { conversationState, jobSandboxOwner, sandboxExecRecorder, sandboxForJob, sandboxKeyOf, sandboxLifecycle } from "./aiChangeSandboxes"
@@ -19,6 +21,16 @@ import { conversationState, jobSandboxOwner, sandboxExecRecorder, sandboxForJob,
 vi.mock("../../models/AiChangeJobModel", async importOriginal => {
     const original = await importOriginal<typeof import("../../models/AiChangeJobModel")>()
     return { ...original, default: { exists: vi.fn(), updateOne: vi.fn() } }
+})
+
+vi.mock("../../models/BackendModel", async importOriginal => {
+    const original = await importOriginal<typeof import("../../models/BackendModel")>()
+    return { ...original, default: { find: vi.fn(() => ({ lean: async () => [] })) } }
+})
+
+vi.mock("../../models/FrontendModel", async importOriginal => {
+    const original = await importOriginal<typeof import("../../models/FrontendModel")>()
+    return { ...original, default: { exists: vi.fn(async () => null) } }
 })
 
 vi.mock("../../models/StandalonePreviewSessionModel", async importOriginal => {
@@ -120,7 +132,27 @@ describe("the sandbox of a job", () => {
         expect(AiChangeJob.updateOne).toHaveBeenCalledWith({ _id: job._id }, { $set: { sandboxKey: key } })
         expect(vi.mocked(AiChangeJob.updateOne).mock.invocationCallOrder[0]).toBeLessThan(acquire.mock.invocationCallOrder[0])
         // The organization goes along: a warm sandbox is handed out only within the organization it last served.
-        expect(acquire).toHaveBeenCalledWith(key, expect.any(Object), CONVERSATION, String(owner.organizationId))
+        expect(acquire).toHaveBeenCalledWith(key, expect.any(Object), CONVERSATION, String(owner.organizationId), [])
+    })
+
+    it("Given the sandbox of a domain, when it is asked for, then it needs the languages of the repositories of the job and of every other repository of the domain", async () => {
+        const owner = jobSandboxOwner({ ...job, userId: new Types.ObjectId(), frontendIds: [], backendIds: [] } as never, new Types.ObjectId())
+        vi.mocked(Backend.find).mockReturnValueOnce({ lean: async () => [{ stack: { runtime: "PYTHON" } }, {}] } as never)
+        vi.mocked(Frontend.exists).mockResolvedValueOnce({ _id: "frontend" } as never)
+
+        await sandboxForJob({ OPENSHELL_GATEWAY_URL: "https://gateway" }, job as never, `domain-${domainA}`, owner, [{ kind: "backend", runtime: "JAVA" } as never])?.()
+
+        expect(String((vi.mocked(Backend.find).mock.calls[0][0] as { domainId?: unknown }).domainId)).toBe(String(domainA))
+        expect(acquire.mock.calls[0][4]).toEqual(["node", "java", "python"])
+    })
+
+    it("Given the sandbox of a project, when it is asked for, then it needs the languages of the repositories of the job only", async () => {
+        const owner = jobSandboxOwner({ ...job, userId: new Types.ObjectId(), frontendIds: [], backendIds: [] } as never, new Types.ObjectId())
+
+        await sandboxForJob({ OPENSHELL_GATEWAY_URL: "https://gateway" }, job as never, `project-${projectId}`, owner, [{ kind: "backend", runtime: "GO" } as never])?.()
+
+        expect(Backend.find).not.toHaveBeenCalled()
+        expect(acquire.mock.calls[0][4]).toEqual(["go"])
     })
 
     it("Given a shared sandbox, when it is created, then its lifetime counts against its project and domain, not against the job that happened to create it", async () => {

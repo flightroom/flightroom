@@ -50,6 +50,11 @@ export interface SandboxLogLine {
     message: string
 }
 
+/** The languages a template can say its image holds: a sandbox needing them is created from it. */
+export const SANDBOX_LANGUAGES = ["node", "java", "python", "go", "dotnet"] as const
+
+export type SandboxLanguage = (typeof SANDBOX_LANGUAGES)[number]
+
 /** What an installation administrator sets of a workload template of the gateway. */
 export interface SandboxTemplateInput {
     image: string
@@ -57,6 +62,7 @@ export interface SandboxTemplateInput {
     memory?: string | null
     labels: Record<string, string>
     environment: Record<string, string>
+    languages: SandboxLanguage[]
 }
 
 export interface SandboxTemplate {
@@ -66,6 +72,7 @@ export interface SandboxTemplate {
     memory?: string
     labels: Record<string, string>
     environment: Record<string, string>
+    languages: SandboxLanguage[]
     /** Settings this page does not show (runtime class, GPU, service level): kept when the template is changed here. */
     advanced: boolean
     createdAt?: string

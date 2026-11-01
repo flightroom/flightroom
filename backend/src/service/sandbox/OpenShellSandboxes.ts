@@ -3,13 +3,17 @@ import { readFile } from "node:fs/promises"
 import { StringDecoder } from "node:string_decoder"
 import TelemetryService from "../TelemetryService"
 import { CommandSandbox, SandboxCommandResult, SandboxExecOptions } from "./commandSandbox"
+import { languagesOfLabels, TemplateLanguages, templateForLanguages } from "./sandboxLanguages"
 import { mongoSandboxPool, PooledSandbox, SandboxPool } from "./sandboxPool"
-import { effectiveOpenShellConfig } from "./sandboxSettings"
+import { effectiveOpenShellConfig, SANDBOX_SETTINGS_CACHE_MS } from "./sandboxSettings"
 
 /** ESM only: loaded with import(), so the console starts, and runs, without a gateway configured. */
 type OpenShellSdk = typeof import("@nvidia/openshell-sdk")
 type OpenShellClient = Awaited<ReturnType<OpenShellSdk["OpenShellClient"]["connect"]>>
 type SandboxRef = Awaited<ReturnType<OpenShellClient["sandbox"]["get"]>>
+
+/** A workload template of the gateway, the languages it holds and when it was created: the gateway recreates a template it changes. */
+type LanguageTemplate = TemplateLanguages & { revision?: string }
 
 /**
  * The default image has Node.js only. Other runtimes are allowed for a configured polyglot image/template;
@@ -339,6 +343,8 @@ export class OpenShellSandboxes {
     private ownerId?: Promise<string>
     /** When this replica last looked into each shared sandbox for the folders of idle conversations. */
     private readonly pruned = new Map<string, number>()
+    /** The templates of the gateway and their languages, read again at most as often as the settings. */
+    private languageTemplates?: { at: number; list: Promise<LanguageTemplate[]> }
     private readonly pool: SandboxPool
     private readonly installationId: () => Promise<string>
     private readonly now: () => number
@@ -364,6 +370,45 @@ export class OpenShellSandboxes {
     /** The workload templates of the gateway, in the workspace of this installation's sandboxes. */
     async templates(): Promise<{ client: OpenShellClient["sandboxTemplates"]; workspace?: string }> {
         return { client: (await this.connect()).sandboxTemplates, workspace: this.workspace }
+    }
+
+    /** Forgets the templates read: called by the replica that changed one, which applies the change at once. */
+    forgetTemplates() {
+        this.languageTemplates = undefined
+    }
+
+    private templatesWithLanguages(client: OpenShellClient): Promise<LanguageTemplate[]> {
+        if (!this.languageTemplates || this.now() - this.languageTemplates.at >= SANDBOX_SETTINGS_CACHE_MS) {
+            const list = client.sandboxTemplates.listAll({ workspace: this.workspace }).then(templates =>
+                templates.map(template => ({
+                    name: template.metadata?.name ?? "",
+                    languages: languagesOfLabels(template.metadata?.labels),
+                    revision: template.metadata?.createdTime ? String(template.metadata.createdTime.seconds) : undefined
+                }))
+            )
+            const entry = { at: this.now(), list }
+            // A failed read is not kept: the next sandbox tries again.
+            list.catch(() => {
+                if (this.languageTemplates === entry) this.languageTemplates = undefined
+            })
+            this.languageTemplates = entry
+        }
+        return this.languageTemplates.list
+    }
+
+    /**
+     * The settings a sandbox needing these languages is created with: those of the template holding them all, when it is
+     * not the one in use, its creation as its revision. The settings themselves when nothing is needed, no template
+     * holds it all, or the templates cannot be read: the sandbox is created as before, and a check its image cannot
+     * run is skipped.
+     */
+    private async settingsFor(client: OpenShellClient, settings: OpenShellConfiguration, languages: readonly string[]): Promise<OpenShellConfiguration> {
+        if (!languages.length) return settings
+        const templates = await this.templatesWithLanguages(client).catch(() => [])
+        const template = templateForLanguages(templates, languages, settings.OPENSHELL_SANDBOX_TEMPLATE)
+        if (!template || template === settings.OPENSHELL_SANDBOX_TEMPLATE) return settings
+        const revision = templates.find(candidate => candidate.name === template)?.revision
+        return { ...settings, OPENSHELL_SANDBOX_TEMPLATE: template, OPENSHELL_SANDBOX_TEMPLATE_REVISION: revision }
     }
 
     private get workspace() {
@@ -481,11 +526,14 @@ export class OpenShellSandboxes {
      * new one. Two replicas asking at once end up on the same one: the key holds one sandbox in the database. The
      * commands run in the folder of `space`, the conversation, which is the key itself unless several conversations
      * share it. Without `organizationId` no warm sandbox is handed out: it could not go back to the same organization.
+     * A new sandbox is created from the template holding every one of `languages`, when there is one: the sandbox the
+     * key already has is kept while it is alive, whatever it was created from.
      */
-    async acquire(key: string, lifecycle: SandboxLifecycle = {}, space: string = key, organizationId?: string): Promise<CommandSandbox> {
+    async acquire(key: string, lifecycle: SandboxLifecycle = {}, space: string = key, organizationId?: string, languages: readonly string[] = []): Promise<CommandSandbox> {
         const folder = space.toLowerCase()
         if (!SPACE.test(folder)) throw new Error(`"${space}" cannot name a folder of the sandbox`)
-        const [client, owner, settings] = await Promise.all([this.connect(), this.owner(), this.settings()])
+        const [client, owner, current] = await Promise.all([this.connect(), this.owner(), this.settings()])
+        const settings = await this.settingsFor(client, current, languages)
         const workspace = this.workspace
         for (let attempt = 0; attempt < 3; attempt++) {
             const name = await this.sandboxFor(client, owner, settings, key, lifecycle, folder !== key.toLowerCase(), organizationId)

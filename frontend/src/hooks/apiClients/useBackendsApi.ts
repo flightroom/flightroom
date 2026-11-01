@@ -100,7 +100,8 @@ export interface Backend {
     updatedAt?: Date
 }
 
-export type BackendDTO = Omit<Backend, "_id" | "projectId" | "stack" | "createdAt" | "updatedAt">
+/** `stack`: sent only to choose the runtime by hand, the framework kept */
+export type BackendDTO = Omit<Backend, "_id" | "projectId" | "stack" | "createdAt" | "updatedAt"> & { stack?: { runtime?: BackendRuntime; framework?: string } }
 
 /** Port and probe paths left out come from the template, the platform defaults after it. */
 export type BackendCreateDTO = Omit<BackendDTO, "port"> & Partial<Pick<BackendDTO, "port">>

@@ -30,10 +30,12 @@ const NEUTRAL_HEX = "8B8B96"
 /**
  * Il logo come data URI, per i componenti che accettano solo l'URL di un'immagine (es. le opzioni di SelectField).
  */
-export const technologyIconUrl = (technology: Technology) => {
-    const icon = TECHNOLOGY_ICONS[technology]
+export const technologyIconUrl = (technology: Technology) => iconUrl(TECHNOLOGY_ICONS[technology], technologyMonogram(technology))
+
+/** Il logo di simple-icons come data URI, o il monogramma quando non c'e' */
+export const iconUrl = (icon: SimpleIcon | undefined, monogram: string) => {
     const svg = icon
         ? `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path fill="#${isNearBlack(icon.hex) ? NEUTRAL_HEX : icon.hex}" d="${icon.path}"/></svg>`
-        : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="none" stroke="#${NEUTRAL_HEX}" stroke-width="2"/><text x="12" y="16.5" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#${NEUTRAL_HEX}">${technologyMonogram(technology)}</text></svg>`
+        : `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10.5" fill="none" stroke="#${NEUTRAL_HEX}" stroke-width="2"/><text x="12" y="16.5" text-anchor="middle" font-family="sans-serif" font-size="12" font-weight="700" fill="#${NEUTRAL_HEX}">${monogram}</text></svg>`
     return `data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}`
 }

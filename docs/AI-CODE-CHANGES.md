@@ -337,6 +337,20 @@ are the repository's code, and the console holds the repository tokens, the data
   processes of the sandbox. Size the requests and limits of the sandbox template for several
   conversations at once: one running out of memory takes the others down with it.
   `OPENSHELL_SANDBOX_SHARING=conversation` goes back to one sandbox per conversation.
+- **A template per language.** A workload template of the gateway can say which languages its image
+  holds (Node.js, Java, Python, Go, .NET), from the **Installation** page; each is a label of the
+  template, `languages.flightroom.dev/<language>: "true"`. A new sandbox is created from the template
+  holding every language it needs: Node.js for a frontend, the runtime of a backend, and for the sandbox
+  of a domain those of every repository of the domain, since its next request may touch any of them.
+  The template in use is kept when it holds them all, so the warm sandboxes serve it; otherwise the one
+  with the fewest languages, by name on a tie. With no language needed, no template holding them all,
+  or templates the gateway cannot list, the sandbox is created as the settings say, and the checks its
+  image cannot run are skipped. The runtime of a backend comes from its template, or from the
+  **Technology** chosen on its page: a language, or a framework that brings its language with it
+  (Spring Boot, Quarkus and Micronaut run on Java, FastAPI on Python). A sandbox already
+  serving a key keeps its template until it is let go; one of another template than the one in use is
+  deleted then instead of going back into the pool. Each replica reads the templates again at most every
+  30 seconds.
 - **Let go when idle.** Once no job using a sandbox has waited, run or ended for
   `OPENSHELL_SANDBOX_IDLE_MINUTES` (5), the sandbox goes back into the warm pool when the pool lacks
   one, else it is deleted. In a shared sandbox still in use, the
@@ -426,7 +440,7 @@ are the repository's code, and the console holds the repository tokens, the data
   Python requirements are installed from `requirements.txt` or `pyproject.toml`; Java build tools, Go and
   .NET restore dependencies when their development command starts. The default `node:24-bookworm-slim`
   image only contains Node.js: use `OPENSHELL_SANDBOX_TEMPLATE` or `OPENSHELL_SANDBOX_IMAGE` with the
-  runtimes and build tools needed by your projects. Unknown or unsupported frameworks are not guessed.
+  runtimes and build tools needed by your projects, or templates that name their languages. Unknown or unsupported frameworks are not guessed.
   Changed files are synced into the sandbox, and preview links and the embedded frontend appear in
   **Edit with AI**. For domain edits, each conversation turn shows the previews of its repositories;
   backend previews are started when the agent finishes so frontends can call their APIs; select a

@@ -11,7 +11,7 @@ import Environment from "../models/EnvironmentModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import BackendDTO, { BackendVersionRegistrationDTO, EnvironmentResourcesDTO } from "../types/BackendDTO"
-import { BACKEND_SLUG, BACKEND_VERSION, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
+import { BACKEND_SLUG, BACKEND_VERSION, BackendStackDTO, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
 import {
     CONTAINER_RESOURCE_FIELDS,
     ContainerResources,
@@ -275,6 +275,16 @@ export class BackendService extends BaseAuthorizedService {
         return await Backend.find({ projectId: projectIdObj, ...(await this.domainScopeFilter(projectIdObj)) }).sort({ name: 1 })
     }
 
+    /**
+     * A stack the user sends is theirs: a language, or a framework that brings its language with it, which tells the
+     * sandbox of the coding agent what to hold. Without the runtime, the framework's. A template chosen at creation wins
+     * over it.
+     */
+    private manualStack(stack: BackendStackDTO): IBackend["stack"] {
+        const framework = stack.framework?.trim() || undefined
+        return { runtime: stack.runtime || parseRuntime(framework), framework, source: FrontendStackSource.MANUAL }
+    }
+
     async create(dto: BackendDTO, projectId: string | Schema.Types.ObjectId): Promise<IBackend> {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
@@ -284,6 +294,7 @@ export class BackendService extends BaseAuthorizedService {
         ensureValidSlug(slug)
         const { id: _id, ...fields } = { ...dto, slug }
         const backend = await withNormalizedReferences(withManualVersion(fields), projectIdObj, undefined, { resources: true })
+        if (backend.stack) backend.stack = this.manualStack(backend.stack)
         if (backend.domainId !== undefined) {
             backend.domainId = await resolveDomainId(backend.domainId, projectIdObj)
         }
@@ -370,6 +381,7 @@ export class BackendService extends BaseAuthorizedService {
         // A domain-scoped member's console lists only the resources they see: the others it attaches stay attached
         const withHidden = await withResourcesOutOfScope(scope, backend.projectId, fields, backend)
         const allowed = await withNormalizedReferences(withManualVersion(withHidden), backend.projectId, backend, { resources: true })
+        if (allowed.stack) allowed.stack = this.manualStack(allowed.stack)
         if (allowed.domainId !== undefined) {
             allowed.domainId = await resolveDomainId(allowed.domainId, backend.projectId)
             // Moved only between the domains of a domain-scoped member, never out of their reach

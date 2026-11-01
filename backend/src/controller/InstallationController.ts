@@ -2,6 +2,7 @@ import { FastifyInstance } from "fastify"
 import InstallationSandboxService from "../service/sandbox/InstallationSandboxService"
 import { MAX_LOG_LINES } from "../service/sandbox/OpenShellSandboxes"
 import SandboxTemplateService, { SandboxTemplateInput } from "../service/sandbox/SandboxTemplateService"
+import { SANDBOX_LANGUAGES } from "../service/sandbox/sandboxLanguages"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 
 /** A host name, `*.` in front for any subdomain. */
@@ -40,7 +41,7 @@ const templateParamsSchema = { type: "object", required: ["name"], properties: {
 const LABEL_NAME = "[A-Za-z0-9]([-A-Za-z0-9_.]{0,61}[A-Za-z0-9])?"
 const LABEL_KEY = `^([a-z0-9]([-a-z0-9.]{0,251}[a-z0-9])?/)?${LABEL_NAME}$`
 
-/** What a template runs: its image, the resources it is limited to, its labels and environment. */
+/** What a template runs: its image, the resources it is limited to, its labels and environment, and the languages its image holds. */
 export const sandboxTemplateBodySchema = {
     type: "object",
     additionalProperties: false,
@@ -50,7 +51,8 @@ export const sandboxTemplateBodySchema = {
         cpu: { type: ["string", "null"], pattern: "^([0-9]+(\\.[0-9]+)?m?)?$", maxLength: 20 },
         memory: { type: ["string", "null"], pattern: "^([0-9]+(\\.[0-9]+)?(Ki|Mi|Gi|Ti|k|M|G|T)?)?$", maxLength: 20 },
         labels: { type: "object", maxProperties: 20, propertyNames: { pattern: LABEL_KEY }, additionalProperties: { type: "string", pattern: `^(${LABEL_NAME})?$` } },
-        environment: { type: "object", maxProperties: 50, propertyNames: { pattern: "^[A-Za-z_][A-Za-z0-9_]{0,127}$" }, additionalProperties: { type: "string", maxLength: 4000 } }
+        environment: { type: "object", maxProperties: 50, propertyNames: { pattern: "^[A-Za-z_][A-Za-z0-9_]{0,127}$" }, additionalProperties: { type: "string", maxLength: 4000 } },
+        languages: { type: "array", uniqueItems: true, items: { type: "string", enum: [...SANDBOX_LANGUAGES] } }
     }
 }
 
@@ -97,7 +99,10 @@ export default async function installationController(fastify: FastifyInstance) {
 
     fastify.post<TemplateRoute>("/installation/sandbox-templates/:name", templateSchema, async (request, reply) => {
         const created = await templates(request).create(request.params.name, request.body)
-        request.log.info({ audit: "sandbox_template_created", userId: String(request.databaseUser._id), name: request.params.name, image: request.body.image }, "Sandbox template created")
+        request.log.info(
+            { audit: "sandbox_template_created", userId: String(request.databaseUser._id), name: request.params.name, image: request.body.image, languages: request.body.languages },
+            "Sandbox template created"
+        )
         return reply.status(201).send(created)
     })
 
@@ -105,7 +110,10 @@ export default async function installationController(fastify: FastifyInstance) {
         const saved = await templates(request).replace(request.params.name, request.body, (error, previous) =>
             request.log.error({ err: error, audit: "sandbox_template_lost", userId: String(request.databaseUser._id), ...previous }, "Sandbox template deleted and not created again")
         )
-        request.log.info({ audit: "sandbox_template_updated", userId: String(request.databaseUser._id), name: request.params.name, image: request.body.image }, "Sandbox template updated")
+        request.log.info(
+            { audit: "sandbox_template_updated", userId: String(request.databaseUser._id), name: request.params.name, image: request.body.image, languages: request.body.languages },
+            "Sandbox template updated"
+        )
         return reply.send(saved)
     })
 

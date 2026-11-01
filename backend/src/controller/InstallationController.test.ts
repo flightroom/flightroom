@@ -7,7 +7,14 @@ const { settingsModel, sandboxes, templateClient, finders } = vi.hoisted(() => {
     return {
         settingsModel: { findById: vi.fn(), updateOne: vi.fn(async () => ({})) },
         templateClient,
-        sandboxes: { inventory: vi.fn(), logs: vi.fn(), delete: vi.fn(), idleMs: vi.fn(async () => 300_000), templates: vi.fn(async () => ({ client: templateClient, workspace: "flightroom" })) },
+        sandboxes: {
+            inventory: vi.fn(),
+            logs: vi.fn(),
+            delete: vi.fn(),
+            idleMs: vi.fn(async () => 300_000),
+            templates: vi.fn(async () => ({ client: templateClient, workspace: "flightroom" })),
+            forgetTemplates: vi.fn()
+        },
         finders: { Domain: finder(), Project: finder(), Organization: finder(), AiChangeJob: finder(), StandalonePreviewSession: finder() }
     }
 })
@@ -222,6 +229,7 @@ describe("InstallationController", () => {
                     labels: { app: "flightroom" },
                     environment: {},
                     advanced: true,
+                    languages: [],
                     createdAt: "2023-11-14T22:13:20.000Z",
                     inUse: false
                 },
@@ -233,6 +241,7 @@ describe("InstallationController", () => {
                     labels: { app: "flightroom" },
                     environment: {},
                     advanced: false,
+                    languages: [],
                     createdAt: "2023-11-14T22:13:20.000Z",
                     inUse: true
                 }
@@ -264,6 +273,36 @@ describe("InstallationController", () => {
             const taken = await app.inject({ method: "POST", url: "/installation/sandbox-templates/flightroom-python", payload })
             expect(taken.statusCode).toBe(409)
             expect(taken.json().error.code).toBe("SANDBOX_TEMPLATE_EXISTS")
+        })
+
+        it("Given the languages of a template, when it is saved, then each is a label of it on the gateway, listed apart from its labels; a change that does not say them keeps them", async () => {
+            inUse(undefined)
+            templateClient.create.mockImplementation(async (init: { metadata: { name: string; labels: Record<string, string> } }) => ({
+                ...template(init.metadata.name, { image: "maven:3.9" }),
+                metadata: { ...init.metadata, createdTime: { seconds: 1_700_000_000n } }
+            }))
+
+            const created = await app.inject({
+                method: "POST",
+                url: "/installation/sandbox-templates/jvm",
+                payload: { image: "maven:3.9", labels: { app: "flightroom" }, languages: ["java", "node"] }
+            })
+
+            expect(created.statusCode).toBe(201)
+            const labels = { app: "flightroom", "languages.flightroom.dev/java": "true", "languages.flightroom.dev/node": "true" }
+            expect(templateClient.create).toHaveBeenLastCalledWith(expect.objectContaining({ metadata: { name: "jvm", labels } }), { workspace: "flightroom" })
+            expect(created.json()).toMatchObject({ labels: { app: "flightroom" }, languages: ["node", "java"] })
+            expect(sandboxes.forgetTemplates).toHaveBeenCalled()
+
+            templateClient.get.mockResolvedValueOnce({ ...template("jvm", { image: "maven:3.9" }), metadata: { name: "jvm", labels } })
+            templateClient.delete.mockResolvedValue({ outcome: "completed" })
+            const changed = await app.inject({ method: "PUT", url: "/installation/sandbox-templates/jvm", payload: { image: "maven:3.9.9", labels: { app: "flightroom" } } })
+
+            expect(changed.statusCode).toBe(200)
+            expect(templateClient.create).toHaveBeenLastCalledWith(expect.objectContaining({ metadata: expect.objectContaining({ labels }) }), { workspace: "flightroom" })
+
+            const unknown = await app.inject({ method: "POST", url: "/installation/sandbox-templates/ruby", payload: { image: "ruby:3", languages: ["ruby"] } })
+            expect(unknown.statusCode).toBe(400)
         })
 
         it("Given the template new sandboxes use, when it is changed, then it is created again with the settings not shown kept, and its revision changes so the warm sandboxes made from the previous one are replaced", async () => {

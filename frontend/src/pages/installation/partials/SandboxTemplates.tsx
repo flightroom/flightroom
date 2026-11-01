@@ -6,6 +6,7 @@ import {
     CardDescription,
     CardHeader,
     CardTitle,
+    Checkbox,
     DeleteConfirmationDialog,
     Dialog,
     DialogContent,
@@ -14,6 +15,7 @@ import {
     DialogHeader,
     DialogTitle,
     Form,
+    Label,
     Table,
     TableBody,
     TableCell,
@@ -24,7 +26,7 @@ import {
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import type { AxiosError } from "axios"
 import { Pencil, Plus, Trash2 } from "lucide-react"
-import { useEffect, useState } from "react"
+import { useEffect, useId, useState } from "react"
 import { useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
@@ -33,8 +35,10 @@ import TextField from "@/components/input/TextField.rhf"
 import { ApiStatusHandler } from "@/components/organisms"
 import useInstallationApi, {
     INSTALLATION_SANDBOXES_QUERY_KEY,
+    SANDBOX_LANGUAGES,
     SANDBOX_SETTINGS_QUERY_KEY,
     SANDBOX_TEMPLATES_QUERY_KEY,
+    type SandboxLanguage,
     type SandboxTemplate,
     type SandboxTemplateInput
 } from "@/hooks/apiClients/useInstallationApi"
@@ -62,6 +66,7 @@ interface TemplateFormValues {
     /** KEY=value, one per line. */
     labels: string
     environment: string
+    languages: SandboxLanguage[]
 }
 
 /** The KEY=value lines, blank ones skipped: the key trimmed, the value as typed, spaces included. */
@@ -88,7 +93,8 @@ const toFormValues = (template?: SandboxTemplate): TemplateFormValues => ({
     memory: template?.memory ?? "",
     // A new template is labelled as the ones of this console on the gateway are.
     labels: template ? toText(template.labels) : "app=flightroom",
-    environment: template ? toText(template.environment) : ""
+    environment: template ? toText(template.environment) : "",
+    languages: template?.languages ?? []
 })
 
 const toInput = (values: TemplateFormValues): SandboxTemplateInput => ({
@@ -96,7 +102,9 @@ const toInput = (values: TemplateFormValues): SandboxTemplateInput => ({
     cpu: values.cpu.trim() || null,
     memory: values.memory.trim() || null,
     labels: toPairs(values.labels),
-    environment: toPairs(values.environment)
+    environment: toPairs(values.environment),
+    // In the order of the list, as the backend gives them back.
+    languages: SANDBOX_LANGUAGES.filter(language => values.languages.includes(language))
 })
 
 /** What the gateway said of a template it refused: written for the log, in English, but it says what to fix. */
@@ -116,6 +124,10 @@ const TemplateFormDialog: React.FC<TemplateFormDialogProps> = ({ open, onOpenCha
     const notifications = useToastNotificationStore()
     const queryClient = useQueryClient()
     const form = useForm<TemplateFormValues>({ defaultValues: toFormValues(template) })
+    const languagesId = useId()
+    const languages = form.watch("languages")
+    const toggleLanguage = (language: SandboxLanguage, checked: boolean) =>
+        form.setValue("languages", checked ? [...languages, language] : languages.filter(held => held !== language), { shouldDirty: true })
 
     // Every opening starts from the template it is opened on, or from a blank form.
     useEffect(() => {
@@ -232,6 +244,28 @@ const TemplateFormDialog: React.FC<TemplateFormDialogProps> = ({ open, onOpenCha
                                     dataTestId="installation-template-memory"
                                 />
                             </div>
+                            <fieldset className="flex flex-col gap-2" aria-describedby={`${languagesId}-help`} data-testid="installation-template-languages">
+                                <legend className="mb-1 text-sm font-medium">{t("installation.templates.form.languages")}</legend>
+                                <div className="flex flex-wrap gap-x-5 gap-y-2">
+                                    {SANDBOX_LANGUAGES.map(language => (
+                                        <div key={language} className="flex items-center gap-2">
+                                            <Checkbox
+                                                id={`${languagesId}-${language}`}
+                                                checked={languages.includes(language)}
+                                                disabled={saveMutation.isPending}
+                                                onCheckedChange={checked => toggleLanguage(language, checked === true)}
+                                                dataTestId={`installation-template-language-${language}`}
+                                            />
+                                            <Label htmlFor={`${languagesId}-${language}`} className="cursor-pointer">
+                                                {t(`installation.templates.language_names.${language}`)}
+                                            </Label>
+                                        </div>
+                                    ))}
+                                </div>
+                                <p id={`${languagesId}-help`} className="text-sm text-foreground-secondary">
+                                    {t("installation.templates.form.languages_help")}
+                                </p>
+                            </fieldset>
                             <TextareaField<TemplateFormValues>
                                 name="labels"
                                 label={t("installation.templates.form.labels")}
@@ -323,6 +357,7 @@ export const SandboxTemplates: React.FC<SandboxTemplatesProps> = ({ gatewayConfi
                                     <TableHead>{t("installation.templates.columns.name")}</TableHead>
                                     <TableHead>{t("installation.templates.columns.image")}</TableHead>
                                     <TableHead>{t("installation.templates.columns.resources")}</TableHead>
+                                    <TableHead>{t("installation.templates.columns.languages")}</TableHead>
                                     <TableHead>{t("installation.templates.columns.labels")}</TableHead>
                                     <TableHead>
                                         <span className="sr-only">{t("installation.templates.columns.actions")}</span>
@@ -347,6 +382,19 @@ export const SandboxTemplates: React.FC<SandboxTemplatesProps> = ({ gatewayConfi
                                             {template.cpu || template.memory
                                                 ? t("installation.templates.resources", { cpu: template.cpu ?? "-", memory: template.memory ?? "-" })
                                                 : t("installation.templates.no_limits")}
+                                        </TableCell>
+                                        <TableCell>
+                                            {template.languages.length ? (
+                                                <div className="flex flex-wrap gap-1">
+                                                    {template.languages.map(language => (
+                                                        <Badge key={language} variant="info">
+                                                            {t(`installation.templates.language_names.${language}`)}
+                                                        </Badge>
+                                                    ))}
+                                                </div>
+                                            ) : (
+                                                <span className="text-sm text-foreground-secondary">{t("installation.templates.no_languages")}</span>
+                                            )}
                                         </TableCell>
                                         <TableCell>
                                             <div className="flex flex-wrap gap-1">

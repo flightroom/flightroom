@@ -2737,6 +2737,13 @@
             "JAVA": "Java",
             "OTHER": "Other"
         },
+        "technology": {
+            "label": "Technology",
+            "placeholder": "Not known",
+            "help": "A language, or a framework that brings its language with it. The coding agent creates its sandbox from the template that holds that language.",
+            "framework_option": "{{framework}} \u00b7 {{language}}",
+            "clear": "Clear the technology"
+        },
         "list": {
             "title": "Backends",
             "description": "Manage the backends and Docker frontends of your project",

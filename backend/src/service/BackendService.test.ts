@@ -341,6 +341,22 @@ describe("BackendService.update", () => {
         expect(write.mock.calls[0][1]).toEqual({ name: "Orders" })
     })
 
+    it.each([
+        [{ runtime: "JAVA" }, { runtime: "JAVA", framework: undefined }],
+        [
+            { runtime: "JAVA", framework: "Quarkus" },
+            { runtime: "JAVA", framework: "Quarkus" }
+        ],
+        [{ framework: " FastAPI " }, { runtime: "PYTHON", framework: "FastAPI" }],
+        [{ framework: "Ktor" }, { runtime: "OTHER", framework: "Ktor" }]
+    ])("given the stack %j chosen by hand, when a backend is updated, then it is the user's, its runtime the framework's when not sent", async (stack, expected) => {
+        const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
+
+        await new BackendService().update(String(backendId), { name: "Orders", stack: { ...stack, source: "TEMPLATE" } } as BackendDTO)
+
+        expect(write.mock.calls[0][1]).toEqual({ name: "Orders", stack: { ...expected, source: "MANUAL" } })
+    })
+
     it("given a version set by hand, when a backend is updated, then it is written trimmed", async () => {
         const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
 

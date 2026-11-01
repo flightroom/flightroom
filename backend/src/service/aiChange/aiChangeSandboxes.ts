@@ -1,11 +1,15 @@
 import { isValidObjectId } from "mongoose"
 import { fastify } from "../.."
 import AiChangeJob, { AiJobStatus, IAiChangeJob } from "../../models/AiChangeJobModel"
+import Backend from "../../models/BackendModel"
+import Frontend from "../../models/FrontendModel"
 import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { closeSandboxLifetime, openSandboxLifetime, recordSandboxUsage, SandboxOwner } from "../SandboxUsageService"
 import { CommandSandbox } from "../sandbox/commandSandbox"
 import { ConversationState, OpenShellConfiguration, openShellSandboxes, SandboxLifecycle } from "../sandbox/OpenShellSandboxes"
+import { languagesOfComponents, SandboxLanguage } from "../sandbox/sandboxLanguages"
+import { BackendComponent, FrontendComponent } from "../workspace/repositoryComponent"
 import { SandboxExec } from "./aiChangeScripts"
 import { loggable } from "./aiChangeShared"
 
@@ -59,12 +63,38 @@ export const sandboxKeyOf = (
 }
 
 /**
+ * The languages the sandbox of a key needs: those of the repositories of the job, and for the sandbox of a domain, which
+ * the next job may use on any repository of it, those of every repository of the domain. One that cannot be read
+ * leaves the job's.
+ */
+const sandboxLanguagesOf = async (key: string, components: readonly (FrontendComponent | BackendComponent)[]): Promise<SandboxLanguage[]> => {
+    const [, scope, domainId] = SHARED_KEY.exec(key) ?? []
+    if (scope !== "domain") return languagesOfComponents(components)
+    try {
+        const domain = toObjectId(domainId)
+        const [backends, frontend] = await Promise.all([Backend.find({ domainId: domain }, { stack: 1 }).lean(), Frontend.exists({ domainId: domain })])
+        const members = [...backends.map(backend => ({ kind: "backend" as const, runtime: backend.stack?.runtime })), ...(frontend ? [{ kind: "frontend" as const }] : [])]
+        return languagesOfComponents([...components, ...members])
+    } catch (error) {
+        fastify.log.error({ error: loggable(error), key }, "Languages of the domain of a sandbox not read")
+        return languagesOfComponents(components)
+    }
+}
+
+/**
  * The sandbox of a job, under `key`, its commands in the folder of its conversation (the chain of jobs from the
- * same first one), so that the next message finds its dependencies installed. Undefined without a gateway. The
+ * same first one), so that the next message finds its dependencies installed, created from the template holding the
+ * languages of `components` when it is new. Undefined without a gateway. The
  * lifetime of a conversation's sandbox is counted against `owner` when this job creates it; that of a shared one
  * against its project and domain only, as it is no one job's.
  */
-export const sandboxForJob = (config: OpenShellConfiguration, job: Pick<IAiChangeJob, "_id" | "rootJobId">, key: string, owner: SandboxOwner): (() => Promise<CommandSandbox>) | undefined => {
+export const sandboxForJob = (
+    config: OpenShellConfiguration,
+    job: Pick<IAiChangeJob, "_id" | "rootJobId">,
+    key: string,
+    owner: SandboxOwner,
+    components: readonly (FrontendComponent | BackendComponent)[] = []
+): (() => Promise<CommandSandbox>) | undefined => {
     const sandboxes = openShellSandboxes(config)
     if (!sandboxes) return undefined
     const domainId = SHARED_KEY.exec(key)?.[1] === "domain" ? key.slice("domain-".length) : undefined
@@ -72,7 +102,8 @@ export const sandboxForJob = (config: OpenShellConfiguration, job: Pick<IAiChang
     return async () => {
         // Saved before the sandbox is asked for: the sweep finds the job under the key and keeps the sandbox.
         await AiChangeJob.updateOne({ _id: job._id }, { $set: { sandboxKey: key } })
-        return sandboxes.acquire(key, sandboxLifecycle(lifetimeOwner), job.rootJobId.toString(), owner.organizationId ? String(owner.organizationId) : undefined)
+        const languages = await sandboxLanguagesOf(key, components)
+        return sandboxes.acquire(key, sandboxLifecycle(lifetimeOwner), job.rootJobId.toString(), owner.organizationId ? String(owner.organizationId) : undefined, languages)
     }
 }
 

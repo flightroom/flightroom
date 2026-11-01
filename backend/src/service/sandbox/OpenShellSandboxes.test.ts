@@ -6,7 +6,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest"
 import { ConversationState, MAX_SANDBOX_NAME_LENGTH, OpenShellConfiguration, OpenShellSandboxes, randomSandboxName } from "./OpenShellSandboxes"
 import { PooledSandbox, ReleaseOutcome, SandboxPool } from "./sandboxPool"
 
-const { sandbox, raw, connect, OWNER } = vi.hoisted(() => {
+const { sandbox, raw, sandboxTemplates, connect, OWNER } = vi.hoisted(() => {
     const sandbox = {
         get: vi.fn(),
         create: vi.fn(),
@@ -18,7 +18,14 @@ const { sandbox, raw, connect, OWNER } = vi.hoisted(() => {
         list: vi.fn()
     }
     const raw = { exposeService: vi.fn(), getSandboxLogs: vi.fn() }
-    return { sandbox, raw, connect: vi.fn(async (_options: unknown) => ({ sandbox, raw, health: async () => ({ status: "healthy", version: "1" }) })), OWNER: "0b6c1f2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b" }
+    const sandboxTemplates = { listAll: vi.fn() }
+    return {
+        sandbox,
+        raw,
+        sandboxTemplates,
+        connect: vi.fn(async (_options: unknown) => ({ sandbox, raw, sandboxTemplates, health: async () => ({ status: "healthy", version: "1" }) })),
+        OWNER: "0b6c1f2e-3a4d-4e5f-8a9b-0c1d2e3f4a5b"
+    }
 })
 
 vi.mock("@nvidia/openshell-sdk", () => ({ OpenShellClient: { connect }, clientCredentials: vi.fn(() => ({ getToken: async () => "renewed" })) }))
@@ -465,6 +472,85 @@ describe("OpenShellSandboxes", () => {
             const [record] = assigned()
             expect(record.name).not.toBe("fr-0000000000000001")
             expect(acquired.root).toBe(`/sandbox/spaces/${CONVERSATION}`)
+        })
+
+        describe("the template chosen by the languages", () => {
+            /** A template of the gateway holding these languages, created at `seconds`. */
+            const template = (name: string, languages: string[], seconds = 1) => ({
+                metadata: { name, labels: Object.fromEntries(languages.map(language => [`languages.flightroom.dev/${language}`, "true"])), createdTime: { seconds: BigInt(seconds), nanos: 0 } }
+            })
+
+            it("Given templates naming their languages, when a sandbox needing Java and Node.js is created, then it comes from the lightest template holding both", async () => {
+                sandboxTemplates.listAll.mockResolvedValue([template("everything", ["node", "java", "python", "go"]), template("java", ["node", "java"]), template("node", ["node"])])
+
+                await sandboxes({ ...GATEWAY, OPENSHELL_SANDBOX_TEMPLATE: "node" }).acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION, ["node", "java"])
+
+                expect(sandbox.createFromTemplate).toHaveBeenCalledWith(expect.objectContaining({ workloadTemplate: "java" }))
+            })
+
+            it("Given the template in use holding the languages, when a sandbox is acquired, then a warm one of it is handed out instead of a lighter template", async () => {
+                sandboxTemplates.listAll.mockResolvedValue([template("node", ["node"]), template("polyglot", ["node", "java"])])
+                const settings = { ...GATEWAY, OPENSHELL_SANDBOX_WARM: 1, OPENSHELL_SANDBOX_TEMPLATE: "polyglot" }
+                await sandboxes(settings).sweep(async () => "idle")
+                sandbox.createFromTemplate.mockClear()
+
+                await sandboxes(settings).acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION, ["node"])
+
+                expect(sandbox.createFromTemplate).not.toHaveBeenCalled()
+                expect(assigned()).toHaveLength(1)
+            })
+
+            it("Given a warm sandbox of the template in use, when a key needs a language only another template holds, then a new one is created from that template and the warm one stays", async () => {
+                sandboxTemplates.listAll.mockResolvedValue([template("node", ["node"]), template("python", ["node", "python"])])
+                const settings = { ...GATEWAY, OPENSHELL_SANDBOX_WARM: 1, OPENSHELL_SANDBOX_TEMPLATE: "node" }
+                await sandboxes(settings).sweep(async () => "idle")
+                sandbox.createFromTemplate.mockClear()
+
+                await sandboxes(settings).acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION, ["node", "python"])
+
+                expect(sandbox.createFromTemplate).toHaveBeenCalledTimes(1)
+                expect(sandbox.createFromTemplate).toHaveBeenCalledWith(expect.objectContaining({ workloadTemplate: "python" }))
+                expect(warm()).toHaveLength(1)
+            })
+
+            it("Given a template recreated since its sandbox was let go, when it is chosen again, then its specification is another one", async () => {
+                const replica = sandboxes(GATEWAY)
+                sandboxTemplates.listAll.mockResolvedValue([template("go", ["go"], 1)])
+                await replica.acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION, ["go"])
+                sandboxTemplates.listAll.mockResolvedValue([template("go", ["go"], 2)])
+                replica.forgetTemplates()
+
+                await replica.acquire("65f1a2b3c4d5e6f708192a3c", {}, "65f1a2b3c4d5e6f708192a3c", ORGANIZATION, ["go"])
+
+                const [first, second] = assigned()
+                expect(first.specHash).not.toBe(second.specHash)
+            })
+
+            it("Given no template holding every language, or none naming any, when a sandbox is created, then it is created as the settings say", async () => {
+                sandboxTemplates.listAll.mockResolvedValue([template("node", ["node"]), { metadata: { name: "untagged" } }])
+
+                await sandboxes({ ...GATEWAY, OPENSHELL_SANDBOX_IMAGE: "node:26" }).acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION, ["dotnet"])
+
+                expect(sandbox.createFromTemplate).not.toHaveBeenCalled()
+                expect(sandbox.create).toHaveBeenCalledWith(expect.objectContaining({ image: "node:26" }))
+            })
+
+            it("Given templates the gateway cannot list, when a sandbox is created, then it is created as the settings say, and the templates are read again next time", async () => {
+                sandboxTemplates.listAll.mockRejectedValueOnce(new Error("unavailable")).mockResolvedValue([template("java", ["java"])])
+                const replica = sandboxes(GATEWAY)
+
+                await replica.acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION, ["java"])
+                await replica.acquire("65f1a2b3c4d5e6f708192a3c", {}, "65f1a2b3c4d5e6f708192a3c", ORGANIZATION, ["java"])
+
+                expect(sandbox.create).toHaveBeenCalledTimes(1)
+                expect(sandbox.createFromTemplate).toHaveBeenCalledWith(expect.objectContaining({ workloadTemplate: "java" }))
+            })
+
+            it("Given no language needed, when a sandbox is created, then the templates are not even read", async () => {
+                await sandboxes().acquire(CONVERSATION, {}, CONVERSATION, ORGANIZATION)
+
+                expect(sandboxTemplates.listAll).not.toHaveBeenCalled()
+            })
         })
 
         it("Given a template and no registry hosts, when a sandbox is created, then it comes from the template under the gateway's own network policy", async () => {
