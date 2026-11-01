@@ -339,9 +339,7 @@
   "337": "AiChangeDiff.tsx",
   "338": "GitHub Logo (Octocat Mark)",
   "339": "[11.3.0] - 2026-10-31",
-  "340": "account_activation",
   "341": "OAuthProjectsPicker.tsx",
-  "342": "ChargeForce",
   "343": "[10.1.0] - 2026-10-29",
   "344": "[9.2.0] - 2026-10-28",
   "345": "[8.1.2] - 2026-10-26",
@@ -361,7 +359,6 @@
   "359": "readOAuthResume",
   "360": "[8.1.1] - 2026-10-26",
   "361": "aiChangeSandboxes.test.ts",
-  "362": "ChargeForce",
   "363": "StartChoice.tsx",
   "368": "GoogleStorageAccount.test.ts"
 }

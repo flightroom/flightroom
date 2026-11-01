@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793573863.2853873,
-    "ast_hash": "f1af8c526c47176957865d7ce30ee7a4",
+    "mtime": 1793575010.8853967,
+    "ast_hash": "83db30dbb960a32214c703c455441a9c",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793573863.2869022,
-    "ast_hash": "71ab9b0d003ec6eb91313cd839a3f100",
+    "mtime": 1793575010.8815281,
+    "ast_hash": "0a15bd111b22d3c4e9e9b214bf3c231d",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1030,8 +1030,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/Environments.tsx": {
-    "mtime": 1793531580.0283456,
-    "ast_hash": "81239972d752442339604ac41f34b465",
+    "mtime": 1793574999.3470385,
+    "ast_hash": "f7e605929f0f98593c132fd3ca99a20c",
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/EnvironmentList.tsx": {
@@ -5650,8 +5650,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/environments/partials/EnvironmentEditor.tsx": {
-    "mtime": 1793558421.1680772,
-    "ast_hash": "4be4003b0779dbc70bf723db1c91d7d8",
+    "mtime": 1793575007.1465292,
+    "ast_hash": "897590ea2a11c181a7edcd0d700e6e1e",
     "semantic_hash": ""
   },
   "backend/src/types/KubeGreen.ts": {
