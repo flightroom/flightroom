@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Gradle In The Sandboxes**: a repository with `build.gradle` or `build.gradle.kts` and no `gradlew` is checked with `gradle build --no-daemon -q` when the image of the sandbox has Gradle, as one without `mvnw` is with `mvn`; before, it was not checked at all. The default `OPENSHELL_REGISTRY_HOSTS` take `services.gradle.org`, `github.com` and `release-assets.githubusercontent.com`, where the Gradle wrapper downloads its distribution, so `./gradlew` works in a sandbox; a list of your own must add them. The policy changes with them, so warm sandboxes made before are replaced
 - **The Variables Of An Environment In A Live Preview**: a live preview opened on a frontend or a domain hands the development server of each frontend and backend what its container gets in the first environment that is not production, the one furthest back: the values of its config maps, secrets and resources there, then `LOG_LEVEL`, `LOG_JSON` and `ENVIRONMENT`. The URLs of the services of the cluster are left out, as from a sandbox they reach nothing: the previews started still find each other. The install and the commands of the coding agent never get them
+- **The Previews Open On The URL Of The Installation**: behind an ingress the gateway of OpenShell returns the URL of a preview with the scheme and the port it binds, on its own domain (`http://<preview>.openshell.localhost:8080`), which the browser cannot open. `OPENSHELL_PREVIEW_URL`, or **Preview URL** in the sandbox settings of the **Installation** page, sets where the browser reaches them, `*` standing for each one (`https://*.sandbox.example.com`): the preview opens there. Unset, the URL of the gateway is kept
 
 ### Changed
 
@@ -21,6 +22,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **A Gateway That Refuses The Templates Says Why**: when the identity of the installation lacks the role a template needs on the workspace of the gateway (admin, to manage them), listing, saving and deleting a template answered a 500; they now answer 403 `SANDBOX_GATEWAY_FORBIDDEN` with what the gateway says, the command that grants the role included, and the page shows it
 - **A Live Preview Installs The Design System Of The Project**: a live preview opened from the console wrote into the sandbox the `.npmrc` of the frontend's own design system only, so a frontend building with the one of its project or organization installed from the public registry, and failed on its private package (`ERR_PNPM_TARBALL_HTTP_STATUS` 404, then `vite: not found`). It now takes the design system that applies, as the coding agent does
+- **The Emails Carry The Brand Of The Installation**: with `INSTALLATION_NAME` or `INSTALLATION_LOGO_URL` set, the emails of the console (activation, password reset, invitations, API key expiry, AI job ended) still showed Flightroom's logo and named Flightroom; they now show the name and the logo the console shows. A logo given as a path served by the console is reached at `FRONTEND_URL`. The sender stays `EMAIL_SMTP_FROM`
 
 ## [13.3.0] - 2026-11-01
 
