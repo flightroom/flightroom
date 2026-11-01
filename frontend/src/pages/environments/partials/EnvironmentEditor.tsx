@@ -214,8 +214,11 @@ interface EnvironmentEditorProps {
 export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, onDirtyChange }: EnvironmentEditorProps) {
     const { t } = useTranslation()
     const isEdit = Boolean(id)
-    // I campi di kube-green partono dai default anche per un ambiente salvato prima che ci fossero
-    const form = useForm<EnvironmentFormData>({ defaultValues: { ...formData, kubeGreen: { ...KUBE_GREEN_DEFAULTS, ...formData.kubeGreen } } })
+    // I campi di kube-green partono dai default anche per un ambiente salvato prima che ci fossero. Le liste partono vuote,
+    // non undefined: svuotato, un campo a chip vale [] e "Annulla" lascerebbe il form diverso dal punto di partenza
+    const form = useForm<EnvironmentFormData>({
+        defaultValues: { ...formData, domains: formData.domains ?? [], ipAllowList: formData.ipAllowList ?? [], kubeGreen: { ...KUBE_GREEN_DEFAULTS, ...formData.kubeGreen } }
+    })
     const environmentsApi = useEnvironmentsApi()
     const notifications = useToastNotificationStore()
     const timeZonesId = useId()
