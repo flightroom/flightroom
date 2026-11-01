@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793568075.6419587,
-    "ast_hash": "d3767fd80822fb9bb279744ca94819fd",
+    "mtime": 1793568141.5298753,
+    "ast_hash": "49f29126fdd99ad30820e4ae1f2348d5",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4635,8 +4635,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/BackendsTable.tsx": {
-    "mtime": 1793005820.6244578,
-    "ast_hash": "2b8dd8ebf5f5463255f59a7474356b23",
+    "mtime": 1793568131.2939994,
+    "ast_hash": "8424d9dc9ca41564bfed320cddbc2430",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/partials/FrontendBadge.tsx": {
