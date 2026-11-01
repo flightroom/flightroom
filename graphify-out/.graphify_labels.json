@@ -290,6 +290,8 @@
   "288": "EnvironmentService",
   "289": "FrontendVersionResolver.test.ts",
   "290": "projectWizardStateMachine.ts",
+  "291": "[11.2.0] - 2026-10-31",
+  "292": "[2.2.0] - 2026-08-07",
   "295": "manifest.json",
   "296": "package.json",
   "297": "BuildController.ts",
@@ -319,12 +321,10 @@
   "327": "UserService.presence.test.ts",
   "329": "S3BucketClient",
   "330": "[9.1.0] - 2026-10-27",
-  "332": "[9.3.0] - 2026-10-29",
   "333": "assist",
   "335": "[7.0.0] - 2026-10-23",
   "336": "[1.0.0] - 2025-12-07",
   "339": "[6.1.0] - 2026-10-23",
-  "340": ".getEnvironmentFomRefererAndProjectId",
   "341": "[8.5.0] - 2026-10-27",
   "342": "[8.6.1] - 2026-10-27",
   "343": "GlobalVariablesController.ts",
@@ -336,6 +336,5 @@
   "350": "DeploymentController.ts",
   "352": "[2.1.0] - 2026-08-06",
   "354": "AssistantConfirmationCard.tsx",
-  "355": "StartChoice.tsx",
-  "357": "S3BucketClient"
+  "355": "StartChoice.tsx"
 }
