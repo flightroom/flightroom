@@ -11,6 +11,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The Sandbox Variables In The Helm Chart**: `values.yaml` documents `INSTALLATION_ADMINS` and every `OPENSHELL_*` variable of the coding agent's sandboxes under `env`, with their defaults, and the gateway credentials `OPENSHELL_TOKEN` and `OPENSHELL_OIDC_CLIENT_SECRET` under `envSecrets`. Left empty they are not set, as before, so an upgrade changes nothing until they are filled in
 
+### Fixed
+
+- **The Installation Page Opens In The Same Tab**: the **Installation** link at the bottom of the sidebar opened the page in a new tab, as the links to the documentation do; it now navigates in the console like every other entry
+- **No Flash On The Installation Page**: the settings, the pool and the list of sandboxes no longer blink every 20–30 seconds while they refresh, and an edit being typed in the settings form is no longer lost at each refresh
+
 ## [13.1.0] - 2026-11-01
 
 ### Added
