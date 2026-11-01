@@ -105,7 +105,7 @@ describe("ContainerEnvironmentService.get", () => {
         expect(result).toMatchObject({ state: "next_deploy", version: "1.4.0" })
         expect(result.notes).toBeUndefined()
         expect(result.variables).toContainEqual({ name: "HTTP_PORT", source: "platform", value: "3000" })
-        expect(result.variables).toContainEqual({ name: "EXPOSURE_URL", source: "platform", value: "https://dev.acme.example.com/orders" })
+        expect(result.variables).toContainEqual({ name: "PUBLIC_URL", source: "platform", value: "https://dev.acme.example.com/orders" })
         expect(result.variables).toContainEqual({ name: "LOG_LEVEL", source: "configMap orders-config", value: "warn", overriddenBy: "platform" })
         expect(result.variables).toContainEqual({ name: "SHOWN", source: "configMap orders-config", value: "dev-only" })
         expect(result.variables).toContainEqual({ name: "DB_PASSWORD", source: "secret orders-db", masked: { set: true, length: 12 } })
@@ -136,15 +136,15 @@ describe("ContainerEnvironmentService.get", () => {
         expect(ConfigMap.find).not.toHaveBeenCalled()
     })
 
-    it("given an environment whose subdomain the deploy would refuse, when its environment is read, then the rest comes back without EXPOSURE_URL and a note says why", async () => {
+    it("given an environment whose subdomain the deploy would refuse, when its environment is read, then the rest comes back without PUBLIC_URL and a note says why", async () => {
         vi.mocked(Environment.find).mockResolvedValue([{ _id: environmentId, slug: "dev", subdomain: "Not_A_Label" }] as never)
 
         const result = await get()
 
         expect(result.state).toBe("next_deploy")
-        expect(result.variables.map(variable => variable.name)).not.toContain("EXPOSURE_URL")
+        expect(result.variables.map(variable => variable.name)).not.toContain("PUBLIC_URL")
         expect(result.variables).toContainEqual({ name: "HTTP_PORT", source: "platform", value: "3000" })
-        expect(result.notes).toEqual([expect.stringMatching(/^EXPOSURE_URL left out: .*Not_A_Label/)])
+        expect(result.notes).toEqual([expect.stringMatching(/^PUBLIC_URL left out: .*Not_A_Label/)])
     })
 
     it("given a value too long to send, when the environment is read, then it is cut and says so", async () => {

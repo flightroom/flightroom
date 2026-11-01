@@ -5,7 +5,7 @@ const container = {
     name: "orders",
     env: [
         { name: "LOG_LEVEL", value: "info" },
-        { name: "EXPOSURE_URL", value: "https://dev.example.com/orders" },
+        { name: "PUBLIC_URL", value: "https://dev.example.com/orders" },
         { name: "TOKEN", valueFrom: { secretKeyRef: { name: "orders-db", key: "TOKEN" } } }
     ],
     envFrom: [{ configMapRef: { name: "orders-config" } }, { secretRef: { name: "orders-db" } }, { secretRef: { name: "cache.resource" } }, { prefix: "X_", configMapRef: { name: "extra" } }]
@@ -22,7 +22,7 @@ describe("liveContainerVariables", () => {
 
         expect(liveContainerVariables(container, data)).toEqual([
             { name: "LOG_LEVEL", source: "platform", value: "info" },
-            { name: "EXPOSURE_URL", source: "platform", value: "https://dev.example.com/orders" },
+            { name: "PUBLIC_URL", source: "platform", value: "https://dev.example.com/orders" },
             { name: "TOKEN", source: "platform", masked: { set: true } },
             { name: "LOG_LEVEL", source: "configMap orders-config", value: "warn", overriddenBy: "platform" },
             { name: "SHOWN", source: "configMap orders-config", value: "yes", overriddenBy: "resource cache.resource" },

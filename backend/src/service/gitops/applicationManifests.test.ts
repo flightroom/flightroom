@@ -7,7 +7,7 @@ import {
     applicationImageRepository,
     CHART_FILES,
     containerEnvironment,
-    containerExposureUrl,
+    containerPublicUrl,
     exposedUrl,
     gatewayOrigin,
     isDeployable,
@@ -225,7 +225,7 @@ describe("renderApplicationValues", () => {
         expect(() => render({ environmentVersions })).toThrow()
     })
 
-    it("given an environment that never set its logging, when its values are rendered, then the container logs at info in JSON and gets no EXPOSURE_URL", () => {
+    it("given an environment that never set its logging, when its values are rendered, then the container logs at info in JSON and gets no PUBLIC_URL", () => {
         expect(parse(render()).env).toEqual([
             { name: "LOG_LEVEL", value: "info" },
             { name: "LOG_JSON", value: "true" },
@@ -240,7 +240,7 @@ describe("renderApplicationValues", () => {
         expect(values.env).toEqual([
             { name: "LOG_LEVEL", value: "debug" },
             { name: "LOG_JSON", value: "true" },
-            { name: "EXPOSURE_URL", value: "https://dev.example.com/shop" },
+            { name: "PUBLIC_URL", value: "https://dev.example.com/shop" },
             { name: "OTEL_SERVICE_NAME", value: "orders" },
             { name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3" }
         ])
@@ -450,7 +450,7 @@ env:
     value: debug
   - name: LOG_JSON
     value: "false"
-  - name: EXPOSURE_URL
+  - name: PUBLIC_URL
     value: https://shop.example.com/shop
   - name: OTEL_SERVICE_NAME
     value: orders
@@ -512,7 +512,7 @@ maintenance:
             { name: "HTTP_PORT", source: "platform", value: "3000" },
             { name: "LOG_LEVEL", source: "platform", value: "debug" },
             { name: "LOG_JSON", source: "platform", value: "false" },
-            { name: "EXPOSURE_URL", source: "platform", value: "https://shop.example.com/shop" },
+            { name: "PUBLIC_URL", source: "platform", value: "https://shop.example.com/shop" },
             { name: "OTEL_SERVICE_NAME", source: "platform", value: "orders" },
             { name: "OTEL_RESOURCE_ATTRIBUTES", source: "platform", value: "deployment.environment=production,service.version=1.2.3" }
         ])
@@ -556,7 +556,7 @@ maintenance:
             { name: "FLIGHTROOM_API_URL", source: "platform", masked: { set: true } },
             { name: "FLIGHTROOM_AGENT_TOKEN", source: "platform", masked: { set: true } }
         ])
-        expect(agentVariables.map(variable => variable.name)).not.toContain("EXPOSURE_URL")
+        expect(agentVariables.map(variable => variable.name)).not.toContain("PUBLIC_URL")
     })
 
     it("given a JOB maintenance agent, which only its CronJob runs, when its environment is built, then there is no HTTP_PORT: the CronJob does not set it", () => {
@@ -569,14 +569,14 @@ maintenance:
     })
 })
 
-describe("containerExposureUrl", () => {
-    it("given a frontend, a backend and a maintenance agent, when EXPOSURE_URL is resolved, then it is where each container is exposed, and none for the agent", () => {
+describe("containerPublicUrl", () => {
+    it("given a frontend, a backend and a maintenance agent, when PUBLIC_URL is resolved, then it is where each container is exposed, and none for the agent", () => {
         const origin = gatewayOrigin({ host: "dev.example.com", certificateIssuer: "letsencrypt" })
 
-        expect(containerExposureUrl("frontend", { exposurePath: "/checkout/" }, origin)).toBe("https://dev.example.com/checkout")
-        expect(containerExposureUrl("backend", { exposurePath: "/products-database/" }, origin)).toBe("https://dev.example.com/products-database")
-        expect(containerExposureUrl("backend", {}, origin)).toBeUndefined()
-        expect(containerExposureUrl("maintenanceAgent", { exposurePath: "/agent" }, origin)).toBeUndefined()
+        expect(containerPublicUrl("frontend", { exposurePath: "/checkout/" }, origin)).toBe("https://dev.example.com/checkout")
+        expect(containerPublicUrl("backend", { exposurePath: "/products-database/" }, origin)).toBe("https://dev.example.com/products-database")
+        expect(containerPublicUrl("backend", {}, origin)).toBeUndefined()
+        expect(containerPublicUrl("maintenanceAgent", { exposurePath: "/agent" }, origin)).toBeUndefined()
     })
 
     it("given a Gateway without a certificate issuer, or none, when its origin is read, then it is plain HTTP, or nothing", () => {

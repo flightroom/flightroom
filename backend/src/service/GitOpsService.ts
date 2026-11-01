@@ -34,7 +34,7 @@ import {
     applicationValuesPath,
     CHART_FILES,
     ContainerKind,
-    containerExposureUrl,
+    containerPublicUrl,
     GitOpsApplication,
     gatewayOrigin,
     isDeployable,
@@ -666,11 +666,11 @@ export class GitOpsService extends BaseAuthorizedService {
                 const gateway = gateways.get(String(environment._id))
                 const listener = gateway && applicationListener(gateway)
                 const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER, ipAllowList: ipAllowListMiddleware(gateway) } : undefined
-                // Where browsers reach the environment: a project exposed on no domain gives its containers no EXPOSURE_URL
+                // Where browsers reach the environment: a project exposed on no domain gives its containers no PUBLIC_URL
                 const origin = gatewayOrigin(gateway)
                 const kindOf = (application: GitOpsApplication & { _id?: unknown }): ContainerKind =>
                     frontendIds.has(String(application._id)) ? "frontend" : backendIds.has(String(application._id)) ? "backend" : "maintenanceAgent"
-                const exposureUrl = (application: GitOpsApplication & { _id?: unknown }) => containerExposureUrl(kindOf(application), application, origin)
+                const publicUrl = (application: GitOpsApplication & { _id?: unknown }) => containerPublicUrl(kindOf(application), application, origin)
                 // A maintenance agent is made from a backend template, and probed as a backend
                 const probeTemplate = (application: GitOpsApplication & { _id?: unknown }) => (kindOf(application) === "frontend" ? probes?.frontend : probes?.backend)
                 const files: GitOpsFile[] = [
@@ -681,7 +681,7 @@ export class GitOpsService extends BaseAuthorizedService {
                         .map(application => ({
                             path: applicationValuesPath(application),
                             action: "update" as const,
-                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, exposureUrl(application), probeTemplate(application))
+                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, publicUrl(application), probeTemplate(application))
                         }))
                 ]
                 const onPushed = (revision: string) => revisions.set(String(environment._id), revision)

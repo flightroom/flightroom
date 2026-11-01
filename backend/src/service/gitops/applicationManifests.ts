@@ -146,11 +146,11 @@ export const exposedUrl = (origin: string | undefined, path: string | null | und
 /** Where browsers reach an environment through its Gateway: none when the project is exposed on no domain */
 export const gatewayOrigin = (gateway?: { host: string; certificateIssuer?: string }): string | undefined => (gateway ? `${gateway.certificateIssuer ? "https" : "http"}://${gateway.host}` : undefined)
 
-/** What runs as a container: what EXPOSURE_URL points at depends on it */
+/** What runs as a container: what PUBLIC_URL points at depends on it */
 export type ContainerKind = "backend" | "frontend" | "maintenanceAgent"
 
-/** EXPOSURE_URL of a container: the public URL it is exposed at, a frontend's and a backend's alike; none for a maintenance agent */
-export const containerExposureUrl = (kind: ContainerKind, application: { exposurePath?: string | null }, origin: string | undefined): string | undefined =>
+/** PUBLIC_URL of a container: the public URL it is exposed at, a frontend's and a backend's alike; none for a maintenance agent */
+export const containerPublicUrl = (kind: ContainerKind, application: { exposurePath?: string | null }, origin: string | undefined): string | undefined =>
     kind === "maintenanceAgent" ? undefined : exposedUrl(origin, application.exposurePath)
 
 export const HTTP_PORT_VARIABLE = "HTTP_PORT"
@@ -160,17 +160,12 @@ export const containerPortOf = (application: Pick<GitOpsApplication, "port">): n
 
 /**
  * The variables the values hand the chart as `env`, after HTTP_PORT: the targets of a maintenance agent, the
- * LOG_LEVEL and LOG_JSON of the environment, EXPOSURE_URL when given, and the OpenTelemetry name, environment and
+ * LOG_LEVEL and LOG_JSON of the environment, PUBLIC_URL when given, and the OpenTelemetry name, environment and
  * version of the application. The deploy writes them, `containerEnvironment` reads them: the two never differ.
  */
-export const containerVariables = (
-    application: GitOpsApplication,
-    environment: { slug: string } & EnvironmentLogging,
-    version: string,
-    exposureUrl?: string
-): Array<{ name: string; value: string }> => [
+export const containerVariables = (application: GitOpsApplication, environment: { slug: string } & EnvironmentLogging, version: string, publicUrl?: string): Array<{ name: string; value: string }> => [
     ...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []),
-    ...runtimeVariables(environment, exposureUrl),
+    ...runtimeVariables(environment, publicUrl),
     ...serviceVariables(application, environment, version)
 ]
 
@@ -259,12 +254,12 @@ export const containerEnvironment = (
     mapNames: ContainerMapNames,
     values: ContainerSourceValues,
     version: string,
-    exposureUrl?: string
+    publicUrl?: string
 ): ContainerVariable[] => {
     const variables: Array<ContainerVariable & { fromEnv: boolean }> = [
         // The Deployment hands it, not the CronJob: the container of a JOB agent, which only the CronJob runs, has none
         ...(application.maintenance?.kind === MaintenanceAgentKind.JOB ? [] : [{ name: HTTP_PORT_VARIABLE, value: String(containerPortOf(application)) }]),
-        ...containerVariables(application, environment, version, exposureUrl)
+        ...containerVariables(application, environment, version, publicUrl)
     ].map(({ name, value }) => ({ name, source: "platform", value, fromEnv: true }))
     for (const source of containerEnvSources(application, mapNames)) {
         if (source.kind === "platform") {
@@ -311,7 +306,7 @@ export const renderApplicationValues = (
     mapNames: ContainerMapNames,
     gateway?: ApplicationGateway,
     containerRegistry?: string,
-    exposureUrl?: string,
+    publicUrl?: string,
     probeTemplate?: ProbeSettings
 ): string => {
     const repository = applicationImageRepository(application, containerRegistry)
@@ -339,7 +334,7 @@ export const renderApplicationValues = (
         environmentMaps: sources.filter(source => source.kind === "configMap").map(source => source.name),
         // The chart lists the secrets after the config maps: a resource's Secret and the platform's are secrets too
         secrets: sources.filter(source => source.kind !== "configMap").map(source => source.name),
-        env: containerVariables(application, environment, version, exposureUrl),
+        env: containerVariables(application, environment, version, publicUrl),
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }

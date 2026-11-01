@@ -822,7 +822,7 @@ describe("GitOpsService.deploy", () => {
                 const expected = (path: string) => [
                     { name: "LOG_LEVEL", value: "warn" },
                     { name: "LOG_JSON", value: "true" },
-                    { name: "EXPOSURE_URL", value: `https://app.example.com${path}` }
+                    { name: "PUBLIC_URL", value: `https://app.example.com${path}` }
                 ]
                 // Each container then gets its own OpenTelemetry name and version (ServiceVariables)
                 const service = (slug: string, version: string) => [
@@ -833,7 +833,7 @@ describe("GitOpsService.deploy", () => {
                 expect(envOf("shop-fe.yaml")).toEqual([...expected("/shop"), ...service("shop-fe", "2.0.0")])
             })
 
-            it("given a project exposed on no domain, when it is deployed, then the containers get their logging and no EXPOSURE_URL", async () => {
+            it("given a project exposed on no domain, when it is deployed, then the containers get their logging and no PUBLIC_URL", async () => {
                 exposedOn(undefined, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
                 withShopCallingOrders()
 

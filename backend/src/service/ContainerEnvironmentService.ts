@@ -13,7 +13,7 @@ import { entryValueIn } from "../types/VariableMapDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { environmentGateway } from "./GitOpsService"
-import { ContainerVariable, containerEnvironment, containerExposureUrl, GitOpsApplication, gatewayOrigin, isDeployable } from "./gitops/applicationManifests"
+import { ContainerVariable, containerEnvironment, containerPublicUrl, GitOpsApplication, gatewayOrigin, isDeployable } from "./gitops/applicationManifests"
 
 /** A value shown in clear is the team's configuration, not a document: past this it is cut */
 const MAX_VALUE_CHARS = 2_000
@@ -94,12 +94,12 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
         ])
         const id = String(environment._id)
         const notes: string[] = []
-        // A host the deploy would refuse (an invalid subdomain, one two environments share) leaves EXPOSURE_URL out, not the rest
+        // A host the deploy would refuse (an invalid subdomain, one two environments share) leaves PUBLIC_URL out, not the rest
         let origin: string | undefined
         try {
             origin = gatewayOrigin(environmentGateway(project, environment, environments))
         } catch (error) {
-            notes.push(`EXPOSURE_URL left out: ${error instanceof Error ? error.message : String(error)}`)
+            notes.push(`PUBLIC_URL left out: ${error instanceof Error ? error.message : String(error)}`)
         }
         const variables = containerEnvironment(
             application,
@@ -115,7 +115,7 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
                 resources: new Map(resources.map(resource => [String(resource._id), resourceEnvironmentValues(resource, id)]))
             },
             version,
-            containerExposureUrl(target.kind, application, origin)
+            containerPublicUrl(target.kind, application, origin)
         )
         const set = new Set(variables.map(variable => variable.name))
         return {

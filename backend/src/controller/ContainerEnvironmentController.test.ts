@@ -19,7 +19,7 @@ describe("ContainerEnvironmentController", () => {
     let app: FastifyInstance
 
     beforeEach(async () => {
-        get.mockReset().mockResolvedValue({ state: "running", pod: "orders-abc", variables: [{ name: "EXPOSURE_URL", source: "platform", value: "https://dev.example.com/orders" }] })
+        get.mockReset().mockResolvedValue({ state: "running", pod: "orders-abc", variables: [{ name: "PUBLIC_URL", source: "platform", value: "https://dev.example.com/orders" }] })
         app = Fastify()
         app.decorate("config", {} as never)
         app.decorateRequest("databaseUser", null as never)
@@ -42,7 +42,7 @@ describe("ContainerEnvironmentController", () => {
 
         expect(response.statusCode).toBe(200)
         expect(get).toHaveBeenCalledWith(PROJECT, { kind, id: CONTAINER }, ENVIRONMENT)
-        expect(response.json().variables).toEqual([{ name: "EXPOSURE_URL", source: "platform", value: "https://dev.example.com/orders" }])
+        expect(response.json().variables).toEqual([{ name: "PUBLIC_URL", source: "platform", value: "https://dev.example.com/orders" }])
     })
 
     it("given no project header, when the variables are read, then it is refused before the service is asked", async () => {
