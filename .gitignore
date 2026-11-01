@@ -28,6 +28,7 @@ dist-ssr
 upload-microfrontends
 
 .turbo
+.claude 
 
 # Helm packaged charts and vendored subcharts
 helm/**/*.tgz
