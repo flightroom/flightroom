@@ -84,8 +84,6 @@ const SandboxLogsDialog: React.FC<{ name: string; open: boolean; onClose: () => 
     const installationApi = useInstallationApi()
     const [tailLines, setTailLines] = useState(500)
     const [follow, setFollow] = useState(false)
-    // The gateway has no filter: the lines read are filtered here
-    const [filter, setFilter] = useState("")
     const logsQuery = useQuery({
         queryKey: [INSTALLATION_SANDBOXES_QUERY_KEY, "logs", name, tailLines],
         queryFn: () => installationApi.getSandboxLogs(name, tailLines),
@@ -93,10 +91,7 @@ const SandboxLogsDialog: React.FC<{ name: string; open: boolean; onClose: () => 
         ...followedLogQuery(follow)
     })
     // The same array while nothing changed: the viewer scrolls to the end when it gets new lines
-    const lines = useMemo(() => {
-        const needle = filter.toLowerCase()
-        return (logsQuery.data ?? []).map(toViewerLine).filter(line => !needle || line.content.toLowerCase().includes(needle))
-    }, [logsQuery.data, filter])
+    const lines = useMemo(() => (logsQuery.data ?? []).map(toViewerLine), [logsQuery.data])
 
     return (
         <Dialog open={open} onOpenChange={opened => !opened && onClose()}>
@@ -121,12 +116,13 @@ const SandboxLogsDialog: React.FC<{ name: string; open: boolean; onClose: () => 
                     tailLines={tailLines}
                     tailOptions={TAIL_OPTIONS}
                     onTailLinesChange={setTailLines}
-                    onFilterChange={setFilter}
                     follow={follow}
                     onFollowChange={setFollow}
                     {...labels.viewer}
                     outputLabel={t("installation.sandboxes.logs.title", { name })}
-                    emptyLabel={t(logsQuery.data?.length ? "applicationLogs.empty" : "installation.sandboxes.logs.empty")}
+                    // The gateway has no filter: the viewer filters the lines read
+                    emptyLabel={t("installation.sandboxes.logs.empty")}
+                    noMatchLabel={t("applicationLogs.empty")}
                     error={logsQuery.isError && !logsQuery.data ? t("installation.sandboxes.logs.load_failed") : undefined}
                     pending={logsQuery.isPending}
                     placeholder={logsQuery.isPlaceholderData}
