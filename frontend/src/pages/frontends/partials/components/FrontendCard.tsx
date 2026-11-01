@@ -1,6 +1,5 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, DescriptionItem, DescriptionList, Meter } from "@flightroom/design-system"
-import { Cog, GitBranch, Hammer, Sparkles, UsersRound } from "lucide-react"
-import { useState } from "react"
+import { GitBranch, Info, Settings, Sparkles, UsersRound } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
@@ -8,10 +7,8 @@ import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge, Button } from "@/components/atoms"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
-import { useIsProjectViewer } from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
 import { frontendTechnologyOf } from "@/utils/technologies"
-import BuildDialog from "./BuildDialog"
 import CloneRepositoryPopover from "./CloneRepositoryPopover"
 import { isAiEditAvailable } from "./FrontendHeader"
 import FrontendKindBadge from "./FrontendKindBadge"
@@ -23,10 +20,6 @@ interface FrontendCardProps {
 export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
     const { t } = useTranslation("platform")
     const navigate = useNavigate()
-
-    const [isBuildDialogOpen, setIsBuildDialogOpen] = useState(false)
-    // A viewer may look, not release
-    const isViewer = useIsProjectViewer()
 
     const canary = mfe.canary?.enabled ? mfe.canary : undefined
     const canaryPercentage = Math.min(100, Math.max(0, canary?.percentage ?? 0))
@@ -102,21 +95,24 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
                 )}
             </CardContent>
 
+            {/* The screens of the frontend, as in its header, and the clone of its repository */}
             <CardFooter className="flex-wrap gap-2 border-t border-divider pt-3">
-                <Button variant="primary" size="sm" onClick={() => navigate(aiAvailable ? `/frontend/${mfe._id}` : `/frontend/${mfe._id}/overview`)} className="flex-1">
-                    {aiAvailable ? <Sparkles /> : <Cog />}
-                    {aiAvailable ? t("frontend.workspace.nav_ai") : t("common.configuration")}
-                </Button>
-                {hasRepository && !isViewer && (
-                    <Button variant="secondary" size="sm" onClick={() => setIsBuildDialogOpen(true)} className="flex-1">
-                        <Hammer />
-                        {t("frontend.card.build")}
+                {aiAvailable && (
+                    <Button variant="primary" size="sm" className="basis-full" onClick={() => navigate(`/frontend/${mfe._id}`)}>
+                        <Sparkles />
+                        {t("frontend.workspace.nav_ai")}
                     </Button>
                 )}
-                <CloneRepositoryPopover frontend={mfe} className="flex-1" />
+                <Button variant="secondary" size="sm" className="flex-1" onClick={() => navigate(`/frontend/${mfe._id}/overview`)}>
+                    <Info />
+                    {t("frontend.workspace.nav_overview")}
+                </Button>
+                <Button variant="secondary" size="sm" className="flex-1" onClick={() => navigate(`/frontend/${mfe._id}/settings`)}>
+                    <Settings />
+                    {t("frontend.workspace.nav_settings")}
+                </Button>
+                <CloneRepositoryPopover frontend={mfe} className="basis-full" />
             </CardFooter>
-
-            <BuildDialog open={isBuildDialogOpen} onOpenChange={setIsBuildDialogOpen} frontendId={mfe._id} frontendName={mfe.name} />
         </Card>
     )
 }

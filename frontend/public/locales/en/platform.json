@@ -2817,9 +2817,6 @@
         "backend_count_one": "{{count}} backend",
         "backend_count_other": "{{count}} backends",
         "open": "Open",
-        "delete_title": "Delete domain",
-        "delete_description": "Delete the domain “{{name}}”? Its frontends and backends stay, without a domain.",
-        "created_success_message": "Domain created",
         "updated_success_message": "Domain updated",
         "no_domain": "No domain",
         "build": {
@@ -3014,8 +3011,6 @@
             "createBackend": "Create a backend"
         },
         "form": {
-            "create_title": "New functional domain",
-            "edit_title": "Edit functional domain",
             "description": "A domain groups the frontends and backends of the same functional area.",
             "name": "Name",
             "name_placeholder": "E.g. Payments",

@@ -1,6 +1,6 @@
 import { Card, CardContent, CardFooter, CardHeader, CardTitle, EmptyState, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CirclePlus, FolderOpen, LayoutDashboard, LayoutGrid, Orbit, Pencil, Rocket, SearchX, Server, Sparkles, Trash2, Workflow } from "lucide-react"
+import { CirclePlus, FolderOpen, Info, LayoutDashboard, LayoutGrid, Orbit, Rocket, SearchX, Server, Settings, Sparkles, Workflow } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
@@ -16,7 +16,6 @@ import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
 import DomainBackendLinks from "./partials/DomainBackendLinks"
-import DomainFormDialog from "./partials/DomainFormDialog"
 import DomainGalaxy from "./partials/DomainGalaxy"
 import DomainLinkDialog from "./partials/DomainLinkDialog"
 import DomainScaffoldDialog, { ScaffoldItem } from "./partials/DomainScaffoldDialog"
@@ -47,14 +46,11 @@ const Domains = () => {
 
     const [view, setView] = useState<View>("galaxy")
     const [searchTerm, setSearchTerm] = useState("")
-    const [isFormOpen, setIsFormOpen] = useState(false)
     const [isWizardOpen, setIsWizardOpen] = useState(false)
     const [isStepsOpen, setIsStepsOpen] = useState(false)
     // A domain the wizard just created, with the components it proposed and the first request for the agent
     const [scaffold, setScaffold] = useState<{ domain: Domain; items: ScaffoldItem[]; request: string } | null>(null)
     const aiModels = useProjectAiModels()
-    const [editedDomain, setEditedDomain] = useState<Domain | undefined>()
-    const [domainToDelete, setDomainToDelete] = useState<Domain | null>(null)
     const [linkToCreate, setLinkToCreate] = useState<{ sourceDomainId: string; targetDomainId: string } | null>(null)
     const [linkToDelete, setLinkToDelete] = useState<DomainLink | null>(null)
 
@@ -75,26 +71,10 @@ const Domains = () => {
     // The galaxy draws the resources of the backends it shows
     const resourcesQuery = useResourcesQuery(view === "galaxy")
 
-    const deleteMutation = useMutation({
-        mutationFn: domainsApi.deleteSingle,
-        onSuccess: async () => {
-            await queryClient.invalidateQueries({ queryKey: ["domains"] })
-            await queryClient.invalidateQueries({ queryKey: ["backends"] })
-            await queryClient.invalidateQueries({ queryKey: ["frontends-by-project-id"] })
-            // The relations of the domain go with it
-            await queryClient.invalidateQueries({ queryKey: ["domain-links"] })
-        }
-    })
-
     const deleteLinkMutation = useMutation({
         mutationFn: domainLinksApi.deleteSingle,
         onSuccess: () => queryClient.invalidateQueries({ queryKey: ["domain-links"] })
     })
-
-    const openForm = (domain?: Domain) => {
-        setEditedDomain(domain)
-        setIsFormOpen(true)
-    }
 
     // A new domain is designed with the AI when the project has one, step by step otherwise.
     const openCreate = () => (aiModels.enabled ? setIsWizardOpen(true) : setIsStepsOpen(true))
@@ -249,24 +229,19 @@ const Domains = () => {
                                                         </span>
                                                     </div>
                                                 </CardContent>
-                                                <CardFooter className="gap-2 border-t border-divider pt-3">
-                                                    {/* A domain opens on Edit with AI, which says why it cannot run when no AI provider is configured. */}
-                                                    <Button variant="primary" size="sm" className="flex-1" onClick={() => navigate(`/domain/${domain._id}`)}>
+                                                <CardFooter className="flex-wrap gap-2 border-t border-divider pt-3">
+                                                    {/* The screens of the domain, as in its header. Edit with AI says why it cannot run when no AI provider is configured. */}
+                                                    <Button variant="primary" size="sm" className="basis-full" onClick={() => navigate(`/domain/${domain._id}`)}>
                                                         <Sparkles />
                                                         {t("domains.ai.open")}
                                                     </Button>
-                                                    <Button variant="ghost" size="icon" aria-label={t("common.edit")} title={t("common.edit")} onClick={() => openForm(domain)}>
-                                                        <Pencil />
+                                                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => navigate(`/domain/${domain._id}/overview`)}>
+                                                        <Info />
+                                                        {t("domains.workspace.nav_overview")}
                                                     </Button>
-                                                    <Button
-                                                        variant="ghost"
-                                                        size="icon"
-                                                        aria-label={t("common.delete")}
-                                                        title={t("common.delete")}
-                                                        disabled={deleteMutation.isPending}
-                                                        onClick={() => setDomainToDelete(domain)}
-                                                    >
-                                                        <Trash2 className="text-destructive" />
+                                                    <Button variant="secondary" size="sm" className="flex-1" onClick={() => navigate(`/domain/${domain._id}/settings`)}>
+                                                        <Settings />
+                                                        {t("domains.workspace.nav_settings")}
                                                     </Button>
                                                 </CardFooter>
                                             </Card>
@@ -278,7 +253,6 @@ const Domains = () => {
                     </ApiStatusHandler>
                 </SinglePageLayout>
             </Tabs>
-            <DomainFormDialog open={isFormOpen} onOpenChange={setIsFormOpen} domain={editedDomain} />
             <DomainWizardDialog
                 open={isWizardOpen}
                 onOpenChange={setIsWizardOpen}
@@ -308,18 +282,6 @@ const Domains = () => {
                     onCreated={job => navigate(`/domain/${scaffold.domain._id}/ai?change=${job.rootJobId}`, { replace: true })}
                 />
             )}
-            <DeleteConfirmationDialog
-                isOpen={Boolean(domainToDelete)}
-                onOpenChange={open => !open && setDomainToDelete(null)}
-                onDelete={async () => {
-                    if (domainToDelete) {
-                        await deleteMutation.mutateAsync(domainToDelete._id)
-                    }
-                }}
-                onDeleteSuccess={() => setDomainToDelete(null)}
-                title={t("domains.delete_title")}
-                description={domainToDelete ? t("domains.delete_description", { name: domainToDelete.name }) : ""}
-            />
             <DomainLinkDialog link={linkToCreate && { source: domainNamed(linkToCreate.sourceDomainId), target: domainNamed(linkToCreate.targetDomainId) }} onClose={() => setLinkToCreate(null)} />
             <DeleteConfirmationDialog
                 isOpen={Boolean(linkToDelete)}

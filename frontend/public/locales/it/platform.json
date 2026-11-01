@@ -2836,9 +2836,6 @@
         "backend_count_one": "{{count}} backend",
         "backend_count_other": "{{count}} backend",
         "open": "Apri",
-        "delete_title": "Elimina dominio",
-        "delete_description": "Eliminare il dominio «{{name}}»? I suoi frontend e backend restano, senza dominio.",
-        "created_success_message": "Dominio creato",
         "updated_success_message": "Dominio aggiornato",
         "no_domain": "Senza dominio",
         "build": {
@@ -3033,8 +3030,6 @@
             "createBackend": "Crea un backend"
         },
         "form": {
-            "create_title": "Nuovo dominio funzionale",
-            "edit_title": "Modifica dominio funzionale",
             "description": "Un dominio raggruppa frontend e backend della stessa area funzionale.",
             "name": "Nome",
             "name_placeholder": "Es. Pagamenti",
