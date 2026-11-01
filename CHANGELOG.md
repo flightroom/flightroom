@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **The Log Level Of One Application**: a backend, a DOCKER frontend or a maintenance agent may set a **Log level** of its own, in the **Logs** box of its runtime settings or as `logLevel` of `backend_update`, `frontend_update` and `maintenance_agent_update`, to look into it alone without raising the one of the whole environment. It is handed as `LOG_LEVEL` in every environment instead of the environment's, from the next deploy, and in a live preview too; left on **The environment's**, each environment gives its own as before
+
 ## [13.4.0] - 2026-11-01
 
 ### Added

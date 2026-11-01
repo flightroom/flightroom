@@ -17,6 +17,7 @@ import { isExposurePath } from "../../types/Exposure"
 import FrontendDTO from "../../types/FrontendDTO"
 import { FrontendCompiler, FrontendFramework } from "../../types/FrontendStack"
 import { CHART_PROBE_DEFAULTS, MAX_PROBE_SECONDS, PLATFORM_PROBE_PATHS } from "../../types/Probes"
+import { LOG_LEVELS } from "../../types/RuntimeVariables"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, NO_INPUT, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
@@ -73,6 +74,13 @@ export const containerFields = {
         .describe("Image repository without tag, e.g. ghcr.io/acme/orders-api. Learnt from the first version the CI registers when not set"),
     port: z.number().int().min(1).max(65535).optional().describe("Port the container listens on, 8080 when omitted"),
     ...probeFields("the probe template of the project (probes.backend of project_get, probes.frontend for a DOCKER frontend)"),
+    logLevel: z
+        .enum(LOG_LEVELS)
+        .nullable()
+        .optional()
+        .describe(
+            "LOG_LEVEL of the container in every environment, e.g. debug to look into it alone: it wins over the logLevel of each environment from its next deploy; null for the level of each environment"
+        ),
     docsPath: httpPath.nullable().optional().describe("Path of the API documentation UI, e.g. /docs; null when there is none"),
     openApiPath: httpPath.nullable().optional().describe("Path of the OpenAPI spec, e.g. /openapi.json; null when there is none"),
     cpuRequest: cpuQuantity.describe(`CPU the container asks for, e.g. 250m or 0.5; the chart default (${CHART_RESOURCE_DEFAULTS.cpuRequest}) when null or omitted`),

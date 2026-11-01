@@ -1,6 +1,6 @@
 /**
  * The environment variables every deploy hands to the containers of an environment, next to HTTP_PORT: how much
- * they log and in which format, set on the environment, the slug of the environment and the public URL of the container.
+ * they log and in which format, set on the environment (the level may be set apart by an application), the slug of the environment and the public URL of the container.
  */
 
 /** The levels an environment logs at, from the most verbose: the names most logging libraries take */
@@ -27,9 +27,19 @@ export interface EnvironmentLogging {
     logJson?: boolean | null
 }
 
-/** The variables a container gets in an environment; PUBLIC_URL only where there is one */
-export const runtimeVariables = (environment: { slug: string } & EnvironmentLogging, publicUrl?: string): Array<{ name: string; value: string }> => [
-    { name: LOG_LEVEL_VARIABLE, value: isLogLevel(environment.logLevel) ? environment.logLevel : DEFAULT_LOG_LEVEL },
+/** What a backend, a DOCKER frontend or a maintenance agent may set apart: a level of its own, in every environment */
+export interface ApplicationLogging {
+    /** Null or left out: the level of the environment it runs in */
+    logLevel?: string | null
+}
+
+/** LOG_LEVEL of a container: its own, else the environment's, else info */
+export const effectiveLogLevel = (environment: EnvironmentLogging, own?: string | null): LogLevel =>
+    isLogLevel(own) ? own : isLogLevel(environment.logLevel) ? environment.logLevel : DEFAULT_LOG_LEVEL
+
+/** The variables a container gets in an environment; PUBLIC_URL only where there is one, and LOG_LEVEL its own when it sets one */
+export const runtimeVariables = (environment: { slug: string } & EnvironmentLogging, publicUrl?: string, ownLogLevel?: string | null): Array<{ name: string; value: string }> => [
+    { name: LOG_LEVEL_VARIABLE, value: effectiveLogLevel(environment, ownLogLevel) },
     { name: LOG_JSON_VARIABLE, value: String(environment.logJson !== false) },
     { name: ENVIRONMENT_VARIABLE, value: environment.slug },
     ...(publicUrl ? [{ name: PUBLIC_URL_VARIABLE, value: publicUrl }] : [])

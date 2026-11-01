@@ -3,6 +3,7 @@ import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
 import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { DEFAULT_RUN_PATH, MaintenanceAgentKind } from "../types/MaintenanceAgent"
 import { ProbeSettings } from "../types/Probes"
+import { ApplicationLogging } from "../types/RuntimeVariables"
 import { IBackendStack } from "./BackendModel"
 import {
     backendEnvVariableSchema,
@@ -10,6 +11,7 @@ import {
     environmentResourcesField,
     environmentVersionsField,
     IBackendEnvVariable,
+    logLevelField,
     probePathFields,
     probeTimingFields,
     resourceFields
@@ -41,7 +43,7 @@ export interface IMaintenanceAgentRuntimeToken {
  * serving requests. Its slug names its values file in the GitOps repository, next to those of the backends and
  * the frontends: no two of them share one.
  */
-export interface IMaintenanceAgent extends Document<ObjectId>, ProbeSettings, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IMaintenanceAgent extends Document<ObjectId>, ProbeSettings, ApplicationLogging, ContainerResourcesByEnvironment, VersionByEnvironment {
     projectId: Schema.Types.ObjectId
     domainId?: Schema.Types.ObjectId | null
     slug: string
@@ -108,6 +110,7 @@ const maintenanceAgentSchema = new Schema<IMaintenanceAgent>(
         port: { type: Number, default: CONTAINER_DEFAULTS.port },
         ...probePathFields,
         ...probeTimingFields,
+        logLevel: logLevelField,
         ...resourceFields,
         environmentResources: environmentResourcesField,
         environmentVersions: environmentVersionsField,

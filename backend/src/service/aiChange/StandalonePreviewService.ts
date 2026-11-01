@@ -70,9 +70,10 @@ const scriptRepositoryOf = (
         : { framework: component.framework, runtime: component.runtime, port: component.port })
 })
 
-/** What reaches the container of a frontend or a backend through `envFrom`. */
+/** What reaches the container of a frontend or a backend through `envFrom`, and the LOG_LEVEL it may set apart. */
 interface ContainerSources {
     _id: unknown
+    logLevel?: string | null
     configMapIds?: unknown[]
     secretIds?: unknown[]
     resourceIds?: unknown[]
@@ -102,11 +103,11 @@ export const previewEnvironments = async (projectId: ReturnType<typeof toObjectI
         resources: byId(resources.map(resource => [resource._id, resourceEnvironmentValues(resource, id)]))
     }
     const pick = (ids: unknown[] | undefined, values: Map<string, Record<string, string>>) => (ids ?? []).map(entry => values.get(String(entry)) ?? {})
-    const runtime = Object.fromEntries(runtimeVariables(environment).map(({ name, value }) => [name, value]))
+    const runtime = (source: ContainerSources) => Object.fromEntries(runtimeVariables(environment, undefined, source.logLevel).map(({ name, value }) => [name, value]))
     return new Map(
         sources.map(source => [
             String(source._id),
-            Object.assign({}, ...pick(source.configMapIds, held.configMaps), ...pick(source.secretIds, held.secrets), ...pick(source.resourceIds, held.resources), runtime)
+            Object.assign({}, ...pick(source.configMapIds, held.configMaps), ...pick(source.secretIds, held.secrets), ...pick(source.resourceIds, held.resources), runtime(source))
         ])
     )
 }

@@ -3,7 +3,7 @@ import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, ContainerResources, Co
 import { EnvironmentVersion, hasEnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 import { CHART_PROBE_DEFAULTS, effectiveProbes, ProbeSettings } from "../../types/Probes"
-import { EnvironmentLogging, runtimeVariables } from "../../types/RuntimeVariables"
+import { ApplicationLogging, EnvironmentLogging, runtimeVariables } from "../../types/RuntimeVariables"
 import { serviceVariables } from "../../types/ServiceVariables"
 
 /**
@@ -19,7 +19,7 @@ export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: flightroom"
 
 /** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
-export interface GitOpsApplication extends ContainerResourcesByEnvironment, ProbeSettings {
+export interface GitOpsApplication extends ContainerResourcesByEnvironment, ProbeSettings, ApplicationLogging {
     slug: string
     /** The latest version the CI registered, or the one set by hand: deployed only where an environment sets it */
     version?: string
@@ -180,12 +180,12 @@ export const containerPortOf = (application: Pick<GitOpsApplication, "port">): n
 
 /**
  * The variables the values hand the chart as `env`, after HTTP_PORT: the targets of a maintenance agent, the
- * LOG_LEVEL and LOG_JSON of the environment, its slug as ENVIRONMENT, PUBLIC_URL when given, and the OpenTelemetry
+ * LOG_LEVEL of the application else of the environment, the LOG_JSON of the environment, its slug as ENVIRONMENT, PUBLIC_URL when given, and the OpenTelemetry
  * name, environment and version of the application. The deploy writes them, `containerEnvironment` reads them: the two never differ.
  */
 export const containerVariables = (application: GitOpsApplication, environment: { slug: string } & EnvironmentLogging, version: string, publicUrl?: string): Array<{ name: string; value: string }> => [
     ...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []),
-    ...runtimeVariables(environment, publicUrl),
+    ...runtimeVariables(environment, publicUrl, application.logLevel),
     ...serviceVariables(application, environment, version)
 ]
 

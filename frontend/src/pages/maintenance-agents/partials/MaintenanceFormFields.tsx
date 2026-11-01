@@ -8,6 +8,7 @@ import TextField from "@/components/input/TextField.rhf"
 import type { MaintenanceAgentKind } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import ContainerResourceFields from "@/pages/backends/partials/ContainerResourceFields"
 import EnvironmentVersionFields from "@/pages/backends/partials/EnvironmentVersionFields"
+import LogLevelOverrideField from "@/pages/backends/partials/LogLevelOverrideField"
 import { ProbeFields } from "@/pages/backends/partials/ProbeFields"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
@@ -282,6 +283,7 @@ export const MaintenanceRuntimeFields: React.FC = () => {
                     </>
                 )}
                 {/* A job's too: its CronJob runs the image with them */}
+                <LogLevelOverrideField />
                 <ContainerResourceFields />
             </CardContent>
         </Card>

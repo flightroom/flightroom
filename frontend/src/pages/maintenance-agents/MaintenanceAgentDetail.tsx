@@ -19,6 +19,7 @@ import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVa
 import { EnvironmentResourcesValue, RESOURCE_LABELS, ReplicasValue, ResourceValue } from "@/pages/backends/partials/ContainerResourceFields"
 import { RESOURCE_FIELDS } from "@/pages/backends/partials/containerResources"
 import { EnvironmentVersionsValue } from "@/pages/backends/partials/EnvironmentVersionFields"
+import { LogLevelValue } from "@/pages/backends/partials/LogLevelOverrideField"
 import { ProbeValue } from "@/pages/backends/partials/ProbeFields"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
@@ -92,6 +93,9 @@ const ConfigurationSection: React.FC<{ agent: MaintenanceAgent; environments: En
                             </DescriptionItem>
                         </>
                     )}
+                    <DescriptionItem label={t("backends.log_level")}>
+                        <LogLevelValue value={agent.logLevel} />
+                    </DescriptionItem>
                     <DescriptionItem label={t("backends.image_repository")}>{agent.image?.repository ? <span className="font-mono">{agent.image.repository}</span> : "—"}</DescriptionItem>
                     {RESOURCE_FIELDS.map(field => (
                         <DescriptionItem key={field} label={t(RESOURCE_LABELS[field])}>

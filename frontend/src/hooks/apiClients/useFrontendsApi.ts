@@ -43,6 +43,7 @@ export type FrontendContainer = Partial<
         | "livenessPeriodSeconds"
         | "readinessInitialDelaySeconds"
         | "readinessPeriodSeconds"
+        | "logLevel"
         | "docsPath"
         | "openApiPath"
         | "exposurePath"

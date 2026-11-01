@@ -5,6 +5,7 @@ import type { Storage } from "@/hooks/apiClients/useStorageApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
 import { probeFormValues, probePaths, probeTimings, replicaCount, resourceFormValues } from "@/pages/backends/partials/containerResources"
 import { environmentVersionFormValues } from "@/pages/backends/partials/environmentVersions"
+import { logLevelOf } from "@/pages/backends/partials/LogLevelOverrideField"
 import { designSystemFormValues, toDesignSystem } from "@/pages/settings/partials/DesignSystemFields"
 import type { FormInput, FormValues } from "./frontendFormSchema"
 
@@ -45,6 +46,8 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
         readinessPath: frontend?.readinessPath ?? "",
         docsPath: frontend?.docsPath ?? "",
         openApiPath: frontend?.openApiPath ?? "",
+        // Empty: the level of each environment
+        logLevel: frontend?.logLevel ?? "",
         // A DOCKER is usually the shell, which browsers reach: exposed until said otherwise, both a new one and a BUNDLE
         // being made one. A DOCKER saved without a path was left unexposed on purpose, and stays so
         exposed: frontend?.exposurePath ? true : !frontend || frontend.kind !== FrontendKind.DOCKER,
@@ -121,6 +124,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         livenessPeriodSeconds,
         readinessInitialDelaySeconds,
         readinessPeriodSeconds,
+        logLevel,
         docsPath,
         openApiPath,
         cpuRequest,
@@ -154,6 +158,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   // Blank: inherited from the probe template of the project
                   ...probePaths({ livenessPath, readinessPath }),
                   ...probeTimings({ livenessInitialDelaySeconds, livenessPeriodSeconds, readinessInitialDelaySeconds, readinessPeriodSeconds }),
+                  logLevel: logLevelOf(logLevel),
                   docsPath: docsPath?.trim(),
                   openApiPath: openApiPath?.trim(),
                   // Empty: the default of the chart

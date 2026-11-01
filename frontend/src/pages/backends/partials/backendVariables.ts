@@ -43,6 +43,8 @@ export const createBackendRuntimeShape = (messages: { path: string } & ResourceM
         .string()
         .trim()
         .refine(value => value === "" || BACKEND_HTTP_PATH.test(value), messages.path),
+    // Empty: the level of each environment
+    logLevel: z.string(),
     // Empty: the default of the chart (that a request is not above its limit is checked by refineResources)
     ...createResourceShape(messages),
     // Form only: whether it is exposed on the host of the environments, at exposurePath (checked by refineExposure)

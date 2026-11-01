@@ -23,6 +23,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
         "livenessPeriodSeconds",
         "readinessInitialDelaySeconds",
         "readinessPeriodSeconds",
+        "logLevel",
         "docsPath",
         "openApiPath",
         "cpuRequest",

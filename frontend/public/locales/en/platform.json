@@ -2636,6 +2636,10 @@
                 "title": "API documentation",
                 "description": "Optional: where the container publishes the documentation and the specification of its API"
             },
+            "logs": {
+                "title": "Logs",
+                "description": "Optional: the log level of the container in every environment, to look into it without raising the one of the whole environment"
+            },
             "resources": {
                 "title": "CPU, memory and replicas",
                 "description": "What Kubernetes reserves for the container, the most it may use and how many copies of it run"
@@ -2657,6 +2661,9 @@
             "revealed_from_cluster": "Secret values in the cluster now, read from the configuration repository at the revision Argo CD applied: if they changed after the start, the container keeps the previous ones until it restarts"
         },
         "port": "Port",
+        "log_level": "Log level",
+        "log_level_inherited": "The environment's",
+        "log_level_hint": "Handed to the container as LOG_LEVEL in every environment instead of the environment's, from the next deploy",
         "port_hint": "The port the container listens on, on 0.0.0.0. It also gets it in the HTTP_PORT environment variable",
         "liveness_path": "Liveness probe path",
         "liveness_path_hint": "Kubernetes restarts the container when this path stops answering. Leave blank to inherit the project template",

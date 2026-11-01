@@ -5,12 +5,14 @@ import { IDesignSystem } from "../types/DesignSystem"
 import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import { ProbeSettings } from "../types/Probes"
+import { ApplicationLogging } from "../types/RuntimeVariables"
 import {
     backendEnvVariableSchema,
     environmentResourcesField,
     environmentVersionsField,
     exposurePath,
     IBackendEnvVariable,
+    logLevelField,
     optionalPath,
     probePathFields,
     probeTimingFields,
@@ -85,7 +87,7 @@ export interface IPosition {
  * BUNDLE document carries none of them; FrontendService fills the backend defaults in
  * when a DOCKER is created.
  */
-export interface IFrontendContainer extends Partial<Omit<BackendPaths, "livenessPath" | "readinessPath">>, ProbeSettings, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IFrontendContainer extends Partial<Omit<BackendPaths, "livenessPath" | "readinessPath">>, ProbeSettings, ApplicationLogging, ContainerResourcesByEnvironment, VersionByEnvironment {
     image?: {
         /** Without tag, e.g. ghcr.io/acme/shell */
         repository?: string
@@ -409,6 +411,7 @@ const frontendSchema: Schema = new Schema<IFrontend>(
         },
         ...probePathFields,
         ...probeTimingFields,
+        logLevel: logLevelField,
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,

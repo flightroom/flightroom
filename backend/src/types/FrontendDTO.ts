@@ -14,6 +14,7 @@ type FrontendContainerDTO = Pick<
     | "livenessPeriodSeconds"
     | "readinessInitialDelaySeconds"
     | "readinessPeriodSeconds"
+    | "logLevel"
     | "docsPath"
     | "openApiPath"
     | "exposurePath"

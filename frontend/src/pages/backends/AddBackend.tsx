@@ -40,6 +40,7 @@ import { isBackendTemplate } from "./partials/backendTemplates"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
 import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
+import { logLevelOf } from "./partials/LogLevelOverrideField"
 import { RUNTIME_LABEL_KEYS } from "./partials/labels"
 
 /** Same rule as the backend (BACKEND_SLUG): the slug names the workspace folder and the CI registration URL */
@@ -127,6 +128,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
         ...PROBE_TIMING_FIELDS,
         "docsPath",
         "openApiPath",
+        "logLevel",
         "cpuRequest",
         "cpuLimit",
         "memoryRequest",
@@ -212,6 +214,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   port: String(backend.port),
                   docsPath: backend.docsPath ?? "",
                   openApiPath: backend.openApiPath ?? "",
+                  logLevel: backend.logLevel ?? "",
                   exposed: Boolean(backend.exposurePath),
                   exposurePath: backend.exposurePath ?? "",
                   ...resourceFormValues(backend),
@@ -235,6 +238,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   port: "8080",
                   docsPath: "",
                   openApiPath: "",
+                  logLevel: "",
                   // Off until asked for: a new backend is reached from outside only when that is decided
                   exposed: false,
                   exposurePath: "",
@@ -289,6 +293,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
             port: Number(data.port),
             ...probePaths(data),
             ...probeTimings(data),
+            logLevel: logLevelOf(data.logLevel),
             // Null: not exposed on the host of the environments
             exposurePath: exposed ? data.exposurePath : null
         } as unknown as BackendDTO

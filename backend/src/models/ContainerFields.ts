@@ -3,6 +3,7 @@ import { BACKEND_HTTP_PATH } from "../types/BackendStack"
 import { isReplicaCount, MAX_REPLICAS, parseCpu, parseMemory } from "../types/ContainerResources"
 import { isExposurePath } from "../types/Exposure"
 import { isProbeSeconds, MAX_PROBE_SECONDS, PLATFORM_PROBE_PATHS, PROBE_TIMING_FIELDS, PROBE_TIMING_MINIMUMS, ProbeSettings } from "../types/Probes"
+import { isLogLevel, LOG_LEVELS } from "../types/RuntimeVariables"
 
 /**
  * The fields of what runs as a container of its own: a backend, or a frontend built into an
@@ -120,6 +121,17 @@ export const probePathFields = { livenessPath: optionalPath, readinessPath: opti
 
 /** The template of a project for the probes of its backends or of its frontends: each field left blank is the platform's */
 export const probeSettingsSchema = new Schema<ProbeSettings>({ ...probePathFields, ...probeTimingFields }, { _id: false })
+
+/** LOG_LEVEL of the container in every environment: blank means the environment's, so it is stored as null */
+export const logLevelField = {
+    type: String,
+    required: false,
+    set: (value?: string | null) => value?.trim() || null,
+    validate: {
+        validator: (value?: string | null) => value == null || isLogLevel(value),
+        message: (props: { path: string; value: unknown }) => `${props.path} "${props.value}" is not a log level: ${LOG_LEVELS.join(", ")}`
+    }
+}
 
 /** What one environment sets apart from the CPU, memory and replicas of the container: each one left blank is the container's */
 export interface IEnvironmentResources {

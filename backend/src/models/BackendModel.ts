@@ -4,6 +4,7 @@ import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
 import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { ProbeSettings } from "../types/Probes"
+import { ApplicationLogging } from "../types/RuntimeVariables"
 import {
     backendEnvVariableSchema,
     CONTAINER_DEFAULTS,
@@ -11,6 +12,7 @@ import {
     environmentVersionsField,
     exposurePath,
     IBackendEnvVariable,
+    logLevelField,
     optionalPath,
     probePathFields,
     probeTimingFields,
@@ -29,7 +31,7 @@ export interface IBackendStack {
     detectedAt?: Date
 }
 
-export interface IBackend extends Document<ObjectId>, Omit<BackendPaths, "livenessPath" | "readinessPath">, ProbeSettings, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IBackend extends Document<ObjectId>, Omit<BackendPaths, "livenessPath" | "readinessPath">, ProbeSettings, ApplicationLogging, ContainerResourcesByEnvironment, VersionByEnvironment {
     projectId: Schema.Types.ObjectId
     /** The functional domain it belongs to, if any */
     domainId?: Schema.Types.ObjectId | null
@@ -147,6 +149,7 @@ const backendSchema = new Schema<IBackend>(
         },
         ...probePathFields,
         ...probeTimingFields,
+        logLevel: logLevelField,
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,

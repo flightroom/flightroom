@@ -10,6 +10,7 @@ import { exposedOrigin } from "./backendVariables"
 import { EnvironmentResourcesValue, RESOURCE_LABELS, ReplicasValue, ResourceValue } from "./ContainerResourceFields"
 import { type ProbeSide, RESOURCE_FIELDS } from "./containerResources"
 import { EnvironmentVersionsValue } from "./EnvironmentVersionFields"
+import { LogLevelValue } from "./LogLevelOverrideField"
 import { ProbeValue } from "./ProbeFields"
 
 /** What a container declares: a backend, or a frontend served by its own container */
@@ -23,6 +24,7 @@ export type ContainerConfiguration = Partial<
         | "livenessPeriodSeconds"
         | "readinessInitialDelaySeconds"
         | "readinessPeriodSeconds"
+        | "logLevel"
         | "docsPath"
         | "openApiPath"
         | "exposurePath"
@@ -161,6 +163,9 @@ export const BackendConfigurationSection: React.FC<BackendConfigurationSectionPr
                     </DescriptionItem>
                     <DescriptionItem label={t("backends.exposure_path")}>
                         <BackendPath path={backend.exposurePath} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.log_level")}>
+                        <LogLevelValue value={backend.logLevel} />
                     </DescriptionItem>
                     <DescriptionItem label={t("backends.image_repository")}>{backend.image?.repository ? <span className="font-mono">{backend.image.repository}</span> : "—"}</DescriptionItem>
                     {RESOURCE_FIELDS.map(field => (

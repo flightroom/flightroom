@@ -55,6 +55,7 @@ export const createFormSchema = (messages: FormMessages) => {
             livenessPeriodSeconds: z.string().optional(),
             readinessInitialDelaySeconds: z.string().optional(),
             readinessPeriodSeconds: z.string().optional(),
+            logLevel: z.string().optional(),
             docsPath: z.string().optional(),
             openApiPath: z.string().optional(),
             cpuRequest: z.string().optional(),

@@ -47,6 +47,8 @@ interface BackendDTO extends ProbeTimings {
     livenessPath?: string | null
     /** As the liveness path, else /health/ready */
     readinessPath?: string | null
+    /** trace, debug, info, warn, error or fatal: its LOG_LEVEL in every environment; null for the level of each environment */
+    logLevel?: string | null
     /** The UI of the public API documentation; blank or null when the backend has none */
     docsPath?: string | null
     /** The OpenAPI spec; blank or null when the backend has none */

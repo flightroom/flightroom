@@ -1,5 +1,6 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
+import type { LogLevel } from "./useEnvironmentsApi"
 import type { CreateMemberRepositoryDTO, Frontend } from "./useFrontendsApi"
 
 export enum BackendRuntime {
@@ -71,6 +72,8 @@ export interface Backend {
     livenessPeriodSeconds?: number | null
     readinessInitialDelaySeconds?: number | null
     readinessPeriodSeconds?: number | null
+    /** LOG_LEVEL in every environment, to look into it alone; null or absent: the level of each environment */
+    logLevel?: LogLevel | null
     /** The UI of the public API documentation; blank or null when the backend has none */
     docsPath?: string | null
     /** Il path su cui e' esposto sull'host di ogni ambiente, es. /api/orders; null se non e' esposto */

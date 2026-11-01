@@ -258,6 +258,17 @@ describe("renderApplicationValues", () => {
         expect(parse(renderApplicationValues(application, { ...environment, logLevel: "verbose" }, mapNames)).env[0]).toEqual({ name: "LOG_LEVEL", value: "info" })
     })
 
+    it("given an application with a log level of its own, when its values are rendered, then it wins over the environment's", () => {
+        expect(parse(renderApplicationValues({ ...application, logLevel: "trace" }, { ...environment, logLevel: "warn" }, mapNames)).env[0]).toEqual({ name: "LOG_LEVEL", value: "trace" })
+    })
+
+    it.each([
+        ["none", null],
+        ["one that is not a level", "verbose"]
+    ])("given an application that sets %s as its log level, when its values are rendered, then the environment's applies", (_case, logLevel) => {
+        expect(parse(renderApplicationValues({ ...application, logLevel }, { ...environment, logLevel: "warn" }, mapNames)).env[0]).toEqual({ name: "LOG_LEVEL", value: "warn" })
+    })
+
     it("given a version with characters that split the attribute list, when its values are rendered, then the version is percent-encoded", () => {
         const values = parse(render({ environmentVersions: [{ environmentId: environment._id, version: "1.2.3+build,7" }] }))
 

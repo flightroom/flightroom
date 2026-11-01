@@ -2655,6 +2655,10 @@
                 "title": "Documentazione API",
                 "description": "Facoltativa: dove il container pubblica la documentazione e la specifica delle sue API"
             },
+            "logs": {
+                "title": "Log",
+                "description": "Facoltativo: il livello di log del container in tutti gli ambienti, per indagare su di lui senza alzare quello dell'intero ambiente"
+            },
             "resources": {
                 "title": "CPU, memoria e repliche",
                 "description": "Le risorse che Kubernetes riserva al container, il massimo che può usare e quante copie ne girano"
@@ -2676,6 +2680,9 @@
             "revealed_from_cluster": "Valori dei secret presenti ora nel cluster, letti dal repository di configurazione alla revisione applicata da Argo CD: se sono cambiati dopo l'avvio, il container ha ancora i precedenti fino al prossimo riavvio"
         },
         "port": "Porta",
+        "log_level": "Livello di log",
+        "log_level_inherited": "Quello dell'ambiente",
+        "log_level_hint": "Passato al container come LOG_LEVEL in ogni ambiente al posto di quello dell'ambiente, dal prossimo deploy",
         "port_hint": "La porta su cui il container è in ascolto, su 0.0.0.0. La riceve anche nella variabile d'ambiente HTTP_PORT",
         "liveness_path": "Percorso liveness probe",
         "liveness_path_hint": "Kubernetes riavvia il container quando questo percorso smette di rispondere. Vuoto per ereditare il template del progetto",

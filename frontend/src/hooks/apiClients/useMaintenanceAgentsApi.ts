@@ -1,6 +1,7 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
 import type { BackendCodeRepository, BackendEnvVariable, BuiltBackend, EnvironmentResources, EnvironmentVersion } from "./useBackendsApi"
+import type { LogLevel } from "./useEnvironmentsApi"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
 
 /** An always-on container, called on its run path when it runs, or a Docker job that runs and exits. */
@@ -49,6 +50,8 @@ export interface MaintenanceAgent {
     livenessPeriodSeconds?: number | null
     readinessInitialDelaySeconds?: number | null
     readinessPeriodSeconds?: number | null
+    /** As for a backend: LOG_LEVEL in every environment; null or absent: the level of each environment */
+    logLevel?: LogLevel | null
     /** Kubernetes quantities; blank or null for the default of the chart. A job's CronJob runs with them too */
     cpuRequest?: string | null
     cpuLimit?: string | null

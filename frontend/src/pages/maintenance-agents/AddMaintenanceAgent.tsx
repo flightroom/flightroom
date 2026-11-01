@@ -45,6 +45,7 @@ import {
     resourceMessages
 } from "../backends/partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "../backends/partials/environmentVersions"
+import { logLevelOf } from "../backends/partials/LogLevelOverrideField"
 import DomainSelectField from "../domains/partials/DomainSelectField"
 import { CONTEXT_MAX_LENGTH } from "../settings/partials/ProjectContextSection"
 import MaintenanceAgentHeader from "./partials/MaintenanceAgentHeader"
@@ -100,6 +101,8 @@ const createFormSchema = (messages: FormMessages) =>
             livenessPeriodSeconds: probeSecondsField(1, messages.probePeriodInvalid),
             readinessInitialDelaySeconds: probeSecondsField(0, messages.probeInitialDelayInvalid),
             readinessPeriodSeconds: probeSecondsField(1, messages.probePeriodInvalid),
+            // Empty: the level of each environment. A job's too, as the resources
+            logLevel: z.string(),
             // A job's too: its CronJob runs the image with them
             ...createResourceShape(messages),
             env: z.array(
@@ -166,6 +169,7 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
         "runPath",
         "livenessPath",
         "readinessPath",
+        "logLevel",
         "cpuRequest",
         "cpuLimit",
         "memoryRequest",
@@ -255,6 +259,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   port: String(agent.port ?? 8080),
                   runPath: agent.runPath ?? "/run",
                   image: { repository: agent.image?.repository ?? "" },
+                  logLevel: agent.logLevel ?? "",
                   ...resourceFormValues(agent),
                   ...probeFormValues(agent),
                   env: agent.env ?? [],
@@ -281,6 +286,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                   port: "8080",
                   runPath: "/run",
                   image: { repository: "" },
+                  logLevel: "",
                   ...resourceFormValues(),
                   ...probeFormValues(),
                   env: [],
@@ -323,6 +329,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
             domainId: data.domainId || null,
             schedule,
             timeZone: schedule && data.timeZone ? data.timeZone : null,
+            logLevel: logLevelOf(data.logLevel),
             // A job has none of them: it runs and exits
             ...(data.kind === "container" ? { port: Number(port), runPath, ...probePaths(data), ...probeTimings(data) } : {})
         } as unknown as Partial<MaintenanceAgentDTO>
