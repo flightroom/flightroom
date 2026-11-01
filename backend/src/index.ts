@@ -37,10 +37,14 @@ export const fastify: AppInstance = Fastify({
     trustProxy: parseTrustProxy(process.env.TRUST_PROXY)
 })
 
+// The tests sit beside the plugins and the controllers: run with tsx, the autoload would load them and stop on vitest
+const TEST_FILE = /\.test\.[jt]s$/
+
 export async function build() {
     const startPlugins = performance.now()
     await fastify.register(AutoLoad, {
-        dir: path.join(__dirname, "plugins")
+        dir: path.join(__dirname, "plugins"),
+        ignorePattern: TEST_FILE
     })
     fastify.log.info(`Plugins ${(performance.now() - startPlugins).toFixed(2)} ms`)
 
@@ -53,7 +57,8 @@ export async function build() {
     const isDevelopment = process.env.NODE_ENV === "development"
     const registerControllers = async (fastify: AppInstance) => {
         await fastify.register(AutoLoad, {
-            dir: path.join(__dirname, "controller")
+            dir: path.join(__dirname, "controller"),
+            ignorePattern: TEST_FILE
         })
     }
 

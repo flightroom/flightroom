@@ -11,7 +11,6 @@ import { Button } from "@/components/atoms"
 import useAiChangesApi from "@/hooks/apiClients/useAiChangesApi"
 import useAiJobsApi, { AiJob } from "@/hooks/apiClients/useAiJobsApi"
 import { errorCodeOf } from "@/hooks/useApiClient"
-import { cn } from "@/utils/styleUtils"
 import { LoadErrorAlert } from "./AiChangeParts"
 import { AiWorkspaceTarget, isRepositoryTarget, PROMPT_MAX_LENGTH } from "./aiWorkspaceUtils"
 import { AiWorkspaceComposerExtension, Composer } from "./Composer"
@@ -169,74 +168,80 @@ const AiWorkspace: React.FC<AiWorkspaceProps> = ({ target, name, repositories, c
         queueQuery.data &&
         QUEUE_GROUPS.map(group => <QueueSection key={group} group={group} entries={entries.filter(entry => groupOf(entry.status) === group)} selectedId={linkedId ?? ""} onSelect={select} />)
 
-    return (
-        // The classic view keeps the queue in a column on the left; the workshop takes the whole width, under a bar with the same controls
-        <div className={cn("grid items-start gap-6", !workshop && "lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]")}>
-            {workshop ? (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                    {newChangeButton}
-                    {viewSwitch}
-                    {queueStatus}
+    const composerOpen = linkedId === NEW_CHANGE || (!linkedId && queueQuery.data?.length === 0)
+    // The new change, or the work picked in the queue or in the scene
+    const panel = (
+        <>
+            {composerOpen && (
+                <Composer
+                    name={name}
+                    kind={target.kind}
+                    prompt={prompt}
+                    repositories={repositories}
+                    baseBranches={baseBranches}
+                    onPromptChange={setPrompt}
+                    onBaseBranchesChange={setBaseBranches}
+                    onSubmit={generate}
+                    pending={createMutation.isPending}
+                    error={promptError}
+                    promptRef={promptRef}
+                    images={images}
+                    focusOnMount={focusComposer}
+                    extension={composer}
+                />
+            )}
+            {selectedId &&
+                (repository ? (
+                    <RequestSelection requestId={selectedId} target={repository} onRetry={retry} onQueueChanged={invalidateQueue} />
+                ) : (
+                    <ConversationThread
+                        key={selectedId}
+                        jobId={selectedId}
+                        conversationId={selectedId}
+                        target={target}
+                        onRetry={retry}
+                        onQueueChanged={invalidateQueue}
+                        fallback={<LoadErrorAlert />}
+                    />
+                ))}
+        </>
+    )
+    const scene = queueQuery.data && (
+        <Suspense
+            fallback={
+                <div className="flex h-[clamp(380px,65vh,820px)] items-center justify-center rounded-xl border border-divider">
+                    <Spinner size={24} centerScreen={false} label={t("common.loading")} />
                 </div>
-            ) : (
+            }
+        >
+            <VegaWorkshop entries={entries} selectedId={linkedId} onSelect={select} />
+        </Suspense>
+    )
+
+    const controls = (
+        <>
+            {newChangeButton}
+            {viewSwitch}
+            {queueStatus}
+        </>
+    )
+
+    return (
+        <div className="flex flex-col gap-6">
+            {/* The workshop puts the controls in a bar and the scene over the whole width, never beside what is open */}
+            {workshop && (
+                <>
+                    <div className="flex flex-wrap items-center justify-between gap-3">{controls}</div>
+                    <div className="w-full min-w-0 flex-1">{scene}</div>
+                </>
+            )}
+            {/* In both views the queue is on the left of what is open: applied and discarded works leave the scene, the queue still reaches them */}
+            <div className="grid items-start gap-6 lg:grid-cols-[minmax(0,20rem)_minmax(0,1fr)]">
                 <aside aria-label={t("frontend.aiChange.queue_label")} className="flex flex-col gap-5 lg:sticky lg:top-4">
-                    {newChangeButton}
-                    {viewSwitch}
-                    {queueStatus}
+                    {!workshop && controls}
                     {queueSections}
                 </aside>
-            )}
-
-            <div className="flex min-w-0 flex-col gap-6">
-                {workshop && queueQuery.data && (
-                    <Suspense
-                        fallback={
-                            <div className="flex h-[clamp(380px,65vh,820px)] items-center justify-center rounded-xl border border-divider">
-                                <Spinner size={24} centerScreen={false} label={t("common.loading")} />
-                            </div>
-                        }
-                    >
-                        <VegaWorkshop entries={entries} selectedId={linkedId} onSelect={select} />
-                    </Suspense>
-                )}
-                {(linkedId === NEW_CHANGE || (!linkedId && queueQuery.data?.length === 0)) && (
-                    <Composer
-                        name={name}
-                        kind={target.kind}
-                        prompt={prompt}
-                        repositories={repositories}
-                        baseBranches={baseBranches}
-                        onPromptChange={setPrompt}
-                        onBaseBranchesChange={setBaseBranches}
-                        onSubmit={generate}
-                        pending={createMutation.isPending}
-                        error={promptError}
-                        promptRef={promptRef}
-                        images={images}
-                        focusOnMount={focusComposer}
-                        extension={composer}
-                    />
-                )}
-                {selectedId &&
-                    (repository ? (
-                        <RequestSelection requestId={selectedId} target={repository} onRetry={retry} onQueueChanged={invalidateQueue} />
-                    ) : (
-                        <ConversationThread
-                            key={selectedId}
-                            jobId={selectedId}
-                            conversationId={selectedId}
-                            target={target}
-                            onRetry={retry}
-                            onQueueChanged={invalidateQueue}
-                            fallback={<LoadErrorAlert />}
-                        />
-                    ))}
-                {/* Applied and discarded works leave the scene: the queue under it still reaches them */}
-                {workshop && queueSections && (
-                    <section aria-label={t("frontend.aiChange.queue_label")} className="grid items-start gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-                        {queueSections}
-                    </section>
-                )}
+                <div className="flex min-w-0 flex-col gap-6">{panel}</div>
             </div>
         </div>
     )

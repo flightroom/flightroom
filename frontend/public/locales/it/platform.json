@@ -2031,8 +2031,8 @@
             "title": "Progetto pronto!",
             "configured_with_name": "è stato configurato con successo.",
             "configured_generic": "Il progetto è stato configurato con successo.",
-            "start_adding": "Puoi iniziare ad aggiungere frontend.",
-            "start_deploying": "Inizia a deployare i tuoi frontend",
+            "start_adding": "Puoi iniziare ad aggiungere frontend e backend.",
+            "start_deploying": "Inizia a deployare le tue app",
             "go_to_dashboard": "Vai alla dashboard",
             "add_frontend": "Aggiungi frontend"
         },

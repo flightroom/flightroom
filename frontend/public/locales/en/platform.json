@@ -2011,8 +2011,8 @@
             "title": "Project ready!",
             "configured_with_name": "has been configured successfully.",
             "configured_generic": "The project has been configured successfully.",
-            "start_adding": "You can start adding frontends.",
-            "start_deploying": "Start deploying your frontends",
+            "start_adding": "You can start adding frontends and backends.",
+            "start_deploying": "Start deploying your apps",
             "go_to_dashboard": "Go to dashboard",
             "add_frontend": "Add frontend"
         },
