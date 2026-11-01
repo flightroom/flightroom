@@ -3,9 +3,9 @@ import { useTranslation } from "react-i18next"
 import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
+import CloneRepositoryPopover from "@/components/CloneRepositoryPopover"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
-import { CloneRepositoryPopover } from "@/pages/frontends/partials/components"
 import RuntimeBadge from "./RuntimeBadge"
 
 interface BackendHeaderProps {

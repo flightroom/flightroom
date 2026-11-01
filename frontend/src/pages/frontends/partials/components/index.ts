@@ -1,5 +1,4 @@
 export * from "./AddNewFrontendCard"
-export * from "./CloneRepositoryPopover"
 export * from "./CodeRepositorySection"
 export * from "./DangerZoneRemoveFrontend"
 export * from "./FrontendActions"

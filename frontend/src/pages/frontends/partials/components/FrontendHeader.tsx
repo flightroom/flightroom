@@ -2,13 +2,13 @@ import { Info, Settings, Sparkles } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { ComponentWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import WorkspaceHeader from "@/components/ai-workspace/WorkspaceHeader"
+import CloneRepositoryPopover from "@/components/CloneRepositoryPopover"
 import LivePreviewButton from "@/components/LivePreviewButton"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import TechnologyBadge from "@/components/technology/TechnologyBadge"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useLivePreview from "@/hooks/useLivePreview"
 import { frontendTechnologyOf } from "@/utils/technologies"
-import CloneRepositoryPopover from "./CloneRepositoryPopover"
 
 /** Edit with AI needs both an AI provider on the installation and a repository the agent can work on. */
 export const isAiEditAvailable = (frontend: Frontend | undefined, assistantEnabled: boolean) => assistantEnabled && Boolean(frontend?.codeRepository?.enabled)
