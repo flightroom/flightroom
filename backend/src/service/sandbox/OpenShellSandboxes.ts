@@ -37,7 +37,11 @@ export const OPENSHELL_DEFAULTS = {
         "*.pkgs.visualstudio.com",
         "*.blob.core.windows.net",
         "ghcr.io",
-        "pkg-containers.githubusercontent.com"
+        "pkg-containers.githubusercontent.com",
+        // The Gradle wrapper downloads its distribution from services.gradle.org, redirected to the GitHub releases of Gradle.
+        "services.gradle.org",
+        "github.com",
+        "release-assets.githubusercontent.com"
     ].join(","),
     networkBinary: "/usr/local/bin/node,/opt/java/openjdk/bin/java,/usr/local/bin/python3.13,/usr/local/go/bin/go,/usr/share/dotnet/dotnet",
     idleMinutes: 5,

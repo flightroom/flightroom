@@ -397,14 +397,14 @@ describe("checkCommandFor", () => {
         expect(checkCommandFor(["pom.xml", "mvnw"])).toEqual({ command: "./mvnw -B -q verify", requires: "java" })
         expect(checkCommandFor(["gradlew", "build.gradle.kts"])).toEqual({ command: "./gradlew build --no-daemon -q", requires: "java" })
         expect(checkCommandFor(["gradlew", "build.gradle"])).toEqual({ command: "./gradlew build --no-daemon -q", requires: "java" })
+        expect(checkCommandFor(["build.gradle.kts", "settings.gradle.kts"])).toEqual({ command: "gradle build --no-daemon -q", requires: "gradle" })
         expect(checkCommandFor(["go.mod", "main.go"])).toEqual({ command: "go build ./... && go vet ./...", requires: "go" })
         expect(checkCommandFor(["Accounts.sln", "Accounts.csproj", "Tests.csproj"])).toEqual({ command: "dotnet build", requires: "dotnet" })
         expect(checkCommandFor(["Accounts.csproj", "Program.cs"])).toEqual({ command: "dotnet build", requires: "dotnet" })
     })
 
-    it("Given no known build file at the root, Gradle without its wrapper, or build files in a folder only, then there is no check", () => {
+    it("Given no known build file at the root, or build files in a folder only, then there is no check", () => {
         expect(checkCommandFor(["requirements.txt", "app/main.py"])).toBeUndefined()
-        expect(checkCommandFor(["build.gradle"])).toBeUndefined()
         expect(checkCommandFor(["services/orders/pom.xml", "src/Api/Api.csproj"])).toBeUndefined()
         // dotnet build would not know which to build.
         expect(checkCommandFor(["Accounts.sln", "Billing.sln"])).toBeUndefined()

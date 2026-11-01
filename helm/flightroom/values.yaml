@@ -203,6 +203,7 @@ env:
   # Comma separated hosts the sandbox may reach on 443, read-only, only through
   # the comma separated OPENSHELL_NETWORK_BINARY. default: the public package
   # registries (npm, Maven, PyPI, Go, NuGet, Azure Artifacts, GitHub Packages)
+  # and the Gradle distributions
   OPENSHELL_REGISTRY_HOSTS: ""
   OPENSHELL_NETWORK_BINARY: ""
   # A sandbox, or a conversation's folder in a shared one, goes once unused for

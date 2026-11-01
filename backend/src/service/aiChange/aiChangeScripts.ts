@@ -43,13 +43,16 @@ export interface CheckCommand {
 /**
  * The command that checks a change of a repository with no build script in package.json, read from the files at
  * its root: the build its CI most likely runs. Undefined when none is known, and then finish waits for nothing.
- * A wrapper (mvnw, gradlew) needs only Java. .NET builds what is there when it is one solution, or one project.
+ * A wrapper (mvnw, gradlew) needs only Java; without one, the image needs Maven or Gradle. .NET builds what is there
+ * when it is one solution, or one project.
  */
 export const checkCommandFor = (files: Iterable<string>): CheckCommand | undefined => {
     const root = [...files].filter(file => !file.includes("/"))
     const has = (file: string) => root.includes(file)
     if (has("pom.xml")) return has("mvnw") ? { command: "./mvnw -B -q verify", requires: "java" } : { command: "mvn -B -q verify", requires: "mvn" }
-    if (has("gradlew") && (has("build.gradle") || has("build.gradle.kts"))) return { command: "./gradlew build --no-daemon -q", requires: "java" }
+    if (has("build.gradle") || has("build.gradle.kts")) {
+        return has("gradlew") ? { command: "./gradlew build --no-daemon -q", requires: "java" } : { command: "gradle build --no-daemon -q", requires: "gradle" }
+    }
     if (has("go.mod")) return { command: "go build ./... && go vet ./...", requires: "go" }
     const solutions = root.filter(file => file.endsWith(".sln")).length
     const projects = root.filter(file => file.endsWith(".csproj")).length
@@ -489,7 +492,7 @@ export const runCommandTool = (slugs?: string[]): LlmTool => ({
     name: "run_command",
     description:
         "Runs a shell command (sh -c) in the isolated sandbox of run_script, in a copy of the repository as it is now (your edits included), and returns the exit code and the end of the output: " +
-        "the build and tests of a repository without package.json (mvn, ./gradlew, go, dotnet, python), one test file, a tool the scripts do not run. " +
+        "the build and tests of a repository without package.json (mvn, ./mvnw, gradle, ./gradlew, go, dotnet, python), one test file, a tool the scripts do not run. " +
         "Every file the command creates or changes in the repository becomes part of your change, as for run_script; what .gitignore excludes stays in the sandbox. " +
         "The network reaches the public package registries only: no database, no Docker, no internal service, nothing the deployed application talks to. " +
         `Dependencies of package.json are installed with run_script "${INSTALL_SCRIPT}", which updates the lockfile and is the only one given the repository's private registry, never with npm, pnpm or yarn here. ` +

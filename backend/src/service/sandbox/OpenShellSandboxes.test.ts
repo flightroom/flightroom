@@ -240,7 +240,10 @@ describe("OpenShellSandboxes", () => {
                                 "*.pkgs.visualstudio.com",
                                 "*.blob.core.windows.net",
                                 "ghcr.io",
-                                "pkg-containers.githubusercontent.com"
+                                "pkg-containers.githubusercontent.com",
+                                "services.gradle.org",
+                                "github.com",
+                                "release-assets.githubusercontent.com"
                             ].map(host => ({ host, port: 443, protocol: "rest", enforcement: 1, access: 1, allowEncodedSlash: true })),
                             binaries: [
                                 { path: "/usr/local/bin/node" },

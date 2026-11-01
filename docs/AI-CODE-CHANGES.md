@@ -306,13 +306,16 @@ count towards the 500 KB the agent may write (lockfiles apart). Dependencies of 
 A change is pushed once the agent is done, so it must have been built first: in every repository it changed,
 `finish` is refused until it has run, after its last edit, the `build` script of `package.json`, or else the
 check command of the files at the root of the repository: `mvn -B -q verify` (`pom.xml`; `./mvnw -B -q verify`
-with `mvnw`), `./gradlew build --no-daemon -q` (`gradlew` with `build.gradle` or `build.gradle.kts`),
+with `mvnw`), `gradle build --no-daemon -q` (`build.gradle` or `build.gradle.kts`; `./gradlew build --no-daemon -q`
+with `gradlew`),
 `go build ./... && go vet ./...` (`go.mod`), `dotnet build` (exactly one `.sln`, or no `.sln` and exactly one
 `.csproj`). A check is asked for only when the sandbox has its program (`mvn`, `java` for a wrapper, `go`,
 `dotnet`), looked up once per run: the default `node:24-bookworm-slim` image has none of them, so the checks of
 non-Node repositories need an image or a template with their toolchain (`OPENSHELL_SANDBOX_IMAGE`,
-`OPENSHELL_SANDBOX_TEMPLATE`). The Gradle wrapper also downloads Gradle from `services.gradle.org`, which is
-not among the default `OPENSHELL_REGISTRY_HOSTS`: add it, or bake Gradle into the image. A repository with
+`OPENSHELL_SANDBOX_TEMPLATE`): an image for Java should hold Maven and Gradle as well as the JDK, for the
+repositories without a wrapper. The Gradle wrapper downloads its distribution from `services.gradle.org`, which
+redirects to `github.com` and `release-assets.githubusercontent.com`: all three are among the default
+`OPENSHELL_REGISTRY_HOSTS`, and must be kept in a list of your own. A repository with
 neither a build script nor a check is not waited for. Run is enough, not passed: a build already broken on the
 base branch must not hold the agent forever, and it says so in the summary. Code changed afterwards by a
 script or a command that is not the build (`lint --fix`, a formatter, a generator) has to be built again; a
@@ -419,7 +422,7 @@ are the repository's code, and the console holds the repository tokens, the data
   comes back does not count towards the 500 KB the agent may write; in a follow-up the parent's files
   do, whole, as for anything the agent wrote, except lockfiles.
 - **What goes out.** By default the sandbox may reach the package registries of `OPENSHELL_REGISTRY_HOSTS`
-  (npm, Maven, PyPI, Go, NuGet, Azure Artifacts, GitHub Packages) on 443, only through the runtimes of
+  (npm, Maven, PyPI, Go, NuGet, Azure Artifacts, GitHub Packages, the Gradle distributions) on 443, only through the runtimes of
   `OPENSHELL_NETWORK_BINARY`, and nothing else. A private registry (Azure Artifacts, GitHub Packages...) is
   reached through the `.npmrc` of the frontend's [design system](MCP.md#design-system), credentials
   included: it is written into the sandbox, outside the copy of the repository, and the install and the
@@ -474,7 +477,7 @@ on the gateway (`OPENSHELL_SANDBOX_TEMPLATE`) with a gVisor or Kata runtime clas
 | `OPENSHELL_SANDBOX_TEMPLATE`     |                         | A workload template of the gateway: it wins over the image.                      |
 | `OPENSHELL_SANDBOX_IMAGE`        | `node:24-bookworm-slim` | The image, without a template. It needs `sh`, `tar`, `find`, node, npm and corepack. |
 | `OPENSHELL_SANDBOX_ROOT`         | `/sandbox`              | Where the copies and the caches live inside the sandbox.                         |
-| `OPENSHELL_REGISTRY_HOSTS`       | npm, Maven, PyPI, Go, NuGet | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
+| `OPENSHELL_REGISTRY_HOSTS`       | npm, Maven, PyPI, Go, NuGet, Gradle | Comma separated hosts the sandbox may reach on 443. Empty: the gateway's own policy. |
 | `OPENSHELL_NETWORK_BINARY`       | Node, Java, Python, Go, .NET | Comma separated executables allowed to reach them: their real paths, not symlinks. |
 | `OPENSHELL_SANDBOX_IDLE_MINUTES` | `5`                     | A sandbox is let go once its conversation has been idle this long.               |
 | `OPENSHELL_SANDBOX_WARM`         | `0`                     | How many sandboxes are kept created and unassigned for new conversations.        |
