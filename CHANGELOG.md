@@ -10,6 +10,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Injected Variables Of The Running Container In The Runtime Tab**: the runtime tab of a backend and of a DOCKER frontend lists, for the environment chosen, the variables its running container got, read through Argo CD from the live manifest of one of its pods, a running one first: its `env` (`HTTP_PORT`, `LOG_LEVEL`, `LOG_JSON`, `EXPOSURE_URL`, OpenTelemetry), then what the config maps, secrets and resources of its `envFrom` hold in the cluster, read through the Application of the environment, each with its source and, when another source sets the same name and wins, which one. Of a secret and a resource only the names are shown, as Argo CD hides their values. It names the pod and when its container started: a config map changed since reaches it at its next restart. A viewer does not see it, as with the logs. The API answers at `GET /api/backends/:id/environments/:environmentId/variables` and `GET /api/frontends/:id/environments/:environmentId/variables`; `container_environment_get` keeps telling what the next deploy hands the container
+- **Environments In Tabs**: the environments page keeps the environments in a row, in promotion order from left to right with an arrow between them, each with its name, slug and production badge (the host is in the header of the editor, not repeated on every card). The editor below is split into tabs from the design system (General, Exposure, Network access, Logs, Scheduled shutdown, Danger zone) instead of one long page: a dot on a tab marks unsaved changes or fields to fix, a save with an error opens the tab that holds it, and deleting the environment moves to the Danger zone tab
+- **Add My IP**: the Network access tab adds the address the browser reaches the console from to the IP allowlist in one click, read by the backend at `GET /api/environments/client-ip`
+- **Filters On The Resources List**: the resources list filters by type and by the backend that attaches each resource, beside the search
+
+### Changed
+
+- **A Config Map Or A Secret Needs At Least One Key**: one without keys is refused by the console, the API and the MCP tools (`VARIABLE_MAP_ENTRIES_EMPTY`); `config_map_create` now requires `entries`. The search of the config maps list also matches their values (a secret's stay masked, so only its keys)
+- **Variables Of A Backend In Their Own Tab**: the environment variables, config maps, secrets and resources of a backend move out of the runtime tab into a Variables tab, as on a maintenance agent; the variables its running container received sit in an overview tab after the logs
+- **Domain And Frontend Cards**: a domain card opens Edit with AI, its overview and its settings instead of editing in a dialog and deleting; a frontend card drops the build and keeps the clone of its repository, on a row of its own
 
 ## [12.0.0] - 2026-11-01
 

@@ -1415,11 +1415,19 @@
                     "general": "General",
                     "exposure": "Exposure",
                     "logs": "Logs",
-                    "kube_green": "kube-green"
+                    "kube_green": "kube-green",
+                    "network": "Network access"
                 },
                 "cancel": "Cancel",
                 "create": "Create",
-                "update": "Update"
+                "update": "Update",
+                "unsaved": "Unsaved changes",
+                "descriptions": {
+                    "general": "How the environment is named and recognised in the console.",
+                    "exposure": "Where the environment is reachable and where GitOps writes its manifests.",
+                    "network": "Who can reach the applications of the environment.",
+                    "logs": "Passed to every container of the environment from its next deploy."
+                }
             },
             "host": "Host",
             "opens_new_tab": "(opens in a new tab)",
@@ -1428,6 +1436,24 @@
                 "description": "The open environment has unsaved changes. They will be lost if you open another environment.",
                 "keep": "Keep editing",
                 "discard": "Discard changes"
+            },
+            "promotion_order": "Promotion order",
+            "not_production": "Not production",
+            "namespace_label": "namespace {{namespace}}",
+            "tabs": {
+                "label": "Environment sections",
+                "general": "General",
+                "exposure": "Exposure",
+                "network": "Network access",
+                "logs": "Logs",
+                "kubeGreen": "Scheduled shutdown",
+                "danger": "Danger zone",
+                "has_errors": "This section has fields to fix"
+            },
+            "danger": {
+                "warning": "The actions in this section cannot be undone.",
+                "delete_description": "Removes {{name}} from the project.",
+                "delete_production_description": "Removes {{name}} from the project. It is a production environment: you will type its name to confirm."
             }
         },
         "add_environment": "Add Environment",
@@ -1486,7 +1512,9 @@
                 "exclude_applications_description": "Their Deployments never sleep."
             },
             "slug_locked_description": "It identifies the environment and cannot be changed after creation.",
-            "domains_description": "The domains of the pages that load the frontends of this environment: requests coming from them are attributed to this environment."
+            "domains_description": "The domains of the pages that load the frontends of this environment: requests coming from them are attributed to this environment.",
+            "ip_allow_list_add_mine": "Add my IP",
+            "ip_allow_list_mine_present": "{{ip}} is already in the list"
         }
     },
     "storage": {

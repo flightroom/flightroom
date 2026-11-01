@@ -805,11 +805,19 @@
                     "general": "Generale",
                     "exposure": "Esposizione",
                     "logs": "Log",
-                    "kube_green": "kube-green"
+                    "kube_green": "kube-green",
+                    "network": "Accesso di rete"
                 },
                 "cancel": "Annulla",
                 "create": "Crea",
-                "update": "Aggiorna"
+                "update": "Aggiorna",
+                "unsaved": "Modifiche non salvate",
+                "descriptions": {
+                    "general": "Come l'ambiente si chiama e si riconosce nella console.",
+                    "exposure": "Dove l'ambiente è raggiungibile e dove GitOps ne scrive i manifest.",
+                    "network": "Chi può raggiungere le applicazioni dell'ambiente.",
+                    "logs": "Passati a ogni container dell'ambiente dal prossimo deploy."
+                }
             },
             "create_success": "Ambiente creato con successo",
             "update_success": "Ambiente aggiornato con successo",
@@ -820,6 +828,24 @@
                 "description": "L'ambiente aperto ha modifiche non salvate. Se apri un altro ambiente andranno perse.",
                 "keep": "Continua a modificare",
                 "discard": "Scarta le modifiche"
+            },
+            "promotion_order": "Ordine di promozione",
+            "not_production": "Non di produzione",
+            "namespace_label": "namespace {{namespace}}",
+            "tabs": {
+                "label": "Sezioni dell'ambiente",
+                "general": "Generale",
+                "exposure": "Esposizione",
+                "network": "Accesso di rete",
+                "logs": "Log",
+                "kubeGreen": "Spegnimento programmato",
+                "danger": "Zona pericolosa",
+                "has_errors": "Questa sezione ha campi da correggere"
+            },
+            "danger": {
+                "warning": "Le azioni di questa sezione non si possono annullare.",
+                "delete_description": "Toglie {{name}} dal progetto.",
+                "delete_production_description": "Toglie {{name}} dal progetto. È un ambiente di produzione: per confermare dovrai scriverne il nome."
             }
         },
         "form": {
@@ -888,7 +914,9 @@
                 "exclude_applications_description": "I loro Deployment non vengono mai spenti."
             },
             "slug_locked_description": "Identifica l'ambiente e non si può cambiare dopo la creazione.",
-            "domains_description": "I domini delle pagine che caricano i frontend di questo ambiente: le richieste che arrivano da lì vengono attribuite a questo ambiente."
+            "domains_description": "I domini delle pagine che caricano i frontend di questo ambiente: le richieste che arrivano da lì vengono attribuite a questo ambiente.",
+            "ip_allow_list_add_mine": "Aggiungi il mio IP",
+            "ip_allow_list_mine_present": "{{ip}} è già nella lista"
         },
         "table": {
             "name": "Nome",

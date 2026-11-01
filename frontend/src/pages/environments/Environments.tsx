@@ -1,6 +1,6 @@
-import { AddTile, ColorSwatch, ConfirmByTypingDialog, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@flightroom/design-system"
+import { ColorSwatch, ConfirmByTypingDialog, Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { GripVertical, Plus } from "lucide-react"
+import { ArrowRight, GripVertical, Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Badge, Button } from "@/components/atoms"
@@ -10,13 +10,12 @@ import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDial
 import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useDragAndDropOrder from "@/hooks/useDragAndDropOrder"
-import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 import EnvironmentsGate from "@/theme/EnvironmentsGate"
 import { getRandomColor } from "@/utils/StringUtils"
 import { cn } from "@/utils/styleUtils"
-import EnvironmentEditor, { EnvironmentFormData, exposedHost } from "./partials/EnvironmentEditor"
+import EnvironmentEditor, { EnvironmentFormData } from "./partials/EnvironmentEditor"
 
 /** Selezione della tessera "nuovo ambiente": l'editor si apre vuoto */
 const NEW = "new"
@@ -43,9 +42,6 @@ export default function EnvironmentsPage() {
     const saveOrderTimeout = useRef<ReturnType<typeof setTimeout>>(undefined)
     const { project, setEnvironments } = useProjectStore()
     const isGitOpsEnabled = Boolean(project?.gitOps?.enabled)
-    const domain = project?.exposure?.domain
-    // Senza dominio non c'e' ancora un host: si mostra almeno il sottodominio impostato
-    const hostOf = (env: EnvironmentDTO) => (domain ? exposedHost(domain, effectiveSubdomain(env)) : env.subdomain || "-")
 
     const environmentQuery = useQuery({
         queryKey: ["environments", project._id],
@@ -154,31 +150,40 @@ export default function EnvironmentsPage() {
                 }}
             >
                 <ApiStatusHandler queries={[environmentQuery]}>
-                    {canReorder && <p className="mb-2 text-sm text-foreground-secondary">{t("environment.page.reorder.hint")}</p>}
-                    <div className="mb-6 grid grid-cols-[repeat(auto-fill,minmax(min(100%,200px),1fr))] gap-3">
-                        {orderedEnvironments.map(env => {
+                    <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                        <h2 className="text-xs font-semibold tracking-wide text-foreground-secondary uppercase">{t("environment.page.promotion_order")}</h2>
+                        {canReorder && <p className="text-sm text-foreground-secondary">{t("environment.page.reorder.hint")}</p>}
+                    </div>
+                    {/* Da sinistra a destra nell'ordine di promozione; il dominio sta nell'intestazione dell'editor, non qui */}
+                    <ol className="mb-6 flex flex-wrap items-center gap-2">
+                        {orderedEnvironments.map((env, index) => {
                             const isSelected = env._id === selected?._id
                             return (
-                                <div
-                                    key={env._id}
-                                    data-testid={`environment-row-${env.slug}`}
-                                    {...getItemProps(env._id)}
-                                    className={cn("relative rounded-lg", draggingId === env._id && "opacity-50", dragOverId === env._id && "outline-2 outline-offset-2 outline-dashed outline-primary")}
-                                >
-                                    <button
-                                        type="button"
-                                        onClick={() => requestSelection(env._id)}
-                                        aria-pressed={isSelected}
-                                        data-testid={`environment-edit-${env.slug}`}
+                                <li key={env._id} className="flex items-center gap-2">
+                                    {index > 0 && <ArrowRight className="size-4 shrink-0 text-foreground-secondary" aria-hidden="true" />}
+                                    <div
+                                        data-testid={`environment-row-${env.slug}`}
+                                        {...getItemProps(env._id)}
                                         className={cn(
-                                            "flex h-full w-full flex-col items-start gap-1 rounded-lg border-2 border-border bg-card p-3 text-left text-card-foreground transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
-                                            canReorder && "pr-10",
-                                            isSelected && "border-primary bg-primary/10"
+                                            "relative rounded-lg",
+                                            draggingId === env._id && "opacity-50",
+                                            dragOverId === env._id && "outline-2 outline-offset-2 outline-dashed outline-primary"
                                         )}
                                     >
-                                        <span className="flex w-full min-w-0 items-center gap-2">
+                                        <button
+                                            type="button"
+                                            onClick={() => requestSelection(env._id)}
+                                            aria-pressed={isSelected}
+                                            data-testid={`environment-edit-${env.slug}`}
+                                            className={cn(
+                                                "flex items-center gap-2 rounded-lg border-2 border-border bg-card py-2 pl-3 text-left text-card-foreground transition-colors hover:border-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                                                canReorder ? "pr-9" : "pr-3",
+                                                isSelected && "border-primary bg-primary/10"
+                                            )}
+                                        >
                                             <ColorSwatch color={env.color} />
-                                            <span className="truncate font-medium">{env.name}</span>
+                                            <span className="font-medium">{env.name}</span>
+                                            <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground-secondary">{env.slug}</span>
                                             {isGitOpsEnabled && env.kubeGreen?.enabled && (
                                                 <img
                                                     src="/img/kube-green.svg"
@@ -187,40 +192,40 @@ export default function EnvironmentsPage() {
                                                     className="size-4 shrink-0"
                                                 />
                                             )}
-                                        </span>
-                                        <span className="w-full truncate font-mono text-xs text-foreground-secondary">{env.slug}</span>
-                                        {isGitOpsEnabled && <span className="w-full truncate font-mono text-xs text-foreground-secondary">{hostOf(env)}</span>}
-                                        {env.isProduction && (
-                                            <Badge variant="warning" className="mt-1">
-                                                {t("environment.production")}
-                                            </Badge>
+                                            {env.isProduction && <Badge variant="warning">{t("environment.production")}</Badge>}
+                                        </button>
+                                        {canReorder && (
+                                            <span
+                                                {...getHandleProps(env._id)}
+                                                role="button"
+                                                tabIndex={0}
+                                                aria-label={t("environment.page.reorder.handle", { name: env.name })}
+                                                title={t("environment.page.reorder.handle", { name: env.name })}
+                                                className="absolute top-1/2 right-1.5 flex -translate-y-1/2 cursor-grab items-center justify-center rounded-md p-1 text-foreground-secondary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary active:cursor-grabbing"
+                                            >
+                                                <GripVertical className="size-4" />
+                                            </span>
                                         )}
-                                    </button>
-                                    {canReorder && (
-                                        <span
-                                            {...getHandleProps(env._id)}
-                                            role="button"
-                                            tabIndex={0}
-                                            aria-label={t("environment.page.reorder.handle", { name: env.name })}
-                                            title={t("environment.page.reorder.handle", { name: env.name })}
-                                            className="absolute top-2 right-2 flex cursor-grab items-center justify-center rounded-md p-1 text-foreground-secondary hover:bg-primary/15 focus-visible:outline-2 focus-visible:outline-primary active:cursor-grabbing"
-                                        >
-                                            <GripVertical className="size-4" />
-                                        </span>
-                                    )}
-                                </div>
+                                    </div>
+                                </li>
                             )
                         })}
-                        <AddTile
-                            aspect="auto"
-                            onClick={() => requestSelection(NEW)}
-                            icon={<Plus />}
-                            label={t("environment.page.new_environment")}
-                            aria-pressed={isCreating}
-                            className={cn(isCreating && "border-primary bg-primary/10")}
-                            dataTestId="environment-new"
-                        />
-                    </div>
+                        <li>
+                            <button
+                                type="button"
+                                onClick={() => requestSelection(NEW)}
+                                aria-pressed={isCreating}
+                                data-testid="environment-new"
+                                className={cn(
+                                    "flex items-center gap-2 rounded-lg border-2 border-dashed border-primary/40 px-4 py-2 text-sm font-medium text-primary-strong transition-colors hover:border-primary hover:bg-primary/10 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary",
+                                    isCreating && "border-solid border-primary bg-primary/10"
+                                )}
+                            >
+                                <Plus className="size-4" aria-hidden="true" />
+                                {t("environment.page.new_environment")}
+                            </button>
+                        </li>
+                    </ol>
 
                     {isCreating && <EnvironmentEditor key={NEW} formData={draft} onSaved={onSaved} onCancel={() => setSelectedId(undefined)} onDirtyChange={setIsEditorDirty} />}
                     {selected && (

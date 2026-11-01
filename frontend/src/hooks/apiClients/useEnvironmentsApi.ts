@@ -199,11 +199,18 @@ const useEnvironmentsApi = () => {
         return response.data
     }
 
+    /** L'indirizzo da cui il browser raggiunge la console, come lo vedrebbe la lista degli IP consentiti */
+    const getClientIp = async () => {
+        const response = await apiClient.doRequest<{ ip: string }>({ url: "/api/environments/client-ip" })
+        return response.data.ip
+    }
+
     return {
         createEnvironment,
         createEnvironmentsBulk,
         deleteEnvironment,
         editEnvironment,
+        getClientIp,
         getEnvironment,
         getPromotion,
         getReplicas,

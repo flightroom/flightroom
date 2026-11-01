@@ -109,8 +109,9 @@ test.describe
         test("given an existing environment, when it is deleted, then it disappears from the project", async ({ browser, request }) => {
             const page = await openEnvironments(browser)
 
-            // L'eliminazione sta nell'editor dell'ambiente selezionato
             await page.getByTestId(`environment-edit-${created.slug}`).click()
+            // L'eliminazione sta nella scheda "Zona pericolosa" dell'editor
+            await page.getByTestId("environment-tab-danger").click()
             await page.getByTestId(`environment-delete-${created.slug}`).click()
             await page.getByRole("button", { name: "Elimina", exact: true }).click()
 

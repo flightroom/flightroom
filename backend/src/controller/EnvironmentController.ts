@@ -18,6 +18,11 @@ export default async function environmentController(fastify: FastifyInstance) {
         return reply.send(environments)
     })
 
+    // The address this request comes from, as an IP allowlist entry would see it: trustProxy resolves it behind nginx
+    fastify.get("/environments/client-ip", async (request, reply) => {
+        return reply.send({ ip: request.ip.replace(/^::ffff:(?=\d+\.\d+\.\d+\.\d+$)/, "") })
+    })
+
     fastify.get<{ Params: { id: string } }>("/environments/:id/deployments", async (request, reply) => {
         return reply.send(await new DeploymentService(request.databaseUser).getByEnvironmentId(request.params.id))
     })
