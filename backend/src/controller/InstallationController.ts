@@ -24,6 +24,7 @@ export const sandboxSettingsBodySchema = {
         maxHours: { type: ["integer", "null"], minimum: 1, maximum: 720 },
         sharing: { type: ["string", "null"], enum: ["domain", "conversation", null] },
         previewsEnabled: { type: ["boolean", "null"] },
+        previewUrl: { type: ["string", "null"], pattern: "^\\s*(https?://\\*\\.[A-Za-z0-9.-]+(:[0-9]{1,5})?/?)?\\s*$", maxLength: 300 },
         warmSandboxes: { type: ["integer", "null"], minimum: 0, maximum: 50 },
         image: { type: ["string", "null"], pattern: "^\\S*$", maxLength: 500 },
         template: { type: ["string", "null"], pattern: "^\\S*$", maxLength: 253 },

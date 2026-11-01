@@ -4487,7 +4487,8 @@
                 "range": "Un numero intero da {{min}} a {{max}}",
                 "no_spaces": "Gli spazi non sono ammessi",
                 "hosts": "Nomi host separati da virgole, con *. iniziale ammesso (senza schema, porta o percorso)",
-                "paths": "Percorsi assoluti separati da virgole, senza spazi"
+                "paths": "Percorsi assoluti separati da virgole, senza spazi",
+                "preview_url": "Un URL http o https con * al posto del nome dell'anteprima, senza percorso: https://*.sandbox.example.com"
             },
             "fields": {
                 "idleMinutes": {
@@ -4515,6 +4516,10 @@
                     "help": "Gli URL delle anteprime non ereditano i permessi del progetto: chiunque raggiunga il gateway li raggiunge.",
                     "on": "Attive",
                     "off": "Disattivate"
+                },
+                "previewUrl": {
+                    "label": "URL delle anteprime",
+                    "help": "L'indirizzo da cui il browser raggiunge le anteprime quando un ingress le serve davanti al gateway, con * al posto del nome di ogni anteprima: https://*.sandbox.example.com. Vuoto: l'URL restituito dal gateway, con lo schema e la porta del gateway."
                 },
                 "image": {
                     "label": "Immagine",

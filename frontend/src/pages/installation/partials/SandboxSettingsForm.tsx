@@ -27,6 +27,8 @@ const LIST_FIELDS = ["registryHosts", "networkBinary"] as const
 /** The same checks as the backend's: a host name, `*.` allowed in front; an absolute path without spaces nor commas. */
 const HOST = /^(\*\.)?[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]{0,61}[A-Za-z0-9])?)*$/
 const PATH = /^\/[^\s,]*$/
+/** Where the browser reaches the previews, `*` standing for each one: https://*.sandbox.example.com. */
+const PREVIEW_URL = /^https?:\/\/\*\.[A-Za-z0-9.-]+(:[0-9]{1,5})?\/?$/
 
 type NumberField = keyof typeof NUMBER_FIELDS
 
@@ -35,6 +37,7 @@ type FormValues = Record<NumberField | (typeof TEXT_FIELDS)[number] | (typeof LI
     template: string
     sharing: typeof DEFAULT | "domain" | "conversation"
     previewsEnabled: typeof DEFAULT | "on" | "off"
+    previewUrl: string
 }
 
 const toFormValues = (values: SandboxSettingsValues): FormValues => ({
@@ -43,6 +46,7 @@ const toFormValues = (values: SandboxSettingsValues): FormValues => ({
     warmSandboxes: values.warmSandboxes === undefined ? "" : String(values.warmSandboxes),
     sharing: values.sharing ?? DEFAULT,
     previewsEnabled: values.previewsEnabled === undefined ? DEFAULT : values.previewsEnabled ? "on" : "off",
+    previewUrl: values.previewUrl ?? "",
     image: values.image ?? "",
     template: values.template ?? DEFAULT,
     registryHosts: values.registryHosts ?? "",
@@ -56,6 +60,7 @@ const toUpdate = (values: FormValues): SandboxSettingsUpdate => ({
     warmSandboxes: values.warmSandboxes.trim() ? Number(values.warmSandboxes) : null,
     sharing: values.sharing === DEFAULT ? null : values.sharing,
     previewsEnabled: values.previewsEnabled === DEFAULT ? null : values.previewsEnabled === "on",
+    previewUrl: values.previewUrl.trim() || null,
     image: values.image.trim() || null,
     template: values.template === DEFAULT ? null : values.template,
     registryHosts: values.registryHosts.trim() || null,
@@ -110,6 +115,7 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
         }
     }
     const textRules = { validate: (value: string) => !/\s/.test(value.trim()) || t("installation.settings.validation.no_spaces") }
+    const previewUrlRules = { validate: (value: string) => !value.trim() || PREVIEW_URL.test(value.trim()) || t("installation.settings.validation.preview_url") }
     const listRules = (pattern: RegExp, message: string) => ({
         validate: (value: string) =>
             !value.trim() ||
@@ -173,7 +179,7 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
                                 />
                             ))}
                         </div>
-                        <div className="grid gap-4 md:grid-cols-2">
+                        <div className="grid gap-4 md:grid-cols-3">
                             {/* SelectField exposes no test id: the wrapper gives the tests a stable hook on the trigger. */}
                             <div data-testid="installation-setting-sharing">
                                 <SelectField<FormValues>
@@ -191,6 +197,15 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
                                     options={previewOptions}
                                 />
                             </div>
+                            <TextField<FormValues>
+                                name="previewUrl"
+                                label={t("installation.settings.fields.previewUrl.label")}
+                                placeholder={defaults.previewUrl ?? "https://*.sandbox.example.com"}
+                                description={environmentHint(t("installation.settings.fields.previewUrl.help"), defaults.previewUrl)}
+                                autoComplete="off"
+                                rules={previewUrlRules}
+                                dataTestId="installation-setting-previewUrl"
+                            />
                         </div>
 
                         <Alert variant="warning" data-testid="installation-sandbox-reach-warning">

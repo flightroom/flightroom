@@ -4468,7 +4468,8 @@
                 "range": "A whole number from {{min}} to {{max}}",
                 "no_spaces": "No spaces allowed",
                 "hosts": "Comma separated host names, a leading *. allowed (no scheme, port or path)",
-                "paths": "Comma separated absolute paths, without spaces"
+                "paths": "Comma separated absolute paths, without spaces",
+                "preview_url": "An http or https URL with * in place of the preview's name, without a path: https://*.sandbox.example.com"
             },
             "fields": {
                 "idleMinutes": {
@@ -4496,6 +4497,10 @@
                     "help": "Preview URLs do not inherit project permissions: anyone who reaches the gateway reaches them.",
                     "on": "Enabled",
                     "off": "Disabled"
+                },
+                "previewUrl": {
+                    "label": "Preview URL",
+                    "help": "Where the browser reaches previews when an ingress in front of the gateway serves them, with * in place of each preview's name: https://*.sandbox.example.com. Empty: the URL the gateway returns, with the gateway's scheme and port."
                 },
                 "image": {
                     "label": "Image",

@@ -219,6 +219,10 @@ env:
   OPENSHELL_SANDBOX_WARM: ""
   # Live previews; their URLs do not inherit project authorization. default: true
   OPENSHELL_PREVIEWS_ENABLED: ""
+  # Where the browser reaches the previews when an ingress serves them, * standing
+  # for each one, e.g. https://*.sandbox.example.com.
+  # default: the URL the gateway returns, with the scheme and port it binds
+  OPENSHELL_PREVIEW_URL: ""
   # Owner label of this installation's sandboxes on the gateway. Set it when two
   # installations restored from one database share a gateway.
   # default: the installation id

@@ -314,6 +314,17 @@ describe("OpenShellSandboxes", () => {
             })
         })
 
+        it.each([
+            [undefined, "http://default--fr-1--preview-fe-1.openshell.localhost:8080/"],
+            ["https://*.sandbox.example.test", "https://default--fr-1--preview-fe-1.sandbox.example.test/"],
+            ["https://*.sandbox.example.test:8443/", "https://default--fr-1--preview-fe-1.sandbox.example.test:8443/"]
+        ])("Given the public URL of the previews %s, when a service is exposed, then the browser opens %s", async (previewUrl, opened) => {
+            raw.exposeService.mockResolvedValue({ url: "http://default--fr-1--preview-fe-1.openshell.localhost:8080/" })
+            const acquired = await sandboxes({ ...GATEWAY, OPENSHELL_PREVIEW_URL: previewUrl }).acquire(CONVERSATION)
+
+            await expect(acquired.exposeService?.(5173, "preview-fe")).resolves.toBe(opened)
+        })
+
         it("Given the sandbox of the key in error, when one is acquired, then it is deleted with its record, its lifetime closed, and another one is created after", async () => {
             put("fr-0000000000000001", ours, { phase: "error" })
             pool.seed({ name: "fr-0000000000000001", sandboxId: "dead-1", key: CONVERSATION })

@@ -9,6 +9,7 @@ export interface SandboxSettingsValues {
     maxHours?: number
     sharing?: SandboxSharing
     previewsEnabled?: boolean
+    previewUrl?: string
     warmSandboxes?: number
     image?: string
     template?: string
@@ -22,7 +23,7 @@ export type SandboxSettingsUpdate = { [Name in keyof SandboxSettingsValues]: San
 export interface SandboxSettingsSummary {
     values: SandboxSettingsValues
     /** The environment's values, which apply where nothing is saved. */
-    defaults: Required<Omit<SandboxSettingsValues, "template">> & { template?: string }
+    defaults: Required<Omit<SandboxSettingsValues, "template" | "previewUrl">> & { template?: string; previewUrl?: string }
     updatedAt?: string
     pool: { warm: number; creating: number; assigned: number }
     gateway: AiSandboxStatusSummary

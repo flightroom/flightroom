@@ -460,6 +460,12 @@ export default fastifyPlugin(
                     type: "boolean",
                     default: true
                 },
+                // Where the browser reaches the previews when an ingress serves them, * standing for each one
+                // (https://*.sandbox.example.com). Unset: the URL the gateway returns, with the scheme and port it binds.
+                OPENSHELL_PREVIEW_URL: {
+                    type: "string",
+                    pattern: "^(https?://\\*\\.[A-Za-z0-9.-]+(:[0-9]{1,5})?/?)?$"
+                },
                 // The owner label of this installation's sandboxes, a Kubernetes label value. Unset: the installation id
                 // from the database. Set it when two installations sharing a gateway were restored from one database.
                 OPENSHELL_SANDBOX_OWNER: {

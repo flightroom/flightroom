@@ -13,6 +13,7 @@ export interface ISandboxSettings {
     maxHours?: number
     sharing?: "domain" | "conversation"
     previewsEnabled?: boolean
+    previewUrl?: string
     warmSandboxes?: number
     image?: string
     template?: string
@@ -31,6 +32,7 @@ const sandboxSettingsSchema = new Schema<ISandboxSettings>(
         maxHours: { type: Number },
         sharing: { type: String, enum: ["domain", "conversation"] },
         previewsEnabled: { type: Boolean },
+        previewUrl: { type: String },
         warmSandboxes: { type: Number },
         image: { type: String },
         template: { type: String },

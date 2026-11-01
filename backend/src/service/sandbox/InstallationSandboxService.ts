@@ -20,7 +20,7 @@ export interface SandboxSettingsSummary {
     /** What an installation administrator saved: each one missing is the environment's. */
     values: SandboxSettingsValues
     /** The environment's values, which apply where nothing is saved. */
-    defaults: Required<Omit<SandboxSettingsValues, "template">> & { template?: string }
+    defaults: Required<Omit<SandboxSettingsValues, "template" | "previewUrl">> & { template?: string; previewUrl?: string }
     updatedAt?: Date
     pool: { warm: number; creating: number; assigned: number }
     gateway: SandboxStatusSummary
@@ -53,6 +53,7 @@ export const sandboxSettingsDefaults = (env: OpenShellConfiguration): SandboxSet
     maxHours: env.OPENSHELL_SANDBOX_MAX_HOURS ?? OPENSHELL_DEFAULTS.maxHours,
     sharing: env.OPENSHELL_SANDBOX_SHARING ?? "domain",
     previewsEnabled: Boolean(env.OPENSHELL_PREVIEWS_ENABLED),
+    previewUrl: env.OPENSHELL_PREVIEW_URL || undefined,
     warmSandboxes: env.OPENSHELL_SANDBOX_WARM ?? OPENSHELL_DEFAULTS.warmSandboxes,
     image: env.OPENSHELL_SANDBOX_IMAGE || OPENSHELL_DEFAULTS.image,
     template: env.OPENSHELL_SANDBOX_TEMPLATE || undefined,

@@ -124,7 +124,7 @@ describe("InstallationController", () => {
             { _id: "installation" },
             {
                 $set: { idleMinutes: 15, warmSandboxes: 3, registryHosts: "registry.npmjs.org,*.pkg.example.com", networkBinary: "/usr/local/bin/node,/usr/bin/git", updatedBy: ADMIN._id },
-                $unset: { maxHours: 1, sharing: 1, previewsEnabled: 1, image: 1, template: 1 }
+                $unset: { maxHours: 1, sharing: 1, previewsEnabled: 1, previewUrl: 1, image: 1, template: 1 }
             },
             { upsert: true }
         )
@@ -138,6 +138,9 @@ describe("InstallationController", () => {
         ["a fractional maximum age", { maxHours: 1.5 }],
         ["more than 50 warm sandboxes", { warmSandboxes: 51 }],
         ["a negative number of warm sandboxes", { warmSandboxes: -1 }],
+        ["a public URL of the previews without a scheme", { previewUrl: "*.sandbox.example.com" }],
+        ["a public URL of the previews without the *", { previewUrl: "https://sandbox.example.com" }],
+        ["a public URL of the previews with a path", { previewUrl: "https://*.example.com/previews" }],
         ["an unknown sharing", { sharing: "organization" }],
         ["an image with a space", { image: "node:24 --privileged" }],
         ["a template with a space", { template: "a b" }],

@@ -90,6 +90,11 @@ export interface OpenShellConfiguration {
     /** "domain": the jobs of one domain (else of one project) share a sandbox, each conversation in a folder of its own. "conversation": one sandbox per conversation. */
     OPENSHELL_SANDBOX_SHARING?: "domain" | "conversation"
     OPENSHELL_PREVIEWS_ENABLED?: boolean
+    /**
+     * Where the browser reaches the previews when an ingress serves them, `*` standing for each one
+     * (https://*.sandbox.example.com). Unset: the URL the gateway returns, with the scheme and the port it binds.
+     */
+    OPENSHELL_PREVIEW_URL?: string
     /** How many sandboxes the installation keeps created and unassigned, so that a new conversation does not wait for one. */
     OPENSHELL_SANDBOX_WARM?: number
     /** Who owns the sandboxes of this installation on the gateway: its installation id unless set. */
@@ -263,7 +268,8 @@ class OpenShellCommandSandbox implements CommandSandbox {
         private readonly name: string,
         private readonly workspace: string | undefined,
         readonly root: string,
-        readonly home?: string
+        readonly home?: string,
+        private readonly previewUrl?: string
     ) {}
 
     async exec(command: string[], options: SandboxExecOptions = {}): Promise<SandboxCommandResult> {
@@ -319,8 +325,20 @@ class OpenShellCommandSandbox implements CommandSandbox {
             requestId: randomUUID()
         })
         if (!response.url) throw new Error(`OpenShell did not return a URL for the ${name} preview`)
-        return response.url
+        return browserUrlOf(response.url, this.previewUrl)
     }
+}
+
+/**
+ * The gateway writes in the URL of a service the scheme and the port it binds, while an ingress in front of it serves
+ * the previews on its own: the service, the first label of the host (`<workspace>--<sandbox>--<service>`), takes the
+ * place of the `*` of the public URL set.
+ */
+const browserUrlOf = (url: string, previewUrl: string | undefined) => {
+    if (!previewUrl) return url
+    const exposed = new URL(url)
+    const service = exposed.hostname.split(".")[0]
+    return new URL(`${exposed.pathname}${exposed.search}`, previewUrl.replace("*", service)).toString()
 }
 
 export interface OpenShellSandboxesOptions {
@@ -543,7 +561,7 @@ export class OpenShellSandboxes {
             const name = await this.sandboxFor(client, owner, settings, key, lifecycle, folder !== key.toLowerCase(), organizationId)
             await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace }).catch(error => this.unready(client, name, key, lifecycle, error))
             // The sweep may have moved it back into the pool while it was looked up: the key then gets another one.
-            if ((await this.pool.byName(name))?.key === key) return new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`)
+            if ((await this.pool.byName(name))?.key === key) return new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`, current.OPENSHELL_PREVIEW_URL)
         }
         throw new Error(`The sandbox of ${key} kept going back to the pool`)
     }

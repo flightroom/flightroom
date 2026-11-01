@@ -7,6 +7,7 @@ export const SANDBOX_SETTINGS = {
     maxHours: "OPENSHELL_SANDBOX_MAX_HOURS",
     sharing: "OPENSHELL_SANDBOX_SHARING",
     previewsEnabled: "OPENSHELL_PREVIEWS_ENABLED",
+    previewUrl: "OPENSHELL_PREVIEW_URL",
     warmSandboxes: "OPENSHELL_SANDBOX_WARM",
     image: "OPENSHELL_SANDBOX_IMAGE",
     template: "OPENSHELL_SANDBOX_TEMPLATE",
