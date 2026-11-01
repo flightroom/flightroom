@@ -1,12 +1,14 @@
-import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
+import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, SelectField } from "@flightroom/design-system"
 import { useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
+import { technologyIconUrl } from "@/components/technology/technologyIcons"
 import type { ICodeRepository } from "@/hooks/apiClients/useCodeRepositoriesApi"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import DomainSection from "@/pages/domains/partials/DomainSection"
 import { CodeRepositorySection, FrontendKindField, ReleaseSection } from "@/pages/frontends/partials/components"
+import { FRONTEND_TECHNOLOGIES, TECHNOLOGY_LABEL_KEYS } from "@/utils/technologies"
 import type { FormInput } from "./frontendFormSchema"
 
 interface GeneralTabProps {
@@ -45,6 +47,19 @@ export const GeneralTab: React.FC<GeneralTabProps> = ({ id, isEdit, isDocker, te
                         <Alert>
                             <AlertDescription>{t("frontend.kind.template_pipeline_hint")}</AlertDescription>
                         </Alert>
+                    )}
+                    {/* A template says it at creation */}
+                    {isEdit && (
+                        <SelectField
+                            name="technology"
+                            label={t("frontend.technology.label")}
+                            placeholder={t("frontend.technology.placeholder")}
+                            description={t("frontend.technology.help")}
+                            options={FRONTEND_TECHNOLOGIES.map(technology => ({ value: technology, label: t(TECHNOLOGY_LABEL_KEYS[technology]), icon: technologyIconUrl(technology) }))}
+                            addClearButton
+                            clearLabel={t("frontend.technology.clear")}
+                            className="w-full"
+                        />
                     )}
                     <div className="flex flex-wrap gap-x-4 gap-y-2">
                         <TextField

@@ -228,6 +228,17 @@ const useFrontendsApi = () => {
         return response.data
     }
 
+    /** Framework and bundler chosen by hand: the detection never overwrites them */
+    const setStack = async (id: string, stack: Pick<IFrontendStackDTO, "framework" | "compiler">, metadata?: IClientRequestMetadataExtended): Promise<Frontend> => {
+        const response = await apiClient.doRequest<Frontend>({
+            url: `/api/frontends/${id}/stack`,
+            method: "PUT",
+            data: stack,
+            ...metadata
+        })
+        return response.data
+    }
+
     const deleteSingle = async (id: string) => {
         const response = await apiClient.doRequest({
             url: `/api/frontends/${id}`,
@@ -342,6 +353,7 @@ const useFrontendsApi = () => {
         getByProjectId,
         create,
         update,
+        setStack,
         deleteSingle,
         getSingle,
         build,

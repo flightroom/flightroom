@@ -30,6 +30,8 @@ export const createFormSchema = (messages: FormMessages) => {
             description: z.string().optional(),
             domainId: z.string().nullable().optional(),
             kind: z.enum(FrontendKind),
+            // Its framework, chosen by hand on a saved frontend: a template says it at creation
+            technology: z.string().optional(),
             context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
             // Off, the frontend builds with the design system of the project, else the organization's
             designSystemOverride: z.boolean().default(false),

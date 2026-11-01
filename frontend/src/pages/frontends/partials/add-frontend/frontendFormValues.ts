@@ -7,6 +7,7 @@ import { probeFormValues, probePaths, probeTimings, replicaCount, resourceFormVa
 import { environmentVersionFormValues } from "@/pages/backends/partials/environmentVersions"
 import { logLevelOf } from "@/pages/backends/partials/LogLevelOverrideField"
 import { designSystemFormValues, toDesignSystem } from "@/pages/settings/partials/DesignSystemFields"
+import { frontendTechnologyOf } from "@/utils/technologies"
 import type { FormInput, FormValues } from "./frontendFormSchema"
 
 const getStandardHost = (storages: Storage[]): FormInput["host"] => {
@@ -67,6 +68,7 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
         ? {
               ...frontend,
               kind: frontend.kind ?? FrontendKind.BUNDLE,
+              technology: frontendTechnologyOf(frontend) ?? "",
               version: frontend.version ?? "",
               host: frontend.host ?? getStandardHost(storages),
               designSystemOverride: Boolean(frontend.designSystem?.packageName),
@@ -142,6 +144,8 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         secretIds,
         designSystemOverride,
         designSystem,
+        // Saved through the stack of the frontend, not with the rest
+        technology: _technology,
         ...rest
     } = data
     const dataToSend = {

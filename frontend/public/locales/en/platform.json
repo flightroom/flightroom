@@ -852,6 +852,12 @@
             "start_error": "The live preview could not be started. Please try again.",
             "popup_blocked": "Allow pop-ups to open the live preview."
         },
+        "technology": {
+            "label": "Framework",
+            "placeholder": "Unknown",
+            "help": "The framework of the frontend: the coding agent and the integrations read it from here. Automatic detection does not overwrite a choice made here.",
+            "clear": "Remove the framework"
+        },
         "kind": {
             "label": "Kind",
             "bundle": "Bundle",
@@ -1906,11 +1912,13 @@
     "market": {
         "title": "Templates library",
         "description": "Choose from our collection of frontend templates",
+        "description_backend": "Choose from our collection of backend templates",
         "templateRepository": "Template: {{name}}",
         "templateRepositoryTitle": "Open the repository of the template {{name}}",
         "noTemplates": {
             "title": "No templates available",
-            "description": "There are no frontend templates in the market yet."
+            "description": "There are no frontend templates in the market yet.",
+            "description_backend": "There are no backend templates in the market yet."
         },
         "error": {
             "failedToFetch": "Failed to fetch markets"
@@ -1924,8 +1932,7 @@
             "hostType": "Host Type",
             "remote": "Remote",
             "host": "Host",
-            "allTypes": "All Types",
-            "backend": "Backend"
+            "allTypes": "All Types"
         },
         "noResults": {
             "title": "No templates match your filters",
@@ -2768,7 +2775,6 @@
             "createFromTemplate": "Create from a template",
             "noResultsTitle": "No results",
             "noResultsDescription": "No backend matches \"{{searchTerm}}\".",
-            "open": "Open",
             "frontendBadge": "Frontend",
             "backendsSection": "Backend",
             "dockerFrontendsSection": "Docker frontends"

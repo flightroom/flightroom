@@ -123,7 +123,8 @@ const Backends = () => {
             </>
         )
     // The form picks the template itself: the library is only one way in
-    const onCreate = () => navigate("/backend/new")
+    // From the library of the backend templates, as a frontend from that of the frontend ones: without a repository there is nothing to scaffold
+    const onCreate = () => navigate(canImportRepositories ? "/templates-library?type=backend" : "/backend/new")
 
     return (
         <Tabs value={view} onValueChange={value => setView(value as View)} className="flex min-h-full flex-col" layoutSize="sm" iconButtons tabsListPosition="end">

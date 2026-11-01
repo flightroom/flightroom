@@ -20,7 +20,9 @@ export const TemplatesLibrary: React.FC = () => {
     const [selectedFramework, setSelectedFramework] = useState<string>("all")
     const [selectedCompiler, setSelectedCompiler] = useState<string>("all")
     const [getParams] = useSearchParams()
-    const [hostType, setHostType] = useState<string>(getParams.get("type") === "backend" ? "backend" : "all") // 'all', 'remote', 'host', 'backend'
+    // Opened from the backends, the library holds the backend templates; from the frontends, the frontend ones
+    const forBackend = getParams.get("type") === "backend"
+    const [hostType, setHostType] = useState<string>("all") // 'all', 'remote', 'host'
     const technologies = useProjectStore(state => state.project?.technologies)
     const isRecommended = (market: Market) => isRecommendedTemplate(market, technologies)
 
@@ -28,22 +30,15 @@ export const TemplatesLibrary: React.FC = () => {
         queryKey: ["markets"],
         queryFn: getMarkets
     })
+    // The filters offer only the frameworks and compilers of these
+    const templates = useMemo(() => (marketsQuery.data ?? []).filter(market => isBackendTemplate(market) === forBackend), [marketsQuery.data, forBackend])
 
-    const frameworks = useMemo(() => {
-        if (!marketsQuery.data) return ["all"]
-        const uniqueFrameworks = Array.from(new Set(marketsQuery.data.map(market => market.framework)))
-        return ["all", ...uniqueFrameworks]
-    }, [marketsQuery.data])
+    const frameworks = useMemo(() => ["all", ...new Set(templates.map(market => market.framework))], [templates])
 
-    const compilers = useMemo(() => {
-        if (!marketsQuery.data) return ["all"]
-        const uniqueCompilers = Array.from(new Set(marketsQuery.data.map(market => market.compiler).filter(Boolean)))
-        return ["all", ...uniqueCompilers]
-    }, [marketsQuery.data])
+    const compilers = useMemo(() => ["all", ...new Set(templates.map(market => market.compiler).filter(Boolean))], [templates])
 
     const handleCardClick = (slug: string) => {
-        // Backend templates create a backend, not a frontend.
-        if (marketsQuery.data?.some(market => market.slug === slug && isBackendTemplate(market))) {
+        if (forBackend) {
             navigate(`/backend/new?template=${slug}`)
         } else if (getParams.get("parentId")) {
             navigate(`/frontend/new?template=${slug}&parentId=${getParams.get("parentId")}`)
@@ -53,25 +48,21 @@ export const TemplatesLibrary: React.FC = () => {
     }
 
     const handleBlankCardClick = () => {
-        navigate("/frontend/new")
+        // Blank: the backend form must not preselect the template of the project's technology
+        navigate(forBackend ? "/backend/new?blank" : "/frontend/new")
     }
 
     const filteredMarkets = useMemo(() => {
-        if (!marketsQuery.data) return []
-
-        const markets = marketsQuery.data.filter(market => {
-            // A frontend parent can only take frontend children.
-            if (getParams.get("parentId") && isBackendTemplate(market)) return false
+        const markets = templates.filter(market => {
             const matchesSearch = market.name.toLowerCase().includes(searchTerm.toLowerCase())
             const matchesFramework = selectedFramework === "all" || market.framework === selectedFramework
             const matchesCompiler = selectedCompiler === "all" || market.compiler === selectedCompiler
-            const matchesHostType =
-                hostType === "all" || (hostType === "remote" && market.type === "remote") || (hostType === "host" && market.type === "host") || (hostType === "backend" && isBackendTemplate(market))
+            const matchesHostType = hostType === "all" || market.type === hostType
             return matchesSearch && matchesFramework && matchesCompiler && matchesHostType
         })
         // The templates of the project's default technologies come first, the others stay one scroll away: a guide, not a filter
         return markets.sort((a, b) => Number(isRecommendedTemplate(b, technologies)) - Number(isRecommendedTemplate(a, technologies)))
-    }, [marketsQuery.data, searchTerm, selectedFramework, selectedCompiler, hostType, getParams, technologies])
+    }, [templates, searchTerm, selectedFramework, selectedCompiler, hostType, technologies])
 
     const groupedByFramework = useMemo(() => {
         const grouped = filteredMarkets.reduce(
@@ -92,7 +83,7 @@ export const TemplatesLibrary: React.FC = () => {
     const shouldShowFramework = frameworksFetched.length > 1
 
     return (
-        <SinglePageLayout title={t("market.title")} description={t("market.description")}>
+        <SinglePageLayout title={t("market.title")} description={t(forBackend ? "market.description_backend" : "market.description")}>
             <ApiStatusHandler queries={[marketsQuery]}>
                 <div>
                     <div className="mb-6 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -128,17 +119,19 @@ export const TemplatesLibrary: React.FC = () => {
                                     </Select>
                                 )}
 
-                                <Select value={hostType} onValueChange={setHostType}>
-                                    <SelectTrigger className="min-w-28">
-                                        <SelectValue placeholder={t("market.filters.hostType")} />
-                                    </SelectTrigger>
-                                    <SelectContent>
-                                        <SelectItem value="all">{t("market.filters.allTypes")}</SelectItem>
-                                        <SelectItem value="remote">{t("market.filters.remote")}</SelectItem>
-                                        <SelectItem value="host">{t("market.filters.host")}</SelectItem>
-                                        <SelectItem value="backend">{t("market.filters.backend")}</SelectItem>
-                                    </SelectContent>
-                                </Select>
+                                {/* Remote or host: a backend is neither */}
+                                {!forBackend && (
+                                    <Select value={hostType} onValueChange={setHostType}>
+                                        <SelectTrigger className="min-w-28">
+                                            <SelectValue placeholder={t("market.filters.hostType")} />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            <SelectItem value="all">{t("market.filters.allTypes")}</SelectItem>
+                                            <SelectItem value="remote">{t("market.filters.remote")}</SelectItem>
+                                            <SelectItem value="host">{t("market.filters.host")}</SelectItem>
+                                        </SelectContent>
+                                    </Select>
+                                )}
                             </div>
                         </div>
 
@@ -207,7 +200,7 @@ export const TemplatesLibrary: React.FC = () => {
                                 description={
                                     searchTerm || selectedFramework !== "all" || selectedCompiler !== "all" || hostType !== "all"
                                         ? t("market.noResults.description")
-                                        : t("market.noTemplates.description")
+                                        : t(forBackend ? "market.noTemplates.description_backend" : "market.noTemplates.description")
                                 }
                             />
                         </div>

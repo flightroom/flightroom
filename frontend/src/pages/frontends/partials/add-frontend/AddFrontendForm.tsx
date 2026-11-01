@@ -14,6 +14,7 @@ import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useFrontendsApi, { type Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import useMarketApi from "@/hooks/apiClients/useMarketApi"
+import type { FrontendFramework } from "@/hooks/apiClients/useServeApi"
 import type { Storage } from "@/hooks/apiClients/useStorageApi"
 import { useVariableMapErrorMessage, type VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
 import BackendEndpointFields from "@/pages/backends/partials/BackendEndpointFields"
@@ -127,6 +128,14 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
 
         if (isEdit) {
             await frontendsApi.update(id, dataToSend, { customErrorMessage: errorMessage })
+            // Sent only when chosen here: a detected framework stays detected. The bundler stays as it is
+            if (form.formState.dirtyFields.technology) {
+                await frontendsApi.setStack(
+                    id,
+                    { framework: (data.technology || undefined) as FrontendFramework | undefined, compiler: frontend?.stack?.compiler },
+                    { customErrorMessage: errorMessage }
+                )
+            }
             notificationToast.showSuccessNotification({
                 message: t("frontend.updated_success_message")
             })

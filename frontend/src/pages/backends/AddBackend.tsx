@@ -274,15 +274,17 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
         prefilled.current = next
     }, [selectedTemplate, backendTemplates, isEdit, form])
 
-    // Opened without ?template: start from the template of the project's backend technology, once, and leave it free to change or clear
+    // Opened without ?template: start from the template of the project's backend technology, once, and leave it free to change or clear.
+    // Not when the library's blank card was chosen (?blank)
+    const blank = searchParams.has("blank")
     const preselected = useRef(false)
     useEffect(() => {
-        if (isEdit || initialTemplate || preselected.current || !technologies) return
+        if (isEdit || initialTemplate || blank || preselected.current || !technologies) return
         const recommended = backendTemplates.find(market => !market.comingSoon && isRecommendedTemplate(market, technologies))
         if (!recommended) return
         preselected.current = true
         if (!form.getValues("template")) form.setValue("template", recommended.slug)
-    }, [backendTemplates, technologies, isEdit, initialTemplate, form])
+    }, [backendTemplates, technologies, isEdit, initialTemplate, blank, form])
 
     const onSubmit = async (data: FormValues) => {
         // Blank: the backend is in no domain
