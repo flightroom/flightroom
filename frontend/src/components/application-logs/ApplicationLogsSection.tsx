@@ -24,7 +24,8 @@ import useArgoCdApi from "@/hooks/apiClients/useArgoCdApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import { GitOpsErrorDetails, useGitOpsErrorTranslation } from "@/hooks/apiClients/useGitOpsErrorMessage"
 import { errorCodeOf } from "@/hooks/useApiClient"
-import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
+import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
+import useProjectStore from "@/store/useProjectStore"
 
 const TAIL_OPTIONS = [100, 500, 1000, 5000]
 /** While following, the pods, which come and go with a rollout, are read again less often than the logs */
@@ -64,17 +65,16 @@ type ApplicationLogsSectionProps = {
 /**
  * The last lines the pods of an application wrote, per environment, read through the Argo CD the project deploys
  * with: no access to the cluster is needed. Only the pods alive now, and the container before their last restart.
- * Not shown to a viewer, as logs may hold what the configuration hides.
+ * Not shown to a viewer, as logs may hold what the configuration hides, nor before the project initialized Argo CD.
  */
 const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: fixedSlug, applications, environments }) => {
     const { t } = useTranslation()
     const labels = useLogViewerLabels()
     const id = useId()
     const projectId = useProjectStore(state => state.project?._id)
-    const isViewer = useIsProjectViewer()
+    const argoCdInitialized = useArgoCdInitialized()
     const argoCdApi = useArgoCdApi()
     const translateError = useGitOpsErrorTranslation()
-    const statusQuery = useQuery({ queryKey: ["argocd", projectId], queryFn: () => argoCdApi.getArgoCd(projectId!), enabled: !!projectId && !isViewer })
 
     const [applicationSlug, setApplicationSlug] = useState<string>()
     const [environmentId, setEnvironmentId] = useState<string>()
@@ -90,7 +90,7 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
     // The application picked among several, else the first
     const pickedSlug = applications?.some(application => application.slug === applicationSlug) ? applicationSlug : applications?.[0]?.slug
     const slug = fixedSlug ?? pickedSlug
-    const ready = Boolean(projectId && statusQuery.data?.initializedAt && selectedEnvironment && slug)
+    const ready = Boolean(projectId && argoCdInitialized && selectedEnvironment && slug)
 
     const podsQuery = useQuery({
         queryKey: ["argocd-pods", projectId, selectedEnvironment, slug],
@@ -110,7 +110,7 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
     })
     const lines = logsQuery.data ?? []
 
-    if (isViewer || statusQuery.isPending || statusQuery.isError) return null
+    if (!argoCdInitialized) return null
 
     const errorMessage = (error: Error | null) => {
         if (!error) return undefined
@@ -134,7 +134,7 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
                         <ScrollText className="size-5" aria-hidden="true" />
                         {t("applicationLogs.title")}
                     </CardTitle>
-                    <CardDescription>{statusQuery.data?.initializedAt ? t("applicationLogs.description") : t("applicationLogs.not_configured")}</CardDescription>
+                    <CardDescription>{t("applicationLogs.description")}</CardDescription>
                 </div>
                 {ready && (
                     <LogViewerActions
@@ -146,98 +146,96 @@ const ApplicationLogsSection: React.FC<ApplicationLogsSectionProps> = ({ slug: f
                     />
                 )}
             </CardHeader>
-            {statusQuery.data?.initializedAt && (
-                <CardContent className="flex flex-col gap-4 pt-3">
-                    {environments.length === 0 ? (
-                        <p className="text-sm text-foreground-secondary">{t("applicationLogs.no_environments")}</p>
-                    ) : (
-                        <LogViewer
-                            lines={lines}
-                            selectors={
-                                <>
-                                    {applications && (
-                                        <div className="flex flex-col gap-1">
-                                            <Label htmlFor={`${id}-application`}>{t("applicationLogs.application")}</Label>
-                                            <Select layoutSize="sm" value={slug} onValueChange={setApplicationSlug}>
-                                                <SelectTrigger id={`${id}-application`} className="w-56 max-w-full" dataTestId="application-logs-application">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {applications.map(application => (
-                                                        <SelectItem key={application.slug} value={application.slug}>
-                                                            {application.name}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        </div>
-                                    )}
+            <CardContent className="flex flex-col gap-4 pt-3">
+                {environments.length === 0 ? (
+                    <p className="text-sm text-foreground-secondary">{t("applicationLogs.no_environments")}</p>
+                ) : (
+                    <LogViewer
+                        lines={lines}
+                        selectors={
+                            <>
+                                {applications && (
                                     <div className="flex flex-col gap-1">
-                                        <Label htmlFor={`${id}-environment`}>{t("applicationLogs.environment")}</Label>
-                                        <Select layoutSize="sm" value={selectedEnvironment} onValueChange={setEnvironmentId}>
-                                            <SelectTrigger id={`${id}-environment`} className="w-48" dataTestId="application-logs-environment">
+                                        <Label htmlFor={`${id}-application`}>{t("applicationLogs.application")}</Label>
+                                        <Select layoutSize="sm" value={slug} onValueChange={setApplicationSlug}>
+                                            <SelectTrigger id={`${id}-application`} className="w-56 max-w-full" dataTestId="application-logs-application">
                                                 <SelectValue />
                                             </SelectTrigger>
                                             <SelectContent>
-                                                {environments.map(environment => (
-                                                    <SelectItem key={environment._id} value={environment._id!}>
-                                                        {environment.name}
+                                                {applications.map(application => (
+                                                    <SelectItem key={application.slug} value={application.slug}>
+                                                        {application.name}
                                                     </SelectItem>
                                                 ))}
                                             </SelectContent>
                                         </Select>
                                     </div>
-                                    <div className="flex min-w-0 flex-col gap-1">
-                                        <Label htmlFor={`${id}-pod`}>{t("applicationLogs.pod")}</Label>
-                                        {pods.length > 0 ? (
-                                            <Select layoutSize="sm" value={selectedPod} onValueChange={setPod}>
-                                                <SelectTrigger id={`${id}-pod`} className="w-80 max-w-full" dataTestId="application-logs-pod">
-                                                    <SelectValue />
-                                                </SelectTrigger>
-                                                <SelectContent>
-                                                    {pods.map(candidate => (
-                                                        <SelectItem key={candidate.name} value={candidate.name}>
-                                                            {t("applicationLogs.pod_option", {
-                                                                name: candidate.name,
-                                                                status: candidate.status ?? candidate.health ?? "—",
-                                                                count: candidate.restarts ?? 0
-                                                            })}
-                                                        </SelectItem>
-                                                    ))}
-                                                </SelectContent>
-                                            </Select>
-                                        ) : (
-                                            <p className="flex h-8 items-center text-sm text-foreground-secondary">{podsQuery.isFetching ? t("common.loading") : t("applicationLogs.no_pods")}</p>
-                                        )}
-                                    </div>
-                                </>
-                            }
-                            tailLines={tailLines}
-                            tailOptions={TAIL_OPTIONS}
-                            onTailLinesChange={setTailLines}
-                            onFilterChange={setFilter}
-                            follow={follow}
-                            onFollowChange={setFollow}
-                            {...labels.viewer}
-                            toggles={
-                                <div className="flex items-center gap-2">
-                                    <Checkbox id={`${id}-previous`} checked={previous} onCheckedChange={checked => setPrevious(checked === true)} />
-                                    <Label htmlFor={`${id}-previous`} className="cursor-pointer" title={t("applicationLogs.previous_hint")}>
-                                        {t("applicationLogs.previous")}
-                                    </Label>
+                                )}
+                                <div className="flex flex-col gap-1">
+                                    <Label htmlFor={`${id}-environment`}>{t("applicationLogs.environment")}</Label>
+                                    <Select layoutSize="sm" value={selectedEnvironment} onValueChange={setEnvironmentId}>
+                                        <SelectTrigger id={`${id}-environment`} className="w-48" dataTestId="application-logs-environment">
+                                            <SelectValue />
+                                        </SelectTrigger>
+                                        <SelectContent>
+                                            {environments.map(environment => (
+                                                <SelectItem key={environment._id} value={environment._id!}>
+                                                    {environment.name}
+                                                </SelectItem>
+                                            ))}
+                                        </SelectContent>
+                                    </Select>
                                 </div>
-                            }
-                            outputLabel={t("applicationLogs.title")}
-                            emptyLabel={t("applicationLogs.empty")}
-                            error={error}
-                            pending={logsQuery.isPending}
-                            placeholder={logsQuery.isPlaceholderData}
-                            showOutput={!!selectedPod}
-                            dataTestId="application-logs"
-                        />
-                    )}
-                </CardContent>
-            )}
+                                <div className="flex min-w-0 flex-col gap-1">
+                                    <Label htmlFor={`${id}-pod`}>{t("applicationLogs.pod")}</Label>
+                                    {pods.length > 0 ? (
+                                        <Select layoutSize="sm" value={selectedPod} onValueChange={setPod}>
+                                            <SelectTrigger id={`${id}-pod`} className="w-80 max-w-full" dataTestId="application-logs-pod">
+                                                <SelectValue />
+                                            </SelectTrigger>
+                                            <SelectContent>
+                                                {pods.map(candidate => (
+                                                    <SelectItem key={candidate.name} value={candidate.name}>
+                                                        {t("applicationLogs.pod_option", {
+                                                            name: candidate.name,
+                                                            status: candidate.status ?? candidate.health ?? "—",
+                                                            count: candidate.restarts ?? 0
+                                                        })}
+                                                    </SelectItem>
+                                                ))}
+                                            </SelectContent>
+                                        </Select>
+                                    ) : (
+                                        <p className="flex h-8 items-center text-sm text-foreground-secondary">{podsQuery.isFetching ? t("common.loading") : t("applicationLogs.no_pods")}</p>
+                                    )}
+                                </div>
+                            </>
+                        }
+                        tailLines={tailLines}
+                        tailOptions={TAIL_OPTIONS}
+                        onTailLinesChange={setTailLines}
+                        onFilterChange={setFilter}
+                        follow={follow}
+                        onFollowChange={setFollow}
+                        {...labels.viewer}
+                        toggles={
+                            <div className="flex items-center gap-2">
+                                <Checkbox id={`${id}-previous`} checked={previous} onCheckedChange={checked => setPrevious(checked === true)} />
+                                <Label htmlFor={`${id}-previous`} className="cursor-pointer" title={t("applicationLogs.previous_hint")}>
+                                    {t("applicationLogs.previous")}
+                                </Label>
+                            </div>
+                        }
+                        outputLabel={t("applicationLogs.title")}
+                        emptyLabel={t("applicationLogs.empty")}
+                        error={error}
+                        pending={logsQuery.isPending}
+                        placeholder={logsQuery.isPlaceholderData}
+                        showOutput={!!selectedPod}
+                        dataTestId="application-logs"
+                    />
+                )}
+            </CardContent>
         </Card>
     )
 }

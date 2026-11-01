@@ -25,7 +25,7 @@ import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useContainerEnvironmentApi, { type ContainerKind, type ContainerVariable } from "@/hooks/apiClients/useContainerEnvironmentApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
-import { useIsProjectViewer } from "@/store/useProjectStore"
+import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
 
 /** The sources whose values Argo CD masks and the console can show: a secret map's Secret, a resource's */
 const REVEALABLE_SOURCES = ["secret ", "resource "]
@@ -46,8 +46,8 @@ const ValueCell: React.FC<{ variable: ContainerVariable }> = ({ variable }) => {
 export const ContainerEnvironmentCard: React.FC<{ kind: ContainerKind; id: string; environments: EnvironmentDTO[] }> = ({ kind, id, environments }) => {
     const { t } = useTranslation()
     const { get } = useContainerEnvironmentApi()
-    // A viewer does not read what runs, as with the logs
-    const isViewer = useIsProjectViewer()
+    // Read from the pod through Argo CD, and never by a viewer, as with the logs
+    const argoCdInitialized = useArgoCdInitialized()
     const [chosenId, setChosenId] = useState<string>()
     // The first environment until one is chosen: the list may still be loading on the first render
     const environmentId = chosenId ?? environments[0]?._id
@@ -58,7 +58,7 @@ export const ContainerEnvironmentCard: React.FC<{ kind: ContainerKind; id: strin
     const query = useQuery({
         queryKey: ["container-environment", kind, id, environmentId, revealed],
         queryFn: () => get(kind, id, environmentId!, revealed),
-        enabled: Boolean(environmentId) && !isViewer,
+        enabled: Boolean(environmentId) && argoCdInitialized,
         // The table of the same environment stays while its values come or go: the button shows the wait
         placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[4] === environmentId ? previous : undefined),
         // Values in clear are not kept around once hidden
@@ -67,7 +67,7 @@ export const ContainerEnvironmentCard: React.FC<{ kind: ContainerKind; id: strin
     const data = query.data
     const revealable = revealed || (data?.variables ?? []).some(variable => variable.masked && REVEALABLE_SOURCES.some(prefix => variable.source.startsWith(prefix)))
 
-    if (isViewer) return null
+    if (!argoCdInitialized) return null
 
     return (
         <Card>

@@ -10,9 +10,9 @@ import ApplicationLogsSection from "@/components/application-logs/ApplicationLog
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { ApiStatusHandler } from "@/components/organisms"
 import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
+import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
-import { useIsProjectViewer } from "@/store/useProjectStore"
 import BackendActions from "./partials/BackendActions"
 import BackendConfigurationSection, { ContainerEnvSection } from "./partials/BackendConfigurationSection"
 import BackendHeader, { isBackendAiAvailable } from "./partials/BackendHeader"
@@ -74,13 +74,13 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
     const { id } = useParams<{ id: string }>()
     const backendsApi = useBackendsApi()
     const aiModels = useProjectAiModels()
-    const isViewer = useIsProjectViewer()
+    const argoCdInitialized = useArgoCdInitialized()
     const { t } = useTranslation()
     // The tab lives in the URL (`?tab=logs`) so that a link can point straight to one of them, as in the settings.
     const [searchParams, setSearchParams] = useSearchParams()
     const requestedTab = searchParams.get("tab")
-    // A viewer does not read what runs, as with the logs: no tab for the variables the container received
-    const tabs = TABS.filter(value => value !== "variables" || !isViewer)
+    // The logs and the variables the container received are read through Argo CD, and never by a viewer: no tabs for them otherwise
+    const tabs = TABS.filter(value => (value !== "logs" && value !== "variables") || argoCdInitialized)
     const tab: Tab = tabs.includes(requestedTab as Tab) ? (requestedTab as Tab) : "summary"
 
     const backendQuery = useQuery({ queryKey: ["backend", id], queryFn: () => backendsApi.getSingle(id!), enabled: !!id })
