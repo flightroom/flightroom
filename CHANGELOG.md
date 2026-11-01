@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.0.0] - 2026-11-01
+
 ### Changed
 
 - **BREAKING — `EXPOSURE_URL` Of A Container Is Now `PUBLIC_URL`**: the public URL a backend and a DOCKER frontend are exposed at, origin of the environment and exposure path without a trailing slash, reaches the container as `PUBLIC_URL`. The value and when it is set do not change. `EXPOSURE_URL` is no longer set: code reading it must read `PUBLIC_URL`, and the containers get it at their next deploy. The MCP instructions, `container_environment_get`, the runtime tab and the Edit with AI agent name the new variable
