@@ -7,6 +7,18 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Gradle In The Sandboxes**: a repository with `build.gradle` or `build.gradle.kts` and no `gradlew` is checked with `gradle build --no-daemon -q` when the image of the sandbox has Gradle, as one without `mvnw` is with `mvn`; before, it was not checked at all. The default `OPENSHELL_REGISTRY_HOSTS` take `services.gradle.org`, `github.com` and `release-assets.githubusercontent.com`, where the Gradle wrapper downloads its distribution, so `./gradlew` works in a sandbox; a list of your own must add them. The policy changes with them, so warm sandboxes made before are replaced
+
+### Changed
+
+- **The Languages Of A Template With Their Logos**: on the **Installation** page the languages of each template, in the list and in its form, show the logo of Node.js, Java, Python, Go and .NET
+
+### Fixed
+
+- **A Gateway That Refuses The Templates Says Why**: when the identity of the installation lacks the role a template needs on the workspace of the gateway (admin, to manage them), listing, saving and deleting a template answered a 500; they now answer 403 `SANDBOX_GATEWAY_FORBIDDEN` with what the gateway says, the command that grants the role included, and the page shows it
+
 ## [13.3.0] - 2026-11-01
 
 ### Added
