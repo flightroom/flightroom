@@ -74,6 +74,7 @@ declare module "fastify" {
             CODE_REPOSITORY_GITHUB_CLIENT_SECRET: string
             INSTALLATION_NAME?: string
             INSTALLATION_LOGO_URL?: string
+            INSTALLATION_LOGO_DARK_URL?: string
             /** Comma separated emails of who administers the installation from the console. */
             INSTALLATION_ADMINS?: string
             MARKETING_OPT_IN_ENABLED: boolean

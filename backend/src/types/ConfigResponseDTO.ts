@@ -8,6 +8,8 @@ export default interface ConfigResponseDTO {
     branding: {
         name?: string
         logoUrl?: string
+        /** The logo for the dark theme: without it, logoUrl serves both */
+        logoDarkUrl?: string
     }
     /** The remote MCP server: whether it is on, and the URL to give to MCP clients. */
     mcp: {

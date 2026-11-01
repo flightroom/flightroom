@@ -3,7 +3,7 @@
 A theme restyles the console for the company that runs it: its brand colours, the roundness of the
 corners, its font. It is one stylesheet, `theme.css`, that the console loads in its `<head>` on every
 page. Flightroom ships it empty; replace it at deploy time with your own. Name and logo are set
-apart, with `INSTALLATION_NAME` and `INSTALLATION_LOGO_URL`.
+apart, with `INSTALLATION_NAME`, `INSTALLATION_LOGO_URL` and, for the dark theme, `INSTALLATION_LOGO_DARK_URL`.
 
 ## Writing a theme
 

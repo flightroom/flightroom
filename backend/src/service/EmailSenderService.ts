@@ -248,9 +248,12 @@ class EmailSenderService {
         return this.config.INSTALLATION_NAME?.trim() || "Flightroom"
     }
 
-    /** The logo the console shows, INSTALLATION_LOGO_URL when set; a path is served by the console, so it gets its address. */
+    /**
+     * The logo the console shows: the header of the email is dark in both themes, so INSTALLATION_LOGO_DARK_URL when set,
+     * then INSTALLATION_LOGO_URL; a path is served by the console, so it gets its address.
+     */
     private logoUrl(): string {
-        const logo = this.config.INSTALLATION_LOGO_URL?.trim() || "/img/logo.png"
+        const logo = this.config.INSTALLATION_LOGO_DARK_URL?.trim() || this.config.INSTALLATION_LOGO_URL?.trim() || "/img/logo.png"
         return /^https?:\/\//i.test(logo) ? logo : `${this.config.FRONTEND_URL}${logo.startsWith("/") ? "" : "/"}${logo}`
     }
 

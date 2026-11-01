@@ -41,6 +41,8 @@ export default interface GlobalConfigDTO {
     branding?: {
         name?: string
         logoUrl?: string
+        /** Logo per il tema scuro: senza, logoUrl vale per entrambi */
+        logoDarkUrl?: string
     }
     providers: AuthProvidersConfig
     mcp: {

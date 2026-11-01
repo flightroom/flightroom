@@ -15,7 +15,8 @@ export default async function configurationController(fastify: FastifyInstance) 
             // An empty value, as the chart ships them, is no value
             branding: {
                 name: config.INSTALLATION_NAME?.trim() || undefined,
-                logoUrl: config.INSTALLATION_LOGO_URL?.trim() || undefined
+                logoUrl: config.INSTALLATION_LOGO_URL?.trim() || undefined,
+                logoDarkUrl: config.INSTALLATION_LOGO_DARK_URL?.trim() || undefined
             },
             mcp: {
                 enabled: oauthConfig.enabled,

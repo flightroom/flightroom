@@ -179,6 +179,11 @@ export default fastifyPlugin(
                 INSTALLATION_LOGO_URL: {
                     type: "string"
                 },
+                // The logo for the dark theme, and for the emails, whose header is dark in
+                // both themes. Unset or empty, INSTALLATION_LOGO_URL serves both.
+                INSTALLATION_LOGO_DARK_URL: {
+                    type: "string"
+                },
                 // The marketing opt-in is off unless the operator turns it on. An
                 // installation that has no mailing list must not ask for a consent it
                 // would never use, and the platform never sends commercial email

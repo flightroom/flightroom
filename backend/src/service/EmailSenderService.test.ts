@@ -217,6 +217,7 @@ describe("branding", () => {
     afterEach(() => {
         delete config.INSTALLATION_NAME
         delete config.INSTALLATION_LOGO_URL
+        delete config.INSTALLATION_LOGO_DARK_URL
     })
 
     it("given no installation name, when an email is sent, then it names Flightroom", async () => {
@@ -249,9 +250,19 @@ describe("branding", () => {
         expect(sentMessage().html).toContain(`src="${FRONTEND_URL}/branding/acme.svg"`)
     })
 
+    it("given a logo for the dark theme too, when an email is sent, then its dark header carries the dark one", async () => {
+        config.INSTALLATION_LOGO_URL = "https://cdn.example.com/acme.png"
+        config.INSTALLATION_LOGO_DARK_URL = " https://cdn.example.com/acme-dark.png "
+
+        await service.sendResetPasswordEmail("someone@example.com", "token", "en")
+
+        expect(sentMessage().html).toContain('src="https://cdn.example.com/acme-dark.png"')
+    })
+
     it("given empty values, as the chart ships them, when an email is sent, then Flightroom's are used", async () => {
         config.INSTALLATION_NAME = ""
         config.INSTALLATION_LOGO_URL = "  "
+        config.INSTALLATION_LOGO_DARK_URL = ""
 
         await service.sendResetPasswordEmail("someone@example.com", "token", "en")
 

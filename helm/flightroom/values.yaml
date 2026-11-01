@@ -61,6 +61,9 @@ env:
   # path the console serves. default: empty, Flightroom's own
   INSTALLATION_NAME: ""
   INSTALLATION_LOGO_URL: ""
+  # The logo for the dark theme, and for the emails, whose header is dark.
+  # default: empty, INSTALLATION_LOGO_URL serves both themes
+  INSTALLATION_LOGO_DARK_URL: ""
   # Collect a marketing consent on the registration form. The platform never
   # sends commercial email itself: it only records that the consent was given.
   # default: false
