@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [13.1.0] - 2026-11-01
+
 ### Added
 
 - **Installation Page For The Sandboxes Of The Coding Agent**: a user whose email is in the new `INSTALLATION_ADMINS` (comma separated, any case; unset, nobody) sees **Installation** at the bottom of the sidebar. Its page changes for the whole installation the idle minutes, the maximum age, the sharing, the live previews, the warm sandboxes, the image, the template, the registry hosts and the network executables of the OpenShell sandboxes: a field left empty keeps its environment variable's value, every replica applies a change within 30 seconds, and the image, template and network fields warn that they decide what the sandbox may reach and apply to new sandboxes only. It also shows the gateway, the pool and every sandbox of this installation, never another one's, with what it serves (domain, project, conversation or live preview), its organization, whether it is used and its age; the last 500 lines of the log of each one, credentials masked; and a button that deletes one after a confirmation that says when a job is using it. Saving and deleting are audited (`sandbox_settings_updated`, `sandbox_deleted`). The API is under `/api/installation`, for console sessions only, and the profile says `installationAdmin`
