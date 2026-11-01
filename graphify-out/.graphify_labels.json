@@ -344,12 +344,16 @@
   "342": "[8.6.1] - 2026-10-27",
   "343": "GlobalVariablesController.ts",
   "344": "[9.2.0] - 2026-10-28",
+  "345": "Backend",
   "346": "ErrorBoundary",
+  "347": "ProjectService.ts",
   "348": "AccessProbe",
   "349": "GalaxyLegend.tsx",
   "350": "DeploymentController.ts",
   "351": "[11.5.0] - 2026-10-31",
   "352": "[2.1.0] - 2026-08-06",
+  "353": ".editRepositoryGitlabRaw",
+  "354": "AssistantConfirmationCard.tsx",
   "360": "[8.1.1] - 2026-10-26",
   "363": "domainDeploymentTools.test.ts"
 }
