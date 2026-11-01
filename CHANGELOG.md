@@ -10,6 +10,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Added
 
 - **Gradle In The Sandboxes**: a repository with `build.gradle` or `build.gradle.kts` and no `gradlew` is checked with `gradle build --no-daemon -q` when the image of the sandbox has Gradle, as one without `mvnw` is with `mvn`; before, it was not checked at all. The default `OPENSHELL_REGISTRY_HOSTS` take `services.gradle.org`, `github.com` and `release-assets.githubusercontent.com`, where the Gradle wrapper downloads its distribution, so `./gradlew` works in a sandbox; a list of your own must add them. The policy changes with them, so warm sandboxes made before are replaced
+- **The Variables Of An Environment In A Live Preview**: a live preview opened on a frontend or a domain hands the development server of each frontend and backend what its container gets in the first environment that is not production, the one furthest back: the values of its config maps, secrets and resources there, then `LOG_LEVEL`, `LOG_JSON` and `ENVIRONMENT`. The URLs of the services of the cluster are left out, as from a sandbox they reach nothing: the previews started still find each other. The install and the commands of the coding agent never get them
 
 ### Changed
 
@@ -19,6 +20,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Fixed
 
 - **A Gateway That Refuses The Templates Says Why**: when the identity of the installation lacks the role a template needs on the workspace of the gateway (admin, to manage them), listing, saving and deleting a template answered a 500; they now answer 403 `SANDBOX_GATEWAY_FORBIDDEN` with what the gateway says, the command that grants the role included, and the page shows it
+- **A Live Preview Installs The Design System Of The Project**: a live preview opened from the console wrote into the sandbox the `.npmrc` of the frontend's own design system only, so a frontend building with the one of its project or organization installed from the public registry, and failed on its private package (`ERR_PNPM_TARBALL_HTTP_STATUS` 404, then `vite: not found`). It now takes the design system that applies, as the coding agent does
 
 ## [13.3.0] - 2026-11-01
 
