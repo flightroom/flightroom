@@ -1,14 +1,15 @@
 import { EmptyState, EntityCard, SearchInput, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { CirclePlus, FolderOpen, Info, LayoutDashboard, LayoutGrid, Orbit, Rocket, SearchX, Server, Settings, Sparkles, Workflow } from "lucide-react"
+import { CirclePlus, FolderOpen, Info, LayoutGrid, Orbit, Rocket, SearchX, Settings, Sparkles, Workflow } from "lucide-react"
 import { useMemo, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate } from "react-router-dom"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Button } from "@/components/atoms"
-import EntityCardActions from "@/components/EntityCardActions"
+import EntityCardActions, { HIDE_EMPTY_CARD_BODY } from "@/components/EntityCardActions"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainLinksApi, { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
@@ -16,6 +17,7 @@ import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
+import { backendTechnologyOf, frontendTechnologyOf, type Technology } from "@/utils/technologies"
 import DomainBackendLinks from "./partials/DomainBackendLinks"
 import DomainGalaxy from "./partials/DomainGalaxy"
 import DomainLinkDialog from "./partials/DomainLinkDialog"
@@ -60,14 +62,13 @@ const Domains = () => {
         queryFn: domainsApi.getAll,
         enabled: !!projectId
     })
-    // The members are only needed by the galaxy and the links, so the cards do not wait for them.
-    const showsMembers = view !== "cards"
+    // The galaxy and the links draw the members; the cards show their technologies, without waiting for them.
     const frontendsQuery = useQuery({
         queryKey: ["frontends-by-project-id", projectId],
         queryFn: () => frontendsApi.getByProjectId(projectId!),
-        enabled: !!projectId && showsMembers
+        enabled: !!projectId
     })
-    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId && showsMembers })
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId })
     const domainLinksQuery = useQuery({ queryKey: ["domain-links", projectId], queryFn: domainLinksApi.getAll, enabled: !!projectId && view === "galaxy" })
     // The galaxy draws the resources of the backends it shows
     const resourcesQuery = useResourcesQuery(view === "galaxy")
@@ -91,6 +92,18 @@ const Domains = () => {
         if (!term) return domains
         return domains.filter(domain => [domain.name, domain.slug, domain.description].some(value => value?.toLowerCase().includes(term)))
     }, [domains, searchTerm])
+    // The technologies of the frontends then of the backends of each domain, once each, beside the name of its card.
+    const technologiesByDomain = useMemo(() => {
+        const byDomain = new Map<string, Set<Technology>>()
+        const add = (domainId: string | undefined, technology: Technology | undefined) => {
+            if (!domainId || !technology) return
+            byDomain.set(domainId, (byDomain.get(domainId) ?? new Set()).add(technology))
+        }
+        for (const mfe of frontendsQuery.data ?? []) add(mfe.domainId, frontendTechnologyOf(mfe))
+        for (const backend of backendsQuery.data ?? []) add(backend.domainId, backendTechnologyOf(backend))
+        return byDomain
+    }, [frontendsQuery.data, backendsQuery.data])
+
     // While searching, the galaxy and the links show only the matching domains: their members and the relations between them.
     const galaxy = useMemo(() => {
         const frontends = frontendsQuery.data ?? []
@@ -211,7 +224,17 @@ const Domains = () => {
                                             <EntityCard
                                                 key={domain._id}
                                                 name={domain.name}
+                                                logo={
+                                                    technologiesByDomain.has(domain._id) && (
+                                                        <span className="flex shrink-0 items-center gap-1">
+                                                            {[...(technologiesByDomain.get(domain._id) ?? [])].map(technology => (
+                                                                <TechnologyLogo key={technology} technology={technology} />
+                                                            ))}
+                                                        </span>
+                                                    )
+                                                }
                                                 dataTestId={`domain-card-${domain.slug}`}
+                                                className={HIDE_EMPTY_CARD_BODY}
                                                 // The screens of the domain, as in its header. Edit with AI says why it cannot run when no AI provider is configured.
                                                 actions={
                                                     <EntityCardActions
@@ -224,16 +247,6 @@ const Domains = () => {
                                                 }
                                             >
                                                 {domain.description && <p className="line-clamp-3 text-foreground-secondary">{domain.description}</p>}
-                                                <div className="flex flex-wrap gap-4">
-                                                    <span className="flex items-center gap-1.5">
-                                                        <LayoutDashboard className="size-4" aria-hidden="true" />
-                                                        {t("domains.frontend_count", { count: domain.frontendsCount ?? 0 })}
-                                                    </span>
-                                                    <span className="flex items-center gap-1.5">
-                                                        <Server className="size-4" aria-hidden="true" />
-                                                        {t("domains.backend_count", { count: domain.backendsCount ?? 0 })}
-                                                    </span>
-                                                </div>
                                             </EntityCard>
                                         ))}
                                     </div>

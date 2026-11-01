@@ -5,7 +5,7 @@ import { useNavigate } from "react-router-dom"
 import WorkingAgentsIndicator, { useWorkingAgents } from "@/components/ai-agents/WorkingAgentsIndicator"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge } from "@/components/atoms"
-import EntityCardActions from "@/components/EntityCardActions"
+import EntityCardActions, { HIDE_EMPTY_CARD_BODY } from "@/components/EntityCardActions"
 import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { CanaryType, Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import { cn } from "@/utils/styleUtils"
@@ -42,7 +42,7 @@ export const FrontendCard: React.FC<FrontendCardProps> = ({ mfe }) => {
                     <FrontendKindBadge frontend={mfe} />
                 </>
             }
-            className={cn(agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}
+            className={cn(HIDE_EMPTY_CARD_BODY, agents > 0 && "animate-agent-glow border-primary motion-reduce:animate-none")}
             // The screens of the frontend, as in its header, and the clone of its repository
             actions={
                 <EntityCardActions
