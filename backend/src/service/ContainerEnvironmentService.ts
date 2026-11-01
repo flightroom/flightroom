@@ -13,7 +13,7 @@ import { entryValueIn } from "../types/VariableMapDTO"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
 import { environmentGateway } from "./GitOpsService"
-import { ContainerVariable, containerEnvironment, containerFrontendUrl, GitOpsApplication, gatewayOrigin, isDeployable } from "./gitops/applicationManifests"
+import { ContainerVariable, containerEnvironment, containerExposureUrl, GitOpsApplication, gatewayOrigin, isDeployable } from "./gitops/applicationManifests"
 
 /** A value shown in clear is the team's configuration, not a document: past this it is cut */
 const MAX_VALUE_CHARS = 2_000
@@ -87,24 +87,20 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
 
         const inProject = (ids: unknown[] | undefined) => ({ _id: { $in: (ids ?? []).map(id => toObjectId(String(id))) }, projectId: projectIdObj })
         // Read through the models, as the deploy reads them: a secret comes back decrypted, and only its length goes out
-        const [configMaps, secrets, resources, exposedFrontends] = await Promise.all([
+        const [configMaps, secrets, resources] = await Promise.all([
             ConfigMap.find(inProject(application.configMapIds)),
             Secret.find(inProject(application.secretIds)),
-            Resource.find(inProject(application.resourceIds)),
-            target.kind === "backend"
-                ? Frontend.find({ projectId: projectIdObj, kind: FrontendKind.DOCKER, exposurePath: { $ne: null } }, { slug: 1, environmentVersions: 1, image: 1, exposurePath: 1, backendIds: 1 })
-                : []
+            Resource.find(inProject(application.resourceIds))
         ])
         const id = String(environment._id)
         const notes: string[] = []
-        // A host the deploy would refuse (an invalid subdomain, one two environments share) leaves FRONTEND_URL out, not the rest
+        // A host the deploy would refuse (an invalid subdomain, one two environments share) leaves EXPOSURE_URL out, not the rest
         let origin: string | undefined
         try {
             origin = gatewayOrigin(environmentGateway(project, environment, environments))
         } catch (error) {
-            notes.push(`FRONTEND_URL left out: ${error instanceof Error ? error.message : String(error)}`)
+            notes.push(`EXPOSURE_URL left out: ${error instanceof Error ? error.message : String(error)}`)
         }
-        const callingFrontends = exposedFrontends.filter(frontend => isDeployable(frontend, project.containerRegistry, environment._id))
         const variables = containerEnvironment(
             application,
             environment,
@@ -119,7 +115,7 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
                 resources: new Map(resources.map(resource => [String(resource._id), resourceEnvironmentValues(resource, id)]))
             },
             version,
-            containerFrontendUrl(target.kind, application, origin, callingFrontends)
+            containerExposureUrl(target.kind, application, origin)
         )
         const set = new Set(variables.map(variable => variable.name))
         return {

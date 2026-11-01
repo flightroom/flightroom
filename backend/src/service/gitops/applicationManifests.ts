@@ -140,45 +140,18 @@ export const splitImage = (repository: string): { host: string; name: string } =
     return isRegistry ? { host: first, name: rest.join("/") } : { host: "docker.io", name: repository }
 }
 
-/** A DOCKER frontend as FRONTEND_URL reads it: where it is exposed, and the backends it calls */
-export interface CallingFrontend {
-    exposurePath?: string | null
-    backendIds?: unknown[] | null
-}
-
-/**
- * The path FRONTEND_URL of a backend points at: that of the one exposed frontend calling it, the root of the
- * environment when several or none do, as there is no single frontend to name.
- */
-export const backendFrontendPath = (backendId: unknown, frontends: CallingFrontend[]): string => {
-    const calling = frontends.filter(frontend => frontend.exposurePath && frontend.backendIds?.some(id => String(id) === String(backendId)))
-    return calling.length === 1 ? calling[0].exposurePath! : "/"
-}
-
 /** The public URL of a path on the origin of an environment, without a trailing slash; none without either */
 export const exposedUrl = (origin: string | undefined, path: string | null | undefined): string | undefined => (origin && path ? `${origin}${path.replace(/\/+$/, "")}` : undefined)
 
 /** Where browsers reach an environment through its Gateway: none when the project is exposed on no domain */
 export const gatewayOrigin = (gateway?: { host: string; certificateIssuer?: string }): string | undefined => (gateway ? `${gateway.certificateIssuer ? "https" : "http"}://${gateway.host}` : undefined)
 
-/** What runs as a container: what FRONTEND_URL points at depends on it */
+/** What runs as a container: what EXPOSURE_URL points at depends on it */
 export type ContainerKind = "backend" | "frontend" | "maintenanceAgent"
 
-/**
- * FRONTEND_URL of a container: a frontend's own public URL, a backend's that of the frontend calling it (see
- * {@link backendFrontendPath}), none for a maintenance agent. `callingFrontends` are the exposed frontends the
- * environment runs.
- */
-export const containerFrontendUrl = (
-    kind: ContainerKind,
-    application: { _id?: unknown; exposurePath?: string | null },
-    origin: string | undefined,
-    callingFrontends: CallingFrontend[]
-): string | undefined => {
-    if (kind === "frontend") return exposedUrl(origin, application.exposurePath)
-    if (kind === "backend") return exposedUrl(origin, backendFrontendPath(application._id, callingFrontends))
-    return undefined
-}
+/** EXPOSURE_URL of a container: the public URL it is exposed at, a frontend's and a backend's alike; none for a maintenance agent */
+export const containerExposureUrl = (kind: ContainerKind, application: { exposurePath?: string | null }, origin: string | undefined): string | undefined =>
+    kind === "maintenanceAgent" ? undefined : exposedUrl(origin, application.exposurePath)
 
 export const HTTP_PORT_VARIABLE = "HTTP_PORT"
 
@@ -187,17 +160,17 @@ export const containerPortOf = (application: Pick<GitOpsApplication, "port">): n
 
 /**
  * The variables the values hand the chart as `env`, after HTTP_PORT: the targets of a maintenance agent, the
- * LOG_LEVEL and LOG_JSON of the environment, FRONTEND_URL when given, and the OpenTelemetry name, environment and
+ * LOG_LEVEL and LOG_JSON of the environment, EXPOSURE_URL when given, and the OpenTelemetry name, environment and
  * version of the application. The deploy writes them, `containerEnvironment` reads them: the two never differ.
  */
 export const containerVariables = (
     application: GitOpsApplication,
     environment: { slug: string } & EnvironmentLogging,
     version: string,
-    frontendUrl?: string
+    exposureUrl?: string
 ): Array<{ name: string; value: string }> => [
     ...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []),
-    ...runtimeVariables(environment, frontendUrl),
+    ...runtimeVariables(environment, exposureUrl),
     ...serviceVariables(application, environment, version)
 ]
 
@@ -270,12 +243,12 @@ export const containerEnvironment = (
     mapNames: ContainerMapNames,
     values: ContainerSourceValues,
     version: string,
-    frontendUrl?: string
+    exposureUrl?: string
 ): ContainerVariable[] => {
     const variables: Array<ContainerVariable & { fromEnv: boolean }> = [
         // The Deployment hands it, not the CronJob: the container of a JOB agent, which only the CronJob runs, has none
         ...(application.maintenance?.kind === MaintenanceAgentKind.JOB ? [] : [{ name: HTTP_PORT_VARIABLE, value: String(containerPortOf(application)) }]),
-        ...containerVariables(application, environment, version, frontendUrl)
+        ...containerVariables(application, environment, version, exposureUrl)
     ].map(({ name, value }) => ({ name, source: "platform", value, fromEnv: true }))
     for (const source of containerEnvSources(application, mapNames)) {
         if (source.kind === "platform") {
@@ -330,7 +303,7 @@ export const renderApplicationValues = (
     mapNames: ContainerMapNames,
     gateway?: ApplicationGateway,
     containerRegistry?: string,
-    frontendUrl?: string,
+    exposureUrl?: string,
     probeTemplate?: ProbeSettings
 ): string => {
     const repository = applicationImageRepository(application, containerRegistry)
@@ -358,7 +331,7 @@ export const renderApplicationValues = (
         environmentMaps: sources.filter(source => source.kind === "configMap").map(source => source.name),
         // The chart lists the secrets after the config maps: a resource's Secret and the platform's are secrets too
         secrets: sources.filter(source => source.kind !== "configMap").map(source => source.name),
-        env: containerVariables(application, environment, version, frontendUrl),
+        env: containerVariables(application, environment, version, exposureUrl),
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }

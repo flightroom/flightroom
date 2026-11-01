@@ -15,10 +15,10 @@ export const isLogLevel = (value: unknown): value is LogLevel => typeof value ==
 
 export const LOG_LEVEL_VARIABLE = "LOG_LEVEL"
 export const LOG_JSON_VARIABLE = "LOG_JSON"
-export const FRONTEND_URL_VARIABLE = "FRONTEND_URL"
+export const EXPOSURE_URL_VARIABLE = "EXPOSURE_URL"
 
 /** Set by every deploy on every container: a resource setting one of them too would be there twice */
-export const RUNTIME_VARIABLES = [LOG_LEVEL_VARIABLE, LOG_JSON_VARIABLE, FRONTEND_URL_VARIABLE]
+export const RUNTIME_VARIABLES = [LOG_LEVEL_VARIABLE, LOG_JSON_VARIABLE, EXPOSURE_URL_VARIABLE]
 
 /** What an environment sets of them; an environment saved before they existed logs at info, in JSON */
 export interface EnvironmentLogging {
@@ -26,9 +26,9 @@ export interface EnvironmentLogging {
     logJson?: boolean | null
 }
 
-/** The variables a container gets in an environment; FRONTEND_URL only where there is one */
-export const runtimeVariables = (environment: EnvironmentLogging, frontendUrl?: string): Array<{ name: string; value: string }> => [
+/** The variables a container gets in an environment; EXPOSURE_URL only where there is one */
+export const runtimeVariables = (environment: EnvironmentLogging, exposureUrl?: string): Array<{ name: string; value: string }> => [
     { name: LOG_LEVEL_VARIABLE, value: isLogLevel(environment.logLevel) ? environment.logLevel : DEFAULT_LOG_LEVEL },
     { name: LOG_JSON_VARIABLE, value: String(environment.logJson !== false) },
-    ...(frontendUrl ? [{ name: FRONTEND_URL_VARIABLE, value: frontendUrl }] : [])
+    ...(exposureUrl ? [{ name: EXPOSURE_URL_VARIABLE, value: exposureUrl }] : [])
 ]

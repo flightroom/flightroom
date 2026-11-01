@@ -5,10 +5,9 @@ import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 import {
     APPLICATIONS_CHART_FOLDER,
     applicationImageRepository,
-    backendFrontendPath,
     CHART_FILES,
     containerEnvironment,
-    containerFrontendUrl,
+    containerExposureUrl,
     exposedUrl,
     gatewayOrigin,
     isDeployable,
@@ -226,7 +225,7 @@ describe("renderApplicationValues", () => {
         expect(() => render({ environmentVersions })).toThrow()
     })
 
-    it("given an environment that never set its logging, when its values are rendered, then the container logs at info in JSON and gets no FRONTEND_URL", () => {
+    it("given an environment that never set its logging, when its values are rendered, then the container logs at info in JSON and gets no EXPOSURE_URL", () => {
         expect(parse(render()).env).toEqual([
             { name: "LOG_LEVEL", value: "info" },
             { name: "LOG_JSON", value: "true" },
@@ -241,7 +240,7 @@ describe("renderApplicationValues", () => {
         expect(values.env).toEqual([
             { name: "LOG_LEVEL", value: "debug" },
             { name: "LOG_JSON", value: "true" },
-            { name: "FRONTEND_URL", value: "https://dev.example.com/shop" },
+            { name: "EXPOSURE_URL", value: "https://dev.example.com/shop" },
             { name: "OTEL_SERVICE_NAME", value: "orders" },
             { name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3" }
         ])
@@ -259,33 +258,6 @@ describe("renderApplicationValues", () => {
         const values = parse(render({ environmentVersions: [{ environmentId: environment._id, version: "1.2.3+build,7" }] }))
 
         expect(values.env).toContainEqual({ name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3%2Bbuild%2C7" })
-    })
-})
-
-describe("backendFrontendPath", () => {
-    const backendId = new Types.ObjectId()
-
-    it("given one exposed frontend calling the backend, when its path is read, then it is that frontend's", () => {
-        const frontends = [
-            { exposurePath: "/shop/", backendIds: [backendId] },
-            { exposurePath: "/admin", backendIds: [new Types.ObjectId()] }
-        ]
-
-        expect(backendFrontendPath(String(backendId), frontends)).toBe("/shop/")
-    })
-
-    it.each([
-        ["no frontend calls it", [{ exposurePath: "/shop", backendIds: [] }]],
-        [
-            "several frontends call it",
-            [
-                { exposurePath: "/shop", backendIds: [backendId] },
-                { exposurePath: "/admin", backendIds: [backendId] }
-            ]
-        ],
-        ["the frontend calling it is not exposed", [{ exposurePath: null, backendIds: [backendId] }]]
-    ])("given %s, when its path is read, then it is the root of the environment", (_case, frontends) => {
-        expect(backendFrontendPath(backendId, frontends)).toBe("/")
     })
 })
 
@@ -478,7 +450,7 @@ env:
     value: debug
   - name: LOG_JSON
     value: "false"
-  - name: FRONTEND_URL
+  - name: EXPOSURE_URL
     value: https://shop.example.com/shop
   - name: OTEL_SERVICE_NAME
     value: orders
@@ -540,7 +512,7 @@ maintenance:
             { name: "HTTP_PORT", source: "platform", value: "3000" },
             { name: "LOG_LEVEL", source: "platform", value: "debug" },
             { name: "LOG_JSON", source: "platform", value: "false" },
-            { name: "FRONTEND_URL", source: "platform", value: "https://shop.example.com/shop" },
+            { name: "EXPOSURE_URL", source: "platform", value: "https://shop.example.com/shop" },
             { name: "OTEL_SERVICE_NAME", source: "platform", value: "orders" },
             { name: "OTEL_RESOURCE_ATTRIBUTES", source: "platform", value: "deployment.environment=production,service.version=1.2.3" }
         ])
@@ -584,7 +556,7 @@ maintenance:
             { name: "FLIGHTROOM_API_URL", source: "platform", masked: { set: true } },
             { name: "FLIGHTROOM_AGENT_TOKEN", source: "platform", masked: { set: true } }
         ])
-        expect(agentVariables.map(variable => variable.name)).not.toContain("FRONTEND_URL")
+        expect(agentVariables.map(variable => variable.name)).not.toContain("EXPOSURE_URL")
     })
 
     it("given a JOB maintenance agent, which only its CronJob runs, when its environment is built, then there is no HTTP_PORT: the CronJob does not set it", () => {
@@ -597,15 +569,14 @@ maintenance:
     })
 })
 
-describe("containerFrontendUrl", () => {
-    const frontends = [{ exposurePath: "/shop", backendIds: ["b1"] }]
-
-    it("given a frontend, a backend and a maintenance agent, when FRONTEND_URL is resolved, then it is the frontend's own URL, the calling frontend's, and none", () => {
+describe("containerExposureUrl", () => {
+    it("given a frontend, a backend and a maintenance agent, when EXPOSURE_URL is resolved, then it is where each container is exposed, and none for the agent", () => {
         const origin = gatewayOrigin({ host: "dev.example.com", certificateIssuer: "letsencrypt" })
 
-        expect(containerFrontendUrl("frontend", { exposurePath: "/checkout/" }, origin, frontends)).toBe("https://dev.example.com/checkout")
-        expect(containerFrontendUrl("backend", { _id: "b1" }, origin, frontends)).toBe("https://dev.example.com/shop")
-        expect(containerFrontendUrl("maintenanceAgent", { _id: "b1" }, origin, frontends)).toBeUndefined()
+        expect(containerExposureUrl("frontend", { exposurePath: "/checkout/" }, origin)).toBe("https://dev.example.com/checkout")
+        expect(containerExposureUrl("backend", { exposurePath: "/products-database/" }, origin)).toBe("https://dev.example.com/products-database")
+        expect(containerExposureUrl("backend", {}, origin)).toBeUndefined()
+        expect(containerExposureUrl("maintenanceAgent", { exposurePath: "/agent" }, origin)).toBeUndefined()
     })
 
     it("given a Gateway without a certificate issuer, or none, when its origin is read, then it is plain HTTP, or nothing", () => {

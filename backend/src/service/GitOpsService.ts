@@ -34,7 +34,7 @@ import {
     applicationValuesPath,
     CHART_FILES,
     ContainerKind,
-    containerFrontendUrl,
+    containerExposureUrl,
     GitOpsApplication,
     gatewayOrigin,
     isDeployable,
@@ -627,11 +627,6 @@ export class GitOpsService extends BaseAuthorizedService {
         const backends = await Backend.find({ projectId, ...scope })
         const frontends = await Frontend.find({ projectId, kind: FrontendKind.DOCKER, ...scope })
         const applications: GitOpsApplication[] = [...backends, ...frontends, ...(await maintenanceApplications(await MaintenanceAgent.find({ projectId, ...scope })))]
-        // The frontends a backend may be called by, those of other domains too: FRONTEND_URL names the one that does
-        const exposedFrontends = await Frontend.find(
-            { projectId, kind: FrontendKind.DOCKER, exposurePath: { $ne: null } },
-            { slug: 1, environmentVersions: 1, image: 1, exposurePath: 1, backendIds: 1 }
-        )
         const backendIds = new Set(backends.map(backend => String(backend._id)))
         const frontendIds = new Set(frontends.map(frontend => String(frontend._id)))
         const existingSlugs = new Set(
@@ -671,12 +666,11 @@ export class GitOpsService extends BaseAuthorizedService {
                 const gateway = gateways.get(String(environment._id))
                 const listener = gateway && applicationListener(gateway)
                 const route = gateway && listener ? { name: gateway.name, listener, hsts: listener === HTTPS_LISTENER, ipAllowList: ipAllowListMiddleware(gateway) } : undefined
-                // Where browsers reach the environment: a project exposed on no domain gives its containers no FRONTEND_URL
+                // Where browsers reach the environment: a project exposed on no domain gives its containers no EXPOSURE_URL
                 const origin = gatewayOrigin(gateway)
-                const callingFrontends = exposedFrontends.filter(frontend => isDeployable(frontend, containerRegistry, environment._id))
                 const kindOf = (application: GitOpsApplication & { _id?: unknown }): ContainerKind =>
                     frontendIds.has(String(application._id)) ? "frontend" : backendIds.has(String(application._id)) ? "backend" : "maintenanceAgent"
-                const frontendUrl = (application: GitOpsApplication & { _id?: unknown }) => containerFrontendUrl(kindOf(application), application, origin, callingFrontends)
+                const exposureUrl = (application: GitOpsApplication & { _id?: unknown }) => containerExposureUrl(kindOf(application), application, origin)
                 // A maintenance agent is made from a backend template, and probed as a backend
                 const probeTemplate = (application: GitOpsApplication & { _id?: unknown }) => (kindOf(application) === "frontend" ? probes?.frontend : probes?.backend)
                 const files: GitOpsFile[] = [
@@ -687,7 +681,7 @@ export class GitOpsService extends BaseAuthorizedService {
                         .map(application => ({
                             path: applicationValuesPath(application),
                             action: "update" as const,
-                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, frontendUrl(application), probeTemplate(application))
+                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, exposureUrl(application), probeTemplate(application))
                         }))
                 ]
                 const onPushed = (revision: string) => revisions.set(String(environment._id), revision)

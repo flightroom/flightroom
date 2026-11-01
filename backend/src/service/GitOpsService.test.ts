@@ -813,27 +813,27 @@ describe("GitOpsService.deploy", () => {
             }
             const envOf = (path: string) => parse(applicationsCommit.mock.calls[0][1].find(file => file.path === path)!.content!).env
 
-            it("given an environment that logs at warn in JSON and a frontend calling a backend, when it is deployed, then both containers get the logging and the URL of the frontend", async () => {
+            it("given an environment that logs at warn in JSON and a frontend calling a backend, when it is deployed, then both containers get the logging and the URL each is exposed at", async () => {
                 exposedOn({ domain: "example.com", certificateIssuer: "letsencrypt" }, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
                 withShopCallingOrders()
 
                 await deployOf(production)()
 
-                const expected = [
+                const expected = (path: string) => [
                     { name: "LOG_LEVEL", value: "warn" },
                     { name: "LOG_JSON", value: "true" },
-                    { name: "FRONTEND_URL", value: "https://app.example.com/shop" }
+                    { name: "EXPOSURE_URL", value: `https://app.example.com${path}` }
                 ]
                 // Each container then gets its own OpenTelemetry name and version (ServiceVariables)
                 const service = (slug: string, version: string) => [
                     { name: "OTEL_SERVICE_NAME", value: slug },
                     { name: "OTEL_RESOURCE_ATTRIBUTES", value: expect.stringContaining(`service.version=${version}`) }
                 ]
-                expect(envOf("orders-api.yaml")).toEqual([...expected, ...service("orders-api", "1.4.0")])
-                expect(envOf("shop-fe.yaml")).toEqual([...expected, ...service("shop-fe", "2.0.0")])
+                expect(envOf("orders-api.yaml")).toEqual([...expected("/api/orders"), ...service("orders-api", "1.4.0")])
+                expect(envOf("shop-fe.yaml")).toEqual([...expected("/shop"), ...service("shop-fe", "2.0.0")])
             })
 
-            it("given a project exposed on no domain, when it is deployed, then the containers get their logging and no FRONTEND_URL", async () => {
+            it("given a project exposed on no domain, when it is deployed, then the containers get their logging and no EXPOSURE_URL", async () => {
                 exposedOn(undefined, { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink })
                 withShopCallingOrders()
 

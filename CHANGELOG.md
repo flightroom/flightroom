@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Changed
+
+- **BREAKING — `FRONTEND_URL` Of A Container Is Now `EXPOSURE_URL`, Its Own Public URL**: every backend and DOCKER frontend gets `EXPOSURE_URL`, the origin of the environment followed by the path that container is exposed at, without a trailing slash. A backend no longer gets the URL of the frontend calling it, or the origin alone when none or several did: a backend exposed on its own, such as one serving its own pages, had a URL where nothing served them. A container without an exposure path, or a project exposed on no domain, gets none. `FRONTEND_URL` is no longer set: code reading it must read `EXPOSURE_URL`, and the containers get it at their next deploy. The MCP instructions, `container_environment_get` and the Edit with AI agent name the new variable
+
 ## [11.8.0] - 2026-10-31
 
 ### Added
