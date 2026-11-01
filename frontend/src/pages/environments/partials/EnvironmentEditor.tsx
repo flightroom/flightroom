@@ -19,7 +19,7 @@ import {
     ToggleGroupItem
 } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
-import { ExternalLink, FileText, Globe, LocateFixed, Lock, Moon, Shield, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
+import { ExternalLink, FileText, Globe, LocateFixed, Lock, Moon, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
 import { type ReactNode, useEffect, useId, useRef, useState } from "react"
 import { Controller, type FieldErrors, FormProvider, useController, useForm, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -29,6 +29,7 @@ import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import LogLevelOption from "@/components/molecules/LogLevelOption"
 import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS, type KubeGreenSettings, LOG_LEVELS, type LogLevel } from "@/hooks/apiClients/useEnvironmentsApi"
+import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
 import { effectiveSubdomain } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -162,13 +163,12 @@ function DaysField() {
 }
 
 /** Le schede dell'editor: una sezione alla volta, invece di tutti i campi in una pagina da scorrere */
-type EditorTab = "general" | "exposure" | "network" | "logs" | "kubeGreen" | "danger"
+type EditorTab = "general" | "exposure" | "logs" | "kubeGreen" | "danger"
 
 /** I campi di ogni scheda: dicono quale scheda ha modifiche non salvate, e su quale portare chi salva con un errore */
 const TAB_FIELDS: Record<Exclude<EditorTab, "danger">, (keyof EnvironmentFormData)[]> = {
-    general: ["name", "slug", "description", "color", "isProduction"],
-    exposure: ["subdomain", "namespace", "domains"],
-    network: ["ipAllowList"],
+    general: ["name", "slug", "description", "color", "isProduction", "namespace"],
+    exposure: ["subdomain", "domains", "ipAllowList"],
     logs: ["logLevel", "logJson"],
     kubeGreen: ["kubeGreen"]
 }
@@ -176,7 +176,6 @@ const TAB_FIELDS: Record<Exclude<EditorTab, "danger">, (keyof EnvironmentFormDat
 const TAB_ICONS: Record<EditorTab, ReactNode> = {
     general: <SlidersHorizontal />,
     exposure: <Globe />,
-    network: <Shield />,
     logs: <FileText />,
     kubeGreen: <Moon />,
     danger: <TriangleAlert />
@@ -224,35 +223,38 @@ function LogFormatField() {
 
     return (
         <WithHelp help={t("environment.form.log_format_help")}>
-            <Label id={labelId}>{t("environment.form.log_format")}</Label>
-            <Controller
-                control={control}
-                name="logJson"
-                render={({ field }) => (
-                    <ToggleGroup
-                        type="single"
-                        variant="outline"
-                        aria-labelledby={labelId}
-                        // Senza valore salvato vale JSON, come il default del backend
-                        value={field.value === false ? "text" : "json"}
-                        // Radix deseleziona con un secondo clic sulla voce attiva: una delle due resta sempre scelta
-                        onValueChange={value => value && field.onChange(value === "json")}
-                        // Un controllo segmentato: le due voci si dividono la larghezza, quella scelta in bianco sul grigio
-                        className="grid w-full grid-cols-2 gap-1 rounded-md bg-muted p-1"
-                        dataTestId="environment-log-format"
-                    >
-                        {(["json", "text"] as const).map(format => (
-                            <ToggleGroupItem
-                                key={format}
-                                value={format}
-                                className="h-9 w-full rounded-sm border-0 bg-transparent font-medium text-foreground-secondary shadow-none hover:bg-background/60 data-[state=on]:bg-background data-[state=on]:font-semibold data-[state=on]:text-foreground data-[state=on]:shadow-input"
-                            >
-                                {t(`environment.form.log_formats.${format}`)}
-                            </ToggleGroupItem>
-                        ))}
-                    </ToggleGroup>
-                )}
-            />
+            {/* Etichetta, distanza e altezza (40px) come il SelectControl del livello accanto: i testi d'aiuto restano sulla stessa riga */}
+            <div className="grid gap-1">
+                <Label id={labelId}>{t("environment.form.log_format")}</Label>
+                <Controller
+                    control={control}
+                    name="logJson"
+                    render={({ field }) => (
+                        <ToggleGroup
+                            type="single"
+                            variant="outline"
+                            aria-labelledby={labelId}
+                            // Senza valore salvato vale JSON, come il default del backend
+                            value={field.value === false ? "text" : "json"}
+                            // Radix deseleziona con un secondo clic sulla voce attiva: una delle due resta sempre scelta
+                            onValueChange={value => value && field.onChange(value === "json")}
+                            // Un controllo segmentato: le due voci si dividono la larghezza, quella scelta in bianco sul grigio
+                            className="grid w-full grid-cols-2 gap-1 rounded-md bg-muted p-1"
+                            dataTestId="environment-log-format"
+                        >
+                            {(["json", "text"] as const).map(format => (
+                                <ToggleGroupItem
+                                    key={format}
+                                    value={format}
+                                    className="h-8 w-full rounded-sm border-0 bg-transparent font-medium text-foreground-secondary shadow-none hover:bg-background/60 data-[state=on]:bg-background data-[state=on]:font-semibold data-[state=on]:text-foreground data-[state=on]:shadow-input"
+                                >
+                                    {t(`environment.form.log_formats.${format}`)}
+                                </ToggleGroupItem>
+                            ))}
+                        </ToggleGroup>
+                    )}
+                />
+            </div>
         </WithHelp>
     )
 }
@@ -374,6 +376,9 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
     const [tab, setTab] = useState<EditorTab>("general")
     // Il namespace serve solo a GitOps: senza, l'ambiente non finisce in nessun cluster
     const isGitOpsEnabled = Boolean(useProjectStore(state => state.project?.gitOps?.enabled))
+    // Il namespace lo legge Argo CD: finche' non e' inizializzato non c'e' un cluster in cui finisca
+    const argoCdInitialized = useArgoCdInitialized()
+    const isNamespaceVisible = isGitOpsEnabled && argoCdInitialized
     const name = form.watch("name")
     const slug = form.watch("slug")
     const color = form.watch("color")
@@ -385,10 +390,10 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
     const { isSubmitting, isDirty, dirtyFields, errors } = form.formState
     // L'host e il namespace salvati, non quelli in modifica: l'intestazione mostra l'ambiente com'e' oggi
     const savedHost = isEdit && isGitOpsEnabled && domain ? exposedHost(domain, effectiveSubdomain(formData)) : undefined
-    const savedNamespace = isEdit && isGitOpsEnabled ? formData.namespace || formData.slug.toLowerCase() : undefined
+    const savedNamespace = isEdit && isNamespaceVisible ? formData.namespace || formData.slug.toLowerCase() : undefined
 
-    // Senza GitOps i campi di esposizione, rete, log e kube-green non hanno effetto; eliminare vale solo per un ambiente salvato
-    const tabs: EditorTab[] = ["general", ...(isGitOpsEnabled ? (["exposure", "network", "logs", "kubeGreen"] as const) : []), ...(isEdit ? (["danger"] as const) : [])]
+    // Senza GitOps i campi di esposizione, log e kube-green non hanno effetto; eliminare vale solo per un ambiente salvato
+    const tabs: EditorTab[] = ["general", ...(isGitOpsEnabled ? (["exposure", "logs", "kubeGreen"] as const) : []), ...(isEdit ? (["danger"] as const) : [])]
     // I domini delle pagine host stanno in Esposizione; senza GitOps quella scheda non c'e' e tornano in Generale
     const fieldsOf = (value: EditorTab): (keyof EnvironmentFormData)[] => (value === "danger" ? [] : value === "general" && !isGitOpsEnabled ? [...TAB_FIELDS.general, "domains"] : TAB_FIELDS[value])
     const isTabDirty = (value: EditorTab) => fieldsOf(value).some(field => hasDirty(dirtyFields[field]))
@@ -454,9 +459,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                             <div className="flex flex-wrap items-center gap-2">
                                 <h2 className="text-xl font-semibold">{isEdit ? formData.name : t("environment.page.form.create_title")}</h2>
                                 {isEdit && <span className="rounded-sm bg-muted px-1.5 py-0.5 font-mono text-xs text-foreground-secondary">{formData.slug}</span>}
-                                {isEdit && (
-                                    <Badge variant={formData.isProduction ? "warning" : "outline"}>{t(formData.isProduction ? "environment.production" : "environment.page.not_production")}</Badge>
-                                )}
+                                {isEdit && formData.isProduction && <Badge variant="warning">{t("environment.production")}</Badge>}
                             </div>
                             {(savedHost || savedNamespace) && (
                                 <p className="flex flex-wrap items-center gap-x-2 font-mono text-sm text-foreground-secondary">
@@ -544,6 +547,24 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                         />
                                         <Switch name="isProduction" label={t("environment.is_production")} />
                                     </div>
+                                    {isNamespaceVisible && (
+                                        <WithHelp help={t("environment.form.namespace_description")} helpId={namespaceHelpId}>
+                                            <TextField
+                                                name="namespace"
+                                                dataTestId="environment-namespace"
+                                                label={t("environment.form.namespace")}
+                                                placeholder={slug?.toLowerCase() || t("environment.form.namespace_placeholder")}
+                                                aria-describedby={namespaceHelpId}
+                                                className="font-mono"
+                                                rules={{
+                                                    pattern: {
+                                                        value: /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)?$/,
+                                                        message: t("environment.form.namespace_invalid")
+                                                    }
+                                                }}
+                                            />
+                                        </WithHelp>
+                                    )}
                                     {!isGitOpsEnabled && domainsField}
                                 </TabSection>
                             </TabsContent>
@@ -561,30 +582,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
                                                     : t("environment.form.subdomain_description_no_domain")
                                             }
                                         />
-                                        <WithHelp help={t("environment.form.namespace_description")} helpId={namespaceHelpId}>
-                                            <TextField
-                                                name="namespace"
-                                                dataTestId="environment-namespace"
-                                                label={t("environment.form.namespace")}
-                                                placeholder={slug?.toLowerCase() || t("environment.form.namespace_placeholder")}
-                                                aria-describedby={namespaceHelpId}
-                                                className="font-mono"
-                                                rules={{
-                                                    pattern: {
-                                                        value: /^([a-z0-9]([a-z0-9-]{0,61}[a-z0-9])?)?$/,
-                                                        message: t("environment.form.namespace_invalid")
-                                                    }
-                                                }}
-                                            />
-                                        </WithHelp>
                                         {domainsField}
-                                    </TabSection>
-                                </TabsContent>
-                            )}
-
-                            {isGitOpsEnabled && (
-                                <TabsContent value="network" forceMount className="mt-6 data-[state=inactive]:hidden">
-                                    <TabSection title={t("environment.page.form.sections.network")} description={t("environment.page.form.descriptions.network")}>
                                         <TextareaChipsField
                                             name="ipAllowList"
                                             dataTestId="environment-ip-allow-list"

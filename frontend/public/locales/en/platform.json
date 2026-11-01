@@ -1409,10 +1409,9 @@
                 "delete": "Delete",
                 "sections": {
                     "general": "General",
-                    "exposure": "Exposure",
+                    "exposure": "Exposure and network",
                     "logs": "Logs",
-                    "kube_green": "kube-green",
-                    "network": "Network access"
+                    "kube_green": "kube-green"
                 },
                 "cancel": "Cancel",
                 "create": "Create",
@@ -1420,8 +1419,7 @@
                 "unsaved": "Unsaved changes",
                 "descriptions": {
                     "general": "How the environment is named and recognised in the console.",
-                    "exposure": "Where the environment is reachable and where GitOps writes its manifests.",
-                    "network": "Who can reach the applications of the environment.",
+                    "exposure": "Where the environment is reachable and who can reach its applications.",
                     "logs": "Passed to every container of the environment from its next deploy."
                 }
             },
@@ -1434,13 +1432,11 @@
                 "discard": "Discard changes"
             },
             "promotion_order": "Promotion order",
-            "not_production": "Not production",
             "namespace_label": "namespace {{namespace}}",
             "tabs": {
                 "label": "Environment sections",
                 "general": "General",
-                "exposure": "Exposure",
-                "network": "Network access",
+                "exposure": "Exposure and network",
                 "logs": "Logs",
                 "kubeGreen": "Scheduled shutdown",
                 "danger": "Danger zone",

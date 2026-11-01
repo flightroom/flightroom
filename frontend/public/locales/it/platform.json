@@ -804,10 +804,9 @@
                 "delete": "Elimina",
                 "sections": {
                     "general": "Generale",
-                    "exposure": "Esposizione",
+                    "exposure": "Esposizione e rete",
                     "logs": "Log",
-                    "kube_green": "kube-green",
-                    "network": "Accesso di rete"
+                    "kube_green": "kube-green"
                 },
                 "cancel": "Annulla",
                 "create": "Crea",
@@ -815,8 +814,7 @@
                 "unsaved": "Modifiche non salvate",
                 "descriptions": {
                     "general": "Come l'ambiente si chiama e si riconosce nella console.",
-                    "exposure": "Dove l'ambiente è raggiungibile e dove GitOps ne scrive i manifest.",
-                    "network": "Chi può raggiungere le applicazioni dell'ambiente.",
+                    "exposure": "Dove l'ambiente è raggiungibile e chi può raggiungere le sue applicazioni.",
                     "logs": "Passati a ogni container dell'ambiente dal prossimo deploy."
                 }
             },
@@ -831,13 +829,11 @@
                 "discard": "Scarta le modifiche"
             },
             "promotion_order": "Ordine di promozione",
-            "not_production": "Non di produzione",
             "namespace_label": "namespace {{namespace}}",
             "tabs": {
                 "label": "Sezioni dell'ambiente",
                 "general": "Generale",
-                "exposure": "Esposizione",
-                "network": "Accesso di rete",
+                "exposure": "Esposizione e rete",
                 "logs": "Log",
                 "kubeGreen": "Spegnimento programmato",
                 "danger": "Zona pericolosa",

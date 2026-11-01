@@ -3,6 +3,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
 import { ArrowRight, GripVertical, Plus } from "lucide-react"
 import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
@@ -20,6 +21,20 @@ import EnvironmentEditor, { EnvironmentFormData } from "./partials/EnvironmentEd
 /** Selezione della tessera "nuovo ambiente": l'editor si apre vuoto */
 const NEW = "new"
 
+/** L'ambiente aperto sta nell'URL (`?env=DEV`, `?env=new` in creazione): un link porta a quell'ambiente */
+const ENV_PARAM = "env"
+
+const newDraft = (): EnvironmentFormData => ({
+    name: "",
+    slug: "",
+    description: "",
+    color: getRandomColor(),
+    isProduction: false,
+    logLevel: "info",
+    logJson: true,
+    kubeGreen: KUBE_GREEN_DEFAULTS
+})
+
 /** Da tastiera ogni freccia sposta di un posto: l'ordine si salva una volta sola, quando gli spostamenti si fermano */
 const REORDER_SAVE_DELAY_MS = 600
 
@@ -31,9 +46,10 @@ export default function EnvironmentsPage() {
     const notifications = useToastNotificationStore()
     const queryClient = useQueryClient()
     const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-    // Id dell'ambiente aperto nell'editor, NEW per la creazione; senza scelta vale il primo
-    const [selectedId, setSelectedId] = useState<string>()
-    const [draft, setDraft] = useState<EnvironmentFormData>()
+    // Slug dell'ambiente aperto nell'editor, NEW per la creazione; senza scelta, o con uno slug che non c'e', vale il primo
+    const [searchParams, setSearchParams] = useSearchParams()
+    const selectedSlug = searchParams.get(ENV_PARAM) ?? undefined
+    const [draft, setDraft] = useState(newDraft)
     const [isEditorDirty, setIsEditorDirty] = useState(false)
     // Tessera scelta mentre l'editor ha modifiche non salvate: si cambia solo dopo la conferma
     const [pendingSelection, setPendingSelection] = useState<string>()
@@ -53,9 +69,25 @@ export default function EnvironmentsPage() {
         if (!pendingOrder.current) setOrderedEnvironments(environmentQuery.data ?? [])
     }, [environmentQuery.data])
 
-    const isCreating = selectedId === NEW && draft !== undefined
-    const selected = isCreating ? undefined : (orderedEnvironments.find(env => env._id === selectedId) ?? orderedEnvironments[0])
+    const selected = orderedEnvironments.find(env => env.slug === selectedSlug) ?? (selectedSlug === NEW ? undefined : orderedEnvironments[0])
+    const isCreating = selected === undefined && selectedSlug === NEW
     const canReorder = orderedEnvironments.length > 1
+
+    const setSelectedSlug = (slug?: string) =>
+        setSearchParams(
+            params => {
+                if (slug) params.set(ENV_PARAM, slug)
+                else params.delete(ENV_PARAM)
+                return params
+            },
+            { replace: true }
+        )
+
+    // L'URL riporta sempre l'ambiente mostrato, anche quando e' il primo scelto per default
+    // biome-ignore lint/correctness/useExhaustiveDependencies: setSelectedSlug cambia a ogni render, conta solo l'ambiente mostrato
+    useEffect(() => {
+        if (selected && selected.slug !== selectedSlug) setSelectedSlug(selected.slug)
+    }, [selected?.slug, selectedSlug])
 
     const updateOrderMutation = useMutation({
         mutationFn: (environments: EnvironmentDTO[]) => updateEnvironmentsOrder(environments.map(env => env._id)),
@@ -99,29 +131,20 @@ export default function EnvironmentsPage() {
 
     const onSaved = async (environment: EnvironmentDTO) => {
         await environmentQuery.refetch()
-        setSelectedId(environment._id)
+        setSelectedSlug(environment.slug)
     }
 
     const openCreate = () => {
-        setDraft({
-            name: "",
-            slug: "",
-            description: "",
-            color: getRandomColor(),
-            isProduction: false,
-            logLevel: "info",
-            logJson: true,
-            kubeGreen: KUBE_GREEN_DEFAULTS
-        })
-        setSelectedId(NEW)
+        setDraft(newDraft())
+        setSelectedSlug(NEW)
     }
 
-    const select = (id: string) => (id === NEW ? openCreate() : setSelectedId(id))
+    const select = (slug: string) => (slug === NEW ? openCreate() : setSelectedSlug(slug))
 
-    const requestSelection = (id: string) => {
-        if (id === (isCreating ? NEW : selected?._id)) return
-        if (isEditorDirty) setPendingSelection(id)
-        else select(id)
+    const requestSelection = (slug: string) => {
+        if (slug === (isCreating ? NEW : selected?.slug)) return
+        if (isEditorDirty) setPendingSelection(slug)
+        else select(slug)
     }
 
     const discardAndSelect = () => {
@@ -136,7 +159,7 @@ export default function EnvironmentsPage() {
         // Chiuso qui: il dialog resterebbe aperto sull'ambiente selezionato dopo, che potrebbe essere di produzione
         setIsDeleteDialogOpen(false)
         await environmentQuery.refetch()
-        setSelectedId(undefined)
+        setSelectedSlug(undefined)
         notifications.showSuccessNotification({
             message: t("environment.page.delete.success", { name: selected.name })
         })
@@ -172,7 +195,7 @@ export default function EnvironmentsPage() {
                                     >
                                         <button
                                             type="button"
-                                            onClick={() => requestSelection(env._id)}
+                                            onClick={() => requestSelection(env.slug)}
                                             aria-pressed={isSelected}
                                             data-testid={`environment-edit-${env.slug}`}
                                             className={cn(
@@ -227,7 +250,7 @@ export default function EnvironmentsPage() {
                         </li>
                     </ol>
 
-                    {isCreating && <EnvironmentEditor key={NEW} formData={draft} onSaved={onSaved} onCancel={() => setSelectedId(undefined)} onDirtyChange={setIsEditorDirty} />}
+                    {isCreating && <EnvironmentEditor key={NEW} formData={draft} onSaved={onSaved} onCancel={() => setSelectedSlug(undefined)} onDirtyChange={setIsEditorDirty} />}
                     {selected && (
                         <EnvironmentEditor key={selected._id} id={selected._id} formData={selected} onSaved={onSaved} onDelete={() => setIsDeleteDialogOpen(true)} onDirtyChange={setIsEditorDirty} />
                     )}
