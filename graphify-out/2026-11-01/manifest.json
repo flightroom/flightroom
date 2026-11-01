@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793570041.6758873,
-    "ast_hash": "01fce0b017ad83ee8a9e9bb016e207bf",
+    "mtime": 1793570368.0458639,
+    "ast_hash": "e66083323b817823af48da1a0aee03eb",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3245,8 +3245,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/AiWorkspace.tsx": {
-    "mtime": 1793569394.7559226,
-    "ast_hash": "39bb9d73050a1110bfc2c8f6f212808b",
+    "mtime": 1793570357.4054096,
+    "ast_hash": "3387f604388c0ce436a059a4027e5277",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-workspace/WorkspaceHeader.tsx": {

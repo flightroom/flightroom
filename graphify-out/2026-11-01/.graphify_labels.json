@@ -365,10 +365,22 @@
   "363": "[8.6.0] - 2026-10-27",
   "364": "[Unreleased]",
   "365": "ChargeForce",
+  "366": "ResourceService.test.ts",
+  "367": "environmentFiles",
+  "368": "GoogleStorageAccount.test.ts",
   "369": "GithubClient.test.ts",
+  "370": "NewMissionDialog.tsx",
   "371": "package.json",
   "372": "noSQL.ts",
+  "373": ".environment",
+  "374": "App.tsx",
+  "375": "tarArchive.ts",
+  "376": "projectContext",
   "377": "assist",
+  "378": "GetAllDataDTO",
   "379": "projectWizardStateMachine.ts",
-  "380": "[8.6.1] - 2026-10-27"
+  "380": "[8.6.1] - 2026-10-27",
+  "381": "useIsDark",
+  "382": "[6.0.0] - 2026-10-23",
+  "383": "GitHub Logo (Octocat Mark)"
 }
