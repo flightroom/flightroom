@@ -1528,6 +1528,10 @@
             "no_versions": "Nessuna versione pubblicata.",
             "hosting_description": "Da dove Flightroom serve il bundle del frontend",
             "container_description": "Come viene eseguito il container del frontend"
+        },
+        "overview_tabs": {
+            "release": "Rilascio",
+            "hosting": "Hosting"
         }
     },
     "color_picker": {

@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793573376.8458033,
-    "ast_hash": "8e34255a055b043ae37d3696aa911662",
+    "mtime": 1793573863.2853873,
+    "ast_hash": "f1af8c526c47176957865d7ce30ee7a4",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793573376.8447483,
-    "ast_hash": "42c75928b1b4bfe77ebbb09d3d662cf0",
+    "mtime": 1793573863.2869022,
+    "ast_hash": "71ab9b0d003ec6eb91313cd839a3f100",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793573451.3197913,
-    "ast_hash": "4a2afa4ae0d2b9ce8179717b78a5ad19",
+    "mtime": 1793573901.4409273,
+    "ast_hash": "a609ad7eef68fd85853a7feced09de38",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4655,8 +4655,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/FrontendOverview.tsx": {
-    "mtime": 1793569984.3940332,
-    "ast_hash": "b6a759d95bb8c6c889135560473689d3",
+    "mtime": 1793573863.883094,
+    "ast_hash": "3c879c641b82128012f373138c0a4ce8",
     "semantic_hash": ""
   },
   "frontend/src/pages/project-users/partials/MemberAiTokens.tsx": {

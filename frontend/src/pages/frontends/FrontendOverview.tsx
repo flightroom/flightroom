@@ -1,7 +1,8 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, DescriptionItem, DescriptionList, Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
+import { Boxes, Info, Rocket, ScrollText, Server, SlidersHorizontal, Variable } from "lucide-react"
 import { useTranslation } from "react-i18next"
-import { useParams } from "react-router-dom"
+import { useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
 import ApplicationLogsSection from "@/components/application-logs/ApplicationLogsSection"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
@@ -9,10 +10,12 @@ import { Badge } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import useFrontendsApi, { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
+import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
 import BackendConfigurationSection, { ContainerEnvSection } from "@/pages/backends/partials/BackendConfigurationSection"
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
+import ContainerEnvironmentCard from "@/pages/backends/partials/ContainerEnvironmentCard"
 import { EnvironmentVersionsCard } from "@/pages/backends/partials/EnvironmentVersionFields"
 import { FrontendActions, FrontendHeader, isAiEditAvailable } from "@/pages/frontends/partials/components"
 import { CANARY_DEPLOYMENT_TYPE_LABEL_KEYS, CANARY_TYPE_LABEL_KEYS, HOST_TYPE_LABEL_KEYS } from "@/pages/frontends/partials/labels"
@@ -98,6 +101,31 @@ const FrontendHostingSection: React.FC<{ frontend: Frontend; storages: Storage[]
     )
 }
 
+/** A DOCKER frontend has the tabs of a backend, a BUNDLE its release and its hosting */
+const CONTAINER_TABS = ["summary", "configuration", "resources", "logs", "variables"] as const
+const BUNDLE_TABS = ["summary", "release", "hosting"] as const
+type Tab = (typeof CONTAINER_TABS)[number] | (typeof BUNDLE_TABS)[number]
+
+const TAB_ICONS: Record<Tab, React.ComponentType> = {
+    summary: Info,
+    configuration: SlidersHorizontal,
+    resources: Boxes,
+    logs: ScrollText,
+    variables: Variable,
+    release: Rocket,
+    hosting: Server
+}
+
+const TAB_LABEL_KEYS: Record<Tab, string> = {
+    summary: "backends.overview_tabs.summary",
+    configuration: "backends.overview_tabs.configuration",
+    resources: "backends.overview_tabs.resources",
+    logs: "backends.overview_tabs.logs",
+    variables: "backends.overview_tabs.variables",
+    release: "frontend.overview_tabs.release",
+    hosting: "frontend.overview_tabs.hosting"
+}
+
 /** The read-only screen of a frontend, as a backend's: what it serves, from where, and with what. Edited in its settings. */
 const FrontendOverview: React.FC = () => {
     const { t } = useTranslation()
@@ -106,6 +134,10 @@ const FrontendOverview: React.FC = () => {
     const storageApi = useStorageApi()
     const projectId = useProjectStore(state => state.project?._id)
     const aiModels = useProjectAiModels()
+    const argoCdInitialized = useArgoCdInitialized()
+    // The tab lives in the URL (`?tab=logs`), as in the overview of a backend
+    const [searchParams, setSearchParams] = useSearchParams()
+    const requestedTab = searchParams.get("tab")
 
     const frontendQuery = useQuery({ queryKey: ["mfe", id], queryFn: () => frontendsApi.getSingle(id), enabled: !!id })
     const frontend: Frontend | undefined = frontendQuery.data
@@ -119,6 +151,9 @@ const FrontendOverview: React.FC = () => {
     const secretsQuery = useVariableMapsQuery("secret")
 
     const aiAvailable = isAiEditAvailable(frontend, aiModels.enabled)
+    // The logs and the variables the container received are read through Argo CD, and never by a viewer: no tabs for them otherwise
+    const tabs: readonly Tab[] = isDocker ? CONTAINER_TABS.filter(value => (value !== "logs" && value !== "variables") || argoCdInitialized) : BUNDLE_TABS
+    const tab: Tab = tabs.includes(requestedTab as Tab) ? (requestedTab as Tab) : "summary"
 
     return (
         <ApiStatusHandler queries={[frontendQuery, versionsQuery, buildsQuery, storagesQuery, environmentsQuery, configMapsQuery, secretsQuery]} interceptEmpty={false}>
@@ -131,23 +166,63 @@ const FrontendOverview: React.FC = () => {
                         // The actions live in Edit with AI: here only when that screen does not exist
                         actions={!aiModels.isPending && !aiAvailable && <FrontendActions frontend={frontend} />}
                     />
-                    {/* What runs where, for either kind: only a container has replicas */}
-                    <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} container={isDocker ? frontend : undefined} />
-                    <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
-                    {isDocker ? (
-                        <>
-                            <BackendVersionsTable versions={buildsQuery.data ?? []} />
-                            <BackendConfigurationSection backend={frontend} environments={environmentsQuery.data ?? []} description={t("frontend.overview.container_description")} />
-                            <BackendVariableMapsSection backend={frontend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
-                            <ContainerEnvSection backend={frontend} />
-                            <ApplicationLogsSection slug={frontend.slug} environments={environmentsQuery.data ?? []} />
-                        </>
-                    ) : (
-                        <>
-                            <FrontendReleaseSection frontend={frontend} versions={versionsQuery.data ?? []} />
-                            <FrontendHostingSection frontend={frontend} storages={storagesQuery.data ?? []} />
-                        </>
-                    )}
+                    <Tabs value={tab} onValueChange={value => setSearchParams({ tab: value }, { replace: true })}>
+                        <TabsList aria-label={t("backends.overview_tabs.label")}>
+                            {tabs.map(value => {
+                                const Icon = TAB_ICONS[value]
+                                return (
+                                    <TabsTrigger key={value} value={value} dataTestId={`frontend-tab-${value}`}>
+                                        <Icon />
+                                        {t(TAB_LABEL_KEYS[value])}
+                                    </TabsTrigger>
+                                )
+                            })}
+                        </TabsList>
+
+                        {/* What runs where, for either kind: only a container has replicas */}
+                        <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
+                            <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} container={isDocker ? frontend : undefined} />
+                            <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
+                            {isDocker && <BackendVersionsTable versions={buildsQuery.data ?? []} />}
+                        </TabsContent>
+
+                        {isDocker ? (
+                            <>
+                                <TabsContent value="configuration" className="mt-6 flex flex-col gap-6">
+                                    <BackendConfigurationSection backend={frontend} environments={environmentsQuery.data ?? []} description={t("frontend.overview.container_description")} />
+                                </TabsContent>
+
+                                {/* A frontend uses no resources: its config maps and secrets, and the variables it declares */}
+                                <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
+                                    <BackendVariableMapsSection
+                                        backend={frontend}
+                                        configMaps={configMapsQuery.data ?? []}
+                                        secrets={secretsQuery.data ?? []}
+                                        environments={environmentsQuery.data ?? []}
+                                    />
+                                    <ContainerEnvSection backend={frontend} />
+                                </TabsContent>
+
+                                <TabsContent value="logs" className="mt-6 flex flex-col gap-6">
+                                    <ApplicationLogsSection slug={frontend.slug} environments={environmentsQuery.data ?? []} />
+                                </TabsContent>
+
+                                <TabsContent value="variables" className="mt-6 flex flex-col gap-6">
+                                    <ContainerEnvironmentCard kind="frontend" id={frontend._id!} environments={environmentsQuery.data ?? []} />
+                                </TabsContent>
+                            </>
+                        ) : (
+                            <>
+                                <TabsContent value="release" className="mt-6 flex flex-col gap-6">
+                                    <FrontendReleaseSection frontend={frontend} versions={versionsQuery.data ?? []} />
+                                </TabsContent>
+
+                                <TabsContent value="hosting" className="mt-6 flex flex-col gap-6">
+                                    <FrontendHostingSection frontend={frontend} storages={storagesQuery.data ?? []} />
+                                </TabsContent>
+                            </>
+                        )}
+                    </Tabs>
                 </div>
             )}
         </ApiStatusHandler>

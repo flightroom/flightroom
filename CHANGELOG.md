@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Starter Questions To Begin With**: the starter questions of the assistant drawn outside a section include where to start, how to create a new agent and how to create an app, and no longer how to connect an S3 bucket, which only the **Storages** page suggests
 - **Configuration Of A Backend Without Its Paths**: the **Configuration** card of the overview of a backend no longer lists its exposure, docs and OpenAPI paths, which its settings still edit; the environment names of the **Version per environment** tiles are as tall as the production badge, so the versions line up
+- **The Overview Of A Frontend In Tabs**: the overview of a frontend splits into tabs, the one open in the URL (`?tab=`), as that of a backend. A DOCKER frontend has those of a backend, **Summary**, **Configuration**, **Resources** with its config maps, secrets and declared variables, and, once Argo CD is initialized, **Logs** and **Injected variables**; a BUNDLE one **Summary**, **Release** with its canary and published versions, and **Hosting**
 
 ## [14.0.0] - 2026-11-01
 

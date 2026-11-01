@@ -1339,6 +1339,10 @@
             "no_versions": "No version published yet.",
             "hosting_description": "Where Flightroom serves the frontend bundle from",
             "container_description": "How the frontend container runs"
+        },
+        "overview_tabs": {
+            "release": "Release",
+            "hosting": "Hosting"
         }
     },
     "environmentVariables": {

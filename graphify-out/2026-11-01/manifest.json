@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793573247.6848252,
-    "ast_hash": "4531ba4d7f73ab70c1de0fe392bd9033",
+    "mtime": 1793573376.8458033,
+    "ast_hash": "8e34255a055b043ae37d3696aa911662",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793573246.826709,
-    "ast_hash": "4aaa972747f1c2330ca34ccb0f25ef6e",
+    "mtime": 1793573376.8447483,
+    "ast_hash": "42c75928b1b4bfe77ebbb09d3d662cf0",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793572704.4766362,
-    "ast_hash": "78e28f04d0acb72039125780e99a6ea7",
+    "mtime": 1793573451.3197913,
+    "ast_hash": "4a2afa4ae0d2b9ce8179717b78a5ad19",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2445,8 +2445,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantPanel.tsx": {
-    "mtime": 1793572653.1604064,
-    "ast_hash": "9d072cd9d568b5427a531f47185184f7",
+    "mtime": 1793573382.74578,
+    "ast_hash": "b32b85b508be5d88f9533f7245358ddd",
     "semantic_hash": ""
   },
   "frontend/src/components/assistant/AssistantToggleButton.tsx": {
