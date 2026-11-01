@@ -165,14 +165,11 @@ const TAB_ICONS: Record<EditorTab, ReactNode> = {
 /** dirtyFields segna true le foglie cambiate, dentro oggetti e array che rispecchiano il form */
 const hasDirty = (value: unknown): boolean => value === true || (typeof value === "object" && value !== null && Object.values(value).some(hasDirty))
 
-/** Una sezione di una scheda: titolo e spiegazione a sinistra, i campi a destra */
+/** Una sezione di una scheda: titolo e spiegazione in cima, i campi sotto a tutta larghezza */
 function TabSection({ title, description, icon, children, dataTestId }: { title: string; description?: string; icon?: ReactNode; children: ReactNode; dataTestId?: string }) {
     return (
-        <section className="grid gap-x-10 gap-y-4 lg:grid-cols-[240px_minmax(0,1fr)]" data-testid={dataTestId}>
-            {/* In cima alla colonna: altrimenti la cella della griglia lo allinea all'altezza dei campi */}
-            <div className="self-start">
-                <SectionHeader as="h3" title={title} description={description} icon={icon} />
-            </div>
+        <section className="flex flex-col gap-4" data-testid={dataTestId}>
+            <SectionHeader as="h3" title={title} description={description} icon={icon} />
             <div className="flex min-w-0 flex-col gap-4">{children}</div>
         </section>
     )
