@@ -28,14 +28,16 @@ const Installation: React.FC = () => {
         <SinglePageLayout title={t("installation.title")} description={t("installation.subtitle")}>
             {admin ? (
                 <div className="flex flex-col gap-6">
-                    <ApiStatusHandler queries={[settingsQuery]}>
-                        {settingsQuery.data && (
-                            <div className="flex flex-col gap-6">
-                                <SandboxPoolStatus summary={settingsQuery.data} />
-                                <SandboxSettingsForm summary={settingsQuery.data} />
-                            </div>
-                        )}
-                    </ApiStatusHandler>
+                    {/* Only the first load goes through ApiStatusHandler: it unmounts its children while a query fetches, so every
+                        poll would flash the page and throw away what the admin is typing in the form */}
+                    {settingsQuery.data ? (
+                        <div className="flex flex-col gap-6">
+                            <SandboxPoolStatus summary={settingsQuery.data} />
+                            <SandboxSettingsForm summary={settingsQuery.data} />
+                        </div>
+                    ) : (
+                        <ApiStatusHandler queries={[settingsQuery]}>{null}</ApiStatusHandler>
+                    )}
                     <InstallationSandboxes />
                 </div>
             ) : (

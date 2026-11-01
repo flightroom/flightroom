@@ -1,4 +1,4 @@
-import { Sidebar as DesignSystemSidebar, type SidebarProps as DesignSystemSidebarProps, type SidebarNavItemProps } from "@flightroom/design-system"
+import { Sidebar as DesignSystemSidebar, type SidebarProps as DesignSystemSidebarProps, NavItem, type SidebarNavItemProps } from "@flightroom/design-system"
 import { BookOpen, ServerCog } from "lucide-react"
 import * as React from "react"
 import { useTranslation } from "react-i18next"
@@ -49,18 +49,6 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
 
     const mainNavItems = mainNavSections.flatMap(section => section.items).map(item => ({ ...item, active: item.path ? isActivePath(location.pathname, item.path) : false }))
     // La sidebar del design system accetta una lista piatta: il titolo di una sezione lo rende la sua prima voce.
-    const secondaryNavItems: SidebarNavItemProps[] = user?.installationAdmin
-        ? [
-              {
-                  name: t("installation.navigation"),
-                  path: INSTALLATION_PATH,
-                  icon: <ServerCog />,
-                  active: location.pathname === INSTALLATION_PATH,
-                  dataTestId: "sidebar-installation"
-              },
-              ...EXTERNAL_NAV_ITEMS
-          ]
-        : EXTERNAL_NAV_ITEMS
     const sectionTitleByPath = new Map(mainNavSections.flatMap(section => (section.title && section.items[0]?.path ? [[section.items[0].path, section.title] as const] : [])))
 
     return (
@@ -77,7 +65,28 @@ const Sidebar = React.forwardRef<HTMLDivElement, SidebarProps>(({ mainNavSection
                 </Link>
             }
             mainNavItems={mainNavItems}
-            secondaryNavItems={secondaryNavItems}
+            // Le voci secondarie del design system si aprono in una nuova scheda: vanno bene per la documentazione, non per una pagina della console,
+            // che sta nello slot sopra di loro con il Link del router e lo stile delle voci secondarie.
+            secondaryContent={({ isCollapsed }) =>
+                user?.installationAdmin ? (
+                    <NavItem
+                        type="main"
+                        href={INSTALLATION_PATH}
+                        name={t("installation.navigation")}
+                        icon={<ServerCog />}
+                        active={location.pathname === INSTALLATION_PATH}
+                        isSidebarCollapsed={isCollapsed}
+                        className="px-3 text-sm text-foreground-secondary [&_svg]:size-4"
+                        renderLink={({ href, className, children, onClick }) => (
+                            <Link to={href} className={className} onClick={onClick} aria-current={location.pathname === INSTALLATION_PATH ? "page" : undefined}>
+                                {children}
+                            </Link>
+                        )}
+                        dataTestId="sidebar-installation"
+                    />
+                ) : null
+            }
+            secondaryNavItems={EXTERNAL_NAV_ITEMS}
             footer={({ isCollapsed }) => <UserButton isSidebarCollapsed={isCollapsed} />}
             renderLink={({ href, className, children, onClick }) => {
                 const sectionTitle = sectionTitleByPath.get(href)

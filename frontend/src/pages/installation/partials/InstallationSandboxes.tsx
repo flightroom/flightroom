@@ -140,7 +140,12 @@ export const InstallationSandboxes: React.FC = () => {
                 <CardDescription>{t("installation.sandboxes.description")}</CardDescription>
             </CardHeader>
             <CardContent className="pt-4">
-                <ApiStatusHandler queries={[sandboxesQuery]} emptyLabel={t("installation.sandboxes.empty")}>
+                {/* Only the first load goes through ApiStatusHandler: it hides its children while a query fetches, so every poll would flash the table */}
+                {sandboxesQuery.data === undefined ? (
+                    <ApiStatusHandler queries={[sandboxesQuery]}>{null}</ApiStatusHandler>
+                ) : sandboxesQuery.data.length === 0 ? (
+                    <p className="text-sm text-foreground-secondary">{t("installation.sandboxes.empty")}</p>
+                ) : (
                     <div className="overflow-x-auto">
                         <Table>
                             <TableHeader>
@@ -157,7 +162,7 @@ export const InstallationSandboxes: React.FC = () => {
                                 </TableRow>
                             </TableHeader>
                             <TableBody>
-                                {(sandboxesQuery.data ?? []).map(sandbox => (
+                                {sandboxesQuery.data.map(sandbox => (
                                     <TableRow key={sandbox.name} data-testid={`installation-sandbox-${sandbox.name}`}>
                                         <TableCell>
                                             <div className="flex flex-col">
@@ -219,7 +224,7 @@ export const InstallationSandboxes: React.FC = () => {
                             </TableBody>
                         </Table>
                     </div>
-                </ApiStatusHandler>
+                )}
             </CardContent>
 
             <SandboxLogsDialog name={logsOf} onClose={() => setLogsOf(undefined)} />
