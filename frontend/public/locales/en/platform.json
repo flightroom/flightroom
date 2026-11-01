@@ -3375,7 +3375,9 @@
                 "title": "Delete map",
                 "warning": "This action cannot be undone",
                 "description": "You are about to delete {{name}} and all its values.",
-                "confirmation": "Type {{name}} to confirm"
+                "confirmation": "Type {{name}} to confirm",
+                "gitops_config_map": "With GitOps it stays in the configuration repository and in the cluster until the next deploy of each environment.",
+                "gitops_secret": "With GitOps it stays in the configuration repository and in the cluster until the next deploy of each environment, and in the history of the repository after that: the values are base64 encoded, not encrypted. If they were sensitive, rotate them."
             }
         },
         "errors": {

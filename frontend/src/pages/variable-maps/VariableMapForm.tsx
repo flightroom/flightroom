@@ -113,6 +113,7 @@ const VariableMapDangerZone: React.FC<{ kind: VariableMapKind; map: VariableMap;
     const notifications = useToastNotificationStore()
     const queryClient = useQueryClient()
     const navigate = useNavigate()
+    const isGitOpsEnabled = Boolean(useProjectStore(state => state.project?.gitOps?.enabled))
 
     const deleteMutation = useMutation({
         mutationFn: () => deleteSingle(map._id!),
@@ -145,7 +146,11 @@ const VariableMapDangerZone: React.FC<{ kind: VariableMapKind; map: VariableMap;
                 isPending={deleteMutation.isPending}
                 title={t("variableMaps.danger_zone.dialog.title")}
                 warningTitle={t("variableMaps.danger_zone.dialog.warning")}
-                warningDescription={t("variableMaps.danger_zone.dialog.description", { name: map.name })}
+                // With GitOps the deletion reaches the repository and the cluster only with the next deploy of each environment
+                warningDescription={[
+                    t("variableMaps.danger_zone.dialog.description", { name: map.name }),
+                    ...(isGitOpsEnabled ? [t(`variableMaps.danger_zone.dialog.gitops_${kind === "secret" ? "secret" : "config_map"}`)] : [])
+                ].join(" ")}
                 confirmationHint={t("variableMaps.danger_zone.dialog.confirmation", { name: map.name })}
                 placeholder={map.name}
                 confirmLabel={t("variableMaps.danger_zone.button")}

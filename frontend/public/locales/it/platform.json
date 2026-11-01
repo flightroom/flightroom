@@ -3394,7 +3394,9 @@
                 "title": "Elimina mappa",
                 "warning": "Questa azione non si può annullare",
                 "description": "Stai per eliminare {{name}} e tutti i suoi valori.",
-                "confirmation": "Scrivi {{name}} per confermare"
+                "confirmation": "Scrivi {{name}} per confermare",
+                "gitops_config_map": "Con GitOps resta nel repository di configurazione e nel cluster fino al prossimo deploy di ogni ambiente.",
+                "gitops_secret": "Con GitOps resta nel repository di configurazione e nel cluster fino al prossimo deploy di ogni ambiente, e nella storia del repository anche dopo: i valori sono in base64, non cifrati. Se erano sensibili, ruotali."
             }
         },
         "errors": {
