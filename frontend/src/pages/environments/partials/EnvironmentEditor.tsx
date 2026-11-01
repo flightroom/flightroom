@@ -1,4 +1,5 @@
 import {
+    Card,
     ColorSwatch,
     Label,
     SectionHeader,
@@ -275,14 +276,16 @@ function LogFormatField() {
     )
 }
 
-/** Una sezione di una scheda: titolo e spiegazione a sinistra, in alto; i campi a destra */
+/** Una sezione di una scheda, in una card bianca: titolo e spiegazione a sinistra, in alto; i campi a destra */
 function TabSection({ title, description, icon, children, dataTestId }: { title: string; description?: string; icon?: ReactNode; children: ReactNode; dataTestId?: string }) {
     return (
-        // items-start: senza, la cella del titolo si allunga quanto i campi e il titolo finisce a meta' altezza
-        <section className="grid items-start gap-x-10 gap-y-4 lg:grid-cols-[220px_minmax(0,1fr)]" data-testid={dataTestId}>
-            <SectionHeader as="h3" title={title} description={description} icon={icon} />
-            <div className="flex min-w-0 flex-col gap-5">{children}</div>
-        </section>
+        <Card dataTestId={dataTestId}>
+            {/* items-start: senza, la cella del titolo si allunga quanto i campi e il titolo finisce a meta' altezza */}
+            <section className="grid items-start gap-x-10 gap-y-4 lg:grid-cols-[220px_minmax(0,1fr)]">
+                <SectionHeader as="h3" title={title} description={description} icon={icon} />
+                <div className="flex min-w-0 flex-col gap-5">{children}</div>
+            </section>
+        </Card>
     )
 }
 
