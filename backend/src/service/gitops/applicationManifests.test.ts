@@ -229,6 +229,7 @@ describe("renderApplicationValues", () => {
         expect(parse(render()).env).toEqual([
             { name: "LOG_LEVEL", value: "info" },
             { name: "LOG_JSON", value: "true" },
+            { name: "ENVIRONMENT", value: "production" },
             { name: "OTEL_SERVICE_NAME", value: "orders" },
             { name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3" }
         ])
@@ -240,6 +241,7 @@ describe("renderApplicationValues", () => {
         expect(values.env).toEqual([
             { name: "LOG_LEVEL", value: "debug" },
             { name: "LOG_JSON", value: "true" },
+            { name: "ENVIRONMENT", value: "production" },
             { name: "PUBLIC_URL", value: "https://dev.example.com/shop" },
             { name: "OTEL_SERVICE_NAME", value: "orders" },
             { name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3" }
@@ -450,6 +452,8 @@ env:
     value: debug
   - name: LOG_JSON
     value: "false"
+  - name: ENVIRONMENT
+    value: production
   - name: PUBLIC_URL
     value: https://shop.example.com/shop
   - name: OTEL_SERVICE_NAME
@@ -494,6 +498,8 @@ env:
     value: debug
   - name: LOG_JSON
     value: "false"
+  - name: ENVIRONMENT
+    value: production
   - name: OTEL_SERVICE_NAME
     value: cleaner
   - name: OTEL_RESOURCE_ATTRIBUTES
@@ -508,10 +514,11 @@ maintenance:
     })
 
     it("given a backend, when its environment is built, then the platform's variables come first, in clear, HTTP_PORT from its port", () => {
-        expect(variables().slice(0, 6)).toEqual([
+        expect(variables().slice(0, 7)).toEqual([
             { name: "HTTP_PORT", source: "platform", value: "3000" },
             { name: "LOG_LEVEL", source: "platform", value: "debug" },
             { name: "LOG_JSON", source: "platform", value: "false" },
+            { name: "ENVIRONMENT", source: "platform", value: "production" },
             { name: "PUBLIC_URL", source: "platform", value: "https://shop.example.com/shop" },
             { name: "OTEL_SERVICE_NAME", source: "platform", value: "orders" },
             { name: "OTEL_RESOURCE_ATTRIBUTES", source: "platform", value: "deployment.environment=production,service.version=1.2.3" }

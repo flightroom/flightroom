@@ -822,6 +822,7 @@ describe("GitOpsService.deploy", () => {
                 const expected = (path: string) => [
                     { name: "LOG_LEVEL", value: "warn" },
                     { name: "LOG_JSON", value: "true" },
+                    { name: "ENVIRONMENT", value: "production" },
                     { name: "PUBLIC_URL", value: `https://app.example.com${path}` }
                 ]
                 // Each container then gets its own OpenTelemetry name and version (ServiceVariables)
@@ -839,7 +840,7 @@ describe("GitOpsService.deploy", () => {
 
                 await deployOf(production)()
 
-                expect(envOf("orders-api.yaml").map((variable: { name: string }) => variable.name)).toEqual(["LOG_LEVEL", "LOG_JSON", "OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES"])
+                expect(envOf("orders-api.yaml").map((variable: { name: string }) => variable.name)).toEqual(["LOG_LEVEL", "LOG_JSON", "ENVIRONMENT", "OTEL_SERVICE_NAME", "OTEL_RESOURCE_ATTRIBUTES"])
             })
         })
     })

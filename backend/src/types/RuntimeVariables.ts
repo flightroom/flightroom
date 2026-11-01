@@ -1,6 +1,6 @@
 /**
  * The environment variables every deploy hands to the containers of an environment, next to HTTP_PORT: how much
- * they log and in which format, set on the environment, and the public URL of the frontend.
+ * they log and in which format, set on the environment, the slug of the environment and the public URL of the container.
  */
 
 /** The levels an environment logs at, from the most verbose: the names most logging libraries take */
@@ -15,10 +15,11 @@ export const isLogLevel = (value: unknown): value is LogLevel => typeof value ==
 
 export const LOG_LEVEL_VARIABLE = "LOG_LEVEL"
 export const LOG_JSON_VARIABLE = "LOG_JSON"
+export const ENVIRONMENT_VARIABLE = "ENVIRONMENT"
 export const PUBLIC_URL_VARIABLE = "PUBLIC_URL"
 
 /** Set by every deploy on every container: a resource setting one of them too would be there twice */
-export const RUNTIME_VARIABLES = [LOG_LEVEL_VARIABLE, LOG_JSON_VARIABLE, PUBLIC_URL_VARIABLE]
+export const RUNTIME_VARIABLES = [LOG_LEVEL_VARIABLE, LOG_JSON_VARIABLE, ENVIRONMENT_VARIABLE, PUBLIC_URL_VARIABLE]
 
 /** What an environment sets of them; an environment saved before they existed logs at info, in JSON */
 export interface EnvironmentLogging {
@@ -27,8 +28,9 @@ export interface EnvironmentLogging {
 }
 
 /** The variables a container gets in an environment; PUBLIC_URL only where there is one */
-export const runtimeVariables = (environment: EnvironmentLogging, publicUrl?: string): Array<{ name: string; value: string }> => [
+export const runtimeVariables = (environment: { slug: string } & EnvironmentLogging, publicUrl?: string): Array<{ name: string; value: string }> => [
     { name: LOG_LEVEL_VARIABLE, value: isLogLevel(environment.logLevel) ? environment.logLevel : DEFAULT_LOG_LEVEL },
     { name: LOG_JSON_VARIABLE, value: String(environment.logJson !== false) },
+    { name: ENVIRONMENT_VARIABLE, value: environment.slug },
     ...(publicUrl ? [{ name: PUBLIC_URL_VARIABLE, value: publicUrl }] : [])
 ]

@@ -160,8 +160,8 @@ export const containerPortOf = (application: Pick<GitOpsApplication, "port">): n
 
 /**
  * The variables the values hand the chart as `env`, after HTTP_PORT: the targets of a maintenance agent, the
- * LOG_LEVEL and LOG_JSON of the environment, PUBLIC_URL when given, and the OpenTelemetry name, environment and
- * version of the application. The deploy writes them, `containerEnvironment` reads them: the two never differ.
+ * LOG_LEVEL and LOG_JSON of the environment, its slug as ENVIRONMENT, PUBLIC_URL when given, and the OpenTelemetry
+ * name, environment and version of the application. The deploy writes them, `containerEnvironment` reads them: the two never differ.
  */
 export const containerVariables = (application: GitOpsApplication, environment: { slug: string } & EnvironmentLogging, version: string, publicUrl?: string): Array<{ name: string; value: string }> => [
     ...(application.maintenance ? [{ name: MAINTAINED_TARGETS_VARIABLE, value: JSON.stringify(application.maintenance.targets) }] : []),
