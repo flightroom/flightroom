@@ -231,14 +231,18 @@ export const buildGalaxyMap = ({ domains, frontends, backends, resources, config
         return node
     })
 
-    // The galaxies sit on a ring, far enough apart for the biggest one, moons included, to keep clear of its neighbours.
+    // The galaxies sit on a grid, row by row, the last row centred, far enough apart for the biggest one, moons included,
+    // to keep clear of its neighbours.
     const biggest = Math.max(1, ...galaxyList.map(galaxy => members.filter(member => member.galaxyId === galaxy.id).length))
     const widest = Math.max(0, ...nodes.map(node => node.reach - node.radius))
     const spacing = 150 + 24 * Math.sqrt(biggest) + 2 * widest
-    const ringRadius = galaxyList.length > 1 ? spacing / (2 * Math.sin(Math.PI / galaxyList.length)) : 0
+    const columns = Math.ceil(Math.sqrt(galaxyList.length))
+    const rows = Math.ceil(galaxyList.length / columns)
     const galaxies: Galaxy[] = galaxyList.map((galaxy, index) => {
-        const angle = -Math.PI / 2 + (index * 2 * Math.PI) / galaxyList.length
-        return { ...galaxy, anchor: { x: ringRadius * Math.cos(angle), y: ringRadius * Math.sin(angle) } }
+        const row = Math.floor(index / columns)
+        const inRow = Math.min(columns, galaxyList.length - row * columns)
+        const column = index % columns
+        return { ...galaxy, anchor: { x: (column - (inRow - 1) / 2) * spacing, y: (row - (rows - 1) / 2) * spacing } }
     })
     const anchors = new Map(galaxies.map(galaxy => [galaxy.id, galaxy.anchor]))
     const placedAt = new Map<string, number>()
