@@ -523,14 +523,23 @@ describe("AiUsageService", () => {
             vi.spyOn(UserOrganization, "findOne").mockReturnValue(thenable(role ? { role } : null) as never)
         }
 
-        it("Given a day range in a time zone, when the pipeline is built, then the index narrows a day wider and the local days are cut exactly, then summed by day", () => {
+        it("Given a day range in a time zone, when the pipeline is built, then the index narrows a day wider and the local days are cut exactly, then the tokens and their cost summed by day", () => {
             const pipeline = memberSeriesPipeline(projectId, grace, { ...days, timeZone: "Europe/Rome" })
             const local = (format: string) => ({ $dateToString: { date: "$createdAt", format, timezone: "Europe/Rome" } })
 
             expect(pipeline).toEqual([
                 { $match: { projectId, userId: grace, createdAt: { $gte: new Date("2026-09-30T00:00:00.000Z"), $lt: new Date("2026-10-25T00:00:00.000Z") } } },
                 { $match: { $expr: { $and: [{ $gte: [local("%Y-%m-%d"), "2026-10-01"] }, { $lte: [local("%Y-%m-%d"), "2026-10-23"] }] } } },
-                { $group: { _id: local("%Y-%m-%d"), inputTokens: { $sum: "$inputTokens" }, cachedInputTokens: { $sum: "$cachedInputTokens" }, outputTokens: { $sum: "$outputTokens" } } },
+                {
+                    $group: {
+                        _id: local("%Y-%m-%d"),
+                        inputTokens: { $sum: "$inputTokens" },
+                        cachedInputTokens: { $sum: "$cachedInputTokens" },
+                        outputTokens: { $sum: "$outputTokens" },
+                        costUSD: { $sum: { $cond: [{ $eq: [{ $ifNull: ["$currency", "USD"] }, "USD"] }, { $ifNull: ["$cost", "$costUsd"] }, 0] } },
+                        costEUR: { $sum: { $cond: [{ $eq: [{ $ifNull: ["$currency", "USD"] }, "EUR"] }, { $ifNull: ["$cost", "$costUsd"] }, 0] } }
+                    }
+                },
                 { $sort: { _id: 1 } }
             ])
         })
@@ -542,11 +551,11 @@ describe("AiUsageService", () => {
             expect(groupId("month")).toEqual({ $dateToString: { date: "$createdAt", format: "%Y-%m", timezone: "UTC" } })
         })
 
-        it("Given their own usage, when a plain member asks it, then each day with usage comes back rounded and the total adds them", async () => {
+        it("Given their own usage, when a plain member asks it, then each day with usage comes back rounded with its cost and the total adds them", async () => {
             const own = vi.spyOn(UserProject, "findOne")
             vi.mocked(AiUsage.aggregate).mockResolvedValue([
-                { _id: "2026-10-02", inputTokens: 100, cachedInputTokens: 40, outputTokens: 10 },
-                { _id: "2026-10-20", inputTokens: 50.4, cachedInputTokens: 0, outputTokens: 5 }
+                { _id: "2026-10-02", inputTokens: 100, cachedInputTokens: 40, outputTokens: 10, costUSD: 0, costEUR: 0.25 },
+                { _id: "2026-10-20", inputTokens: 50.4, cachedInputTokens: 0, outputTokens: 5, costUSD: 0.1, costEUR: 0.5 }
             ] as never)
 
             expect(await service().forMember(String(projectId), { userId: String(user._id) }, days)).toEqual({
@@ -554,10 +563,27 @@ describe("AiUsageService", () => {
                 userId: String(user._id),
                 ...days,
                 timeZone: "UTC",
-                total: { inputTokens: 150, cachedInputTokens: 40, outputTokens: 15 },
+                total: {
+                    inputTokens: 150,
+                    cachedInputTokens: 40,
+                    outputTokens: 15,
+                    costs: [
+                        { amount: 0.1, currency: "USD" },
+                        { amount: 0.75, currency: "EUR" }
+                    ]
+                },
                 series: [
-                    { period: "2026-10-02", inputTokens: 100, cachedInputTokens: 40, outputTokens: 10 },
-                    { period: "2026-10-20", inputTokens: 50, cachedInputTokens: 0, outputTokens: 5 }
+                    { period: "2026-10-02", inputTokens: 100, cachedInputTokens: 40, outputTokens: 10, costs: [{ amount: 0.25, currency: "EUR" }] },
+                    {
+                        period: "2026-10-20",
+                        inputTokens: 50,
+                        cachedInputTokens: 0,
+                        outputTokens: 5,
+                        costs: [
+                            { amount: 0.1, currency: "USD" },
+                            { amount: 0.5, currency: "EUR" }
+                        ]
+                    }
                 ]
             })
             expect(own).not.toHaveBeenCalled()

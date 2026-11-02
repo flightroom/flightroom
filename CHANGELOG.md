@@ -11,6 +11,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **The Resources Of A Domain Laid Out As Those Of A Backend**: the **Resources** tab of the overview of a domain shows each resource its backends attach once, with what it hands out in each environment in a table, a credential never shown, as the overview of a backend does, instead of a list of names under each backend. Under its name, the backends of the domain using it, each detached from there by an editor; the backends attaching none are listed last
 - **The Docs And OpenAPI Paths In The Summary**: the endpoints card of the **Summary** of a backend, and of a DOCKER frontend, lists its API docs and OpenAPI spec paths beside the port, or says they are not set, with a link to the settings where they are, so that a missing link to the Swagger no longer goes unnoticed
+- **What A Person's AI Usage Cost**: `user_ai_usage` gives, beside the tokens of each period and of the total, `costs`, one amount per currency, priced by the token rates set on the AIs of the organization, so that "and what did it cost?" gets an answer from the assistant. Usage of an AI with no rates, as the system one, counts in the tokens only
 
 ## [14.1.0] - 2026-11-02
 

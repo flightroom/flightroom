@@ -18,7 +18,7 @@ export const aiUsageTools = [
     defineTool({
         name: "user_ai_usage",
         title: "Get a user's AI usage",
-        description: `The AI tokens one person spent in the project, by the assistant and Edit with AI, between two days (both included), summed by day, ISO week (e.g. 2026-W43, Monday first) or month. Each period has inputTokens (cachedInputTokens is the part of them read from the prompt cache, billed at a fraction) and outputTokens; periods with no usage are left out; total adds them all. Name the person by userId or by the email they sign in with; with neither, the person calling. Everyone sees their own; the others' only an owner of the project or an administrator of its organization. A daily series spans at most ${MAX_DAILY_SPAN_DAYS} days.`,
+        description: `The AI tokens one person spent in the project, by the assistant and Edit with AI, between two days (both included), summed by day, ISO week (e.g. 2026-W43, Monday first) or month. Each period has inputTokens (cachedInputTokens is the part of them read from the prompt cache, billed at a fraction) and outputTokens, and costs: what they cost, one amount per currency, priced by the token rates set on each AI of the organization (usage of an AI with no rates, as the system one, is counted in the tokens and in no cost; costs is empty when nothing was priced); periods with no usage are left out; total adds them all. Name the person by userId or by the email they sign in with; with neither, the person calling. Everyone sees their own; the others' only an owner of the project or an administrator of its organization. A daily series spans at most ${MAX_DAILY_SPAN_DAYS} days.`,
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z

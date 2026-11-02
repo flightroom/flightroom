@@ -102,9 +102,9 @@ export type MemberRef = { userId: string; email?: undefined } | { userId?: undef
 export interface MemberAiUsage extends Required<MemberAiUsageQuery> {
     projectId: string
     userId: string
-    total: LlmUsage
+    total: AiUsageTotals
     /** Only the periods with some usage, oldest first. */
-    series: (LlmUsage & { period: string })[]
+    series: (AiUsageTotals & { period: string })[]
 }
 
 /** What a caller records: the organization is read from the project when the caller does not hold it. */
@@ -281,7 +281,7 @@ export const memberSeriesPipeline = (projectId: Id, userId: Id, { from, to, gran
         // A day more on each side, whatever the zone, for the index to narrow on: the next stage cuts on the local days.
         { $match: { projectId: objectId(projectId), userId: objectId(userId), createdAt: { $gte: new Date(Date.parse(from) - DAY_MS), $lt: new Date(Date.parse(to) + 2 * DAY_MS) } } },
         { $match: { $expr: { $and: [{ $gte: [local("%Y-%m-%d"), from] }, { $lte: [local("%Y-%m-%d"), to] }] } } },
-        { $group: { _id: local(PERIOD_FORMATS[granularity]), ...sums() } },
+        { $group: { _id: local(PERIOD_FORMATS[granularity]), ...sums(), ...costSums() } },
         { $sort: { _id: 1 } }
     ]
 }
@@ -428,8 +428,8 @@ export default class AiUsageService extends BaseAuthorizedService {
         const userId = member.userId ?? String((await User.findOne({ email: member.email.toLowerCase() }, { _id: 1 }).lean())?._id ?? "")
         if (!userId) throw new EntityNotFoundError(member.email!, `No user signs in with ${member.email}`)
         const groups = await AiUsage.aggregate<Totals>(memberSeriesPipeline(projectId, userId, query))
-        const series = groups.map(group => ({ period: String(group._id), ...rounded(group) }))
-        return { projectId, userId, from: query.from, to: query.to, granularity: query.granularity, timeZone: query.timeZone ?? "UTC", total: added(series), series }
+        const series = groups.map(group => ({ period: String(group._id), ...withCosts(group) }))
+        return { projectId, userId, from: query.from, to: query.to, granularity: query.granularity, timeZone: query.timeZone ?? "UTC", total: addedWithCosts(series), series }
     }
 
     /** An owner of the whole project, or an administrator of its organization: they act there as owners. An API key is neither. */
