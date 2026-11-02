@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.1.0] - 2026-11-02
+
 ### Added
 
+- **Delete A Domain From Its Settings**: the settings of a domain end with a **Danger zone** that deletes it, after typing its name. Its frontends and backends stay without a domain, unless **Also delete the frontends and backends of the domain** is ticked: then they go too, each as its own delete does, with their versions and deployments; its maintenance agents always stay. `DELETE /api/domains/:id` takes `?withMembers=true`, and `domain_delete` of MCP `withMembers`
 - **A Logo For The Dark Theme**: `INSTALLATION_LOGO_DARK_URL` sets the logo the console shows in the dark theme, in the sidebar, the login page and the new project wizard, following the theme as it changes. The emails carry it too, their header being dark in both themes. Unset or empty, `INSTALLATION_LOGO_URL` serves both themes as before. Shipped in the Helm chart `values.yaml`
 - **MCP: Logs Of Several Applications At Once**: `application_logs_search` reads the logs of several applications in one or more environments in one call, every backend and container frontend each environment runs unless `slugs` are given, from every pod without naming one, merged oldest first as `<time> <environment>/<pod> <text>`. `filter` and `exclude` ignore case, `minLevel` keeps the lines at a level or above, read from the level of a JSON line or a level word at the start of a text one, a stack trace following its error, and a pod that restarted gives the lines of the container before too. At most 60 pods are read; `sources` says what each application gave and why one could not be read. The `filter` of `application_logs_get` stays case sensitive, as its description now says
 - **MCP: Status Of The Environments**: `environment_status` says, for one or more environments, every one when none is given, the deployment each serves and, per backend and container frontend, the version it ships, where Argo CD stands with it and its pods with their restarts
@@ -18,9 +21,17 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - **Starter Questions To Begin With**: the starter questions of the assistant drawn outside a section include where to start, how to create a new agent and how to create an app, and no longer how to connect an S3 bucket, which only the **Storages** page suggests
-- **Configuration Of A Backend Without Its Paths**: the **Configuration** card of the overview of a backend no longer lists its exposure, docs and OpenAPI paths, which its settings still edit; the environment names of the **Version per environment** tiles are as tall as the production badge, so the versions line up
-- **The Overview Of A Frontend In Tabs**: the overview of a frontend splits into tabs, the one open in the URL (`?tab=`), as that of a backend. A DOCKER frontend has those of a backend, **Summary**, **Configuration**, **Resources** with its config maps, secrets and declared variables, and, once Argo CD is initialized, **Logs** and **Injected variables**; a BUNDLE one **Summary**, **Release** with its canary and published versions, and **Hosting**
+- **The Overview Of A Container Without A Configuration Tab**: the overview of a backend, and of a DOCKER frontend, no longer has a **Configuration** tab. **Summary** shows, under the **Version per environment**, the port with the URLs the container answers at in each environment, its docs and OpenAPI spec opened from there; **Resources** opens on the replicas, CPU and memory of each environment as chips, those an environment sets apart marked **Custom**; the log level of each environment, as chips marked the same way, sits above the logs, or in **Summary** when there is no **Logs** tab. The environment names of the **Version per environment** tiles are as tall as the production badge, so the versions line up
+- **The Overview Of A Frontend In Tabs**: the overview of a frontend splits into tabs, the one open in the URL (`?tab=`), as that of a backend. A DOCKER frontend has those of a backend, **Summary**, **Resources** with its config maps, secrets and declared variables, and, once Argo CD is initialized, **Logs** and **Injected variables**; a BUNDLE one **Summary**, **Release** with its canary and published versions, and **Hosting**
+- **The Environment Open In The URL**: the **Environments** page keeps the environment open in the URL (`?env=<slug>`, `?env=new` while creating one), so a link opens it. The namespace moves to **General**, shown once Argo CD is initialized; **Exposure** and **Network access** become one **Exposure and network** tab; the **Not production** chip is gone, and the log level and log format fields line up
+- **Container Frontends Without Their Badge**: the DOCKER frontends listed in their own section of the **Backends** page no longer carry the Docker badge, which the section already says
 - **The Overview Of A Domain In Tabs**: the overview of a domain splits into tabs, the one open in the URL (`?tab=`), as those of a frontend and of a backend: **Summary** with its frontends and backends and the AI tokens it spent, **Deployments** with the versions deployed in each environment, **Resources** with those its backends attach, and, when a backend or a DOCKER frontend runs in it, **Logs**
+
+### Fixed
+
+- **The Assistant Knows Who Asks And What Day It Is**: the console context of each question carries the user's id and email, today's date in the browser's time zone and the zone itself, so "how many tokens did I use this month?" no longer makes the assistant ask for an email or a date. `user_ai_usage` reads the usage of whoever calls when neither `userId` nor `email` is passed
+- **MCP Waits Stop With Their Client**: `build_wait` and `deployment_wait` stop as soon as the client cancels the call or disconnects, instead of polling up to 240 seconds for nobody
+- **Probes And Log Level Aligned**: the liveness probe fields sit in the left column and the readiness ones in the right, in the settings of a backend and of a project; the label of the log level of a backend sits on the line of its chips
 
 ## [14.0.0] - 2026-11-01
 
