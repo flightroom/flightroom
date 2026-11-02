@@ -181,7 +181,7 @@ const FrontendOverview: React.FC = () => {
                         {/* What runs where, for either kind: only a container has replicas */}
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
                             <EnvironmentVersionsCard entries={frontend.environmentVersions} environments={environmentsQuery.data ?? []} container={isDocker ? frontend : undefined} />
-                            {isDocker && <BackendEndpointsCard backend={frontend} environments={environmentsQuery.data ?? []} />}
+                            {isDocker && <BackendEndpointsCard backend={frontend} environments={environmentsQuery.data ?? []} settingsPath={`/frontend/${frontend._id}/settings`} />}
                             {/* Above the logs when they have a tab */}
                             {isDocker && !tabs.includes("logs") && <LogLevelCard value={frontend.logLevel} environments={environmentsQuery.data ?? []} />}
                             <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />

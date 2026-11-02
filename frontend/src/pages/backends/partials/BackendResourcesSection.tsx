@@ -16,6 +16,63 @@ const valueIn = (resource: Resource, key: ResourceEnvKey, environmentId?: string
     return key.secret ? { set: Boolean(value) } : { value, set: Boolean(value) }
 }
 
+/** The variables a resource hands out, a column per environment: a credential is never shown */
+export const ResourceValuesTable: React.FC<{ resource: Resource; environments: EnvironmentDTO[] }> = ({ resource, environments }) => {
+    const { t } = useTranslation()
+
+    return (
+        <div className="overflow-x-auto rounded-lg border-2 border-border bg-card">
+            <Table>
+                <TableHeader>
+                    <TableRow className="bg-muted/60 hover:bg-muted/60">
+                        <TableHead>{t("resources.keys.key")}</TableHead>
+                        {environments.map(environment => (
+                            <TableHead key={environment._id}>{environment.name}</TableHead>
+                        ))}
+                    </TableRow>
+                </TableHeader>
+                <TableBody>
+                    {resource.env.map(key => (
+                        <TableRow key={key.key} className="border-divider hover:bg-primary/5">
+                            <TableCell className="font-mono font-medium">{key.key}</TableCell>
+                            {environments.map(environment => {
+                                const { value, set } = valueIn(resource, key, environment._id)
+                                return (
+                                    <TableCell key={environment._id} className="max-w-[16rem] truncate font-mono text-xs" title={value}>
+                                        {!set ? (
+                                            <span className="text-foreground-secondary">—</span>
+                                        ) : key.secret ? (
+                                            <span className="text-foreground-secondary">{t("resources.values.set")}</span>
+                                        ) : (
+                                            value
+                                        )}
+                                    </TableCell>
+                                )
+                            })}
+                        </TableRow>
+                    ))}
+                </TableBody>
+            </Table>
+        </div>
+    )
+}
+
+/** The icon, name, type and variant of a resource, the name opening its page */
+export const ResourceHeading: React.FC<{ resource: Resource }> = ({ resource }) => {
+    const { t } = useTranslation()
+
+    return (
+        <div className="flex flex-wrap items-center gap-2">
+            <ResourceIcon resource={resource} />
+            <Link to={resourcePath(resource._id!)} className="font-mono font-semibold underline-offset-4 hover:underline">
+                {resource.name}
+            </Link>
+            <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
+            <span className="text-xs text-foreground-secondary">{variantLabel(t, resource.type, resource.variant)}</span>
+        </div>
+    )
+}
+
 /**
  * What the backend receives from the resources it attaches, a table per resource: a column per environment, a credential never shown.
  * Read only: they are attached and detached in the settings.
@@ -34,47 +91,8 @@ export const BackendResourcesSection: React.FC<{ backend: Pick<Backend, "resourc
                 {attached.length === 0 && <p className="text-sm text-foreground-secondary">{t("resources.attach.none")}</p>}
                 {attached.map(resource => (
                     <div key={resource._id} className="flex flex-col gap-2">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <ResourceIcon resource={resource} />
-                            <Link to={resourcePath(resource._id!)} className="font-mono font-semibold underline-offset-4 hover:underline">
-                                {resource.name}
-                            </Link>
-                            <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
-                            <span className="text-xs text-foreground-secondary">{variantLabel(t, resource.type, resource.variant)}</span>
-                        </div>
-                        <div className="overflow-x-auto rounded-lg border-2 border-border bg-card">
-                            <Table>
-                                <TableHeader>
-                                    <TableRow className="bg-muted/60 hover:bg-muted/60">
-                                        <TableHead>{t("resources.keys.key")}</TableHead>
-                                        {environments.map(environment => (
-                                            <TableHead key={environment._id}>{environment.name}</TableHead>
-                                        ))}
-                                    </TableRow>
-                                </TableHeader>
-                                <TableBody>
-                                    {resource.env.map(key => (
-                                        <TableRow key={key.key} className="border-divider hover:bg-primary/5">
-                                            <TableCell className="font-mono font-medium">{key.key}</TableCell>
-                                            {environments.map(environment => {
-                                                const { value, set } = valueIn(resource, key, environment._id)
-                                                return (
-                                                    <TableCell key={environment._id} className="max-w-[16rem] truncate font-mono text-xs" title={value}>
-                                                        {!set ? (
-                                                            <span className="text-foreground-secondary">—</span>
-                                                        ) : key.secret ? (
-                                                            <span className="text-foreground-secondary">{t("resources.values.set")}</span>
-                                                        ) : (
-                                                            value
-                                                        )}
-                                                    </TableCell>
-                                                )
-                                            })}
-                                        </TableRow>
-                                    ))}
-                                </TableBody>
-                            </Table>
-                        </div>
+                        <ResourceHeading resource={resource} />
+                        <ResourceValuesTable resource={resource} environments={environments} />
                     </div>
                 ))}
             </CardContent>

@@ -24,10 +24,11 @@ import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
-import ResourceIcon from "@/components/resource/ResourceIcon"
 import useBackendsApi, { type Backend } from "@/hooks/apiClients/useBackendsApi"
+import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
-import { resourcePath, typeLabel, useDetachResource, useResourcesQuery } from "@/pages/resources/partials/resources"
+import { ResourceHeading, ResourceValuesTable } from "@/pages/backends/partials/BackendResourcesSection"
+import { typeLabel, useDetachResource, useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
@@ -156,10 +157,11 @@ const AttachResourceDialog: React.FC<AttachResourceDialogProps> = ({ open, onOpe
 }
 
 /**
- * Each backend of the domain with the resources it attaches: what the agent is told the domain can reach.
- * Only backends attach resources, so a domain without one has nothing to show. An editor detaches each one from here.
+ * Each resource the backends of the domain attach, as the overview of a backend shows it: a table of what it hands out in
+ * each environment, with the backends of the domain using it, which an editor detaches from here. What the agent is told
+ * the domain can reach. Only backends attach resources, so a domain without one has nothing to show.
  */
-export const DomainResourcesSection: React.FC<{ backends: Backend[] }> = ({ backends }) => {
+export const DomainResourcesSection: React.FC<{ backends: Backend[]; environments: EnvironmentDTO[] }> = ({ backends, environments }) => {
     const { t } = useTranslation()
     const resourcesQuery = useResourcesQuery(backends.length > 0)
     const isViewer = useIsProjectViewer()
@@ -169,6 +171,9 @@ export const DomainResourcesSection: React.FC<{ backends: Backend[] }> = ({ back
     // A list that cannot be read hides the section: the rest of the overview does not depend on it
     if (backends.length === 0 || !resourcesQuery.data) return null
     const resources = resourcesQuery.data
+    const usersOf = (resource: Resource) => backends.filter(backend => backend.resourceIds?.includes(resource._id!))
+    const used = resources.filter(resource => usersOf(resource).length > 0)
+    const withoutResources = backends.filter(backend => !resources.some(resource => backend.resourceIds?.includes(resource._id!)))
 
     return (
         <Card>
@@ -185,49 +190,47 @@ export const DomainResourcesSection: React.FC<{ backends: Backend[] }> = ({ back
                     </Button>
                 )}
             </CardHeader>
-            <CardContent className="pt-3">
-                <ul className="flex flex-col divide-y divide-divider">
-                    {backends.map(backend => {
-                        const attached = resources.filter(resource => backend.resourceIds?.includes(resource._id!))
-                        return (
-                            <li key={backend._id} className="flex flex-col gap-2 py-3" data-testid={`domain-resources-backend-${backend.slug}`}>
-                                <Link to={`/backend/${backend._id}/overview`} className="w-fit text-sm font-semibold underline-offset-4 hover:underline">
-                                    {backend.name}
-                                </Link>
-                                {attached.length === 0 ? (
-                                    <p className="text-sm text-foreground-secondary">{t("domains.resources.backend_none")}</p>
-                                ) : (
-                                    <ul className="flex flex-col gap-1">
-                                        {attached.map(resource => (
-                                            <li key={resource._id} className="flex flex-wrap items-center gap-2">
-                                                <ResourceIcon resource={resource} />
-                                                <Link to={resourcePath(resource._id!)} className="font-mono text-sm underline-offset-4 hover:underline">
-                                                    {resource.name}
-                                                </Link>
-                                                <Badge variant="outline">{typeLabel(t, resource.type)}</Badge>
-                                                {!isViewer && (
-                                                    <Button
-                                                        type="button"
-                                                        variant="ghost"
-                                                        size="icon-sm"
-                                                        className="ml-auto"
-                                                        disabled={detach.isPending}
-                                                        aria-label={t("domains.resources.detach", { resource: resource.name, backend: backend.name })}
-                                                        title={t("domains.resources.detach", { resource: resource.name, backend: backend.name })}
-                                                        onClick={() => detach.mutate({ backend, resource })}
-                                                        dataTestId={`domain-detach-resource-${backend.slug}-${resource._id}`}
-                                                    >
-                                                        <X />
-                                                    </Button>
-                                                )}
-                                            </li>
-                                        ))}
-                                    </ul>
-                                )}
-                            </li>
-                        )
-                    })}
-                </ul>
+            <CardContent className="flex flex-col gap-6 pt-3">
+                {used.length === 0 && <p className="text-sm text-foreground-secondary">{t("domains.resources.none")}</p>}
+                {used.map(resource => (
+                    <div key={resource._id} className="flex flex-col gap-2" data-testid={`domain-resource-${resource._id}`}>
+                        <ResourceHeading resource={resource} />
+                        <div className="flex flex-wrap items-center gap-2 text-sm">
+                            <span className="text-foreground-secondary">{t("domains.resources.used_by")}</span>
+                            {usersOf(resource).map(backend => (
+                                <Badge key={backend._id} variant="outline" className="gap-1" data-testid={`domain-resources-backend-${backend.slug}`}>
+                                    <Link to={`/backend/${backend._id}/overview?tab=resources`} className="underline-offset-4 hover:underline">
+                                        {backend.name}
+                                    </Link>
+                                    {!isViewer && (
+                                        <button
+                                            type="button"
+                                            className="rounded-sm text-foreground-secondary hover:text-foreground disabled:opacity-50"
+                                            disabled={detach.isPending}
+                                            aria-label={t("domains.resources.detach", { resource: resource.name, backend: backend.name })}
+                                            title={t("domains.resources.detach", { resource: resource.name, backend: backend.name })}
+                                            onClick={() => detach.mutate({ backend, resource })}
+                                            data-testid={`domain-detach-resource-${backend.slug}-${resource._id}`}
+                                        >
+                                            <X className="size-3" />
+                                        </button>
+                                    )}
+                                </Badge>
+                            ))}
+                        </div>
+                        <ResourceValuesTable resource={resource} environments={environments} />
+                    </div>
+                ))}
+                {used.length > 0 && withoutResources.length > 0 && (
+                    <div className="flex flex-wrap items-center gap-2 text-sm">
+                        <span className="text-foreground-secondary">{t("domains.resources.backends_none")}</span>
+                        {withoutResources.map(backend => (
+                            <Link key={backend._id} to={`/backend/${backend._id}/overview`} className="underline-offset-4 hover:underline">
+                                {backend.name}
+                            </Link>
+                        ))}
+                    </div>
+                )}
             </CardContent>
             {!isViewer && <AttachResourceDialog open={attachOpen} onOpenChange={setAttachOpen} resources={resources} backends={backends} />}
         </Card>

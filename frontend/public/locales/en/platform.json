@@ -2735,7 +2735,9 @@
             "no_environments": "The project has no environments yet: the URL of each one will show here once you create them.",
             "not_exposed": "Not exposed",
             "open_docs": "API docs",
-            "open_openapi": "OpenAPI spec"
+            "open_openapi": "OpenAPI spec",
+            "path_not_set": "Not set",
+            "set_in_settings": "Set it in the settings"
         },
         "latest_version": "Latest version",
         "repository": "Repository",
@@ -3206,8 +3208,10 @@
         },
         "resources": {
             "title": "Resources",
-            "description": "The resources each backend of this domain attaches.",
-            "backend_none": "No resource attached.",
+            "description": "The resources the backends of this domain attach, and what they receive from each one, environment by environment. Credentials are never shown.",
+            "none": "No backend of this domain attaches a resource.",
+            "used_by": "Used by",
+            "backends_none": "Without resources",
             "detach": "Detach {{resource}} from {{backend}}",
             "attach": {
                 "action": "Attach resource",

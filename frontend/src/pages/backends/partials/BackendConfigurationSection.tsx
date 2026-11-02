@@ -1,6 +1,7 @@
 import { Card, CardContent, CardHeader, CardTitle, DescriptionItem, DescriptionList } from "@flightroom/design-system"
 import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
+import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
@@ -43,11 +44,30 @@ const BackendLink: React.FC<{ href: string; label: string }> = ({ href, label })
     </a>
 )
 
+/** The docs or OpenAPI path of the container, or that it has none, with where to set it: without one no link reaches the Swagger */
+const DeclaredPath: React.FC<{ path?: string | null; settingsPath?: string }> = ({ path, settingsPath }) => {
+    const { t } = useTranslation()
+    if (path) return <span className="font-mono">{path}</span>
+    return (
+        <span className="flex flex-wrap items-center gap-x-2 text-foreground-secondary">
+            {t("backends.urls.path_not_set")}
+            {settingsPath && (
+                <Link to={settingsPath} className="text-foreground underline-offset-4 hover:underline">
+                    {t("backends.urls.set_in_settings")}
+                </Link>
+            )}
+        </span>
+    )
+}
+
 /** A path of the backend under the URL it is exposed at: the exposure path may end with a slash, the paths start with one */
 const joinPath = (base: string, path: string) => base.replace(/\/+$/, "") + path
 
-/** The port the backend listens on, and where it answers in each environment: its exposure path on their host, with the docs and the OpenAPI spec reached from there */
-export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; environments: EnvironmentDTO[] }> = ({ backend, environments }) => {
+/**
+ * The port the backend listens on, its docs and OpenAPI paths, set or not, and where it answers in each environment: its
+ * exposure path on their host, with the docs and the OpenAPI spec reached from there. `settingsPath` is where the paths are set.
+ */
+export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; environments: EnvironmentDTO[]; settingsPath?: string }> = ({ backend, environments, settingsPath }) => {
     const { t } = useTranslation()
     const exposure = useProjectStore(state => state.project?.exposure)
     const path = backend.exposurePath
@@ -60,6 +80,12 @@ export const BackendEndpointsCard: React.FC<{ backend: ContainerConfiguration; e
             <CardContent className="flex flex-col gap-4 pt-3">
                 <DescriptionList orientation="inline">
                     <DescriptionItem label={t("backends.port")}>{backend.port ?? "—"}</DescriptionItem>
+                    <DescriptionItem label={t("backends.docs_path")}>
+                        <DeclaredPath path={backend.docsPath} settingsPath={settingsPath} />
+                    </DescriptionItem>
+                    <DescriptionItem label={t("backends.openapi_path")}>
+                        <DeclaredPath path={backend.openApiPath} settingsPath={settingsPath} />
+                    </DescriptionItem>
                 </DescriptionList>
                 {!path ? (
                     <p className="text-sm text-foreground-secondary">{t("backends.urls.not_exposed")}</p>

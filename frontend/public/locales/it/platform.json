@@ -2755,7 +2755,9 @@
             "no_environments": "Il progetto non ha ancora ambienti: l'URL di ognuno comparirà qui quando li crei.",
             "not_exposed": "Non esposto",
             "open_docs": "Documentazione API",
-            "open_openapi": "Specifica OpenAPI"
+            "open_openapi": "Specifica OpenAPI",
+            "path_not_set": "Non impostato",
+            "set_in_settings": "Impostalo nelle impostazioni"
         },
         "latest_version": "Ultima versione",
         "repository": "Repository",
@@ -3226,8 +3228,10 @@
         },
         "resources": {
             "title": "Risorse",
-            "description": "Le risorse che aggancia ciascun backend di questo dominio.",
-            "backend_none": "Nessuna risorsa agganciata.",
+            "description": "Le risorse che agganciano i backend di questo dominio, e quello che ricevono da ciascuna, ambiente per ambiente. Le credenziali non vengono mai mostrate.",
+            "none": "Nessun backend di questo dominio aggancia una risorsa.",
+            "used_by": "Usata da",
+            "backends_none": "Senza risorse",
             "detach": "Sgancia {{resource}} da {{backend}}",
             "attach": {
                 "action": "Attacca risorsa",

@@ -121,7 +121,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
 
                         <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
                             <EnvironmentVersionsCard entries={backend.environmentVersions} environments={environmentsQuery.data ?? []} container={backend} />
-                            <BackendEndpointsCard backend={backend} environments={environmentsQuery.data ?? []} />
+                            <BackendEndpointsCard backend={backend} environments={environmentsQuery.data ?? []} settingsPath={`/backend/${backend._id}/settings#runtime`} />
                             {/* Above the logs when they have a tab */}
                             {!tabs.includes("logs") && <LogLevelCard value={backend.logLevel} environments={environmentsQuery.data ?? []} />}
                             <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />

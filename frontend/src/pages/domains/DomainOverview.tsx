@@ -115,7 +115,7 @@ const DomainOverview: React.FC = () => {
                 </TabsContent>
 
                 <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
-                    <DomainResourcesSection backends={backends} />
+                    <DomainResourcesSection backends={backends} environments={environmentsQuery.data ?? []} />
                 </TabsContent>
 
                 {applications.length > 0 && (
