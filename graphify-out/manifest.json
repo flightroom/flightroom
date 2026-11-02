@@ -2215,8 +2215,8 @@
     "semantic_hash": ""
   },
   "backend/src/controller/AssistantController.ts": {
-    "mtime": 1793477046.9340835,
-    "ast_hash": "85b5e76c40deea22f6a8c2d4feb5f93b",
+    "mtime": 1793600989.2766047,
+    "ast_hash": "1eb556cc20a49a5fab37ce8fe34f66a1",
     "semantic_hash": ""
   },
   "backend/src/controller/McpClientController.ts": {
@@ -2350,13 +2350,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/assistant/AssistantService.test.ts": {
-    "mtime": 1793284271.6290886,
-    "ast_hash": "ff903e7fbd31df8f7adcff7720a33940",
+    "mtime": 1793601010.5723348,
+    "ast_hash": "3606691cc4d02836c967fcd001ec355f",
     "semantic_hash": ""
   },
   "backend/src/service/assistant/AssistantService.ts": {
-    "mtime": 1793477046.9334188,
-    "ast_hash": "4fd9f474cfa73272f05433508997ebae",
+    "mtime": 1793600987.504727,
+    "ast_hash": "6e17a69d308376c2d10e2d126a564037",
     "semantic_hash": ""
   },
   "backend/src/service/assistant/assistantTools.test.ts": {
@@ -2385,8 +2385,8 @@
     "semantic_hash": ""
   },
   "backend/src/types/AssistantDTO.ts": {
-    "mtime": 1793475610.9761498,
-    "ast_hash": "53e825b1517214ecafc0215914fc0995",
+    "mtime": 1793600988.3976285,
+    "ast_hash": "1053788886c0d05478b82f976fe15fd4",
     "semantic_hash": ""
   },
   "backend/src/utils/clientMetadataFetcher.test.ts": {
@@ -2470,8 +2470,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/useAssistantChat.ts": {
-    "mtime": 1793477162.8330576,
-    "ast_hash": "05351da0a30ffbc99b568320d2aa1a95",
+    "mtime": 1793600990.1470325,
+    "ast_hash": "decee1660db2bf5c3a5003e28be172bb",
     "semantic_hash": ""
   },
   "frontend/src/hooks/useLogout.ts": {
@@ -4695,13 +4695,13 @@
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/aiUsageTools.test.ts": {
-    "mtime": 1793005820.5262759,
-    "ast_hash": "0d6da43239589c8a76c9938fbafb0d6f",
+    "mtime": 1793601009.7174492,
+    "ast_hash": "347830b355d10e57cfc8db7471212113",
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/aiUsageTools.ts": {
-    "mtime": 1793005820.5264251,
-    "ast_hash": "17a57b2b6fcf22cf339d0d8ecc736043",
+    "mtime": 1793601008.8100297,
+    "ast_hash": "3b27144a4d55a1b15b0b9fdd6aba8d10",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainBackendLinks.tsx": {
