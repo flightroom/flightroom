@@ -20,9 +20,10 @@ import {
 } from "@flightroom/design-system"
 import { useMutation } from "@tanstack/react-query"
 import { ExternalLink, FileText, Globe, LocateFixed, Lock, Moon, SlidersHorizontal, Trash2, TriangleAlert } from "lucide-react"
-import { type ReactNode, useEffect, useId, useRef, useState } from "react"
+import { type ReactNode, useEffect, useId, useRef } from "react"
 import { Controller, type FieldErrors, FormProvider, useController, useForm, useFormContext } from "react-hook-form"
 import { useTranslation } from "react-i18next"
+import { useSearchParams } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import ColorPicker from "@/components/input/ColorPicker.rhf"
 import TextareaField from "@/components/input/TextareaField.rhf"
@@ -164,6 +165,9 @@ function DaysField() {
 
 /** Le schede dell'editor: una sezione alla volta, invece di tutti i campi in una pagina da scorrere */
 type EditorTab = "general" | "exposure" | "logs" | "kubeGreen" | "danger"
+
+/** La scheda aperta sta nell'URL (`?tab=logs`): cambiando ambiente si resta sulla stessa, e un link porta a quella */
+export const TAB_PARAM = "tab"
 
 /** I campi di ogni scheda: dicono quale scheda ha modifiche non salvate, e su quale portare chi salva con un errore */
 const TAB_FIELDS: Record<Exclude<EditorTab, "danger">, (keyof EnvironmentFormData)[]> = {
@@ -373,7 +377,7 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
     const environmentsApi = useEnvironmentsApi()
     const notifications = useToastNotificationStore()
     const timeZonesId = useId()
-    const [tab, setTab] = useState<EditorTab>("general")
+    const [searchParams, setSearchParams] = useSearchParams()
     // Il namespace serve solo a GitOps: senza, l'ambiente non finisce in nessun cluster
     const isGitOpsEnabled = Boolean(useProjectStore(state => state.project?.gitOps?.enabled))
     // Il namespace lo legge Argo CD: finche' non e' inizializzato non c'e' un cluster in cui finisca
@@ -394,6 +398,16 @@ export function EnvironmentEditor({ formData, id, onSaved, onCancel, onDelete, o
 
     // Senza GitOps i campi di esposizione, log e kube-green non hanno effetto; eliminare vale solo per un ambiente salvato
     const tabs: EditorTab[] = ["general", ...(isGitOpsEnabled ? (["exposure", "logs", "kubeGreen"] as const) : []), ...(isEdit ? (["danger"] as const) : [])]
+    // Una scheda che qui non c'e' (zona pericolosa in creazione, schede GitOps senza GitOps) apre la generale
+    const tab = tabs.find(value => value === searchParams.get(TAB_PARAM)) ?? "general"
+    const setTab = (value: EditorTab) =>
+        setSearchParams(
+            params => {
+                params.set(TAB_PARAM, value)
+                return params
+            },
+            { replace: true }
+        )
     // I domini delle pagine host stanno in Esposizione; senza GitOps quella scheda non c'e' e tornano in Generale
     const fieldsOf = (value: EditorTab): (keyof EnvironmentFormData)[] => (value === "danger" ? [] : value === "general" && !isGitOpsEnabled ? [...TAB_FIELDS.general, "domains"] : TAB_FIELDS[value])
     const isTabDirty = (value: EditorTab) => fieldsOf(value).some(field => hasDirty(dirtyFields[field]))

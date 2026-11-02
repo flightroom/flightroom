@@ -16,7 +16,7 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 import EnvironmentsGate from "@/theme/EnvironmentsGate"
 import { getRandomColor } from "@/utils/StringUtils"
 import { cn } from "@/utils/styleUtils"
-import EnvironmentEditor, { EnvironmentFormData } from "./partials/EnvironmentEditor"
+import EnvironmentEditor, { EnvironmentFormData, TAB_PARAM } from "./partials/EnvironmentEditor"
 
 /** Selezione della tessera "nuovo ambiente": l'editor si apre vuoto */
 const NEW = "new"
@@ -159,7 +159,15 @@ export default function EnvironmentsPage() {
         // Chiuso qui: il dialog resterebbe aperto sull'ambiente selezionato dopo, che potrebbe essere di produzione
         setIsDeleteDialogOpen(false)
         await environmentQuery.refetch()
-        setSelectedSlug(undefined)
+        // Anche la scheda torna alla generale: l'ambiente che si apre dopo non parte dalla zona pericolosa
+        setSearchParams(
+            params => {
+                params.delete(ENV_PARAM)
+                params.delete(TAB_PARAM)
+                return params
+            },
+            { replace: true }
+        )
         notifications.showSuccessNotification({
             message: t("environment.page.delete.success", { name: selected.name })
         })
