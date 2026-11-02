@@ -108,6 +108,30 @@ describe("MCP tool registry", () => {
         expect(registered).not.toContain("console_only_probe")
     })
 
+    it("given a call the SDK hands its abort signal, when the tool runs, then it gets that signal, as a wait stops with it", async () => {
+        const run = vi.fn(async () => null)
+        const probe = defineTool({ name: "signal_probe", title: "Probe", description: "", scope: MCP_SCOPE_READ, annotations: READ_ONLY, inputSchema: z.object({}), run })
+        const registerTool = vi.spyOn(McpServer.prototype, "registerTool")
+        MCP_TOOLS.push(probe)
+        try {
+            createMcpServer({
+                principal: {} as never,
+                projects: [{ projectId: "aaaaaaaaaaaaaaaaaaaaaaaa", role: "MEMBER" }],
+                scopes: [MCP_SCOPE_READ],
+                credential: { kind: "api_key", apiKeyId: "key-1" }
+            })
+        } finally {
+            MCP_TOOLS.pop()
+        }
+        const handler = registerTool.mock.calls.find(call => call[0] === "signal_probe")?.[2] as unknown as (input: Record<string, unknown>, extra: unknown) => Promise<unknown>
+        registerTool.mockRestore()
+        const call = new AbortController()
+
+        await handler({}, { mcpReq: { signal: call.signal } })
+
+        expect(run).toHaveBeenCalledWith({}, expect.objectContaining({ projectId: "aaaaaaaaaaaaaaaaaaaaaaaa", signal: call.signal }))
+    })
+
     it("given the tool handing out the whole npmrc, when read, then it is MCP-only and read-only, as the npmrc every design system carries", () => {
         expect(toolNamed("design_system_npmrc_get")).toMatchObject({ scope: MCP_SCOPE_READ, mcpOnly: true, annotations: { readOnlyHint: true } })
     })

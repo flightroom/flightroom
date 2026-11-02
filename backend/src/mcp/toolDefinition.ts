@@ -39,7 +39,7 @@ export interface McpToolContext {
      * linked to and the only one that may drive them.
      */
     conversationId?: string
-    /** Set by the console assistant only: aborted once nobody waits for the answer, so a tool that waits stops. */
+    /** Aborted once nobody waits for the answer, so a tool that waits stops: the console assistant's turn ended, or the MCP client cancelled the call or closed its connection. */
     signal?: AbortSignal
     /** Set by the console assistant only: the turn is one the server runs when agents end, nobody at the console. */
     update?: boolean

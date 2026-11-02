@@ -150,6 +150,9 @@ export class McpProjectSelectionError extends CustomError {
     }
 }
 
+/** What the SDK hands a tool besides its input: the part read here, the signal of the call */
+type McpRequestExtra = { mcpReq?: { signal?: AbortSignal } }
+
 const PROJECT_ID_INPUT = objectId("Project to act on. Optional when this connection shares a single project, required otherwise: see projects_list").optional()
 
 /** The input a client sees for a tool: project tools gain the optional `projectId`. */
@@ -196,7 +199,9 @@ export const createMcpServer = (session: McpSession, hooks: McpServerHooks = {})
                 inputSchema: registeredInputSchema(tool),
                 annotations: { title: tool.title, ...tool.annotations }
             },
-            (async (input: Record<string, unknown>) => {
+            (async (input: Record<string, unknown>, extra?: McpRequestExtra) => {
+                // Aborted by the SDK once the client cancels the call or its connection closes: a tool that waits stops then
+                const signal = extra?.mcpReq?.signal
                 let projectId: string | undefined
                 if (!session.scopes.includes(tool.scope)) {
                     hooks.onToolCall?.(tool.name, "denied")
@@ -206,7 +211,7 @@ export const createMcpServer = (session: McpSession, hooks: McpServerHooks = {})
                     let context: McpToolContext
                     let args: Record<string, unknown> = input
                     if (tool.projectScoped === false) {
-                        context = { principal: session.principal, projectId: "", scopes: session.scopes, credential: session.credential, session }
+                        context = { principal: session.principal, projectId: "", scopes: session.scopes, credential: session.credential, session, signal }
                     } else {
                         const { projectId: requested, ...rest } = input
                         const project = selectProject(session, requested as string | undefined)
@@ -222,7 +227,8 @@ export const createMcpServer = (session: McpSession, hooks: McpServerHooks = {})
                             projectId,
                             scopes: session.scopes,
                             credential: session.credential,
-                            session
+                            session,
+                            signal
                         }
                     }
                     const result = toToolResult(await tool.run(args as never, context))
