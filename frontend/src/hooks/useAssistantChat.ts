@@ -182,7 +182,13 @@ const useAssistantChat = (effort?: LlmEffort, aiModelId?: string) => {
                     // The agents Vega starts are linked to it, and its turns never run alongside one the server runs.
                     conversationId,
                     // In voice mode the answer is read aloud: the server asks the model for a short, spoken one.
-                    context: { page: location.pathname, environmentId: projectStore.environment?._id, locale: i18n.language, voice: useAssistantStore.getState().voiceMode || undefined }
+                    context: {
+                        page: location.pathname,
+                        environmentId: projectStore.environment?._id,
+                        locale: i18n.language,
+                        timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+                        voice: useAssistantStore.getState().voiceMode || undefined
+                    }
                 })
             })
 

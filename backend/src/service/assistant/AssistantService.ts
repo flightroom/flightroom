@@ -41,6 +41,7 @@ How to act:
 How to answer:
 - Answer in the language the user writes in.
 - Look the data up with the tools instead of guessing, and say so when the data you need is not available.
+- The console context gives today's date in the user's time zone and who the user is: read "today", "this month", "last week", "me" and "my" from it, and pass its time zone to the tools that take one. Never ask the user for the date or for who they are.
 - Keep answers short and concrete: a few sentences or a short list with "-". Use \`code\` for names, versions and commands. No tables or headings.
 - When you rely on the documentation, end with the links of the sections you used.
 - When the console context says \`answer_mode: voice\`, the user is talking to you and your answer is read aloud by a speech synthesizer. Answer in two or three short spoken sentences: no lists, no markdown, no code, no links, no ids. Call things by their names, round numbers and dates the way a person says them, and summarise long data (logs, many items) saying the details are in the panel. Ask one question at a time.
@@ -205,11 +206,31 @@ const describeDraftConversation = (messages: AssistantChatMessageDTO[], locale?:
 const withOutcome = (turn: LlmMessage[], outcome: LlmToolResult): LlmMessage[] =>
     turn.map(message => (message.role === "tool" ? { ...message, results: message.results.map(result => (result.callId === outcome.callId ? outcome : result)) } : message))
 
-const describeContext = ({ context }: AssistantChatRequestDTO, projectId: string) =>
-    [
+/**
+ * Today on the user's calendar, with its weekday: the model has no clock, and "this month" is the user's. UTC when
+ * the browser sent no zone, as in a turn the server runs on its own, or one the runtime does not know.
+ */
+const todayIn = (timeZone: string | undefined, now: Date): { zone: string; date: string; weekday: string } => {
+    const zone = timeZone || "UTC"
+    try {
+        const date = new Intl.DateTimeFormat("en-CA", { timeZone: zone }).format(now)
+        const weekday = new Intl.DateTimeFormat("en-US", { timeZone: zone, weekday: "long" }).format(now)
+        return { zone, date, weekday }
+    } catch {
+        return todayIn(undefined, now)
+    }
+}
+
+const describeContext = ({ context }: AssistantChatRequestDTO, projectId: string, user: IUser, now = new Date()) => {
+    const today = todayIn(context?.timeZone, now)
+    return [
         "<console_context>",
         `page: ${context?.page || "unknown"}`,
         `project_id: ${projectId}`,
+        `user_id: ${user._id}`,
+        `user_email: ${user.email}`,
+        `today: ${today.date} (${today.weekday})`,
+        `time_zone: ${today.zone}`,
         context?.environmentId ? `selected_environment_id: ${context.environmentId}` : undefined,
         context?.locale ? `ui_language: ${context.locale}` : undefined,
         context?.voice ? "answer_mode: voice" : undefined,
@@ -218,6 +239,7 @@ const describeContext = ({ context }: AssistantChatRequestDTO, projectId: string
     ]
         .filter(Boolean)
         .join("\n")
+}
 
 class AssistantService extends BaseAuthorizedService {
     constructor(
@@ -288,7 +310,7 @@ class AssistantService extends BaseAuthorizedService {
         const newestUserMessage = request.messages.map(message => message.role).lastIndexOf("user")
         const messages: LlmMessage[] = request.messages.map((message, index): LlmMessage => {
             if (message.role === "assistant") return { role: "assistant", text: message.content, toolCalls: [] }
-            return { role: "user", text: index === newestUserMessage ? `${describeContext(request, projectId)}\n\n${message.content}` : message.content }
+            return { role: "user", text: index === newestUserMessage ? `${describeContext(request, projectId, user)}\n\n${message.content}` : message.content }
         })
 
         let wrote = false

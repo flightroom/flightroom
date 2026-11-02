@@ -20,9 +20,16 @@ describe("user_ai_usage", () => {
         expect(tool.inputSchema.parse({ userId, from: "2026-10-01", to: "2026-10-23" })).toEqual({ userId, from: "2026-10-01", to: "2026-10-23", granularity: "day" })
     })
 
-    it("Given both userId and email, or neither, when it is parsed, then it is refused", () => {
+    it("Given both userId and email, when it is parsed, then it is refused", () => {
         expect(tool.inputSchema.safeParse({ userId, email: "ada@example.com", from: "2026-10-01", to: "2026-10-23" }).success).toBe(false)
-        expect(tool.inputSchema.safeParse({ from: "2026-10-01", to: "2026-10-23" }).success).toBe(false)
+    })
+
+    it("Given neither userId nor email, when it runs, then the service is asked for the person calling", async () => {
+        const args = tool.inputSchema.parse({ from: "2026-11-01", to: "2026-11-02", granularity: "month" })
+
+        await tool.run(args, { ...context, principal: { _id: userId } } as unknown as McpToolContext)
+
+        expect(forMember).toHaveBeenCalledWith(context.projectId, { userId }, { from: "2026-11-01", to: "2026-11-02", granularity: "month" })
     })
 
     it("Given a date-time, an unknown time zone or another granularity, when it is parsed, then it is refused", () => {

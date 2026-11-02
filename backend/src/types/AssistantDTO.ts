@@ -32,6 +32,8 @@ export interface AssistantChatRequestDTO {
         page?: string
         environmentId?: string
         locale?: string
+        /** The IANA time zone of the browser, e.g. Europe/Rome: the day the model is told it is today. */
+        timeZone?: string
         /** The voice mode of the panel is on: the answer is read aloud, so it is asked short and spoken. */
         voice?: boolean
         /**

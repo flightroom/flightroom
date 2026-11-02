@@ -232,6 +232,26 @@ describe("AssistantService", () => {
         expect(stream.mock.calls[0][0].system).toEqual(stream.mock.calls[1][0].system)
     })
 
+    it("Given the browser's time zone, when a question is answered, then the console context tells the model who asks and what day it is there", async () => {
+        vi.useFakeTimers({ toFake: ["Date"] })
+        vi.setSystemTime(new Date("2026-11-01T23:30:00Z"))
+        try {
+            stream.mockReturnValue(fakeStream({ stop_reason: "end_turn", content: [{ type: "text", text: "Hi." }] }))
+            const service = new AssistantService({ _id: "user-1", email: "ada@example.com" } as unknown as IUser, { ANTHROPIC_API_KEY: "test-key" })
+
+            await service.chat(PROJECT, { messages: [{ role: "user", content: "How many tokens this month?" }], context: { timeZone: "Europe/Rome" } }, recordingHandlers().handlers)
+            await service.chat(PROJECT, { messages: [{ role: "user", content: "Hi" }], context: { timeZone: "Mars/Olympus" } }, recordingHandlers().handlers)
+
+            const rome = stream.mock.calls[0][0].messages[0].content
+            expect(rome).toContain("user_id: user-1\nuser_email: ada@example.com")
+            expect(rome).toContain("today: 2026-11-02 (Monday)\ntime_zone: Europe/Rome")
+            // A zone the runtime does not know falls back to UTC rather than failing the question.
+            expect(stream.mock.calls[1][0].messages[0].content).toContain("today: 2026-11-01 (Sunday)\ntime_zone: UTC")
+        } finally {
+            vi.useRealTimers()
+        }
+    })
+
     it("Given an installation capped at high, when max is asked for, then the answer is given at high, with the room of high", async () => {
         stream.mockReturnValueOnce(fakeStream({ stop_reason: "end_turn", content: [{ type: "text", text: "Hi." }] }))
 
