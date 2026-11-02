@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
+import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useEnvironmentsApi from "@/hooks/apiClients/useEnvironmentsApi"
 import { Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
@@ -13,6 +14,7 @@ import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
 import { cn } from "@/utils/styleUtils"
+import { backendTechnologyOf } from "@/utils/technologies"
 import useDeploymentsApi, { DEPLOY_MUTATION_KEY, DeployedBackend, DeployedVariableMap, DeploymentDTO } from "../../../hooks/apiClients/useDeploymentsApi"
 import DeploymentBackendCard from "./DeploymentBackendCard"
 import DeploymentFrontendCard from "./DeploymentFrontendCard"
@@ -72,6 +74,13 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO; active?: boolean 
     const inSomeDomain = [...deployment.frontends, ...backends].some(member => member.domainId)
     const domainsQuery = useQuery({ queryKey: ["domains", projectId], queryFn: domainsApi.getAll, enabled: !!projectId && inSomeDomain })
     const groups = groupByDomain(deployment.frontends, backends, domainsQuery.data ?? [])
+    // The deployment records no stack for a backend: the technology comes from the backend as it is now, none once it is deleted
+    const backendsApi = useBackendsApi()
+    const backendsQuery = useQuery({ queryKey: ["backends", projectId], queryFn: backendsApi.getAll, enabled: !!projectId && backends.length > 0 })
+    const technologyOf = (id: string) => {
+        const backend = backendsQuery.data?.find(candidate => candidate._id === id)
+        return backend ? backendTechnologyOf(backend) : undefined
+    }
     // Without any domain the headings would only repeat "without a domain": the members stay as they were
     const showDomains = groups.some(group => group.domain)
     // The replicas are the ones set on the environment now, not recorded by the deployment: only the active one shows them
@@ -112,7 +121,13 @@ const DeploymentSummary: React.FC<{ deployment: DeploymentDTO; active?: boolean 
                                 />
                             ))}
                             {group.backends.map(backend => (
-                                <DeploymentBackendCard key={backend._id} backend={backend} url={exposedUrl(backend.exposurePath)} replicas={replicasOf("backend", backend._id)} />
+                                <DeploymentBackendCard
+                                    key={backend._id}
+                                    backend={backend}
+                                    technology={technologyOf(backend._id)}
+                                    url={exposedUrl(backend.exposurePath)}
+                                    replicas={replicasOf("backend", backend._id)}
+                                />
                             ))}
                         </div>
                     </section>

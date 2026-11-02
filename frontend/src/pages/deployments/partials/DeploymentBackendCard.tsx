@@ -3,20 +3,24 @@ import { Server } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
+import TechnologyLogo from "@/components/technology/TechnologyLogo"
 import { DeployedBackend } from "@/hooks/apiClients/useDeploymentsApi"
 import { cn } from "@/utils/styleUtils"
+import { BackendTechnology } from "@/utils/technologies"
 import DeploymentExposedLink from "./DeploymentExposedLink"
 import DeploymentReplicas from "./DeploymentReplicas"
 
 interface DeploymentBackendCardProps {
     backend: DeployedBackend
+    /** The technology of the backend as it is now, when known */
+    technology?: BackendTechnology
     /** Where it is reached in the environment of the deployment, when it is exposed there */
     url?: string
     /** The pods it runs there, when known */
     replicas?: number
 }
 
-export const DeploymentBackendCard: React.FC<DeploymentBackendCardProps> = ({ backend, url, replicas }) => {
+export const DeploymentBackendCard: React.FC<DeploymentBackendCardProps> = ({ backend, technology, url, replicas }) => {
     const { t } = useTranslation()
     // Without pods nothing answers on the URL: the card goes grey and the link goes away
     const stopped = replicas === 0
@@ -36,11 +40,14 @@ export const DeploymentBackendCard: React.FC<DeploymentBackendCardProps> = ({ ba
                         <Server className="size-3" aria-hidden="true" />
                         {t("deployments.kind_backend")}
                     </Badge>
-                    <CardTitle className="mb-0 text-base truncate" title={backend.name}>
-                        <Link to={`/backend/${backend._id}/overview`} className="underline-offset-4 hover:underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
-                            {backend.name}
-                        </Link>
-                    </CardTitle>
+                    <div className="flex min-w-0 items-center gap-2">
+                        {technology && <TechnologyLogo technology={technology} />}
+                        <CardTitle className="mb-0 text-base truncate" title={backend.name}>
+                            <Link to={`/backend/${backend._id}/overview`} className="underline-offset-4 hover:underline after:absolute after:inset-0 after:content-[''] focus-visible:outline-none">
+                                {backend.name}
+                            </Link>
+                        </CardTitle>
+                    </div>
                 </div>
                 <Badge variant="outline" className="shrink-0" title={backend.version ? t("deployments.backend_card.version") : t("deployments.backend_card.no_version")}>
                     {backend.version || "—"}
