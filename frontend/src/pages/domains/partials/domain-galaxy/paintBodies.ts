@@ -1,7 +1,7 @@
 import { drawRocket } from "@/components/ai-agents/drawRocket"
 import { MOON_ICON_PX, MOON_SHADE_PX, SHIP_ORBIT_SPEED, SHIP_TRAIL, STATION_ORBIT_SPEED } from "./constants"
 import type { BodyColors } from "./sky"
-import type { Moon, Point, Ship, Station } from "./types"
+import type { Comet, Moon, Point, Ship, Station } from "./types"
 
 /** One moon at `now` (seconds): a disc in the colour of the moons, its far side in shadow and the icon of its resource once big enough to read. */
 export const paintMoon = (ctx: CanvasRenderingContext2D, moon: Moon, now: number, scale: number, colors: BodyColors, space: string, selected: boolean) => {
@@ -49,6 +49,74 @@ export const paintMoon = (ctx: CanvasRenderingContext2D, moon: Moon, now: number
         ctx.lineWidth = 1.2 / scale
         ctx.beginPath()
         ctx.arc(x, y, r + 1.5 / scale, 0, 2 * Math.PI)
+        ctx.stroke()
+    }
+}
+
+/** Where a comet is at `now` (seconds), from its world: Kepler's equation, solved in a few Newton steps. */
+const cometOffset = (comet: Comet, now: number) => {
+    const mean = comet.phase + now * comet.speed
+    const e = comet.eccentricity
+    let anomaly = mean
+    for (let step = 0; step < 4; step++) anomaly -= (anomaly - e * Math.sin(anomaly) - mean) / (1 - e * Math.cos(anomaly))
+    const along = comet.semiMajor * (Math.cos(anomaly) - e)
+    const across = comet.semiMinor * Math.sin(anomaly)
+    const cos = Math.cos(comet.tilt)
+    const sin = Math.sin(comet.tilt)
+    return { x: along * cos - across * sin, y: along * sin + across * cos }
+}
+
+/** The orbit of a world's config maps or secrets: a faint dashed ellipse with the world at a focus. */
+export const paintCometOrbit = (ctx: CanvasRenderingContext2D, comet: Comet, scale: number, colors: BodyColors) => {
+    const focus = comet.semiMajor * comet.eccentricity
+    ctx.strokeStyle = colors.comet[comet.kind].orbit
+    ctx.lineWidth = 1 / scale
+    ctx.setLineDash([3 / scale, 3 / scale])
+    ctx.beginPath()
+    ctx.ellipse((comet.world.x ?? 0) - focus * Math.cos(comet.tilt), (comet.world.y ?? 0) - focus * Math.sin(comet.tilt), comet.semiMajor, comet.semiMinor, comet.tilt, 0, 2 * Math.PI)
+    ctx.stroke()
+    ctx.setLineDash([])
+}
+
+/**
+ * One comet at `now` (seconds): its tail pointing away from its world, longer the nearer it passes, and its head,
+ * a diamond for a config map and a disc for a secret.
+ */
+export const paintComet = (ctx: CanvasRenderingContext2D, comet: Comet, now: number, scale: number, colors: BodyColors, selected: boolean) => {
+    const offset = cometOffset(comet, now)
+    const distance = Math.hypot(offset.x, offset.y) || 1
+    const x = (comet.world.x ?? 0) + offset.x
+    const y = (comet.world.y ?? 0) + offset.y
+    const r = comet.radius
+    comet.x = x
+    comet.y = y
+    const color = colors.comet[comet.kind]
+
+    const tail = r * 5 * ((comet.semiMajor * (1 - comet.eccentricity)) / distance)
+    ctx.strokeStyle = color.tail
+    ctx.lineCap = "round"
+    ctx.lineWidth = r * 1.2
+    ctx.beginPath()
+    ctx.moveTo(x, y)
+    ctx.lineTo(x + (offset.x / distance) * tail, y + (offset.y / distance) * tail)
+    ctx.stroke()
+
+    ctx.fillStyle = color.head
+    ctx.beginPath()
+    if (comet.kind === "configMap") {
+        const side = r * 1.25
+        ctx.moveTo(x, y - side)
+        ctx.lineTo(x + side, y)
+        ctx.lineTo(x, y + side)
+        ctx.lineTo(x - side, y)
+        ctx.closePath()
+    } else ctx.arc(x, y, r, 0, 2 * Math.PI)
+    ctx.fill()
+    if (selected) {
+        ctx.strokeStyle = colors.moonRing
+        ctx.lineWidth = 1.2 / scale
+        ctx.beginPath()
+        ctx.arc(x, y, r * 1.25 + 1.5 / scale, 0, 2 * Math.PI)
         ctx.stroke()
     }
 }

@@ -3,6 +3,8 @@ import { useTranslation } from "react-i18next"
 interface GalaxyLegendProps {
     isBackend: boolean
     moons: boolean
+    configMaps: boolean
+    secrets: boolean
     relations: boolean
     stations: boolean
     ships: boolean
@@ -19,6 +21,14 @@ const StationGlyph: React.FC = () => (
     </svg>
 )
 
+/** A comet as the legend shows it: its tail, and its head, a diamond for a config map and a disc for a secret. */
+const CometGlyph: React.FC<{ secret?: boolean }> = ({ secret }) => (
+    <svg viewBox="0 0 20 10" className={`h-2.5 w-5 ${secret ? "text-pumpkin-500 dark:text-pumpkin-300" : "text-olivine-500 dark:text-olivine-400"}`} aria-hidden="true">
+        <path d="M5 5 H18" stroke="currentColor" strokeWidth="3" strokeLinecap="round" opacity="0.35" />
+        {secret ? <circle cx="5" cy="5" r="3.5" fill="currentColor" /> : <path d="M5 0.5 L9.5 5 L5 9.5 L0.5 5 Z" fill="currentColor" />}
+    </svg>
+)
+
 /** The rocket of the ships, as the legend shows it: the shape drawRocket paints on the canvas. */
 const ShipGlyph: React.FC = () => (
     <svg viewBox="-20 -16 40 32" className="h-2.5 w-3.5 -rotate-45 text-foreground" aria-hidden="true">
@@ -30,7 +40,7 @@ const ShipGlyph: React.FC = () => (
 )
 
 /** What the marks of the map mean, only the ones it can show. */
-const GalaxyLegend: React.FC<GalaxyLegendProps> = ({ isBackend, moons, relations, stations, ships }) => {
+const GalaxyLegend: React.FC<GalaxyLegendProps> = ({ isBackend, moons, configMaps, secrets, relations, stations, ships }) => {
     const { t } = useTranslation()
     return (
         <div className="pointer-events-none absolute top-3 left-3 flex flex-wrap items-center gap-4 rounded-md border border-border bg-card px-3 py-2 text-xs font-medium shadow-sm">
@@ -51,6 +61,18 @@ const GalaxyLegend: React.FC<GalaxyLegendProps> = ({ isBackend, moons, relations
                         <span className="absolute -top-[3px] left-1/2 size-1.5 -translate-x-1/2 rounded-full bg-zomp-700 dark:bg-zomp-200" />
                     </span>
                     {t("domains.galaxy.legend_moon")}
+                </span>
+            )}
+            {configMaps && (
+                <span className="flex items-center gap-1.5">
+                    <CometGlyph />
+                    {t("domains.galaxy.legend_config_map")}
+                </span>
+            )}
+            {secrets && (
+                <span className="flex items-center gap-1.5">
+                    <CometGlyph secret />
+                    {t("domains.galaxy.legend_secret")}
                 </span>
             )}
             {!isBackend && (

@@ -1,16 +1,19 @@
 import { DIMMED_ALPHA, MOON_LABEL_ZOOM, SHIP_MAX_SIZE, SHIP_SCREEN_SIZE, STAR_LABEL_ZOOM, STATION_SCREEN_SIZE } from "./constants"
-import { paintMoon, paintShip, paintStation } from "./paintBodies"
+import { paintComet, paintCometOrbit, paintMoon, paintShip, paintStation } from "./paintBodies"
 import { type BodyColors, type Sky, STAR_CORE } from "./sky"
-import type { Frame, Moon, Ship, StarNode, Station } from "./types"
+import type { Comet, Frame, Moon, Ship, StarNode, Station } from "./types"
 
 interface WorldScene {
     worlds: StarNode[]
     moonsByWorld: Map<string, Moon[]>
+    cometsByWorld: Map<string, Comet[]>
     stationsByWorld: Map<string, Station[]>
     ships: Ship[]
     /** The worlds lit by the hover; every other one is dimmed. Null when nothing is hovered */
     neighbourIds: Set<string> | null
     hoveredResourceId: string | null
+    /** The config map or the secret under the pointer */
+    hoveredMapId: string | null
     primaryHue: string
     reducedMotion: boolean
     font: string
@@ -20,10 +23,13 @@ interface WorldScene {
 
 /**
  * The painter of every world, for the force-graph to call on each node of each frame: its star and its glow, its
- * canary, its moons and stations, and the ships of the whole map with the first world painted on the frame.
+ * canary, its moons, its comets and stations, and the ships of the whole map with the first world painted on the frame.
  */
 export const createWorldPainter =
-    ({ worlds, moonsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, primaryHue, reducedMotion, font, sky, colors }: WorldScene, frameRef: { readonly current: Frame }) =>
+    (
+        { worlds, moonsByWorld, cometsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, hoveredMapId, primaryHue, reducedMotion, font, sky, colors }: WorldScene,
+        frameRef: { readonly current: Frame }
+    ) =>
     (node: StarNode, ctx: CanvasRenderingContext2D, scale: number) => {
         const x = node.x ?? 0
         const y = node.y ?? 0
@@ -62,6 +68,7 @@ export const createWorldPainter =
         // The moons on their faint orbits, then the ships outside them.
         const frame = frameRef.current
         const worldMoons = moonsByWorld.get(node.id)
+        const worldComets = cometsByWorld.get(node.id)
         const worldStations = stationsByWorld.get(node.id)
         if (worldMoons) {
             ctx.strokeStyle = colors.orbit
@@ -89,6 +96,23 @@ export const createWorldPainter =
                 }
             }
         }
+        if (worldComets) {
+            // One orbit for the config maps, one for the secrets: the first comet of each draws it.
+            for (const comet of worldComets) if (comet === worldComets.find(other => other.kind === comet.kind)) paintCometOrbit(ctx, comet, scale, colors)
+            const labelled = scale >= MOON_LABEL_ZOOM
+            for (const comet of worldComets) {
+                const selected = comet.mapId === hoveredMapId
+                paintComet(ctx, comet, frame.now, scale, colors, selected)
+                comet.frame = frame.id
+                if (labelled || selected) {
+                    ctx.textAlign = "center"
+                    ctx.textBaseline = "top"
+                    ctx.fillStyle = colors.label
+                    ctx.font = `${10 / scale}px ${font}`
+                    ctx.fillText(comet.name, comet.x, comet.y + comet.radius * 1.25 + 2 / scale)
+                }
+            }
+        }
         if (worldStations) {
             const stationSize = Math.min(STATION_SCREEN_SIZE / scale, r * SHIP_MAX_SIZE)
             for (const station of worldStations) {
@@ -111,7 +135,7 @@ export const createWorldPainter =
             if (!reducedMotion && Math.hypot(closestX - center.x, closestY - center.y) <= orbit + shipSize) frame.motion = true
         }
         // Something turning in view keeps the map redrawing.
-        if (!reducedMotion && !frame.motion && (worldMoons || worldStations)) {
+        if (!reducedMotion && !frame.motion && (worldMoons || worldComets || worldStations)) {
             const extent = worldStations ? worldStations[0].orbit + STATION_SCREEN_SIZE / scale : node.reach
             frame.motion = x + extent > frame.left && x - extent < frame.right && y + extent > frame.top && y - extent < frame.bottom
         }

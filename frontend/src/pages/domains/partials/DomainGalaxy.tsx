@@ -12,11 +12,12 @@ import { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 import useIsDark from "@/hooks/useIsDark"
 import { resourcePath } from "@/pages/resources/partials/resources"
+import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import { FIT_MS, FIT_PADDING, GALAXY_HIT_REACH, MAX_GALAXY_ZOOM, RELATION_HIT } from "./domain-galaxy/constants"
 import GalaxyBodyLists from "./domain-galaxy/GalaxyBodyLists"
 import GalaxyLegend from "./domain-galaxy/GalaxyLegend"
 import GalaxyTooltip from "./domain-galaxy/GalaxyTooltip"
-import { distanceToSegment, bodyAt as findBodyAt } from "./domain-galaxy/hitTest"
+import { bodyPoint, distanceToSegment, bodyAt as findBodyAt } from "./domain-galaxy/hitTest"
 import { paintSky, startFrame } from "./domain-galaxy/paintSky"
 import { createWorldPainter } from "./domain-galaxy/paintWorld"
 import { bodyColors, FALLBACK_PRIMARY, SKIES } from "./domain-galaxy/sky"
@@ -51,7 +52,8 @@ const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: r
 
 /**
  * The whole project as a sky: every domain a galaxy, its frontends and backends the worlds in it,
- * members in no domain in a grey nebula. The resources a backend attaches are its moons, an agent at
+ * members in no domain in a grey nebula. The resources a backend attaches are its moons, the config maps and the
+ * secrets a world receives comets on its two eccentric orbits, an agent at
  * work on a world a ship orbiting it. Links across two domains are drawn as bridges between the
  * galaxies, the ones the domain diagram has to leave out.
  */
@@ -91,12 +93,18 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
         return () => observer.disconnect()
     }, [])
 
-    const { galaxies, graphData, membersByGalaxy, moons, moonsByWorld, ships, agents, stations, stationsByWorld } = useGalaxyScene({ domains, frontends, backends, resources, isBackend })
+    const { galaxies, graphData, membersByGalaxy, moons, moonsByWorld, comets, cometsByWorld, ships, agents, stations, stationsByWorld } = useGalaxyScene({
+        domains,
+        frontends,
+        backends,
+        resources,
+        isBackend
+    })
 
     // The graph is only rendered once the container has a size, and the forces need it in place.
     const isGraphMounted = size.width > 0
 
-    const hasBodies = moons.length > 0 || ships.length > 0 || stations.length > 0
+    const hasBodies = moons.length > 0 || comets.length > 0 || ships.length > 0 || stations.length > 0
     const { turning, engineStoppedRef, onRenderFramePost } = useMotionThrottle(graphRef, frameRef, { reducedMotion, hasBodies, linkSourceId, isGraphMounted, graphData })
 
     const hasBridges = graphData.links.some(link => link.bridge)
@@ -105,10 +113,12 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
     useGalaxyForces(graphRef, galaxies, isGraphMounted, engineStoppedRef)
 
     const hoveredResourceId = hovered?.kind === "moon" ? hovered.moon.resourceId : null
+    const hoveredMapId = hovered?.kind === "comet" ? hovered.comet.mapId : null
     // What lights up with the hover: a world and its neighbours, every world a resource or ship's job touches.
     const neighbourIds = useMemo(() => {
         if (!hovered) return null
         if (hovered.kind === "moon") return new Set(hovered.moon.users)
+        if (hovered.kind === "comet") return new Set(hovered.comet.users)
         if (hovered.kind === "ship") return new Set(hovered.ship.worlds.map(world => world.id))
         if (hovered.kind === "station") return new Set([hovered.station.world.id])
         const ids = new Set([hovered.node.id])
@@ -142,12 +152,16 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
         [galaxies, membersByGalaxy, focusedGalaxyId, font, sky, colors, links, selectedLinkId, linking, linkSourceId, reducedMotion]
     )
 
-    const bodyAt = useCallback((point: Point) => findBodyAt(point, frameRef.current, ships, stations, moons), [ships, stations, moons])
+    const bodyAt = useCallback((point: Point) => findBodyAt(point, frameRef.current, ships, stations, comets, moons), [ships, stations, comets, moons])
 
     // Built once per change of what it paints rather than per node and per frame, when the force-graph calls it.
     const paintStar = useMemo(
-        () => createWorldPainter({ worlds: graphData.nodes, moonsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, primaryHue, reducedMotion, font, sky, colors }, frameRef),
-        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, ships, stationsByWorld, graphData.nodes, hoveredResourceId]
+        () =>
+            createWorldPainter(
+                { worlds: graphData.nodes, moonsByWorld, cometsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, hoveredMapId, primaryHue, reducedMotion, font, sky, colors },
+                frameRef
+            ),
+        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, cometsByWorld, ships, stationsByWorld, graphData.nodes, hoveredResourceId, hoveredMapId]
     )
 
     const paintPointerArea = useCallback((node: StarNode, color: string, ctx: CanvasRenderingContext2D) => {
@@ -212,12 +226,13 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
         [linkSourceId, onLink, stopLinking]
     )
 
-    /** A click on a moon opens its resource, on a station its maintenance agent, on a ship the work of its agent; false when it fell on none. */
+    /** A click on a moon opens its resource, on a comet its config map or secret, on a station its maintenance agent, on a ship the work of its agent; false when it fell on none. */
     const openBody = useCallback(
         (point: Point) => {
             const body = bodyAt(point)
             if (body?.kind === "ship") openAgentJob(body.ship.job.jobId, body.ship.fallbackPath)
             if (body?.kind === "moon") navigate(resourcePath(body.moon.resourceId))
+            if (body?.kind === "comet") navigate(VARIABLE_MAP_KINDS[body.comet.kind].detailPath(body.comet.mapId))
             if (body?.kind === "station") navigate(`/maintenance-agent/${body.station.agent._id}`)
             return Boolean(body)
         },
@@ -288,12 +303,8 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
         const body = bodyAt(point)
         setHovered(previous => {
             if (body) {
-                const same =
-                    (previous?.kind === "moon" && body.kind === "moon" && previous.moon === body.moon) ||
-                    (previous?.kind === "ship" && body.kind === "ship" && previous.ship === body.ship) ||
-                    (previous?.kind === "station" && body.kind === "station" && previous.station === body.station)
-                if (same) return previous
-                const at = body.kind === "moon" ? body.moon : body.kind === "ship" ? body.ship : body.station
+                if (previous && previous.kind !== "world" && bodyPoint(previous) === bodyPoint(body)) return previous
+                const at = bodyPoint(body)
                 const position = graph.graph2ScreenCoords(at.x, at.y)
                 return { ...body, x: position.x, y: position.y }
             }
@@ -360,7 +371,15 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
             )}
 
             {/* Without the tool to draw them, the relations are in the legend only when there are some */}
-            <GalaxyLegend isBackend={isBackend} moons={moons.length > 0} relations={Boolean(onLink) || links.length > 0} stations={stations.length > 0} ships={ships.length > 0} />
+            <GalaxyLegend
+                isBackend={isBackend}
+                moons={moons.length > 0}
+                configMaps={comets.some(comet => comet.kind === "configMap")}
+                secrets={comets.some(comet => comet.kind === "secret")}
+                relations={Boolean(onLink) || links.length > 0}
+                stations={stations.length > 0}
+                ships={ships.length > 0}
+            />
             <div className="absolute top-3 right-3 flex items-center gap-2">
                 {onLink && (
                     <Button

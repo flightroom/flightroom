@@ -3011,7 +3011,7 @@
             "legend_canary": "Canary on",
             "legend_bridge": "Link across domains",
             "recenter": "Show everything",
-            "hint": "Click a galaxy to fly to it and click it again to open the domain. Click a world to open the frontend or the backend, a moon to open its resource, a relation to delete it, a ship to open the work of its agent. Scroll to zoom.",
+            "hint": "Click a galaxy to fly to it and click it again to open the domain. Click a world to open the frontend or the backend, a moon to open its resource, a comet to open its config map or secret, a relation to delete it, a ship to open the work of its agent. Scroll to zoom.",
             "summary_one": "Project map: every domain is a galaxy, its frontends and backends are the worlds and the resources a backend attaches orbit it as moons. There is {{count}} link across two domains.",
             "summary_other": "Project map: every domain is a galaxy, its frontends and backends are the worlds and the resources a backend attaches orbit it as moons. There are {{count}} links across two domains.",
             "kind_frontend": "Frontend",
@@ -3048,7 +3048,7 @@
             "agents_list": "Agents at work",
             "open_agent": "Open the agent on {{names}}",
             "kind_resource": "Resource",
-            "hint_backend": "Click a galaxy to fly to it and click it again to open the nearest backend. Click a world to open the backend, a moon to open its resource, a ship to open the work of its agent. Scroll to zoom.",
+            "hint_backend": "Click a galaxy to fly to it and click it again to open the nearest backend. Click a world to open the backend, a moon to open its resource, a comet to open its config map or secret, a ship to open the work of its agent. Scroll to zoom.",
             "summary_backend": "Map of the backends: every domain is a galaxy, its backends are the worlds and the resources a backend attaches orbit it as moons.",
             "legend_moon": "Attached resource",
             "moon_of": "Moon of {{name}}",
@@ -3056,7 +3056,13 @@
             "ship_job": "Agent at work: {{prompt}}",
             "ship_request": "Agent at work on a change request",
             "ship_more_one": "+{{count}} more agent flying in the galaxy",
-            "ship_more_other": "+{{count}} more agents flying in the galaxy"
+            "ship_more_other": "+{{count}} more agents flying in the galaxy",
+            "legend_config_map": "Config map received",
+            "legend_secret": "Secret received",
+            "comet_of": "Received by {{name}}",
+            "comet_shared": "Also received by {{names}}",
+            "comet_keys_one": "{{count}} key",
+            "comet_keys_other": "{{count}} keys"
         },
         "links": {
             "frontendsColumn": "Frontends",

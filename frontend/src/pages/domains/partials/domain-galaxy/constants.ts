@@ -27,6 +27,19 @@ export const MOON_ICON_PX = 5
 export const MOON_LABEL_ZOOM = 4.5
 /** In screen pixels: how near the pointer must fall to a moon */
 export const MOON_HIT = 8
+/** A comet to its world, and how far beyond its moons the nearest point of the inner orbit is, in world radii */
+export const COMET_SIZE = 0.22
+export const COMET_GAP = 0.8
+/** In world radii: how much farther out the orbit of the secrets comes nearest than the one of the config maps */
+export const COMET_ORBIT_STEP = 0.7
+/** How stretched the two orbits are: 0 a circle, 1 no longer closed */
+export const COMET_ECCENTRICITY = 0.38
+/** Radians between where the two orbits point, so they cross rather than nest */
+export const COMET_TILT = (2 * Math.PI) / 3
+/** Radians of mean anomaly per second on the orbit of the config maps */
+export const COMET_SPEED = 0.35
+/** In screen pixels: how near the pointer must fall to a comet */
+export const COMET_HIT = 8
 /** Ships keep this size on screen, but never get bigger than their world as the map zooms out. */
 export const SHIP_SCREEN_SIZE = 16
 export const SHIP_MAX_SIZE = 1.2

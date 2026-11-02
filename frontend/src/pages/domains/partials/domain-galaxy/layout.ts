@@ -7,10 +7,27 @@ import type { Domain } from "@/hooks/apiClients/useDomainsApi"
 import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import type { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
+import type { VariableMap, VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import { typeLabel, variantLabel } from "@/pages/resources/partials/resources"
-import { GOLDEN_ANGLE, MOON_FIRST_ORBIT, MOON_ORBIT_STEP, MOON_SIZE, MOON_SPACING, MOON_SPEED, NO_DOMAIN, RELATION_GAP, SHIP_CAP } from "./constants"
+import {
+    COMET_ECCENTRICITY,
+    COMET_GAP,
+    COMET_ORBIT_STEP,
+    COMET_SIZE,
+    COMET_SPEED,
+    COMET_TILT,
+    GOLDEN_ANGLE,
+    MOON_FIRST_ORBIT,
+    MOON_ORBIT_STEP,
+    MOON_SIZE,
+    MOON_SPACING,
+    MOON_SPEED,
+    NO_DOMAIN,
+    RELATION_GAP,
+    SHIP_CAP
+} from "./constants"
 import { brandPath, glyphPath } from "./resourcePaths"
-import type { Agent, Galaxy, GalaxyGeometry, LaneLink, Moon, RelationSegment, Ship, StarNode, Station, StationStatus, World } from "./types"
+import type { Agent, Comet, Galaxy, GalaxyGeometry, LaneLink, Moon, RelationSegment, Ship, StarNode, Station, StationStatus, World } from "./types"
 
 /** A stable spread from an id, so a world, a moon or a ship keeps its place in the orbit across polls. */
 export const phaseOf = (id: string) => {
@@ -45,6 +62,44 @@ const placeMoons = (world: StarNode, attached: Omit<Moon, "world" | "radius" | "
     return moons
 }
 
+/** What a comet is before it is put on an orbit */
+type CometSeed = Pick<Comet, "mapId" | "kind" | "name" | "keys" | "users">
+
+/**
+ * The comets of a world on its two eccentric orbits, both coming nearest just beyond its moons: the config maps on
+ * the inner one, the secrets on one turned away from it, so the two cross. On each orbit the comets are evenly spread
+ * in mean anomaly, so they bunch up far out and rush past the world, as comets do.
+ */
+const placeComets = (world: StarNode, configMaps: CometSeed[], secrets: CometSeed[]): Comet[] => {
+    const radius = world.radius * COMET_SIZE
+    const nearest = world.reach + world.radius * COMET_GAP
+    const innerSemiMajor = nearest / (1 - COMET_ECCENTRICITY)
+    const orbits: [CometSeed[], number, number][] = [
+        [configMaps, nearest, phaseOf(`${world.id}-comets`)],
+        [secrets, nearest + world.radius * COMET_ORBIT_STEP, phaseOf(`${world.id}-comets`) + COMET_TILT]
+    ]
+    return orbits.flatMap(([seeds, periapsis, tilt]) => {
+        const semiMajor = periapsis / (1 - COMET_ECCENTRICITY)
+        const semiMinor = semiMajor * Math.sqrt(1 - COMET_ECCENTRICITY ** 2)
+        const speed = COMET_SPEED * (innerSemiMajor / semiMajor) ** 1.5
+        const offset = phaseOf(`${world.id}-${seeds[0]?.kind}`)
+        return seeds.map((seed, index) => ({
+            ...seed,
+            world,
+            radius,
+            semiMajor,
+            semiMinor,
+            eccentricity: COMET_ECCENTRICITY,
+            tilt,
+            phase: offset + (index * 2 * Math.PI) / seeds.length,
+            speed,
+            x: 0,
+            y: 0,
+            frame: -1
+        }))
+    })
+}
+
 /** Where a station orbits: past the moons, inside the lane of the ships. */
 const stationOrbit = (world: StarNode) => world.reach + world.radius * 0.3 + 1
 
@@ -58,6 +113,8 @@ interface GalaxyMapInput {
     frontends: Frontend[]
     backends: Backend[]
     resources: Resource[]
+    configMaps: VariableMap[]
+    secrets: VariableMap[]
     isBackend: boolean
     t: TFunction
     /** The stars of the last layout: a star keeps the place it had before a reload */
@@ -65,7 +122,7 @@ interface GalaxyMapInput {
 }
 
 /** The galaxies, their worlds and the lanes between them, the moons of every world. */
-export const buildGalaxyMap = ({ domains, frontends, backends, resources, isBackend, t, previousNodes }: GalaxyMapInput) => {
+export const buildGalaxyMap = ({ domains, frontends, backends, resources, configMaps, secrets, isBackend, t, previousNodes }: GalaxyMapInput) => {
     const domainIds = new Set(domains.map(domain => domain._id))
     const galaxyOf = (domainId?: string | null) => (domainId && domainIds.has(domainId) ? domainId : NO_DOMAIN)
 
@@ -101,6 +158,22 @@ export const buildGalaxyMap = ({ domains, frontends, backends, resources, isBack
         for (const id of users) attachedBy.set(id, [...(attachedBy.get(id) ?? []), resource])
     }
 
+    // A config map or a secret is drawn only as a comet of the worlds shown that receive it, of each of them.
+    const receivers = [...frontends, ...backends]
+    const cometsOf = (maps: VariableMap[], kind: VariableMapKind) => {
+        const field = kind === "configMap" ? "configMapIds" : "secretIds"
+        const byWorld = new Map<string, CometSeed[]>()
+        for (const map of maps) {
+            if (!map._id) continue
+            const users = receivers.filter(member => member._id && member[field]?.includes(map._id!)).map(member => member._id!)
+            const seed = { mapId: map._id, kind, name: map.name, keys: map.entries.length, users }
+            for (const id of users) byWorld.set(id, [...(byWorld.get(id) ?? []), seed])
+        }
+        return byWorld
+    }
+    const configMapsByWorld = cometsOf(configMaps, "configMap")
+    const secretsByWorld = cometsOf(secrets, "secret")
+
     // Links to something that is not on the map are left out: there is no world to draw them to.
     const lanes = [
         ...frontends.flatMap(mfe => (mfe.parentIds ?? []).filter(parentId => galaxyById.has(parentId)).map(parentId => ({ from: parentId, to: mfe._id!, kind: "relation" as const }))),
@@ -128,6 +201,7 @@ export const buildGalaxyMap = ({ domains, frontends, backends, resources, isBack
     // A star keeps the place it had before a reload; a new one starts on a spiral around its galaxy.
     const previous = new Map(previousNodes.map(node => [node.id, node]))
     const moonsByWorld = new Map<string, Moon[]>()
+    const cometsByWorld = new Map<string, Comet[]>()
     const nodes: StarNode[] = members.map(member => {
         const before = previous.get(member.id)
         const radius = 3 + Math.sqrt(degree.get(member.id) ?? 0) * 1.6
@@ -145,6 +219,14 @@ export const buildGalaxyMap = ({ domains, frontends, backends, resources, isBack
             const outermost = worldMoons[worldMoons.length - 1]
             node.reach = outermost.orbit + outermost.radius
             moonsByWorld.set(member.id, worldMoons)
+        }
+        const worldConfigMaps = configMapsByWorld.get(member.id) ?? []
+        const worldSecrets = secretsByWorld.get(member.id) ?? []
+        if (worldConfigMaps.length || worldSecrets.length) {
+            const worldComets = placeComets(node, worldConfigMaps, worldSecrets)
+            // The far end of the outer orbit: the stations and the name of the world go beyond it.
+            node.reach = Math.max(...worldComets.map(comet => comet.semiMajor * (1 + comet.eccentricity) + comet.radius))
+            cometsByWorld.set(member.id, worldComets)
         }
         return node
     })
@@ -179,6 +261,8 @@ export const buildGalaxyMap = ({ domains, frontends, backends, resources, isBack
         membersByGalaxy,
         moonsByWorld,
         moons: [...moonsByWorld.values()].flat(),
+        cometsByWorld,
+        comets: [...cometsByWorld.values()].flat(),
         graphData: {
             nodes,
             links: lanes.map<LaneLink>(lane => ({

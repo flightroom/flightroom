@@ -2,6 +2,7 @@ import { useQuery } from "@tanstack/react-query"
 import { useTranslation } from "react-i18next"
 import { Badge } from "@/components/atoms"
 import useAiJobsApi from "@/hooks/apiClients/useAiJobsApi"
+import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import { PROMPT_EXCERPT } from "./constants"
 import type { Galaxy, Hovered, StarNode } from "./types"
 
@@ -16,7 +17,7 @@ const promptExcerpt = (prompt: string) => {
     return line.length > PROMPT_EXCERPT ? `${line.slice(0, PROMPT_EXCERPT - 1).trimEnd()}…` : line
 }
 
-/** What the pointer is on: a world, a moon, a station or a ship, placed below it in screen pixels. */
+/** What the pointer is on: a world, a moon, a comet, a station or a ship, placed below it in screen pixels. */
 const GalaxyTooltip: React.FC<GalaxyTooltipProps> = ({ target, galaxies, worlds }) => {
     const { t } = useTranslation()
     const aiJobsApi = useAiJobsApi()
@@ -44,6 +45,20 @@ const GalaxyTooltip: React.FC<GalaxyTooltipProps> = ({ target, galaxies, worlds 
                         {t("domains.galaxy.kind_resource")} · {t("domains.galaxy.moon_of", { name: target.moon.world.name })}
                     </div>
                     {others.length > 0 && <div className="mt-1 font-medium text-card-foreground">{t("domains.galaxy.moon_shared", { names: others.join(", ") })}</div>}
+                </>
+            )
+        }
+        if (target.kind === "comet") {
+            const { comet } = target
+            const others = comet.users.filter(id => id !== comet.world.id).map(nameOf)
+            return (
+                <>
+                    <span className="block truncate text-sm font-semibold text-card-foreground">{comet.name}</span>
+                    <div className="text-foreground-secondary">
+                        {t(`${VARIABLE_MAP_KINDS[comet.kind].i18n}.label`)} · {t("domains.galaxy.comet_keys", { count: comet.keys })}
+                    </div>
+                    <div className="mt-1 text-foreground-secondary">{t("domains.galaxy.comet_of", { name: comet.world.name })}</div>
+                    {others.length > 0 && <div className="mt-1 font-medium text-card-foreground">{t("domains.galaxy.comet_shared", { names: others.join(", ") })}</div>}
                 </>
             )
         }

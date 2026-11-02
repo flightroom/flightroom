@@ -1,3 +1,4 @@
+import type { VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 import type { StationStatus } from "./types"
 
 export interface Sky {
@@ -9,6 +10,8 @@ export interface Sky {
     moon: string
     /** The far side of a moon, away from its world */
     moonShadow: string
+    configMap: string
+    secret: string
     orbitAlpha: number
     canary: string
     bridge: string
@@ -34,6 +37,8 @@ export const SKIES: Record<"dark" | "light", Sky> = {
         backend: "162 28% 61%", // zomp-400
         moon: "162 51% 81%", // zomp-200
         moonShadow: "203 37% 10% / 0.45",
+        configMap: "90 34% 63%", // olivine-400
+        secret: "21 98% 76%", // pumpkin-300
         orbitAlpha: 0.16,
         canary: "44 97% 63%", // sunglow-200
         bridge: "91 41% 69%", // olivine-300
@@ -51,6 +56,8 @@ export const SKIES: Record<"dark" | "light", Sky> = {
         backend: "163 27% 41%", // zomp-600
         moon: "164 33% 31%", // zomp-700
         moonShadow: "203 37% 12% / 0.35",
+        configMap: "90 24% 50%", // olivine-500
+        secret: "26 92% 47%", // pumpkin-500
         orbitAlpha: 0.22,
         canary: "46 92% 30%", // sunglow-600
         bridge: "89 27% 40%", // olivine-600
@@ -85,6 +92,10 @@ export const bodyColors = (sky: Sky) => ({
     moonRing: `hsl(${sky.ink} / 0.9)`,
     label: `hsl(${sky.ink} / 0.85)`,
     orbit: `hsl(${sky.ink} / ${sky.orbitAlpha})`,
+    comet: {
+        configMap: { head: `hsl(${sky.configMap})`, tail: `hsl(${sky.configMap} / 0.35)`, orbit: `hsl(${sky.configMap} / ${sky.orbitAlpha * 1.4})` },
+        secret: { head: `hsl(${sky.secret})`, tail: `hsl(${sky.secret} / 0.35)`, orbit: `hsl(${sky.secret} / ${sky.orbitAlpha * 1.4})` }
+    } satisfies Record<VariableMapKind, { head: string; tail: string; orbit: string }>,
     shipBody: `hsl(${sky.canary})`,
     trail: [`hsl(${sky.canary} / 0.12)`, `hsl(${sky.canary} / 0.4)`],
     rocket: { windowColor: sky.space, flameColor: `hsl(${sky.canary})`, flame: 7 },

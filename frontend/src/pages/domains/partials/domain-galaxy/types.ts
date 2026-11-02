@@ -2,6 +2,7 @@ import type { LinkObject, NodeObject } from "react-force-graph-2d"
 import type { AiWorkingJob } from "@/hooks/apiClients/useAiJobsApi"
 import type { DomainLink } from "@/hooks/apiClients/useDomainLinksApi"
 import type { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
+import type { VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
 
 export interface Point {
     x: number
@@ -84,6 +85,36 @@ export interface Moon {
     frame: number
 }
 
+/**
+ * A config map or a secret a world receives, a comet on one of the two eccentric orbits of that world: the config
+ * maps on one, the secrets on the other, each an ellipse with the world at a focus. A map several worlds receive
+ * is a comet of each of them. Where it was drawn on the last frame is written on it by the painter.
+ */
+export interface Comet {
+    mapId: string
+    kind: VariableMapKind
+    name: string
+    /** How many keys it holds, for the tooltip */
+    keys: number
+    /** Every world shown that receives it, its own included */
+    users: string[]
+    world: StarNode
+    radius: number
+    /** Half the long axis of its orbit */
+    semiMajor: number
+    semiMinor: number
+    eccentricity: number
+    /** Where the near end of its orbit points from its world, in radians */
+    tilt: number
+    /** Its mean anomaly at time zero */
+    phase: number
+    /** Radians of mean anomaly per second: fast near its world, slow far out */
+    speed: number
+    x: number
+    y: number
+    frame: number
+}
+
 /** An agent at work, shown as one ship flying around the galaxy. */
 export interface Ship {
     job: AiWorkingJob
@@ -126,7 +157,7 @@ export interface Station {
 }
 
 /** What the pointer is on besides the worlds, the force-graph only knows its nodes */
-export type Body = { kind: "moon"; moon: Moon } | { kind: "ship"; ship: Ship } | { kind: "station"; station: Station }
+export type Body = { kind: "moon"; moon: Moon } | { kind: "comet"; comet: Comet } | { kind: "ship"; ship: Ship } | { kind: "station"; station: Station }
 export type Hovered = Point & ({ kind: "world"; node: StarNode } | Body)
 
 export type LaneLink = LinkObject<World, Lane>
