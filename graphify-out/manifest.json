@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793602896.020314,
-    "ast_hash": "bd20ceab2efeff65d143febb5a9b0453",
+    "mtime": 1793609845.609005,
+    "ast_hash": "2e9a45bb7250001f6990d006d749cd92",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4190,13 +4190,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/AiUsageService.test.ts": {
-    "mtime": 1793466901.5785408,
-    "ast_hash": "9f2c3f526d93597383434a89e209742c",
+    "mtime": 1793609814.9380848,
+    "ast_hash": "e59b5288086fd77af72793ddaa76685f",
     "semantic_hash": ""
   },
   "backend/src/service/AiUsageService.ts": {
-    "mtime": 1793467967.8651776,
-    "ast_hash": "93cd0bfdab20b17f6f7dbf804bce88fa",
+    "mtime": 1793609802.3989415,
+    "ast_hash": "2869fa651e07ebb9d49def68d90a8fcb",
     "semantic_hash": ""
   },
   "frontend/src/components/ai-usage/AiUsageSummary.tsx": {
@@ -4700,8 +4700,8 @@
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/aiUsageTools.ts": {
-    "mtime": 1793601062.9198284,
-    "ast_hash": "cee1cafde4f2f4df306755823422bf2e",
+    "mtime": 1793609802.3992255,
+    "ast_hash": "f5dd8fd7d3ffb2962529c2e412b04980",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainBackendLinks.tsx": {
