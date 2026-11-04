@@ -378,7 +378,7 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
     const tabTrigger = (tab: FormTab) => {
         const Icon = TAB_ICONS[tab]
         return (
-            <TabsTrigger value={tab}>
+            <TabsTrigger value={tab} className={tab === "danger" ? "text-destructive data-[state=active]:text-destructive" : undefined}>
                 <Icon />
                 {t(`maintenance.tabs.${tab}`)}
                 {tab !== "danger" && tabHasErrors(tab) && <ErrorDot />}

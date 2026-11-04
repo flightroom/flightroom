@@ -168,7 +168,7 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                             <FormTabTrigger value="hosting" icon={Cloud} label={t("frontend.tabs.hosting")} hasErrors={tabHasErrors("hosting")} />
                         )}
                         {isEdit && (
-                            <TabsTrigger value="danger">
+                            <TabsTrigger value="danger" className="text-destructive data-[state=active]:text-destructive">
                                 <TriangleAlert />
                                 {t("frontend.tabs.danger_zone")}
                             </TabsTrigger>

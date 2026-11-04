@@ -372,7 +372,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                             {tabHasErrors("variables") && <ErrorDot />}
                         </TabsTrigger>
                         {isEdit && (
-                            <TabsTrigger value="danger">
+                            <TabsTrigger value="danger" className="text-destructive data-[state=active]:text-destructive">
                                 <TriangleAlert />
                                 {t("backends.tabs.danger_zone")}
                             </TabsTrigger>
