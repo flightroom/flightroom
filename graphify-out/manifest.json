@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793816552.1607378,
-    "ast_hash": "230121518ec79cf58e7527eb76a7a5ab",
+    "mtime": 1793817958.6929522,
+    "ast_hash": "d140e610531b57cdc347c0fbf796987c",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793816552.1547713,
-    "ast_hash": "9f14eb12e5dc5550eefa7eed0daf1804",
+    "mtime": 1793817958.6888516,
+    "ast_hash": "661ed19ef23a93514de4f10a8b8d3244",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793816641.8247418,
-    "ast_hash": "b49511c3a0e578e4db900b586711b087",
+    "mtime": 1793817965.7913659,
+    "ast_hash": "f4228e99b8a3b99ea2e53d2b83cce93b",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3055,8 +3055,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainGalaxy.tsx": {
-    "mtime": 1793816583.589061,
-    "ast_hash": "5ed85bb1e2cae250ed06601897aec442",
+    "mtime": 1793817957.5992672,
+    "ast_hash": "544bbe7d131a2eb833847c04e41923ed",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainDeploymentsApi.ts": {
@@ -5190,8 +5190,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/domain-galaxy/GalaxyLegend.tsx": {
-    "mtime": 1793647868.7945876,
-    "ast_hash": "7e055f2aa6f881274f1dc951ee4a6a88",
+    "mtime": 1793817953.583887,
+    "ast_hash": "e08aa62853d076a1fc7269b1824c86e1",
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/domain-galaxy/GalaxyTooltip.tsx": {
