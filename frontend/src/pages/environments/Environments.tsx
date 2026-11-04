@@ -5,7 +5,6 @@ import { useEffect, useRef, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
-import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
 import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS } from "@/hooks/apiClients/useEnvironmentsApi"
@@ -180,7 +179,10 @@ export default function EnvironmentsPage() {
                     environmentQuery.refetch()
                 }}
             >
-                <ApiStatusHandler queries={[environmentQuery]}>
+                {/* No ApiStatusHandler of its own: the gate waits for this same query. One here would render the children the
+                    page made while the gate spun, with isFetching true, and the page does not render again when only
+                    isFetching changes (it tracks only the fields it read): its spinner would stay forever */}
+                <>
                     <div className="mb-2 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                         <h2 className="text-xs font-semibold tracking-wide text-foreground-secondary uppercase">{t("environment.page.promotion_order")}</h2>
                         {canReorder && <p className="text-sm text-foreground-secondary">{t("environment.page.reorder.hint")}</p>}
@@ -262,7 +264,7 @@ export default function EnvironmentsPage() {
                     {selected && (
                         <EnvironmentEditor key={selected._id} id={selected._id} formData={selected} onSaved={onSaved} onDelete={() => setIsDeleteDialogOpen(true)} onDirtyChange={setIsEditorDirty} />
                     )}
-                </ApiStatusHandler>
+                </>
             </EnvironmentsGate>
 
             <Dialog open={pendingSelection !== undefined} onOpenChange={open => !open && setPendingSelection(undefined)}>

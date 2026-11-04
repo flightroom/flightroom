@@ -133,8 +133,10 @@ export const DomainBuildAndDeployButton: React.FC<{ domain: Domain; member?: Dom
     /** The confirmation of the stop of the release is open */
     const [confirmingCancel, setConfirmingCancel] = useState(false)
 
-    // Read here, not from the store: the store has them only once a page under the environments gate was opened
-    const environments = useProjectEnvironmentsQuery().data ?? NO_ENVIRONMENTS
+    // Read here, not from the store: the store has them only once a page under the environments gate was opened.
+    // The cached list: the overviews of a frontend and a backend show this button under an ApiStatusHandler waiting for
+    // the same query, and a refetch on mount would show their spinner, unmount the button and mount it again, forever
+    const environments = useProjectEnvironmentsQuery({ inForm: true }).data ?? NO_ENVIRONMENTS
     // A pick of an environment deleted since, or of another project, does not stick
     const selected = environments.find(candidate => candidate._id === environment?._id) ?? environments.find(candidate => candidate._id === projectStore.environment?._id) ?? environments[0]
     const queryKey = ["domain-release", domain._id]
