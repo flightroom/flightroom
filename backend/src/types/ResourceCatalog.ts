@@ -44,11 +44,6 @@ export interface ResourceFieldSpec {
     options?: string[]
     /** What the console fills in for a new resource; the backend never applies it on its own */
     default?: string
-    /**
-     * Where the credentials of the resource are sent: changing it would send the stored ones somewhere
-     * else, so the credentials kept there must be typed again (ResourceService, normalizeResourceFields)
-     */
-    connection?: boolean
 }
 
 /** One way of reaching the same kind of resource, e.g. a database by host and password or by connection string */
@@ -95,13 +90,7 @@ const schema = (options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix">> 
 /** An Azure SQL database reached with an Entra ID identity: always SQL Server, always encrypted */
 const azureSqlVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
     id,
-    fields: [
-        field("host", "HOST", { connection: true }),
-        field("port", "PORT", { input: "number", default: "1433", connection: true }),
-        field("database", "NAME", { connection: true }),
-        schema({ default: "dbo" }),
-        ...fields
-    ],
+    fields: [field("host", "HOST"), field("port", "PORT", { input: "number", default: "1433" }), field("database", "NAME"), schema({ default: "dbo" }), ...fields],
     // The variant is the way to authenticate: the client reads it rather than guessing from the keys set
     fixed: { ENGINE: DatabaseType.SQLSERVER, AUTH: id }
 })
@@ -109,19 +98,14 @@ const azureSqlVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVaria
 /** A Cosmos DB account reached at its endpoint: the variant is the way to authenticate, which the client reads rather than guesses */
 const cosmosVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
     id,
-    fields: [
-        field("endpoint", "ENDPOINT", { input: "url", connection: true }),
-        field("database", "DATABASE", { connection: true }),
-        field("containerName", "CONTAINER", { required: false }),
-        ...fields
-    ],
+    fields: [field("endpoint", "ENDPOINT", { input: "url" }), field("database", "DATABASE"), field("containerName", "CONTAINER", { required: false }), ...fields],
     fixed: { AUTH: id }
 })
 
 /** An SMTP server, by the fields both variants share: where it is, how the connection is secured, who mail comes from */
 const smtpServer = [
-    field("host", "HOST", { connection: true }),
-    field("port", "PORT", { input: "number", default: "587", connection: true }),
+    field("host", "HOST"),
+    field("port", "PORT", { input: "number", default: "587" }),
     field("security", "SECURITY", { input: "select", options: ["none", "starttls", "tls"], default: "starttls" })
 ]
 const smtpSender = [field("from", "FROM", { input: "email" }), field("fromName", "FROM_NAME", { required: false })]
@@ -133,14 +117,14 @@ const azureStorageScope = [field("subscriptionId", "SUBSCRIPTION_ID", { required
 const sharepointVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
     id,
     // Without a library the client uses the default one of the site
-    fields: [field("siteUrl", "SITE_URL", { input: "url", connection: true }), field("library", "LIBRARY", { required: false }), ...fields],
+    fields: [field("siteUrl", "SITE_URL", { input: "url" }), field("library", "LIBRARY", { required: false }), ...fields],
     fixed: { AUTH: id }
 })
 
 /** An Azure AI Speech resource in its region: the variant is the way to authenticate, which the client reads rather than guesses */
 const speechVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
     id,
-    fields: [field("region", "REGION", { connection: true }), field("language", "LANGUAGE", { required: false }), ...fields],
+    fields: [field("region", "REGION"), field("language", "LANGUAGE", { required: false }), ...fields],
     fixed: { AUTH: id }
 })
 
@@ -149,7 +133,7 @@ const serviceBusEntities = [field("queue", "QUEUE", { required: false }), field(
 const serviceBusVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
     id,
     // The fully qualified namespace, e.g. orders.servicebus.windows.net
-    fields: [field("namespace", "NAMESPACE", { connection: true }), ...serviceBusEntities, ...fields],
+    fields: [field("namespace", "NAMESPACE"), ...serviceBusEntities, ...fields],
     fixed: { AUTH: id }
 })
 
@@ -160,7 +144,7 @@ const serviceBusVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVar
  */
 const apiVariant = (id: string, fields: ResourceFieldSpec[]): ResourceVariantSpec => ({
     id,
-    fields: [field("baseUrl", "BASE_URL", { input: "url", connection: true }), field("specUrl", "SPEC_URL", { input: "url", required: false, connection: true }), ...fields],
+    fields: [field("baseUrl", "BASE_URL", { input: "url" }), field("specUrl", "SPEC_URL", { input: "url", required: false }), ...fields],
     // The variant is the way to authenticate: the client reads it rather than guessing from the keys set
     fixed: { AUTH: id }
 })
@@ -178,9 +162,9 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
                 id: "credentials",
                 fields: [
                     engine,
-                    field("host", "HOST", { connection: true }),
-                    field("port", "PORT", { input: "number", connection: true }),
-                    field("database", "NAME", { connection: true }),
+                    field("host", "HOST"),
+                    field("port", "PORT", { input: "number" }),
+                    field("database", "NAME"),
                     schema(),
                     field("username", "USER"),
                     secret("password", "PASSWORD"),
@@ -202,9 +186,9 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             {
                 id: "credentials",
                 fields: [
-                    field("host", "HOST", { connection: true }),
-                    field("port", "PORT", { input: "number", default: "27017", connection: true }),
-                    field("database", "DATABASE_NAME", { connection: true }),
+                    field("host", "HOST"),
+                    field("port", "PORT", { input: "number", default: "27017" }),
+                    field("database", "DATABASE_NAME"),
                     field("username", "USER"),
                     secret("password", "PASSWORD"),
                     field("authSource", "AUTH_SOURCE", { required: false, default: "admin" }),
@@ -244,7 +228,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             {
                 id: "serviceAccountKey",
                 fields: [
-                    field("projectId", "PROJECT_ID", { connection: true }),
+                    field("projectId", "PROJECT_ID"),
                     field("dataset", "DATASET", { required: false }),
                     field("location", "LOCATION", { required: false }),
                     secret("jsonKey", "CREDENTIALS_JSON", { input: "multiline" })
@@ -254,7 +238,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             },
             {
                 id: "applicationDefault",
-                fields: [field("projectId", "PROJECT_ID", { connection: true }), field("dataset", "DATASET", { required: false }), field("location", "LOCATION", { required: false })],
+                fields: [field("projectId", "PROJECT_ID"), field("dataset", "DATASET", { required: false }), field("location", "LOCATION", { required: false })],
                 fixed: { AUTH: "applicationDefault" }
             }
         ]
@@ -265,34 +249,24 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
         variants: [
             {
                 id: "aws",
-                fields: [
-                    field("region", "REGION", { connection: true }),
-                    field("bucketName", "BUCKET", { connection: true }),
-                    field("accessKeyId", "ACCESS_KEY_ID"),
-                    secret("secretAccessKey", "SECRET_ACCESS_KEY")
-                ],
+                fields: [field("region", "REGION"), field("bucketName", "BUCKET"), field("accessKeyId", "ACCESS_KEY_ID"), secret("secretAccessKey", "SECRET_ACCESS_KEY")],
                 fixed: { PROVIDER: "AWS" }
             },
             {
                 id: "azureConnectionString",
-                fields: [field("containerName", "CONTAINER", { connection: true }), ...azureStorageScope, secret("connectionString", "CONNECTION_STRING")],
+                fields: [field("containerName", "CONTAINER"), ...azureStorageScope, secret("connectionString", "CONNECTION_STRING")],
                 fixed: { PROVIDER: "AZURE" }
             },
             {
                 id: "azureSharedKey",
-                fields: [
-                    field("accountName", "ACCOUNT_NAME", { connection: true }),
-                    field("containerName", "CONTAINER", { connection: true }),
-                    ...azureStorageScope,
-                    secret("accountKey", "ACCOUNT_KEY")
-                ],
+                fields: [field("accountName", "ACCOUNT_NAME"), field("containerName", "CONTAINER"), ...azureStorageScope, secret("accountKey", "ACCOUNT_KEY")],
                 fixed: { PROVIDER: "AZURE" }
             },
             {
                 id: "azureAad",
                 fields: [
-                    field("accountName", "ACCOUNT_NAME", { connection: true }),
-                    field("containerName", "CONTAINER", { connection: true }),
+                    field("accountName", "ACCOUNT_NAME"),
+                    field("containerName", "CONTAINER"),
                     ...azureStorageScope,
                     field("tenantId", "TENANT_ID"),
                     field("clientId", "CLIENT_ID"),
@@ -302,7 +276,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             },
             {
                 id: "google",
-                fields: [field("bucketName", "BUCKET", { connection: true }), secret("jsonKey", "CREDENTIALS_JSON", { input: "multiline" })],
+                fields: [field("bucketName", "BUCKET"), secret("jsonKey", "CREDENTIALS_JSON", { input: "multiline" })],
                 fixed: { PROVIDER: "GOOGLE" }
             }
         ]
@@ -314,8 +288,8 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             {
                 id: "credentials",
                 fields: [
-                    field("host", "HOST", { connection: true }),
-                    field("port", "PORT", { input: "number", default: "6379", connection: true }),
+                    field("host", "HOST"),
+                    field("port", "PORT", { input: "number", default: "6379" }),
                     field("username", "USER", { required: false }),
                     secret("password", "PASSWORD", { required: false }),
                     field("tls", "TLS", { input: "boolean", required: false, default: "false" })
@@ -341,12 +315,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             },
             {
                 id: "clientCredentials",
-                fields: [
-                    field("clientId", "CLIENT_ID"),
-                    secret("clientSecret", "CLIENT_SECRET"),
-                    field("tokenUrl", "TOKEN_URL", { required: false, connection: true }),
-                    field("scope", "SCOPE", { required: false })
-                ]
+                fields: [field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET"), field("tokenUrl", "TOKEN_URL", { required: false }), field("scope", "SCOPE", { required: false })]
             }
         ]
     },
@@ -356,7 +325,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
         variants: [
             {
                 id: "default",
-                fields: [field("domain", "DOMAIN", { connection: true }), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET"), field("audience", "AUDIENCE", { required: false })]
+                fields: [field("domain", "DOMAIN"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET"), field("audience", "AUDIENCE", { required: false })]
             }
         ]
     },
@@ -373,7 +342,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
             ]),
             apiVariant("bearer", [secret("token", "TOKEN")]),
             apiVariant("oauth2ClientCredentials", [
-                field("tokenUrl", "TOKEN_URL", { input: "url", connection: true }),
+                field("tokenUrl", "TOKEN_URL", { input: "url" }),
                 field("clientId", "CLIENT_ID"),
                 secret("clientSecret", "CLIENT_SECRET"),
                 field("scope", "SCOPE", { required: false }),
@@ -388,7 +357,7 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
         variants: [
             {
                 id: "anthropic",
-                fields: [secret("apiKey", "API_KEY"), field("model", "MODEL", { default: "claude-opus-5-5" }), field("baseUrl", "BASE_URL", { input: "url", required: false, connection: true })],
+                fields: [secret("apiKey", "API_KEY"), field("model", "MODEL", { default: "claude-opus-5-5" }), field("baseUrl", "BASE_URL", { input: "url", required: false })],
                 fixed: { PROVIDER: "anthropic" }
             },
             {
@@ -397,14 +366,14 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
                     secret("apiKey", "API_KEY"),
                     field("model", "MODEL"),
                     field("organization", "ORGANIZATION", { required: false }),
-                    field("baseUrl", "BASE_URL", { input: "url", required: false, connection: true })
+                    field("baseUrl", "BASE_URL", { input: "url", required: false })
                 ],
                 fixed: { PROVIDER: "openai" }
             },
             { id: "google", fields: [secret("apiKey", "API_KEY"), field("model", "MODEL")], fixed: { PROVIDER: "google" } },
             {
                 id: "azureOpenai",
-                fields: [field("endpoint", "ENDPOINT", { input: "url", connection: true }), field("deployment", "DEPLOYMENT"), field("apiVersion", "API_VERSION"), secret("apiKey", "API_KEY")],
+                fields: [field("endpoint", "ENDPOINT", { input: "url" }), field("deployment", "DEPLOYMENT"), field("apiVersion", "API_VERSION"), secret("apiKey", "API_KEY")],
                 fixed: { PROVIDER: "azureOpenai" }
             }
         ]
@@ -441,14 +410,9 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
         envPrefix: "SPEECH",
         variants: [
             speechVariant("apiKey", [secret("apiKey", "KEY")]),
-            speechVariant("azureAad", [
-                field("endpoint", "ENDPOINT", { input: "url", connection: true }),
-                field("tenantId", "TENANT_ID"),
-                field("clientId", "CLIENT_ID"),
-                secret("clientSecret", "CLIENT_SECRET")
-            ]),
+            speechVariant("azureAad", [field("endpoint", "ENDPOINT", { input: "url" }), field("tenantId", "TENANT_ID"), field("clientId", "CLIENT_ID"), secret("clientSecret", "CLIENT_SECRET")]),
             // A user-assigned identity is picked by its client id; without one the system-assigned identity is used
-            speechVariant("azureManagedIdentity", [field("endpoint", "ENDPOINT", { input: "url", connection: true }), field("clientId", "CLIENT_ID", { required: false })])
+            speechVariant("azureManagedIdentity", [field("endpoint", "ENDPOINT", { input: "url" }), field("clientId", "CLIENT_ID", { required: false })])
         ]
     },
     /** An Azure Service Bus namespace: by connection string, an Entra ID app or the identity of the pod */

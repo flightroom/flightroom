@@ -3845,9 +3845,7 @@
             "url_invalid": "Un URL assoluto http o https",
             "email_invalid": "Un indirizzo email",
             "too_long": "Al massimo 32768 caratteri",
-            "no_value_for_all": "Nessun valore per tutti gli ambienti: gli ambienti aggiunti in seguito non riceveranno questa variabile",
-            "retype_required": "Digitala di nuovo: il punto a cui si collega la risorsa è cambiato",
-            "secret_retype": "Digitala di nuovo"
+            "no_value_for_all": "Nessun valore per tutti gli ambienti: gli ambienti aggiunti in seguito non riceveranno questa variabile"
         },
         "options": {
             "in": {
@@ -3934,8 +3932,7 @@
             "resource_unknown": "Una delle risorse selezionate non esiste più: ricarica la pagina",
             "fields_invalid": "I valori della risorsa non sono nella forma inviata dalla console: ricarica la pagina",
             "environment_duplicated": "Un campo ha più di un valore per lo stesso ambiente",
-            "resources_invalid": "Le risorse del backend devono essere una lista di al massimo 50",
-            "secret_reentry_required": "Il punto a cui si collega la risorsa è cambiato: digita di nuovo {{secrets}}, i valori salvati non vengono inviati al nuovo indirizzo"
+            "resources_invalid": "Le risorse del backend devono essere una lista di al massimo 50"
         },
         "types": {
             "cosmosdb": {
@@ -4138,9 +4135,6 @@
             "queue": "Coda",
             "topic": "Topic",
             "subscription": "Subscription"
-        },
-        "retype": {
-            "description": "Hai cambiato il punto a cui si collega questa risorsa: le credenziali salvate non vengono inviate al nuovo indirizzo, digitale di nuovo:"
         }
     },
     "ai_sandbox": {

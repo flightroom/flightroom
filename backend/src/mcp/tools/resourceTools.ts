@@ -1,5 +1,5 @@
 import { z } from "zod"
-import { BusinessException, createBusinessException } from "../../errors/BusinessException"
+import { createBusinessException } from "../../errors/BusinessException"
 import { IResource } from "../../models/ResourceModel"
 import { ResourceService } from "../../service/ResourceService"
 import { isResourceType, MAX_RESOURCE_CUSTOM_FIELDS, RESOURCE_CATALOG, RESOURCE_CUSTOM_FIELD_NAME, ResourceCustomField, ResourceType, resourceVariant } from "../../types/ResourceCatalog"
@@ -187,22 +187,7 @@ export const resourceTools = [
                 const existing = await resources(principal).getById(id)
                 refuseSecretFields(existing.type, changes.variant ?? existing.variant, changes.fields, changes.customFields ?? existing.customFields)
             }
-            return masked(
-                await resources(principal)
-                    .update(id, changes as Partial<ResourceDTO>)
-                    .catch((error: unknown) => {
-                        // The credentials kept would go to the new address: they are typed again, and only the console takes them
-                        if (error instanceof BusinessException && error.code === "RESOURCE_SECRET_REENTRY_REQUIRED") {
-                            throw createBusinessException({
-                                code: error.code,
-                                message: `Changing ${((error.details?.connections as string[] | undefined) ?? []).join(", ")} of a resource with stored credentials needs them typed again (${((error.details?.secrets as string[] | undefined) ?? []).join(", ")}): make this change from the console`,
-                                statusCode: error.statusCode,
-                                details: error.details
-                            })
-                        }
-                        throw error
-                    })
-            )
+            return masked(await resources(principal).update(id, changes as Partial<ResourceDTO>))
         }
     }),
     defineTool({

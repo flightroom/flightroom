@@ -18,8 +18,6 @@ export interface ResourceFieldSpec {
     options?: string[]
     /** Prefilled for a new resource only: the backend never applies it */
     default?: string
-    /** Where the credentials are sent: once it changes, the saved credentials must be typed again */
-    connection?: boolean
 }
 
 export interface ResourceVariantSpec {
@@ -113,7 +111,6 @@ const ERROR_KEYS: Record<string, string> = {
     RESOURCE_SECRET_VALUE_REQUIRED: "resources.errors.secret_value_required",
     RESOURCE_ENVIRONMENT_UNKNOWN: "resources.errors.environment_unknown",
     RESOURCE_ENVIRONMENT_DUPLICATED: "resources.errors.environment_duplicated",
-    RESOURCE_SECRET_REENTRY_REQUIRED: "resources.errors.secret_reentry_required",
     RESOURCE_ENV_PREFIX_INVALID: "resources.errors.env_prefix_invalid",
     RESOURCE_CUSTOM_FIELDS_INVALID: "resources.errors.custom_fields_invalid",
     RESOURCE_API_SPEC_INVALID: "resources.errors.api_spec_invalid",

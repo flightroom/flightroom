@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, ConfirmByTypingDialog, DangerZoneCard, SelectField } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { GitBranch, KeyRound, Trash2, X } from "lucide-react"
+import { GitBranch, Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -25,9 +25,6 @@ import ResourceCustomFieldsEditor from "./partials/ResourceCustomFieldsEditor"
 import ResourceFieldsTable from "./partials/ResourceFieldsTable"
 import {
     byteLength,
-    type CredentialToRetype,
-    credentialsToRetype,
-    fieldLabel,
     formatBytes,
     fromFormFields,
     MAX_API_SPEC_BYTES,
@@ -77,7 +74,6 @@ interface FormMessages {
     email: string
     tooLong: string
     apiSpecTooLarge: string
-    retype: string
     customFieldName: string
     customFieldDuplicated: string
 }
@@ -85,10 +81,9 @@ interface FormMessages {
 const fieldValueSchema = z.object({ value: z.string(), saved: z.boolean() })
 
 /**
- * The rules of the backend, said before saving: the catalog tells which field takes what. `initial`, the
- * resource as saved, tells the credentials a change of where it connects asks to type again.
+ * The rules of the backend, said before saving: the catalog tells which field takes what.
  */
-const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number, messages: FormMessages, initial?: Pick<ResourceFormValues, "variant" | "fields">) =>
+const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number, messages: FormMessages) =>
     z
         .object({
             name: z.string().trim().regex(RESOURCE_NAME, messages.name),
@@ -134,11 +129,6 @@ const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number,
                 // A credential may stay unset, as in a secret; any other required field needs a value in every environment
                 const everywhere = Boolean(field.value) || (environmentCount > 0 && field.overrides.length === environmentCount && field.overrides.every(override => Boolean(override.value)))
                 if (spec.required && !spec.secret && !everywhere) context.addIssue({ code: "custom", path: ["fields", spec.name, "value"], message: messages.required })
-            }
-            // A saved credential is not kept for a new address: blank no longer keeps it
-            for (const { field, base, overrides } of initial ? credentialsToRetype(variant, initial.fields, values.fields, values.variant !== initial.variant) : []) {
-                if (base) context.addIssue({ code: "custom", path: ["fields", field, "value"], message: messages.retype })
-                for (const index of overrides) context.addIssue({ code: "custom", path: ["fields", field, "overrides", index, "value"], message: messages.retype })
             }
         })
 
@@ -240,29 +230,6 @@ const ResourceDangerZone: React.FC<{ resource: Resource; inUse: boolean }> = ({ 
     )
 }
 
-/** The credentials to type again, named with the environments they are to be typed in */
-const RetypeAlert: React.FC<{ retype: CredentialToRetype[]; environments: EnvironmentDTO[] }> = ({ retype, environments }) => {
-    const { t } = useTranslation()
-    const where = ({ base, overrides }: CredentialToRetype) =>
-        [...(base ? [t("resources.values.all_environments")] : []), ...overrides.map(index => environments[index]?.name ?? "")].filter(Boolean).join(", ")
-
-    return (
-        <Alert variant="warning">
-            <KeyRound className="size-4" aria-hidden="true" />
-            <AlertDescription>
-                <p>{t("resources.retype.description")}</p>
-                <ul className="mt-1 list-disc pl-5">
-                    {retype.map(credential => (
-                        <li key={credential.field}>
-                            {fieldLabel(t, credential.field)} ({where(credential)})
-                        </li>
-                    ))}
-                </ul>
-            </AlertDescription>
-        </Alert>
-    )
-}
-
 /** The variables the resource sets, as they will be named: they follow the name, the prefix and the variant as they are typed */
 const KeysPreview: React.FC<{ spec?: ResourceTypeSpec; variant: string; name: string; envPrefix: string }> = ({ spec, variant, name, envPrefix }) => {
     const { t } = useTranslation()
@@ -322,27 +289,21 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
     )
     const formSchema = useMemo(
         () =>
-            createFormSchema(
-                catalog,
-                environments.length,
-                {
-                    name: t("resources.name_invalid"),
-                    envPrefix: t("resources.env_prefix_invalid"),
-                    description: t("resources.description_invalid"),
-                    context: t("resources.context_invalid"),
-                    required: t("resources.values.required"),
-                    port: t("resources.values.port_invalid"),
-                    url: t("resources.values.url_invalid"),
-                    email: t("resources.values.email_invalid"),
-                    tooLong: t("resources.values.too_long"),
-                    apiSpecTooLarge: t("resources.api_spec.too_large", { max: formatBytes(MAX_API_SPEC_BYTES) }),
-                    retype: t("resources.values.retype_required"),
-                    customFieldName: t("resources.custom_fields.name_invalid"),
-                    customFieldDuplicated: t("resources.custom_fields.name_duplicated")
-                },
-                initial
-            ),
-        [catalog, environments.length, t, initial]
+            createFormSchema(catalog, environments.length, {
+                name: t("resources.name_invalid"),
+                envPrefix: t("resources.env_prefix_invalid"),
+                description: t("resources.description_invalid"),
+                context: t("resources.context_invalid"),
+                required: t("resources.values.required"),
+                port: t("resources.values.port_invalid"),
+                url: t("resources.values.url_invalid"),
+                email: t("resources.values.email_invalid"),
+                tooLong: t("resources.values.too_long"),
+                apiSpecTooLarge: t("resources.api_spec.too_large", { max: formatBytes(MAX_API_SPEC_BYTES) }),
+                customFieldName: t("resources.custom_fields.name_invalid"),
+                customFieldDuplicated: t("resources.custom_fields.name_duplicated")
+            }),
+        [catalog, environments.length, t]
     )
     const form = useForm<z.input<FormSchema>, unknown, z.output<FormSchema>>({
         resolver: zodResolver(formSchema),
@@ -354,7 +315,6 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
     const customFields = useWatch({ control: form.control, name: "customFields" }) as ResourceFormValues["customFields"]
     const spec = specOf(type)
     const variantSpec = resourceVariant(spec, variant, customFields)
-    const retype = initial ? credentialsToRetype(variantSpec, initial.fields, fields ?? {}, variant !== initial.variant) : []
 
     // The engine of a database picks its logo, for every variant
     const engine = fields?.engine?.value || undefined
@@ -485,9 +445,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
 
                     {type === "generic" && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} />}
 
-                    {retype.length > 0 && <RetypeAlert retype={retype} environments={environments} />}
-
-                    <ResourceFieldsTable fields={variantSpec?.fields ?? []} prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environments={environments} retype={retype} />
+                    <ResourceFieldsTable fields={variantSpec?.fields ?? []} prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environments={environments} />
 
                     {type === "api" && <ResourceApiSpecFields resource={resource} />}
 

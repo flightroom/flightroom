@@ -40,9 +40,6 @@ const isDuplicateKeyError = (error: unknown): boolean => (error as { code?: numb
 
 const isPlainObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
 
-/** Where a credential keeps its value of all, among the ids of the environments it keeps an override in */
-const ALL = ""
-
 /** A field as it is stored; Mongoose casts the environments */
 export interface NormalizedResourceValue {
     field: string
@@ -128,10 +125,10 @@ const ensureValidValue = (spec: ResourceFieldSpec, value: string) => {
 /**
  * One field as it is stored: blank values dropped (unset there), every override for an environment of
  * the project and at most one per environment. A credential that comes back as the placeholder keeps
- * the value stored in the same place, told to `onKept`; with none to keep, it is refused rather than saved
- * literally. Undefined when nothing is left.
+ * the value stored in the same place; with none to keep, it is refused rather than saved literally.
+ * Undefined when nothing is left.
  */
-const normalizeField = (spec: ResourceFieldSpec, sent: unknown, environmentIds: Set<string>, stored?: IResourceValue, onKept?: (environment?: string) => void): NormalizedResourceValue | undefined => {
+const normalizeField = (spec: ResourceFieldSpec, sent: unknown, environmentIds: Set<string>, stored?: IResourceValue): NormalizedResourceValue | undefined => {
     if (sent === null) return undefined
     if (!isPlainObject(sent)) {
         throw createBusinessException({ code: "RESOURCE_VALUE_INVALID", message: `"${spec.name}" must be an object with a value and its overrides` })
@@ -150,7 +147,6 @@ const normalizeField = (spec: ResourceFieldSpec, sent: unknown, environmentIds: 
                     message: `"${spec.name}" has no stored value${environment === undefined ? "" : ` for environment ${environment}`} to keep: type it`
                 })
             }
-            onKept?.(environment)
             return kept
         }
         // A variable of a generic turned plain, sent back as it was masked: the mask is not a value
@@ -196,19 +192,12 @@ const normalizeField = (spec: ResourceFieldSpec, sent: unknown, environmentIds: 
  * out keeps what is stored, one sent replaces it overrides included, and a field of another variant
  * (left from a change of variant) goes. A required field that is not a credential needs a value in every
  * environment, its own or the one of all; a required credential may stay unset, as a secret may.
- *
- * A credential kept as stored (sent back as the placeholder, or left out) must be typed again when a
- * connection field changes, as the stored value would otherwise go to an address the writer chose:
- * - a change of variant, or of the value of all of a connection field: every credential kept, anywhere;
- * - a change of the override of a connection field in an environment only: the value each credential
- *   takes in that environment, its override there if it has one, its value of all otherwise.
  */
 export const normalizeResourceFields = (
     fields: unknown,
     variant: ResourceVariantSpec,
     environmentIds: Set<string>,
-    stored: Pick<IResource, "values" | "secrets"> = { values: [], secrets: [] },
-    { variantChanged = false }: { variantChanged?: boolean } = {}
+    stored: Pick<IResource, "values" | "secrets"> = { values: [], secrets: [] }
 ): Pick<Required<ResourceFields>, "values" | "secrets"> => {
     if (fields !== undefined && !isPlainObject(fields)) {
         throw createBusinessException({ code: "RESOURCE_FIELDS_INVALID", message: "fields must be an object keyed by field name" })
@@ -220,37 +209,15 @@ export const normalizeResourceFields = (
     }
 
     const result: Pick<Required<ResourceFields>, "values" | "secrets"> = { values: [], secrets: [] }
-    // By credential, where it keeps its stored value: ALL for the value of all, an environment id for its override there
-    const keptSecrets = new Map<string, Set<string>>()
-    const changedConnections: string[] = variantChanged ? ["variant"] : []
-    let changedEverywhere = variantChanged
-    const changedEnvironments = new Set<string>()
     for (const spec of variant.fields) {
         const storedField = (spec.secret ? stored.secrets : stored.values).find(candidate => candidate.field === spec.name)
-        const keep = (environment = ALL) => keptSecrets.set(spec.name, (keptSecrets.get(spec.name) ?? new Set()).add(environment))
-        const isSent = Object.hasOwn(sent, spec.name)
-        const normalized = isSent
-            ? normalizeField(spec, sent[spec.name], environmentIds, storedField, keep)
+        const normalized = Object.hasOwn(sent, spec.name)
+            ? normalizeField(spec, sent[spec.name], environmentIds, storedField)
             : storedField && {
                   field: spec.name,
                   ...(storedField.value !== undefined && { value: storedField.value }),
                   overrides: storedField.overrides.map(override => ({ environmentId: String(override.environmentId), value: override.value }))
               }
-        if (!isSent && spec.secret && normalized) {
-            if (normalized.value !== undefined) keep()
-            for (const override of normalized.overrides) keep(override.environmentId)
-        }
-        if (spec.connection && isSent) {
-            const overridesOf = (field?: { overrides: Array<{ environmentId: unknown; value: string }> }) =>
-                new Map((field?.overrides ?? []).map(override => [String(override.environmentId), override.value]))
-            const before = overridesOf(storedField)
-            const after = overridesOf(normalized)
-            const environments = [...new Set([...before.keys(), ...after.keys()])].filter(environment => before.get(environment) !== after.get(environment))
-            const valueChanged = storedField?.value !== normalized?.value
-            if (valueChanged || environments.length > 0) changedConnections.push(spec.name)
-            if (valueChanged) changedEverywhere = true
-            for (const environment of environments) changedEnvironments.add(environment)
-        }
 
         if (spec.required && !spec.secret) {
             const overridden = new Set(normalized?.overrides.map(override => override.environmentId))
@@ -262,20 +229,6 @@ export const normalizeResourceFields = (
         if (normalized) (spec.secret ? result.secrets : result.values).push(normalized)
     }
 
-    const toRetype = [...keptSecrets]
-        .filter(([field, kept]) => {
-            if (changedEverywhere) return true
-            const overridden = new Set(result.secrets.find(secret => secret.field === field)?.overrides.map(override => override.environmentId))
-            return [...changedEnvironments].some(environment => kept.has(overridden.has(environment) ? environment : ALL))
-        })
-        .map(([field]) => field)
-    if (toRetype.length > 0) {
-        throw createBusinessException({
-            code: "RESOURCE_SECRET_REENTRY_REQUIRED",
-            message: `${changedConnections.join(", ")} changed: type ${toRetype.join(", ")} again, the stored value is not sent to another address`,
-            details: { secrets: toRetype, connections: changedConnections }
-        })
-    }
     return result
 }
 
@@ -458,8 +411,7 @@ export class ResourceService extends BaseAuthorizedService {
         // A change of variant, or of the variables a generic one defines, drops the fields it does not have, so it goes through here even with no field sent
         if (typedFields !== undefined || fields.variant !== undefined || fields.customFields !== undefined) {
             const environmentIds = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
-            const variantChanged = existing !== undefined && fields.variant !== undefined && fields.variant !== existing.variant
-            Object.assign(fields, normalizeResourceFields(typedFields, variant, environmentIds, existing, { variantChanged }))
+            Object.assign(fields, normalizeResourceFields(typedFields, variant, environmentIds, existing))
         }
         return fields
     }

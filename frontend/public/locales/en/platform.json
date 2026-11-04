@@ -3825,9 +3825,7 @@
             "url_invalid": "An absolute http or https URL",
             "email_invalid": "An email address",
             "too_long": "At most 32768 characters",
-            "no_value_for_all": "No value for all environments: environments added later will not get this variable",
-            "retype_required": "Type it again: where the resource connects changed",
-            "secret_retype": "Type it again"
+            "no_value_for_all": "No value for all environments: environments added later will not get this variable"
         },
         "options": {
             "in": {
@@ -3914,8 +3912,7 @@
             "resource_unknown": "One of the selected resources no longer exists: reload the page",
             "fields_invalid": "The values of the resource are not in the form the console sends: reload the page",
             "environment_duplicated": "A field has more than one value for the same environment",
-            "resources_invalid": "The resources of the backend must be a list of at most 50",
-            "secret_reentry_required": "Where the resource connects changed: type again {{secrets}}, the saved values are not sent to the new address"
+            "resources_invalid": "The resources of the backend must be a list of at most 50"
         },
         "types": {
             "cosmosdb": {
@@ -4118,9 +4115,6 @@
             "queue": "Queue",
             "topic": "Topic",
             "subscription": "Subscription"
-        },
-        "retype": {
-            "description": "You changed where this resource connects: the saved credentials are not sent to the new address, type them again:"
         }
     },
     "ai_sandbox": {

@@ -1,5 +1,4 @@
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { createBusinessException } from "../../errors/BusinessException"
 import Resource from "../../models/ResourceModel"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { SECRET_PLACEHOLDER } from "../../utils/secretCrypto"
@@ -160,17 +159,6 @@ describe("resource tools", () => {
         await run("resource_update", { resourceId: RESOURCE, fields: { specUrl: null } })
 
         expect(update).toHaveBeenCalledWith(RESOURCE, { fields: { specUrl: null } })
-    })
-
-    it("given a new address for a resource with stored credentials, when updated, then it is refused and sent to the console", async () => {
-        getById.mockResolvedValue(storedApi())
-        update.mockRejectedValue(createBusinessException({ code: "RESOURCE_SECRET_REENTRY_REQUIRED", message: "baseUrl changed", details: { secrets: ["apiKey"], connections: ["baseUrl"] } }))
-
-        await expect(run("resource_update", { resourceId: RESOURCE, fields: { baseUrl: { value: "https://evil.example.com" } } })).rejects.toMatchObject({
-            code: "RESOURCE_SECRET_REENTRY_REQUIRED",
-            message: expect.stringContaining("from the console"),
-            details: { secrets: ["apiKey"], connections: ["baseUrl"] }
-        })
     })
 
     it("given an update without fields, when run, then the resource is not read first", async () => {

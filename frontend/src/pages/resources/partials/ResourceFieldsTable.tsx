@@ -8,7 +8,7 @@ import TextareaField from "@/components/input/TextareaField.rhf"
 import TextField from "@/components/input/TextField.rhf"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import type { ResourceFieldSpec } from "@/hooks/apiClients/useResourcesApi"
-import { type CredentialToRetype, fieldLabel, optionLabel, type ResourceFieldFormValue } from "./resources"
+import { fieldLabel, optionLabel, type ResourceFieldFormValue } from "./resources"
 
 /** The inputs that would trip the browser's own validation (url, email, number) are typed as text: the form says what is wrong */
 const INPUT_MODES: Partial<Record<ResourceFieldSpec["input"], React.HTMLAttributes<HTMLInputElement>["inputMode"]>> = {
@@ -19,11 +19,11 @@ const INPUT_MODES: Partial<Record<ResourceFieldSpec["input"], React.HTMLAttribut
 
 /**
  * One value of a field, in the input its kind of field takes; a saved credential is never shown, only said to
- * be there. One to `retype` is not kept blank: where the resource connects changed.
+ * be there.
  */
-const FieldInput: React.FC<{ spec: ResourceFieldSpec; name: string; label: string; saved: boolean; retype?: boolean }> = ({ spec, name, label, saved, retype = false }) => {
+const FieldInput: React.FC<{ spec: ResourceFieldSpec; name: string; label: string; saved: boolean }> = ({ spec, name, label, saved }) => {
     const { t } = useTranslation()
-    const placeholder = retype ? t("resources.values.secret_retype") : spec.secret && saved ? t("resources.values.secret_keep") : t("resources.values.not_set")
+    const placeholder = spec.secret && saved ? t("resources.values.secret_keep") : t("resources.values.not_set")
 
     if (spec.input === "boolean" || spec.input === "select") {
         const options =
@@ -48,19 +48,7 @@ const FieldInput: React.FC<{ spec: ResourceFieldSpec; name: string; label: strin
     }
 
     if (spec.input === "multiline") {
-        return (
-            <TextareaField
-                name={name}
-                label={label}
-                placeholder={placeholder}
-                secret={spec.secret}
-                required={retype}
-                rows={4}
-                className="font-mono text-xs"
-                autoComplete="off"
-                containerClassName="flex-[1_1_100%]"
-            />
-        )
+        return <TextareaField name={name} label={label} placeholder={placeholder} secret={spec.secret} rows={4} className="font-mono text-xs" autoComplete="off" containerClassName="flex-[1_1_100%]" />
     }
 
     return (
@@ -68,7 +56,6 @@ const FieldInput: React.FC<{ spec: ResourceFieldSpec; name: string; label: strin
             name={name}
             label={label}
             placeholder={placeholder}
-            required={retype}
             type={spec.secret ? "password" : "text"}
             inputMode={INPUT_MODES[spec.input]}
             // Not a login: keep password managers from filling one in
@@ -85,7 +72,7 @@ const SecretStatus: React.FC<{ saved: boolean }> = ({ saved }) => {
 }
 
 /** A field of the variant: its variable, a value for all environments, and the environments that take another one */
-const FieldRow: React.FC<{ spec: ResourceFieldSpec; envKey: string; environments: EnvironmentDTO[]; retype?: CredentialToRetype }> = ({ spec, envKey, environments, retype }) => {
+const FieldRow: React.FC<{ spec: ResourceFieldSpec; envKey: string; environments: EnvironmentDTO[] }> = ({ spec, envKey, environments }) => {
     const { t } = useTranslation()
     const { setValue } = useFormContext()
     const path = `fields.${spec.name}`
@@ -116,7 +103,7 @@ const FieldRow: React.FC<{ spec: ResourceFieldSpec; envKey: string; environments
                 {!spec.required && <span className="text-xs text-foreground-secondary">{t("resources.values.optional")}</span>}
             </div>
             <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
-                <FieldInput spec={spec} name={`${path}.value`} label={t("resources.values.all_environments")} saved={Boolean(current?.saved)} retype={retype?.base} />
+                <FieldInput spec={spec} name={`${path}.value`} label={t("resources.values.all_environments")} saved={Boolean(current?.saved)} />
                 {spec.secret && current?.saved && (
                     <Button type="button" variant="ghost" size="sm" className="mb-1" onClick={() => clear(path)}>
                         <Eraser />
@@ -139,7 +126,7 @@ const FieldRow: React.FC<{ spec: ResourceFieldSpec; envKey: string; environments
                             const saved = Boolean(current?.overrides[index]?.saved)
                             return (
                                 <div key={environment._id} className="flex min-w-0 flex-[1_1_220px] items-end gap-1">
-                                    <FieldInput spec={spec} name={`${path}.overrides.${index}.value`} label={environment.name} saved={saved} retype={retype?.overrides.includes(index)} />
+                                    <FieldInput spec={spec} name={`${path}.overrides.${index}.value`} label={environment.name} saved={saved} />
                                     {spec.secret && saved && (
                                         <Button
                                             type="button"
@@ -164,12 +151,7 @@ const FieldRow: React.FC<{ spec: ResourceFieldSpec; envKey: string; environments
 }
 
 /** The values of the fields of the variant, drawn from the catalog: a type added to it later works as it is */
-export const ResourceFieldsTable: React.FC<{ fields: ResourceFieldSpec[]; prefix: string; environments: EnvironmentDTO[]; retype?: CredentialToRetype[] }> = ({
-    fields,
-    prefix,
-    environments,
-    retype = []
-}) => {
+export const ResourceFieldsTable: React.FC<{ fields: ResourceFieldSpec[]; prefix: string; environments: EnvironmentDTO[] }> = ({ fields, prefix, environments }) => {
     const { t } = useTranslation()
 
     return (
@@ -181,7 +163,7 @@ export const ResourceFieldsTable: React.FC<{ fields: ResourceFieldSpec[]; prefix
             <CardContent className="flex flex-col gap-3 pt-3">
                 {fields.length === 0 && <p className="text-sm text-foreground-secondary">{t("resources.values.none")}</p>}
                 {fields.map(spec => (
-                    <FieldRow key={spec.name} spec={spec} envKey={`${prefix}_${spec.envSuffix}`} environments={environments} retype={retype.find(credential => credential.field === spec.name)} />
+                    <FieldRow key={spec.name} spec={spec} envKey={`${prefix}_${spec.envSuffix}`} environments={environments} />
                 ))}
             </CardContent>
         </Card>

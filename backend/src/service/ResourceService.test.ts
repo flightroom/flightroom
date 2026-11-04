@@ -252,73 +252,15 @@ describe("normalizeResourceFields", () => {
             expect(secrets).toEqual([{ field: "password", value: "stored-password", overrides: [{ environmentId: production, value: "stored-prod-password" }] }])
         })
 
-        describe("with a connection field changed", () => {
-            const keepPassword = { value: SECRET_PLACEHOLDER, overrides: [{ environmentId: production, value: SECRET_PLACEHOLDER }] }
+        it("given a new host with the credential sent back as the placeholder, when they are normalised, then the stored credential is kept", () => {
+            const { secrets } = normalizeResourceFields(
+                { host: { value: "db2.internal" }, password: { value: SECRET_PLACEHOLDER, overrides: [{ environmentId: production, value: SECRET_PLACEHOLDER }] } },
+                databaseCredentials,
+                environments,
+                stored
+            )
 
-            it.each([
-                ["the credential sent back as the placeholder", { host: { value: "evil.example.com" }, password: keepPassword }],
-                ["the credential left out", { host: { value: "evil.example.com" } }],
-                [
-                    "only the override of production retyped",
-                    { host: { value: "evil.example.com" }, password: { value: SECRET_PLACEHOLDER, overrides: [{ environmentId: production, value: "typed" }] } }
-                ]
-            ])("given %s, when they are normalised, then it is refused naming what to type again", (_case, fields) => {
-                expect(() => normalizeResourceFields(fields, databaseCredentials, environments, stored)).toThrow(
-                    expect.objectContaining({ code: "RESOURCE_SECRET_REENTRY_REQUIRED", details: { secrets: ["password"], connections: ["host"] } })
-                )
-            })
-
-            it("given the credential typed again everywhere it is set, when they are normalised, then the new values are taken", () => {
-                const { secrets } = normalizeResourceFields(
-                    { port: { value: "6543" }, password: { value: "new-password", overrides: [{ environmentId: production, value: "new-prod-password" }] } },
-                    databaseCredentials,
-                    environments,
-                    stored
-                )
-
-                expect(secrets).toEqual([{ field: "password", value: "new-password", overrides: [{ environmentId: production, value: "new-prod-password" }] }])
-            })
-
-            it("given a change of variant, when the credential it shares is kept, then it is refused", () => {
-                const anthropicStored = { values: [{ field: "model", value: "claude-opus-5-5", overrides: [] }], secrets: [{ field: "apiKey", value: "sk-stored", overrides: [] }] } as never
-
-                expect(() => normalizeResourceFields({ model: { value: "gpt-5" } }, variantOf("ai", "openai"), environments, anthropicStored, { variantChanged: true })).toThrow(
-                    expect.objectContaining({ code: "RESOURCE_SECRET_REENTRY_REQUIRED", details: { secrets: ["apiKey"], connections: ["variant"] } })
-                )
-            })
-
-            describe("in one environment only", () => {
-                const hostIn = (environment: string, value: string) => ({
-                    value: "db.internal",
-                    overrides: [
-                        { environmentId: production, value: "db.prod.internal" },
-                        { environmentId: environment, value }
-                    ].slice(environment === production ? 1 : 0)
-                })
-
-                it("given the override of production changed, when its credential there is kept, then it is refused", () => {
-                    expect(() => normalizeResourceFields({ host: hostIn(production, "evil.example.com"), password: keepPassword }, databaseCredentials, environments, stored)).toThrow(
-                        expect.objectContaining({ code: "RESOURCE_SECRET_REENTRY_REQUIRED" })
-                    )
-                })
-
-                it("given the override of production changed, when only its credential there is typed again, then the value of all is kept", () => {
-                    const { secrets } = normalizeResourceFields(
-                        { host: hostIn(production, "db2.prod.internal"), password: { value: SECRET_PLACEHOLDER, overrides: [{ environmentId: production, value: "new-prod-password" }] } },
-                        databaseCredentials,
-                        environments,
-                        stored
-                    )
-
-                    expect(secrets).toEqual([{ field: "password", value: "stored-password", overrides: [{ environmentId: production, value: "new-prod-password" }] }])
-                })
-
-                it("given an override added in development, which takes the credential of all, when that one is kept, then it is refused", () => {
-                    expect(() => normalizeResourceFields({ host: hostIn(development, "evil.example.com"), password: keepPassword }, databaseCredentials, environments, stored)).toThrow(
-                        expect.objectContaining({ code: "RESOURCE_SECRET_REENTRY_REQUIRED", details: { secrets: ["password"], connections: ["host"] } })
-                    )
-                })
-            })
+            expect(secrets).toEqual([{ field: "password", value: "stored-password", overrides: [{ environmentId: production, value: "stored-prod-password" }] }])
         })
 
         it("given another variant, when they are normalised, then the fields it shares are kept and the others are dropped", () => {
@@ -466,22 +408,14 @@ describe("ResourceService.update", () => {
         expect(write.mock.calls[0][1].$set.secrets).toEqual([{ field: "password", value: "stored-password", overrides: [] }])
     })
 
-    it("given a new host with the password sent back as the placeholder, when it is updated, then it is refused and nothing is written", async () => {
-        await expect(update({ fields: { host: { value: "evil.example.com" }, password: { value: SECRET_PLACEHOLDER } } })).rejects.toMatchObject({
-            code: "RESOURCE_SECRET_REENTRY_REQUIRED",
-            details: { secrets: ["password"], connections: ["host"] }
-        })
-        expect(write).not.toHaveBeenCalled()
-    })
+    it("given a new host with the password sent back as the placeholder, when it is updated, then the stored password is kept", async () => {
+        await update({ fields: { host: { value: "db2.internal" }, password: { value: SECRET_PLACEHOLDER } } })
 
-    it("given a new host with the password typed again, when it is updated, then both are written", async () => {
-        await update({ fields: { host: { value: "db2.internal" }, password: { value: "new-password" } } })
-
-        expect(write.mock.calls[0][1].$set.secrets).toEqual([{ field: "password", value: "new-password", overrides: [] }])
+        expect(write.mock.calls[0][1].$set.secrets).toEqual([{ field: "password", value: "stored-password", overrides: [] }])
         expect(write.mock.calls[0][1].$set.values).toContainEqual({ field: "host", value: "db2.internal", overrides: [] })
     })
 
-    it("given another variant keeping a credential of the same name, when it is updated without it, then it is refused", async () => {
+    it("given another variant sharing a credential of the same name, when it is updated without it, then the stored one is kept", async () => {
         vi.mocked(Resource.findById).mockResolvedValue({
             ...resource,
             name: "assistant",
@@ -491,8 +425,9 @@ describe("ResourceService.update", () => {
             secrets: [{ field: "apiKey", value: "sk-stored", overrides: [] }]
         } as never)
 
-        await expect(update({ variant: "openai", fields: { model: { value: "gpt-5" } } })).rejects.toMatchObject({ code: "RESOURCE_SECRET_REENTRY_REQUIRED", details: { connections: ["variant"] } })
-        expect(write).not.toHaveBeenCalled()
+        await update({ variant: "openai", fields: { model: { value: "gpt-5" } } })
+
+        expect(write.mock.calls[0][1].$set.secrets).toEqual([{ field: "apiKey", value: "sk-stored", overrides: [] }])
     })
 
     it("given a blank prefix, when it is updated, then it goes back to the derived one", async () => {

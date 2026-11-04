@@ -106,20 +106,8 @@ attaches it or not: a values file that a deploy of another domain left in place 
 `<name>.resource`, and its pod would not start without it. The manifest goes only when the resource is
 deleted, which is refused while a backend attaches it.
 
-A stored credential is never sent somewhere new without being typed again. When an update changes where
-a resource connects (a field the catalog marks as `connection`: a host, a port, a database name, a bucket
-or container, an account name or region, an api's `baseUrl`, `specUrl` or `tokenUrl`, an ai's `baseUrl` or
-`endpoint`, an auth0 `domain`) or its variant, every credential it would keep as stored (sent back as the
-placeholder, or left out) is refused with `RESOURCE_SECRET_REENTRY_REQUIRED`, whose details name the
-credentials to type again and the fields that changed:
-
-- the variant, or the value of all of a connection field, changed: every credential kept, anywhere;
-- only the override of a connection field in one environment changed: the value each credential takes in
-  that environment, its own override there if it has one, its value of all otherwise.
-
-The console says which credentials to type again as soon as such a field is edited. An MCP client cannot
-type credentials, so its `resource_update` making such a change is refused with the same code and told to
-make it from the console.
+A stored credential sent back as the placeholder, or left out, keeps its value, also when the update
+changes where the resource connects (its host, base URL...) or its variant.
 
 ## Rotating or losing the key
 

@@ -164,50 +164,6 @@ export const withVariantDefaults = (
         })
     )
 
-/** A credential the form must have typed again: in all environments (`base`) and in the environments at these indexes */
-export interface CredentialToRetype {
-    field: string
-    base: boolean
-    overrides: number[]
-}
-
-/**
- * Mirror of the backend (normalizeResourceFields): the credentials kept as saved that must be typed again
- * because where the resource connects changed since `initial`. A change of variant, or of the value of all of
- * a connection field, asks for every one kept; a change of the override of a connection field in one
- * environment asks for the value each credential takes there, its override if it has one, its value of all
- * otherwise.
- */
-export const credentialsToRetype = (
-    variant: ResourceVariantSpec | undefined,
-    initial: Record<string, ResourceFieldFormValue>,
-    current: Record<string, ResourceFieldFormValue>,
-    variantChanged: boolean
-): CredentialToRetype[] => {
-    let everywhere = variantChanged
-    const environments = new Set<number>()
-    for (const spec of variant?.fields ?? []) {
-        if (!spec.connection) continue
-        const before = initial[spec.name]
-        const after = current[spec.name]
-        if ((before?.value ?? "") !== (after?.value ?? "")) everywhere = true
-        const count = Math.max(before?.overrides.length ?? 0, after?.overrides.length ?? 0)
-        for (let index = 0; index < count; index++) {
-            if ((before?.overrides[index]?.value ?? "") !== (after?.overrides[index]?.value ?? "")) environments.add(index)
-        }
-    }
-    if (!everywhere && environments.size === 0) return []
-    return (variant?.fields ?? []).flatMap(spec => {
-        const field = current[spec.name]
-        if (!spec.secret || !field) return []
-        const kept = (value?: { value: string; saved: boolean }) => Boolean(value?.saved && !value.value)
-        const overridden = (index: number) => Boolean(field.overrides[index]?.saved || field.overrides[index]?.value)
-        const base = kept(field) && (everywhere || [...environments].some(index => !overridden(index)))
-        const overrides = field.overrides.flatMap((override, index) => (kept(override) && (everywhere || environments.has(index)) ? [index] : []))
-        return base || overrides.length > 0 ? [{ field: spec.name, base, overrides }] : []
-    })
-}
-
 /** What a value of the form sends: typed, the placeholder that keeps a saved credential, or blank to unset it */
 const sentValue = (secret: boolean, { value, saved }: { value: string; saved: boolean }) => (value ? value : secret && saved ? SECRET_PLACEHOLDER : "")
 

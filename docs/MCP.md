@@ -225,10 +225,8 @@ lacks: it defines its own variables in `customFields` (`[{ name, secret }]`, at 
   removing or turning one secret or plain drops its values), the fields that are no credential and the
   pasted `apiSpec`. An update
   merges by field: a field left out keeps its value, one sent as `null` is unset. **A credential field is
-  refused** ("Secret fields of a resource are set from the console"): it is typed in the console only. So is
-  an update changing the variant or where a resource with stored credentials connects (its host, base URL...):
-  those credentials must be typed again (`RESOURCE_SECRET_REENTRY_REQUIRED`, see
-  [SECRETS.md](./SECRETS.md)), which only the console does. `resource_delete` is destructive
+  refused** ("Secret fields of a resource are set from the console"): it is typed in the console only. Changing
+  the variant or where a resource connects keeps its stored credentials. `resource_delete` is destructive
   and refused while a backend attaches the resource.
 - `backend_create` and `backend_update` take `resourceIds` (at most 50, replaced as a whole); a variable
   of a resource clashing with one of the config maps, secrets or other resources of the backend is refused.
