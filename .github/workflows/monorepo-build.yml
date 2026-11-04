@@ -46,6 +46,15 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      # The Trivy gate of docker-build.yml only sees the backend's node_modules: the
+      # frontend reaches the image as a compiled bundle, with no package.json left for
+      # it to read. This audits the lockfile, frontend included, with the same bar as
+      # Trivy: HIGH or CRITICAL, only when a fix exists. Dev dependencies and the e2e
+      # suite never ship, hence --prod. A finding to accept goes in
+      # auditConfig.ignoreGhsas of pnpm-workspace.yaml, with the reason why.
+      - name: 🛡️ Audit Production Dependencies
+        run: pnpm audit --prod --audit-level=high --ignore-unfixable
+
       - name: 💾 Turbo Cache
         uses: actions/cache@v6
         with:

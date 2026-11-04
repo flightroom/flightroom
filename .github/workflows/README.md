@@ -39,7 +39,7 @@ Builds every package and runs the backend unit tests.
 
 **Triggers:** push to `main` or `development`, manual, and `workflow_call` (docker-build runs it first).
 
-**What it does:** installs with pnpm, runs `pnpm build` and `pnpm --filter @flightroom/backend test:coverage`, writes the coverage summary, and uploads the backend coverage and the backend and frontend builds as artifacts. The root `pnpm test` is not used because it would also run the e2e suite.
+**What it does:** installs with pnpm, fails on a HIGH or CRITICAL advisory with a fix in the production dependencies (`pnpm audit --prod`, the frontend included, which the Trivy scan of the image cannot see), runs `pnpm build` and `pnpm --filter @flightroom/backend test:coverage`, writes the coverage summary, and uploads the backend coverage and the backend and frontend builds as artifacts. The root `pnpm test` is not used because it would also run the e2e suite.
 
 ### Docker Build (`docker-build.yml`)
 
