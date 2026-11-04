@@ -2807,7 +2807,10 @@
             "name": "Nome",
             "variable_description": "Descrizione",
             "required": "Obbligatoria",
-            "secret": "Segreta"
+            "secret": "Segreta",
+            "remove": "Rimuovi variabile",
+            "confirm_remove_title": "Rimuovi variabile",
+            "confirm_remove": "Sei sicuro di voler rimuovere la variabile {{name}}?"
         },
         "context": {
             "title": "Contesto per l'AI",

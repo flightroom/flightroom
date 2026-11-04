@@ -2787,7 +2787,10 @@
             "name": "Name",
             "variable_description": "Description",
             "required": "Required",
-            "secret": "Secret"
+            "secret": "Secret",
+            "remove": "Remove variable",
+            "confirm_remove_title": "Remove variable",
+            "confirm_remove": "Are you sure you want to remove the variable {{name}}?"
         },
         "context": {
             "title": "AI context",
