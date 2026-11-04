@@ -1,5 +1,5 @@
 import { drawRocket } from "@/components/ai-agents/drawRocket"
-import { MOON_ICON_PX, MOON_SHADE_PX, SHIP_ORBIT_SPEED, SHIP_TRAIL, STATION_ORBIT_SPEED } from "./constants"
+import { MOON_ICON_PX, MOON_SHADE_PX, SHIP_LANE_SLOWDOWN, SHIP_ORBIT_SPEED, SHIP_TRAIL, STATION_ORBIT_SPEED } from "./constants"
 import type { BodyColors } from "./sky"
 import type { Comet, Moon, Point, Ship, Station } from "./types"
 
@@ -121,26 +121,54 @@ export const paintComet = (ctx: CanvasRenderingContext2D, comet: Comet, now: num
     }
 }
 
-/** One ship at `now` (seconds), `size` long: nose along its orbit, a short trail behind it, parked with reduced motion. */
-export const paintShip = (ctx: CanvasRenderingContext2D, ship: Ship, center: Point, now: number, size: number, scale: number, colors: BodyColors, reducedMotion: boolean) => {
-    const angle = ship.phase + now * SHIP_ORBIT_SPEED
-    ship.x = center.x + Math.cos(angle) * ship.orbit
-    ship.y = center.y + Math.sin(angle) * ship.orbit
+/** The ellipse a ship flies on this frame: centred on the halo of its galaxies, `a` along its tilt, `b` across it. */
+export type ShipOrbit = Point & { a: number; b: number }
+
+/** The point of the orbit at the parametric `angle`, turned by the tilt of the ship. */
+const orbitPoint = (ship: Ship, orbit: ShipOrbit, angle: number): Point => {
+    const along = orbit.a * Math.cos(angle)
+    const across = orbit.b * Math.sin(angle)
+    const cos = Math.cos(ship.tilt)
+    const sin = Math.sin(ship.tilt)
+    return { x: orbit.x + along * cos - across * sin, y: orbit.y + along * sin + across * cos }
+}
+
+const TRAIL_STEPS = 8
+
+/** A stretch of the orbit between two parametric angles, as a few straight steps: canvas has no arc of a turned ellipse by angle. */
+const strokeOrbit = (ctx: CanvasRenderingContext2D, ship: Ship, orbit: ShipOrbit, from: number, to: number) => {
+    ctx.beginPath()
+    for (let step = 0; step <= TRAIL_STEPS; step++) {
+        const point = orbitPoint(ship, orbit, from + ((to - from) * step) / TRAIL_STEPS)
+        if (step === 0) ctx.moveTo(point.x, point.y)
+        else ctx.lineTo(point.x, point.y)
+    }
+    ctx.stroke()
+}
+
+/** One ship at `now` (seconds), `size` long, on its own lane around its galaxies: nose along its orbit, a short trail behind it, parked with reduced motion. */
+export const paintShip = (ctx: CanvasRenderingContext2D, ship: Ship, orbit: ShipOrbit, now: number, size: number, scale: number, colors: BodyColors, reducedMotion: boolean) => {
+    const angle = ship.phase + (ship.direction * now * SHIP_ORBIT_SPEED) / (1 + SHIP_LANE_SLOWDOWN * ship.lane)
+    const position = orbitPoint(ship, orbit, angle)
+    ship.x = position.x
+    ship.y = position.y
     if (!reducedMotion) {
         // Fading out behind it: a faint stretch, then a brighter one up to the exhaust.
+        const back = -ship.direction
         ctx.lineCap = "round"
         ctx.lineWidth = Math.max(size * 0.14, 1 / scale)
         ctx.strokeStyle = colors.trail[0]
-        ctx.beginPath()
-        ctx.arc(center.x, center.y, ship.orbit, angle - SHIP_TRAIL, angle - SHIP_TRAIL * 0.45)
-        ctx.stroke()
+        strokeOrbit(ctx, ship, orbit, angle + back * SHIP_TRAIL, angle + back * SHIP_TRAIL * 0.45)
         ctx.strokeStyle = colors.trail[1]
-        ctx.beginPath()
-        ctx.arc(center.x, center.y, ship.orbit, angle - SHIP_TRAIL * 0.45, angle - size / ship.orbit / 2)
-        ctx.stroke()
+        strokeOrbit(ctx, ship, orbit, angle + back * SHIP_TRAIL * 0.45, angle + (back * size) / orbit.b / 2)
     }
-    // Clockwise on screen: the nose points along the tangent.
-    drawRocket(ctx, ship.x, ship.y, angle + Math.PI / 2, size, colors.shipBody, reducedMotion ? colors.parkedRocket : colors.rocket)
+    // The nose points the way it flies: along the tangent of the ellipse, turned with it.
+    const tangentX = -orbit.a * Math.sin(angle) * ship.direction
+    const tangentY = orbit.b * Math.cos(angle) * ship.direction
+    const cos = Math.cos(ship.tilt)
+    const sin = Math.sin(ship.tilt)
+    const heading = Math.atan2(tangentX * sin + tangentY * cos, tangentX * cos - tangentY * sin)
+    drawRocket(ctx, ship.x, ship.y, heading, size, colors.shipBody, reducedMotion ? colors.parkedRocket : colors.rocket)
 }
 
 /**

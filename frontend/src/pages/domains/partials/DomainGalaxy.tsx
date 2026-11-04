@@ -54,7 +54,7 @@ const prefersReducedMotion = () => window.matchMedia("(prefers-reduced-motion: r
  * The whole project as a sky: every domain a galaxy, its frontends and backends the worlds in it,
  * members in no domain in a grey nebula. The resources a backend attaches are its moons, the config maps and the
  * secrets a world receives comets on its two eccentric orbits, an agent at
- * work on a world a ship orbiting it. Links across two domains are drawn as bridges between the
+ * work a ship orbiting the domain of the worlds it works on, each on its own lane. Links across two domains are drawn as bridges between the
  * galaxies, the ones the domain diagram has to leave out.
  */
 const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRONTENDS, backends, links, onLink, onUnlink, resources = NO_RESOURCES, scope = "project" }) => {
@@ -158,10 +158,11 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
     const paintStar = useMemo(
         () =>
             createWorldPainter(
-                { worlds: graphData.nodes, moonsByWorld, cometsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, hoveredMapId, primaryHue, reducedMotion, font, sky, colors },
-                frameRef
+                { moonsByWorld, cometsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, hoveredMapId, primaryHue, reducedMotion, font, sky, colors },
+                frameRef,
+                geometryRef
             ),
-        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, cometsByWorld, ships, stationsByWorld, graphData.nodes, hoveredResourceId, hoveredMapId]
+        [primaryHue, neighbourIds, reducedMotion, font, sky, colors, moonsByWorld, cometsByWorld, ships, stationsByWorld, hoveredResourceId, hoveredMapId]
     )
 
     const paintPointerArea = useCallback((node: StarNode, color: string, ctx: CanvasRenderingContext2D) => {

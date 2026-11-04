@@ -43,8 +43,15 @@ export const COMET_HIT = 8
 /** Ships keep this size on screen, but never get bigger than their world as the map zooms out. */
 export const SHIP_SCREEN_SIZE = 16
 export const SHIP_MAX_SIZE = 1.2
-/** Radians per second around the galaxy: three times the moons, an agent is busy */
+/** Radians per second around its galaxy on the innermost lane: three times the moons, an agent is busy */
 export const SHIP_ORBIT_SPEED = 0.9
+/** How much slower each lane is than the one inside it, as the outer planets */
+export const SHIP_LANE_SLOWDOWN = 0.15
+/** Between the halo of a galaxy and the first lane of its ships, and between two lanes: in graph units, never less than SHIP_LANE_PX on screen */
+export const SHIP_LANE_GAP = 14
+export const SHIP_LANE_PX = 18
+/** How much longer than wide the orbit of each lane is, in turn: a circle, then two ellipses more and more stretched, short of the neighbouring galaxies */
+export const SHIP_LANE_STRETCH = [0, 0.15, 0.3]
 /** The ships shown per world-equivalent across the galaxy; the others are counted on the first ship's tooltip */
 export const SHIP_CAP = 3
 /** The length of the trail of a ship along its galactic orbit, in radians */

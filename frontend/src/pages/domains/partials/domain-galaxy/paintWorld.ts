@@ -1,10 +1,19 @@
-import { DIMMED_ALPHA, MOON_LABEL_ZOOM, SHIP_MAX_SIZE, SHIP_SCREEN_SIZE, STAR_LABEL_ZOOM, STATION_SCREEN_SIZE } from "./constants"
+import { DIMMED_ALPHA, MOON_LABEL_ZOOM, SHIP_LANE_GAP, SHIP_LANE_PX, SHIP_LANE_STRETCH, SHIP_MAX_SIZE, SHIP_SCREEN_SIZE, STAR_LABEL_ZOOM, STATION_SCREEN_SIZE } from "./constants"
 import { paintComet, paintCometOrbit, paintMoon, paintShip, paintStation } from "./paintBodies"
 import { type BodyColors, type Sky, STAR_CORE } from "./sky"
-import type { Comet, Frame, Moon, Ship, StarNode, Station } from "./types"
+import type { Comet, Frame, GalaxyGeometry, Moon, Ship, StarNode, Station } from "./types"
+
+/** What a ship flies around: the halo of its galaxy, or the circle holding the halos of all the galaxies its job spans. */
+const haloOf = (galaxyIds: string[], geometry: ReadonlyMap<string, GalaxyGeometry>): GalaxyGeometry | undefined => {
+    const halos = galaxyIds.flatMap(id => geometry.get(id) ?? [])
+    if (!halos.length) return undefined
+    if (halos.length === 1) return halos[0]
+    const x = halos.reduce((sum, halo) => sum + halo.x, 0) / halos.length
+    const y = halos.reduce((sum, halo) => sum + halo.y, 0) / halos.length
+    return { x, y, r: Math.max(...halos.map(halo => Math.hypot(halo.x - x, halo.y - y) + halo.r)) }
+}
 
 interface WorldScene {
-    worlds: StarNode[]
     moonsByWorld: Map<string, Moon[]>
     cometsByWorld: Map<string, Comet[]>
     stationsByWorld: Map<string, Station[]>
@@ -23,12 +32,14 @@ interface WorldScene {
 
 /**
  * The painter of every world, for the force-graph to call on each node of each frame: its star and its glow, its
- * canary, its moons, its comets and stations, and the ships of the whole map with the first world painted on the frame.
+ * canary, its moons, its comets and stations, and the ships of the whole map with the first world painted on the frame,
+ * each around the halos of its galaxies as the sky painted them on this frame.
  */
 export const createWorldPainter =
     (
-        { worlds, moonsByWorld, cometsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, hoveredMapId, primaryHue, reducedMotion, font, sky, colors }: WorldScene,
-        frameRef: { readonly current: Frame }
+        { moonsByWorld, cometsByWorld, stationsByWorld, ships, neighbourIds, hoveredResourceId, hoveredMapId, primaryHue, reducedMotion, font, sky, colors }: WorldScene,
+        frameRef: { readonly current: Frame },
+        galaxyGeometryRef: { readonly current: ReadonlyMap<string, GalaxyGeometry> }
     ) =>
     (node: StarNode, ctx: CanvasRenderingContext2D, scale: number) => {
         const x = node.x ?? 0
@@ -122,17 +133,19 @@ export const createWorldPainter =
         }
         if (ships.length > 0 && frame.shipsPainted !== frame.id) {
             frame.shipsPainted = frame.id
-            const center = worlds.reduce((sum, world) => ({ x: sum.x + (world.x ?? 0) / worlds.length, y: sum.y + (world.y ?? 0) / worlds.length }), { x: 0, y: 0 })
-            const orbit = Math.max(...worlds.map(world => Math.hypot((world.x ?? 0) - center.x, (world.y ?? 0) - center.y) + world.reach)) + Math.max(36, 24 / scale)
             const shipSize = SHIP_SCREEN_SIZE / scale
+            const gap = Math.max(SHIP_LANE_GAP, SHIP_LANE_PX / scale)
             for (const ship of ships) {
-                ship.orbit = orbit
-                paintShip(ctx, ship, center, frame.now, shipSize, scale, colors, reducedMotion)
+                const halo = haloOf(ship.galaxyIds, galaxyGeometryRef.current)
+                if (!halo) continue
+                const b = halo.r + gap * (1 + ship.lane)
+                const orbit = { x: halo.x, y: halo.y, b, a: b * (1 + SHIP_LANE_STRETCH[ship.lane % SHIP_LANE_STRETCH.length]) }
+                paintShip(ctx, ship, orbit, frame.now, shipSize, scale, colors, reducedMotion)
                 ship.frame = frame.id
+                const closestX = Math.max(frame.left, Math.min(orbit.x, frame.right))
+                const closestY = Math.max(frame.top, Math.min(orbit.y, frame.bottom))
+                if (!reducedMotion && Math.hypot(closestX - orbit.x, closestY - orbit.y) <= orbit.a + shipSize) frame.motion = true
             }
-            const closestX = Math.max(frame.left, Math.min(center.x, frame.right))
-            const closestY = Math.max(frame.top, Math.min(center.y, frame.bottom))
-            if (!reducedMotion && Math.hypot(closestX - center.x, closestY - center.y) <= orbit + shipSize) frame.motion = true
         }
         // Something turning in view keeps the map redrawing.
         if (!reducedMotion && !frame.motion && (worldMoons || worldComets || worldStations)) {

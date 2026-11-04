@@ -115,13 +115,23 @@ export interface Comet {
     frame: number
 }
 
-/** An agent at work, shown as one ship flying around the galaxy. */
+/** An agent at work, shown as one ship flying around the galaxies of the worlds it works on. */
 export interface Ship {
     job: AiWorkingJob
     worlds: StarNode[]
     world: StarNode
+    /** The galaxies of its worlds, sorted: its orbit goes around their halos, its domain alone when they are all in one */
+    galaxyIds: string[]
     phase: number
-    orbit: number
+    /**
+     * Its place among the ships around the same galaxies, from the inside out: each one a lane of its own, farther
+     * out, stretched and turned another way than the one inside it, and flown the other way round every other lane.
+     */
+    lane: number
+    /** Where the long axis of its orbit points, in radians */
+    tilt: number
+    /** 1 clockwise on screen, -1 the other way round */
+    direction: 1 | -1
     /** The agents at work on the same world beyond the ones drawn */
     extra: number
     /** Where a click goes when the agent is a change request started on a page, which has no job to open; a job has none. */

@@ -291,11 +291,22 @@ export const placeShips = (workingJobs: AiWorkingJob[], worldNodes: StarNode[]) 
         // A job the user cannot open says so, rather than landing on a page that knows nothing of it.
         const fallbackPath = job.kind === "request" ? `/${worlds[0].kind}/${worlds[0].id}?change=${job.jobId}` : undefined
         agents.push({ jobId: job.jobId, names: worlds.map(world => world.name).join(", "), fallbackPath })
-        activeShips.push({ job, worlds, world: worlds[0], phase: phaseOf(job.jobId), orbit: 0, extra: 0, fallbackPath, x: 0, y: 0, frame: -1 })
+        const galaxyIds = [...new Set(worlds.map(world => world.galaxyId))].sort((a, b) => a.localeCompare(b))
+        activeShips.push({ job, worlds, world: worlds[0], galaxyIds, phase: phaseOf(job.jobId), lane: 0, tilt: 0, direction: 1, extra: 0, fallbackPath, x: 0, y: 0, frame: -1 })
     }
     activeShips.sort((a, b) => a.job.jobId.localeCompare(b.job.jobId))
     const ships = activeShips.slice(0, worldNodes.length * SHIP_CAP)
     if (ships[0]) ships[0].extra = activeShips.length - ships.length
+    // The ships around the same galaxies never share a trajectory: each flies a lane of its own.
+    const lanes = new Map<string, number>()
+    for (const ship of ships) {
+        const key = ship.galaxyIds.join(",")
+        const lane = lanes.get(key) ?? 0
+        lanes.set(key, lane + 1)
+        ship.lane = lane
+        ship.tilt = phaseOf(key) + lane * GOLDEN_ANGLE
+        ship.direction = lane % 2 ? -1 : 1
+    }
     return { ships, agents }
 }
 
