@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793818017.711282,
-    "ast_hash": "6fce4e9a37c0e413776f70ce157f87ae",
+    "mtime": 1793825095.8428206,
+    "ast_hash": "1134c2b1955bc5f2e7af0e5343a2e879",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3525,8 +3525,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.ts": {
-    "mtime": 1793813811.687885,
-    "ast_hash": "e42fae8d47167d046c3462c4cda6a6b2",
+    "mtime": 1793825045.2940567,
+    "ast_hash": "197c3d21b676c01b3c7ef55f4b2c6e3c",
     "semantic_hash": ""
   },
   "backend/src/controller/ArgoCdController.ts": {
@@ -3535,23 +3535,23 @@
     "semantic_hash": ""
   },
   "backend/src/service/ArgoCdService.test.ts": {
-    "mtime": 1793577370.3762422,
-    "ast_hash": "cfcd4c79c4c331982cb7e255c3896c6f",
+    "mtime": 1793825080.2359138,
+    "ast_hash": "08ee84a7b3d878423a00ce1f156a1c38",
     "semantic_hash": ""
   },
   "backend/src/service/ArgoCdService.ts": {
-    "mtime": 1793792126.669822,
-    "ast_hash": "653cb47cc1fb3bc685a907917f3c3819",
+    "mtime": 1793825113.999702,
+    "ast_hash": "ac7e5422c1f1213d4b2dadbaa6daf174",
     "semantic_hash": ""
   },
   "backend/src/service/gitops/argoCdManifests.test.ts": {
-    "mtime": 1793350610.836663,
-    "ast_hash": "4d5a780d1c07942da9cec98fbe056b81",
+    "mtime": 1793825078.3477812,
+    "ast_hash": "b951cd321818cfd4d0f1812ccd587f17",
     "semantic_hash": ""
   },
   "backend/src/service/gitops/argoCdManifests.ts": {
-    "mtime": 1793367179.3920326,
-    "ast_hash": "61d6fa2a10ae5f58f704c233523ef42a",
+    "mtime": 1793825035.094723,
+    "ast_hash": "8e62680512dbf148f88d194a4acdf25b",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useArgoCdApi.ts": {
@@ -3565,8 +3565,8 @@
     "semantic_hash": ""
   },
   "docs/ARGOCD.md": {
-    "mtime": 1793408318.1160607,
-    "ast_hash": "0ee43a9cced471f7178f2d093d671947",
+    "mtime": 1793825094.9761436,
+    "ast_hash": "cb7eb7f1bf22f9b3693cad1a8edfc408",
     "semantic_hash": ""
   },
   "backend/src/models/ProjectModel.test.ts": {
@@ -4685,8 +4685,8 @@
     "semantic_hash": ""
   },
   "backend/src/client/ArgoCdClient.test.ts": {
-    "mtime": 1793471831.1932151,
-    "ast_hash": "1818b3801d69214ff4329c0ced7fef2b",
+    "mtime": 1793825081.0953841,
+    "ast_hash": "7e969ea3d5b7af9eb5d8d6379521adfe",
     "semantic_hash": ""
   },
   "backend/src/mcp/tools/aiUsageTools.test.ts": {
