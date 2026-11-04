@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793815876.3730333,
-    "ast_hash": "08bbcd9714a30427427e114e91e7961e",
+    "mtime": 1793816552.1607378,
+    "ast_hash": "230121518ec79cf58e7527eb76a7a5ab",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793815876.3731198,
-    "ast_hash": "3bcf863ec2da49a85d534210ed642cdd",
+    "mtime": 1793816552.1547713,
+    "ast_hash": "9f14eb12e5dc5550eefa7eed0daf1804",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793816423.9561276,
-    "ast_hash": "892e62f4ab62a3e40e00452ae377a023",
+    "mtime": 1793816641.8247418,
+    "ast_hash": "b49511c3a0e578e4db900b586711b087",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -3055,8 +3055,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/domains/partials/DomainGalaxy.tsx": {
-    "mtime": 1793810370.7932794,
-    "ast_hash": "d25463e49ea1c6483b4595ec1360a15e",
+    "mtime": 1793816583.589061,
+    "ast_hash": "5ed85bb1e2cae250ed06601897aec442",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useDomainDeploymentsApi.ts": {
@@ -6142,6 +6142,11 @@
   "frontend/src/pages/databases/partials/ProvisionedDatabasesSection.tsx": {
     "mtime": 1793815571.6654778,
     "ast_hash": "5686b499d08b1dc5abccc87db6ce0339",
+    "semantic_hash": ""
+  },
+  "frontend/src/pages/domains/partials/domain-galaxy/GalaxyFullscreenButton.tsx": {
+    "mtime": 1793816578.8587894,
+    "ast_hash": "6020492b022e19c51f43b1d4f0d59889",
     "semantic_hash": ""
   }
 }
