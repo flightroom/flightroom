@@ -225,7 +225,10 @@ export const unsetFrontendDesignSystems = async (logger: FastifyBaseLogger): Pro
  * that they come back in the clear and are encrypted again as a Database's when saved. A ciphertext cannot be moved
  * as it is: it is bound to its model and its path.
  */
-const legacyMongoServerSchema = new Schema({ projectId: Schema.Types.ObjectId, name: String, provider: String, connection: Schema.Types.Mixed }, { timestamps: true, collection: "mongoservers" })
+const legacyMongoServerSchema = new Schema(
+    { projectId: Schema.Types.ObjectId, name: String, provider: String, connection: Schema.Types.Mixed },
+    { timestamps: true, collection: "mongoservers", autoCreate: false, autoIndex: false }
+)
 legacyMongoServerSchema.plugin(encryptedFields, { model: "MongoServer", paths: ["connection.connectionString", "connection.clientSecret"] })
 export const LegacyMongoServer = mongoose.models.LegacyMongoServer ?? mongoose.model("LegacyMongoServer", legacyMongoServerSchema)
 
@@ -243,26 +246,40 @@ const AUTH_TYPE_OF_PROVIDER: Record<string, string> = { MONGODB: "connectionStri
 export const moveMongoServersToDatabases = async (logger: FastifyBaseLogger): Promise<void> => {
     await ProvisionedDatabase.collection.dropIndex("serverId_1_databaseName_1").catch(() => undefined)
     let moved = 0
-    for await (const server of LegacyMongoServer.find().cursor()) {
-        const authType = AUTH_TYPE_OF_PROVIDER[server.provider as string]
-        if (!authType) {
-            logger.error({ serverId: String(server._id), provider: server.provider }, "A MongoDB server of an unknown provider was left where it is")
-            continue
+    // The servers left in the old collection by this run, whose records keep their serverId until they move
+    const waiting: unknown[] = []
+    try {
+        for await (const server of LegacyMongoServer.find().cursor()) {
+            // One server that cannot be moved (a credential that does not decrypt, another replica moving it) does not hold back the others
+            try {
+                const authType = AUTH_TYPE_OF_PROVIDER[server.provider as string]
+                if (!authType) {
+                    logger.error({ serverId: String(server._id), provider: server.provider }, "A MongoDB server of an unknown provider was left where it is")
+                    waiting.push(server._id)
+                    continue
+                }
+                if (!(await Database.exists({ _id: server._id }))) {
+                    const connection = { authType, ...(server.connection as Record<string, unknown>) }
+                    const { createdAt, updatedAt } = server as unknown as { createdAt?: Date; updatedAt?: Date }
+                    // Saved with its own dates: it is the same server, not one created by the migration
+                    await new Database({ _id: server._id, projectId: server.projectId, name: server.name, type: DatabaseType.MONGODB, connection, createdAt, updatedAt }).save({
+                        timestamps: false
+                    })
+                }
+                await ProvisionedDatabase.collection.updateMany({ serverId: server._id }, { $rename: { serverId: "databaseId" } })
+                await LegacyMongoServer.deleteOne({ _id: server._id })
+                moved++
+            } catch (error) {
+                waiting.push(server._id)
+                logger.error({ error, serverId: String(server._id) }, "A MongoDB server could not be moved to the databases: it is tried again at the next start")
+            }
         }
-        if (!(await Database.exists({ _id: server._id }))) {
-            const connection = { authType, ...(server.connection as Record<string, unknown>) }
-            await new Database({ _id: server._id, projectId: server.projectId, name: server.name, type: DatabaseType.MONGODB, connection }).save()
-        }
-        await ProvisionedDatabase.collection.updateMany({ serverId: server._id }, { $rename: { serverId: "databaseId" } })
-        await LegacyMongoServer.deleteOne({ _id: server._id })
-        moved++
-    }
-    // The records of a server moved by a run that stopped before renaming them
-    const { modifiedCount } = await ProvisionedDatabase.collection.updateMany({ serverId: { $exists: true } }, { $rename: { serverId: "databaseId" } })
-    if (moved > 0 || modifiedCount > 0) {
-        // The index on the database and the name, which the boot may have tried to build before the rename
-        await ProvisionedDatabase.createIndexes()
-        logger.info(`Moved ${moved} MongoDB server(s) to the databases of their project`)
+        // The records of a server moved by a run that stopped before renaming them; never those of a server still waiting to be moved
+        const { modifiedCount } = await ProvisionedDatabase.collection.updateMany({ serverId: { $exists: true, $nin: waiting } }, { $rename: { serverId: "databaseId" } })
+        if (moved > 0 || modifiedCount > 0) logger.info(`Moved ${moved} MongoDB server(s) to the databases of their project`)
+    } finally {
+        // On every run: the boot may have tried to build the index on the database and the name before the rename, and failed
+        await ProvisionedDatabase.createIndexes().catch(error => logger.error({ error }, "The index of the provisioned databases could not be built"))
     }
 }
 

@@ -328,6 +328,7 @@ describe("runMigrations", () => {
         // No MongoDB server left to move
         vi.spyOn(ProvisionedDatabase.collection, "dropIndex").mockResolvedValue({} as never)
         vi.spyOn(LegacyMongoServer, "find").mockReturnValue({ cursor: () => [][Symbol.iterator]() } as never)
+        vi.spyOn(ProvisionedDatabase, "createIndexes").mockResolvedValue(undefined as never)
         vi.spyOn(ProvisionedDatabase.collection, "updateMany").mockResolvedValue({ modifiedCount: 0 } as never)
         holding(Storage, [{ save: vi.fn().mockRejectedValue(new Error("write refused")) }])
         const error = vi.fn()
@@ -350,12 +351,12 @@ describe("moveMongoServersToDatabases", () => {
     let removed: ReturnType<typeof vi.fn>
 
     /** A server as the old collection holds it, its secret encrypted under its old model, read back through the old model */
-    const legacy = (provider: string, connection: Record<string, unknown>) => {
+    const legacy = (provider: string, connection: Record<string, unknown>, _id = serverId, dates: Record<string, Date> = {}) => {
         const encrypted = { ...connection }
         for (const key of ["connectionString", "clientSecret"]) {
             if (typeof encrypted[key] === "string") encrypted[key] = encryptSecret(encrypted[key], `MongoServer:connection.${key}`)
         }
-        return LegacyMongoServer.hydrate({ _id: serverId, projectId, name: "Shared cluster", provider, connection: encrypted })
+        return LegacyMongoServer.hydrate({ _id, projectId, name: "Shared cluster", provider, connection: encrypted, ...dates })
     }
 
     const holdingServers = (servers: unknown[]) => vi.spyOn(LegacyMongoServer, "find").mockReturnValue({ cursor: () => servers[Symbol.iterator]() } as never)
@@ -424,14 +425,50 @@ describe("moveMongoServersToDatabases", () => {
         expect(removed).toHaveBeenCalled()
     })
 
-    it("given nothing left to move, when it runs again, then nothing is written and no index is built", async () => {
+    /** The boot may have tried to build the index before the rename and failed: it is built on every run, idempotent */
+    it("given nothing left to move, when it runs again, then nothing is written and the index is built anyway", async () => {
         holdingServers([])
 
         await moveMongoServersToDatabases(logger)
 
         expect(saved).toEqual([])
-        expect(renames).toHaveBeenCalledWith({ serverId: { $exists: true } }, { $rename: { serverId: "databaseId" } })
-        expect(ProvisionedDatabase.createIndexes).not.toHaveBeenCalled()
+        expect(renames).toHaveBeenCalledWith({ serverId: { $exists: true, $nin: [] } }, { $rename: { serverId: "databaseId" } })
+        expect(ProvisionedDatabase.createIndexes).toHaveBeenCalled()
+    })
+
+    it("given a server that cannot be moved, when the migration runs, then it is logged, the next one is moved and its records keep serverId", async () => {
+        const otherId = new Types.ObjectId()
+        holdingServers([legacy("MONGODB", { connectionString: "mongodb://root:pw@db/admin" }), legacy("MONGODB", { connectionString: "mongodb://root:pw@other/admin" }, otherId)])
+        vi.mocked(Database.prototype.save).mockRejectedValueOnce(new Error("E11000 duplicate key"))
+        const error = vi.fn()
+
+        await moveMongoServersToDatabases({ info: vi.fn(), error } as never)
+
+        expect(error).toHaveBeenCalledWith(expect.objectContaining({ serverId: String(serverId) }), expect.stringContaining("could not be moved"))
+        expect(removed).toHaveBeenCalledTimes(1)
+        expect(removed).toHaveBeenCalledWith({ _id: otherId })
+        expect(renames).toHaveBeenCalledWith({ serverId: { $exists: true, $nin: [serverId] } }, { $rename: { serverId: "databaseId" } })
+        expect(ProvisionedDatabase.createIndexes).toHaveBeenCalled()
+    })
+
+    it("given a server, when it is moved, then the database keeps the dates of the server", async () => {
+        const createdAt = new Date("2026-11-04T10:00:00Z")
+        const updatedAt = new Date("2026-11-04T11:00:00Z")
+        holdingServers([legacy("MONGODB", { connectionString: "mongodb://root:pw@db/admin" }, serverId, { createdAt, updatedAt })])
+
+        await moveMongoServersToDatabases(logger)
+
+        expect(saved[0]).toMatchObject({ createdAt, updatedAt })
+        expect(Database.prototype.save).toHaveBeenCalledWith({ timestamps: false })
+    })
+
+    it("given the index cannot be built, when the migration runs, then it is logged and nothing is thrown", async () => {
+        holdingServers([])
+        vi.mocked(ProvisionedDatabase.createIndexes).mockRejectedValue(new Error("duplicate key"))
+        const error = vi.fn()
+
+        await expect(moveMongoServersToDatabases({ info: vi.fn(), error } as never)).resolves.toBeUndefined()
+        expect(error).toHaveBeenCalledWith({ error: expect.any(Error) }, "The index of the provisioned databases could not be built")
     })
 
     it("given a server of a provider nobody knows, when it is moved, then it is left where it is", async () => {
@@ -441,5 +478,6 @@ describe("moveMongoServersToDatabases", () => {
 
         expect(saved).toEqual([])
         expect(removed).not.toHaveBeenCalled()
+        expect(renames).toHaveBeenCalledWith({ serverId: { $exists: true, $nin: [serverId] } }, { $rename: { serverId: "databaseId" } })
     })
 })
