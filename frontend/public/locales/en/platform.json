@@ -3223,6 +3223,8 @@
             "legend_canary": "Canary on",
             "legend_bridge": "Link across domains",
             "recenter": "Show everything",
+            "fullscreen": "Full screen",
+            "exit_fullscreen": "Exit full screen",
             "hint": "Click a galaxy to fly to it and click it again to open the domain. Click a world to open the frontend or the backend, a moon to open its resource, a comet to open its config map or secret, a relation to delete it, a ship to open the work of its agent. Scroll to zoom.",
             "summary_one": "Project map: every domain is a galaxy, its frontends and backends are the worlds and the resources a backend attaches orbit it as moons. There is {{count}} link across two domains.",
             "summary_other": "Project map: every domain is a galaxy, its frontends and backends are the worlds and the resources a backend attaches orbit it as moons. There are {{count}} links across two domains.",

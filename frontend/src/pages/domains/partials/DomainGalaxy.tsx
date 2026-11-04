@@ -15,6 +15,7 @@ import { resourcePath } from "@/pages/resources/partials/resources"
 import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import { FIT_MS, FIT_PADDING, GALAXY_HIT_REACH, MAX_GALAXY_ZOOM, RELATION_HIT } from "./domain-galaxy/constants"
 import GalaxyBodyLists from "./domain-galaxy/GalaxyBodyLists"
+import GalaxyFullscreenButton from "./domain-galaxy/GalaxyFullscreenButton"
 import GalaxyLegend from "./domain-galaxy/GalaxyLegend"
 import GalaxyTooltip from "./domain-galaxy/GalaxyTooltip"
 import { bodyPoint, distanceToSegment, bodyAt as findBodyAt } from "./domain-galaxy/hitTest"
@@ -326,7 +327,7 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
     return (
         <div
             ref={containerRef}
-            className={`relative h-[calc(100vh-300px)] min-h-[420px] overflow-hidden rounded-lg border-2 border-border ${linking ? "[&_canvas]:!cursor-crosshair" : ""}`}
+            className={`relative h-[calc(100vh-300px)] min-h-[420px] overflow-hidden rounded-lg border-2 border-border [&:fullscreen]:rounded-none [&:fullscreen]:border-0 ${linking ? "[&_canvas]:!cursor-crosshair" : ""}`}
             style={{ backgroundColor: sky.space }}
             onMouseLeave={() => setHovered(null)}
             onMouseMove={onMouseMove}
@@ -398,6 +399,7 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
                 <Button variant="secondary" size="icon" aria-label={t("domains.galaxy.recenter")} title={t("domains.galaxy.recenter")} onClick={fitAll}>
                     <LocateFixed />
                 </Button>
+                <GalaxyFullscreenButton targetRef={containerRef} />
             </div>
             <p
                 className={`pointer-events-none absolute right-3 bottom-3 max-w-sm rounded-md border bg-card px-3 py-2 text-xs shadow-sm ${linking ? "border-primary font-medium text-card-foreground" : "border-border text-foreground-secondary"}`}
