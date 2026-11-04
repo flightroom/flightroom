@@ -51,6 +51,7 @@ import BackendService, {
     ensureRequestsWithinLimits,
     imageRepositoryOf,
     isNewerVersion,
+    withEnvValues,
     withNormalizedEnvironmentResources,
     withNormalizedEnvironmentVersions,
     withNormalizedReplicas
@@ -423,6 +424,99 @@ describe("BackendService.update", () => {
         await new BackendService().update(String(backendId), { name: "Orders", domainId: "" } as BackendDTO)
 
         expect(write.mock.calls[0][1]).toEqual({ name: "Orders", domainId: null })
+    })
+})
+
+describe("BackendService.update of the variables", () => {
+    const stored = [
+        { name: "API_TOKEN", required: true, secret: true, value: "hunter2" },
+        { name: "FEATURE_FLAGS", required: false, secret: false, value: "beta" }
+    ]
+    const backend = { _id: backendId, projectId, slug: "orders-api", name: "Orders API", env: stored }
+
+    beforeEach(() => {
+        vi.spyOn(Backend, "findById").mockResolvedValue(backend as never)
+        vi.spyOn(BackendService.prototype as unknown as { ensureAccessToBackend: () => Promise<void> }, "ensureAccessToBackend").mockResolvedValue(undefined)
+    })
+
+    it("given the variables as the API gave them back, a secret with valueSet and no value, when the backend is updated, then the stored values stay", async () => {
+        const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
+
+        await new BackendService().update(String(backendId), {
+            env: [
+                { name: "API_TOKEN", required: true, secret: true, valueSet: true },
+                { name: "FEATURE_FLAGS", required: false, secret: false, value: "beta" }
+            ]
+        } as BackendDTO)
+
+        expect(write.mock.calls[0][1]).toEqual({ env: stored })
+    })
+
+    it("given a new secret value and an empty plain one, when the backend is updated, then the secret is replaced and the plain one cleared", async () => {
+        const write = vi.spyOn(Backend, "findByIdAndUpdate").mockResolvedValue(backend as never)
+
+        await new BackendService().update(String(backendId), {
+            env: [
+                { name: "API_TOKEN", required: true, secret: true, value: "s3cret" },
+                { name: "FEATURE_FLAGS", required: false, secret: false, value: "" }
+            ]
+        } as BackendDTO)
+
+        expect(write.mock.calls[0][1]).toEqual({
+            env: [
+                { name: "API_TOKEN", required: true, secret: true, value: "s3cret" },
+                { name: "FEATURE_FLAGS", required: false, secret: false }
+            ]
+        })
+    })
+
+    it("given duplicate names, when the backend is updated, then it is refused and nothing is written", async () => {
+        const write = vi.spyOn(Backend, "findByIdAndUpdate")
+
+        await expect(new BackendService().update(String(backendId), { env: [{ name: "API_TOKEN" }, { name: "API_TOKEN", value: "x" }] } as BackendDTO)).rejects.toMatchObject({
+            code: "BACKEND_INVALID"
+        })
+        expect(write).not.toHaveBeenCalled()
+    })
+})
+
+describe("withEnvValues", () => {
+    const stored = [{ name: "API_TOKEN", required: true, secret: true, value: "hunter2" }]
+
+    it("given no env, when normalized, then the dto is left as it is", () => {
+        const dto = { name: "Orders" } as BackendDTO
+
+        expect(withEnvValues(dto, stored)).toBe(dto)
+    })
+
+    it("given a secret variable sent without a value that is no longer secret, when normalized, then its stored value is dropped rather than shown in clear", () => {
+        expect(withEnvValues({ env: [{ name: "API_TOKEN", secret: false }] } as BackendDTO, stored).env).toEqual([{ name: "API_TOKEN", secret: false }])
+    })
+
+    it("given a plain variable that becomes secret without a value, when normalized, then its value stays", () => {
+        expect(withEnvValues({ env: [{ name: "FLAGS", secret: true }] } as BackendDTO, [{ name: "FLAGS", required: false, secret: false, value: "beta" }]).env).toEqual([
+            { name: "FLAGS", secret: true, value: "beta" }
+        ])
+    })
+
+    it("given a renamed variable, when normalized, then it has no value: values go by name", () => {
+        expect(withEnvValues({ env: [{ name: "API_KEY", secret: true }] } as BackendDTO, stored).env).toEqual([{ name: "API_KEY", secret: true }])
+    })
+
+    it("given a null value, when normalized, then the stored one stays", () => {
+        expect(withEnvValues({ env: [{ name: "API_TOKEN", secret: true, value: null }] } as BackendDTO, stored).env).toEqual([{ name: "API_TOKEN", secret: true, value: "hunter2" }])
+    })
+
+    it.each([["1ABC"], ["WITH-DASH"], [""], ["A B"]])("given the name %j, when normalized, then it is refused", name => {
+        expect(() => withEnvValues({ env: [{ name }] } as BackendDTO)).toThrow(BusinessException)
+    })
+
+    it("given a value that is no string, when normalized, then it is refused", () => {
+        expect(() => withEnvValues({ env: [{ name: "PORT", value: 8080 }] } as unknown as BackendDTO)).toThrow(BusinessException)
+    })
+
+    it("given a name with spaces around it, when normalized, then it is trimmed", () => {
+        expect(withEnvValues({ env: [{ name: " LOG_FORMAT ", value: "json" }] } as BackendDTO).env).toEqual([{ name: "LOG_FORMAT", secret: false, value: "json" }])
     })
 })
 

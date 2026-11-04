@@ -5,8 +5,9 @@ import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { ProbeSettings } from "../types/Probes"
 import { ApplicationLogging } from "../types/RuntimeVariables"
+import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import {
-    backendEnvVariableSchema,
+    backendInjectedEnvVariableSchema,
     CONTAINER_DEFAULTS,
     environmentResourcesField,
     environmentVersionsField,
@@ -157,7 +158,7 @@ const backendSchema = new Schema<IBackend>(
         environmentResources: environmentResourcesField,
         environmentVersions: environmentVersionsField,
         env: {
-            type: [backendEnvVariableSchema],
+            type: [backendInjectedEnvVariableSchema],
             default: []
         },
         configMapIds: {
@@ -180,17 +181,30 @@ const backendSchema = new Schema<IBackend>(
 
 backendSchema.index({ slug: 1, projectId: 1 }, { unique: true })
 
+/** The value of each variable is encrypted at rest, a plain one too: the deploy reads it back through the model */
+export const BACKEND_SECRET_PATHS = ["env.value"]
+
+backendSchema.plugin(encryptedFields, { model: "Backend", paths: BACKEND_SECRET_PATHS })
+
+/** A variable as it leaves the backend: a secret one's value never, only whether it has one; a plain one's in clear */
+export type BackendEnvVariableJSON = Omit<IBackendEnvVariable, "value"> & { value?: string; valueSet?: boolean }
+
+export const maskedEnv = (env: IBackendEnvVariable[] | undefined): BackendEnvVariableJSON[] | undefined =>
+    env?.map(({ value, ...variable }) => (variable.secret ? { ...variable, valueSet: Boolean(value) } : { ...variable, ...(value !== undefined ? { value } : {}) }))
+
 /**
  * Hides the inline config map and secrets a backend held before maps. The migration to maps, released
  * and removed since, left a backend it failed to move (a secret the key could not read, no free map
  * name) as it was, and Mongoose serialises fields the schema does not know: without this, its secrets
  * would go out through every API, the MCP tools included, which read the document through toObject.
- * It can go once a count of the backends with `configMap` or `secrets` confirms that none is left.
+ * That part can go once a count of the backends with `configMap` or `secrets` confirms that none is left. The values of
+ * the secret variables of `env` are hidden here too, for the same reason, and that part stays.
  */
 const withoutInlineVariables = {
     transform: (_document: unknown, object: IBackend) => {
         const { configMap: _configMap, secrets: _secrets, ...rest } = object as IBackend & { configMap?: unknown; secrets?: unknown }
-        return rest
+        // Every way out serialises the backend through here, the MCP tools included: the value of a secret variable stays in
+        return { ...rest, ...(rest.env ? { env: maskedEnv(rest.env) } : {}) }
     }
 }
 backendSchema.set("toJSON", withoutInlineVariables)

@@ -161,7 +161,7 @@ export const ContainerComputeCard: React.FC<{ backend: ContainerConfiguration; e
     )
 }
 
-/** The variables the container declares it reads: with its config maps, secrets and resources, what it uses */
+/** The variables the container declares it reads, with the value Flightroom injects when it has one (a secret one masked) */
 export const ContainerEnvSection: React.FC<{ backend: Pick<ContainerConfiguration, "env"> }> = ({ backend }) => {
     const { t } = useTranslation()
 
@@ -176,6 +176,9 @@ export const ContainerEnvSection: React.FC<{ backend: Pick<ContainerConfiguratio
                         {backend.env.map(variable => (
                             <li key={variable.name} className="flex flex-wrap items-center gap-2 text-sm">
                                 <span className="font-mono font-medium">{variable.name}</span>
+                                {variable.secret
+                                    ? variable.valueSet && <span className="font-mono text-foreground-secondary">= •••••</span>
+                                    : variable.value !== undefined && <span className="break-all font-mono text-foreground-secondary">= {variable.value}</span>}
                                 {variable.required && <Badge variant="outline">{t("backends.env.required")}</Badge>}
                                 {variable.secret && <Badge variant="outline">{t("backends.env.secret")}</Badge>}
                                 {variable.description && <span className="text-foreground-secondary">{variable.description}</span>}

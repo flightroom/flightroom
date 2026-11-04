@@ -33,6 +33,11 @@ export interface GitOpsApplication extends ContainerResourcesByEnvironment, Prob
     secretIds?: unknown[]
     /** A backend or a maintenance agent: each one is a Secret of its own in the configuration repository */
     resourceIds?: unknown[]
+    /**
+     * The variables it declares. A backend's carry the value the deploy hands the container in every environment: a plain
+     * one in `env`, a secret one in its Secret {@link backendEnvSecretName}. One with no value is declared only.
+     */
+    env?: Array<{ name: string; secret?: boolean; value?: string }> | null
     /** A maintenance agent only: what its CronJob is made from */
     maintenance?: ApplicationMaintenance
 }
@@ -71,6 +76,16 @@ export const maintenanceAgentSecretName = (slug: string) => `${slug}.flightroom`
 /** The variables of that Secret, as the container reads them */
 export const MAINTENANCE_AGENT_API_URL_VARIABLE = "FLIGHTROOM_API_URL"
 export const MAINTENANCE_AGENT_TOKEN_VARIABLE = "FLIGHTROOM_AGENT_TOKEN"
+
+/** The suffix of the Secret of the secret variables of a backend: a user's map has no dot in its name, so it is told apart */
+export const BACKEND_ENV_SECRET_SUFFIX = ".env"
+
+/** The Secret, in the configuration repository, with the values of the secret variables of a backend */
+export const backendEnvSecretName = (slug: string) => `${slug}${BACKEND_ENV_SECRET_SUFFIX}`
+
+/** The variables of `application` with a value, the secret or the plain ones, as the deploy hands them */
+export const ownVariables = (application: Pick<GitOpsApplication, "env">, secret: boolean): Array<{ name: string; value: string }> =>
+    (application.env ?? []).flatMap(variable => (Boolean(variable.secret) === secret && variable.value ? [{ name: variable.name, value: variable.value }] : []))
 
 /** A container application of the environment answers on port 80 of the Service named after it */
 export const inClusterUrl = (slug: string, path = "") => `http://${slug}${path}`
@@ -198,10 +213,11 @@ export interface ContainerMapNames {
 
 /**
  * What a container takes whole through `envFrom`: the platform's ConfigMap of the URLs of the applications, a config map,
- * a secret, the Secret of a resource, or the platform's Secret of a maintenance agent
+ * a secret, the Secret of a resource, the platform's Secret of a maintenance agent, or the Secret of the secret variables
+ * of a backend
  */
 export interface ContainerEnvSource {
-    kind: "services" | "configMap" | "secret" | "resource" | "platform"
+    kind: "services" | "configMap" | "secret" | "resource" | "platform" | "backendEnv"
     /** The id of the config map, the secret or the resource; none for the platform's */
     id?: string
     /** The ConfigMap or the Secret, as Kubernetes names it */
@@ -210,8 +226,9 @@ export interface ContainerEnvSource {
 
 /**
  * The `envFrom` of the container, in the order the chart lists it: the URLs of the backends and frontends first, so that a config
- * map of the team can point one elsewhere, then the config maps, the secrets, the Secrets of the resources and, for a
- * maintenance agent, its own. An id with no name is a map deleted since: left out.
+ * map of the team can point one elsewhere, then the config maps, the secrets, the Secrets of the resources, for a
+ * maintenance agent its own and, last so that it wins over all of them, the Secret of the secret variables of a backend
+ * that gives any a value. An id with no name is a map deleted since: left out.
  */
 export const containerEnvSources = (application: GitOpsApplication, mapNames: ContainerMapNames): ContainerEnvSource[] => {
     const named = (kind: "configMap" | "secret" | "resource", ids: unknown[] | undefined, byId: Map<string, string>): ContainerEnvSource[] =>
@@ -224,16 +241,27 @@ export const containerEnvSources = (application: GitOpsApplication, mapNames: Co
         ...named("configMap", application.configMapIds, mapNames.configMaps),
         ...named("secret", application.secretIds, mapNames.secrets),
         ...named("resource", application.resourceIds, mapNames.resources ?? new Map()),
-        ...(application.maintenance ? [{ kind: "platform" as const, name: maintenanceAgentSecretName(application.slug) }] : [])
+        ...(application.maintenance ? [{ kind: "platform" as const, name: maintenanceAgentSecretName(application.slug) }] : []),
+        ...(ownVariables(application, true).length > 0 ? [{ kind: "backendEnv" as const, name: backendEnvSecretName(application.slug) }] : [])
     ]
 }
+
+/**
+ * The `env` of the values: the plain variables of a backend first, then the platform's of {@link containerVariables}, so that
+ * of a name set twice Kubernetes keeps the platform's, the last one. HTTP_PORT, which the chart writes before the whole
+ * list, is left out of the backend's for the same reason.
+ */
+export const valuesEnv = (application: GitOpsApplication, environment: { slug: string } & EnvironmentLogging, version: string, publicUrl?: string): Array<{ name: string; value: string }> => [
+    ...ownVariables(application, false).filter(variable => variable.name !== HTTP_PORT_VARIABLE),
+    ...containerVariables(application, environment, version, publicUrl)
+]
 
 /** A variable of a container as its pod gets it, and where it comes from */
 export interface ContainerVariable {
     name: string
-    /** `platform`, or the source it comes from: `configMap logging`, `secret database`, `resource orders-db.resource` */
+    /** `platform`, `backend` for a variable of the backend itself, or the source it comes from: `configMap logging`, `secret database`, `resource orders-db.resource` */
     source: string
-    /** In clear for the platform's variables and a config map's */
+    /** In clear for the platform's variables, a config map's and a plain variable of the backend */
     value?: string
     /** A Secret's, never its value: that it is set and, when known, how long it is */
     masked?: { set: true; length?: number }
@@ -249,6 +277,9 @@ export interface ContainerSourceValues {
     secrets: Map<string, Record<string, string>>
     resources: Map<string, Record<string, string>>
 }
+
+/** The source of a variable the backend sets itself, a plain one in `env` as a secret one in its Secret */
+export const BACKEND_SOURCE = "backend"
 
 /** The keys of the platform's Secret of a maintenance agent: its token is never read to describe it */
 const PLATFORM_SECRET_KEYS = [MAINTENANCE_AGENT_API_URL_VARIABLE, MAINTENANCE_AGENT_TOKEN_VARIABLE]
@@ -270,10 +301,11 @@ export const withOverrides = (variables: Array<ContainerVariable & { fromEnv: bo
 }
 
 /**
- * Every variable the container of `application` gets in `environment`, in the order the chart lists them: HTTP_PORT
- * and the rest of `env`, then each `envFrom` source. A name set twice is there twice, the one Kubernetes drops marked
- * with the source that wins: `env` over `envFrom`, and within each the later one. Values of Secrets, a resource's
- * included, are masked.
+ * Every variable the container of `application` gets in `environment`, in the order the chart lists them: `env`, then
+ * each `envFrom` source. The plain variables of a backend come first, before HTTP_PORT too, as one of theirs named so
+ * never reaches the values (see {@link valuesEnv}). A name set twice is there twice, the one Kubernetes drops marked with
+ * the source that wins: `env` over `envFrom`, and within each the later one. Values of Secrets, a resource's and the
+ * secret variables of a backend included, are masked.
  */
 export const containerEnvironment = (
     application: GitOpsApplication,
@@ -284,13 +316,20 @@ export const containerEnvironment = (
     publicUrl?: string
 ): ContainerVariable[] => {
     const variables: Array<ContainerVariable & { fromEnv: boolean }> = [
-        // The Deployment hands it, not the CronJob: the container of a JOB agent, which only the CronJob runs, has none
-        ...(application.maintenance?.kind === MaintenanceAgentKind.JOB ? [] : [{ name: HTTP_PORT_VARIABLE, value: String(containerPortOf(application)) }]),
-        ...containerVariables(application, environment, version, publicUrl)
-    ].map(({ name, value }) => ({ name, source: "platform", value, fromEnv: true }))
+        ...ownVariables(application, false).map(({ name, value }) => ({ name, source: BACKEND_SOURCE, value, fromEnv: true })),
+        ...[
+            // The Deployment hands it, not the CronJob: the container of a JOB agent, which only the CronJob runs, has none
+            ...(application.maintenance?.kind === MaintenanceAgentKind.JOB ? [] : [{ name: HTTP_PORT_VARIABLE, value: String(containerPortOf(application)) }]),
+            ...containerVariables(application, environment, version, publicUrl)
+        ].map(({ name, value }) => ({ name, source: "platform", value, fromEnv: true }))
+    ]
     for (const source of containerEnvSources(application, mapNames)) {
         if (source.kind === "platform") {
             for (const name of PLATFORM_SECRET_KEYS) variables.push({ name, source: "platform", masked: { set: true }, fromEnv: false })
+            continue
+        }
+        if (source.kind === "backendEnv") {
+            for (const { name, value } of ownVariables(application, true)) variables.push({ name, source: BACKEND_SOURCE, masked: { set: true, length: value.length }, fromEnv: false })
             continue
         }
         if (source.kind === "services") {
@@ -328,8 +367,9 @@ export interface ApplicationGateway {
  * the environment, an application with an exposure path gets a route on it. Its CPU, memory and replicas are those of
  * the environment where it sets some apart. Its version is the one of the environment. Without an image repository of
  * its own, the image is the one in the container registry of the project. Every container gets the variables of
- * {@link containerVariables} as `env`: Kubernetes puts them before what a config map of the same name says. Its probes
- * are its own, else those of `probeTemplate`, the template of its project for its kind.
+ * {@link containerVariables} as `env`, after the plain variables of a backend ({@link valuesEnv}): Kubernetes puts them before
+ * what a config map of the same name says. The secret variables of a backend go by the name of their Secret, the last of
+ * `secrets`. Its probes are its own, else those of `probeTemplate`, the template of its project for its kind.
  */
 export const renderApplicationValues = (
     application: GitOpsApplication,
@@ -363,9 +403,9 @@ export const renderApplicationValues = (
             readiness: { active: true, path: probes.readinessPath, ...probeTimingValues(probes.readinessInitialDelaySeconds, probes.readinessPeriodSeconds) }
         },
         environmentMaps: sources.filter(source => source.kind === "services" || source.kind === "configMap").map(source => source.name),
-        // The chart lists the secrets after the config maps: a resource's Secret and the platform's are secrets too
+        // The chart lists the secrets after the config maps: a resource's Secret, the platform's and the backend's own are secrets too
         secrets: sources.filter(source => source.kind !== "services" && source.kind !== "configMap").map(source => source.name),
-        env: containerVariables(application, environment, version, publicUrl),
+        env: valuesEnv(application, environment, version, publicUrl),
         ...(route ? { route } : {}),
         ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
     }

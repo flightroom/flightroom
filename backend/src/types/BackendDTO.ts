@@ -7,6 +7,13 @@ export interface BackendEnvVariableDTO {
     required?: boolean
     secret?: boolean
     description?: string
+    /**
+     * What the deploy hands the container in every environment. Left out (or null), the value stored under the same name
+     * stays, unless the variable stops being secret; empty, the variable has none and is not handed over.
+     */
+    value?: string | null
+    /** What the API answers for a secret variable in place of its value: ignored when sent back */
+    valueSet?: boolean
 }
 
 export interface EnvironmentResourcesDTO {

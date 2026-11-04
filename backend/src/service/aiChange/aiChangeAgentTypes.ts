@@ -26,7 +26,8 @@ export interface AiChangeAgentBackend {
     readinessPath?: string
     docsPath?: string
     openApiPath?: string
-    env?: { name: string; required: boolean; secret: boolean; description?: string }[]
+    /** Declared only, never a value: `valueSet` when Flightroom injects one into the container on every deploy */
+    env?: { name: string; required: boolean; secret: boolean; description?: string; valueSet?: boolean }[]
     context?: string
     /** Where it is exposed on the host of every environment */
     exposurePath?: string

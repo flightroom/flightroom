@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Environment Variables Of A Backend Injected By Flightroom**: each variable of a backend takes a **Value**, which every deploy hands its container, the same in every environment; per environment values stay with config maps and secrets. A plain value goes in the `env` of the Helm values, before the platform's (`HTTP_PORT`, `LOG_LEVEL`, `PUBLIC_URL`...), which win a name set twice, and wins over every config map, secret and resource. A secret value goes in a Secret `<slug>.env` of its own in the configuration repository, `<environment>/backendEnv/<slug>.yaml`, the last of the `envFrom`. The values are encrypted at rest; a secret one never comes back from the API nor from `backend_get` and `backends_list`, only `valueSet`, and a variable sent back without a value keeps the stored one, an empty value clearing it. **Injected variables** lists them with the source `backend`, and a variable with a value is no longer missing. The coding agents learn that Flightroom sets a variable, never its value. A variable with no value is declared only, as before
+
 ### Changed
 
 - **The Resources Of A Domain Laid Out As Those Of A Backend**: the **Resources** tab of the overview of a domain shows each resource its backends attach once, with what it hands out in each environment in a table, a credential never shown, as the overview of a backend does, instead of a list of names under each backend. Under its name, the backends of the domain using it, each detached from there by an editor; the backends attaching none are listed last

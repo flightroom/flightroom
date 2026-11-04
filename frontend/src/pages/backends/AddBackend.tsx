@@ -37,7 +37,7 @@ import BackendRuntimeFields from "./partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { BACKEND_STACK_CHOICES, stackChoiceOf } from "./partials/backendStacks"
 import { isBackendTemplate } from "./partials/backendTemplates"
-import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
+import { BACKEND_VERSION, createBackendRuntimeShape, envFormValues, envToSubmit, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
 import { ContainerComputeCard } from "./partials/ContainerResourceFields"
 import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
@@ -220,7 +220,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   exposurePath: backend.exposurePath ?? "",
                   ...resourceFormValues(backend),
                   ...probeFormValues(backend),
-                  env: backend.env ?? [],
+                  env: envFormValues(backend.env),
                   // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
                   configMapIds: (backend.configMapIds ?? []).filter(id => configMaps.some(map => map._id === id)),
                   secretIds: (backend.secretIds ?? []).filter(id => secrets.some(map => map._id === id)),
@@ -298,7 +298,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
             ...probeTimings(data),
             logLevel: logLevelOf(data.logLevel),
             // Null: not exposed on the host of the environments
-            exposurePath: exposed ? data.exposurePath : null
+            exposurePath: exposed ? data.exposurePath : null,
+            env: envToSubmit(data.env)
         } as unknown as BackendDTO
         const template = data.template || undefined
         // Sent only when typed here: saving the form must not move back a newer version the pipeline registered meanwhile

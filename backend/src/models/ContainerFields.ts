@@ -17,6 +17,12 @@ export interface IBackendEnvVariable {
     required: boolean
     secret: boolean
     description?: string
+    /**
+     * A backend's only: what every deploy hands the container, the same in every environment, the values of a config map
+     * or a secret being for what changes per environment. None: the variable is declared, not set. Encrypted at rest, and a
+     * secret one never goes out of the API, which says `valueSet` instead.
+     */
+    value?: string
 }
 
 /** What a container gets when neither the caller nor a template says otherwise */
@@ -45,6 +51,10 @@ export const backendEnvVariableSchema = new Schema<IBackendEnvVariable>(
     },
     { _id: false }
 )
+
+/** A variable of a backend: declared as a frontend's or a maintenance agent's, and with the value the deploy hands it */
+export const backendInjectedEnvVariableSchema = backendEnvVariableSchema.clone()
+backendInjectedEnvVariableSchema.add({ value: { type: String, required: false } })
 
 const httpPathValidator = {
     validator: (value?: string | null) => value == null || BACKEND_HTTP_PATH.test(value),

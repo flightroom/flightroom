@@ -1,7 +1,10 @@
 import { Types } from "mongoose"
-import { describe, expect, it } from "vitest"
-import Backend from "./BackendModel"
+import { afterEach, beforeEach, describe, expect, it } from "vitest"
+import { transformDocument, transformUpdate } from "../utils/encryptedFieldsPlugin"
+import { decryptSecret, encryptSecret, isEncryptedSecret, resetSecretEncryptionKeyCache } from "../utils/secretCrypto"
+import Backend, { BACKEND_SECRET_PATHS } from "./BackendModel"
 import BuiltBackend from "./BuiltBackendModel"
+import Frontend from "./FrontendModel"
 
 const aBackend = () => new Backend({ projectId: new Types.ObjectId(), slug: "  Orders-API ", name: "Orders API" })
 
@@ -139,6 +142,93 @@ describe("Backend model", () => {
 
     it("declares the slug unique inside its project", () => {
         expect(Backend.schema.indexes()).toContainEqual([{ slug: 1, projectId: 1 }, expect.objectContaining({ unique: true })])
+    })
+})
+
+describe("Backend variables", () => {
+    const withVariables = () =>
+        Backend.hydrate({
+            _id: new Types.ObjectId(),
+            projectId: new Types.ObjectId(),
+            slug: "orders",
+            name: "Orders",
+            env: [
+                { name: "API_TOKEN", required: true, secret: true, value: "hunter2" },
+                { name: "FEATURE_FLAGS", required: false, secret: false, value: "beta" },
+                { name: "UNSET", required: false, secret: true }
+            ]
+        })
+
+    it("given a secret variable with a value, when the backend is serialised, then its value never comes out and valueSet says it is set", () => {
+        const backend = withVariables()
+
+        expect(JSON.stringify(backend)).not.toContain("hunter2")
+        expect(backend.toObject().env).toEqual([
+            { name: "API_TOKEN", required: true, secret: true, valueSet: true },
+            { name: "FEATURE_FLAGS", required: false, secret: false, value: "beta" },
+            { name: "UNSET", required: false, secret: true, valueSet: false }
+        ])
+    })
+
+    it("given a serialised backend, when the document is read again, then it still holds the secret value for the deploy", () => {
+        const backend = withVariables()
+        backend.toJSON()
+
+        expect(backend.env[0].value).toBe("hunter2")
+    })
+
+    it("declares a value on the variables of a backend only: a frontend's are declared, never set, and are not encrypted", () => {
+        expect((Backend.schema.path("env") as unknown as { schema: typeof Backend.schema }).schema.path("value")).toBeDefined()
+        expect((Frontend.schema.path("env") as unknown as { schema: typeof Frontend.schema }).schema.path("value")).toBeUndefined()
+    })
+})
+
+describe("Backend variables with a key configured", () => {
+    const originalKey = process.env.SECRETS_ENCRYPTION_KEY
+    const options = { model: "Backend", paths: BACKEND_SECRET_PATHS }
+
+    beforeEach(() => {
+        process.env.SECRETS_ENCRYPTION_KEY = Buffer.alloc(32, 7).toString("base64")
+        resetSecretEncryptionKeyCache()
+    })
+
+    afterEach(() => {
+        if (originalKey === undefined) delete process.env.SECRETS_ENCRYPTION_KEY
+        else process.env.SECRETS_ENCRYPTION_KEY = originalKey
+        resetSecretEncryptionKeyCache()
+    })
+
+    it("given variables with values, when the document is encrypted and decrypted, then every value goes through it and a variable with none stays without", () => {
+        const backend = new Backend({
+            projectId: new Types.ObjectId(),
+            slug: "orders",
+            name: "Orders",
+            env: [
+                { name: "API_TOKEN", secret: true, value: "hunter2" },
+                { name: "FEATURE_FLAGS", value: "beta" },
+                { name: "UNSET", secret: true }
+            ]
+        })
+
+        transformDocument(backend, options, encryptSecret)
+
+        expect(isEncryptedSecret(backend.env[0].value)).toBe(true)
+        expect(isEncryptedSecret(backend.env[1].value)).toBe(true)
+        expect(backend.env[2].value).toBeUndefined()
+
+        transformDocument(backend, options, decryptSecret)
+
+        expect(backend.env.map(variable => variable.value)).toEqual(["hunter2", "beta", undefined])
+    })
+
+    it("given the variables replaced by an update, when it is encrypted, then each value is ciphertext and the names are not", () => {
+        const update = { env: [{ name: "API_TOKEN", secret: true, value: "hunter2" }] }
+
+        transformUpdate(update, options, encryptSecret)
+
+        expect(update.env[0].name).toBe("API_TOKEN")
+        expect(isEncryptedSecret(update.env[0].value)).toBe(true)
+        expect(decryptSecret(update.env[0].value, "Backend:env.value")).toBe("hunter2")
     })
 })
 

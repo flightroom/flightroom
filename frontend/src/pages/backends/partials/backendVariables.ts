@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import * as z from "zod"
+import type { BackendEnvVariable } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi, { type ProjectExposure } from "@/hooks/apiClients/useProjectApi"
 import useProjectStore from "@/store/useProjectStore"
@@ -56,12 +57,24 @@ export const createBackendRuntimeShape = (messages: { path: string } & ResourceM
             name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
             required: z.boolean().default(false),
             secret: z.boolean().default(false),
-            description: z.string().optional()
+            description: z.string().optional(),
+            // What Flightroom injects into the container; blank for a secret one the server hides (valueSet)
+            value: z.string().optional(),
+            valueSet: z.boolean().optional()
         })
     ),
     configMapIds: z.array(z.string()),
     secretIds: z.array(z.string())
 })
+
+/**
+ * The variables as the API takes them: a secret value the server holds and nobody retyped goes without a value, so it is kept;
+ * any other goes with what the field holds, blank clearing it.
+ */
+export const envToSubmit = (env: BackendEnvVariable[]) => env.map(({ value, valueSet, ...variable }) => (variable.secret && valueSet && !value ? variable : { ...variable, value: value ?? "" }))
+
+/** The variables as the form edits them: a value field for each, blank for a secret one the server hides */
+export const envFormValues = (env: BackendEnvVariable[] | undefined) => (env ?? []).map(variable => ({ ...variable, value: variable.value ?? "" }))
 
 /** Exposed, it needs a path an HTTPRoute takes; not exposed, the hidden path is not checked, since null is what is sent */
 export const refineExposure = (data: { exposed?: boolean; exposurePath?: string }, ctx: z.RefinementCtx, messages: { exposurePath: string; exposurePathRequired: string }) => {

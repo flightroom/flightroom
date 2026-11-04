@@ -5,6 +5,7 @@ import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 import {
     APPLICATIONS_CHART_FOLDER,
     applicationImageRepository,
+    backendEnvSecretName,
     CHART_FILES,
     containerEnvironment,
     containerPublicUrl,
@@ -273,6 +274,68 @@ describe("renderApplicationValues", () => {
         const values = parse(render({ environmentVersions: [{ environmentId: environment._id, version: "1.2.3+build,7" }] }))
 
         expect(values.env).toContainEqual({ name: "OTEL_RESOURCE_ATTRIBUTES", value: "deployment.environment=production,service.version=1.2.3%2Bbuild%2C7" })
+    })
+})
+
+describe("renderApplicationValues, variables of the backend", () => {
+    const environment = { _id: new Types.ObjectId(), slug: "production" }
+    const configMapId = new Types.ObjectId()
+    const secretId = new Types.ObjectId()
+    const resourceId = new Types.ObjectId()
+    const mapNames = {
+        configMaps: new Map([[String(configMapId), "logging"]]),
+        secrets: new Map([[String(secretId), "database"]]),
+        resources: new Map([[String(resourceId), "orders-db.resource"]])
+    }
+    const backend = {
+        slug: "orders",
+        environmentVersions: [{ environmentId: environment._id, version: "1.2.3" }],
+        image: { repository: "ghcr.io/acme/orders" },
+        configMapIds: [configMapId],
+        secretIds: [secretId],
+        resourceIds: [resourceId],
+        env: [
+            { name: "FEATURE_FLAGS", secret: false, value: "beta" },
+            { name: "LOG_LEVEL", secret: false, value: "trace" },
+            { name: "HTTP_PORT", secret: false, value: "9999" },
+            { name: "API_TOKEN", secret: true, value: "hunter2" },
+            { name: "DECLARED_ONLY", secret: false },
+            { name: "EMPTY_SECRET", secret: true, value: "" }
+        ]
+    }
+    const values = (application: typeof backend = backend) => parse(renderApplicationValues(application, environment, mapNames))
+
+    it("given plain variables with a value, when its values are rendered, then they come first of env and the platform's after, so the platform wins a name set twice", () => {
+        const env: Array<{ name: string; value: string }> = values().env
+
+        expect(env.slice(0, 2)).toEqual([
+            { name: "FEATURE_FLAGS", value: "beta" },
+            { name: "LOG_LEVEL", value: "trace" }
+        ])
+        expect(env.filter(variable => variable.name === "LOG_LEVEL").at(-1)).toEqual({ name: "LOG_LEVEL", value: "info" })
+    })
+
+    it("given a plain HTTP_PORT, when its values are rendered, then it is left out: the chart writes HTTP_PORT before the whole list", () => {
+        expect(values().env.map((variable: { name: string }) => variable.name)).not.toContain("HTTP_PORT")
+    })
+
+    it("given variables with no value, when its values are rendered, then they are not injected", () => {
+        const rendered = renderApplicationValues(backend, environment, mapNames)
+
+        expect(rendered).not.toContain("DECLARED_ONLY")
+        expect(rendered).not.toContain("EMPTY_SECRET")
+    })
+
+    it("given a secret variable with a value, when its values are rendered, then its value is not in them and its Secret is the last of the secrets", () => {
+        const rendered = renderApplicationValues(backend, environment, mapNames)
+
+        expect(rendered).not.toContain("hunter2")
+        expect(parse(rendered).secrets).toEqual(["database", "orders-db.resource", backendEnvSecretName("orders")])
+        expect(backendEnvSecretName("orders")).toBe("orders.env")
+    })
+
+    it("given no secret variable with a value, when its values are rendered, then no Secret of the backend is listed", () => {
+        expect(values({ ...backend, env: backend.env.filter(variable => variable.name !== "API_TOKEN") }).secrets).toEqual(["database", "orders-db.resource"])
     })
 })
 
@@ -599,6 +662,63 @@ maintenance:
 
         expect(names).not.toContain("HTTP_PORT")
         expect(names).toContain("MAINTAINED_TARGETS")
+    })
+})
+
+describe("containerEnvironment, variables of the backend", () => {
+    const environment = { _id: "e1", slug: "production" }
+    const mapNames = { configMaps: new Map([["c1", "logging"]]), secrets: new Map([["s1", "database"]]) }
+    const backend = {
+        slug: "orders",
+        environmentVersions: [{ environmentId: "e1", version: "1.2.3" }],
+        image: { repository: "ghcr.io/acme/orders" },
+        configMapIds: ["c1"],
+        secretIds: ["s1"],
+        env: [
+            { name: "FEATURE_X", secret: false, value: "beta" },
+            { name: "LOG_LEVEL", secret: false, value: "trace" },
+            { name: "HTTP_PORT", secret: false, value: "9999" },
+            { name: "DB_PASSWORD", secret: true, value: "hunter2" },
+            { name: "DECLARED_ONLY", secret: false }
+        ]
+    }
+    const values = {
+        services: {},
+        configMaps: new Map([["c1", { FEATURE_X: "off" }]]),
+        secrets: new Map([["s1", { DB_PASSWORD: "from-the-map" }]]),
+        resources: new Map()
+    }
+    const variables = () => containerEnvironment(backend, environment, mapNames, values, "1.2.3")
+    const named = (name: string) => variables().filter(variable => variable.name === name)
+
+    it("given a plain variable a config map sets too, when the environment is built, then the backend's wins, in clear", () => {
+        expect(named("FEATURE_X")).toEqual([
+            { name: "FEATURE_X", source: "backend", value: "beta" },
+            { name: "FEATURE_X", source: "configMap logging", value: "off", overriddenBy: "backend" }
+        ])
+    })
+
+    it("given a plain variable the platform sets too, HTTP_PORT included, when the environment is built, then the platform's wins", () => {
+        expect(named("LOG_LEVEL")).toEqual([
+            { name: "LOG_LEVEL", source: "backend", value: "trace", overriddenBy: "platform" },
+            { name: "LOG_LEVEL", source: "platform", value: "info" }
+        ])
+        expect(named("HTTP_PORT")).toEqual([
+            { name: "HTTP_PORT", source: "backend", value: "9999", overriddenBy: "platform" },
+            { name: "HTTP_PORT", source: "platform", value: "8080" }
+        ])
+    })
+
+    it("given a secret variable a secret sets too, when the environment is built, then the backend's wins, masked with its length", () => {
+        expect(named("DB_PASSWORD")).toEqual([
+            { name: "DB_PASSWORD", source: "secret database", masked: { set: true, length: 12 }, overriddenBy: "backend" },
+            { name: "DB_PASSWORD", source: "backend", masked: { set: true, length: 7 } }
+        ])
+        expect(JSON.stringify(variables())).not.toContain("hunter2")
+    })
+
+    it("given a variable with no value, when the environment is built, then it is not there", () => {
+        expect(named("DECLARED_ONLY")).toEqual([])
     })
 })
 

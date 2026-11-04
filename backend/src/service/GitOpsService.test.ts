@@ -564,6 +564,62 @@ describe("GitOpsService.deploy", () => {
         expect(run).not.toHaveBeenCalled()
     })
 
+    describe("with secret variables of a backend", () => {
+        const deployedHere = { environmentVersions: [{ environmentId: production, version: "1.0.0" }], image: { repository: "ghcr.io/acme/x" } }
+        const orders = {
+            ...deployedHere,
+            slug: "orders-api",
+            env: [
+                { name: "API_TOKEN", secret: true, value: "hunter2" },
+                { name: "FEATURE_FLAGS", secret: false, value: "beta" },
+                { name: "UNSET", secret: true }
+            ]
+        }
+
+        beforeEach(() => {
+            vi.spyOn(Backend, "find").mockResolvedValue([
+                orders,
+                // Plain values only: no Secret
+                { ...deployedHere, slug: "payments-api", env: [{ name: "FEATURE_FLAGS", secret: false, value: "beta" }] },
+                // Not deployed in production: no Secret there
+                {
+                    slug: "billing-api",
+                    image: { repository: "ghcr.io/acme/x" },
+                    environmentVersions: [{ environmentId: development, version: "1.0.0" }],
+                    env: [{ name: "API_TOKEN", secret: true, value: "x" }]
+                }
+            ] as never)
+        })
+
+        it("given a backend deployed in production with a secret value, when production is deployed, then its Secret holds the secret values only, last", async () => {
+            gitOpsOn()
+
+            await deployOf(production)()
+
+            const files = commit.mock.calls[0][1]
+            expect(files.map(file => file.path).filter(path => path.includes("/backendEnv/"))).toEqual(["production/backendEnv/orders-api.yaml"])
+            expect(files.at(-1)!.path).toBe("production/backendEnv/orders-api.yaml")
+            const manifest = parse(files.at(-1)!.content!)
+            expect(manifest).toMatchObject({
+                apiVersion: "v1",
+                kind: "Secret",
+                type: "Opaque",
+                metadata: { name: "orders-api.env", namespace: "production", labels: { "app.kubernetes.io/managed-by": "flightroom" } }
+            })
+            expect(manifest.data).toEqual({ API_TOKEN: Buffer.from("hunter2").toString("base64") })
+        })
+
+        it("given a backend gone or left with no secret value, when production is deployed, then its Secret is among those the commit prunes", async () => {
+            gitOpsOn()
+
+            await deployOf(production)()
+
+            const prune = commit.mock.calls[0][2]!.prune!
+            expect(prune("production/backendEnv/payments-api.yaml")).toBe(true)
+            expect(prune("development/backendEnv/billing-api.yaml")).toBe(false)
+        })
+    })
+
     describe("with the project exposed on a domain", () => {
         const exposedOn = (exposure: object | undefined, gitOps: object = { enabled: true, codeRepository: link }) =>
             vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, slug: "shop", gitOps, exposure } as never)

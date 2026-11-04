@@ -13,9 +13,9 @@ const INTEGRATION_MODEL_NOTES: Record<string, string> = {
 
 export const describeCompiler = (compiler: string) => INTEGRATION_MODEL_NOTES[compiler] || `bundler: ${compiler}`
 
-/** One declared environment variable of a backend: its name and flags, never a value (the console holds none). */
+/** One declared environment variable of a backend: its name and flags, never a value, only whether Flightroom injects one. */
 const describeEnvVariable = (variable: NonNullable<AiChangeAgentBackend["env"]>[number]) => {
-    const flags = [variable.required ? "required" : "optional", variable.secret ? "secret" : undefined].filter(Boolean).join(", ")
+    const flags = [variable.required ? "required" : "optional", variable.secret ? "secret" : undefined, variable.valueSet ? "set by Flightroom on every deploy" : undefined].filter(Boolean).join(", ")
     return `- ${variable.name} (${flags})${variable.description ? `: ${variable.description}` : ""}`
 }
 

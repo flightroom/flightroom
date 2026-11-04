@@ -32,6 +32,7 @@ import CodeRepositoryImportService from "./CodeRepositoryImportService"
 import CodeRepositoryService from "./CodeRepositoryService"
 import {
     applicationValuesPath,
+    backendEnvSecretName,
     CHART_FILES,
     ContainerKind,
     containerPublicUrl,
@@ -41,6 +42,7 @@ import {
     MAINTENANCE_AGENT_API_URL_VARIABLE,
     MAINTENANCE_AGENT_TOKEN_VARIABLE,
     maintenanceAgentSecretName,
+    ownVariables,
     renderApplicationValues,
     SERVICES_CONFIG_MAP,
     serviceUrls
@@ -86,6 +88,9 @@ export const RESOURCES_FOLDER = "resources"
 
 /** The folder of the maintenance agents, beside those of the resources: each one a Secret named `<slug>.flightroom` */
 export const MAINTENANCE_AGENTS_FOLDER = "maintenanceAgents"
+
+/** The folder of the secret variables of the backends, beside those of the maintenance agents: each one a Secret named `<slug>.env` */
+export const BACKEND_ENV_FOLDER = "backendEnv"
 
 /** The Namespace manifest of every environment, in the folder of the environment */
 export const NAMESPACE_FILE = "namespace.yaml"
@@ -147,6 +152,8 @@ export const gitOpsFilePath = (kind: VariableMapKind, environment: Pick<IEnviron
 export const resourceFilePath = (environment: Pick<IEnvironment, "slug">, resource: Pick<IResource, "name">) => `${environmentSlug(environment)}/${RESOURCES_FOLDER}/${resource.name}.yaml`
 
 export const maintenanceAgentFilePath = (environment: Pick<IEnvironment, "slug">, agent: { slug: string }) => `${environmentSlug(environment)}/${MAINTENANCE_AGENTS_FOLDER}/${agent.slug}.yaml`
+
+export const backendEnvFilePath = (environment: Pick<IEnvironment, "slug">, backend: { slug: string }) => `${environmentSlug(environment)}/${BACKEND_ENV_FOLDER}/${backend.slug}.yaml`
 
 export const namespaceFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${NAMESPACE_FILE}`
 
@@ -298,6 +305,19 @@ export const renderMaintenanceAgentManifest = (agent: { slug: string }, token: s
     })
 
 /**
+ * The Kubernetes Secret of the secret variables of a backend that have a value, the same in every environment: the last
+ * of its `envFrom`, so it wins over its config maps, secrets and resources. Base64 encoded, not encrypted, as a secret map is.
+ */
+export const renderBackendEnvManifest = (backend: { slug: string; env?: GitOpsApplication["env"] }, namespace?: string): string =>
+    stringify({
+        apiVersion: "v1",
+        kind: "Secret",
+        metadata: { name: backendEnvSecretName(backend.slug), ...(namespace ? { namespace } : {}), labels: { [MANAGED_BY_LABEL]: MANAGED_BY } },
+        type: "Opaque",
+        data: Object.fromEntries(ownVariables(backend, true).map(({ name, value }) => [name, Buffer.from(value).toString("base64")]))
+    })
+
+/**
  * The Namespace of an environment, the one its config maps and secrets are meant to be applied in. Argo CD
  * never prunes nor deletes it: the applications of the environment run in it, and a configuration repository
  * emptied by mistake, or an Application deleted, must not take them down with it.
@@ -327,6 +347,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
 - \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a backend attaches, in that namespace, values base64 encoded (not encrypted)
 - \`<environment>/maintenanceAgents/<slug>.yaml\`: a Secret \`<slug>.flightroom\` per maintenance agent, with the URL of the console API and the token it reads the logs and builds of its targets with, base64 encoded (not encrypted)
+- \`<environment>/backendEnv/<slug>.yaml\`: a Secret \`<slug>.env\` per backend deployed there with secret variables set in Flightroom, the same values in every environment, base64 encoded (not encrypted); the last of its \`envFrom\`, so it wins over its config maps, secrets and resources
 
 Do not edit these manifests here: the next deploy of the environment overwrites them.
 `,
@@ -373,7 +394,7 @@ export type ApplicationRevisions = Map<string, string>
 /** The environment slug a manifest belongs to: the folder it is in at the root */
 const environmentOfPath = (path: string): string => path.split("/")[0]
 
-const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER, MAINTENANCE_AGENTS_FOLDER])
+const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER, MAINTENANCE_AGENTS_FOLDER, BACKEND_ENV_FOLDER])
 
 const ENVIRONMENT_FILES = new Set([NAMESPACE_FILE, GATEWAY_FILE, SLEEP_INFO_FILE, SERVICES_FILE])
 
@@ -391,9 +412,10 @@ type DeployedResource = ResourceWithValues & { _id: unknown }
 
 /**
  * What a deploy of one environment ships: its Namespace, its Gateway when it has one, the URLs of its applications,
- * every config map and secret of the project as they are in it, and every resource a backend attaches. A Gateway left out is
- * pruned, with the project's domain gone, and so is a resource no backend attaches any longer, and the
- * SleepInfo of an environment that no longer sleeps.
+ * every config map and secret of the project as they are in it, every resource a backend attaches, and the Secret of
+ * the secret variables of each backend in `backends` that has any set. A Gateway left out is pruned, with the project's
+ * domain gone, and so is a resource no backend attaches any longer, the Secret of a backend gone or left with no secret
+ * value, and the SleepInfo of an environment that no longer sleeps.
  */
 const environmentFiles = (
     environment: Pick<IEnvironment, "_id" | "slug" | "namespace">,
@@ -402,7 +424,8 @@ const environmentFiles = (
     gateway?: EnvironmentGateway,
     agents: Array<{ slug: string; token: string }> = [],
     sleepInfo?: string,
-    services: Record<string, string> = {}
+    services: Record<string, string> = {},
+    backends: Array<{ slug: string; env?: GitOpsApplication["env"] }> = []
 ): GitOpsFile[] => {
     const namespace = environmentNamespace(environment)
     return [
@@ -414,7 +437,10 @@ const environmentFiles = (
             maps[kind].map(map => ({ path: gitOpsFilePath(kind, environment, map.name), action: "update" as const, content: renderManifest(kind, map, String(environment._id), namespace) }))
         ),
         ...resources.map(resource => ({ path: resourceFilePath(environment, resource), action: "update" as const, content: renderResourceManifest(resource, String(environment._id), namespace) })),
-        ...agents.map(agent => ({ path: maintenanceAgentFilePath(environment, agent), action: "update" as const, content: renderMaintenanceAgentManifest(agent, agent.token, namespace) }))
+        ...agents.map(agent => ({ path: maintenanceAgentFilePath(environment, agent), action: "update" as const, content: renderMaintenanceAgentManifest(agent, agent.token, namespace) })),
+        ...backends
+            .filter(backend => ownVariables(backend, true).length > 0)
+            .map(backend => ({ path: backendEnvFilePath(environment, backend), action: "update" as const, content: renderBackendEnvManifest(backend, namespace) }))
     ]
 }
 
@@ -431,8 +457,9 @@ const revertingOnFailure = async <T>(next: () => Promise<T>, revert: () => Promi
 /**
  * Commits what the deploys of a project ship to the repositories picked in its settings. The configuration
  * one gets the Namespace of each deployed environment, `<environment>/namespace.yaml`, its config maps
- * and secrets, `<environment>/configMaps/<name>.yaml` and `<environment>/secrets/<name>.yaml`, and its
- * attached resources, `<environment>/resources/<name>.yaml`, on its default branch. The applications one, when there is one, gets on the branch of each deployed environment the Helm
+ * and secrets, `<environment>/configMaps/<name>.yaml` and `<environment>/secrets/<name>.yaml`, its
+ * attached resources, `<environment>/resources/<name>.yaml`, and the secret variables of its backends,
+ * `<environment>/backendEnv/<slug>.yaml`, on its default branch. The applications one, when there is one, gets on the branch of each deployed environment the Helm
  * values of every backend and frontend, `<application>.yaml`, and the chart they are installed with. Saving a
  * map or an environment commits nothing: the repositories say what is deployed.
  *
@@ -564,8 +591,10 @@ export class GitOpsService extends BaseAuthorizedService {
         const resources = await Resource.find({ projectId })
         // Every one of the project as well, those of other domains too: the prune would take away the Secret their containers read
         const agents = await MaintenanceAgent.find({ projectId }, { slug: 1 })
-        // Every backend and DOCKER frontend of the project, whatever the domain of the deploy: the URLs are one map for all of them
-        const services = [...(await Backend.find({ projectId })), ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }))]
+        // Every backend and DOCKER frontend of the project, whatever the domain of the deploy: the URLs are one map for all of them.
+        // Through the model, the values of the variables of the backends decrypted, as for the maps
+        const backends = await Backend.find({ projectId })
+        const services = [...backends, ...(await Frontend.find({ projectId, kind: FrontendKind.DOCKER }))]
         const agentTokens = await ensureRuntimeTokens(
             agents.map(agent => agent._id),
             deployed.map(environment => environment._id)
@@ -599,7 +628,9 @@ export class GitOpsService extends BaseAuthorizedService {
                         gateways.get(String(environment._id)),
                         agentSecrets(environment),
                         renderSleepInfo(gatewayName(String(project._id), project.slug), environment),
-                        serviceUrls(services, environment._id, project.containerRegistry)
+                        serviceUrls(services, environment._id, project.containerRegistry),
+                        // Those whose values file names the Secret: every backend the environment runs, whatever the domain of the deploy, as for the maps
+                        backends.filter(backend => isDeployable(backend, project.containerRegistry, environment._id))
                     )
                 ),
                 { prune: path => isConfigurationManifest(path) && (deployedSlugs.has(environmentOfPath(path)) || !existingSlugs.has(environmentOfPath(path))) }

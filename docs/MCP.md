@@ -41,9 +41,9 @@ Two scopes, chosen on the consent page:
   memory requests and limits), their restarts, their state and how their previous run ended
   (`OOMKilled`, exit code), from its live manifest. `container_environment_get` returns the
   environment variables the container of a backend or a container frontend gets in an environment,
-  as the deploy hands them to its pod: each with its source (platform, config map, secret or
-  resource), which one wins when two set the same name, and the values of secrets and resources
-  masked; `state` says whether that is what the next deploy hands it (`next_deploy`), whether the
+  as the deploy hands them to its pod: each with its source (platform, the backend itself, config map,
+  secret or resource), which one wins when two set the same name, and the values of secrets, resources
+  and secret variables of the backend masked; `state` says whether that is what the next deploy hands it (`next_deploy`), whether the
   environment leaves it out of its deploys (`not_in_deploy`) or the project deploys no container
   through GitOps (`no_gitops`). A domain-scoped member reads these for the applications of their
   domains only: when a backend, a container frontend and a maintenance agent share a slug, every
@@ -187,8 +187,10 @@ at most.
 - `backends_list`, `backend_get` (`mfe:read`) and `backend_create`, `backend_update`, `backend_delete`
   (`mfe:write`, the delete destructive) manage the backends: name, description, domain,
   context, port, probe and API documentation paths, image repository, the environment variables the
-  image reads (names only, never values) and a link to a repository that already exists. The slug is
-  fixed after creation. The version comes from the CI, never from a tool.
+  image reads, each with the value Flightroom injects into its container on every deploy, the same in
+  every environment, and a link to a repository that already exists. A secret variable never comes
+  back with its value, only `valueSet`: sent back without a value, it keeps the stored one; an empty
+  value clears it. The slug is fixed after creation. The version comes from the CI, never from a tool.
 - `frontend_scaffold` and `backend_scaffold` (`mfe:write`) create the frontend or the backend
   together with a new repository at the provider, from a marketplace template (`templates_list`) and
   through a repository connection of the project (`code_repositories_list`), with its CI pipeline and,

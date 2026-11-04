@@ -17,6 +17,9 @@ export interface BackendEnvVariable {
     required: boolean
     secret: boolean
     description?: string
+    /** What Flightroom injects into the container on every deploy; never sent for a secret one, `valueSet` says whether it has one */
+    value?: string
+    valueSet?: boolean
 }
 
 /** Same shape as the frontend repository link: the backend reuses the subdocument. */

@@ -62,8 +62,8 @@ import { DEPLOYED_VERSIONS, followRollout } from "./argoCd/argoCdRollout"
 import { ArgoCdInitializeInput, ArgoCdLogsInput, ArgoCdRepositories, ArgoCdStatusDTO, EnvironmentStatusDTO, PendingDeployToken, RepositoryTarget, RolloutPodLogs } from "./argoCd/argoCdTypes"
 import BaseAuthorizedService, { domainScopeForbidden, secretRevealForbidden } from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
-import GitOpsService, { environmentNamespace, environmentSlug, gitOpsFilePath, resourceFilePath } from "./GitOpsService"
-import { isDeployable } from "./gitops/applicationManifests"
+import GitOpsService, { backendEnvFilePath, environmentNamespace, environmentSlug, gitOpsFilePath, resourceFilePath } from "./GitOpsService"
+import { BACKEND_ENV_SECRET_SUFFIX, isDeployable } from "./gitops/applicationManifests"
 import {
     ArgoCdEnvironment,
     applicationName,
@@ -408,7 +408,9 @@ class ArgoCdService extends BaseAuthorizedService {
             secrets.map(async ({ name }) => {
                 const path = name.endsWith(RESOURCE_SECRET_SUFFIX)
                     ? resourceFilePath(environment, { name: name.slice(0, -RESOURCE_SECRET_SUFFIX.length) })
-                    : gitOpsFilePath("secret", environment, name)
+                    : name.endsWith(BACKEND_ENV_SECRET_SUFFIX)
+                      ? backendEnvFilePath(environment, { slug: name.slice(0, -BACKEND_ENV_SECRET_SUFFIX.length) })
+                      : gitOpsFilePath("secret", environment, name)
                 const file = await files.readFile(repository, path, revision, "commit")
                 if (!file) notes.push(`Secret ${name}: values not shown, ${path} is not in the configuration repository at ${revision.slice(0, 7)}`)
                 return file ? ([`Secret/${name}`, committedSecretData(file.raw)] as const) : undefined

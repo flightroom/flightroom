@@ -1,5 +1,5 @@
 import { parse } from "yaml"
-import { ContainerVariable, withOverrides } from "../gitops/applicationManifests"
+import { BACKEND_ENV_SECRET_SUFFIX, BACKEND_SOURCE, ContainerVariable, withOverrides } from "../gitops/applicationManifests"
 
 /** The suffix of the Secret of a resource: its variables are told apart from a secret map's */
 export const RESOURCE_SECRET_SUFFIX = ".resource"
@@ -59,7 +59,11 @@ export const liveSourcesOf = (container: LiveContainer): LiveSource[] =>
         return []
     })
 
-const sourceLabel = (source: LiveSource) => (source.kind === "ConfigMap" ? `configMap ${source.name}` : `${source.name.endsWith(RESOURCE_SECRET_SUFFIX) ? "resource" : "secret"} ${source.name}`)
+const sourceLabel = (source: LiveSource) => {
+    if (source.kind === "ConfigMap") return `configMap ${source.name}`
+    if (source.name.endsWith(BACKEND_ENV_SECRET_SUFFIX)) return BACKEND_SOURCE
+    return `${source.name.endsWith(RESOURCE_SECRET_SUFFIX) ? "resource" : "secret"} ${source.name}`
+}
 
 /**
  * The variables a running container got, from its live pod: `env` as the platform wrote it, each value in clear

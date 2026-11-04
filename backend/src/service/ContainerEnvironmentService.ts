@@ -33,7 +33,7 @@ export interface ContainerEnvironmentDTO {
     /** The version the environment runs, with `next_deploy` */
     version?: string
     variables: ContainerVariable[]
-    /** The variables the backend declares that no source sets in the environment */
+    /** The variables the backend declares that no source sets in the environment, a value of the backend's own counting as one */
     missing: Array<Pick<IBackendEnvVariable, "name" | "required" | "secret">>
     /** What the answer leaves out, and why */
     notes?: string[]
@@ -57,7 +57,7 @@ const cut = (variable: ContainerVariable): ContainerVariable =>
  * The environment variables the container of a backend or of a DOCKER frontend gets in one environment, built by
  * {@link containerEnvironment}, the function the deploy writes its values with: the two cannot tell different
  * stories. Read from the configuration as it is now, which reaches the pod with the next deploy. A Secret's value,
- * a resource's included, never leaves here: only that it is set, and its length.
+ * a resource's and a secret variable of the backend's included, never leaves here: only that it is set, and its length.
  */
 class ContainerEnvironmentService extends BaseAuthorizedService {
     async get(projectId: string, target: { kind: "backend" | "frontend"; id: string }, environmentId: string): Promise<ContainerEnvironmentDTO> {
@@ -78,7 +78,7 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
         ])
         const environment = environments.find(candidate => String(candidate._id) === environmentId)
         if (!project || !environment) throw new EntityNotFoundError(environmentId)
-        const application: GitOpsApplication & { _id: unknown; env?: IBackendEnvVariable[] } = component
+        const application: Omit<GitOpsApplication, "env"> & { _id: unknown; env?: IBackendEnvVariable[] } = component
         // A deploy writes the values of the containers into the applications repository only: without it, nothing hands them variables
         const gitOps = project.gitOps
         if (!gitOps?.enabled || !gitOps.codeRepository || !gitOps.applicationsCodeRepository) return { state: "no_gitops", variables: [], missing: [] }

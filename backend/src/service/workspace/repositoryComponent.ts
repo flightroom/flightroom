@@ -47,7 +47,8 @@ export interface BackendComponent extends RepositoryComponentBase {
     readinessPath?: string
     docsPath?: string
     openApiPath?: string
-    env: IBackendEnvVariable[]
+    /** What it declares, never a value, not even a plain one: `valueSet` says whether Flightroom injects one */
+    env: DeclaredEnvVariable[]
     /** Where it is exposed on the host of every environment, if it is */
     exposurePath?: string
     /** What reaches its container as environment variables: names and keys only are ever read from them */
@@ -57,6 +58,9 @@ export interface BackendComponent extends RepositoryComponentBase {
 }
 
 export type RepositoryComponent = FrontendComponent | BackendComponent
+
+/** A variable a backend declares, as it may reach an agent: without its value */
+export type DeclaredEnvVariable = Omit<IBackendEnvVariable, "value"> & { valueSet: boolean }
 
 export const fromFrontend = (frontend: IFrontend): FrontendComponent => ({
     kind: "frontend",
@@ -88,7 +92,8 @@ export const fromBackend = (backend: IBackend): BackendComponent => ({
     readinessPath: backend.readinessPath ?? undefined,
     docsPath: backend.docsPath ?? undefined,
     openApiPath: backend.openApiPath ?? undefined,
-    env: backend.env ?? [],
+    // Explicit fields: the value, decrypted on the document, stays behind
+    env: (backend.env ?? []).map(({ name, required, secret, description, value }) => ({ name, required, secret, description, valueSet: Boolean(value) })),
     exposurePath: backend.exposurePath ?? undefined,
     configMapIds: backend.configMapIds ?? [],
     secretIds: backend.secretIds ?? [],

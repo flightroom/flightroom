@@ -4,7 +4,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import BackendDeployment from "../models/BackendDeploymentModel"
-import Backend, { IBackend } from "../models/BackendModel"
+import Backend, { IBackend, IBackendEnvVariable } from "../models/BackendModel"
 import BuiltBackend, { IBuiltBackend } from "../models/BuiltBackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
@@ -179,6 +179,39 @@ export const withNormalizedReferences = async <T extends Pick<BackendDTO, "confi
     return resolveAttachedMaps(normalized, projectId, existing as IBackend | undefined, options)
 }
 
+/** The name of an environment variable, as Kubernetes and every shell take it */
+export const ENV_VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
+
+/**
+ * The variables of a backend as stored, from what a client sent: the API never gives back the value of a secret one, so a
+ * variable sent without a value keeps the one stored under its name. Not when it stops being secret: its value would then
+ * come back in clear to whoever unticked the switch. An empty value clears it. Refused: a name that is no variable name,
+ * a name listed twice, a value that is no string.
+ */
+export const withEnvValues = <T extends Pick<BackendDTO, "env">>(dto: T, existing?: IBackendEnvVariable[], code = "BACKEND_INVALID"): T => {
+    if (dto.env === undefined) return dto
+    if (!Array.isArray(dto.env)) {
+        throw createBusinessException({ code, message: "env must be a list of { name, required, secret, description, value }" })
+    }
+    const stored = new Map((existing ?? []).map(variable => [variable.name, variable]))
+    const names = new Set<string>()
+    const env = dto.env.map(variable => {
+        const name = typeof variable?.name === "string" ? variable.name.trim() : ""
+        if (!ENV_VARIABLE_NAME.test(name)) {
+            throw createBusinessException({ code, message: `"${String(variable?.name ?? "")}" is not an environment variable name: letters, digits and underscores, not starting with a digit` })
+        }
+        if (names.has(name)) throw createBusinessException({ code, message: `The variable ${name} is listed twice in env` })
+        names.add(name)
+        const { value, valueSet: _valueSet, ...fields } = variable
+        if (value != null && typeof value !== "string") throw createBusinessException({ code, message: `The value of ${name} must be a string` })
+        const previous = stored.get(name)
+        const secret = Boolean(fields.secret)
+        const next = value == null ? (previous?.secret && !secret ? undefined : previous?.value) : value || undefined
+        return { ...fields, name, secret, ...(next !== undefined ? { value: next } : {}) }
+    })
+    return { ...dto, env }
+}
+
 /**
  * A version set by hand rather than registered by the CI, held to the same rule: the deploy pulls it as the
  * tag of the image. Left out, the stored one stays; the CI still moves it on to a newer one it registers.
@@ -293,7 +326,7 @@ export class BackendService extends BaseAuthorizedService {
         const slug = (dto.slug ?? "").trim().toLowerCase()
         ensureValidSlug(slug)
         const { id: _id, ...fields } = { ...dto, slug }
-        const backend = await withNormalizedReferences(withManualVersion(fields), projectIdObj, undefined, { resources: true })
+        const backend = await withNormalizedReferences(withEnvValues(withManualVersion(fields)), projectIdObj, undefined, { resources: true })
         if (backend.stack) backend.stack = this.manualStack(backend.stack)
         if (backend.domainId !== undefined) {
             backend.domainId = await resolveDomainId(backend.domainId, projectIdObj)
@@ -380,7 +413,7 @@ export class BackendService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(backend.projectId)
         // A domain-scoped member's console lists only the resources they see: the others it attaches stay attached
         const withHidden = await withResourcesOutOfScope(scope, backend.projectId, fields, backend)
-        const allowed = await withNormalizedReferences(withManualVersion(withHidden), backend.projectId, backend, { resources: true })
+        const allowed = await withNormalizedReferences(withEnvValues(withManualVersion(withHidden), backend.env), backend.projectId, backend, { resources: true })
         if (allowed.stack) allowed.stack = this.manualStack(allowed.stack)
         if (allowed.domainId !== undefined) {
             allowed.domainId = await resolveDomainId(allowed.domainId, backend.projectId)

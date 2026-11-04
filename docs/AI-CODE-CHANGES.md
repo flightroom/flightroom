@@ -202,11 +202,11 @@ diagnoses before changing code:
   and limits, restarts, current state (`CrashLoopBackOff`, `ImagePullBackOff`...) and how its previous run ended
   (`OOMKilled`, exit code), and what they log (`application_pods_list`, `application_logs_get`);
 - the environment variables a container gets (`container_environment_get`), built by the same function the deploy
-  writes the Helm values with: `HTTP_PORT`, `LOG_LEVEL`, `LOG_JSON`, `ENVIRONMENT`, `PUBLIC_URL`, the OpenTelemetry
+  writes the Helm values with: the variables the backend sets itself (source `backend`), `HTTP_PORT`, `LOG_LEVEL`, `LOG_JSON`, `ENVIRONMENT`, `PUBLIC_URL`, the OpenTelemetry
   variables, then the URLs of the backends and DOCKER frontends of the environment (`services.flightroom`, first of the `envFrom`), the
-  config maps, secrets and resources in the order of the chart's `envFrom`, each with its source and,
+  config maps, secrets and resources in the order of the chart's `envFrom` and last the Secret of the secret variables of the backend, each with its source and,
   when another source sets the same name and wins (`env` over `envFrom`, a later `envFrom` over an earlier one),
-  `overriddenBy`. Values of secrets and resources are masked (set, and their length). Global variables are not
+  `overriddenBy`. Values of secrets, resources and secret variables of the backend are masked (set, and their length). Global variables are not
   there: they reach the browsers, not the containers. `state` says what the list is: `next_deploy`, what the next
   deploy hands the container; `not_in_deploy`, the environment sets no version of it and a container may still run
   with what an earlier deploy wrote; `no_gitops`, the project deploys no container through GitOps;

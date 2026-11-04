@@ -143,6 +143,26 @@ describe("ContainerEnvironmentService.get", () => {
         expect(result.missing).toEqual([])
     })
 
+    it("given variables the backend sets itself, when its environment is read, then they come with the source backend, a secret one masked, and no longer count as missing", async () => {
+        vi.mocked(Backend.findOne).mockResolvedValue(
+            backend({
+                env: [
+                    { name: "DB_PASSWORD", required: true, secret: true, value: "own-password" },
+                    { name: "PAYMENTS_URL", required: true, secret: false, value: "https://payments.example.com" },
+                    { name: "DECLARED_ONLY", required: false, secret: false }
+                ]
+            }) as never
+        )
+
+        const result = await get()
+
+        expect(result.variables).toContainEqual({ name: "PAYMENTS_URL", source: "backend", value: "https://payments.example.com" })
+        expect(result.variables).toContainEqual({ name: "DB_PASSWORD", source: "secret orders-db", masked: { set: true, length: 12 }, overriddenBy: "backend" })
+        expect(result.variables).toContainEqual({ name: "DB_PASSWORD", source: "backend", masked: { set: true, length: 12 } })
+        expect(result.missing).toEqual([{ name: "DECLARED_ONLY", required: false, secret: false }])
+        expect(JSON.stringify(result)).not.toContain("own-password")
+    })
+
     it("given an environment that sets no version of it, when its environment is read, then it says the deploy leaves it out, an earlier container possibly still running", async () => {
         vi.mocked(Backend.findOne).mockResolvedValue(backend({ environmentVersions: [{ environmentId: otherEnvironmentId, version: "1.4.0" }] }) as never)
 
