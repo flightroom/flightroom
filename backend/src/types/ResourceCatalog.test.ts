@@ -317,6 +317,12 @@ describe("the generic type", () => {
         ])
     })
 
+    it("given custom fields on a variant with fixed variables, when its variables are derived, then those of the type come first, the fixed ones too", () => {
+        const keys = resourceEnvKeys({ name: "orders", type: "cosmosdb", variant: "connectionString", customFields }).map(({ key }) => key)
+
+        expect(keys).toEqual(["COSMOS_ORDERS_CONNECTION_STRING", "COSMOS_ORDERS_DATABASE", "COSMOS_ORDERS_CONTAINER", "COSMOS_ORDERS_AUTH", "COSMOS_ORDERS_BASE_URL", "COSMOS_ORDERS_TOKEN"])
+    })
+
     it("given stored values, when the variables of an environment are derived, then the override wins and a credential is read as any other", () => {
         const resource = {
             name: "billing",

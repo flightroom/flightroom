@@ -50,10 +50,10 @@ export const resourceEnvKeys = (spec: ResourceTypeSpec | undefined, variantId: s
     const variant = resourceVariant(spec, variantId, customFields)
     if (!variant) return []
     const prefix = resourceEnvPrefix(spec, name, envPrefix)
-    return [
-        ...variant.fields.map(({ name: field, envSuffix, secret, required }) => ({ key: `${prefix}_${envSuffix}`, field, secret, required })),
-        ...Object.entries(variant.fixed ?? {}).map(([envSuffix, value]) => ({ key: `${prefix}_${envSuffix}`, secret: false, required: true, value }))
-    ]
+    const keys = variant.fields.map(({ name: field, envSuffix, secret, required }) => ({ key: `${prefix}_${envSuffix}`, field, secret, required }))
+    // Those of the type first, its fixed ones too: the variables the resource defines come after them
+    const own = resourceVariant(spec, variantId)?.fields.length ?? 0
+    return [...keys.slice(0, own), ...Object.entries(variant.fixed ?? {}).map(([envSuffix, value]) => ({ key: `${prefix}_${envSuffix}`, secret: false, required: true, value })), ...keys.slice(own)]
 }
 
 /** The labels of the catalog, falling back to the raw id: a type added to the backend shows before it is translated */

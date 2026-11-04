@@ -525,10 +525,10 @@ export const resourceEnvKeys = (resource: ResourceNaming): ResourceEnvKey[] => {
     const variant = resourceVariant(resource.type, resource.variant, resource.customFields)
     if (!variant) return []
     const prefix = resourceEnvPrefix(resource)
-    return [
-        ...variant.fields.map(({ name, envSuffix, secret, required }) => ({ key: `${prefix}_${envSuffix}`, field: name, secret, required })),
-        ...Object.entries(variant.fixed ?? {}).map(([envSuffix, value]) => ({ key: `${prefix}_${envSuffix}`, secret: false, required: true, value }))
-    ]
+    const keys = variant.fields.map(({ name, envSuffix, secret, required }) => ({ key: `${prefix}_${envSuffix}`, field: name, secret, required }))
+    // Those of the type first, its fixed ones too: the variables the resource defines come after them
+    const own = resourceVariant(resource.type, resource.variant)?.fields.length ?? 0
+    return [...keys.slice(0, own), ...Object.entries(variant.fixed ?? {}).map(([envSuffix, value]) => ({ key: `${prefix}_${envSuffix}`, secret: false, required: true, value })), ...keys.slice(own)]
 }
 
 /** A field as the model stores it, or as a deploy reads it: the environment id a string or an ObjectId */

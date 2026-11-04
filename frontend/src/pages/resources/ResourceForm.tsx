@@ -484,11 +484,14 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
 
                     <KeysPreview spec={spec} variant={variant} name={name} envPrefix={envPrefix} />
 
-                    {spec && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} extra={type !== "generic"} />}
+                    {/* A generic has only the variables it defines: they are named before their values. Any other type has its own, which come first */}
+                    {type === "generic" && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} />}
 
                     {provisioned.length > 0 && <ProvisionedDatabasesNotice databases={provisioned} servers={serversQuery.data ?? []} environments={environments} />}
 
                     <ResourceFieldsTable fields={variantSpec?.fields ?? []} prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environments={environments} />
+
+                    {spec && type !== "generic" && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} extra />}
 
                     {type === "api" && <ResourceApiSpecFields resource={resource} />}
 
