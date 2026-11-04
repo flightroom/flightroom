@@ -1,7 +1,7 @@
-import { Alert, AlertDescription, AlertTitle, Spinner } from "@flightroom/design-system"
+import { Alert, AlertDescription, AlertTitle, Dialog, DialogContent, DialogHeader, DialogTitle, Spinner } from "@flightroom/design-system"
 import { useMutation, useQuery } from "@tanstack/react-query"
 import type { TFunction } from "i18next"
-import { CheckCircle2, ChevronDown, ChevronRight, GitMerge, GitPullRequest, Trash2 } from "lucide-react"
+import { CheckCircle2, ChevronDown, ChevronRight, FileDiff, GitMerge, GitPullRequest, Trash2 } from "lucide-react"
 import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import type { IBadgeProps } from "@/components/atoms"
@@ -35,6 +35,61 @@ const toggle = (set: Set<string>, path: string) => {
     return next
 }
 
+interface ProposalFilesDialogProps {
+    files: AiChangeFile[]
+    open: boolean
+    onOpenChange: (open: boolean) => void
+}
+
+/** The files of a proposal and their diffs, kept out of the conversation: most people never read them. */
+const ProposalFilesDialog: React.FC<ProposalFilesDialogProps> = ({ files, open, onOpenChange }) => {
+    const { t } = useTranslation()
+    const [expanded, setExpanded] = useState<Set<string>>(() => new Set(files.slice(0, 1).map(file => file.path)))
+    const idPrefix = useId()
+
+    return (
+        <Dialog open={open} onOpenChange={onOpenChange}>
+            <DialogContent className="max-w-4xl" closeLabel={t("common.close")}>
+                <DialogHeader>
+                    <DialogTitle>
+                        {t("frontend.aiChange.files_title")} · {t("frontend.aiChange.files_count", { count: files.length })}
+                    </DialogTitle>
+                </DialogHeader>
+                <ul className="flex max-h-[70vh] flex-col gap-2 overflow-y-auto">
+                    {files.map(file => {
+                        const diffId = `${idPrefix}-diff-${file.path}`
+                        const isExpanded = expanded.has(file.path)
+                        return (
+                            <li key={file.path} className="overflow-hidden rounded-md border border-divider">
+                                <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
+                                    <span className="min-w-0 flex-1 break-all font-mono text-xs">{file.path}</span>
+                                    <Badge variant={ACTION_VARIANT[file.action]}>{t(`frontend.aiChange.action.${file.action}`)}</Badge>
+                                    <Button
+                                        type="button"
+                                        variant="ghost"
+                                        size="icon"
+                                        aria-expanded={isExpanded}
+                                        aria-controls={diffId}
+                                        aria-label={t(isExpanded ? "frontend.aiChange.hide_diff" : "frontend.aiChange.show_diff", { path: file.path })}
+                                        onClick={() => setExpanded(current => toggle(current, file.path))}
+                                    >
+                                        {isExpanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
+                                    </Button>
+                                </div>
+                                {isExpanded && (
+                                    <div id={diffId} className="border-t border-divider">
+                                        <AiChangeDiff file={file} />
+                                    </div>
+                                )}
+                            </li>
+                        )
+                    })}
+                </ul>
+            </DialogContent>
+        </Dialog>
+    )
+}
+
 interface ProposalProps {
     request: AiChangeRequest
     /** Someone else's proposal: its files are shown, its actions are not. */
@@ -48,8 +103,7 @@ export const Proposal: React.FC<ProposalProps> = ({ request, readOnly = false, o
     const { t } = useTranslation()
     const aiChangesApi = useAiChangesApi()
     const notifications = useToastNotificationStore()
-    const [expanded, setExpanded] = useState<Set<string>>(() => new Set(request.files.slice(0, 1).map(file => file.path)))
-    const idPrefix = useId()
+    const [filesOpen, setFilesOpen] = useState(false)
 
     const applyMutation = useMutation({
         mutationFn: () =>
@@ -109,39 +163,13 @@ export const Proposal: React.FC<ProposalProps> = ({ request, readOnly = false, o
     return (
         <div className="flex flex-col gap-3">
             <div className="flex items-center justify-between gap-2">
-                <h4 className="text-sm font-semibold">{t("frontend.aiChange.files_title")}</h4>
-                <span className="text-xs text-muted-foreground">{t("frontend.aiChange.files_count", { count: request.files.length })}</span>
+                <span className="text-sm text-foreground-secondary">{t("frontend.aiChange.files_count", { count: request.files.length })}</span>
+                <Button type="button" variant="ghost" size="sm" onClick={() => setFilesOpen(true)}>
+                    <FileDiff aria-hidden="true" />
+                    {t("frontend.aiChange.view_changes")}
+                </Button>
             </div>
-            <ul className="flex flex-col gap-2">
-                {request.files.map(file => {
-                    const diffId = `${idPrefix}-diff-${file.path}`
-                    const isExpanded = expanded.has(file.path)
-                    return (
-                        <li key={file.path} className="overflow-hidden rounded-md border border-divider">
-                            <div className="flex items-center gap-2 bg-muted/40 px-3 py-2">
-                                <span className="min-w-0 flex-1 break-all font-mono text-xs">{file.path}</span>
-                                <Badge variant={ACTION_VARIANT[file.action]}>{t(`frontend.aiChange.action.${file.action}`)}</Badge>
-                                <Button
-                                    type="button"
-                                    variant="ghost"
-                                    size="icon"
-                                    aria-expanded={isExpanded}
-                                    aria-controls={diffId}
-                                    aria-label={t(isExpanded ? "frontend.aiChange.hide_diff" : "frontend.aiChange.show_diff", { path: file.path })}
-                                    onClick={() => setExpanded(current => toggle(current, file.path))}
-                                >
-                                    {isExpanded ? <ChevronDown aria-hidden="true" /> : <ChevronRight aria-hidden="true" />}
-                                </Button>
-                            </div>
-                            {isExpanded && (
-                                <div id={diffId} className="border-t border-divider">
-                                    <AiChangeDiff file={file} />
-                                </div>
-                            )}
-                        </li>
-                    )
-                })}
-            </ul>
+            <ProposalFilesDialog files={request.files} open={filesOpen} onOpenChange={setFilesOpen} />
             <BranchStatus request={request} />
             {request.pullRequestError && <WarningAlert title={t("frontend.aiChange.pull_request_error_title")}>{request.pullRequestError}</WarningAlert>}
             {!readOnly && <p className="text-sm text-foreground-secondary">{t("frontend.aiChange.apply_description", { branch: request.baseBranch })}</p>}

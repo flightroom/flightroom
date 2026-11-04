@@ -1361,6 +1361,7 @@
                 "update": "Modificato",
                 "delete": "Eliminato"
             },
+            "view_changes": "Vedi le modifiche",
             "show_diff": "Mostra le modifiche a {{path}}",
             "hide_diff": "Nascondi le modifiche a {{path}}",
             "apply": "Applica su {{branch}}",

@@ -1176,6 +1176,7 @@
                 "update": "Modified",
                 "delete": "Deleted"
             },
+            "view_changes": "View the changes",
             "show_diff": "Show the changes to {{path}}",
             "hide_diff": "Hide the changes to {{path}}",
             "apply": "Apply to {{branch}}",
