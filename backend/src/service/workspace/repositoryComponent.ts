@@ -33,6 +33,8 @@ export interface FrontendComponent extends RepositoryComponentBase {
     kind: "frontend"
     framework?: string
     compiler?: string
+    /** Where it is exposed on the host of every environment, if it is */
+    exposurePath?: string
 }
 
 export interface BackendComponent extends RepositoryComponentBase {
@@ -69,7 +71,8 @@ export const fromFrontend = (frontend: IFrontend): FrontendComponent => ({
     context: frontend.context,
     domainId: frontend.domainId ?? undefined,
     framework: frontend.stack?.framework,
-    compiler: frontend.stack?.compiler
+    compiler: frontend.stack?.compiler,
+    exposurePath: frontend.exposurePath ?? undefined
 })
 
 export const fromBackend = (backend: IBackend): BackendComponent => ({

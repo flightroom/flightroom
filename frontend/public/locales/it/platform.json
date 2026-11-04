@@ -1136,7 +1136,8 @@
             "button": "Vedi live preview",
             "starting": "Avvio anteprima live…",
             "start_error": "Impossibile avviare l'anteprima live. Riprova.",
-            "popup_blocked": "Consenti i popup per aprire l'anteprima live."
+            "popup_blocked": "L'anteprima live è pronta, ma il browser ha bloccato la finestra.",
+            "open": "Apri l'anteprima live"
         },
         "technology": {
             "label": "Framework",

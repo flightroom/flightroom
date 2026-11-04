@@ -13,6 +13,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Fixed
 
+- **A Live Preview Gets The Backend's Own Variables**: the live preview of a backend, of a frontend or of a domain now hands each backend the variables it sets itself (the **Injected variables**), the secret ones included, as the deploy does: its secret ones over its secrets and resources, its plain ones over those, LOG_LEVEL, LOG_JSON and ENVIRONMENT over all. Before, a backend reading an API key of its own started without it in the preview. They reach the preview even when Argo CD is not initialized, as they are set on the backend itself
+- **Live Preview Of A Domain With Several Frontends And Backends**: the preview opens on the frontend at the root of the host, the one without an exposure path, rather than on whichever came first, and starts it last, after the backends and the other frontends. The other frontends exposed under a path are routed on the preview's gateway under it, the path stripped, as the backends already were; one of them that fails to start no longer stops the whole preview. A backend on a schedule is left out of a domain's preview, and its own preview answers that it has no server to show
+- **Live Preview Window Opens With Its Link**: the button no longer opens an empty window while the preview starts; it opens the preview once its link is there, and when the browser blocks that window a notification carries the link
+- **Live Preview Logs**: the console logs each live preview, the components it starts, the names (never the values) of the variables each one gets, how long each development server took, and why one failed
+
 - **kube-green Puts Argo CD Environments To Sleep**: the Applications of the backends and frontends ignore in the diff `spec.replicas` of the Deployments and `spec.suspend` of the CronJobs, so self-heal no longer brings back in seconds the pods kube-green scales to 0. A deploy now syncs those Applications explicitly, so a change of replicas alone still reaches the cluster; an Argo CD account with rules narrower than `applications, *` needs `applications, sync`
 
 ## [15.3.0] - 2026-11-04
