@@ -117,10 +117,12 @@ export const exposedOrigin = (exposure: ProjectExposure, environment: Pick<Envir
 
 /**
  * The environments of the current project, in their order: the rows of the endpoint, the config maps and the secrets.
- * `inForm`: read by a field of a form whose page waits for this same query in an ApiStatusHandler. Refetching on mount
- * would make the page show its spinner, unmount the form and mount it again, forever: the cached list is used.
+ * Fetched when nothing is cached, never again on mount: it is read by pages waiting for it in an ApiStatusHandler and by
+ * the components they render (deploy dialogs, form fields). A child refetching on mount would make the page show its
+ * spinner, unmount the child and mount it again, forever. The pages under EnvironmentsGate fetch the same key when they
+ * open, and the Environments page refetches it on every save.
  */
-export const useProjectEnvironmentsQuery = ({ inForm = false }: { inForm?: boolean } = {}) => {
+export const useProjectEnvironmentsQuery = () => {
     const projectId = useProjectStore(state => state.project?._id)
     const projectApi = useProjectApi()
 
@@ -128,6 +130,6 @@ export const useProjectEnvironmentsQuery = ({ inForm = false }: { inForm?: boole
         queryKey: ["environments", projectId],
         queryFn: () => projectApi.getEnvironmentsByProjectId(projectId!),
         enabled: !!projectId,
-        refetchOnMount: !inForm
+        refetchOnMount: false
     })
 }

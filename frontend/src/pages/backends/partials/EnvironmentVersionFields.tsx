@@ -18,7 +18,7 @@ export const EnvironmentVersionFields: React.FC<{ className?: string; suggestion
     const suggestionsId = useId()
     const { control, setValue } = useFormContext()
     const entries: EnvironmentVersionFormValues[] = useWatch({ control, name: "environmentVersions" }) ?? []
-    const environments = useProjectEnvironmentsQuery({ inForm: true }).data ?? []
+    const environments = useProjectEnvironmentsQuery().data ?? []
     const missing = environments.filter(environment => !entries.some(entry => entry.environmentId === environment._id))
 
     // A field per environment, so each one needs an entry: added without dirtying the form, again after a reset
