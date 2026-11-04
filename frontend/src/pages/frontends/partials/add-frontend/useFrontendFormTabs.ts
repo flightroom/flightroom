@@ -11,7 +11,7 @@ export type FormTab = (typeof FORM_TABS)[number] | "danger"
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["name", "slug", "description", "domainId", "kind", "version", "environmentVersions", "canary", "codeRepository"],
+    general: ["name", "slug", "description", "domainId", "kind", "version", "environmentVersions", "continuousDeploymentEnvironmentIds", "canary", "codeRepository"],
     context: ["context"],
     hosting: ["host"],
     runtime: [

@@ -25,6 +25,7 @@ import {
 } from "../types/ContainerResources"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { toObjectId } from "../utils/mongooseUtils"
+import { restartContinuouslyDeployed } from "./argoCd/argoCdContinuousDeployment"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
@@ -162,19 +163,46 @@ export const withNormalizedEnvironmentVersions = async <T extends Pick<BackendDT
 }
 
 /**
+ * The environments where the container is deployed continuously, as stored: each once. Refused: one that is not of the project.
+ */
+export const withNormalizedContinuousDeployment = async <T extends Pick<BackendDTO, "continuousDeploymentEnvironmentIds">>(
+    dto: T,
+    projectId: Schema.Types.ObjectId,
+    code = "BACKEND_INVALID"
+): Promise<T> => {
+    if (dto.continuousDeploymentEnvironmentIds === undefined) return dto
+    const ids = dto.continuousDeploymentEnvironmentIds ?? []
+    if (!Array.isArray(ids) || ids.some(id => typeof id !== "string")) {
+        throw createBusinessException({ code, message: "continuousDeploymentEnvironmentIds must be a list of environment ids" })
+    }
+    const unique = [...new Set(ids)]
+    if (unique.length > 0) {
+        const known = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
+        const unknown = unique.find(id => !known.has(id))
+        if (unknown) throw createBusinessException({ code, message: `${unknown} is not an environment of this project` })
+    }
+    return { ...dto, continuousDeploymentEnvironmentIds: unique }
+}
+
+/**
  * The maps `dto` attaches, checked: a caller that leaves them out (an MCP update of the name, say)
  * changes none of them and costs no query. A DOCKER frontend goes through it too, since it has the
  * same container fields, but without `resources`: only a backend attaches resources. The CPU and memory
- * set apart per environment, and the versions, are normalized here too, as every one of them has them.
+ * set apart per environment, the versions and the environments deployed continuously are normalized here too, as every one of them has them.
  */
-export const withNormalizedReferences = async <T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds" | "replicas" | "environmentResources" | "environmentVersions">>(
+export const withNormalizedReferences = async <
+    T extends Pick<BackendDTO, "configMapIds" | "secretIds" | "resourceIds" | "replicas" | "environmentResources" | "environmentVersions" | "continuousDeploymentEnvironmentIds">
+>(
     dto: T,
     projectId: Schema.Types.ObjectId,
     existing?: Partial<Pick<IBackend, "name" | "configMapIds" | "secretIds" | "resourceIds">>,
     options: { resources?: boolean } = {}
 ): Promise<T> => {
     ensurePlainFields(dto)
-    const normalized = await withNormalizedEnvironmentVersions(await withNormalizedEnvironmentResources(withNormalizedReplicas(dto), projectId), projectId)
+    const normalized = await withNormalizedContinuousDeployment(
+        await withNormalizedEnvironmentVersions(await withNormalizedEnvironmentResources(withNormalizedReplicas(dto), projectId), projectId),
+        projectId
+    )
     // Only the name and the attached ids of what is stored are read
     return resolveAttachedMaps(normalized, projectId, existing as IBackend | undefined, options)
 }
@@ -550,6 +578,9 @@ export class BackendService extends BaseAuthorizedService {
             if (result.matchedCount > 0) break
             current = await model.findById(backend._id)
         }
+
+        // Deployed continuously where it runs this very tag, through Argo CD: its pods restart there and pull the image again
+        await restartContinuouslyDeployed(backend.projectId, backend, trimmedVersion)
 
         return built as IBuiltBackend
     }

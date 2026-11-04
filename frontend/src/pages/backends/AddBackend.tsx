@@ -88,6 +88,8 @@ const createFormSchema = (messages: FormMessages) =>
                 .optional(),
             // Blank: not deployed in that environment
             environmentVersions: createEnvironmentVersionsShape(messages.version),
+            // The environments where each deploy pulls the image again and rolls the pods out
+            continuousDeploymentEnvironmentIds: z.array(z.string()),
             ...createBackendRuntimeShape(messages),
             // Not the declared variables of the runtime shape, which frontends share: a backend's each carry their value
             env: createBackendEnvShape(messages.envValueRequired),
@@ -123,7 +125,7 @@ type FormTab = (typeof FORM_TABS)[number] | "danger"
 const isFormTab = (value: string | null): value is FormTab => Boolean(value && ([...FORM_TABS, "danger"] as string[]).includes(value))
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
-    general: ["template", "technology", "name", "slug", "version", "environmentVersions", "description", "domainId", "codeRepository"],
+    general: ["template", "technology", "name", "slug", "version", "environmentVersions", "continuousDeploymentEnvironmentIds", "description", "domainId", "codeRepository"],
     context: ["context"],
     runtime: [
         "port",
@@ -217,6 +219,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   ...backend,
                   version: backend.version ?? "",
                   environmentVersions: environmentVersionFormValues(backend),
+                  continuousDeploymentEnvironmentIds: backend.continuousDeploymentEnvironmentIds ?? [],
                   domainId: backend.domainId ?? "",
                   technology: stackChoiceOf(backend.stack)?.value ?? "",
                   port: String(backend.port),
@@ -243,6 +246,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   template: initialTemplate,
                   version: "",
                   environmentVersions: [],
+                  continuousDeploymentEnvironmentIds: [],
                   port: "8080",
                   docsPath: "",
                   openApiPath: "",

@@ -123,6 +123,14 @@ export const containerFields = {
         .describe(
             "The version each environment runs, e.g. 1.4.0 in DEV and 1.3.2 in PROD. Required to deploy: an environment with none does not get it, whatever the version above, which is only the latest the CI registered or one set by hand. Replaced as a whole; null or [] deploys it nowhere. One entry per environment; the next deploy of an environment writes its version"
         ),
+    continuousDeploymentEnvironmentIds: z
+        .array(objectId("Id of an environment of the project, from environments_list"))
+        .max(50)
+        .nullable()
+        .optional()
+        .describe(
+            "The environments where the container is deployed continuously, e.g. DEV: each deploy there pulls its image again (imagePullPolicy Always) and rolls its pods out, even when the tag is the same, so a tag the CI moves (latest, a branch) reaches them. Replaced as a whole; null or [] turns it off everywhere"
+        ),
     exposurePath: z
         .string()
         .refine(isExposurePath, 'starts with "/", at most 256 characters of letters, digits, -._~!$&\'()*+,;=:@ or %XX; no query, fragment, // nor . or .. segment')

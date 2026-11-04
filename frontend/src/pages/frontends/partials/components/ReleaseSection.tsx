@@ -35,7 +35,7 @@ export const ReleaseSection: React.FC<ReleaseSectionProps> = ({ versions, contai
                 <CardDescription>{t(isDocker ? "frontend.release_settings_container_description" : "frontend.release_settings_description")}</CardDescription>
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-3">
-                <EnvironmentVersionFields suggestions={versions} />
+                <EnvironmentVersionFields suggestions={versions} continuousDeployment={container} />
 
                 {!isDocker && (
                     <div className="border-t border-border pt-4">

@@ -739,6 +739,8 @@ export class GitOpsService extends BaseAuthorizedService {
                 if (undo.length > 0) await commit(`Revert: deploy ${branch}`, undo, { branch })
             }
         }
+        // One time for the whole deploy: the label of the pods of every container deployed continuously
+        const deployedAt = new Date()
         return revertingOnFailure(async () => {
             for (const environment of deployed) {
                 const gateway = gateways.get(String(environment._id))
@@ -761,7 +763,7 @@ export class GitOpsService extends BaseAuthorizedService {
                         .map(application => ({
                             path: applicationValuesPath(application),
                             action: "update" as const,
-                            content: renderApplicationValues(application, environment, environmentMapNames, route, containerRegistry, publicUrl(application), probeTemplate(application))
+                            content: renderApplicationValues(application, environment, environmentMapNames, route, containerRegistry, publicUrl(application), probeTemplate(application), deployedAt)
                         }))
                 ]
                 const onPushed = (revision: string) => revisions.set(String(environment._id), revision)

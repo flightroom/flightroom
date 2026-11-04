@@ -79,6 +79,11 @@ interface BackendDTO extends ProbeTimings {
      * version above. An environment appears once at most, and must be of the project
      */
     environmentVersions?: EnvironmentVersionDTO[] | null
+    /**
+     * The environments where it is deployed continuously, replaced as a whole: each deploy there pulls its image again and
+     * rolls its pods out, even with the same tag. Each must be of the project
+     */
+    continuousDeploymentEnvironmentIds?: string[] | null
     env?: BackendEnvVariableDTO[]
     /** Config maps of the project to attach; replaced as a whole, and no key may be set by two attached maps */
     configMapIds?: string[]

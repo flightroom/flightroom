@@ -2954,6 +2954,8 @@
         "version_invalid": "Letters, digits, dots, dashes and underscores only, at most 128",
         "version_by_environment": {
             "title": "Version per environment",
+            "continuous_deployment": "Continuous deployment",
+            "continuous_deployment_description": "With continuous deployment on in an environment, every deploy of that environment pulls the image again (imagePullPolicy Always) and restarts the pods, even when the tag is the same: useful for a tag the CI moves, such as latest or a branch. With Argo CD, when the CI registers again the tag the environment runs, the pods also restart by themselves.",
             "description": "The version each environment runs, e.g. the latest in development and an older one in production. Leave it empty and the environment does not get it: its deploys leave it out. The next deploy of the environment applies it.",
             "not_deployed": "not deployed",
             "replicas_one": "{{count}} replica",

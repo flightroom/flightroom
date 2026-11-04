@@ -24,6 +24,7 @@ type FrontendContainerDTO = Pick<
     | "replicas"
     | "environmentResources"
     | "environmentVersions"
+    | "continuousDeploymentEnvironmentIds"
     | "env"
     | "configMapIds"
     | "secretIds"

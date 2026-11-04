@@ -103,6 +103,8 @@ export interface Backend {
     environmentResources?: EnvironmentResources[] | null
     /** The version each environment runs: one without does not get it, whatever the version above */
     environmentVersions?: EnvironmentVersion[] | null
+    /** The environments where it is deployed continuously: each deploy there pulls its image again and rolls its pods out */
+    continuousDeploymentEnvironmentIds?: string[] | null
     env: BackendInjectedEnvVariable[]
     /** Config maps of the project it receives as environment variables */
     configMapIds?: string[]

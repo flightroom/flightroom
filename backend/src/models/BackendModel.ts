@@ -1,7 +1,7 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { BackendPaths, BackendRuntime } from "../types/BackendStack"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
-import { VersionByEnvironment } from "../types/EnvironmentVersions"
+import { ContinuousDeployment, VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendStackSource } from "../types/FrontendStack"
 import { ProbeSettings } from "../types/Probes"
 import { ApplicationLogging } from "../types/RuntimeVariables"
@@ -9,6 +9,7 @@ import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import {
     backendInjectedEnvVariableSchema,
     CONTAINER_DEFAULTS,
+    continuousDeploymentField,
     environmentResourcesField,
     environmentVersionsField,
     exposurePath,
@@ -32,7 +33,14 @@ export interface IBackendStack {
     detectedAt?: Date
 }
 
-export interface IBackend extends Document<ObjectId>, Omit<BackendPaths, "livenessPath" | "readinessPath">, ProbeSettings, ApplicationLogging, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IBackend
+    extends Document<ObjectId>,
+        Omit<BackendPaths, "livenessPath" | "readinessPath">,
+        ProbeSettings,
+        ApplicationLogging,
+        ContainerResourcesByEnvironment,
+        VersionByEnvironment,
+        ContinuousDeployment {
     projectId: Schema.Types.ObjectId
     /** The functional domain it belongs to, if any */
     domainId?: Schema.Types.ObjectId | null
@@ -157,6 +165,7 @@ const backendSchema = new Schema<IBackend>(
         ...resourceFields,
         environmentResources: environmentResourcesField,
         environmentVersions: environmentVersionsField,
+        continuousDeploymentEnvironmentIds: continuousDeploymentField,
         env: {
             type: [backendInjectedEnvVariableSchema],
             default: []

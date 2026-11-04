@@ -61,6 +61,8 @@ export const createFormSchema = (messages: FormMessages) => {
                 .optional(),
             // Either kind: the tag of the image for a DOCKER, the name of an uploaded bundle for a BUNDLE
             environmentVersions: z.array(z.object({ environmentId: z.string(), version: z.string() })).optional(),
+            // A DOCKER only: the environments where each deploy pulls the image again and rolls the pods out
+            continuousDeploymentEnvironmentIds: z.array(z.string()).optional(),
             exposed: z.boolean().optional(),
             exposurePath: z.string().optional(),
             image: z.object({ repository: z.string().optional() }).optional(),

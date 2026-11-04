@@ -55,6 +55,7 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
         ...resourceFormValues(frontend),
         ...probeFormValues(frontend),
         environmentVersions: environmentVersionFormValues(frontend),
+        continuousDeploymentEnvironmentIds: frontend?.continuousDeploymentEnvironmentIds ?? [],
         image: { repository: frontend?.image?.repository ?? "" },
         env: frontend?.env ?? [],
         // Only the maps that still exist: one deleted meanwhile has no checkbox to untick, and would make every save fail
@@ -131,6 +132,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         replicas,
         environmentResources,
         environmentVersions,
+        continuousDeploymentEnvironmentIds,
         exposed,
         exposurePath,
         image,
@@ -165,6 +167,7 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
                   replicas: replicaCount(replicas),
                   // Empty: the container's, as above
                   environmentResources: environmentResources?.map(entry => ({ ...entry, replicas: replicaCount(entry.replicas) })),
+                  continuousDeploymentEnvironmentIds,
                   // Null: not exposed on the host of the environments
                   exposurePath: exposed ? exposurePath?.trim() : null,
                   image,

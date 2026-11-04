@@ -244,10 +244,16 @@ class EnvironmentService extends BaseAuthorizedService {
         await GlobalVariable.deleteMany({ environmentId: { $in: environmentIds } }, { session })
         // The versions the deploy pipelines reported as running there
         await BackendDeployment.deleteMany({ environmentId: { $in: environmentIds } }, { session })
-        // The CPU, the memory and the version the applications set apart there
+        // The CPU, the memory, the version and the continuous deployment the applications set apart there
         const inEnvironment = { environmentId: { $in: environmentIds } }
-        const setApart = { $or: [{ "environmentResources.environmentId": { $in: environmentIds } }, { "environmentVersions.environmentId": { $in: environmentIds } }] }
-        const pull = { $pull: { environmentResources: inEnvironment, environmentVersions: inEnvironment } }
+        const setApart = {
+            $or: [
+                { "environmentResources.environmentId": { $in: environmentIds } },
+                { "environmentVersions.environmentId": { $in: environmentIds } },
+                { continuousDeploymentEnvironmentIds: { $in: environmentIds } }
+            ]
+        }
+        const pull = { $pull: { environmentResources: inEnvironment, environmentVersions: inEnvironment, continuousDeploymentEnvironmentIds: { $in: environmentIds } } }
         await Backend.updateMany(setApart, pull, { session })
         await Frontend.updateMany(setApart, pull, { session })
         await MaintenanceAgent.updateMany(setApart, pull, { session })

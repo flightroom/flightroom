@@ -53,6 +53,7 @@ export type FrontendContainer = Partial<
         | "replicas"
         | "environmentResources"
         | "environmentVersions"
+        | "continuousDeploymentEnvironmentIds"
         | "configMapIds"
         | "secretIds"
     >

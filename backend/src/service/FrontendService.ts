@@ -25,6 +25,7 @@ import { isBackendTemplateType } from "../types/BackendStack"
 import FrontendDTO from "../types/FrontendDTO"
 import { FrontendStackSource, parseCompiler, parseFramework } from "../types/FrontendStack"
 import { toObjectId } from "../utils/mongooseUtils"
+import { restartContinuouslyDeployed } from "./argoCd/argoCdContinuousDeployment"
 import { ensurePlainFields, ensureRequestsWithinLimits, imageRepositoryOf, isNewerVersion, parseRegistration, withManualVersion, withNormalizedReferences } from "./BackendService"
 import BaseAuthorizedService, { domainScopeForbidden, ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged, isInDomainScope } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
@@ -552,6 +553,9 @@ export class FrontendService extends BaseAuthorizedService {
             if (result.matchedCount > 0) break
             current = await Frontend.findById(frontend._id)
         }
+
+        // Deployed continuously where it runs this very tag, through Argo CD: its pods restart there and pull the image again
+        await restartContinuouslyDeployed(frontend.projectId, frontend, trimmedVersion)
 
         return built as IBuiltFrontend
     }

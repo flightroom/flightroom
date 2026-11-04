@@ -1,6 +1,6 @@
 import { stringify } from "yaml"
 import { CHART_REPLICAS_DEFAULT, CHART_RESOURCE_DEFAULTS, ContainerResources, ContainerResourcesByEnvironment, resourcesIn } from "../../types/ContainerResources"
-import { EnvironmentVersion, hasEnvironmentVersion, versionIn } from "../../types/EnvironmentVersions"
+import { ContinuousDeployment, EnvironmentVersion, hasEnvironmentVersion, isContinuouslyDeployedIn, versionIn } from "../../types/EnvironmentVersions"
 import { MaintenanceAgentKind } from "../../types/MaintenanceAgent"
 import { CHART_PROBE_DEFAULTS, effectiveProbes, ProbeSettings } from "../../types/Probes"
 import { ApplicationLogging, EnvironmentLogging, runtimeVariables } from "../../types/RuntimeVariables"
@@ -19,7 +19,7 @@ export const APPLICATIONS_CHART_FOLDER = "microservice-chart"
 export const MANAGED_VALUES_MARKER = "# app.kubernetes.io/managed-by: flightroom"
 
 /** What a values file is made from: a backend, or a DOCKER, which runs as a container the same way */
-export interface GitOpsApplication extends ContainerResourcesByEnvironment, ProbeSettings, ApplicationLogging {
+export interface GitOpsApplication extends ContainerResourcesByEnvironment, ProbeSettings, ApplicationLogging, ContinuousDeployment {
     slug: string
     /** The latest version the CI registered, or the one set by hand: deployed only where an environment sets it */
     version?: string
@@ -387,7 +387,10 @@ export interface ApplicationGateway {
  * its own, the image is the one in the container registry of the project. Every container gets the variables of
  * {@link containerVariables} as `env`, after the plain variables of a backend ({@link valuesEnv}): Kubernetes puts them before
  * what a config map of the same name says. The secret variables of a backend go by the name of their Secret, the last of
- * `secrets`. Its probes are its own, else those of `probeTemplate`, the template of its project for its kind.
+ * `secrets`. Its probes are its own, else those of `probeTemplate`, the template of its project for its kind. Deployed
+ * continuously in the environment, its image is pulled at every start and its pods carry {@link UPDATED_AT_LABEL}, the
+ * time of the deploy: the values change at every deploy, so Argo CD syncs and the pods roll out, pulling the image again
+ * even when its tag is the same.
  */
 export const renderApplicationValues = (
     application: GitOpsApplication,
@@ -396,7 +399,8 @@ export const renderApplicationValues = (
     gateway?: ApplicationGateway,
     containerRegistry?: string,
     publicUrl?: string,
-    probeTemplate?: ProbeSettings
+    probeTemplate?: ProbeSettings,
+    deployedAt: Date = new Date()
 ): string => {
     const repository = applicationImageRepository(application, containerRegistry)
     const version = versionIn(application, environment._id)
@@ -411,9 +415,12 @@ export const renderApplicationValues = (
     // What the environment sets apart, else what the application sets
     const resources = resourcesIn(application, environment._id)
     const probes = effectiveProbes(application, probeTemplate)
+    // A maintenance agent's CronJob pulls as it always did: continuous deployment is a backend's or a DOCKER frontend's
+    const continuous = !application.maintenance && isContinuouslyDeployedIn(application, environment._id)
     const values = {
         replicas: resources.replicas ?? CHART_REPLICAS_DEFAULT,
-        image: { ...splitImage(repository), tag: version },
+        image: { ...splitImage(repository), tag: version, ...(continuous ? { pullPolicy: "Always" } : {}) },
+        ...(continuous ? { podLabels: { [UPDATED_AT_LABEL]: String(deployedAt.getTime()) } } : {}),
         containerPort: containerPortOf(application),
         ...resourceValues(resources),
         probes: {
@@ -429,6 +436,9 @@ export const renderApplicationValues = (
     }
     return `${MANAGED_VALUES_MARKER}\n# Written by every deploy of ${environment.slug}: a change made here is overwritten.\n${stringify(values)}`
 }
+
+/** The label of the pods of a container deployed continuously: the time of the deploy, in milliseconds */
+export const UPDATED_AT_LABEL = "updatedAt"
 
 const CHART_YAML = `apiVersion: v2
 name: microservice-chart
@@ -527,6 +537,95 @@ expose:
 `
 
 const DEPLOYMENT_TEMPLATE = `apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Release.Name }}
+  labels:
+    app: {{ .Release.Name }}
+    app.kubernetes.io/component: app
+    app.kubernetes.io/name: {{ .Release.Name }}
+spec:
+  replicas: {{ .Values.replicas }}
+  selector:
+    matchLabels:
+      app: {{ .Release.Name }}
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 25%
+      maxSurge: 25%
+  revisionHistoryLimit: 1
+  template:
+    metadata:
+      labels:
+        app: {{ .Release.Name }}
+        {{- with .Values.podLabels }}
+        {{- toYaml . | nindent 8 }}
+        {{- end }}
+    spec:
+      containers:
+        - name: {{ .Release.Name }}
+          image: {{ .Values.image.host }}/{{ .Values.image.name }}:{{ .Values.image.tag }}
+          {{- with .Values.image.pullPolicy }}
+          imagePullPolicy: {{ . }}
+          {{- end }}
+          {{- if .Values.probes.liveness.active }}
+          livenessProbe:
+            httpGet:
+              path: {{ .Values.probes.liveness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.liveness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.liveness.periodSeconds | default ${CHART_PROBE_DEFAULTS.periodSeconds} }}
+          {{- end }}
+          {{- if .Values.probes.readiness.active }}
+          readinessProbe:
+            httpGet:
+              path: {{ .Values.probes.readiness.path }}
+              port: http
+            initialDelaySeconds: {{ .Values.probes.readiness.initialDelaySeconds }}
+            periodSeconds: {{ .Values.probes.readiness.periodSeconds | default ${CHART_PROBE_DEFAULTS.periodSeconds} }}
+          {{- end }}
+          resources:
+            {{- toYaml .Values.resources | nindent 12 }}
+          ports:
+            - name: http
+              containerPort: {{ .Values.containerPort }}
+              protocol: TCP
+          env:
+            - name: HTTP_PORT
+              value: "{{ .Values.containerPort }}"
+            {{- range .Values.env }}
+            - name: {{ .name }}
+              value: {{ .value | quote }}
+            {{- end }}
+          envFrom:
+            {{- range .Values.environmentMaps }}
+            - configMapRef:
+                name: {{ . }}
+            {{- end }}
+            {{- range .Values.secrets }}
+            - secretRef:
+                name: {{ . }}
+            {{- end }}
+          volumeMounts:
+            {{- range .Values.configMapVolumes }}
+            - name: {{ .name }}
+              mountPath: {{ .mountPath }}
+              {{- if .subPath }}
+              subPath: {{ .subPath }}
+              {{- end }}
+              readOnly: true
+            {{- end }}
+      volumes:
+        {{- range .Values.configMapVolumes }}
+        - name: {{ .name }}
+          configMap:
+            name: {{ .name }}
+        {{- end }}
+`
+
+/** The template before continuous deployment, with no pull policy nor labels of the pods: a branch still holding it as written gets the current one */
+const DEPLOYMENT_TEMPLATE_V2 = `apiVersion: apps/v1
 kind: Deployment
 metadata:
   name: {{ .Release.Name }}
@@ -903,7 +1002,7 @@ spec:
 export const CHART_FILES: Array<{ path: string; content: string; replaces?: string[] }> = [
     { path: `${APPLICATIONS_CHART_FOLDER}/Chart.yaml`, content: CHART_YAML },
     { path: `${APPLICATIONS_CHART_FOLDER}/values.yaml`, content: CHART_VALUES, replaces: [CHART_VALUES_V1] },
-    { path: `${APPLICATIONS_CHART_FOLDER}/templates/deployment.yaml`, content: DEPLOYMENT_TEMPLATE, replaces: [DEPLOYMENT_TEMPLATE_V1] },
+    { path: `${APPLICATIONS_CHART_FOLDER}/templates/deployment.yaml`, content: DEPLOYMENT_TEMPLATE, replaces: [DEPLOYMENT_TEMPLATE_V1, DEPLOYMENT_TEMPLATE_V2] },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/service.yaml`, content: SERVICE_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/ingress.yaml`, content: INGRESS_TEMPLATE },
     { path: `${APPLICATIONS_CHART_FOLDER}/templates/httproute.yaml`, content: HTTPROUTE_TEMPLATE, replaces: [HTTPROUTE_TEMPLATE_V1] },

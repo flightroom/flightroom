@@ -19,3 +19,15 @@ export const versionIn = (application: Pick<VersionByEnvironment, "environmentVe
 
 /** Whether some environment runs the application */
 export const hasEnvironmentVersion = (application: Pick<VersionByEnvironment, "environmentVersions">): boolean => Boolean(application.environmentVersions?.some(entry => entry.version?.trim()))
+
+/**
+ * The environments where a container is deployed continuously: each deploy there pulls its image again and rolls its pods
+ * out, even with the same tag, so a tag the CI moves (latest, a branch) reaches them. A container only: a bundle has no image.
+ */
+export interface ContinuousDeployment {
+    continuousDeploymentEnvironmentIds?: unknown[] | null
+}
+
+/** Whether the container is deployed continuously in the environment */
+export const isContinuouslyDeployedIn = (application: ContinuousDeployment, environmentId: unknown): boolean =>
+    Boolean(application.continuousDeploymentEnvironmentIds?.some(id => String(id) === String(environmentId)))

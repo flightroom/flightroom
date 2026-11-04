@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Continuous Deployment Per Container And Environment**: a backend or a DOCKER frontend turns on **Continuous deployment** for each environment next to its version (`continuousDeploymentEnvironmentIds` in the API and through MCP). There, every deploy writes `imagePullPolicy: Always` and the label `updatedAt` (the time of the deploy) on the pods: the values file changes at each deploy, so Argo CD syncs and the pods roll out pulling the image again, even when the tag is the same. With Argo CD, when the CI registers again the tag an environment deployed continuously runs, Flightroom refreshes its Application and restarts its Deployment there through Argo CD. The chart's `deployment.yaml` is updated on the branches where it was never changed; a template a team changed is left as it is and needs the two new blocks for it
+
 ## [15.1.0] - 2026-11-04
 
 ### Added

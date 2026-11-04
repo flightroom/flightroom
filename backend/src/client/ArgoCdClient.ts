@@ -326,6 +326,19 @@ class ArgoCdClient {
         )
     }
 
+    /**
+     * Restarts the pods of the Deployment `name` the Application deployed, with the `restart` action Argo CD ships for
+     * Deployments: a rollout, as `kubectl rollout restart` does. With imagePullPolicy Always, it pulls the image again.
+     */
+    async restartDeployment(application: string, project: string, namespace: string, name: string): Promise<void> {
+        await this.call(`restart the Deployment ${name}`, () =>
+            this.api.post(`/applications/${encodeURIComponent(application)}/resource/actions`, JSON.stringify("restart"), {
+                params: { namespace, resourceName: name, group: "apps", version: "v1", kind: "Deployment", project },
+                headers: { "Content-Type": "application/json" }
+            })
+        )
+    }
+
     /** The pods the Application runs now, from its resource tree; none when it is not there yet */
     async listPods(application: string, project: string): Promise<ArgoCdPod[]> {
         const tree = await this.find(`read the resources of the Application ${application}`, () =>

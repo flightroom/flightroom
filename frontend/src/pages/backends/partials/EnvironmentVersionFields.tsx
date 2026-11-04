@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Label, Switch } from "@flightroom/design-system"
 import { useEffect, useId } from "react"
 import { useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -12,12 +12,18 @@ import type { EnvironmentVersion, EnvironmentVersionFormValues } from "./environ
 /**
  * The version each environment runs, one field per environment in their order: left empty, the environment does not get
  * the application. The server drops the empty ones. `suggestions`, the versions published so far, are offered in each.
+ * For a container (`continuousDeployment`), each environment also has a switch for continuous deployment: each deploy
+ * there pulls the image again and rolls the pods out, even with the same tag.
  */
-export const EnvironmentVersionFields: React.FC<{ className?: string; suggestions?: string[] }> = ({ className, suggestions }) => {
+export const EnvironmentVersionFields: React.FC<{ className?: string; suggestions?: string[]; continuousDeployment?: boolean }> = ({ className, suggestions, continuousDeployment = false }) => {
     const { t } = useTranslation()
     const suggestionsId = useId()
+    const switchId = useId()
     const { control, setValue } = useFormContext()
     const entries: EnvironmentVersionFormValues[] = useWatch({ control, name: "environmentVersions" }) ?? []
+    const continuous: string[] = useWatch({ control, name: "continuousDeploymentEnvironmentIds" }) ?? []
+    const setContinuous = (environmentId: string, on: boolean) =>
+        setValue("continuousDeploymentEnvironmentIds", on ? [...continuous, environmentId] : continuous.filter(id => id !== environmentId), { shouldDirty: true })
     const environments = useProjectEnvironmentsQuery().data ?? []
     const missing = environments.filter(environment => !entries.some(entry => entry.environmentId === environment._id))
 
@@ -32,17 +38,25 @@ export const EnvironmentVersionFields: React.FC<{ className?: string; suggestion
             <div>
                 <h4 className="text-sm font-semibold">{t("backends.version_by_environment.title")}</h4>
                 <p className="text-sm text-foreground-secondary">{t("backends.version_by_environment.description")}</p>
+                {continuousDeployment && <p className="text-sm text-foreground-secondary">{t("backends.version_by_environment.continuous_deployment_description")}</p>}
             </div>
             {environments.map(environment => {
                 const index = entries.findIndex(entry => entry.environmentId === environment._id)
                 return index >= 0 ? (
-                    <TextField
-                        key={environment._id}
-                        name={`environmentVersions.${index}.version`}
-                        label={environment.name}
-                        placeholder={t("backends.version_by_environment.not_deployed")}
-                        list={suggestions?.length ? suggestionsId : undefined}
-                    />
+                    <div key={environment._id} className="flex flex-col gap-2">
+                        <TextField
+                            name={`environmentVersions.${index}.version`}
+                            label={environment.name}
+                            placeholder={t("backends.version_by_environment.not_deployed")}
+                            list={suggestions?.length ? suggestionsId : undefined}
+                        />
+                        {continuousDeployment && (
+                            <div className="flex items-center gap-2">
+                                <Switch id={`${switchId}-${environment._id}`} checked={continuous.includes(environment._id)} onCheckedChange={on => setContinuous(environment._id, on)} />
+                                <Label htmlFor={`${switchId}-${environment._id}`}>{t("backends.version_by_environment.continuous_deployment")}</Label>
+                            </div>
+                        )}
+                    </div>
                 ) : null
             })}
             {suggestions?.length ? (
@@ -84,7 +98,7 @@ export const EnvironmentVersionsValue: React.FC<{ entries?: EnvironmentVersion[]
 export const EnvironmentVersionsCard: React.FC<{
     entries?: EnvironmentVersion[] | null
     environments: EnvironmentDTO[]
-    container?: ContainerReplicas & { environmentResources?: EnvironmentResources[] | null }
+    container?: ContainerReplicas & { environmentResources?: EnvironmentResources[] | null; continuousDeploymentEnvironmentIds?: string[] | null }
 }> = ({ entries, environments, container }) => {
     const { t } = useTranslation()
 
@@ -125,6 +139,11 @@ export const EnvironmentVersionsCard: React.FC<{
                                     )}
                                     {/* Not deployed, it runs none whatever it sets */}
                                     {version && replicas != null && <span className="text-sm text-foreground-secondary">{t("backends.version_by_environment.replicas", { count: replicas })}</span>}
+                                    {version && container?.continuousDeploymentEnvironmentIds?.includes(environment._id) && (
+                                        <span>
+                                            <Badge variant="outline">{t("backends.version_by_environment.continuous_deployment")}</Badge>
+                                        </span>
+                                    )}
                                 </li>
                             )
                         })}

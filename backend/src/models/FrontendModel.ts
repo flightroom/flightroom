@@ -1,12 +1,13 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { BackendPaths } from "../types/BackendStack"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
-import { VersionByEnvironment } from "../types/EnvironmentVersions"
+import { ContinuousDeployment, VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import { ProbeSettings } from "../types/Probes"
 import { ApplicationLogging } from "../types/RuntimeVariables"
 import {
     backendEnvVariableSchema,
+    continuousDeploymentField,
     environmentResourcesField,
     environmentVersionsField,
     exposurePath,
@@ -85,7 +86,13 @@ export interface IPosition {
  * BUNDLE document carries none of them; FrontendService fills the backend defaults in
  * when a DOCKER is created.
  */
-export interface IFrontendContainer extends Partial<Omit<BackendPaths, "livenessPath" | "readinessPath">>, ProbeSettings, ApplicationLogging, ContainerResourcesByEnvironment, VersionByEnvironment {
+export interface IFrontendContainer
+    extends Partial<Omit<BackendPaths, "livenessPath" | "readinessPath">>,
+        ProbeSettings,
+        ApplicationLogging,
+        ContainerResourcesByEnvironment,
+        VersionByEnvironment,
+        ContinuousDeployment {
     image?: {
         /** Without tag, e.g. ghcr.io/acme/shell */
         repository?: string
@@ -409,6 +416,7 @@ const frontendSchema: Schema = new Schema<IFrontend>(
         ...resourceFields,
         environmentResources: environmentResourcesField,
         environmentVersions: environmentVersionsField,
+        continuousDeploymentEnvironmentIds: continuousDeploymentField,
         env: {
             type: [backendEnvVariableSchema],
             default: undefined

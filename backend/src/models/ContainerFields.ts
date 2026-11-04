@@ -202,3 +202,6 @@ const environmentVersionSchema = new Schema<IEnvironmentVersion>(
  * seedEnvironmentVersions gives the versions its environments run.
  */
 export const environmentVersionsField = { type: [environmentVersionSchema], default: () => [] }
+
+/** The environments where the container is deployed continuously; that each one belongs to the project is checked by the services */
+export const continuousDeploymentField = { type: [{ type: Schema.Types.ObjectId, ref: "Environment" }], default: undefined }

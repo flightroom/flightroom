@@ -17,7 +17,8 @@ import {
     renderApplicationValues,
     serviceUrls,
     serviceUrlVariable,
-    splitImage
+    splitImage,
+    UPDATED_AT_LABEL
 } from "./applicationManifests"
 
 describe("splitImage", () => {
@@ -118,6 +119,31 @@ describe("renderApplicationValues", () => {
 
     it("given an environment not on Application Insights, when its values are rendered, then no Secret of the telemetry is named", () => {
         expect(parse(render()).secrets).toEqual(["database"])
+    })
+
+    it("given an application deployed continuously in the environment, when its values are rendered, then the image is always pulled and the pods carry the time of the deploy", () => {
+        const deployedAt = new Date("2026-11-04T10:00:00Z")
+        const values = parse(
+            renderApplicationValues({ ...application, continuousDeploymentEnvironmentIds: [environment._id] }, environment, mapNames, undefined, undefined, undefined, undefined, deployedAt)
+        )
+
+        expect(values.image).toEqual({ host: "ghcr.io", name: "acme/orders", tag: "1.2.3", pullPolicy: "Always" })
+        expect(values.podLabels).toEqual({ [UPDATED_AT_LABEL]: String(deployedAt.getTime()) })
+    })
+
+    it("given an application deployed continuously in another environment only, when its values are rendered, then the pull policy and the labels of the chart stay", () => {
+        const values = parse(render({ continuousDeploymentEnvironmentIds: [new Types.ObjectId()] }))
+
+        expect(values.image.pullPolicy).toBeUndefined()
+        expect(values.podLabels).toBeUndefined()
+    })
+
+    it("given a maintenance agent deployed continuously, when its values are rendered, then its CronJob pulls as it always did", () => {
+        const maintenance = { kind: MaintenanceAgentKind.JOB, schedule: "0 3 * * *", runPath: "/run", targets: [] }
+        const values = parse(render({ continuousDeploymentEnvironmentIds: [environment._id], maintenance }))
+
+        expect(values.image.pullPolicy).toBeUndefined()
+        expect(values.podLabels).toBeUndefined()
     })
 
     it("given an application, when its values are rendered, then the first line is the managed marker", () => {
@@ -461,8 +487,17 @@ describe("CHART_FILES", () => {
 
         expect(chartFile.content).toMatch(/periodSeconds: (30|\{\{ \.Values\.probes\.liveness\.periodSeconds \| default 30 \}\})/)
         expect(chartFile.content).not.toContain("periodSeconds: 30\n          {{- end }}")
-        expect(chartFile.replaces).toHaveLength(1)
-        expect(chartFile.replaces![0]).not.toEqual(chartFile.content)
+        expect(chartFile.replaces!.length).toBeGreaterThanOrEqual(1)
+        expect(chartFile.replaces).not.toContain(chartFile.content)
+    })
+
+    it("given the Deployment template, when it is listed, then it takes the pull policy and the labels of the pods from the values, and replaces the version without them", () => {
+        const deployment = CHART_FILES.find(file => file.path === `${APPLICATIONS_CHART_FOLDER}/templates/deployment.yaml`)!
+
+        expect(deployment.content).toContain("{{- with .Values.image.pullPolicy }}\n          imagePullPolicy: {{ . }}")
+        expect(deployment.content).toContain("{{- with .Values.podLabels }}\n        {{- toYaml . | nindent 8 }}")
+        expect(deployment.replaces).toHaveLength(2)
+        expect(deployment.replaces!.every(previous => !previous.includes("imagePullPolicy") && !previous.includes("podLabels"))).toBe(true)
     })
 })
 
