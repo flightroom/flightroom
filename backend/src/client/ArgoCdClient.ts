@@ -298,6 +298,24 @@ class ArgoCdClient {
         await this.find(`refresh the Application ${name}`, () => this.api.get<ArgoCdResource>(`/applications/${encodeURIComponent(name)}`, { params: { project, refresh: "normal" } }))
     }
 
+    /**
+     * Syncs the Application now, its whole manifest applied, the fields it ignores in the diff included: what a refresh
+     * alone leaves out when they are the only change. One gone is not an error, nor one already syncing: that sync
+     * applies the whole manifest too.
+     */
+    async syncApplication(name: string, project: string): Promise<void> {
+        try {
+            await this.api.post(`/applications/${encodeURIComponent(name)}/sync`, { project, prune: true })
+        } catch (error) {
+            if (axios.isAxiosError(error)) {
+                if (error.response?.status === 404) return
+                const message = (error.response?.data as { message?: unknown } | undefined)?.message
+                if (typeof message === "string" && message.includes("already in progress")) return
+            }
+            throw this.failure(`sync the Application ${name}`, error)
+        }
+    }
+
     async upsertApplicationSet(applicationSet: ArgoCdResource): Promise<void> {
         await this.call(`save the ApplicationSet ${applicationSet.metadata.name}`, () => this.api.post("/applicationsets", applicationSet, { params: { upsert: true } }))
     }

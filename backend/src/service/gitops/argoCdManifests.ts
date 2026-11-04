@@ -105,6 +105,17 @@ const labels = (projectId: string, extra: Record<string, string> = {}): Record<s
 const AUTOMATED_SYNC = { prune: true, selfHeal: true }
 
 /**
+ * The fields kube-green writes when it puts an environment to sleep: the replicas of a Deployment to 0, the suspend of a
+ * CronJob to true. Self-heal would put them back within seconds, and the environment would never sleep. Left out of the
+ * diff only, not of the sync (no RespectIgnoreDifferences): a sync still applies the replicas of the values file, and a
+ * deploy syncs the Applications of the applications explicitly, so a change of replicas alone reaches the cluster too.
+ */
+export const KUBE_GREEN_IGNORED_DIFFERENCES = [
+    { group: "apps", kind: "Deployment", jsonPointers: ["/spec/replicas"] },
+    { group: "batch", kind: "CronJob", jsonPointers: ["/spec/suspend"] }
+]
+
+/**
  * The AppProject of the project: its applications read the two repositories only, and write only to the
  * namespaces of its environments in the cluster of Argo CD. Namespace is the one cluster-wide kind allowed,
  * as the configuration repository holds the Namespace of each environment.
@@ -219,6 +230,7 @@ export const buildApplicationSet = (target: ArgoCdProjectTarget & { applications
                     helm: { releaseName: applicationSlug, valueFiles: [`../${applicationValuesPath({ slug: applicationSlug })}`] }
                 },
                 destination: { server: IN_CLUSTER_SERVER, namespace: "{{ .environment.namespace }}" },
+                ignoreDifferences: KUBE_GREEN_IGNORED_DIFFERENCES,
                 syncPolicy: { automated: AUTOMATED_SYNC, syncOptions: ["CreateNamespace=true"] }
             }
         }

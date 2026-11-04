@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **kube-green Puts Argo CD Environments To Sleep**: the Applications of the backends and frontends ignore in the diff `spec.replicas` of the Deployments and `spec.suspend` of the CronJobs, so self-heal no longer brings back in seconds the pods kube-green scales to 0. A deploy now syncs those Applications explicitly, so a change of replicas alone still reaches the cluster; an Argo CD account with rules narrower than `applications, *` needs `applications, sync`
+
 ## [15.3.0] - 2026-11-04
 
 ### Added

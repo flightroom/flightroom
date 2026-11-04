@@ -510,6 +510,32 @@ describe("ArgoCdClient.refreshApplication", () => {
     })
 })
 
+describe("ArgoCdClient.syncApplication", () => {
+    it("given the Application, when it is synced, then a sync with prune is posted in its AppProject", async () => {
+        const post = vi.fn().mockResolvedValue({ data: {} })
+
+        await expect(clientWith({ post }).syncApplication("orders/dev", "acme")).resolves.toBeUndefined()
+        expect(post).toHaveBeenCalledWith("/applications/orders%2Fdev/sync", { project: "acme", prune: true })
+    })
+
+    it("given the Application is gone, when it is synced, then it is not an error", async () => {
+        await expect(clientWith({ post: vi.fn().mockRejectedValue(answered(404)) }).syncApplication("orders", "acme")).resolves.toBeUndefined()
+    })
+
+    it("given a sync already running, when it is synced, then it is not an error, as that sync applies the whole manifest too", async () => {
+        const post = vi.fn().mockRejectedValue(answered(400, { message: "another operation is already in progress" }))
+
+        await expect(clientWith({ post }).syncApplication("orders", "acme")).resolves.toBeUndefined()
+    })
+
+    it("given any other failure, when the Application is synced, then the failure names the sync", async () => {
+        await expect(clientWith({ post: vi.fn().mockRejectedValue(answered(403)) }).syncApplication("orders", "acme")).rejects.toMatchObject({
+            code: "ARGOCD_FORBIDDEN",
+            details: { reason: "sync the Application orders" }
+        })
+    })
+})
+
 describe("ArgoCdClient.upsertApplicationSet", () => {
     it("given an ApplicationSet, when it is saved, then it is posted as it is with upsert", async () => {
         const post = vi.fn().mockResolvedValue({ data: {} })

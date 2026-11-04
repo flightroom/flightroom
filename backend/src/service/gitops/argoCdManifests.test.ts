@@ -200,8 +200,23 @@ describe("buildApplicationSet", () => {
                 helm: { releaseName: "orders", valueFiles: ["../orders.yaml"] }
             },
             destination: { server: IN_CLUSTER_SERVER, namespace: "{{ .environment.namespace }}" },
+            ignoreDifferences: [
+                { group: "apps", kind: "Deployment", jsonPointers: ["/spec/replicas"] },
+                { group: "batch", kind: "CronJob", jsonPointers: ["/spec/suspend"] }
+            ],
             syncPolicy: { automated: { prune: true, selfHeal: true }, syncOptions: ["CreateNamespace=true"] }
         })
+    })
+
+    it("given an environment kube-green puts to sleep, when its Application is generated, then self-heal leaves the replicas and the suspend kube-green writes, and a sync still applies them", () => {
+        const spec = applicationSet.spec.template.spec
+
+        expect(spec.ignoreDifferences.map(ignored => [ignored.kind, ignored.jsonPointers])).toEqual([
+            ["Deployment", ["/spec/replicas"]],
+            ["CronJob", ["/spec/suspend"]]
+        ])
+        expect(spec.syncPolicy.automated.selfHeal).toBe(true)
+        expect(spec.syncPolicy.syncOptions).not.toContain("RespectIgnoreDifferences=true")
     })
 })
 

@@ -25,6 +25,7 @@ import {
     applicationName,
     applicationSetName,
     appProjectName,
+    COMPONENT_LABEL,
     ENVIRONMENT_LABEL,
     environmentApplicationName,
     environmentsApplicationSetName,
@@ -806,6 +807,7 @@ describe("ArgoCdService.refreshApplications", () => {
 
     beforeEach(() => {
         vi.spyOn(ArgoCdClient.prototype, "refreshApplication").mockResolvedValue(undefined)
+        vi.spyOn(ArgoCdClient.prototype, "syncApplication").mockResolvedValue(undefined)
     })
 
     it("given Argo CD initialized, when a deploy refreshes it, then the Applications of the project in the deployed environments are refreshed", async () => {
@@ -820,6 +822,24 @@ describe("ArgoCdService.refreshApplications", () => {
             [environmentName("production"), PROJECT_NAME],
             [orders, PROJECT_NAME]
         ])
+    })
+
+    it("given the Application of a backend and the one of its environment, when a deploy refreshes them, then only the backend's is synced too, as a change of its replicas alone is a diff it ignores", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        const orders = applicationName(String(projectId), "shop", "orders", "production")
+        applications = [resource(environmentName("production"), undefined, { [COMPONENT_LABEL]: "environment" }), resource(orders, undefined, { [COMPONENT_LABEL]: "application" })]
+
+        await refresh()
+
+        expect(vi.mocked(ArgoCdClient.prototype.syncApplication).mock.calls).toEqual([[orders, PROJECT_NAME]])
+    })
+
+    it("given Argo CD refuses the sync of an Application, when a deploy refreshes it, then the deploy is not failed", async () => {
+        previous = { url: ARGO_URL, token: "argo-token", initializedAt: new Date() }
+        applications = [resource(applicationName(String(projectId), "shop", "orders", "production"), undefined, { [COMPONENT_LABEL]: "application" })]
+        vi.mocked(ArgoCdClient.prototype.syncApplication).mockRejectedValueOnce(new Error("forbidden"))
+
+        await expect(refresh()).resolves.toBeUndefined()
     })
 
     it("given Argo CD never initialized, when a deploy refreshes it, then nothing is sent to Argo CD", async () => {

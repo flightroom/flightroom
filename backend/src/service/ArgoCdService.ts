@@ -71,6 +71,7 @@ import {
     branchOf,
     buildApplicationSets,
     buildArgoCdState,
+    COMPONENT_LABEL,
     clashingName,
     ENVIRONMENT_LABEL,
     environmentApplicationName,
@@ -722,7 +723,13 @@ class ArgoCdService extends BaseAuthorizedService {
             const projectName = appProjectName(String(projectId), project.slug)
             const selector = `${PROJECT_ID_LABEL}=${projectId},${ENVIRONMENT_LABEL} in (${environmentSlugs.join(",")})`
             const applications = (await client.listApplications(selector, projectName)).filter(application => projectOf(application) === projectName)
-            const refreshes = await Promise.allSettled(applications.map(application => client.refreshApplication(application.metadata.name, projectName)))
+            // An application is synced as well: a change of its replicas alone is a diff its Application ignores, for kube-green
+            const refreshes = await Promise.allSettled(
+                applications.map(async application => {
+                    await client.refreshApplication(application.metadata.name, projectName)
+                    if (application.metadata.labels?.[COMPONENT_LABEL] === "application") await client.syncApplication(application.metadata.name, projectName)
+                })
+            )
             const failed = refreshes.flatMap((refresh, index) => (refresh.status === "rejected" ? [{ application: applications[index].metadata.name, error: toErrorMessage(refresh.reason) }] : []))
             if (failed.length > 0) fastify.log.warn({ projectId: String(projectId), failed }, "Argo CD Applications not refreshed after a deploy: they sync at the next poll")
         } catch (error) {

@@ -102,6 +102,15 @@ Applications without one. Then it refreshes the Applications of the environments
 sync what it committed right away instead of at the next poll of Argo CD, three minutes by default; an
 Application the ApplicationSet has yet to generate comes with the next poll of the ApplicationSet. A
 refresh that fails is only logged: the Applications sync at the next poll anyway.
+
+The Applications of the backends and frontends are synced explicitly too. They ignore in the diff
+`spec.replicas` of a Deployment and `spec.suspend` of a CronJob, the fields kube-green writes when an
+environment sleeps: with self-heal, Argo CD would otherwise wake it up within seconds. A sync still
+applies them (there is no `RespectIgnoreDifferences`), so a deploy that changes only the replicas
+reaches the cluster through that sync. A deploy while an environment sleeps wakes its applications up
+until the next sleep. The rule `applications, *, fr-*/*` below allows the sync; an account given
+narrower rules needs `applications, sync, fr-*/*`, and without it the change of replicas alone waits for
+the next change that makes the Application out of sync.
 A deploy that cannot align Argo CD still goes through, and why shows in the
 settings, apart from the errors of the initialization; the next deploy that aligns it clears it. A deploy
 does not align while an initialization runs, nor when Argo CD was handed another applications repository
