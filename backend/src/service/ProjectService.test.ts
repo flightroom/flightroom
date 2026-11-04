@@ -11,6 +11,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
+import MongoServer from "../models/MongoServerModel"
 import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
@@ -619,5 +620,26 @@ describe("createRaw", () => {
 
     it("given a blank slug, when a project is created, then it falls back to the name", async () => {
         expect(await create("Acme Storefront", "   ")).toMatchObject({ slug: "acme-storefront" })
+    })
+})
+
+describe("delete", () => {
+    const projectId = new Types.ObjectId().toString()
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    /** Their databases and users live outside the console: what becomes of them is chosen by removing them first */
+    it("given a project with MongoDB servers, when it is deleted, then it is refused naming them and nothing is removed", async () => {
+        const service = new ProjectService({ _id: new Types.ObjectId() } as never)
+        const gate = service as unknown as { ensureAccessToProject: () => Promise<void>; ensureWholeProject: () => Promise<void> }
+        vi.spyOn(gate, "ensureAccessToProject").mockResolvedValue()
+        vi.spyOn(gate, "ensureWholeProject").mockResolvedValue()
+        vi.spyOn(MongoServer, "find").mockResolvedValue([{ name: "Shared cluster" }, { name: "Atlas" }] as never)
+        const removed = vi.spyOn(UserProject, "deleteMany")
+
+        await expect(service.delete(projectId)).rejects.toMatchObject({ code: "PROJECT_HAS_MONGO_SERVERS", statusCode: 409, details: { servers: ["Shared cluster", "Atlas"] } })
+        expect(removed).not.toHaveBeenCalled()
     })
 })

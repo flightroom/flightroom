@@ -19,8 +19,12 @@ import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import MongoServer from "../models/MongoServerModel"
+import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
+import Resource from "../models/ResourceModel"
 import { KUBE_GREEN_DEFAULT_DAYS } from "../types/KubeGreen"
 import EnvironmentService, { normalizeIpAllowList, normalizeKubeGreen } from "./EnvironmentService"
+import ProvisionedDatabaseService from "./ProvisionedDatabaseService"
 
 const newId = () => new Types.ObjectId() as unknown as ObjectId
 
@@ -56,6 +60,7 @@ describe("EnvironmentService cascade on delete", () => {
         calls = []
         pulls = []
         vi.spyOn(Environment, "find").mockResolvedValue([] as never)
+        vi.spyOn(ProvisionedDatabase, "find").mockResolvedValue([] as never)
 
         const record = (model: string) => (filter: Record<string, unknown>) => {
             calls.push({ model, filter })
@@ -283,5 +288,145 @@ describe("EnvironmentService.update, logging", () => {
 
         await expect(service().update(environmentId, { logLevel: "verbose" } as never)).rejects.toMatchObject({ code: "ENVIRONMENT_LOG_LEVEL_INVALID" })
         expect(update).not.toHaveBeenCalled()
+    })
+})
+
+/**
+ * The databases created on a MongoDB server that feed a resource in the environment: the delete asks what
+ * becomes of them, and deals with them, one at a time, before the environment goes.
+ */
+describe("EnvironmentService.deleteSingle with provisioned databases", () => {
+    const environmentId = newId()
+    const serverId = newId()
+    const resourceId = newId()
+    const linked = ["report_dev", "audit_dev", "billing_dev"].map(databaseName => ({ _id: newId(), databaseName, serverId, link: { resourceId, environmentId } }))
+
+    let unlink: ReturnType<typeof vi.fn>
+    let remove: ReturnType<typeof vi.fn>
+    let onServer: ReturnType<typeof vi.fn>
+    let environmentsDeleted: ReturnType<typeof vi.fn>
+
+    const service = () => {
+        const instance = new EnvironmentService({ _id: newId() } as never)
+        const gate = instance as unknown as { ensureAccessToEnvironment: () => Promise<boolean>; ensureWholeProjectOfEnvironment: () => Promise<void> }
+        vi.spyOn(gate, "ensureAccessToEnvironment").mockResolvedValue(true)
+        vi.spyOn(gate, "ensureWholeProjectOfEnvironment").mockResolvedValue()
+        return instance
+    }
+
+    beforeEach(() => {
+        vi.restoreAllMocks()
+        vi.spyOn(ProvisionedDatabase, "find").mockResolvedValue(linked as never)
+        vi.spyOn(MongoServer, "find").mockResolvedValue([{ _id: serverId, name: "Shared cluster" }] as never)
+        vi.spyOn(Resource, "find").mockResolvedValue([{ _id: resourceId, name: "report-steering" }] as never)
+        vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, name: "Development" } as never)
+        vi.spyOn(Environment, "findById").mockReturnValue({ session: () => Promise.resolve({ _id: environmentId }) } as never)
+        vi.spyOn(Deployment, "find").mockReturnValue(Promise.resolve([]) as never)
+        type Writable = { deleteMany: () => Promise<unknown>; updateMany: () => Promise<unknown> }
+        for (const model of [Deployment, DeploymentToCanaryUsers, GlobalVariable, BackendDeployment] as unknown as Writable[]) vi.spyOn(model, "deleteMany").mockResolvedValue({})
+        for (const model of [Backend, Frontend, MaintenanceAgent] as unknown as Writable[]) vi.spyOn(model, "updateMany").mockResolvedValue({})
+        environmentsDeleted = vi.spyOn(Environment, "deleteMany").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
+        unlink = vi.spyOn(ProvisionedDatabaseService.prototype, "unlink").mockResolvedValue({} as never) as unknown as ReturnType<typeof vi.fn>
+        remove = vi.spyOn(ProvisionedDatabaseService.prototype, "delete").mockResolvedValue(undefined) as unknown as ReturnType<typeof vi.fn>
+        onServer = vi.spyOn(ProvisionedDatabaseService.prototype, "removeFromServer").mockResolvedValue(undefined) as unknown as ReturnType<typeof vi.fn>
+    })
+
+    it("given linked databases and no choice, when the environment is deleted, then it is refused naming each with its server and resource, and nothing is touched", async () => {
+        await expect(service().deleteSingle(environmentId)).rejects.toMatchObject({
+            code: "ENVIRONMENT_HAS_PROVISIONED_DATABASES",
+            statusCode: 409,
+            details: { provisionedDatabases: expect.arrayContaining([{ id: String(linked[0]._id), databaseName: "report_dev", server: "Shared cluster", resource: "report-steering" }]) }
+        })
+        expect(unlink).not.toHaveBeenCalled()
+        expect(environmentsDeleted).not.toHaveBeenCalled()
+    })
+
+    it("given a choice that is not one of the four, when the environment is deleted, then it is refused", async () => {
+        await expect(service().deleteSingle(environmentId, "everything")).rejects.toMatchObject({ code: "ENVIRONMENT_PROVISIONED_DATABASES_CHOICE_INVALID" })
+        expect(environmentsDeleted).not.toHaveBeenCalled()
+    })
+
+    it("given unlink, when the environment is deleted, then every database is unlinked and kept, and then the environment goes", async () => {
+        await service().deleteSingle(environmentId, "unlink")
+
+        expect(unlink.mock.calls.map(call => call[0]).sort()).toEqual(linked.map(database => String(database._id)).sort())
+        expect(remove).not.toHaveBeenCalled()
+        expect(environmentsDeleted).toHaveBeenCalled()
+        expect(unlink.mock.invocationCallOrder.at(-1)).toBeLessThan(environmentsDeleted.mock.invocationCallOrder[0])
+    })
+
+    it("given record, when the environment is deleted, then each database is unlinked and its record removed, and the server is not touched", async () => {
+        await service().deleteSingle(environmentId, "record")
+
+        expect(onServer).not.toHaveBeenCalled()
+        expect(unlink).toHaveBeenCalledTimes(3)
+        expect(remove.mock.calls).toEqual(expect.arrayContaining(linked.map(database => [String(database._id), "record"])))
+        expect(environmentsDeleted).toHaveBeenCalled()
+    })
+
+    /** The server first: a failure there leaves the database linked, so deleting the environment again asks about it again */
+    it.each([
+        ["user", undefined],
+        ["drop", "Development"]
+    ])("given %s, when the environment is deleted, then each database is removed from its server first, then unlinked, then its record goes", async (mode, confirmName) => {
+        await service().deleteSingle(environmentId, mode, confirmName)
+
+        expect(onServer.mock.calls.map(call => [call[0].databaseName, call[1]])).toEqual(linked.map(database => [database.databaseName, mode]).sort())
+        expect(onServer.mock.invocationCallOrder[0]).toBeLessThan(unlink.mock.invocationCallOrder[0])
+        expect(unlink.mock.invocationCallOrder[0]).toBeLessThan(remove.mock.invocationCallOrder[0])
+        expect(remove).toHaveBeenCalledTimes(3)
+        expect(environmentsDeleted).toHaveBeenCalled()
+    })
+
+    it.each([undefined, "development"])("given drop confirmed with %s, when the environment is deleted, then it is refused before any database is touched", async confirmName => {
+        await expect(service().deleteSingle(environmentId, "drop", confirmName)).rejects.toMatchObject({ code: "ENVIRONMENT_DROP_CONFIRMATION_MISMATCH" })
+        expect(unlink).not.toHaveBeenCalled()
+        expect(environmentsDeleted).not.toHaveBeenCalled()
+    })
+
+    it("given the server failing on the second database, when the environment is deleted, then it stops there still linked, says which were done, and the environment stays", async () => {
+        onServer
+            .mockResolvedValueOnce(undefined)
+            .mockRejectedValueOnce(Object.assign(new Error("The server refused the operation: not authorized"), { code: "PROVISIONED_DATABASE_SERVER_FAILED", statusCode: 502 }))
+
+        await expect(service().deleteSingle(environmentId, "user")).rejects.toMatchObject({
+            code: "ENVIRONMENT_PROVISIONED_DATABASES_FAILED",
+            statusCode: 502,
+            details: { done: ["audit_dev"], failed: "billing_dev", code: "PROVISIONED_DATABASE_SERVER_FAILED" }
+        })
+        // billing_dev was neither unlinked nor forgotten: it is still there to be asked about
+        expect(unlink).toHaveBeenCalledTimes(1)
+        expect(remove).toHaveBeenCalledTimes(1)
+        expect(environmentsDeleted).not.toHaveBeenCalled()
+    })
+
+    it("given a delete that stopped half way, when it is tried again, then it asks again about those left, then goes through for them", async () => {
+        onServer.mockResolvedValueOnce(undefined).mockRejectedValueOnce(Object.assign(new Error("timed out"), { statusCode: 502 }))
+        await expect(service().deleteSingle(environmentId, "user")).rejects.toMatchObject({ code: "ENVIRONMENT_PROVISIONED_DATABASES_FAILED" })
+
+        // audit_dev is gone; the two left are still linked there
+        vi.mocked(ProvisionedDatabase.find).mockResolvedValue(linked.filter(database => database.databaseName !== "audit_dev") as never)
+        await expect(service().deleteSingle(environmentId)).rejects.toMatchObject({
+            code: "ENVIRONMENT_HAS_PROVISIONED_DATABASES",
+            details: { provisionedDatabases: [expect.objectContaining({ databaseName: "billing_dev" }), expect.objectContaining({ databaseName: "report_dev" })] }
+        })
+
+        await service().deleteSingle(environmentId, "user")
+
+        expect(onServer.mock.calls.map(call => call[0].databaseName)).toEqual(["audit_dev", "billing_dev", "billing_dev", "report_dev"])
+        expect(environmentsDeleted).toHaveBeenCalledTimes(1)
+    })
+
+    it("given no linked database, when the environment is deleted without a choice, then it goes as before", async () => {
+        vi.mocked(ProvisionedDatabase.find).mockResolvedValue([] as never)
+
+        await service().deleteSingle(environmentId)
+
+        expect(environmentsDeleted).toHaveBeenCalled()
+    })
+
+    it("given linked databases, when environments are deleted in bulk, then it is refused: they are deleted one at a time", async () => {
+        await expect(service().deleteMultiple([environmentId])).rejects.toMatchObject({ code: "ENVIRONMENT_HAS_PROVISIONED_DATABASES", statusCode: 409 })
+        expect(environmentsDeleted).not.toHaveBeenCalled()
     })
 })

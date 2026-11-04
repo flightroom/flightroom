@@ -1,5 +1,8 @@
+import { AxiosError } from "axios"
+import { useTranslation } from "react-i18next"
 import useApiClient from "../useApiClient"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
+import { type EnvironmentDatabasesChoice, useMongoServerErrorTranslation } from "./useMongoServersApi"
 
 /** Come per il backend (LOG_LEVELS): dal più verboso */
 export const LOG_LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] as const
@@ -102,10 +105,40 @@ export interface ReplicasRow {
 /** Se la promozione la cambia: un'applicazione che non gira nell'origine tiene quello che usa nella destinazione */
 export const promotes = (row: PromotionRow) => Boolean(row.from) && row.from !== row.to
 
+/** The refusals of a delete about the databases created on a MongoDB server that feed a resource in the environment */
+const useEnvironmentDeleteErrorMessage = () => {
+    const { t } = useTranslation()
+    const translateDatabaseError = useMongoServerErrorTranslation()
+    return (error: Error): string | undefined => {
+        const response = (error as AxiosError<{ error?: { code?: string; message?: string; details?: { done?: string[]; failed?: string; reason?: string; code?: string } } }>)?.response
+        const body = response?.data?.error
+        // The limiter of a delete reaching the servers of its databases answers with no code of ours
+        if (response?.status === 429 && !body?.code) return t("mongoServers.errors.rate_limited")
+        switch (body?.code) {
+            case "ENVIRONMENT_PROVISIONED_DATABASES_CHOICE_INVALID":
+                return t("environment.page.delete.databases.errors.choice_invalid")
+            case "ENVIRONMENT_HAS_PROVISIONED_DATABASES":
+                return t("environment.page.delete.databases.errors.has_databases")
+            case "ENVIRONMENT_DROP_CONFIRMATION_MISMATCH":
+                return t("environment.page.delete.databases.errors.confirmation_mismatch")
+            case "ENVIRONMENT_PROVISIONED_DATABASES_FAILED":
+                return t("environment.page.delete.databases.errors.failed", {
+                    failed: body.details?.failed,
+                    // The refusal of that database, in the language of the user when it is one of ours
+                    reason: translateDatabaseError(body.details?.code, body.details?.reason) ?? body.details?.reason,
+                    done: body.details?.done?.length ? body.details.done.join(", ") : t("environment.page.delete.databases.errors.none_done")
+                })
+            default:
+                return undefined
+        }
+    }
+}
+
 const useEnvironmentsApi = () => {
     const apiClient = useApiClient()
     // Creare, rinominare o eliminare un ambiente riallinea il repository GitOps, quando e' attivo
     const customErrorMessage = useGitOpsErrorMessage()
+    const deleteErrorMessage = useEnvironmentDeleteErrorMessage()
 
     const getEnvironment = async (id: string) => {
         const response = await apiClient.doRequest<EnvironmentDTO>({
@@ -134,11 +167,13 @@ const useEnvironmentsApi = () => {
         return response.data
     }
 
-    const deleteEnvironment = async (id: string) => {
+    /** `provisionedDatabases` says what becomes of the databases created on a MongoDB server that feed a resource there; a drop needs the name typed again */
+    const deleteEnvironment = async (id: string, provisioned?: { provisionedDatabases: EnvironmentDatabasesChoice; confirmName?: string }) => {
         const response = await apiClient.doRequest({
             url: `/api/environments/${id}`,
             method: "DELETE",
-            customErrorMessage
+            params: provisioned,
+            customErrorMessage: (error: Error) => deleteErrorMessage(error) ?? customErrorMessage(error)
         })
         return response.data
     }

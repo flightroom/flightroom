@@ -9,7 +9,9 @@ import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import MongoServer, { MONGO_SERVER_SECRET_PATHS } from "../models/MongoServerModel"
 import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
+import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
@@ -47,6 +49,8 @@ export const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<v
         ["storage", Storage as unknown as SecretHolder, anyPlaintextIn(STORAGE_SECRET_PATHS) as SecretFilter],
         ["code repository", CodeRepository as unknown as SecretHolder, anyPlaintextIn(CODE_REPOSITORY_SECRET_PATHS) as SecretFilter],
         ["database", Database as unknown as SecretHolder, anyPlaintextIn(DATABASE_SECRET_PATHS) as SecretFilter],
+        ["MongoDB server", MongoServer as unknown as SecretHolder, anyPlaintextIn(MONGO_SERVER_SECRET_PATHS) as SecretFilter],
+        ["provisioned database", ProvisionedDatabase as unknown as SecretHolder, anyPlaintextIn(["password"]) as SecretFilter],
         ["project", Project as unknown as SecretHolder, anyPlaintextIn(PROJECT_SECRET_PATHS) as SecretFilter],
         // `config` is Mixed and a provider without a secret access key has no such field: $exists in NOT_ENCRYPTED skips it
         ["AI model", AiModel as unknown as SecretHolder, anyPlaintextIn(AI_MODEL_SECRET_PATHS) as SecretFilter],

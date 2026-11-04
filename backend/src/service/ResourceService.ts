@@ -4,8 +4,10 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import MongoServer from "../models/MongoServerModel"
 import { CONTEXT_MAX_LENGTH } from "../models/ProjectModel"
-import Resource, { IResource, IResourceValue } from "../models/ResourceModel"
+import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
+import Resource, { IResource, IResourceValue, RESOURCE_WRITE_ATTEMPTS, unchangedSince } from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import {
     isResourceType,
@@ -28,6 +30,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import { isEncryptedSecret, SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import { parseApiDocument } from "./aiChange/apiSpecReader"
 import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedService"
+import { provisionerOf } from "./MongoServerService"
 import { ensureArgoCdInitialized, ensureNoKeyClash, KeyedMap, keysOnly, resourceKeys, resourceNaming } from "./VariableMapService"
 
 /** As for a value of a config map: well past any real credential, short of a document Mongo would refuse */
@@ -228,7 +231,6 @@ export const normalizeResourceFields = (
         }
         if (normalized) (spec.secret ? result.secrets : result.values).push(normalized)
     }
-
     return result
 }
 
@@ -439,7 +441,21 @@ export class ResourceService extends BaseAuthorizedService {
         }
     }
 
+    /**
+     * The update is built from the resource as read, the lists of values and credentials whole, so it is written
+     * only if nobody wrote the resource in between (a link of a provisioned database, another edit). Otherwise it
+     * is built again from the resource as it is now, checks included: a link made meanwhile is seen by the guard.
+     */
     async update(id: string | ObjectId, dto: Partial<ResourceDTO>): Promise<IResource | null> {
+        for (let attempt = 0; attempt < RESOURCE_WRITE_ATTEMPTS; attempt++) {
+            const written = await this.updateOnce(id, dto)
+            if (written) return written
+        }
+        throw createBusinessException({ code: "RESOURCE_CHANGED_MEANWHILE", message: "The resource kept changing while it was saved: reload it and try again", statusCode: 409 })
+    }
+
+    /** One try of an update: null when the resource changed since it was read */
+    private async updateOnce(id: string | ObjectId, dto: Partial<ResourceDTO>): Promise<IResource | null> {
         const resource = await this.getById(id)
         await ensureArgoCdInitialized(resource.projectId)
         const fields = await this.normalize(dto, resource.projectId, resource)
@@ -451,6 +467,7 @@ export class ResourceService extends BaseAuthorizedService {
             customFields: fields.customFields ?? resource.customFields
         }
         ensureNoReservedKey(next)
+        await this.ensureProvisionedFieldsKept(resource, fields)
         // A rename, a prefix or a variant renames its variables: they must not clash where it is attached
         if (keysOf(next) !== keysOf(resource)) {
             await this.ensureNoClashInAttachingBackends(resource, next)
@@ -459,9 +476,48 @@ export class ResourceService extends BaseAuthorizedService {
         const { apiSpec, ...set } = fields
         const write = apiSpec === null ? { $set: set, $unset: { apiSpec: "", apiSpecBytes: "" } } : { $set: { ...set, ...(apiSpec !== undefined && { apiSpec }) } }
         try {
-            return await Resource.findByIdAndUpdate(resource._id, write, { returnDocument: "after", runValidators: true })
+            return await Resource.findOneAndUpdate(unchangedSince(resource), write, { returnDocument: "after", runValidators: true })
         } catch (error) {
             this.refuseTakenName(error, fields.name)
+        }
+    }
+
+    /**
+     * Where a database created on a MongoDB server feeds the resource, the fields it writes in that environment
+     * are its own: a value typed there would be overwritten at the next link, and a change of variant would drop
+     * them and leave the link pointing at nothing. Both are refused while it is linked; unlinking comes first.
+     * The value of all of those fields, and their values in the other environments, stay free to change.
+     */
+    private async ensureProvisionedFieldsKept(resource: IResource, fields: ResourceFields): Promise<void> {
+        const variantChanged = fields.variant !== undefined && fields.variant !== resource.variant
+        if (!variantChanged && fields.values === undefined && fields.secrets === undefined) return
+        const linked = await ProvisionedDatabase.find({ "link.resourceId": resource._id })
+        if (linked.length === 0) return
+        const refuse = (message: string): never => {
+            throw createBusinessException({
+                code: "RESOURCE_LINKED_TO_PROVISIONED_DATABASE",
+                message: `${message}: unlink ${linked.map(database => database.databaseName).join(", ")} from its MongoDB server first`,
+                statusCode: 409,
+                details: { provisionedDatabases: linked.map(database => database.databaseName) }
+            })
+        }
+        if (variantChanged) refuse(`"${resource.name}" is fed by provisioned databases, which need the variant ${resource.variant}`)
+
+        const servers = await MongoServer.find({ _id: { $in: linked.map(database => database.serverId) } })
+        type Field = { field: string; overrides: Array<{ environmentId: unknown; value: string }> }
+        const overrideOf = (lists: Array<Field[] | undefined>, field: string, environment: string) =>
+            lists
+                .flatMap((list): Field[] => list ?? [])
+                .find(candidate => candidate.field === field)
+                ?.overrides.find(override => String(override.environmentId) === environment)?.value
+        for (const database of linked) {
+            const server = servers.find(candidate => String(candidate._id) === String(database.serverId))
+            const environment = String(database.link?.environmentId)
+            for (const field of server ? provisionerOf(server).resource.fields : []) {
+                const before = overrideOf([resource.values, resource.secrets], field, environment)
+                const after = overrideOf([fields.values ?? resource.values, fields.secrets ?? resource.secrets], field, environment)
+                if (before !== after) refuse(`${field} is set by ${database.databaseName} in its environment`)
+            }
         }
     }
 
@@ -512,7 +568,7 @@ export class ResourceService extends BaseAuthorizedService {
         }
     }
 
-    /** Refused while a backend attaches it: deleting it would silently take variables away from a running container */
+    /** Refused while a backend attaches it, or a provisioned database feeds it: deleting it would silently take variables away from a running container */
     async delete(id: string | ObjectId): Promise<IResource | null> {
         const resource = await this.getById(id)
         await this.ensureWholeProject(resource.projectId)
@@ -523,6 +579,16 @@ export class ResourceService extends BaseAuthorizedService {
                 message: `"${resource.name}" is attached to ${backends.map(backend => backend.name).join(", ")}: detach it first`,
                 statusCode: 409,
                 details: { backends: backends.map(backend => backend.name) }
+            })
+        }
+        // A database created on a MongoDB server that feeds it would keep a link to nothing: it is unlinked first, as a backend is detached
+        const provisioned = await ProvisionedDatabase.find({ "link.resourceId": resource._id }, { databaseName: 1 })
+        if (provisioned.length > 0) {
+            throw createBusinessException({
+                code: "RESOURCE_IN_USE",
+                message: `"${resource.name}" is fed by the provisioned databases ${provisioned.map(database => database.databaseName).join(", ")}: unlink them first`,
+                statusCode: 409,
+                details: { provisionedDatabases: provisioned.map(database => database.databaseName) }
             })
         }
         return Resource.findByIdAndDelete(resource._id)

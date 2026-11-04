@@ -228,7 +228,8 @@
             "codeRepositories": "Repository Codice",
             "mcpClients": "Assistenti AI",
             "manage": "Gestisci",
-            "databases": "Database"
+            "databases": "Database",
+            "mongoServers": "Server MongoDB"
         },
         "projectInfo": {
             "title": "Informazioni Progetto",
@@ -403,7 +404,8 @@
                     "confirmationText": "Digita il nome del progetto per confermare l'eliminazione.",
                     "deleting": "Eliminazione in corso...",
                     "confirmButton": "Elimina Progetto"
-                }
+                },
+                "has_mongo_servers": "Il progetto ha ancora dei server MongoDB ({{servers}}): togli prima i loro database e i server, scegliendo cosa fare di ciascuno"
             }
         },
         "notifications": {
@@ -796,7 +798,30 @@
                 "success": "Ambiente eliminato con successo",
                 "error": "Errore durante l'eliminazione dell'ambiente",
                 "production_warning": "È un ambiente di produzione",
-                "production_hint": "Per confermare, scrivi {{name}}"
+                "production_hint": "Per confermare, scrivi {{name}}",
+                "databases": {
+                    "description": "Dei database creati su un server MongoDB alimentano una risorsa in {{name}}. Scegli cosa farne, per tutti, prima di eliminare l'ambiente.",
+                    "item": "su {{server}}, per {{resource}}",
+                    "choiceLabel": "Cosa fare dei database",
+                    "choices": {
+                        "unlink": "Scollegali",
+                        "unlinkHint": "I database, i loro utenti e i record in Flightroom restano; va via solo il collegamento alla risorsa",
+                        "record": "Toglili solo da Flightroom",
+                        "recordHint": "Gli utenti e i dati restano sul server",
+                        "user": "Cancella i loro utenti",
+                        "userHint": "Nessuno puo' piu' connettersi con le loro credenziali; i dati restano",
+                        "drop": "Cancella utenti e database (i dati vanno persi)",
+                        "dropHint": "Elimina ogni database con tutte le sue collezioni, poi il suo utente"
+                    },
+                    "dropWarning": "I dati di {{count}} database vengono cancellati. Non si torna indietro.",
+                    "errors": {
+                        "has_databases": "Dei database creati su un server MongoDB alimentano una risorsa in questo ambiente: ricarica la pagina e scegli cosa farne",
+                        "confirmation_mismatch": "Scrivi il nome dell'ambiente per confermare che i dati dei suoi database vengono cancellati",
+                        "failed": "Non e' stato possibile trattare {{failed}} ({{reason}}). Gia' fatti: {{done}}. L'ambiente non e' stato eliminato",
+                        "none_done": "nessuno",
+                        "choice_invalid": "Scegli cosa fare dei database dell'ambiente"
+                    }
+                }
             },
             "color": "Colore",
             "reorder": {
@@ -1620,6 +1645,132 @@
             "secret_required": "Riscrivi la credenziale: quella salvata vale solo per il provider e l'account con cui è stata salvata."
         },
         "connectionTestSuccess": "Un file di prova è stato caricato e riletto: l'hosting dei frontend può usare questo storage."
+    },
+    "mongoServers": {
+        "title": "Server MongoDB",
+        "description": "Registra un server MongoDB, un progetto Atlas o un account Azure Cosmos DB for MongoDB (RU) e creaci un database per ambiente, ciascuno con un utente dedicato",
+        "newServer": "Nuovo server MongoDB",
+        "newServerDescription": "Un server su cui Flightroom crea database e utenti, con credenziali che possono creare utenti",
+        "editServer": "Modifica server MongoDB",
+        "editServerDescription": "I database creati su questo server e le credenziali con cui Flightroom lo raggiunge",
+        "noServersFound": "Nessun server MongoDB registrato",
+        "name": "Nome",
+        "namePlaceholder": "Cluster condiviso",
+        "provider": "Provider",
+        "providers": {
+            "MONGODB": "MongoDB (self-hosted)",
+            "ATLAS": "MongoDB Atlas",
+            "COSMOS_MONGO_RU": "Azure Cosmos DB for MongoDB (RU)"
+        },
+        "address": "Indirizzo",
+        "connectionStringHidden": "Stringa di connessione admin",
+        "deleteDescription": "Togliere il server {{name}} dal progetto? Solo Flightroom lo dimentica: il server e i suoi dati restano come sono.",
+        "basicInformation": "Informazioni di base",
+        "basicInformationDescription": "Come si chiama il server nel progetto e come si creano i suoi database",
+        "connection": "Connessione",
+        "connectionDescriptions": {
+            "MONGODB": "L'URI di un account che puo' creare utenti, di solito root con authSource=admin. I suoi host e le sue opzioni (replicaSet, tls...) sono quelli che ricevono le applicazioni.",
+            "ATLAS": "Un service account del progetto Atlas con il ruolo Project Owner, e il cluster su cui si creano i database. Creare ed eliminare un database passano anche dal driver: l'indirizzo IP in uscita del backend di Flightroom deve essere nella IP Access List del progetto Atlas. Prova verifica solo l'Admin API.",
+            "COSMOS_MONGO_RU": "Un service principal Entra con il ruolo DocumentDB Account Contributor sul resource group dell'account, e un account dell'API per MongoDB (RU) con il controllo degli accessi basato sui ruoli attivo (EnableMongoRoleBasedAccessControl, in Funzionalita')."
+        },
+        "fields": {
+            "connectionString": "Stringa di connessione admin",
+            "connectionStringHint": "mongodb:// o mongodb+srv://, con utente e password codificati per URL",
+            "clientId": "Client ID",
+            "clientSecret": "Client secret",
+            "groupId": "ID del progetto",
+            "groupIdHint": "L'id di 24 caratteri del progetto Atlas, nelle sue impostazioni",
+            "groupIdInvalid": "L'id di un progetto Atlas e' di 24 caratteri esadecimali",
+            "clusterName": "Nome del cluster",
+            "tenantId": "ID del tenant",
+            "applicationId": "ID applicazione (client)",
+            "subscriptionId": "ID della sottoscrizione",
+            "resourceGroup": "Resource group",
+            "accountName": "Nome dell'account",
+            "accountNameHint": "Il nome dell'account Cosmos DB, come in <account>.mongo.cosmos.azure.com",
+            "accountNameInvalid": "Da 3 a 50 lettere minuscole, cifre e trattini",
+            "guidInvalid": "Un GUID, come lo mostra il portale Azure"
+        },
+        "securityNotice": "Credenziali da super admin.",
+        "securityNoticeDescription": "Sono cifrate a riposo, non vengono piu' mostrate e servono solo a creare e togliere gli utenti dei database creati qui. Ogni database riceve un utente che raggiunge lui e nient'altro.",
+        "createSuccess": "Server MongoDB registrato",
+        "updateSuccess": "Server MongoDB aggiornato",
+        "errors": {
+            "secret_required": "Riscrivi la credenziale: una salvata resta solo finche' provider e indirizzo (progetto e cluster Atlas, tenant e account Cosmos DB) restano gli stessi",
+            "write_forbidden": "Chi ha solo accesso in lettura al progetto non puo' registrare, modificare, provare o eliminare un server MongoDB",
+            "connection_invalid": "La connessione non e' valida: {{message}}",
+            "in_use": "Sul server ci sono ancora database creati: toglili prima, oppure lascia provider e indirizzo e cambia solo le credenziali",
+            "provider_invalid": "Scegli il provider del server",
+            "name_required": "Il server ha bisogno di un nome",
+            "rate_limited": "Troppe operazioni verso un server esterno nell'ultimo minuto: aspetta un minuto e riprova"
+        },
+        "databases": {
+            "title": "Database creati",
+            "description": "Ogni database ha un utente con readWrite e dbAdmin solo su di lui. Collegato a una risorsa mongodb, e' cio' a cui la risorsa si connette in quell'ambiente.",
+            "create": "Crea database",
+            "createTitle": "Crea un database",
+            "createDescription": "Un database e il suo utente su {{server}}, con una password generata che nessuno vede. Scegli una risorsa e un ambiente per collegarlo subito.",
+            "none": "Nessun database creato su questo server",
+            "name": "Database",
+            "nameHint": "L'utente prende lo stesso nome. Suggerito da risorsa e ambiente.",
+            "nameInvalid": "Al massimo 63 lettere minuscole, cifre, trattini o underscore, a partire da una lettera o una cifra",
+            "nameReserved": "admin, local e config sono riservati a MongoDB",
+            "username": "Utente",
+            "linkedTo": "Alimenta",
+            "notLinked": "Non collegato",
+            "resource": "Risorsa",
+            "resourceHint": "Solo risorse mongodb raggiunte per stringa di connessione",
+            "noResources": "Nessuna risorsa mongodb raggiunta per stringa di connessione",
+            "environment": "Ambiente",
+            "clearSelection": "Togli la selezione",
+            "link": "Collega",
+            "linkTitle": "Collega {{name}}",
+            "linkDescription": "La stringa di connessione e il nome del database della risorsa in quell'ambiente vengono sovrascritti con quelli di questo database.",
+            "unlink": "Scollega {{name}}",
+            "unlinkFirst": "Scollegalo prima di rimuoverlo",
+            "created": "Database {{name}} creato",
+            "linked": "Database {{name}} collegato",
+            "unlinked": "Database {{name}} scollegato",
+            "deleted": "Database {{name}} rimosso",
+            "deleteTitle": "Rimuovi {{name}}",
+            "deleteDescription": "Scegli cosa togliere oltre al record in Flightroom.",
+            "deleteModeLabel": "Cosa togliere",
+            "deleteModes": {
+                "record": "Solo da Flightroom",
+                "recordHint": "L'utente e i dati restano sul server",
+                "user": "Cancella l'utente",
+                "userHint": "Nessuno puo' piu' connettersi con le sue credenziali; i dati restano",
+                "drop": "Cancella utente e database (i dati vanno persi)",
+                "dropHint": "Elimina il database con tutte le sue collezioni, poi l'utente"
+            },
+            "dropWarning": "Tutte le collezioni di {{name}} vengono cancellate. Non si torna indietro.",
+            "dropConfirmation": "Scrivi {{name}} per confermare",
+            "errors": {
+                "exists": "Sul server esiste gia' un database con questo nome: Flightroom non affida a un nuovo utente un database che non ha creato, scegli un altro nome",
+                "name_invalid": "Al massimo 63 lettere minuscole, cifre, trattini o underscore, a partire da una lettera o una cifra",
+                "name_reserved": "admin, local e config sono riservati a MongoDB: scegli un altro nome",
+                "linked": "Il database alimenta una risorsa: scollegalo prima",
+                "link_taken": "Un altro database alimenta gia' quell'ambiente della risorsa: scollegalo prima",
+                "environment_unknown": "L'ambiente non e' del progetto",
+                "confirmation_mismatch": "Scrivi il nome del database per confermare che i suoi dati vengono cancellati",
+                "server_failed": "Il server ha rifiutato l'operazione: {{message}}",
+                "resource_type": "Un database creato qui alimenta solo una risorsa mongodb",
+                "resource_variant": "La risorsa si connette per host e credenziali: passala a stringa di connessione per collegarle un database",
+                "argocd_required": "Collegare scrive la risorsa, che richiede Argo CD: inizializzalo nelle impostazioni del progetto",
+                "user_exists": "Sul server esiste gia' un utente con questo nome: Flightroom non prende un utente che non ha creato, scegli un altro nome",
+                "link_invalid": "Un collegamento richiede sia una risorsa sia un ambiente",
+                "delete_mode_invalid": "Scegli cosa togliere insieme al database",
+                "cleanup_required": "Una creazione fallita ha lasciato l'utente di questo database sul server: non si puo' collegare ne' eliminarne i dati, solo toglierlo con il suo utente o da Flightroom",
+                "user_left_on_server": "La creazione non e' riuscita e l'utente {{username}} che aveva creato non e' stato possibile toglierlo dal server: e' ancora li', e il database resta in elenco finche' non lo togli",
+                "cluster_unreachable": "Il backend non raggiunge il cluster con il driver: aggiungi l'indirizzo IP in uscita del backend di Flightroom alla IP Access List del progetto Atlas",
+                "user_already_removed": "L'utente di questo database non c'e' piu', e con lui il modo di eliminarne i dati: eliminali a mano, poi togli il database solo da Flightroom",
+                "resource_changed": "La risorsa e' cambiata piu' volte mentre veniva scritta: riprova"
+            },
+            "linkIncomplete": "Scegli sia una risorsa sia un ambiente, oppure nessuno dei due",
+            "cleanupRequired": "Utente rimasto sul server",
+            "cleanupRequiredDelete": "Una creazione fallita ha lasciato l'utente {{username}} sul server. Il suo database potrebbe non essere nostro, quindi non si elimina: togli l'utente, oppure solo il record e l'utente a mano.",
+            "cleanupRequiredNotice": "Delle creazioni fallite hanno lasciato questi utenti sul server: {{users}}. Toglili con il loro utente, oppure solo da Flightroom e poi a mano."
+        }
     },
     "database": {
         "databases": "Database",
@@ -3912,7 +4063,13 @@
                 "confirmation": "Digita {{name}} per confermare"
             }
         },
+        "provisioned": {
+            "description": "In questi ambienti la stringa di connessione e il nome del database li imposta un database creato su un server MongoDB: un valore scritto qui viene sovrascritto al prossimo collegamento.",
+            "item": "{{environment}}: da {{server}}/{{database}}",
+            "open": "Apri il server"
+        },
         "errors": {
+            "in_use_provisioned": "La alimentano i database creati {{databases}}: scollegali prima dal loro server MongoDB",
             "context_invalid": "Al massimo 20.000 caratteri",
             "name_taken": "Esiste già una risorsa con questo nome nel progetto",
             "name_invalid": "Al massimo 63 lettere minuscole, cifre o trattini, che iniziano e finiscono con una lettera o una cifra",
@@ -3932,7 +4089,9 @@
             "resource_unknown": "Una delle risorse selezionate non esiste più: ricarica la pagina",
             "fields_invalid": "I valori della risorsa non sono nella forma inviata dalla console: ricarica la pagina",
             "environment_duplicated": "Un campo ha più di un valore per lo stesso ambiente",
-            "resources_invalid": "Le risorse del backend devono essere una lista di al massimo 50"
+            "resources_invalid": "Le risorse del backend devono essere una lista di al massimo 50",
+            "linked_to_provisioned": "{{databases}} impostano la connessione di questa risorsa nel loro ambiente: scollegali dal loro server MongoDB prima di cambiare la variante o quei valori",
+            "changed_meanwhile": "La risorsa e' cambiata mentre veniva salvata, per esempio per il collegamento di un database: ricaricala e salva di nuovo"
         },
         "types": {
             "cosmosdb": {

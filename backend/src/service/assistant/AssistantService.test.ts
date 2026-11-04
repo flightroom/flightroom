@@ -326,7 +326,7 @@ describe("AssistantService", () => {
         )
 
         expect(outcome).toMatchObject({ stopReason: "end_turn", wrote: true })
-        expect(deleteEnvironment).toHaveBeenCalledWith(ENVIRONMENT)
+        expect(deleteEnvironment).toHaveBeenCalledWith(ENVIRONMENT, undefined, undefined)
         expect(frames[0]).toEqual({ event: "tool_result", frame: { id: "toolu_1", ok: true, summary: "Done", result: { deleted: true } } })
 
         const request = stream.mock.calls[0][0]

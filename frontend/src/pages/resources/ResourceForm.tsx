@@ -1,7 +1,7 @@
 import { Alert, AlertDescription, Card, CardContent, CardDescription, CardHeader, CardTitle, ConfirmByTypingDialog, DangerZoneCard, SelectField } from "@flightroom/design-system"
 import { zodResolver } from "@hookform/resolvers/zod"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { GitBranch, Trash2, X } from "lucide-react"
+import { Database, GitBranch, Trash2, X } from "lucide-react"
 import { useMemo, useState } from "react"
 import { FormProvider, useForm, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -16,6 +16,7 @@ import { resourceIconUrl } from "@/components/resource/resourceIcons"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
+import useMongoServersApi, { MongoServer, ProvisionedDatabase } from "@/hooks/apiClients/useMongoServersApi"
 import useResourcesApi, { Resource, ResourceDTO, ResourceTypeSpec } from "@/hooks/apiClients/useResourcesApi"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -230,6 +231,38 @@ const ResourceDangerZone: React.FC<{ resource: Resource; inUse: boolean }> = ({ 
     )
 }
 
+/**
+ * The environments a database created on a MongoDB server feeds: there its connection fields are written by
+ * Flightroom, and a value typed here would be overwritten at the next link. Unlinking is done from the server.
+ */
+const ProvisionedDatabasesNotice: React.FC<{ databases: ProvisionedDatabase[]; servers: MongoServer[]; environments: EnvironmentDTO[] }> = ({ databases, servers, environments }) => {
+    const { t } = useTranslation()
+
+    return (
+        <Alert variant="warning" dataTestId="resource-provisioned-databases">
+            <Database className="size-4" aria-hidden="true" />
+            <AlertDescription>
+                <p>{t("resources.provisioned.description")}</p>
+                <ul className="mt-1 list-disc pl-5">
+                    {databases.map(database => {
+                        const server = servers.find(candidate => candidate._id === database.serverId)
+                        return (
+                            <li key={database._id}>
+                                {t("resources.provisioned.item", {
+                                    environment: environments.find(environment => environment._id === database.link?.environmentId)?.name ?? database.link?.environmentId,
+                                    server: server?.name ?? database.serverId,
+                                    database: database.databaseName
+                                })}{" "}
+                                {server && <Link to={`/mongo-servers/${server._id}`}>{t("resources.provisioned.open")}</Link>}
+                            </li>
+                        )
+                    })}
+                </ul>
+            </AlertDescription>
+        </Alert>
+    )
+}
+
 /** The variables the resource sets, as they will be named: they follow the name, the prefix and the variant as they are typed */
 const KeysPreview: React.FC<{ spec?: ResourceTypeSpec; variant: string; name: string; envPrefix: string }> = ({ spec, variant, name, envPrefix }) => {
     const { t } = useTranslation()
@@ -273,7 +306,13 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
     const queryClient = useQueryClient()
     const notifications = useToastNotificationStore()
     const api = useResourcesApi()
+    const mongoServersApi = useMongoServersApi()
     const attaching = backends.filter(backend => resource?._id && backend.resourceIds?.includes(resource._id))
+    // Only a mongodb resource can be fed by a database created on a server
+    const isMongo = resource?.type === "mongodb"
+    const provisionedQuery = useQuery({ queryKey: ["provisioned-databases", resource?.projectId], queryFn: mongoServersApi.getAllDatabases, enabled: isMongo })
+    const serversQuery = useQuery({ queryKey: ["mongo-servers", resource?.projectId], queryFn: mongoServersApi.getAll, enabled: isMongo })
+    const provisioned = (provisionedQuery.data ?? []).filter(database => resource?._id && database.link?.resourceId === resource._id)
     const specOf = (type: string) => catalog.find(spec => spec.type === type)
 
     // The resource as saved: what a change of where it connects is told from
@@ -445,6 +484,8 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
 
                     {type === "generic" && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} />}
 
+                    {provisioned.length > 0 && <ProvisionedDatabasesNotice databases={provisioned} servers={serversQuery.data ?? []} environments={environments} />}
+
                     <ResourceFieldsTable fields={variantSpec?.fields ?? []} prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environments={environments} />
 
                     {type === "api" && <ResourceApiSpecFields resource={resource} />}
@@ -456,7 +497,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
 
                     {resource && <UsedBySection resource={resource} backends={attaching} />}
 
-                    {resource && <ResourceDangerZone resource={resource} inUse={attaching.length > 0} />}
+                    {resource && <ResourceDangerZone resource={resource} inUse={attaching.length > 0 || provisioned.length > 0} />}
 
                     <div className="flex justify-end gap-2">
                         <Button disabled={form.formState.isSubmitting} type="button" variant="secondary" onClick={() => navigate(RESOURCE_LIST_PATH)}>

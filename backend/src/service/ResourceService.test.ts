@@ -2,7 +2,9 @@ import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
+import MongoServer from "../models/MongoServerModel"
 import Project from "../models/ProjectModel"
+import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import { withArgoCdInitialized } from "../testing/argoCdInitialized"
@@ -29,6 +31,11 @@ const smtpRelay = variantOf("smtp", "noAuth")
 
 /** Every required field that is not a credential, with a value of all */
 const requiredFields = { engine: { value: "POSTGRESQL" }, host: { value: "db.internal" }, port: { value: "5432" }, database: { value: "orders" }, username: { value: "orders" } }
+
+beforeEach(() => {
+    // No resource of these tests is fed by a database created on a MongoDB server, unless a test says so
+    vi.spyOn(ProvisionedDatabase, "find").mockResolvedValue([] as never)
+})
 
 afterEach(() => {
     vi.restoreAllMocks()
@@ -371,7 +378,7 @@ describe("ResourceService.update", () => {
         vi.spyOn(Resource, "findById").mockResolvedValue(resource as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
         backends = vi.spyOn(Backend, "find").mockResolvedValue([] as never) as unknown as ReturnType<typeof vi.fn>
-        write = vi.spyOn(Resource, "findByIdAndUpdate").mockResolvedValue(resource as never) as unknown as ReturnType<typeof vi.fn>
+        write = vi.spyOn(Resource, "findOneAndUpdate").mockResolvedValue(resource as never) as unknown as ReturnType<typeof vi.fn>
     })
 
     const update = (changes: object) => new ResourceService().update(String(resourceId), changes)
@@ -542,7 +549,7 @@ describe("the API document of a resource", () => {
 
     it("given null, when an api is updated, then its document and its size are removed", async () => {
         vi.spyOn(Resource, "findById").mockResolvedValue(api as never)
-        const write = vi.spyOn(Resource, "findByIdAndUpdate").mockResolvedValue(api as never)
+        const write = vi.spyOn(Resource, "findOneAndUpdate").mockResolvedValue(api as never)
 
         await new ResourceService().update(String(resourceId), { apiSpec: null })
 
@@ -551,7 +558,7 @@ describe("the API document of a resource", () => {
 
     it("given a new document, when an api is updated, then it replaces the stored one with its size", async () => {
         vi.spyOn(Resource, "findById").mockResolvedValue(api as never)
-        const write = vi.spyOn(Resource, "findByIdAndUpdate").mockResolvedValue(api as never)
+        const write = vi.spyOn(Resource, "findOneAndUpdate").mockResolvedValue(api as never)
 
         await new ResourceService().update(String(resourceId), { apiSpec: spec })
 
@@ -622,7 +629,7 @@ describe("a generic resource", () => {
         vi.spyOn(Resource, "findById").mockResolvedValue(stored as never)
         vi.spyOn(Backend, "find").mockResolvedValue([] as never)
         create = vi.spyOn(Resource, "create").mockImplementation((async (document: unknown) => document) as never) as unknown as ReturnType<typeof vi.fn>
-        write = vi.spyOn(Resource, "findByIdAndUpdate").mockResolvedValue(stored as never) as unknown as ReturnType<typeof vi.fn>
+        write = vi.spyOn(Resource, "findOneAndUpdate").mockResolvedValue(stored as never) as unknown as ReturnType<typeof vi.fn>
     })
 
     const update = (changes: object) => new ResourceService().update(String(resourceId), changes)
@@ -744,8 +751,18 @@ describe("ResourceService.delete", () => {
         expect(remove).not.toHaveBeenCalled()
     })
 
+    it("given a resource a provisioned database feeds, when it is deleted, then it is refused with the database named", async () => {
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
+        vi.spyOn(ProvisionedDatabase, "find").mockResolvedValue([{ databaseName: "orders_dev" }] as never)
+        const remove = vi.spyOn(Resource, "findByIdAndDelete")
+
+        await expect(new ResourceService().delete(String(resourceId))).rejects.toMatchObject({ code: "RESOURCE_IN_USE", statusCode: 409, details: { provisionedDatabases: ["orders_dev"] } })
+        expect(remove).not.toHaveBeenCalled()
+    })
+
     it("given a resource no backend attaches, when it is deleted, then it is gone", async () => {
         vi.spyOn(Backend, "find").mockResolvedValue([] as never)
+        vi.spyOn(ProvisionedDatabase, "find").mockResolvedValue([] as never)
         const remove = vi.spyOn(Resource, "findByIdAndDelete").mockResolvedValue(null)
 
         await new ResourceService().delete(String(resourceId))
@@ -810,5 +827,169 @@ describe("domain scope", () => {
         vi.spyOn(Resource, "findById").mockResolvedValue({ _id: shared, projectId, name: "orders" } as never)
 
         await expect(new ResourceService().getById(String(shared))).rejects.toMatchObject({ code: "DOMAIN_SCOPE_FORBIDDEN" })
+    })
+})
+
+describe("ResourceService.update of a resource a provisioned database feeds", () => {
+    const resourceId = new Types.ObjectId()
+    const serverId = new Types.ObjectId()
+    const APP_URI = "mongodb://report_dev:pw@db/report_dev?authSource=report_dev"
+    const resource = {
+        _id: resourceId,
+        projectId,
+        name: "report-steering",
+        type: "mongodb",
+        variant: "connectionString",
+        values: [{ field: "database", value: "report", overrides: [{ environmentId: development, value: "report_dev" }] }],
+        secrets: [{ field: "connectionString", value: "mongodb://shared", overrides: [{ environmentId: development, value: APP_URI }] }]
+    }
+    let write: ReturnType<typeof vi.fn>
+
+    withArgoCdInitialized()
+
+    beforeEach(() => {
+        allowAccess()
+        vi.spyOn(Resource, "findById").mockResolvedValue(resource as never)
+        vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
+        vi.mocked(ProvisionedDatabase.find).mockResolvedValue([{ databaseName: "report_dev", serverId, link: { resourceId, environmentId: development } }] as never)
+        vi.spyOn(MongoServer, "find").mockResolvedValue([{ _id: serverId, provider: "MONGODB", connection: { connectionString: "mongodb://root:pw@db/admin" } }] as never)
+        write = vi.spyOn(Resource, "findOneAndUpdate").mockResolvedValue(resource as never) as unknown as ReturnType<typeof vi.fn>
+    })
+
+    const update = (changes: object) => new ResourceService().update(String(resourceId), changes)
+    const sentBack = { connectionString: { value: SECRET_PLACEHOLDER, overrides: [{ environmentId: development, value: SECRET_PLACEHOLDER }] } }
+
+    it("given another variant, when it is updated, then it is refused naming the database and nothing is written", async () => {
+        await expect(update({ variant: "credentials", fields: { host: { value: "db" }, port: { value: "27017" }, database: { value: "x" }, username: { value: "u" } } })).rejects.toMatchObject({
+            code: "RESOURCE_LINKED_TO_PROVISIONED_DATABASE",
+            statusCode: 409,
+            details: { provisionedDatabases: ["report_dev"] }
+        })
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a database name typed for the environment the database feeds, when it is updated, then it is refused", async () => {
+        await expect(update({ fields: { ...sentBack, database: { value: "report", overrides: [{ environmentId: development, value: "other" }] } } })).rejects.toMatchObject({
+            code: "RESOURCE_LINKED_TO_PROVISIONED_DATABASE"
+        })
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given the override of that environment taken away, when it is updated, then it is refused", async () => {
+        await expect(update({ fields: { connectionString: { value: SECRET_PLACEHOLDER } } })).rejects.toMatchObject({ code: "RESOURCE_LINKED_TO_PROVISIONED_DATABASE" })
+    })
+
+    it("given the form sent back as it was, with a new value in another environment, when it is updated, then it is written", async () => {
+        await update({
+            fields: {
+                ...sentBack,
+                database: {
+                    value: "report",
+                    overrides: [
+                        { environmentId: development, value: "report_dev" },
+                        { environmentId: production, value: "report_prod" }
+                    ]
+                }
+            }
+        })
+
+        expect(write).toHaveBeenCalled()
+        expect(write.mock.calls[0][1].$set.secrets[0].overrides).toEqual([{ environmentId: String(development), value: APP_URI }])
+    })
+
+    it("given only a description, when it is updated, then the databases are not even looked for", async () => {
+        vi.mocked(ProvisionedDatabase.find).mockClear()
+
+        await update({ description: "Reports" })
+
+        expect(ProvisionedDatabase.find).not.toHaveBeenCalled()
+        expect(write).toHaveBeenCalled()
+    })
+})
+
+/**
+ * A link of a provisioned database written between the read of an update and its write: the update is
+ * written only if the resource is still as it was read, so it is built again and the guard sees the link.
+ */
+describe("ResourceService.update racing a link", () => {
+    const resourceId = new Types.ObjectId()
+    const serverId = new Types.ObjectId()
+    const APP_URI = "mongodb://report_dev:pw@db/report_dev?authSource=report_dev"
+    let current: Record<string, unknown>
+    let linkLanded: boolean
+
+    withArgoCdInitialized()
+
+    /** The link a provisioned database writes in development, while the update is on its way */
+    const land = () => {
+        linkLanded = true
+        current = {
+            ...current,
+            values: [{ field: "database", value: "report", overrides: [{ environmentId: development, value: "report_dev" }] }],
+            secrets: [{ field: "connectionString", value: "mongodb://shared", overrides: [{ environmentId: development, value: APP_URI }] }],
+            updatedAt: new Date(2)
+        }
+        vi.mocked(ProvisionedDatabase.find).mockResolvedValue([{ databaseName: "report_dev", serverId, link: { resourceId, environmentId: development } }] as never)
+    }
+
+    beforeEach(() => {
+        allowAccess()
+        linkLanded = false
+        current = {
+            _id: resourceId,
+            projectId,
+            name: "report-steering",
+            type: "mongodb",
+            variant: "connectionString",
+            values: [{ field: "database", value: "report", overrides: [] }],
+            secrets: [{ field: "connectionString", value: "mongodb://shared", overrides: [] }],
+            updatedAt: new Date(1)
+        }
+        vi.spyOn(Resource, "findById").mockImplementation((async () => ({ ...current })) as never)
+        vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
+        vi.spyOn(MongoServer, "find").mockResolvedValue([{ _id: serverId, provider: "MONGODB", connection: { connectionString: "mongodb://root:pw@db/admin" } }] as never)
+        vi.spyOn(Resource, "findOneAndUpdate").mockImplementation((async (filter: { updatedAt: Date }, update: { $set: Record<string, unknown> }) => {
+            if (!linkLanded) land()
+            if (filter.updatedAt.getTime() !== (current.updatedAt as Date).getTime()) return null
+            current = { ...current, ...update.$set, updatedAt: new Date(3) }
+            return current
+        }) as never)
+    })
+
+    /** Built from the read made before the link, the whole list of credentials would go back without the URI the link wrote */
+    it("given an update of the database names racing a link, when it is written, then it is built again on the link and does not wipe its connection string", async () => {
+        await new ResourceService().update(String(resourceId), {
+            fields: {
+                database: {
+                    value: "report",
+                    overrides: [
+                        { environmentId: development, value: "report_dev" },
+                        { environmentId: production, value: "report_prod" }
+                    ]
+                }
+            }
+        })
+
+        expect(Resource.findOneAndUpdate).toHaveBeenCalledTimes(2)
+        expect((current.secrets as Array<{ overrides: unknown[] }>)[0].overrides).toEqual([{ environmentId: String(development), value: APP_URI }])
+        expect((current.values as Array<{ overrides: unknown[] }>)[0].overrides).toHaveLength(2)
+    })
+
+    it("given an update of the environment a link lands in meanwhile, when it is tried again, then the guard sees the link and refuses it", async () => {
+        await expect(
+            new ResourceService().update(String(resourceId), {
+                fields: { connectionString: { value: SECRET_PLACEHOLDER }, database: { value: "report", overrides: [{ environmentId: development, value: "mine" }] } }
+            })
+        ).rejects.toMatchObject({ code: "RESOURCE_LINKED_TO_PROVISIONED_DATABASE" })
+        expect((current.values as Array<{ overrides: unknown[] }>)[0].overrides).toEqual([{ environmentId: development, value: "report_dev" }])
+    })
+
+    it("given a resource that never stops changing, when it is updated, then it gives up with a refusal", async () => {
+        vi.mocked(Resource.findOneAndUpdate).mockResolvedValue(null as never)
+
+        await expect(new ResourceService().update(String(resourceId), { description: "x" })).rejects.toMatchObject({ code: "RESOURCE_CHANGED_MEANWHILE", statusCode: 409 })
+        expect(Resource.findOneAndUpdate).toHaveBeenCalledTimes(5)
     })
 })

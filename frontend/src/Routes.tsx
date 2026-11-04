@@ -48,6 +48,8 @@ const Storages = lazy(() => import("./pages/storages/Storages"))
 const AddStorage = lazy(() => import("./pages/storages/AddStorage"))
 const Databases = lazy(() => import("./pages/databases/Databases"))
 const AddDatabase = lazy(() => import("./pages/databases/AddDatabase"))
+const MongoServers = lazy(() => import("./pages/mongo-servers/MongoServers"))
+const AddMongoServer = lazy(() => import("./pages/mongo-servers/AddMongoServer"))
 const McpClients = lazy(() => import("./pages/mcp-clients/McpClients"))
 const OAuthConsent = lazy(() => import("./pages/oauth/OAuthConsent"))
 const OAuthError = lazy(() => import("./pages/oauth/OAuthError"))
@@ -180,6 +182,9 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/databases" element={<RouteWithSuspense element={<Databases />} />} />
                 <Route path="/databases/new" element={<RouteWithSuspense element={<AddDatabase />} />} />
                 <Route path="/databases/:id" element={<RouteWithSuspense element={<AddDatabase />} />} />
+                <Route path="/mongo-servers" element={<RouteWithSuspense element={<MongoServers />} />} />
+                <Route path="/mongo-servers/new" element={<RouteWithSuspense element={<AddMongoServer />} />} />
+                <Route path="/mongo-servers/:id" element={<RouteWithSuspense element={<AddMongoServer />} />} />
                 <Route path="/api-keys" element={<RouteWithSuspense element={<ApiKeys />} />} />
                 <Route path="/mcp-clients" element={<RouteWithSuspense element={<McpClients />} />} />
                 <Route path="/settings" element={<RouteWithSuspense element={<Settings />} />} />

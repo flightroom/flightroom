@@ -209,5 +209,17 @@ resourceSchema.set("toJSON", {
     }
 })
 
+/**
+ * A write built from a read of the resource (the whole lists of values and credentials, $set as one: the
+ * encryption only covers $set) is made only if nobody wrote the resource in between, so that nothing written
+ * meanwhile is lost. updatedAt is the version: every write moves it. On no match the writer reads again,
+ * rebuilds from what it finds, and tries again, at most this many times.
+ */
+export const RESOURCE_WRITE_ATTEMPTS = 5
+
+/** The filter of such a write: the resource, as it was when it was read */
+export const unchangedSince = (resource: { _id: unknown; updatedAt?: Date }): mongoose.QueryFilter<IResource> =>
+    ({ _id: resource._id, updatedAt: resource.updatedAt ?? { $exists: false } }) as mongoose.QueryFilter<IResource>
+
 const Resource = mongoose.model<IResource>("Resource", resourceSchema)
 export default Resource

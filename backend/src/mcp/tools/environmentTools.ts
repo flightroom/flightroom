@@ -5,11 +5,14 @@ import DeploymentService from "../../service/DeploymentService"
 import EnvironmentPromotionService, { PROMOTION_KINDS } from "../../service/EnvironmentPromotionService"
 import EnvironmentReplicasService from "../../service/EnvironmentReplicasService"
 import EnvironmentService from "../../service/EnvironmentService"
+import { ENVIRONMENT_RELEASE_CHOICES } from "../../service/ProvisionedDatabaseService"
 import { MAX_REPLICAS } from "../../types/ContainerResources"
 import { EnvironmentDTO } from "../../types/EnvironmentDTO"
 import { IP_ALLOW_LIST_MAX, isIpRange, SUBDOMAIN } from "../../types/Exposure"
 import { isTimeZone } from "../../types/KubeGreen"
+import { reachesServers } from "../../types/MongoServerDTO"
 import { LOG_LEVELS } from "../../types/RuntimeVariables"
+import { takeExternalCall } from "../../utils/externalCallLimiter"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
 
@@ -125,12 +128,19 @@ export const environmentTools = [
     defineTool({
         name: "environment_delete",
         title: "Delete environment",
-        description: "Deletes an environment together with its deployments, canary enrolments and global variable values.",
+        description:
+            'Deletes an environment together with its deployments, canary enrolments and global variable values. When databases created on a MongoDB server feed a resource there, it is refused naming them unless provisionedDatabases says what becomes of all of them: "unlink" keeps them, "record" forgets them in Flightroom, "user" also deletes their users, "drop" also deletes the databases with all their data and requires confirmName equal to the environment name.',
         scope: MCP_SCOPE_WRITE,
         annotations: DESTRUCTIVE,
-        inputSchema: z.object({ environmentId }),
+        inputSchema: z.object({
+            environmentId,
+            provisionedDatabases: z.enum(ENVIRONMENT_RELEASE_CHOICES).optional().describe("What becomes of the provisioned databases linked in the environment"),
+            confirmName: z.string().optional().describe('The name of the environment typed again, required by provisionedDatabases "drop"')
+        }),
         run: async (args, { principal }) => {
-            await new EnvironmentService(principal).deleteSingle(args.environmentId)
+            // Only removing the users or the data of the provisioned databases reaches their servers
+            if (reachesServers(args.provisionedDatabases)) takeExternalCall(String(principal._id))
+            await new EnvironmentService(principal).deleteSingle(args.environmentId, args.provisionedDatabases, args.confirmName)
             return { deleted: true }
         }
     }),

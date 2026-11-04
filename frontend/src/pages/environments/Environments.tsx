@@ -8,6 +8,7 @@ import { Badge, Button } from "@/components/atoms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
 import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS } from "@/hooks/apiClients/useEnvironmentsApi"
+import useMongoServersApi, { EnvironmentDatabasesChoice } from "@/hooks/apiClients/useMongoServersApi"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useDragAndDropOrder from "@/hooks/useDragAndDropOrder"
 import useProjectStore from "@/store/useProjectStore"
@@ -15,6 +16,8 @@ import useToastNotificationStore from "@/store/useToastNotificationStore"
 import EnvironmentsGate from "@/theme/EnvironmentsGate"
 import { getRandomColor } from "@/utils/StringUtils"
 import { cn } from "@/utils/styleUtils"
+import { useResourcesQuery } from "../resources/partials/resources"
+import EnvironmentDeleteWithDatabasesDialog from "./partials/EnvironmentDeleteWithDatabasesDialog"
 import EnvironmentEditor, { EnvironmentFormData, TAB_PARAM } from "./partials/EnvironmentEditor"
 
 /** Selezione della tessera "nuovo ambiente": l'editor si apre vuoto */
@@ -69,6 +72,20 @@ export default function EnvironmentsPage() {
     }, [environmentQuery.data])
 
     const selected = orderedEnvironments.find(env => env.slug === selectedSlug) ?? (selectedSlug === NEW ? undefined : orderedEnvironments[0])
+
+    // I database creati su un server MongoDB che alimentano una risorsa nell'ambiente: eliminandolo si chiede cosa farne
+    const mongoServersApi = useMongoServersApi()
+    const provisionedQuery = useQuery({ queryKey: ["provisioned-databases", project?._id], queryFn: mongoServersApi.getAllDatabases, enabled: Boolean(project?._id) })
+    const serversQuery = useQuery({ queryKey: ["mongo-servers", project?._id], queryFn: mongoServersApi.getAll, enabled: Boolean(provisionedQuery.data?.length) })
+    const resourcesQuery = useResourcesQuery(Boolean(provisionedQuery.data?.length))
+    const linkedDatabases = (provisionedQuery.data ?? [])
+        .filter(database => selected?._id && database.link?.environmentId === selected._id)
+        .map(database => ({
+            id: database._id,
+            databaseName: database.databaseName,
+            server: serversQuery.data?.find(server => server._id === database.serverId)?.name,
+            resource: resourcesQuery.data?.find(resource => resource._id === database.link?.resourceId)?.name
+        }))
     const isCreating = selected === undefined && selectedSlug === NEW
     const canReorder = orderedEnvironments.length > 1
 
@@ -151,10 +168,16 @@ export default function EnvironmentsPage() {
         setPendingSelection(undefined)
     }
 
-    const handleDelete = async () => {
+    const handleDelete = async (provisionedDatabases?: EnvironmentDatabasesChoice, confirmName?: string) => {
         if (!selected?._id) return
 
-        await deleteEnvironment(selected._id)
+        try {
+            await deleteEnvironment(selected._id, provisionedDatabases && { provisionedDatabases, confirmName })
+        } finally {
+            // Sempre: dopo uno stop a meta' i database gia' trattati non sono piu' collegati, e dopo un rifiuto perche'
+            // ce ne sono (collegati intanto da qualcun altro) la rilettura fa comparire il dialog che chiede cosa farne
+            await queryClient.invalidateQueries({ queryKey: ["provisioned-databases"] })
+        }
         // Chiuso qui: il dialog resterebbe aperto sull'ambiente selezionato dopo, che potrebbe essere di produzione
         setIsDeleteDialogOpen(false)
         await environmentQuery.refetch()
@@ -284,13 +307,16 @@ export default function EnvironmentsPage() {
                 </DialogContent>
             </Dialog>
 
-            {selected?.isProduction ? (
+            {selected && linkedDatabases.length > 0 ? (
+                // Dei database creati alimentano una risorsa nell'ambiente: si sceglie cosa farne prima di eliminarlo
+                <EnvironmentDeleteWithDatabasesDialog open={isDeleteDialogOpen} onOpenChange={setIsDeleteDialogOpen} environment={selected} databases={linkedDatabases} onDelete={handleDelete} />
+            ) : selected?.isProduction ? (
                 // Un ambiente di produzione serve utenti veri: per eliminarlo si ridigita il nome
                 <ConfirmByTypingDialog
                     open={isDeleteDialogOpen}
                     onOpenChange={setIsDeleteDialogOpen}
                     expectedText={selected.name}
-                    onConfirm={handleDelete}
+                    onConfirm={() => handleDelete()}
                     title={t("environment.page.delete.title")}
                     warningTitle={t("environment.page.delete.production_warning")}
                     warningDescription={t("environment.page.delete.confirmation", { name: selected.name })}
@@ -305,7 +331,7 @@ export default function EnvironmentsPage() {
                 <DeleteConfirmationDialog
                     isOpen={isDeleteDialogOpen}
                     onOpenChange={setIsDeleteDialogOpen}
-                    onDelete={handleDelete}
+                    onDelete={() => handleDelete()}
                     title={t("environment.page.delete.title")}
                     description={t("environment.page.delete.confirmation", {
                         name: selected?.name || ""

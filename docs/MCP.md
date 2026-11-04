@@ -227,11 +227,49 @@ lacks: it defines its own variables in `customFields` (`[{ name, secret }]`, at 
   merges by field: a field left out keeps its value, one sent as `null` is unset. **A credential field is
   refused** ("Secret fields of a resource are set from the console"): it is typed in the console only. Changing
   the variant or where a resource connects keeps its stored credentials. `resource_delete` is destructive
-  and refused while a backend attaches the resource.
+  and refused while a backend attaches the resource, or a provisioned database feeds it.
 - `backend_create` and `backend_update` take `resourceIds` (at most 50, replaced as a whole); a variable
   of a resource clashing with one of the config maps, secrets or other resources of the backend is refused.
 - `domain_get` adds `resources`: the resources the backends of the domain attach, each with its `env`
   keys and `usedBy`, the slugs of those backends (left out when none attaches one).
+
+## MongoDB servers and provisioned databases
+
+A project registers MongoDB servers (self-hosted, `MONGODB`, through the driver; an Atlas project and cluster,
+`ATLAS`, through the Atlas Admin API with a service account; or an Azure Cosmos DB for MongoDB (RU) account,
+`COSMOS_MONGO_RU`, through Azure Resource Manager with an Entra service principal holding DocumentDB Account
+Contributor, on an account with `EnableMongoRoleBasedAccessControl`) with credentials allowed to create users, and
+creates databases on them. Each database gets a user of the same name with `readWrite` and `dbAdmin` on it only, and a
+generated password that no answer of the API or of a tool ever carries. A user of that name already on the server is
+refused (`PROVISIONED_DATABASE_USER_EXISTS`), never taken over, and so is a database of that name
+(`PROVISIONED_DATABASE_EXISTS`): on Atlas, whose Admin API cannot tell, the new user looks at it and is deleted
+again when it holds collections. That look, and a drop, go through the driver: the backend needs to reach the
+cluster (its egress IP address in the IP Access List of the Atlas project, `PROVISIONED_DATABASE_CLUSTER_UNREACHABLE`
+otherwise), which `mongo_server_test` does not try, as it only calls the Admin API. A user Flightroom created and
+could not remove again after a failure is never forgotten: its database is kept with `status: "cleanupRequired"`
+and a `cleanupReason`, cannot be linked or dropped, and is removed with mode `user` (which tries again) or `record`.
+A removal that stopped half way remembers what it did on the server (`removedFromServer`), so a retry skips it. While a server has databases, its provider and its
+address (hosts, Atlas project and cluster, Cosmos DB account) do not change; its credentials do. Linked to a `mongodb` resource of variant
+`connectionString` in one environment, it sets the `connectionString` and `database` of the resource there.
+
+- `mongo_servers_list` and `mongo_server_get` (`mfe:read`) return the servers, credentials masked. Registering or
+  editing a server is left to the console: its input is a super-admin credential. `mongo_server_test` (`mfe:write`,
+  as `database_test`) checks that a saved server answers with its stored credentials.
+- `provisioned_databases_list` (optionally by `serverId`) and `provisioned_database_get` (`mfe:read`) return the
+  databases with their user and their `link` (`resourceId`, `environmentId`).
+- `provisioned_database_create` (`mfe:write`) creates a database and its user, linked at once when `link` is given.
+- `provisioned_database_link` and `provisioned_database_unlink` (`mfe:write`) make a database feed a resource in an
+  environment, or stop it: a second database for the same environment of a resource is refused, and so is a resource
+  of another variant (`RESOURCE_VARIANT_NOT_SUPPORTED`): its variant is not switched for the user.
+- While a database feeds a resource in an environment, `resource_update` refuses a change of variant and a value
+  of `connectionString` or `database` in that environment (`RESOURCE_LINKED_TO_PROVISIONED_DATABASE`).
+- `environment_delete` is refused (`ENVIRONMENT_HAS_PROVISIONED_DATABASES`, naming them) while databases feed a
+  resource in the environment, unless `provisionedDatabases` says what becomes of all of them: `unlink`, `record`,
+  `user`, or `drop` with `confirmName` equal to the environment name. They are dealt with one at a time before the
+  environment goes; the first failure stops there, the environment stays, and the refusal names those already done.
+- `provisioned_database_delete` is destructive and refused while the database is linked. `mode` says what goes with
+  the record: `record` nothing else, `user` its user on the server, `drop` its user and the database with all its data,
+  which requires `confirmName` equal to its `databaseName`.
 
 ## Several projects in one connection
 
@@ -263,7 +301,7 @@ projects: there is no user to own them.
   organization, project).
 
 Left out on purpose: API keys, creating or editing
-storages, databases and repository connections, creating or updating the value of a secret, the credentials of a resource (their input is a secret), deleting projects, organizations,
+storages, databases, MongoDB servers and repository connections, creating or updating the value of a secret, the credentials of a resource (their input is a secret), deleting projects, organizations,
 members, invitations, the user profile, bundle upload, the canvas layout, bulk deletes and AI code changes (the `ai_*` tools
 are console only: a client uses `repository_checkout_get` and `code_change_submit` instead).
 

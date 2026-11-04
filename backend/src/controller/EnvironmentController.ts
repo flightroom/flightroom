@@ -1,10 +1,12 @@
-import { FastifyInstance } from "fastify"
+import { FastifyInstance, FastifyRequest } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import DeploymentService from "../service/DeploymentService"
 import EnvironmentPromotionService, { PromotionRequest } from "../service/EnvironmentPromotionService"
 import EnvironmentReplicasService from "../service/EnvironmentReplicasService"
 import EnvironmentService from "../service/EnvironmentService"
 import { EnvironmentDTO, EnvironmentOrderDTO } from "../types/EnvironmentDTO"
+import { reachesServers } from "../types/MongoServerDTO"
+import { CONNECTION_TEST_ROUTE_CONFIG } from "../utils/connectionTest"
 import { getProjectIdFromRequest } from "../utils/requestUtils"
 
 export default async function environmentController(fastify: FastifyInstance) {
@@ -84,8 +86,19 @@ export default async function environmentController(fastify: FastifyInstance) {
         return reply.send(environment)
     })
 
-    fastify.delete<{ Params: { id: string } }>("/environments/:id", async (request, reply) => {
-        await new EnvironmentService(request.databaseUser).deleteSingle(request.params.id)
+    // What becomes of the provisioned databases linked there, and the name typed again for a drop, in the query: a DELETE carries no body through every proxy
+    // Only a delete choosing to remove the users (or the data) of its provisioned databases reaches their servers: that one shares the budget of the connection tests
+    const externalWhenChosen = {
+        config: {
+            ...CONNECTION_TEST_ROUTE_CONFIG,
+            rateLimit: {
+                ...CONNECTION_TEST_ROUTE_CONFIG.rateLimit,
+                allowList: (request: FastifyRequest) => !reachesServers((request.query as { provisionedDatabases?: string })?.provisionedDatabases)
+            }
+        }
+    }
+    fastify.delete<{ Params: { id: string }; Querystring: { provisionedDatabases?: string; confirmName?: string } }>("/environments/:id", externalWhenChosen, async (request, reply) => {
+        await new EnvironmentService(request.databaseUser).deleteSingle(request.params.id, request.query.provisionedDatabases, request.query.confirmName)
         return reply.send()
     })
 

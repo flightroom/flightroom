@@ -9,7 +9,9 @@ import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import MongoServer from "../models/MongoServerModel"
 import Project from "../models/ProjectModel"
+import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
 import Storage from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
@@ -18,7 +20,7 @@ import { resetSecretEncryptionKeyCache } from "./secretCrypto"
 
 const logger = { info: vi.fn(), error: vi.fn() } as never
 
-const MODELS = [Storage, CodeRepository, Database, Project, AiModel, Deployment, Secret, Resource]
+const MODELS = [Storage, CodeRepository, Database, MongoServer, ProvisionedDatabase, Project, AiModel, Deployment, Secret, Resource]
 
 /** Every model answering no document, but `model`, answering `documents` */
 const holding = (model: unknown, documents: object[]) => {

@@ -423,7 +423,7 @@ describe("AssistantToolRunner.runConfirmed", () => {
 
         const outcome = await runnerFor().runConfirmed(action, true, events)
 
-        expect(deleteEnvironment).toHaveBeenCalledWith(ENVIRONMENT)
+        expect(deleteEnvironment).toHaveBeenCalledWith(ENVIRONMENT, undefined, undefined)
         expect(outcome.wrote).toBe(true)
         expect(outcome.result).toEqual({ callId: "c1", name: "environment_delete", content: expect.stringContaining("Done: <console_data") })
         expect(outcome.result?.content).toContain('{"deleted":true}')

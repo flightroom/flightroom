@@ -115,6 +115,8 @@ const ERROR_KEYS: Record<string, string> = {
     RESOURCE_CUSTOM_FIELDS_INVALID: "resources.errors.custom_fields_invalid",
     RESOURCE_API_SPEC_INVALID: "resources.errors.api_spec_invalid",
     RESOURCE_IN_USE: "resources.errors.in_use",
+    RESOURCE_LINKED_TO_PROVISIONED_DATABASE: "resources.errors.linked_to_provisioned",
+    RESOURCE_CHANGED_MEANWHILE: "resources.errors.changed_meanwhile",
     BACKEND_RESOURCE_UNKNOWN: "resources.errors.resource_unknown",
     BACKEND_RESOURCES_INVALID: "resources.errors.resources_invalid"
 }
@@ -130,8 +132,12 @@ export const useResourceErrorMessage = () => {
     return (error: Error): string | undefined => {
         const key = ERROR_KEYS[errorCodeOf(error) ?? ""]
         if (!key) return variableMapErrorMessage(error)
-        const details: { backends?: string[]; secrets?: string[] } = (error as AxiosError<{ error?: { details?: { backends?: string[]; secrets?: string[] } } }>)?.response?.data?.error?.details ?? {}
+        const details: { backends?: string[]; secrets?: string[]; provisionedDatabases?: string[] } =
+            (error as AxiosError<{ error?: { details?: { backends?: string[]; secrets?: string[]; provisionedDatabases?: string[] } } }>)?.response?.data?.error?.details ?? {}
+        // The same refusal when a database created on a MongoDB server feeds the resource: it names the databases instead
+        if (key === "resources.errors.in_use" && details.provisionedDatabases) return t("resources.errors.in_use_provisioned", { databases: details.provisionedDatabases.join(", ") })
         return t(key, {
+            databases: details.provisionedDatabases?.join(", "),
             backends: details.backends?.join(", "),
             secrets: details.secrets?.map(field => t(`resources.fields.${field}`, { defaultValue: field })).join(", ")
         })

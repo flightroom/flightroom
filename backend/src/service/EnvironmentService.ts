@@ -16,6 +16,7 @@ import { isLogLevel, LOG_LEVELS } from "../types/RuntimeVariables"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import BaseAuthorizedService from "./BaseAuthorizedService"
+import ProvisionedDatabaseService, { ENVIRONMENT_RELEASE_CHOICES, EnvironmentReleaseChoice } from "./ProvisionedDatabaseService"
 
 /**
  * The allow list as it is saved: trimmed, without blanks or repeats. Refused before it reaches the Gateway: Traefik
@@ -254,10 +255,39 @@ class EnvironmentService extends BaseAuthorizedService {
         return Environment.deleteMany({ _id: { $in: environmentIds } }, { session })
     }
 
-    async deleteSingle(environmentId: string | ObjectId) {
+    /**
+     * A database created on a MongoDB server feeding a resource in the environment is not let go of
+     * silently: the caller says what becomes of all of them (`provisionedDatabases`), or the delete is
+     * refused naming them. They are dealt with before the environment goes, and a failure on one of them
+     * leaves the environment where it is. A drop is confirmed with the name of the environment.
+     */
+    async deleteSingle(environmentId: string | ObjectId, provisionedDatabases?: unknown, confirmName?: unknown) {
         await this.ensureAccessToEnvironment(environmentId)
         await this.ensureWholeProjectOfEnvironment(environmentId)
         const environmentIdObj = toObjectId(environmentId)
+
+        const provisioned = new ProvisionedDatabaseService(this.user)
+        const linked = await provisioned.linkedTo([environmentIdObj])
+        if (linked.length > 0) {
+            if (provisionedDatabases === undefined || provisionedDatabases === null || provisionedDatabases === "") {
+                throw createBusinessException({
+                    code: "ENVIRONMENT_HAS_PROVISIONED_DATABASES",
+                    message: `${linked.map(database => database.databaseName).join(", ")} feed a resource in this environment: say what becomes of them (${ENVIRONMENT_RELEASE_CHOICES.join(", ")})`,
+                    statusCode: 409,
+                    details: { provisionedDatabases: await provisioned.summaryOf(linked) }
+                })
+            }
+            if (!ENVIRONMENT_RELEASE_CHOICES.includes(provisionedDatabases as EnvironmentReleaseChoice)) {
+                throw createBusinessException({ code: "ENVIRONMENT_PROVISIONED_DATABASES_CHOICE_INVALID", message: `provisionedDatabases must be one of ${ENVIRONMENT_RELEASE_CHOICES.join(", ")}` })
+            }
+            if (provisionedDatabases === "drop") {
+                const environment = await Environment.findOne({ _id: environmentIdObj }, { name: 1 })
+                if (!environment || confirmName !== environment.name) {
+                    throw createBusinessException({ code: "ENVIRONMENT_DROP_CONFIRMATION_MISMATCH", message: "Type the name of the environment to confirm that the data of its databases is deleted" })
+                }
+            }
+            await provisioned.releaseEnvironment(linked, provisionedDatabases as EnvironmentReleaseChoice)
+        }
 
         await runInTransaction(async session => {
             const environment = await Environment.findById(environmentIdObj).session(session ?? null)
@@ -282,6 +312,17 @@ class EnvironmentService extends BaseAuthorizedService {
                 return toObjectId(id)
             })
         )
+        // A bulk delete takes no choice for them: those environments are deleted one at a time
+        const provisioned = new ProvisionedDatabaseService(this.user)
+        const linked = await provisioned.linkedTo(idsObj)
+        if (linked.length > 0) {
+            throw createBusinessException({
+                code: "ENVIRONMENT_HAS_PROVISIONED_DATABASES",
+                message: `${linked.map(database => database.databaseName).join(", ")} feed a resource in these environments: delete those environments one at a time`,
+                statusCode: 409,
+                details: { provisionedDatabases: await provisioned.summaryOf(linked) }
+            })
+        }
 
         return runInTransaction(session => this.deleteWithContents(idsObj, session))
     }
