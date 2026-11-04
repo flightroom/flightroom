@@ -16,7 +16,7 @@ import { VARIABLE_MAP_KINDS } from "@/pages/variable-maps/partials/variableMaps"
 import { FIT_MS, FIT_PADDING, GALAXY_HIT_REACH, MAX_GALAXY_ZOOM, RELATION_HIT } from "./domain-galaxy/constants"
 import GalaxyBodyLists from "./domain-galaxy/GalaxyBodyLists"
 import GalaxyFullscreenButton from "./domain-galaxy/GalaxyFullscreenButton"
-import GalaxyLegend from "./domain-galaxy/GalaxyLegend"
+import GalaxyLegend, { useLegendShown } from "./domain-galaxy/GalaxyLegend"
 import GalaxyTooltip from "./domain-galaxy/GalaxyTooltip"
 import { bodyPoint, distanceToSegment, bodyAt as findBodyAt } from "./domain-galaxy/hitTest"
 import { paintSky, startFrame } from "./domain-galaxy/paintSky"
@@ -74,6 +74,7 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
     const [linking, setLinking] = useState(false)
     const [linkSourceId, setLinkSourceId] = useState<string | null>(null)
     const [selectedLinkId, setSelectedLinkId] = useState<string | null>(null)
+    const [legendShown, toggleLegend] = useLegendShown()
     const pointerRef = useRef<Point | null>(null)
     // The world the force-graph has under the pointer, also while a moon or a ship takes the hover from it.
     const worldUnderPointerRef = useRef<StarNode | null>(null)
@@ -331,6 +332,11 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
             style={{ backgroundColor: sky.space }}
             onMouseLeave={() => setHovered(null)}
             onMouseMove={onMouseMove}
+            // A right click shows or hides the legend, in place of the menu of the browser
+            onContextMenu={event => {
+                event.preventDefault()
+                toggleLegend()
+            }}
         >
             <p className="sr-only">
                 {isBackend ? t("domains.galaxy.summary_backend") : t("domains.galaxy.summary", { count: graphData.links.filter(link => link.bridge).length })}
@@ -373,15 +379,17 @@ const DomainGalaxy: React.FC<DomainGalaxyProps> = ({ domains, frontends = NO_FRO
             )}
 
             {/* Without the tool to draw them, the relations are in the legend only when there are some */}
-            <GalaxyLegend
-                isBackend={isBackend}
-                moons={moons.length > 0}
-                configMaps={comets.some(comet => comet.kind === "configMap")}
-                secrets={comets.some(comet => comet.kind === "secret")}
-                relations={Boolean(onLink) || links.length > 0}
-                stations={stations.length > 0}
-                ships={ships.length > 0}
-            />
+            {legendShown && (
+                <GalaxyLegend
+                    isBackend={isBackend}
+                    moons={moons.length > 0}
+                    configMaps={comets.some(comet => comet.kind === "configMap")}
+                    secrets={comets.some(comet => comet.kind === "secret")}
+                    relations={Boolean(onLink) || links.length > 0}
+                    stations={stations.length > 0}
+                    ships={ships.length > 0}
+                />
+            )}
             <div className="absolute top-3 right-3 flex items-center gap-2">
                 {onLink && (
                     <Button

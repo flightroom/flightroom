@@ -1,4 +1,27 @@
+import { useState } from "react"
 import { useTranslation } from "react-i18next"
+
+const LEGEND_KEY = "flightroom.galaxy.legend"
+
+/** Whether the legend is shown, and its toggle: a right click on the map. The choice is remembered across visits. */
+export const useLegendShown = () => {
+    const [shown, setShown] = useState(() => {
+        try {
+            return localStorage.getItem(LEGEND_KEY) !== "hidden"
+        } catch {
+            return true
+        }
+    })
+    const toggle = () => {
+        setShown(!shown)
+        try {
+            localStorage.setItem(LEGEND_KEY, shown ? "hidden" : "shown")
+        } catch {
+            // Storage blocked: the choice lasts as long as the page
+        }
+    }
+    return [shown, toggle] as const
+}
 
 interface GalaxyLegendProps {
     isBackend: boolean
