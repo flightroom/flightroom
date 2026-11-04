@@ -108,6 +108,14 @@ export const CodeRepositorySection: React.FC<CodeRepositorySectionProps> = ({ re
         fetchRepository()
     }, [selectedCodeRepositoryId, codeRepositoryEnabled, forceCreation])
 
+    // What to create counts only while its fields are shown. Left behind, by a repository picked after "create new" or by
+    // the section switched off, the schema still wanted its name: the save stopped on an error no field displays
+    const creatingRepository = codeRepositoryEnabled && (selectedRepositoryId === "create_new" || forceCreation)
+    // biome-ignore lint/correctness/useExhaustiveDependencies: setValue is stable; only the shown fields matter
+    useEffect(() => {
+        if (!creatingRepository) setValue("codeRepository.createData", undefined)
+    }, [creatingRepository])
+
     // Prefill the clone urls with the ones exposed by the provider for the selected repository
     const onRepositorySelected = (repositoryName: string) => {
         if (repositoryName === "create_new") {
