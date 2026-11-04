@@ -306,8 +306,15 @@ describe("the generic type", () => {
         expect(resourceEnvKeys({ name: "billing", type: "generic", variant: "custom" })).toEqual([])
     })
 
-    it("given custom fields on another type, when its variant is read, then they are ignored", () => {
-        expect(resourceVariant("redis", "connectionString", customFields)).toBe(RESOURCE_CATALOG.redis.variants[1])
+    it("given custom fields on another type, when its variant is read, then they follow the fields of the variant, optional", () => {
+        const variant = RESOURCE_CATALOG.redis.variants[1]
+        const read = resourceVariant("redis", "connectionString", customFields)
+
+        expect(read?.fields.slice(0, variant.fields.length)).toEqual(variant.fields)
+        expect(read?.fields.slice(variant.fields.length)).toEqual([
+            expect.objectContaining({ name: "BASE_URL", envSuffix: "BASE_URL", secret: false, required: false }),
+            expect.objectContaining({ name: "TOKEN", envSuffix: "TOKEN", secret: true, required: false })
+        ])
     })
 
     it("given stored values, when the variables of an environment are derived, then the override wins and a credential is read as any other", () => {
