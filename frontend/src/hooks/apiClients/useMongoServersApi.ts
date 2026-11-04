@@ -94,6 +94,7 @@ const ERROR_KEYS: Record<string, string> = {
     PROVISIONED_DATABASE_USER_LEFT_ON_SERVER: "mongoServers.databases.errors.user_left_on_server",
     PROVISIONED_DATABASE_CLUSTER_UNREACHABLE: "mongoServers.databases.errors.cluster_unreachable",
     PROVISIONED_DATABASE_USER_ALREADY_REMOVED: "mongoServers.databases.errors.user_already_removed",
+    PROVISIONED_DATABASE_PARTLY_REMOVED: "mongoServers.databases.errors.partly_removed",
     RESOURCE_CHANGED_MEANWHILE: "mongoServers.databases.errors.resource_changed",
     EXTERNAL_CALLS_RATE_LIMITED: "mongoServers.errors.rate_limited",
     PROVISIONED_DATABASE_EXISTS: "mongoServers.databases.errors.exists",

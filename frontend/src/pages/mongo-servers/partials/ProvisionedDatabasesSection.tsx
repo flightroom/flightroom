@@ -406,6 +406,12 @@ export const ProvisionedDatabasesSection: React.FC<{ server: MongoServer }> = ({
                                                     {t("mongoServers.databases.cleanupRequired")}
                                                 </Badge>
                                             </span>
+                                        ) : database.removedFromServer ? (
+                                            // Una rimozione fermata a meta': si finisce di rimuovere, non si collega
+                                            <Badge variant="warning" dataTestId={`provisioned-database-partly-removed-${database.databaseName}`}>
+                                                <TriangleAlert className="size-3" aria-hidden="true" />
+                                                {t(`mongoServers.databases.partlyRemoved.${database.removedFromServer}`)}
+                                            </Badge>
                                         ) : database.link ? (
                                             <Badge variant="outline">{linkLabel(database)}</Badge>
                                         ) : (
@@ -433,7 +439,7 @@ export const ProvisionedDatabasesSection: React.FC<{ server: MongoServer }> = ({
                                                         type="button"
                                                         variant="ghost"
                                                         size="icon"
-                                                        disabled={database.status === "cleanupRequired"}
+                                                        disabled={database.status === "cleanupRequired" || Boolean(database.removedFromServer)}
                                                         aria-label={t("mongoServers.databases.linkTitle", { name: database.databaseName })}
                                                         title={t("mongoServers.databases.linkTitle", { name: database.databaseName })}
                                                         onClick={() => setLinking(database)}

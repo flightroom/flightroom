@@ -1744,12 +1744,17 @@
                 "user_left_on_server": "The create failed and the user {{username}} it made could not be removed from the server: it is still there, and the database stays listed until you remove it",
                 "cluster_unreachable": "The backend cannot reach the cluster through the driver: add the egress IP address of the Flightroom backend to the IP Access List of the Atlas project",
                 "user_already_removed": "The user of this database is already gone, and with it the way to drop its data: drop it by hand, then remove the database from Flightroom only",
-                "resource_changed": "The resource kept changing while it was written: try again"
+                "resource_changed": "The resource kept changing while it was written: try again",
+                "partly_removed": "This database was partly removed from the server: finish removing it rather than link it"
             },
             "linkIncomplete": "Choose both a resource and an environment, or neither",
             "cleanupRequired": "User left on the server",
             "cleanupRequiredDelete": "A failed create left the user {{username}} on the server. Its database may not be ours, so it cannot be dropped: remove the user, or the record only and the user by hand.",
-            "cleanupRequiredNotice": "Failed creates left these users on the server: {{users}}. Remove them with their user, or from Flightroom only and then by hand."
+            "cleanupRequiredNotice": "Failed creates left these users on the server: {{users}}. Remove them with their user, or from Flightroom only and then by hand.",
+            "partlyRemoved": {
+                "data": "Data removed, user left: finish the removal",
+                "user": "User removed: finish the removal"
+            }
         }
     },
     "database": {

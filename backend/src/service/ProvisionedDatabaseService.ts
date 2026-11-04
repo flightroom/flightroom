@@ -359,6 +359,15 @@ export class ProvisionedDatabaseService extends BaseAuthorizedService {
         // Writing a resource needs Argo CD, as ResourceService.update does
         await ensureArgoCdInitialized(database.projectId as unknown as Schema.Types.ObjectId)
         this.refuseCleanupRequired(database, "it cannot be linked")
+        // A removal that stopped half way left it without its data or its user: it is finished, not linked
+        if (database.removedFromServer) {
+            throw createBusinessException({
+                code: "PROVISIONED_DATABASE_PARTLY_REMOVED",
+                message: `${database.databaseName} was partly removed from the server (its ${database.removedFromServer === "data" ? "data" : "user"} is gone): finish removing it rather than link it`,
+                statusCode: 409,
+                details: { removedFromServer: database.removedFromServer }
+            })
+        }
         const link = database.link
         if (link?.resourceId && (String(link.resourceId) !== dto?.resourceId || String(link.environmentId) !== dto?.environmentId)) {
             throw createBusinessException({ code: "PROVISIONED_DATABASE_LINKED", message: `${database.databaseName} already feeds another resource or environment: unlink it first`, statusCode: 409 })

@@ -565,6 +565,20 @@ describe("a user left on the server", () => {
 })
 
 describe("a removal that stopped half way", () => {
+    withArgoCdInitialized()
+
+    it.each(["data", "user"] as const)("given a database whose %s is already gone, when it is linked, then it is refused and nothing is written", async removedFromServer => {
+        const document = database({ removedFromServer })
+        vi.spyOn(ProvisionedDatabase, "findById").mockResolvedValue(document as never)
+
+        await expect(new ProvisionedDatabaseService().link(String(document._id), { resourceId: String(resourceId), environmentId: String(development) })).rejects.toMatchObject({
+            code: "PROVISIONED_DATABASE_PARTLY_REMOVED",
+            statusCode: 409,
+            details: { removedFromServer }
+        })
+        expect(write).not.toHaveBeenCalled()
+    })
+
     /** The data is dropped as its user on MongoDB and Atlas: once the user is gone that cannot be done again */
     it("given a drop whose user removal failed, when it is tried again, then the data is not dropped twice and the user goes", async () => {
         const document = database()

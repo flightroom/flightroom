@@ -1764,12 +1764,17 @@
                 "user_left_on_server": "La creazione non e' riuscita e l'utente {{username}} che aveva creato non e' stato possibile toglierlo dal server: e' ancora li', e il database resta in elenco finche' non lo togli",
                 "cluster_unreachable": "Il backend non raggiunge il cluster con il driver: aggiungi l'indirizzo IP in uscita del backend di Flightroom alla IP Access List del progetto Atlas",
                 "user_already_removed": "L'utente di questo database non c'e' piu', e con lui il modo di eliminarne i dati: eliminali a mano, poi togli il database solo da Flightroom",
-                "resource_changed": "La risorsa e' cambiata piu' volte mentre veniva scritta: riprova"
+                "resource_changed": "La risorsa e' cambiata piu' volte mentre veniva scritta: riprova",
+                "partly_removed": "Questo database e' stato rimosso in parte dal server: finisci di rimuoverlo invece di collegarlo"
             },
             "linkIncomplete": "Scegli sia una risorsa sia un ambiente, oppure nessuno dei due",
             "cleanupRequired": "Utente rimasto sul server",
             "cleanupRequiredDelete": "Una creazione fallita ha lasciato l'utente {{username}} sul server. Il suo database potrebbe non essere nostro, quindi non si elimina: togli l'utente, oppure solo il record e l'utente a mano.",
-            "cleanupRequiredNotice": "Delle creazioni fallite hanno lasciato questi utenti sul server: {{users}}. Toglili con il loro utente, oppure solo da Flightroom e poi a mano."
+            "cleanupRequiredNotice": "Delle creazioni fallite hanno lasciato questi utenti sul server: {{users}}. Toglili con il loro utente, oppure solo da Flightroom e poi a mano.",
+            "partlyRemoved": {
+                "data": "Dati eliminati, utente rimasto: completa la rimozione",
+                "user": "Utente eliminato: completa la rimozione"
+            }
         }
     },
     "database": {

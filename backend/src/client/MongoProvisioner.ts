@@ -245,8 +245,11 @@ export const isUnknownOutcome = (error: unknown): boolean => {
     return typeof code !== "number" || UNKNOWN_OUTCOME_CODES.includes(code) || (error as { name?: string })?.name === "MongoWriteConcernError"
 }
 
-/** A failure to authenticate, as a user Atlas has not rolled out yet gets one: the server's 18, Atlas's 8000, or the words of either */
-const isAuthenticationFailure = (error: unknown): boolean => [18, 8000].includes(codeOf(error) as number) || /authentication failed|bad auth/i.test((error as { message?: string })?.message ?? "")
+/**
+ * What a user Atlas has not finished rolling out gets: a failure to authenticate (the server's 18, Atlas's 8000, or the
+ * words of either), or a refusal of its roles not there yet (13, Unauthorized)
+ */
+const isNotRolledOutYet = (error: unknown): boolean => [13, 18, 8000].includes(codeOf(error) as number) || /authentication failed|bad auth/i.test((error as { message?: string })?.message ?? "")
 
 /** The server's own codes: a createUser of a user already there, a dropUser of one that is not */
 const USER_ALREADY_EXISTS = 51003
@@ -284,11 +287,14 @@ export class MongoDbProvisioner implements DatabaseProvisioner {
             // authorizedDatabases false: an account that may not list every database fails here, rather than seeing none
             const listed = (await client.db("admin").command({ listDatabases: 1, nameOnly: true, authorizedDatabases: false, filter: { name: database } })) as { databases?: unknown[] }
             if (listed.databases?.length) throw new DatabaseExistsError(database)
+            // Proven absent before the create: only then may a create of unknown outcome be undone by dropping that name
+            const info = (await client.db(database).command({ usersInfo: username })) as { users?: unknown[] }
+            if (info.users?.length) throw new DatabaseUserExistsError(username)
             try {
                 await client.db(database).command({ createUser: username, pwd: password, roles: rolesOn(database) })
             } catch (error) {
                 if (codeOf(error) === USER_ALREADY_EXISTS) throw new DatabaseUserExistsError(username)
-                // It was not there (no 51003) and may be now: it is ours to drop before anything else is said
+                // It was not there (usersInfo said so) and may be now: it is ours to drop before anything else is said
                 if (isUnknownOutcome(error)) await dropOwnUser(username, () => this.dropUser(username, database))
                 throw error
             }
@@ -393,13 +399,15 @@ export class AtlasProvisioner implements DatabaseProvisioner {
     async ensureUser(database: string, username: string, password: string): Promise<void> {
         const roles = rolesOn(database).map(({ role, db }) => ({ roleName: role, databaseName: db }))
         const scopes = [{ name: this.connection.clusterName, type: "CLUSTER" }]
-        // The token first: a refusal of the service account is not a create whose outcome is unknown
-        await this.accessToken()
+        // Proven absent before the create (a refusal of the service account fails here too): only then may a create of
+        // unknown outcome be undone by deleting that name, which could otherwise be an application's user
+        const existing = await this.call("GET", this.userPath(username), undefined, [404])
+        if (existing.status !== 404) throw new DatabaseUserExistsError(username)
         let created: Response
         try {
             created = await this.call("POST", "/databaseUsers", { databaseName: "admin", username, password, roles, scopes }, [409])
         } catch (error) {
-            // No answer, or an error of Atlas itself: the user may have been created, and was not there (no 409)
+            // No answer, or an error of Atlas itself: the user may have been created, and was not there (the GET said so)
             const status = (error as { status?: number }).status
             if (status === undefined || status >= 500) await dropOwnUser(username, () => this.dropUser(username))
             throw error
@@ -421,8 +429,8 @@ export class AtlasProvisioner implements DatabaseProvisioner {
     }
 
     /**
-     * The collections of the database as its new user sees them. Only an authentication failure, which a user Atlas
-     * has not rolled out yet gets, is tried again, for ATLAS_PROPAGATION_TIMEOUT_MS at most; anything else (a host not
+     * The collections of the database as its new user sees them. Only what a user Atlas has not rolled out yet gets (an
+     * authentication failure, its roles refused) is tried again, for ATLAS_PROPAGATION_TIMEOUT_MS at most; anything else (a host not
      * found, a refused connection, no server selected, TLS) fails at once as the cluster being out of reach.
      */
     private async collectionsAs(database: string, username: string, password: string): Promise<unknown[]> {
@@ -432,7 +440,7 @@ export class AtlasProvisioner implements DatabaseProvisioner {
             try {
                 return await withClient(uri, client => client.db(database).listCollections({}, { nameOnly: true }).toArray())
             } catch (error) {
-                if (!isAuthenticationFailure(error)) throw new ClusterUnreachableError(this.connection.clusterName, (error as Error).message)
+                if (!isNotRolledOutYet(error)) throw new ClusterUnreachableError(this.connection.clusterName, (error as Error).message)
                 if (Date.now() + ATLAS_PROPAGATION_DELAY_MS > deadline) throw error
                 await sleep(ATLAS_PROPAGATION_DELAY_MS)
             }

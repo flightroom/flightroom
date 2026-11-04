@@ -150,8 +150,9 @@ describe("MongoDbProvisioner", () => {
     it("given a new user, when it is ensured, then it is created in its own database with readWrite and dbAdmin there", async () => {
         await provisioner().ensureUser("orders_dev", "orders_dev", "secret")
 
-        expect(driver.databases).toEqual(["admin", "orders_dev"])
+        expect(driver.databases).toEqual(["admin", "orders_dev", "orders_dev"])
         expect(driver.command).toHaveBeenNthCalledWith(1, { listDatabases: 1, nameOnly: true, authorizedDatabases: false, filter: { name: "orders_dev" } })
+        expect(driver.command).toHaveBeenNthCalledWith(2, { usersInfo: "orders_dev" })
         expect(driver.command).toHaveBeenCalledWith({
             createUser: "orders_dev",
             pwd: "secret",
@@ -171,17 +172,25 @@ describe("MongoDbProvisioner", () => {
     })
 
     /** It may be someone else's: a new password and new roles would lock them out, or let us into what is theirs */
-    it("given a user already there, when it is ensured, then it is refused and never updated", async () => {
-        driver.command.mockResolvedValueOnce({ databases: [] }).mockRejectedValueOnce(serverError(51003, "User already exists"))
+    it("given a user usersInfo finds, when it is ensured, then it is refused before any create", async () => {
+        driver.command.mockResolvedValueOnce({ databases: [] }).mockResolvedValueOnce({ users: [{ user: "orders_dev" }] })
 
         await expect(provisioner().ensureUser("orders_dev", "orders_dev", "secret")).rejects.toBeInstanceOf(DatabaseUserExistsError)
         expect(driver.command).toHaveBeenCalledTimes(2)
+    })
+
+    it("given a user created in between and refused with 51003, when it is ensured, then it is refused and never updated", async () => {
+        driver.command.mockResolvedValueOnce({ databases: [] }).mockResolvedValueOnce({ users: [] }).mockRejectedValueOnce(serverError(51003, "User already exists"))
+
+        await expect(provisioner().ensureUser("orders_dev", "orders_dev", "secret")).rejects.toBeInstanceOf(DatabaseUserExistsError)
+        expect(driver.command).toHaveBeenCalledTimes(3)
     })
 
     /** A createUser that got no answer may have created it: it was not there (no 51003), so it is ours to drop */
     it("given a createUser that timed out, when a user is ensured, then the user is dropped before the failure comes back", async () => {
         driver.command
             .mockResolvedValueOnce({ databases: [] })
+            .mockResolvedValueOnce({ users: [] })
             .mockRejectedValueOnce(Object.assign(new Error("connection timed out"), { name: "MongoNetworkTimeoutError" }))
             .mockResolvedValueOnce({ ok: 1 })
 
@@ -190,10 +199,10 @@ describe("MongoDbProvisioner", () => {
     })
 
     it("given any other refusal, when a user is ensured, then it is not taken for an existing user", async () => {
-        driver.command.mockResolvedValueOnce({ databases: [] }).mockRejectedValueOnce(serverError(13, "not authorized on orders_dev"))
+        driver.command.mockResolvedValueOnce({ databases: [] }).mockResolvedValueOnce({ users: [] }).mockRejectedValueOnce(serverError(13, "not authorized on orders_dev"))
 
         await expect(provisioner().ensureUser("orders_dev", "orders_dev", "secret")).rejects.toThrow("not authorized")
-        expect(driver.command).toHaveBeenCalledTimes(2)
+        expect(driver.command).toHaveBeenCalledTimes(3)
     })
 
     it("given a create to undo, when it is rolled back, then its user is dropped", async () => {
@@ -315,13 +324,16 @@ describe("AtlasProvisioner", () => {
     })
 
     const cluster = () => json(200, { connectionStrings: { standardSrv: "mongodb+srv://cluster0.abcde.mongodb.net" } })
+    /** The GET that proves the user is not there before it is created */
+    const absent = () => json(404, { errorCode: "USERNAME_NOT_FOUND" })
 
     it("given a new user, when it is ensured, then it is created in admin, scoped to the cluster, with roles on its database only", async () => {
-        answer(json(201, {}), cluster())
+        answer(absent(), json(201, {}), cluster())
 
         await new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")
 
-        expect(call(1)).toMatchObject({
+        expect(call(1)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "GET" })
+        expect(call(2)).toMatchObject({
             url: `${api}/databaseUsers`,
             method: "POST",
             body: {
@@ -338,7 +350,7 @@ describe("AtlasProvisioner", () => {
     })
 
     it("given a new user, when it is ensured, then it looks at the database as that user and finds it new", async () => {
-        answer(json(201, {}), cluster())
+        answer(absent(), json(201, {}), cluster())
 
         await new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")
 
@@ -348,16 +360,16 @@ describe("AtlasProvisioner", () => {
 
     /** Its data is someone else's: the user just made would reach it, so it goes again */
     it("given a database with collections already on the cluster, when a user is ensured, then the user is deleted and the database refused", async () => {
-        answer(json(201, {}), cluster(), new Response(null, { status: 204 }))
+        answer(absent(), json(201, {}), cluster(), new Response(null, { status: 204 }))
         driver.listCollections.mockResolvedValue([{ name: "reports" }])
 
         await expect(new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")).rejects.toBeInstanceOf(DatabaseExistsError)
-        expect(call(3)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
+        expect(call(4)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
     })
 
     it("given a user Atlas has not rolled out yet, when it is ensured, then the check is tried again until it gets through", async () => {
         vi.useFakeTimers()
-        answer(json(201, {}), cluster())
+        answer(absent(), json(201, {}), cluster())
         driver.listCollections.mockRejectedValueOnce(serverError(18, "Authentication failed")).mockResolvedValue([])
 
         const ensuring = new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")
@@ -370,7 +382,7 @@ describe("AtlasProvisioner", () => {
 
     it("given a user that never authenticates, when a user is ensured, then it is tried for the propagation time only, then deleted, and the create fails", async () => {
         vi.useFakeTimers()
-        answer(json(201, {}), cluster(), new Response(null, { status: 204 }))
+        answer(absent(), json(201, {}), cluster(), new Response(null, { status: 204 }))
         driver.listCollections.mockRejectedValue(serverError(18, "Authentication failed"))
 
         const ensuring = new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")
@@ -380,7 +392,7 @@ describe("AtlasProvisioner", () => {
         vi.useRealTimers()
 
         expect(driver.listCollections).toHaveBeenCalledTimes(Math.floor(ATLAS_PROPAGATION_TIMEOUT_MS / ATLAS_PROPAGATION_DELAY_MS) + 1)
-        expect(call(3)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
+        expect(call(4)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
     })
 
     /** Only a user not rolled out yet is waited for: a cluster out of reach says so at once, and where to look */
@@ -389,7 +401,7 @@ describe("AtlasProvisioner", () => {
         ["a refused connection", Object.assign(new Error("connect ECONNREFUSED 10.0.0.1:27017"), { name: "MongoNetworkError" })],
         ["a TLS failure", Object.assign(new Error("SSL routines:ssl3_read_bytes:tlsv1 alert internal error"), { name: "MongoNetworkError" })]
     ])("given %s, when the new user looks at its database, then it fails at once pointing at the IP Access List and the user is deleted", async (_case, failure) => {
-        answer(json(201, {}), cluster(), new Response(null, { status: 204 }))
+        answer(absent(), json(201, {}), cluster(), new Response(null, { status: 204 }))
         driver.connect.mockRejectedValue(failure)
 
         const refusal = new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")
@@ -397,12 +409,12 @@ describe("AtlasProvisioner", () => {
         await expect(refusal).rejects.toBeInstanceOf(ClusterUnreachableError)
         await expect(refusal).rejects.toThrow("add the egress IP address of the Flightroom backend to the IP Access List of the Atlas project")
         expect(driver.connect).toHaveBeenCalledTimes(1)
-        expect(call(3)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
+        expect(call(4)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
     })
 
     it("given the user that cannot be trusted with its database failing to go too, when it is dropped again and again, then the error names the user left on Atlas", async () => {
         vi.useFakeTimers()
-        answer(json(201, {}), cluster(), json(500, {}), json(500, {}), json(500, {}))
+        answer(absent(), json(201, {}), cluster(), json(500, {}), json(500, {}), json(500, {}))
         driver.listCollections.mockResolvedValue([{ name: "reports" }])
 
         const ensuring = new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")
@@ -420,18 +432,40 @@ describe("AtlasProvisioner", () => {
         ["an error of Atlas", () => fetchMock.mockResolvedValueOnce(json(503, { detail: "Service Unavailable" }))]
     ])("given a create of the user that got %s, when it is ensured, then the user is dropped before the failure comes back", async (_case, arrange) => {
         fetchMock.mockResolvedValueOnce(json(200, { access_token: "atlas-token" }))
+        fetchMock.mockResolvedValueOnce(absent())
         arrange()
         fetchMock.mockResolvedValueOnce(new Response(null, { status: 404 }))
 
         await expect(new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")).rejects.toThrow()
-        expect(call(2)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
+        expect(call(3)).toMatchObject({ url: `${api}/databaseUsers/admin/orders_dev`, method: "DELETE" })
     })
 
     it("given a create Atlas refused outright, when it is ensured, then nothing is dropped: nothing was made", async () => {
-        answer(json(400, { detail: "Invalid password" }))
+        answer(absent(), json(400, { detail: "Invalid password" }))
 
         await expect(new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")).rejects.toThrow("400 Invalid password")
+        expect(fetchMock).toHaveBeenCalledTimes(3)
+    })
+
+    /** The name may be an application's: it is neither created over nor, on an unknown outcome, deleted */
+    it("given a user the GET finds, when it is ensured, then it is refused before any create", async () => {
+        answer(json(200, { username: "orders_dev" }))
+
+        await expect(new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")).rejects.toBeInstanceOf(DatabaseUserExistsError)
         expect(fetchMock).toHaveBeenCalledTimes(2)
+    })
+
+    it("given its roles refused while they roll out, when the new user looks at its database, then it is tried again until it gets through", async () => {
+        vi.useFakeTimers()
+        answer(absent(), json(201, {}), cluster())
+        driver.listCollections.mockRejectedValueOnce(serverError(13, "not authorized on orders_dev to execute command listCollections")).mockResolvedValue([])
+
+        const ensuring = new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")
+        await vi.advanceTimersByTimeAsync(ATLAS_PROPAGATION_DELAY_MS)
+        await ensuring
+        vi.useRealTimers()
+
+        expect(driver.listCollections).toHaveBeenCalledTimes(2)
     })
 
     it("given a create to undo, when it is rolled back, then its user is deleted", async () => {
@@ -443,10 +477,10 @@ describe("AtlasProvisioner", () => {
     })
 
     it("given a user already there, when it is ensured, then it is refused and never patched", async () => {
-        answer(json(409, { errorCode: "USER_ALREADY_EXISTS" }))
+        answer(absent(), json(409, { errorCode: "USER_ALREADY_EXISTS" }))
 
         await expect(new AtlasProvisioner(connection).ensureUser("orders_dev", "orders_dev", "secret")).rejects.toMatchObject({ name: "DatabaseUserExistsError", username: "orders_dev" })
-        expect(fetchMock).toHaveBeenCalledTimes(2)
+        expect(fetchMock).toHaveBeenCalledTimes(3)
     })
 
     it("given a user, when it is dropped, then it is deleted from admin", async () => {

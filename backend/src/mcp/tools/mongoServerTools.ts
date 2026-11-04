@@ -58,7 +58,7 @@ export const mongoServerTools = [
         name: "provisioned_databases_list",
         title: "List provisioned databases",
         description:
-            'The databases created on the MongoDB servers of the project, each with its user and the resource and environment it feeds (link). The passwords are never returned. status "cleanupRequired" warns that a failed create left its user on the server (cleanupReason says why): it cannot be linked, and is removed with mode "user", which tries the drop again, or "record".',
+            'The databases created on the MongoDB servers of the project, each with its user and the resource and environment it feeds (link). The passwords are never returned. status "cleanupRequired" warns that a failed create left its user on the server (cleanupReason says why): it cannot be linked, and is removed with mode "user", which tries the drop again, or "record". removedFromServer ("data" or "user") says a removal stopped half way: such a database cannot be linked, only removed again.',
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ serverId: serverId.optional().describe("Only the databases of this server") }),
