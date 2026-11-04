@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.0.1] - 2026-11-04
+
+### Fixed
+
+- **No Endless Spinner On The Overview Of A Frontend Or A Backend, For Real**: 15.0.0 stopped one of the two components refetching the environments under the overview, the **Build and deploy** button; the **Deploy** dialog it carries kept doing it, so the overview of a frontend or a backend in a domain still spun forever. The environments of the project are now fetched only when nothing is cached, for every page and component reading them, so no child can start the loop again
+
 ## [15.0.0] - 2026-11-04
 
 ### Changed
