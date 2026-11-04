@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793831023.4599395,
-    "ast_hash": "846f2efc232cbc908c998980c13ba68a",
+    "mtime": 1793832009.8435225,
+    "ast_hash": "e23ff593cbe9905d0d3cbd3fa254e334",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793831023.4523673,
-    "ast_hash": "b5b3a131dd48c25e6b816d34d0188f96",
+    "mtime": 1793832009.8451571,
+    "ast_hash": "5a1397bb4495523c9a900d79ca173f24",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793831088.847859,
-    "ast_hash": "72cbfbd3ce3d0b78c8e1e83a2da21939",
+    "mtime": 1793832076.3944397,
+    "ast_hash": "8100454cdc825c0c40c50e3ed291da08",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -2865,8 +2865,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/workspace/repositoryComponent.ts": {
-    "mtime": 1793804475.9799564,
-    "ast_hash": "93237044f3ab3465075bfa1329b9e768",
+    "mtime": 1793831929.8751721,
+    "ast_hash": "56f6ae3c65cc06a3acdc5b0cbf3420bc",
     "semantic_hash": ""
   },
   "backend/src/service/MarketService.test.ts": {
@@ -4770,8 +4770,8 @@
     "semantic_hash": ""
   },
   "frontend/src/components/LivePreviewButton.tsx": {
-    "mtime": 1793571821.1436052,
-    "ast_hash": "2fdd803d942f2963bca8de8636675949",
+    "mtime": 1793832008.6686876,
+    "ast_hash": "b5486ed4df49f749f1b6af4cddc6e925",
     "semantic_hash": ""
   },
   "frontend/src/utils/livePreview.ts": {
@@ -4790,8 +4790,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/StandalonePreviewService.ts": {
-    "mtime": 1793807047.06894,
-    "ast_hash": "47badbd9e8929d66f8b620f006d81e6c",
+    "mtime": 1793832024.006922,
+    "ast_hash": "f55e53dd02a97e51228119ecb96d207a",
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useLivePreviewsApi.ts": {
@@ -5925,8 +5925,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/StandalonePreviewService.test.ts": {
-    "mtime": 1793796377.427704,
-    "ast_hash": "3af3c4da8b804e75542d0f49b711804d",
+    "mtime": 1793832043.5319538,
+    "ast_hash": "da30abea4f979bbc5f875ff96ec2195a",
     "semantic_hash": ""
   },
   "frontend/src/components/molecules/LogLevelOption.tsx": {
