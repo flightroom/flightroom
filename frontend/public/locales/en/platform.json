@@ -335,6 +335,7 @@
             "environments": "Environments that get the telemetry",
             "environmentsHint": "The containers of the environments switched on get the variables of the provider. With all of them on, it also applies to environments created later.",
             "noEnvironments": "The project has no environments yet.",
+            "loadingEnvironments": "Loading the environments…",
             "remove": "Remove the configuration",
             "saved": "Telemetry saved",
             "save_failed": "Could not save the telemetry"

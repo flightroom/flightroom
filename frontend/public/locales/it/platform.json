@@ -336,6 +336,7 @@
             "environments": "Ambienti che ricevono la telemetria",
             "environmentsHint": "I container degli ambienti accesi ricevono le variabili del provider. Con tutti accesi vale anche per gli ambienti creati in seguito.",
             "noEnvironments": "Il progetto non ha ancora ambienti.",
+            "loadingEnvironments": "Caricamento degli ambienti…",
             "remove": "Rimuovi la configurazione",
             "saved": "Telemetria salvata",
             "save_failed": "Impossibile salvare la telemetria"

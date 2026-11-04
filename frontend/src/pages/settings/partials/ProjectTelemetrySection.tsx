@@ -1,4 +1,4 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle, Label, SelectField, Switch } from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, Label, SelectField, Spinner, Switch } from "@flightroom/design-system"
 import { useEffect, useState } from "react"
 import { FormProvider, useForm } from "react-hook-form"
 import { useTranslation } from "react-i18next"
@@ -17,10 +17,14 @@ export interface ProjectTelemetryFormValues {
 
 interface ProjectTelemetrySectionProps {
     telemetry?: ProjectTelemetry
-    environments: EnvironmentDTO[]
+    /** undefined finche' gli ambienti del progetto si caricano */
+    environments?: EnvironmentDTO[]
     onUpdate: (telemetry: ProjectUpdateDTO["telemetry"]) => void
     isUpdating: boolean
 }
+
+/** Stabile tra un render e l'altro: un array nuovo a ogni render rilancerebbe il reset del form */
+const NO_ENVIRONMENTS: EnvironmentDTO[] = []
 
 /** I campi non segreti partono dal valore salvato; i segreti vuoti, perche' non tornano mai indietro */
 const defaultsOf = (telemetry?: ProjectTelemetry): ProjectTelemetryFormValues => ({
@@ -42,8 +46,10 @@ const enabledOf = (telemetry: ProjectTelemetry | undefined, environments: Enviro
  * CloudWatch, Google Cloud, Datadog. A ogni Deploy i container degli ambienti accesi ricevono le variabili del provider scelto e
  * gli agenti AI strumentano le applicazioni per lui. Un campo segreto non torna mai indietro: lasciato vuoto conserva quello salvato.
  */
-export const ProjectTelemetrySection: React.FC<ProjectTelemetrySectionProps> = ({ telemetry, environments, onUpdate, isUpdating }) => {
+export const ProjectTelemetrySection: React.FC<ProjectTelemetrySectionProps> = ({ telemetry, environments: loadedEnvironments, onUpdate, isUpdating }) => {
     const { t } = useTranslation()
+    const loadingEnvironments = loadedEnvironments === undefined
+    const environments = loadedEnvironments ?? NO_ENVIRONMENTS
     const form = useForm<ProjectTelemetryFormValues>({ defaultValues: defaultsOf(telemetry) })
     const [enabled, setEnabled] = useState(() => enabledOf(telemetry, environments))
     const provider = form.watch("provider")
@@ -129,7 +135,13 @@ export const ProjectTelemetrySection: React.FC<ProjectTelemetrySectionProps> = (
                             <fieldset className="flex flex-col gap-3">
                                 <legend className="mb-2 text-sm font-medium">{t("settings.telemetry.environments")}</legend>
                                 <p className="text-muted-foreground text-sm">{t("settings.telemetry.environmentsHint")}</p>
-                                {environments.length === 0 && <p className="text-muted-foreground text-sm">{t("settings.telemetry.noEnvironments")}</p>}
+                                {loadingEnvironments && (
+                                    <div className="text-muted-foreground flex items-center gap-2 text-sm" role="status" data-testid="project-telemetry-environments-loading">
+                                        <Spinner size={16} centerScreen={false} />
+                                        {t("settings.telemetry.loadingEnvironments")}
+                                    </div>
+                                )}
+                                {!loadingEnvironments && environments.length === 0 && <p className="text-muted-foreground text-sm">{t("settings.telemetry.noEnvironments")}</p>}
                                 {environments.map(environment => {
                                     const id = environment._id ?? ""
                                     return (
@@ -154,7 +166,7 @@ export const ProjectTelemetrySection: React.FC<ProjectTelemetrySectionProps> = (
                                     {t("settings.telemetry.remove")}
                                 </Button>
                             )}
-                            <Button type="submit" loading={isUpdating} loadingLabel={t("common.loading")} dataTestId="project-telemetry-save">
+                            <Button type="submit" disabled={loadingEnvironments} loading={isUpdating} loadingLabel={t("common.loading")} dataTestId="project-telemetry-save">
                                 {t("common.save")}
                             </Button>
                         </div>

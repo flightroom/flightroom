@@ -268,7 +268,7 @@ export const Settings: React.FC = () => {
                             <ProjectTelemetrySection
                                 key={`telemetry-${projectData._id}`}
                                 telemetry={projectData.telemetry}
-                                environments={environments ?? []}
+                                environments={environments}
                                 onUpdate={telemetry => updateTelemetryMutation.mutate(telemetry)}
                                 isUpdating={updateTelemetryMutation.isPending}
                             />
