@@ -7,8 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [14.2.0] - 2026-11-04
+
 ### Added
 
+- **Config Maps And Secrets As Comets In The Galaxy**: each frontend and backend the galaxy shows gets its config maps on one elliptical orbit and its secrets on another, turned 120° from it, both with the world at a focus, each comet trailing its tail away from its world. A map several worlds receive is a comet of each of them; hovering it lights every world that receives it, a click opens it
 - **Environment Variables Of A Backend Injected By Flightroom**: each variable of a backend takes a **Value**, which every deploy hands its container, the same in every environment; per environment values stay with config maps and secrets. A plain value goes in the `env` of the Helm values, before the platform's (`HTTP_PORT`, `LOG_LEVEL`, `PUBLIC_URL`...), which win a name set twice, and wins over every config map, secret and resource. A secret value goes in a Secret `<slug>.env` of its own in the configuration repository, `<environment>/backendEnv/<slug>.yaml`, the last of the `envFrom`. The values are encrypted at rest; a secret one never comes back from the API nor from `backend_get` and `backends_list`, only `valueSet`, and a variable sent back without a value keeps the stored one, an empty value clearing it. **Injected variables** lists them with the source `backend`, and a variable with a value is no longer missing. The coding agents learn that Flightroom sets a variable, never its value. A variable with no value is declared only, as before
 
 ### Changed
@@ -16,6 +19,20 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **The Resources Of A Domain Laid Out As Those Of A Backend**: the **Resources** tab of the overview of a domain shows each resource its backends attach once, with what it hands out in each environment in a table, a credential never shown, as the overview of a backend does, instead of a list of names under each backend. Under its name, the backends of the domain using it, each detached from there by an editor; the backends attaching none are listed last
 - **The Docs And OpenAPI Paths In The Summary**: the endpoints card of the **Summary** of a backend, and of a DOCKER frontend, lists its API docs and OpenAPI spec paths beside the port, or says they are not set, with a link to the settings where they are, so that a missing link to the Swagger no longer goes unnoticed
 - **What A Person's AI Usage Cost**: `user_ai_usage` gives, beside the tokens of each period and of the total, `costs`, one amount per currency, priced by the token rates set on the AIs of the organization, so that "and what did it cost?" gets an answer from the assistant. Usage of an AI with no rates, as the system one, counts in the tokens only
+- **The Domains Of The Galaxy On A Grid**: the galaxy lays the domains out row by row, the last row centred, rather than on a ring, as far apart as they were
+- **The Editor Tab Kept When Switching Environment**: on the **Environments** page the tab open in the editor of an environment stays open when another environment is opened, and is kept in the URL (`?tab=`), so a link opens it; leaving the environments goes back to **General**
+
+### Fixed
+
+- **The Danger Zone Tab In Red**: the **Danger zone** tab of the frontend, backend and maintenance agent editors is red
+- **Removing An Environment Variable Of A Backend**: the rows of the variables of a backend are centred, their trash is red, and removing one asks for confirmation first
+
+### Security
+
+- **JWT_SECRET Required**: the backend no longer starts without a `JWT_SECRET`, or with a placeholder one or one shorter than 32 bytes, whether MCP is on or not. With none set it used to sign the console session tokens with a well-known default key, so that anyone could forge an administrator's token. Set one (`openssl rand -hex 32`) in `envSecrets.JWT_SECRET` of the Helm chart before upgrading; the all-in-one image keeps generating its own on the first start
+- **Self-Hosted GitLab URL Checked**: the URL of a self-hosted GitLab must be https, carry no credentials and not be localhost or a loopback, link-local or cloud metadata address, so that it can no longer reach the internals of the cluster; private hosts stay allowed. Its API calls no longer follow redirects, and the organization of an Azure DevOps repository is validated before it is used as a host
+- **Micro-Frontend Files Confined To Their Folder**: `/serve/mfe/files/*` resolves the path asked for inside the folder of the micro-frontend, locally and on a storage, so that an encoded `..` can no longer read the other files of the pod
+- **Tool Output Kept Apart From The Assistant's Instructions**: what the tools return reaches the model of the assistant wrapped as untrusted data, as for the coding agent, so that text in a log line can no longer act as instructions; promoting an environment, setting its replicas and creating or updating a config map or a global variable now ask for confirmation
 
 ## [14.1.0] - 2026-11-02
 

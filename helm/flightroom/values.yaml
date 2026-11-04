@@ -252,8 +252,8 @@ env:
 ## Empty values are skipped, so unset ones keep the application default.
 ## For secrets you do not want in values.yaml, use `existingSecret` below.
 envSecrets:
-  # Signing key of the JWT tokens - ALWAYS override this in production.
-  # With env.MCP_ENABLED it must be at least 32 bytes: openssl rand -hex 32
+  # Signing key of the JWT tokens. Required: the backend does not start
+  # without one of at least 32 bytes: openssl rand -hex 32
   JWT_SECRET: ""
   # Encrypts the credentials the console stores for a project (bucket keys,
   # connection strings, repository tokens). 32 bytes, base64 or hex:

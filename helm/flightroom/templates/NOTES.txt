@@ -53,8 +53,8 @@ start, as MCP clients have to be sent to the console's consent page.
 {{- if not (get (.Values.envSecrets | default dict) "JWT_SECRET") }}
 {{- if not .Values.existingSecret }}
 
-WARNING: envSecrets.JWT_SECRET is empty, so the application falls back to a
-well-known default key. Set your own before exposing the console:
+WARNING: envSecrets.JWT_SECRET is empty: the backend will not start without a
+JWT_SECRET of at least 32 bytes. Set your own:
 
   --set envSecrets.JWT_SECRET="$(openssl rand -hex 32)"
 {{- end }}
