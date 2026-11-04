@@ -43,3 +43,7 @@ playwright/.cache/
 
 # Test coverage reports
 coverage
+
+# graphify backup snapshots
+graphify-out/20*/
+backend/graphify-out/20*/
