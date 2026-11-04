@@ -7,6 +7,12 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.0.2] - 2026-11-04
+
+### Fixed
+
+- **The Settings Of A Frontend Save Again After Picking A Repository**: picking an existing repository for a frontend left on **Create new repository**, or switching its **Code repository** section off, no longer blocks **Save** without a word: the name of the repository to create, a field no longer shown, was still required
+
 ## [15.0.1] - 2026-11-04
 
 ### Fixed
