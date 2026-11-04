@@ -31,7 +31,7 @@ import MarketService from "./MarketService"
 import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
 import TemplateScaffoldService from "./TemplateScaffoldService"
 import { placeholderDomain } from "./templateScaffold/pipelineTemplates"
-import { ensureAttachableMaps, resolveAttachedMaps } from "./VariableMapService"
+import { ensureArgoCdForAttachments, ensureAttachableMaps, resolveAttachedMaps } from "./VariableMapService"
 import { forgetBackends } from "./workspace/workspaceCleanup"
 
 const isNonEmptyString = (value: unknown): value is string => typeof value === "string" && value.trim().length > 0
@@ -338,6 +338,7 @@ export class BackendService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(projectIdObj)
         await ensureAttachableMaps(scope, projectIdObj, backend)
         await ensureAttachableResources(scope, projectIdObj, backend)
+        await ensureArgoCdForAttachments(projectIdObj, backend)
         ensureOnlyNewRepositoryLinked(scope, backend.codeRepository)
         ensureRequestsWithinLimits(backend)
 
@@ -424,6 +425,7 @@ export class BackendService extends BaseAuthorizedService {
         }
         await ensureAttachableMaps(scope, backend.projectId, allowed, backend)
         await ensureAttachableResources(scope, backend.projectId, allowed, backend)
+        await ensureArgoCdForAttachments(backend.projectId, allowed, backend)
         ensureRequestsWithinLimits(allowed, backend)
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, backend.codeRepository)) delete allowed.codeRepository
         if (allowed.codeRepository) {

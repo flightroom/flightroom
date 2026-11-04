@@ -5,6 +5,7 @@ import { useTranslation } from "react-i18next"
 import { useLocation } from "react-router-dom"
 import { Button } from "@/components/atoms"
 import Mascot from "@/components/mascot/Mascot"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import useAssistantChat from "@/hooks/useAssistantChat"
 import useAssistantJobsStore, { AssistantJobTab } from "@/store/useAssistantJobsStore"
 import useAssistantStore, { AssistantMessage, isPendingConfirmation } from "@/store/useAssistantStore"
@@ -55,6 +56,8 @@ const SUGGESTIONS_BY_PAGE: Record<string, string[]> = {
     "/deployments": ["deployments", "canary"],
     "/dependencies": ["dependencies"]
 }
+/** The pages of what reaches a container only through Argo CD: without it they show a notice, and the generic questions, Argo CD among them, fit it better */
+const ARGOCD_PAGES = ["/config-map", "/secret", "/resource"]
 const GENERIC_SUGGESTIONS = ["getting_started", "create_agent", "create_app", "environments", "ai_usage", "deployments", "live_preview", "canary", "argocd"]
 
 const shuffled = <T,>(items: T[]) =>
@@ -66,8 +69,8 @@ const shuffled = <T,>(items: T[]) =>
 const NO_TABS: AssistantJobTab[] = []
 
 /** Three at random, at most two of the section first, so they read differently each time */
-const suggestionsFor = (pathname: string) => {
-    const pageKey = Object.keys(SUGGESTIONS_BY_PAGE).find(prefix => pathname.startsWith(prefix))
+const suggestionsFor = (pathname: string, argoCdInitialized: boolean) => {
+    const pageKey = Object.keys(SUGGESTIONS_BY_PAGE).find(prefix => pathname.startsWith(prefix) && (argoCdInitialized || !ARGOCD_PAGES.includes(prefix)))
     const page = shuffled(pageKey ? SUGGESTIONS_BY_PAGE[pageKey] : []).slice(0, 2)
     return [...page, ...shuffled(GENERIC_SUGGESTIONS.filter(key => !page.includes(key)))].slice(0, 3)
 }
@@ -151,9 +154,10 @@ const AssistantPanel: React.FC<AssistantPanelProps> = ({ variant = "panel" }) =>
     const location = useLocation()
     const { isOpen, messages, close, toggle, reset } = useAssistantStore()
     const empty = messages.length === 0
+    const argoCdInitialized = useArgoCdStatus().initialized
     // Drawn again on another page or in a new conversation, not while typing
     // biome-ignore lint/correctness/useExhaustiveDependencies: `empty` only asks for a new draw
-    const suggestions = useMemo(() => suggestionsFor(location.pathname), [location.pathname, empty])
+    const suggestions = useMemo(() => suggestionsFor(location.pathname, argoCdInitialized), [location.pathname, empty, argoCdInitialized])
     const pendingQuestion = useAssistantStore(state => state.pendingQuestion)
     const projectId = useProjectStore(state => state.project?._id)
     const [effort, setEffort] = useEffort("assistant")

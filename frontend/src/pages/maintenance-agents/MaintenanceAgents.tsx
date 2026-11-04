@@ -10,6 +10,7 @@ import SinglePageLayout from "@/components/SinglePageLayout"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useFrontendsApi from "@/hooks/apiClients/useFrontendsApi"
 import type { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore, { useIsProjectViewer } from "@/store/useProjectStore"
 import { ALL_DOMAINS, DomainFilter, matchesDomain } from "../domains/partials/DomainFilter"
@@ -32,6 +33,8 @@ const MaintenanceAgents = () => {
     const navigate = useNavigate()
     const projectId = useProjectStore(state => state.project?._id)
     const isViewer = useIsProjectViewer()
+    // The resources an agent attaches reach it only through Argo CD: without it, or until it is known, no canister for them
+    const argoCdInitialized = useArgoCdStatus().initialized
     const backendsApi = useBackendsApi()
     const frontendsApi = useFrontendsApi()
     const [searchTerm, setSearchTerm] = useState("")
@@ -155,7 +158,13 @@ const MaintenanceAgents = () => {
                         <>
                             <TabsContent value="room" className="mt-0">
                                 <ApiStatusHandler queries={[backendsQuery, frontendsQuery, resourcesQuery]} interceptEmpty={false}>
-                                    <MaintenanceBay agents={filtered} backends={backendsQuery.data ?? []} frontends={frontendsQuery.data ?? []} resources={resourcesQuery.data} onRun={onRun} />
+                                    <MaintenanceBay
+                                        agents={filtered}
+                                        backends={backendsQuery.data ?? []}
+                                        frontends={frontendsQuery.data ?? []}
+                                        resources={argoCdInitialized ? resourcesQuery.data : undefined}
+                                        onRun={onRun}
+                                    />
                                 </ApiStatusHandler>
                             </TabsContent>
                             <TabsContent value="grid" className="mt-0">

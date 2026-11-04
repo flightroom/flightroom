@@ -9,6 +9,7 @@ import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainDeploymentsApi from "@/hooks/apiClients/useDomainDeploymentsApi"
 import useDomainsApi from "@/hooks/apiClients/useDomainsApi"
 import useFrontendsApi, { FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { useProjectEnvironmentsQuery } from "@/pages/backends/partials/backendVariables"
 import useProjectStore from "@/store/useProjectStore"
 import DomainDeploymentsSection from "./partials/DomainDeploymentsSection"
@@ -56,6 +57,8 @@ const DomainOverview: React.FC = () => {
     })
 
     const environmentsQuery = useProjectEnvironmentsQuery()
+    // Resources reach a container only through Argo CD: without it, or until it is known, no tab for them
+    const argoCdInitialized = useArgoCdStatus().initialized
 
     // Not an ApiStatusHandler: it unmounts its children on every background refetch, and with them an open dialog of the header or of the resources.
     const queries = [domainQuery, deploymentsQuery, backendsQuery, frontendsQuery, environmentsQuery]
@@ -85,7 +88,7 @@ const DomainOverview: React.FC = () => {
     }))
 
     // Nothing in pods, nothing to read logs of: no tab for them
-    const tabs = TABS.filter(value => value !== "logs" || applications.length > 0)
+    const tabs = TABS.filter(value => (value !== "logs" || applications.length > 0) && (value !== "resources" || argoCdInitialized))
     const requestedTab = searchParams.get("tab") as Tab
     const tab: Tab = tabs.includes(requestedTab) ? requestedTab : "summary"
 
@@ -114,9 +117,11 @@ const DomainOverview: React.FC = () => {
                     {deploymentsQuery.data && <DomainDeploymentsSection deployments={deploymentsQuery.data} frontends={frontendsQuery.data ?? []} />}
                 </TabsContent>
 
-                <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
-                    <DomainResourcesSection backends={backends} environments={environmentsQuery.data ?? []} />
-                </TabsContent>
+                {argoCdInitialized && (
+                    <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
+                        <DomainResourcesSection backends={backends} environments={environmentsQuery.data ?? []} />
+                    </TabsContent>
+                )}
 
                 {applications.length > 0 && (
                     <TabsContent value="logs" className="mt-6 flex flex-col gap-6">

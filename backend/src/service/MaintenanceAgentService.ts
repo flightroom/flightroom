@@ -24,7 +24,7 @@ import MarketService from "./MarketService"
 import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
 import TemplateScaffoldService from "./TemplateScaffoldService"
 import { placeholderDomain } from "./templateScaffold/pipelineTemplates"
-import { ensureAttachableMaps } from "./VariableMapService"
+import { ensureArgoCdForAttachments, ensureAttachableMaps } from "./VariableMapService"
 
 /** The runs a maintenance agent keeps the history of */
 const RUNS_SHOWN = 20
@@ -155,6 +155,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(projectIdObj)
         await ensureAttachableMaps(scope, projectIdObj, agent)
         await ensureAttachableResources(scope, projectIdObj, agent)
+        await ensureArgoCdForAttachments(projectIdObj, agent)
         ensureOnlyNewRepositoryLinked(scope, agent.codeRepository)
         ensureRequestsWithinLimits(agent, undefined, "MAINTENANCE_AGENT_INVALID")
 
@@ -233,6 +234,7 @@ export class MaintenanceAgentService extends BaseAuthorizedService {
         }
         await ensureAttachableMaps(scope, agent.projectId, allowed, agent)
         await ensureAttachableResources(scope, agent.projectId, allowed, agent)
+        await ensureArgoCdForAttachments(agent.projectId, allowed, agent)
         ensureRequestsWithinLimits(allowed, agent, "MAINTENANCE_AGENT_INVALID")
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, agent.codeRepository)) delete allowed.codeRepository
         if (allowed.codeRepository) {

@@ -28,7 +28,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import { isEncryptedSecret, SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import { parseApiDocument } from "./aiChange/apiSpecReader"
 import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedService"
-import { ensureNoKeyClash, KeyedMap, keysOnly, resourceKeys, resourceNaming } from "./VariableMapService"
+import { ensureArgoCdInitialized, ensureNoKeyClash, KeyedMap, keysOnly, resourceKeys, resourceNaming } from "./VariableMapService"
 
 /** As for a value of a config map: well past any real credential, short of a document Mongo would refuse */
 const MAX_RESOURCE_VALUE_LENGTH = 32 * 1024
@@ -476,6 +476,7 @@ export class ResourceService extends BaseAuthorizedService {
         await this.ensureAccessToProject(projectIdObj)
         // A new resource is attached to nothing yet, so it would be outside any domain scope from the start
         await this.ensureWholeProject(projectIdObj)
+        await ensureArgoCdInitialized(projectIdObj)
 
         const { apiSpec, ...fields } = await this.normalize({ ...dto, name: dto?.name ?? "" }, projectIdObj)
         ensureNoReservedKey(fields as ResourceNaming)
@@ -488,6 +489,7 @@ export class ResourceService extends BaseAuthorizedService {
 
     async update(id: string | ObjectId, dto: Partial<ResourceDTO>): Promise<IResource | null> {
         const resource = await this.getById(id)
+        await ensureArgoCdInitialized(resource.projectId)
         const fields = await this.normalize(dto, resource.projectId, resource)
         const next: ResourceNaming = {
             name: fields.name ?? resource.name,

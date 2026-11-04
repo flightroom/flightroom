@@ -11,6 +11,7 @@ import { ApiStatusHandler } from "@/components/organisms"
 import useFrontendsApi, { CanaryType, Frontend, FrontendKind, HostedOn } from "@/hooks/apiClients/useFrontendsApi"
 import useStorageApi, { Storage } from "@/hooks/apiClients/useStorageApi"
 import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { BackendEndpointsCard, ContainerComputeCard, ContainerEnvSection } from "@/pages/backends/partials/BackendConfigurationSection"
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
 import BackendVersionsTable from "@/pages/backends/partials/BackendVersionsTable"
@@ -134,6 +135,8 @@ const FrontendOverview: React.FC = () => {
     const projectId = useProjectStore(state => state.project?._id)
     const aiModels = useProjectAiModels()
     const argoCdInitialized = useArgoCdInitialized()
+    // Config maps and secrets reach the container only through Argo CD, for viewers too: without it, or until it is known, not shown
+    const variableMapsShown = useArgoCdStatus().initialized
     // The tab lives in the URL (`?tab=logs`), as in the overview of a backend
     const [searchParams, setSearchParams] = useSearchParams()
     const requestedTab = searchParams.get("tab")
@@ -193,12 +196,14 @@ const FrontendOverview: React.FC = () => {
                                 {/* A frontend uses no resources: its replicas, CPU and memory, its config maps and secrets, and the variables it declares */}
                                 <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
                                     <ContainerComputeCard backend={frontend} environments={environmentsQuery.data ?? []} />
-                                    <BackendVariableMapsSection
-                                        backend={frontend}
-                                        configMaps={configMapsQuery.data ?? []}
-                                        secrets={secretsQuery.data ?? []}
-                                        environments={environmentsQuery.data ?? []}
-                                    />
+                                    {variableMapsShown && (
+                                        <BackendVariableMapsSection
+                                            backend={frontend}
+                                            configMaps={configMapsQuery.data ?? []}
+                                            secrets={secretsQuery.data ?? []}
+                                            environments={environmentsQuery.data ?? []}
+                                        />
+                                    )}
                                     <ContainerEnvSection backend={frontend} />
                                 </TabsContent>
 

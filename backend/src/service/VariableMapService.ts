@@ -5,6 +5,7 @@ import Backend, { IBackend } from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
+import Project from "../models/ProjectModel"
 import Resource, { IResource } from "../models/ResourceModel"
 import { ConfigMap, IVariableMap, IVariableMapEntry, Secret, variableMapModels } from "../models/VariableMapModel"
 import { BACKEND_VARIABLE_KEY } from "../types/BackendStack"
@@ -265,6 +266,40 @@ export const ensureAttachableMaps = async (
     }
 }
 
+const argoCdRequired = () =>
+    createBusinessException({
+        code: "ARGOCD_REQUIRED_FOR_VARIABLES",
+        message: "Config maps, secrets and resources reach a container only through the GitOps manifests Argo CD applies: initialize Argo CD for the project first",
+        statusCode: 409
+    })
+
+/**
+ * Config maps, secrets and resources reach a container only through the GitOps manifests Argo CD applies: without
+ * Argo CD initialized they would do nothing, so they are neither created nor changed. Deleting one stays allowed.
+ */
+export const ensureArgoCdInitialized = async (projectId: Schema.Types.ObjectId) => {
+    if (!(await Project.findById(projectId, { argoCd: 1 }))?.argoCd?.initializedAt) throw argoCdRequired()
+}
+
+/**
+ * A backend, a DOCKER frontend or a maintenance agent attaches a config map, a secret or a resource only once Argo CD
+ * is initialized, as above. Only what the save adds is checked: those it already attaches, and detaching them, stay
+ * allowed, so a save sending back what is stored goes through, and the project is read only when something is added.
+ */
+export const ensureArgoCdForAttachments = async (
+    projectId: Schema.Types.ObjectId,
+    dto: { configMapIds?: unknown; secretIds?: unknown; resourceIds?: unknown },
+    existing?: { configMapIds?: unknown[]; secretIds?: unknown[]; resourceIds?: unknown[] }
+) => {
+    const adds = (["configMapIds", "secretIds", "resourceIds"] as const).some(field => {
+        const sent = dto[field]
+        if (!Array.isArray(sent)) return false
+        const attached = new Set((existing?.[field] ?? []).map(String))
+        return sent.some(id => !attached.has(String(id)))
+    })
+    if (adds) await ensureArgoCdInitialized(projectId)
+}
+
 /** The config maps or the secrets of a project, which its backends attach */
 export class VariableMapService extends BaseAuthorizedService {
     constructor(
@@ -359,6 +394,7 @@ export class VariableMapService extends BaseAuthorizedService {
         await this.ensureAccessToProject(projectIdObj)
         // A new map is attached to nothing yet, so it would be outside any domain scope from the start
         await this.ensureWholeProject(projectIdObj)
+        await ensureArgoCdInitialized(projectIdObj)
 
         const fields = await this.normalize({ entries: [], ...dto, name: dto.name ?? "" }, projectIdObj)
         try {
@@ -370,6 +406,7 @@ export class VariableMapService extends BaseAuthorizedService {
 
     async update(id: string | ObjectId, dto: Partial<VariableMapDTO>): Promise<IVariableMap | null> {
         const map = await this.getById(id)
+        await ensureArgoCdInitialized(map.projectId)
         const fields = await this.normalize(dto, map.projectId, map)
         if (fields.entries) {
             await this.ensureNoClashInAttachingBackends(map, fields.entries)

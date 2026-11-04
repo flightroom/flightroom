@@ -58,7 +58,9 @@ const backendFields = {
         .array(objectId("Id of a resource of the project, from resources_list"))
         .max(50)
         .optional()
-        .describe("Resources (a database, an api, an ai...) whose variables reach the container as environment variables. Replaced as a whole")
+        .describe(
+            "Resources (a database, an api, an ai...) whose variables reach the container as environment variables. Replaced as a whole. Adding one is refused until Argo CD is initialized for the project, as they reach the container only through the manifests it applies."
+        )
 }
 
 export const createSchema = z.object(backendFields)

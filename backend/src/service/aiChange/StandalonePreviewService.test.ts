@@ -4,6 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 vi.mock("../..", () => ({ fastify: { log: { error: vi.fn(), warn: vi.fn(), info: vi.fn() }, config: { REPOSITORIES_FOLDER: "/repositories" } } }))
 
 import Environment from "../../models/EnvironmentModel"
+import Project from "../../models/ProjectModel"
 import Resource from "../../models/ResourceModel"
 import { ConfigMap, Secret } from "../../models/VariableMapModel"
 import { toObjectId } from "../../utils/mongooseUtils"
@@ -43,6 +44,7 @@ describe("previewEnvironments", () => {
             }
         ] as never)
         vi.spyOn(Resource, "find").mockResolvedValue([] as never)
+        vi.spyOn(Project, "findById").mockResolvedValue({ argoCd: { initializedAt: new Date() } } as never)
     })
 
     afterEach(() => vi.restoreAllMocks())
@@ -69,6 +71,17 @@ describe("previewEnvironments", () => {
 
         expect((await previewEnvironments(projectId, [{ _id: backendId, secretIds: [databaseId] }])).size).toBe(0)
         expect(Secret.find).not.toHaveBeenCalled()
+    })
+
+    it("Given a project whose Argo CD is not initialized, then no component gets its config maps, secrets or resources, only what the platform sets", async () => {
+        vi.mocked(Project.findById).mockResolvedValue({ argoCd: {} } as never)
+
+        const environments = await previewEnvironments(projectId, [{ _id: backendId, configMapIds: [loggingId], secretIds: [databaseId], resourceIds: [new Types.ObjectId()] }])
+
+        expect(environments.get(String(backendId))).toEqual({ LOG_LEVEL: "debug", LOG_JSON: "false", ENVIRONMENT: "dev" })
+        expect(ConfigMap.find).toHaveBeenCalledWith({ _id: { $in: [] }, projectId })
+        expect(Secret.find).toHaveBeenCalledWith({ _id: { $in: [] }, projectId })
+        expect(Resource.find).toHaveBeenCalledWith({ _id: { $in: [] }, projectId })
     })
 })
 

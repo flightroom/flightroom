@@ -2,8 +2,10 @@ import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Backend from "../models/BackendModel"
 import Environment from "../models/EnvironmentModel"
+import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withArgoCdInitialized } from "../testing/argoCdInitialized"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { RESOURCE_CATALOG } from "../types/ResourceCatalog"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
@@ -331,6 +333,8 @@ describe("normalizeResourceFields", () => {
 describe("ResourceService.create", () => {
     let create: ReturnType<typeof vi.fn>
 
+    withArgoCdInitialized()
+
     beforeEach(() => {
         allowAccess()
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
@@ -338,6 +342,13 @@ describe("ResourceService.create", () => {
     })
 
     const createResource = (dto: object) => new ResourceService().create({ name: "orders", type: "database", variant: "credentials", fields: requiredFields, ...dto } as never, projectId)
+
+    it("given a project whose Argo CD is not initialized, when it is created, then it is refused and nothing is written", async () => {
+        vi.mocked(Project.findById).mockResolvedValue({ argoCd: {} } as never)
+
+        await expect(createResource({})).rejects.toMatchObject({ code: "ARGOCD_REQUIRED_FOR_VARIABLES" })
+        expect(create).not.toHaveBeenCalled()
+    })
 
     it("given a database, when it is created, then it is written for the project with its name lowercase and its credentials apart", async () => {
         await createResource({ name: " Orders ", fields: { ...requiredFields, password: { value: "hunter2" } } })
@@ -411,6 +422,8 @@ describe("ResourceService.update", () => {
     let write: ReturnType<typeof vi.fn>
     let backends: ReturnType<typeof vi.fn>
 
+    withArgoCdInitialized()
+
     beforeEach(() => {
         allowAccess()
         vi.spyOn(Resource, "findById").mockResolvedValue(resource as never)
@@ -420,6 +433,13 @@ describe("ResourceService.update", () => {
     })
 
     const update = (changes: object) => new ResourceService().update(String(resourceId), changes)
+
+    it("given a project whose Argo CD is not initialized, when it is updated, then it is refused and nothing is written", async () => {
+        vi.mocked(Project.findById).mockResolvedValue({ argoCd: {} } as never)
+
+        await expect(update({ description: "Orders" })).rejects.toMatchObject({ code: "ARGOCD_REQUIRED_FOR_VARIABLES" })
+        expect(write).not.toHaveBeenCalled()
+    })
 
     it("given another type, when it is updated, then it is refused and nothing is written", async () => {
         await expect(update({ type: "storage" })).rejects.toMatchObject({ code: "RESOURCE_TYPE_IMMUTABLE" })
@@ -560,6 +580,8 @@ describe("the API document of a resource", () => {
     const api = { _id: resourceId, projectId, name: "payments", type: "api", variant: "none", values: [{ field: "baseUrl", value: "https://payments.example.com", overrides: [] }], secrets: [] }
     const apiFields = { baseUrl: { value: "https://payments.example.com" } }
 
+    withArgoCdInitialized()
+
     beforeEach(() => {
         allowAccess()
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }] as never)
@@ -656,6 +678,8 @@ describe("a generic resource", () => {
     }
     let create: ReturnType<typeof vi.fn>
     let write: ReturnType<typeof vi.fn>
+
+    withArgoCdInitialized()
 
     beforeEach(() => {
         allowAccess()

@@ -7,9 +7,10 @@ import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withArgoCdInitialized } from "../testing/argoCdInitialized"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
-import VariableMapService, { attachedVariableKeys, normalizeEntries, resolveAttachedMaps } from "./VariableMapService"
+import VariableMapService, { attachedVariableKeys, ensureArgoCdForAttachments, normalizeEntries, resolveAttachedMaps } from "./VariableMapService"
 
 withNoMaintenanceAgents()
 
@@ -27,6 +28,8 @@ describe("VariableMapService.update of a secret", () => {
     const secretId = new Types.ObjectId()
     const secret = { _id: secretId, projectId, name: "database", entries: [{ key: "DATABASE_PASSWORD", values: [{ environmentId: production, value: "stored-password" }] }] }
     let write: ReturnType<typeof vi.fn>
+
+    withArgoCdInitialized()
 
     beforeEach(() => {
         allowAccess()
@@ -106,6 +109,8 @@ describe("VariableMapService.update of a config map attached to backends", () =>
     const secretId = new Types.ObjectId()
     const configMap = { _id: configMapId, projectId, name: "logging", entries: [{ key: "LOG_LEVEL", values: [] }] }
     let write: ReturnType<typeof vi.fn>
+
+    withArgoCdInitialized()
 
     beforeEach(() => {
         allowAccess()
@@ -369,6 +374,8 @@ describe("VariableMapService create and update of a map", () => {
     const mapId = new Types.ObjectId()
     const map = { _id: mapId, projectId, name: "orders", entries: [{ key: "LOG_LEVEL", values: [{ environmentId: production, value: "info" }] }] }
 
+    withArgoCdInitialized()
+
     beforeEach(() => {
         allowAccess()
         vi.spyOn(VariableMapService.prototype as unknown as { ensureWholeProject: () => Promise<void> }, "ensureWholeProject").mockResolvedValue(undefined)
@@ -456,5 +463,63 @@ describe("VariableMapService.reveal", () => {
 
         await expect(reveal({ _id: userId, apiKeyId: "key" })).rejects.toMatchObject({ code: "SECRET_REVEAL_FORBIDDEN" })
         expect(membership).not.toHaveBeenCalled()
+    })
+})
+
+describe("without Argo CD initialized", () => {
+    const mapId = new Types.ObjectId()
+    const map = { _id: mapId, projectId, name: "orders", entries: [{ key: "LOG_LEVEL", values: [] }] }
+    let project: ReturnType<typeof vi.fn>
+
+    beforeEach(() => {
+        allowAccess()
+        vi.spyOn(VariableMapService.prototype as unknown as { ensureWholeProject: () => Promise<void> }, "ensureWholeProject").mockResolvedValue(undefined)
+        project = vi.spyOn(Project, "findById").mockResolvedValue({ argoCd: { url: "https://argocd.example.test" } } as never) as unknown as ReturnType<typeof vi.fn>
+        vi.spyOn(Secret, "findById").mockResolvedValue(map as never)
+        vi.spyOn(Backend, "find").mockResolvedValue([] as never)
+        vi.spyOn(Frontend, "find").mockResolvedValue([] as never)
+    })
+
+    it("given a new map, when it is created, then it is refused as ARGOCD_REQUIRED_FOR_VARIABLES and nothing is written", async () => {
+        const create = vi.spyOn(Secret, "create")
+
+        await expect(new VariableMapService("secret").create({ name: "orders", entries: [{ key: "LOG_LEVEL", value: "info" }] }, projectId)).rejects.toMatchObject({
+            code: "ARGOCD_REQUIRED_FOR_VARIABLES"
+        })
+        expect(create).not.toHaveBeenCalled()
+    })
+
+    it("given a map, when it is updated, then it is refused and nothing is written", async () => {
+        const write = vi.spyOn(Secret, "findByIdAndUpdate")
+
+        await expect(new VariableMapService("secret").update(mapId.toString(), { name: "billing" })).rejects.toMatchObject({ code: "ARGOCD_REQUIRED_FOR_VARIABLES" })
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a map, when it is deleted, then it is removed all the same", async () => {
+        vi.spyOn(Secret, "findByIdAndDelete").mockResolvedValue(map as never)
+
+        await new VariableMapService("secret").delete(mapId.toString())
+
+        expect(Secret.findByIdAndDelete).toHaveBeenCalledWith(mapId)
+    })
+
+    it.each([["configMapIds"], ["secretIds"], ["resourceIds"]])("given a component given one more in %s, when it is saved, then it is refused", async field => {
+        await expect(ensureArgoCdForAttachments(projectId as never, { [field]: [String(mapId)] }, {})).rejects.toMatchObject({ code: "ARGOCD_REQUIRED_FOR_VARIABLES" })
+    })
+
+    it("given a component saved with what it already attaches, or less, then it goes through without reading the project", async () => {
+        const existing = { configMapIds: [mapId], secretIds: [mapId], resourceIds: [mapId] }
+
+        await ensureArgoCdForAttachments(projectId as never, { configMapIds: [String(mapId)], secretIds: [], resourceIds: undefined }, existing)
+        await ensureArgoCdForAttachments(projectId as never, {}, undefined)
+
+        expect(project).not.toHaveBeenCalled()
+    })
+
+    it("given Argo CD initialized, when a component is given one more, then it goes through", async () => {
+        project.mockResolvedValue({ argoCd: { initializedAt: new Date() } })
+
+        await expect(ensureArgoCdForAttachments(projectId as never, { secretIds: [String(mapId)] })).resolves.toBeUndefined()
     })
 })

@@ -41,7 +41,13 @@ const maintenanceAgentFields = {
         .regex(/^\/[A-Za-z0-9._~/-]*$/, "starts with / and holds no spaces nor query")
         .optional()
         .describe("A container only: the path its CronJob POSTs to, /run when omitted"),
-    resourceIds: z.array(objectId("Id of a resource of the project, from resources_list")).max(50).optional().describe("Resources whose variables reach the container. Replaced as a whole"),
+    resourceIds: z
+        .array(objectId("Id of a resource of the project, from resources_list"))
+        .max(50)
+        .optional()
+        .describe(
+            "Resources whose variables reach the container. Replaced as a whole. Adding one is refused until Argo CD is initialized for the project, as they reach the container only through the manifests it applies."
+        ),
     backendIds: z
         .array(objectId("Id of a backend of the project, from backends_list"))
         .max(100)

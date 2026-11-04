@@ -31,7 +31,7 @@ import BaseAuthorizedService, { domainScopeForbidden, ensureOnlyNewRepositoryLin
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
 import TemplateScaffoldService from "./TemplateScaffoldService"
-import { ensureAttachableMaps } from "./VariableMapService"
+import { ensureArgoCdForAttachments, ensureAttachableMaps } from "./VariableMapService"
 import { forgetFrontends } from "./workspace/workspaceCleanup"
 
 /** What a frontend is served by when neither the caller nor a template says otherwise. */
@@ -114,6 +114,7 @@ export class FrontendService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(projectIdObj)
         await this.ensureReferencesInScope(projectIdObj, scope, frontend)
         await ensureAttachableMaps(scope, projectIdObj, frontend)
+        await ensureArgoCdForAttachments(projectIdObj, frontend)
         ensureOnlyNewRepositoryLinked(scope, frontend.codeRepository)
         ensureRequestsWithinLimits(frontend, undefined, "FRONTEND_INVALID")
         // A maintenance agent's values file is named after its slug as well, next to the frontend's
@@ -260,6 +261,7 @@ export class FrontendService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(frontend.projectId)
         await this.ensureReferencesInScope(frontend.projectId, scope, allowed, frontend)
         await ensureAttachableMaps(scope, frontend.projectId, allowed, frontend)
+        await ensureArgoCdForAttachments(frontend.projectId, allowed, frontend)
         ensureRequestsWithinLimits(allowed, frontend, "FRONTEND_INVALID")
         if (ensureRepositoryLinkUnchanged(scope, allowed.codeRepository, frontend.codeRepository)) delete allowed.codeRepository
         // Checked once the link is enabled, as in create: a disabled link lends no token, and refusing it

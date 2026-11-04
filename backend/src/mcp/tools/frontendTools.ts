@@ -148,12 +148,16 @@ export const containerFields = {
         .array(objectId("Id of a config map of the project, from config_maps_list"))
         .max(50)
         .optional()
-        .describe("Config maps whose keys reach the container as environment variables: a backend, or a frontend of kind DOCKER. Replaced as a whole"),
+        .describe(
+            "Config maps whose keys reach the container as environment variables: a backend, or a frontend of kind DOCKER. Replaced as a whole. Adding one is refused until Argo CD is initialized for the project, as they reach the container only through the manifests it applies."
+        ),
     secretIds: z
         .array(objectId("Id of a secret of the project, from secrets_list"))
         .max(50)
         .optional()
-        .describe("Secrets whose keys reach the container as environment variables: a backend, or a frontend of kind DOCKER. Replaced as a whole")
+        .describe(
+            "Secrets whose keys reach the container as environment variables: a backend, or a frontend of kind DOCKER. Replaced as a whole. Adding one is refused until Argo CD is initialized for the project, as they reach the container only through the manifests it applies."
+        )
 }
 
 /** The design system of an organization, a project or a frontend, replaced as a whole: null removes it */

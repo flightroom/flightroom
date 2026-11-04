@@ -56,7 +56,7 @@ export const variableMapTools = [
         name: "config_map_create",
         title: "Create config map",
         description:
-            "Adds a config map to the project. Its values are readable by anyone who sees the project: put secrets in a secret, from the console. Attach it with backend_update, frontend_update or maintenance_agent_update (configMapIds).",
+            "Adds a config map to the project. Its values are readable by anyone who sees the project: put secrets in a secret, from the console. Attach it with backend_update, frontend_update or maintenance_agent_update (configMapIds). Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
         scope: MCP_SCOPE_WRITE,
         // Changes what the project runs or serves: the assistant asks the user first.
         requiresConfirmation: true,
@@ -71,7 +71,8 @@ export const variableMapTools = [
     defineTool({
         name: "config_map_update",
         title: "Update config map",
-        description: "Renames a config map or changes its description or its keys (replaced as a whole: read it first with config_map_get to keep the others).",
+        description:
+            "Renames a config map or changes its description or its keys (replaced as a whole: read it first with config_map_get to keep the others). Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
         scope: MCP_SCOPE_WRITE,
         // Changes what the project runs or serves: the assistant asks the user first.
         requiresConfirmation: true,

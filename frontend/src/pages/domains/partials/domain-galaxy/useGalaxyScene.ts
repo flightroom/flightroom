@@ -8,6 +8,7 @@ import type { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useMaintenanceAgentsApi, { type MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
 import type { Resource } from "@/hooks/apiClients/useResourcesApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import useProjectStore from "@/store/useProjectStore"
 import { buildGalaxyMap, placeShips, placeStations } from "./layout"
@@ -16,6 +17,7 @@ import type { StarNode } from "./types"
 /** The same empty list at every render: a new one would place the stations again */
 const NO_AGENTS: MaintenanceAgent[] = []
 const NO_MAPS: VariableMap[] = []
+const NO_RESOURCES: Resource[] = []
 
 interface GalaxySceneInput {
     domains: Domain[]
@@ -26,7 +28,7 @@ interface GalaxySceneInput {
 }
 
 /** Everything on the map: the galaxies and their worlds, the moons, the comets of the config maps and the secrets, the ships of the agents at work and the maintenance stations. */
-const useGalaxyScene = ({ domains, frontends, backends, resources, isBackend }: GalaxySceneInput) => {
+const useGalaxyScene = ({ domains, frontends, backends, resources: projectResources, isBackend }: GalaxySceneInput) => {
     const { t } = useTranslation()
     const previousNodesRef = useRef<StarNode[]>([])
     const workingJobs = useWorkingAgentJobs()
@@ -38,8 +40,13 @@ const useGalaxyScene = ({ domains, frontends, backends, resources, isBackend }: 
         enabled: Boolean(projectId),
         staleTime: 60_000
     })
-    const { data: configMaps = NO_MAPS } = useVariableMapsQuery("configMap")
-    const { data: secrets = NO_MAPS } = useVariableMapsQuery("secret")
+    const { data: projectConfigMaps = NO_MAPS } = useVariableMapsQuery("configMap")
+    const { data: projectSecrets = NO_MAPS } = useVariableMapsQuery("secret")
+    // They reach a container only through Argo CD: without it, or until it is known, no moon nor comet for them
+    const argoCdInitialized = useArgoCdStatus().initialized
+    const resources = argoCdInitialized ? projectResources : NO_RESOURCES
+    const configMaps = argoCdInitialized ? projectConfigMaps : NO_MAPS
+    const secrets = argoCdInitialized ? projectSecrets : NO_MAPS
 
     const map = useMemo(
         () => buildGalaxyMap({ domains, frontends, backends, resources, configMaps, secrets, isBackend, t, previousNodes: previousNodesRef.current }),

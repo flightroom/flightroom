@@ -10,6 +10,7 @@ import useDomainsApi, { Domain } from "@/hooks/apiClients/useDomainsApi"
 import useEnvironmentsApi from "@/hooks/apiClients/useEnvironmentsApi"
 import { Frontend, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { VariableMapKind } from "@/hooks/apiClients/useVariableMapsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { exposedOrigin } from "@/pages/backends/partials/backendVariables"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import useProjectStore from "@/store/useProjectStore"
@@ -59,9 +60,11 @@ const groupByDomain = (frontends: Frontend[], backends: DeployedBackend[], domai
 const DeploymentSummary: React.FC<{ deployment: DeploymentDTO; active?: boolean }> = ({ deployment, active }) => {
     const { t } = useTranslation()
     const backends = deployment.backends ?? []
-    const configMaps = deployment.configMaps ?? []
-    const secrets = deployment.secrets ?? []
-    const resources = deployment.resources ?? []
+    // They reach a container only through Argo CD: without it, or until it is known, not shown, as everywhere else
+    const argoCdInitialized = useArgoCdStatus().initialized
+    const configMaps = (argoCdInitialized && deployment.configMaps) || []
+    const secrets = (argoCdInitialized && deployment.secrets) || []
+    const resources = (argoCdInitialized && deployment.resources) || []
     // The deployment records names and keys only: the type and icon come from the resource as it is now, none once it is deleted
     const resourcesQuery = useResourcesQuery(resources.length > 0)
     const exposure = useProjectStore(state => state.project?.exposure)

@@ -43,6 +43,7 @@ import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
+import { withArgoCdInitialized } from "../testing/argoCdInitialized"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
 import BackendDTO from "../types/BackendDTO"
 import { BackendRuntime } from "../types/BackendStack"
@@ -563,6 +564,8 @@ describe("BackendService.update of the attached maps", () => {
     let configMaps: ReturnType<typeof vi.fn>
     let secrets: ReturnType<typeof vi.fn>
 
+    withArgoCdInitialized()
+
     beforeEach(() => {
         vi.spyOn(Backend, "findById").mockResolvedValue(backend as never)
         vi.spyOn(BackendService.prototype as unknown as { ensureAccessToBackend: () => Promise<void> }, "ensureAccessToBackend").mockResolvedValue(undefined)
@@ -607,6 +610,23 @@ describe("BackendService.update of the attached maps", () => {
 
     it("given an id that is not one, when the backend is updated, then it is refused", async () => {
         await expect(update({ configMapIds: ["not-an-id"] })).rejects.toMatchObject({ code: "BACKEND_VARIABLE_MAPS_INVALID" })
+    })
+
+    it("given a project whose Argo CD is not initialized, when the backend is given a secret, then it is refused and nothing is written", async () => {
+        vi.mocked(Project.findById).mockResolvedValue({ argoCd: {} } as never)
+
+        await expect(update({ secretIds: [database] })).rejects.toMatchObject({ code: "ARGOCD_REQUIRED_FOR_VARIABLES" })
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a project whose Argo CD is not initialized, when the backend is saved with the config maps it already has, then it is written", async () => {
+        vi.mocked(Project.findById).mockResolvedValue({ argoCd: {} } as never)
+        // The backend attaches no secret: the read of them finds none
+        secrets.mockResolvedValue([])
+
+        await update({ configMapIds: [logging] })
+
+        expect(write.mock.calls[0][1]).toEqual({ name: "Orders API", configMapIds: [logging] })
     })
 
     it("given a secret setting a key a config map of the backend sets, when the backend is updated, then it is refused and nothing is written", async () => {

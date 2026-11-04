@@ -11,6 +11,7 @@ import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useFrontendsApi, { Frontend } from "@/hooks/apiClients/useFrontendsApi"
 import useMaintenanceAgentsApi, { MaintenanceAgent } from "@/hooks/apiClients/useMaintenanceAgentsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import BackendBuildDialog from "@/pages/backends/partials/BackendBuildDialog"
 import BackendResourcesSection from "@/pages/backends/partials/BackendResourcesSection"
 import BackendVariableMapsSection from "@/pages/backends/partials/BackendVariableMapsSection"
@@ -186,6 +187,8 @@ const MaintenanceAgentDetail: React.FC = () => {
     const frontendsApi = useFrontendsApi()
     const queryClient = useQueryClient()
     const isViewer = useIsProjectViewer()
+    // Config maps, secrets and resources reach the container only through Argo CD: without it, or until it is known, not shown
+    const argoCdInitialized = useArgoCdStatus().initialized
     const [buildOpen, setBuildOpen] = useState(false)
     const [running, setRunning] = useState<MaintenanceAgent>()
 
@@ -233,7 +236,7 @@ const MaintenanceAgentDetail: React.FC = () => {
                         agents={[agent]}
                         backends={backendsQuery.data ?? []}
                         frontends={frontendsQuery.data ?? []}
-                        resources={resourcesQuery.data}
+                        resources={argoCdInitialized ? resourcesQuery.data : undefined}
                         onRun={isViewer ? undefined : setRunning}
                     />
                     {agent.description && <p className="text-sm text-foreground-secondary">{agent.description}</p>}
@@ -249,8 +252,12 @@ const MaintenanceAgentDetail: React.FC = () => {
                     <TargetsSection agent={agent} backends={backendsQuery.data ?? []} frontends={frontendsQuery.data ?? []} />
                     <MaintenanceRunsTable runs={runsQuery.data ?? []} environments={environments} />
                     <BackendVersionsTable versions={versionsQuery.data ?? []} />
-                    <BackendVariableMapsSection backend={agent} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environments} />
-                    <BackendResourcesSection backend={agent} resources={resourcesQuery.data ?? []} environments={environments} />
+                    {argoCdInitialized && (
+                        <>
+                            <BackendVariableMapsSection backend={agent} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environments} />
+                            <BackendResourcesSection backend={agent} resources={resourcesQuery.data ?? []} environments={environments} />
+                        </>
+                    )}
                     {canBuild && (
                         <BackendBuildDialog
                             open={buildOpen}

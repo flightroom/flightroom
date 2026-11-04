@@ -46,7 +46,9 @@ const GITOPS_ERROR_KEYS: Record<string, string> = {
     ARGOCD_URL_INSECURE: "settings.argoCd.errors.url_insecure",
     ARGOCD_REPOSITORY_CONFLICT: "settings.argoCd.errors.repository_conflict",
     ARGOCD_BUSY: "settings.argoCd.errors.busy",
-    ARGOCD_LEASE_LOST: "settings.argoCd.errors.lease_lost"
+    ARGOCD_LEASE_LOST: "settings.argoCd.errors.lease_lost",
+    // Config maps, secrets and resources, and attaching them, refused until Argo CD is initialized
+    ARGOCD_REQUIRED_FOR_VARIABLES: "settings.argoCd.errors.required_for_variables"
 }
 
 export interface GitOpsErrorDetails {

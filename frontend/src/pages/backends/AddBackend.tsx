@@ -20,6 +20,7 @@ import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useMarketApi, { BackendDefaults } from "@/hooks/apiClients/useMarketApi"
 import { Resource, useResourceErrorMessage } from "@/hooks/apiClients/useResourcesApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { CodeRepositorySection, ReleaseSection } from "@/pages/frontends/partials/components"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
@@ -176,6 +177,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
     // Opened from a domain page: the backend is created in it, and the page is where we go back
     const initialDomainId = searchParams.get("domainId")
     const hasRepositories = repositories.length > 0
+    // Config maps, secrets and resources reach the container only through Argo CD: without it they are neither shown nor sent
+    const argoCdInitialized = useArgoCdStatus().initialized
     // `#runtime` opens a tab straight away.
     const linkedTab = location.hash.slice(1)
     const [activeTab, setActiveTab] = useState<FormTab>(isFormTab(linkedTab) ? linkedTab : "general")
@@ -305,6 +308,12 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
             exposurePath: exposed ? data.exposurePath : null,
             env: envToSubmit(data.env)
         } as unknown as BackendDTO
+        // Left out rather than sent empty when not shown: what the backend attaches stays, and shows again once Argo CD is initialized
+        if (!argoCdInitialized) {
+            delete dto.configMapIds
+            delete dto.secretIds
+            delete dto.resourceIds
+        }
         const template = data.template || undefined
         // Sent only when typed here: saving the form must not move back a newer version the pipeline registered meanwhile
         if (!data.version || !form.formState.dirtyFields.version) delete dto.version
@@ -503,8 +512,12 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                     <TabsContent value="variables" forceMount>
                         <div className="flex flex-col gap-6">
                             <BackendEnvFields withValues />
-                            <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
-                            <BackendResourcesFields resources={resources} />
+                            {argoCdInitialized && (
+                                <>
+                                    <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
+                                    <BackendResourcesFields resources={resources} />
+                                </>
+                            )}
                         </div>
                     </TabsContent>
 

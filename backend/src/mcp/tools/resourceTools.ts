@@ -133,7 +133,7 @@ export const resourceTools = [
         name: "resource_create",
         title: "Create resource",
         description:
-            "Adds a resource to the project, with the fields of its variant that are no credential (resource_types_list); set the credentials from the console. For anything the catalog lacks, a generic (variant custom) defines its own variables in customFields. Attach it to a backend with backend_update (resourceIds).",
+            "Adds a resource to the project, with the fields of its variant that are no credential (resource_types_list); set the credentials from the console. For anything the catalog lacks, a generic (variant custom) defines its own variables in customFields. Attach it to a backend with backend_update (resourceIds). Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: z.object({
@@ -162,7 +162,7 @@ export const resourceTools = [
         name: "resource_update",
         title: "Update resource",
         description:
-            "Changes the name, variant, description, AI context, prefix, variables of a generic (customFields) or some fields of a resource: a field left out keeps its value, credentials included, which are set from the console only. A change of variant drops the fields the new one does not have. A change of variant or of where the resource connects (its host, URL...) is refused while it has stored credentials: those must be typed again, in the console.",
+            "Changes the name, variant, description, AI context, prefix, variables of a generic (customFields) or some fields of a resource: a field left out keeps its value, credentials included, which are set from the console only. A change of variant drops the fields the new one does not have. A change of variant or of where the resource connects (its host, URL...) is refused while it has stored credentials: those must be typed again, in the console. Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({

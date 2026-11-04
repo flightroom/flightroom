@@ -21,6 +21,7 @@ import AssistantPanel, { ASSISTANT_PAGE_PATH } from "@/components/assistant/Assi
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import DeployOverlay from "@/components/deploy-overlay/DeployOverlay"
 import { Sidebar, type SidebarNavSection } from "@/components/ui/Sidebar/Sidebar"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { cn } from "@/utils/styleUtils"
 import Header from "./Header"
 
@@ -32,6 +33,8 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
     const { t } = useTranslation()
     const location = useLocation()
     const assistantEnabled = useProjectAiModels().enabled
+    // Config maps, secrets and resources reach a container only through Argo CD: without it, or until it is known, no entry for them
+    const argoCdInitialized = useArgoCdStatus().initialized
     const [isSidebarCollapsed, setIsSidebarCollapsed] = useState(false)
     // La pagina dell'agente e' gia' la conversazione: il pannello laterale ne sarebbe un doppione.
     const isAssistantPage = location.pathname === ASSISTANT_PAGE_PATH
@@ -63,9 +66,13 @@ const MainLayout: React.FC<MainLayoutProps> = ({ children }) => {
             title: t("navigation.sections.backends"),
             items: [
                 { name: t("backends.title"), path: "/backends", icon: <Server /> },
-                { name: t("variableMaps.configMap.list_title"), path: "/config-maps", icon: <SlidersHorizontal /> },
-                { name: t("variableMaps.secret.list_title"), path: "/secrets", icon: <KeyRound /> },
-                { name: t("resources.list_title"), path: "/resources", icon: <Boxes /> }
+                ...(argoCdInitialized
+                    ? [
+                          { name: t("variableMaps.configMap.list_title"), path: "/config-maps", icon: <SlidersHorizontal /> },
+                          { name: t("variableMaps.secret.list_title"), path: "/secrets", icon: <KeyRound /> },
+                          { name: t("resources.list_title"), path: "/resources", icon: <Boxes /> }
+                      ]
+                    : [])
             ]
         },
         {

@@ -21,6 +21,7 @@ import useMaintenanceAgentsApi, { MaintenanceAgent, MaintenanceAgentDTO, useMain
 import useMarketApi from "@/hooks/apiClients/useMarketApi"
 import { Resource, useResourceErrorMessage } from "@/hooks/apiClients/useResourcesApi"
 import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { CodeRepositorySection } from "@/pages/frontends/partials/components"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
@@ -213,6 +214,8 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
     const { errorMessage: domainErrorMessage } = useDomainsApi()
     const resourceErrorMessage = useResourceErrorMessage()
     const errorMessage = (error: Error) => maintenanceErrorMessage(error) ?? resourceErrorMessage(error) ?? domainErrorMessage(error)
+    // Config maps, secrets and resources reach the container only through Argo CD: without it they are neither shown nor sent
+    const argoCdInitialized = useArgoCdStatus().initialized
     const { getMarkets } = useMarketApi()
     const navigate = useNavigate()
     const queryClient = useQueryClient()
@@ -337,6 +340,12 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
         // Sent only when typed here: saving the form must not move back a newer version the pipeline registered meanwhile
         if (!data.version || !form.formState.dirtyFields.version) delete dto.version
         if (isEdit) delete dto.slug
+        // Left out rather than sent empty when not shown: what the agent attaches stays, and shows again once Argo CD is initialized
+        if (!argoCdInitialized) {
+            delete dto.configMapIds
+            delete dto.secretIds
+            delete dto.resourceIds
+        }
 
         if (!isEdit && template && dto.codeRepository) {
             dto.codeRepository.createData = { ...dto.codeRepository.createData, template, name: dto.codeRepository.createData?.name || data.slug }
@@ -491,8 +500,12 @@ const AddMaintenanceAgentForm: React.FC<AddMaintenanceAgentFormProps> = ({ repos
                     <TabsContent value="variables" forceMount>
                         <div className="flex flex-col gap-6">
                             <BackendEnvFields />
-                            <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
-                            <BackendResourcesFields resources={resources} />
+                            {argoCdInitialized && (
+                                <>
+                                    <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
+                                    <BackendResourcesFields resources={resources} />
+                                </>
+                            )}
                         </div>
                     </TabsContent>
 

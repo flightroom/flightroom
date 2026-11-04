@@ -3,6 +3,7 @@ import { Navigate, Route, Routes as RRDRoutes } from "react-router-dom"
 import Auth0Wrapper from "./authentication/Auth0AuthWrapper"
 import GoogleAuthWrapper from "./authentication/GoogleAuthWrapper"
 import MicrosoftAuthWrapper from "./authentication/MicrosoftAuthWrapper"
+import ArgoCdRequired from "./components/ArgoCdRequired"
 import { ASSISTANT_PAGE_PATH } from "./components/assistant/AssistantPanel"
 import RouteWithSuspense from "./components/RouteWithSuspense"
 import { readOAuthResume } from "./pages/oauth/oauthResume"
@@ -152,12 +153,15 @@ const PrivateProjectRoutes: React.FC = () => {
                 <Route path="/maintenance-agent/new" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
                 <Route path="/maintenance-agent/:id" element={<RouteWithSuspense element={<MaintenanceAgentDetail />} />} />
                 <Route path="/maintenance-agent/:id/settings" element={<RouteWithSuspense element={<AddMaintenanceAgent />} />} />
-                <Route path="/config-maps" element={<RouteWithSuspense element={<VariableMaps kind="configMap" />} />} />
-                <Route path="/config-map/:id" element={<RouteWithSuspense element={<VariableMapForm kind="configMap" />} />} />
-                <Route path="/secrets" element={<RouteWithSuspense element={<VariableMaps kind="secret" />} />} />
-                <Route path="/secret/:id" element={<RouteWithSuspense element={<VariableMapForm kind="secret" />} />} />
-                <Route path="/resources" element={<RouteWithSuspense element={<Resources />} />} />
-                <Route path="/resource/:id" element={<RouteWithSuspense element={<ResourceForm />} />} />
+                {/* Config maps, secrets and resources reach a container only through Argo CD: without it, a notice in place of their pages */}
+                <Route element={<ArgoCdRequired />}>
+                    <Route path="/config-maps" element={<RouteWithSuspense element={<VariableMaps kind="configMap" />} />} />
+                    <Route path="/config-map/:id" element={<RouteWithSuspense element={<VariableMapForm kind="configMap" />} />} />
+                    <Route path="/secrets" element={<RouteWithSuspense element={<VariableMaps kind="secret" />} />} />
+                    <Route path="/secret/:id" element={<RouteWithSuspense element={<VariableMapForm kind="secret" />} />} />
+                    <Route path="/resources" element={<RouteWithSuspense element={<Resources />} />} />
+                    <Route path="/resource/:id" element={<RouteWithSuspense element={<ResourceForm />} />} />
+                </Route>
                 <Route path="/dependencies" element={<RouteWithSuspense element={<Dependencies />} />} />
                 <Route path="/builds" element={<RouteWithSuspense element={<Builds />} />} />
                 <Route path="/fleet" element={<RouteWithSuspense element={<FleetPage />} />} />

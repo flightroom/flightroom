@@ -94,10 +94,14 @@ interface ContainerSources {
  * config maps, then their secrets, then their resources, a later one winning as in `envFrom`, then LOG_LEVEL, LOG_JSON
  * and ENVIRONMENT, as in `env`. Not the URLs of the services: from a sandbox they reach nothing, and the previews
  * started find each other on their own. By id of the component; empty when the project has no such environment.
+ * Without Argo CD initialized none of the config maps, secrets and resources: they reach a container only through the
+ * manifests it applies, and a preview with values no deploy would hand over would mislead.
  */
-export const previewEnvironments = async (projectId: ReturnType<typeof toObjectId>, sources: ContainerSources[]): Promise<Map<string, Record<string, string>>> => {
+export const previewEnvironments = async (projectId: ReturnType<typeof toObjectId>, attachedSources: ContainerSources[]): Promise<Map<string, Record<string, string>>> => {
     const environment = await Environment.findOne({ projectId, isProduction: false }, { slug: 1, logLevel: 1, logJson: 1 }).sort({ order: 1 })
     if (!environment) return new Map()
+    const argoCdInitialized = Boolean((await Project.findById(projectId, { argoCd: 1 }))?.argoCd?.initializedAt)
+    const sources: ContainerSources[] = argoCdInitialized ? attachedSources : attachedSources.map(({ _id, logLevel }) => ({ _id, logLevel }))
     const id = String(environment._id)
     const inProject = (ids: unknown[]) => ({ _id: { $in: ids.map(entry => toObjectId(String(entry))) }, projectId })
     // Read through the models, as the deploy reads them: a secret comes back decrypted

@@ -361,7 +361,13 @@
                 "url_insecure": "The Argo CD URL must be https: the token and the repository credentials would travel in the clear. For a local cluster only, the installation can allow http with ARGOCD_ALLOW_INSECURE_HTTP=true",
                 "repository_conflict": "Argo CD already has the repository {{repository}} registered by hand or by a project of another organization: remove that registration from Argo CD, then try again. One made by a project of this organization is shared on its own",
                 "busy": "Argo CD is already being initialized for this project: try again in a moment",
-                "lease_lost": "Another Argo CD initialization took over this project while this one ran: check its outcome and initialize again if needed"
+                "lease_lost": "Another Argo CD initialization took over this project while this one ran: check its outcome and initialize again if needed",
+                "required_for_variables": "Config maps, secrets and resources reach containers only through Argo CD: initialize Argo CD for the project first, in its settings"
+            },
+            "required": {
+                "title": "Argo CD is not initialized",
+                "description": "Config maps, secrets and resources reach containers only through the GitOps manifests Argo CD applies: without it they would do nothing, so they are switched off. Initialize Argo CD for the project and they show again, with everything already saved.",
+                "open_settings": "Open the Argo CD settings"
             },
             "ownerOnly": "Only an owner of the project or an administrator of its organization can initialize Argo CD.",
             "setup": {

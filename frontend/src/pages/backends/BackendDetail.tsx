@@ -11,6 +11,7 @@ import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { ApiStatusHandler } from "@/components/organisms"
 import useBackendsApi, { Backend } from "@/hooks/apiClients/useBackendsApi"
 import useArgoCdInitialized from "@/hooks/useArgoCdInitialized"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import { useResourcesQuery } from "@/pages/resources/partials/resources"
 import { useVariableMapsQuery } from "@/pages/variable-maps/partials/variableMaps"
 import BackendActions from "./partials/BackendActions"
@@ -76,6 +77,8 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
     const backendsApi = useBackendsApi()
     const aiModels = useProjectAiModels()
     const argoCdInitialized = useArgoCdInitialized()
+    // Config maps, secrets and resources reach the container only through Argo CD, for viewers too: without it, or until it is known, not shown
+    const attachmentsShown = useArgoCdStatus().initialized
     const { t } = useTranslation()
     // The tab lives in the URL (`?tab=logs`) so that a link can point straight to one of them, as in the settings.
     const [searchParams, setSearchParams] = useSearchParams()
@@ -131,8 +134,17 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                         {/* What the container uses: its resources, config maps and secrets, and the variables it declares */}
                         <TabsContent value="resources" className="mt-6 flex flex-col gap-6">
                             <ContainerComputeCard backend={backend} environments={environmentsQuery.data ?? []} />
-                            <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} />
-                            <BackendVariableMapsSection backend={backend} configMaps={configMapsQuery.data ?? []} secrets={secretsQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                            {attachmentsShown && (
+                                <>
+                                    <BackendResourcesSection backend={backend} resources={resourcesQuery.data ?? []} environments={environmentsQuery.data ?? []} />
+                                    <BackendVariableMapsSection
+                                        backend={backend}
+                                        configMaps={configMapsQuery.data ?? []}
+                                        secrets={secretsQuery.data ?? []}
+                                        environments={environmentsQuery.data ?? []}
+                                    />
+                                </>
+                            )}
                             <ContainerEnvSection backend={backend} />
                         </TabsContent>
 

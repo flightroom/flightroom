@@ -17,6 +17,7 @@ import useMarketApi from "@/hooks/apiClients/useMarketApi"
 import type { FrontendFramework } from "@/hooks/apiClients/useServeApi"
 import type { Storage } from "@/hooks/apiClients/useStorageApi"
 import { useVariableMapErrorMessage, type VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
+import useArgoCdStatus from "@/hooks/useArgoCdStatus"
 import BackendEndpointFields from "@/pages/backends/partials/BackendEndpointFields"
 import BackendEnvFields from "@/pages/backends/partials/BackendEnvFields"
 import BackendRuntimeFields from "@/pages/backends/partials/BackendRuntimeFields"
@@ -71,6 +72,8 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
     // Opened from a domain page: the frontend is created in it, and the page is where we go back
     const initialDomainId = searchParams.get("domainId")
     const assistantEnabled = useProjectAiModels().enabled
+    // Config maps and secrets reach a DOCKER only through Argo CD: without it they are neither shown nor sent
+    const argoCdInitialized = useArgoCdStatus().initialized
 
     const formSchema = useMemo(
         () =>
@@ -120,6 +123,11 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
 
     const onSubmit = async (data: FormValues) => {
         const dataToSend = toFrontendPayload(data, { isEdit, template, isVersionDirty: () => Boolean(form.formState.dirtyFields.version) })
+        // Left out rather than sent empty when not shown: what the DOCKER attaches stays, and shows again once Argo CD is initialized
+        if (!argoCdInitialized) {
+            delete dataToSend.configMapIds
+            delete dataToSend.secretIds
+        }
 
         if (isEdit) {
             await frontendsApi.update(id, dataToSend, { customErrorMessage: errorMessage })
@@ -191,7 +199,7 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                                 <BackendRuntimeFields probeSide="frontend" />
                                 <BackendEndpointFields environments={environments} placeholder="/shell" />
                                 <BackendEnvFields />
-                                <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />
+                                {argoCdInitialized && <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} />}
                                 {id && <ContainerEnvironmentCard kind="frontend" id={id} environments={environments} />}
                             </div>
                         </TabsContent>
