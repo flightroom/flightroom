@@ -40,7 +40,7 @@ const fields = z
             .nullable()
     )
     .describe(
-        "By field name of the variant (resource_types_list), or by name of a customField of a generic: a field sent replaces its value and overrides, null unsets it, one left out keeps what it has. Fields that are a credential are refused: they are set from the console"
+        "By field name of the variant (resource_types_list), or by name of a customField: a field sent replaces its value and overrides, null unsets it, one left out keeps what it has. Fields that are a credential are refused: they are set from the console"
     )
 
 const customFields = z
@@ -53,7 +53,7 @@ const customFields = z
     .max(MAX_RESOURCE_CUSTOM_FIELDS)
     .optional()
     .describe(
-        "A generic only (refused on any other type): the variables it defines, all optional, sent as a whole. Their values go in fields, by name. A field renamed, removed or turned secret or plain loses its values"
+        "The variables the resource defines beyond those of its type: all a generic has, on any other type what its variant lacks (none may be named as a variable the variant sets). All optional, sent as a whole. Their values go in fields, by name. A field renamed, removed or turned secret or plain loses its values"
     )
 
 const resources = (principal: McpToolContext["principal"]) => new ResourceService(principal)
@@ -104,7 +104,7 @@ export const resourceTools = [
         name: "resource_types_list",
         title: "List resource types",
         description:
-            "The types a resource can be, each with its variants and their fields: the name, the variable suffix, whether it is a credential (set from the console only), required, and how it is typed. A generic has no field of its own: it defines its variables in customFields.",
+            "The types a resource can be, each with its variants and their fields: the name, the variable suffix, whether it is a credential (set from the console only), required, and how it is typed. A generic has no field of its own: it defines its variables in customFields. Any other type can add there the variables its variant lacks.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,
@@ -133,7 +133,7 @@ export const resourceTools = [
         name: "resource_create",
         title: "Create resource",
         description:
-            "Adds a resource to the project, with the fields of its variant that are no credential (resource_types_list); set the credentials from the console. For anything the catalog lacks, a generic (variant custom) defines its own variables in customFields. Attach it to a backend with backend_update (resourceIds). Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
+            "Adds a resource to the project, with the fields of its variant that are no credential (resource_types_list); set the credentials from the console. A variable the type lacks goes in customFields; for anything the catalog has no type for, a generic (variant custom) defines all its variables there. Attach it to a backend with backend_update (resourceIds). Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
         scope: MCP_SCOPE_WRITE,
         annotations: WRITE,
         inputSchema: z.object({
@@ -162,7 +162,7 @@ export const resourceTools = [
         name: "resource_update",
         title: "Update resource",
         description:
-            "Changes the name, variant, description, AI context, prefix, variables of a generic (customFields) or some fields of a resource: a field left out keeps its value, credentials included, which are set from the console only. A change of variant drops the fields the new one does not have. A change of variant or of where the resource connects (its host, URL...) is refused while it has stored credentials: those must be typed again, in the console. Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
+            "Changes the name, variant, description, AI context, prefix, variables it defines (customFields) or some fields of a resource: a field left out keeps its value, credentials included, which are set from the console only. A change of variant drops the fields the new one does not have. A change of variant or of where the resource connects (its host, URL...) is refused while it has stored credentials: those must be typed again, in the console. Refused until Argo CD is initialized for the project: config maps, secrets and resources reach a container only through the manifests Argo CD applies.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({

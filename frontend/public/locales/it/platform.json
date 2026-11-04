@@ -3976,7 +3976,11 @@
             "secret": "Segreta",
             "hint": "Rinominare o rimuovere una variabile, o renderla segreta o in chiaro, ne cancella i valori al salvataggio.",
             "name_invalid": "Al massimo 61 lettere maiuscole, cifre o trattini bassi",
-            "name_duplicated": "Esiste già una variabile con questo nome"
+            "name_duplicated": "Esiste già una variabile con questo nome",
+            "name_taken": "Questa variabile la imposta già il tipo di risorsa: scegli un altro nome",
+            "title_extra": "Variabili aggiuntive",
+            "description_extra": "Le variabili che il tipo non prevede, con lo stesso prefisso: ciascuna diventa <prefisso>_<nome>. Quelle segrete sono cifrate e non vengono più mostrate.",
+            "empty_extra": "Nessuna variabile aggiuntiva: il tipo imposta già le sue. Aggiungine una se ti serve un valore che non prevede."
         },
         "values": {
             "title": "Valori",
@@ -4088,7 +4092,7 @@
             "secret_value_required": "Una credenziale salvata non c'è più: digitala di nuovo",
             "environment_unknown": "Un valore si riferisce a un ambiente che non esiste più: ricarica la pagina",
             "env_prefix_invalid": "Il prefisso non è valido, o produce una variabile che la piattaforma imposta su ogni container (HTTP_PORT)",
-            "custom_fields_invalid": "Le variabili della risorsa non sono valide: nomi in maiuscolo con cifre o trattini bassi, ciascuno una volta sola, al massimo 100, e solo per una risorsa generica",
+            "custom_fields_invalid": "Le variabili della risorsa non sono valide: nomi in maiuscolo con cifre o trattini bassi, ciascuno una volta sola, al massimo 100, e nessuna con il nome di una variabile che il tipo imposta già",
             "api_spec_invalid": "Il documento non è un documento Swagger/OpenAPI valido in JSON o YAML, o supera 5 MiB",
             "in_use": "È ancora agganciata a {{backends}}: sganciala prima",
             "resource_unknown": "Una delle risorse selezionate non esiste più: ricarica la pagina",

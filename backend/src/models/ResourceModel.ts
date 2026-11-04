@@ -33,7 +33,7 @@ export interface IResource extends Document<ObjectId> {
     context?: string
     /** Typed in place of the prefix derived from the type and the name; null keeps the derived one */
     envPrefix?: string | null
-    /** A `generic` resource only: the variables it defines, whose values are kept as those of a catalog field */
+    /** The variables it defines beyond those of its type, whose values are kept as those of a catalog field */
     customFields?: ResourceCustomField[]
     /** The fields that are not a credential. Which list a field goes to is the catalog's call, never the client's */
     values: IResourceValue[]
@@ -142,7 +142,7 @@ const resourceSchema = new Schema<IResource>(
         },
         customFields: {
             type: [resourceCustomFieldSchema],
-            // Left out of every other type rather than stored empty
+            // Left out rather than stored empty when none was ever sent
             default: undefined
         },
         values: {

@@ -30,16 +30,20 @@ export const resourcePath = (id: string) => `/resource/${id}`
 export const resourceEnvPrefix = (spec: ResourceTypeSpec | undefined, name: string, envPrefix?: string | null): string =>
     envPrefix || (spec?.exactEnvPrefix ? spec.envPrefix : [spec?.envPrefix, name.toUpperCase().replace(/-/g, "_")].filter(Boolean).join("_"))
 
-/** The fields a `generic` resource defines, as the catalog would give them; none for any other type */
-const customFieldSpecs = (spec: ResourceTypeSpec | undefined, customFields?: ResourceCustomField[]): ResourceFieldSpec[] =>
-    spec?.type === "generic" ? (customFields ?? []).map(({ name, secret }) => ({ name, envSuffix: name, secret, required: false, input: "text" })) : []
+/** The fields a resource defines beyond those of its type, as the catalog would give them */
+const customFieldSpecs = (customFields?: ResourceCustomField[]): ResourceFieldSpec[] =>
+    (customFields ?? []).map(({ name, secret }) => ({ name, envSuffix: name, secret, required: false, input: "text" }))
 
-/** Mirror of the backend (resourceVariant): the variant of the type, with the fields a `generic` resource defines */
+/** Mirror of the backend (resourceVariant): the variant of the type, followed by the fields the resource defines */
 export const resourceVariant = (spec: ResourceTypeSpec | undefined, variantId: string, customFields?: ResourceCustomField[]): ResourceVariantSpec | undefined => {
     const variant = spec?.variants.find(candidate => candidate.id === variantId)
-    const custom = customFieldSpecs(spec, customFields)
+    const custom = customFieldSpecs(customFields)
     return variant && custom.length > 0 ? { ...variant, fields: [...variant.fields, ...custom] } : variant
 }
+
+/** Mirror of the backend (customFieldClashes): the names a variant sets already, by variable or by field */
+export const variantTakenNames = (variant: ResourceVariantSpec | undefined): Set<string> =>
+    new Set([...(variant?.fields ?? []).flatMap(field => [field.envSuffix, field.name]), ...Object.keys(variant?.fixed ?? {})])
 
 /** Mirror of the backend (resourceEnvKeys): every variable the variant sets, whether its field has a value or not */
 export const resourceEnvKeys = (spec: ResourceTypeSpec | undefined, variantId: string, name: string, envPrefix?: string | null, customFields?: ResourceCustomField[]): ResourceEnvKey[] => {
@@ -78,7 +82,7 @@ export interface ResourceFormValues {
     type: string
     variant: string
     envPrefix: string
-    /** A `generic` only: the variables it defines, whose values are in `fields` by name */
+    /** The variables it defines beyond those of its type, whose values are in `fields` by name */
     customFields: ResourceCustomField[]
     fields: Record<string, ResourceFieldFormValue>
     /** An `api` only: a document typed or loaded here; blank keeps the stored one */
@@ -87,15 +91,15 @@ export interface ResourceFormValues {
     apiSpecRemoved: boolean
 }
 
-/** Every field of the type, by name across its variants: switching variant keeps what the two share. A `generic` adds those it defines */
+/** Every field of the type, by name across its variants: switching variant keeps what the two share. Then those the resource defines */
 export const typeFields = (spec: ResourceTypeSpec | undefined, customFields?: ResourceCustomField[]): ResourceFieldSpec[] => {
     const byName = new Map<string, ResourceFieldSpec>()
     for (const variant of spec?.variants ?? []) for (const field of variant.fields) if (!byName.has(field.name)) byName.set(field.name, field)
-    for (const field of customFieldSpecs(spec, customFields)) if (!byName.has(field.name)) byName.set(field.name, field)
+    for (const field of customFieldSpecs(customFields)) if (!byName.has(field.name)) byName.set(field.name, field)
     return [...byName.values()]
 }
 
-/** A field with no value anywhere: a variable of a `generic` just added, renamed, or turned secret or plain */
+/** A field with no value anywhere: a variable the resource defines, just added, renamed, or turned secret or plain */
 export const emptyFormField = (environmentCount: number): ResourceFieldFormValue => ({
     value: "",
     saved: false,

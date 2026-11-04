@@ -22,11 +22,11 @@ interface ResourceDTO {
     /** Blank or null derives it from the type and the name */
     envPrefix?: string | null
     /**
-     * A `generic` only, refused on any other type: the variables it defines, each `<prefix>_<name>`, sent as a
-     * whole. A field renamed, removed or turned secret or plain loses its stored values.
+     * The variables it defines beyond those of its type, each `<prefix>_<name>`, sent as a whole; none named as a
+     * variable its variant sets. A field renamed, removed or turned secret or plain loses its stored values.
      */
     customFields?: Array<Pick<ResourceCustomField, "name"> & { secret?: boolean }>
-    /** By field name of the catalog, or of the customFields of a generic. On an update a field left out keeps what it has, one sent replaces it with its overrides */
+    /** By field name of the catalog, or of its customFields. On an update a field left out keeps what it has, one sent replaces it with its overrides */
     fields?: Record<string, ResourceFieldDTO>
     /**
      * An `api` only: its Swagger/OpenAPI document, JSON or YAML, when it cannot be fetched from its specUrl.

@@ -9,11 +9,12 @@ import type { ResourceCustomField } from "@/hooks/apiClients/useResourcesApi"
 import { emptyFormField, MAX_RESOURCE_CUSTOM_FIELDS, type ResourceFieldFormValue } from "./resources"
 
 /**
- * The variables a `generic` resource defines: a name, the end of the variable, and whether it is a credential.
- * Their values are typed in the values table below, as those of any field. A variable turned secret or plain
- * starts over with no value, as the backend drops the stored one: a credential never comes back readable.
+ * The variables a resource defines: a name, the end of the variable, and whether it is a credential. All a
+ * `generic` has; `extra` for any other type, where they add to the fields of its variant. Their values are
+ * typed in the values table below, as those of any field. A variable turned secret or plain starts over with
+ * no value, as the backend drops the stored one: a credential never comes back readable.
  */
-export const ResourceCustomFieldsEditor: React.FC<{ prefix: string; environmentCount: number }> = ({ prefix, environmentCount }) => {
+export const ResourceCustomFieldsEditor: React.FC<{ prefix: string; environmentCount: number; extra?: boolean }> = ({ prefix, environmentCount, extra = false }) => {
     const { t } = useTranslation()
     const {
         control,
@@ -42,8 +43,8 @@ export const ResourceCustomFieldsEditor: React.FC<{ prefix: string; environmentC
             <CardHeader>
                 <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
                     <div>
-                        <CardTitle className="mb-0">{t("resources.custom_fields.title")}</CardTitle>
-                        <CardDescription>{t("resources.custom_fields.description")}</CardDescription>
+                        <CardTitle className="mb-0">{t(extra ? "resources.custom_fields.title_extra" : "resources.custom_fields.title")}</CardTitle>
+                        <CardDescription>{t(extra ? "resources.custom_fields.description_extra" : "resources.custom_fields.description")}</CardDescription>
                     </div>
                     <Button
                         type="button"
@@ -58,7 +59,7 @@ export const ResourceCustomFieldsEditor: React.FC<{ prefix: string; environmentC
                 </div>
             </CardHeader>
             <CardContent className="flex flex-col gap-3 pt-3">
-                {fields.length === 0 && <p className="text-sm text-foreground-secondary">{t("resources.custom_fields.empty")}</p>}
+                {fields.length === 0 && <p className="text-sm text-foreground-secondary">{t(extra ? "resources.custom_fields.empty_extra" : "resources.custom_fields.empty")}</p>}
                 {fields.map((field, index) => {
                     // The design system TextField looks errors up by the flat name, which misses one inside a list
                     const nameError = get(errors, `customFields.${index}.name`) as FieldError | undefined

@@ -46,6 +46,7 @@ import {
     useDetachResource,
     useResourceCatalogQuery,
     variantLabel,
+    variantTakenNames,
     withVariantDefaults
 } from "./partials/resources"
 
@@ -77,6 +78,7 @@ interface FormMessages {
     apiSpecTooLarge: string
     customFieldName: string
     customFieldDuplicated: string
+    customFieldTaken: string
 }
 
 const fieldValueSchema = z.object({ value: z.string(), saved: z.boolean() })
@@ -102,15 +104,15 @@ const createFormSchema = (catalog: ResourceTypeSpec[], environmentCount: number,
             apiSpecRemoved: z.boolean()
         })
         .superRefine((values, context) => {
-            const variant = resourceVariant(
-                catalog.find(spec => spec.type === values.type),
-                values.variant,
-                values.customFields
-            )
-            // Each variable of a generic once: two of the same name would be one variable
+            const typeSpec = catalog.find(spec => spec.type === values.type)
+            const variant = resourceVariant(typeSpec, values.variant, values.customFields)
+            const taken = variantTakenNames(resourceVariant(typeSpec, values.variant))
+            // Each variable once, and none the variant sets already: two of the same name would be one variable
             values.customFields.forEach((field, index) => {
                 if (values.customFields.findIndex(other => other.name === field.name) < index) {
                     context.addIssue({ code: "custom", path: ["customFields", index, "name"], message: messages.customFieldDuplicated })
+                } else if (taken.has(field.name)) {
+                    context.addIssue({ code: "custom", path: ["customFields", index, "name"], message: messages.customFieldTaken })
                 }
             })
             for (const spec of variant?.fields ?? []) {
@@ -340,7 +342,8 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
                 tooLong: t("resources.values.too_long"),
                 apiSpecTooLarge: t("resources.api_spec.too_large", { max: formatBytes(MAX_API_SPEC_BYTES) }),
                 customFieldName: t("resources.custom_fields.name_invalid"),
-                customFieldDuplicated: t("resources.custom_fields.name_duplicated")
+                customFieldDuplicated: t("resources.custom_fields.name_duplicated"),
+                customFieldTaken: t("resources.custom_fields.name_taken")
             }),
         [catalog, environments.length, t]
     )
@@ -387,8 +390,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
             context: data.context,
             // Blank: the prefix derived from the type and the name
             envPrefix: data.envPrefix || null,
-            // The backend refuses them on any other type
-            ...(data.type === "generic" && { customFields: data.customFields }),
+            customFields: data.customFields,
             fields: fromFormFields(resourceVariant(specOf(data.type), data.variant, data.customFields), data.fields, environments)
         }
         if (data.type === "api") {
@@ -482,7 +484,7 @@ const ResourceFormContent: React.FC<ResourceFormContentProps> = ({ catalog, envi
 
                     <KeysPreview spec={spec} variant={variant} name={name} envPrefix={envPrefix} />
 
-                    {type === "generic" && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} />}
+                    {spec && <ResourceCustomFieldsEditor prefix={resourceEnvPrefix(spec, name, envPrefix.trim())} environmentCount={environments.length} extra={type !== "generic"} />}
 
                     {provisioned.length > 0 && <ProvisionedDatabasesNotice databases={provisioned} servers={serversQuery.data ?? []} environments={environments} />}
 

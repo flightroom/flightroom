@@ -668,10 +668,34 @@ describe("a generic resource", () => {
         })
     })
 
-    it("given variables on a resource of another type, when it is created, then it is refused and nothing is written", async () => {
-        await expect(new ResourceService().create({ name: "cache", type: "redis", variant: "connectionString", customFields: [{ name: "TOKEN" }] } as never, projectId)).rejects.toMatchObject({
-            code: "RESOURCE_CUSTOM_FIELDS_INVALID"
+    it("given a variable on a resource of another type, when it is created, then it is kept beside the fields of its variant", async () => {
+        await new ResourceService().create(
+            {
+                name: "cache",
+                type: "redis",
+                variant: "credentials",
+                customFields: [{ name: "DB_INDEX" }],
+                fields: { host: { value: "cache.internal" }, port: { value: "6379" }, DB_INDEX: { value: "2" } }
+            } as never,
+            projectId
+        )
+
+        expect(create.mock.calls[0][0]).toMatchObject({
+            customFields: [{ name: "DB_INDEX", secret: false }],
+            values: expect.arrayContaining([
+                { field: "host", value: "cache.internal", overrides: [] },
+                { field: "DB_INDEX", value: "2", overrides: [] }
+            ])
         })
+    })
+
+    it("given a variable named as one its variant sets, when it is created, then it is refused and nothing is written", async () => {
+        await expect(
+            new ResourceService().create(
+                { name: "cache", type: "redis", variant: "credentials", customFields: [{ name: "HOST" }], fields: { host: { value: "cache.internal" }, port: { value: "6379" } } } as never,
+                projectId
+            )
+        ).rejects.toMatchObject({ code: "RESOURCE_CUSTOM_FIELDS_INVALID" })
         expect(create).not.toHaveBeenCalled()
     })
 

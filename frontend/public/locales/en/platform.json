@@ -3956,7 +3956,11 @@
             "secret": "Secret",
             "hint": "Renaming or removing a variable, or making it secret or plain, clears its values on save.",
             "name_invalid": "At most 61 capital letters, digits or underscores",
-            "name_duplicated": "A variable with this name already exists"
+            "name_duplicated": "A variable with this name already exists",
+            "name_taken": "The type of the resource sets this variable already: pick another name",
+            "title_extra": "Additional variables",
+            "description_extra": "Variables the type does not provide, under the same prefix: each one becomes <prefix>_<name>. Secret ones are encrypted and never shown again.",
+            "empty_extra": "No additional variables: the type sets its own. Add one if you need a value it does not provide."
         },
         "values": {
             "title": "Values",
@@ -4068,7 +4072,7 @@
             "secret_value_required": "A saved credential is gone: type it again",
             "environment_unknown": "A value refers to an environment that no longer exists: reload the page",
             "env_prefix_invalid": "The prefix is not valid, or makes a variable the platform sets on every container (HTTP_PORT)",
-            "custom_fields_invalid": "The variables of the resource are not valid: names in capitals with digits or underscores, each once, at most 100, and only for a generic resource",
+            "custom_fields_invalid": "The variables of the resource are not valid: names in capitals with digits or underscores, each once, at most 100, and none named as a variable the type sets already",
             "api_spec_invalid": "The document is not a valid Swagger/OpenAPI document in JSON or YAML, or exceeds 5 MiB",
             "in_use": "It is still attached to {{backends}}: detach it first",
             "resource_unknown": "One of the selected resources no longer exists: reload the page",

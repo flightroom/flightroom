@@ -447,7 +447,10 @@ export const RESOURCE_CATALOG: Record<ResourceType, ResourceTypeSpec> = {
 
 export const isResourceType = (type: unknown): type is ResourceType => typeof type === "string" && Object.hasOwn(RESOURCE_CATALOG, type)
 
-/** A variable a `generic` resource defines itself: `<prefix>_<name>`, optional, a credential when `secret` */
+/**
+ * A variable a resource defines itself beyond those of its type: `<prefix>_<name>`, optional, a credential when
+ * `secret`. All a `generic` resource has; on any other type, what the catalog lacks (a scope of an auth0...).
+ */
 export interface ResourceCustomField {
     name: string
     secret: boolean
@@ -463,13 +466,24 @@ export const RESOURCE_CUSTOM_FIELD_NAME = /^[A-Z0-9_]{1,61}$/
 export const MAX_RESOURCE_CUSTOM_FIELDS = 100
 
 /**
- * The variant of a type, undefined when either is not in the catalog. The variant of a `generic` resource
- * takes the fields it defines, each named as its variable ends; any other type ignores them.
+ * The variant of a type, undefined when either is not in the catalog, followed by the fields the resource
+ * defines itself, each named as its variable ends.
  */
 export const resourceVariant = (type: unknown, variant: unknown, customFields?: ResourceCustomField[] | null): ResourceVariantSpec | undefined => {
     const spec = isResourceType(type) ? RESOURCE_CATALOG[type].variants.find(candidate => candidate.id === variant) : undefined
-    if (!spec || type !== "generic" || !customFields?.length) return spec
+    if (!spec || !customFields?.length) return spec
     return { ...spec, fields: [...spec.fields, ...customFields.map(custom => (custom.secret ? secret : field)(custom.name, custom.name, { required: false }))] }
+}
+
+/**
+ * The fields a resource defines that its variant sets already, by variable or by field name: the variable
+ * would have two values, and the field two specs.
+ */
+export const customFieldClashes = (type: unknown, variant: unknown, customFields?: ResourceCustomField[] | null): string[] => {
+    const spec = resourceVariant(type, variant)
+    if (!spec || !customFields?.length) return []
+    const taken = new Set([...spec.fields.flatMap(candidate => [candidate.envSuffix, candidate.name]), ...Object.keys(spec.fixed ?? {})])
+    return customFields.filter(custom => taken.has(custom.name)).map(custom => custom.name)
 }
 
 /** What the variables of a resource are named from */
@@ -478,7 +492,7 @@ export interface ResourceNaming {
     type: string
     variant: string
     envPrefix?: string | null
-    /** A `generic` resource only: the variables it defines */
+    /** The variables it defines beyond those of its type */
     customFields?: ResourceCustomField[] | null
 }
 

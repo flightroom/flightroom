@@ -10,6 +10,7 @@ import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource, { IResource, IResourceValue, RESOURCE_WRITE_ATTEMPTS, unchangedSince } from "../models/ResourceModel"
 import { ConfigMap, Secret } from "../models/VariableMapModel"
 import {
+    customFieldClashes,
     isResourceType,
     MAX_RESOURCE_CUSTOM_FIELDS,
     RESERVED_ENV_KEYS,
@@ -73,7 +74,7 @@ export const ensureValidApiSpec = (spec: string) => {
 }
 
 /**
- * The variables a `generic` resource defines, checked: each named as the end of a variable, in capitals, once.
+ * The variables a resource defines, checked: each named as the end of a variable, in capitals, once.
  * Their values follow from normalizeResourceFields, which keeps a stored value only under the same name and in
  * the same list: a field renamed or removed loses it, and one turned from a credential to a plain value (or
  * back) does too, so a stored credential never comes back readable.
@@ -378,9 +379,6 @@ export class ResourceService extends BaseAuthorizedService {
 
         const resourceType = existing?.type ?? fields.type
         if (typedCustomFields !== undefined) {
-            if (resourceType !== "generic") {
-                throw createBusinessException({ code: "RESOURCE_CUSTOM_FIELDS_INVALID", message: "Only a resource of type generic defines its own variables" })
-            }
             fields.customFields = normalizeCustomFields(typedCustomFields)
         } else if (!existing && resourceType === "generic") {
             fields.customFields = []
@@ -393,6 +391,16 @@ export class ResourceService extends BaseAuthorizedService {
                 code: "RESOURCE_VARIANT_INVALID",
                 message: fields.variant === undefined ? `A ${resourceType} needs a variant: one of ${variants}` : `"${fields.variant}" is not a variant of ${resourceType}: one of ${variants}`
             })
+        }
+        // Checked on a change of variant too: the new one may set a variable the resource defines
+        if (fields.customFields !== undefined || fields.variant !== undefined) {
+            const clashes = customFieldClashes(resourceType, fields.variant ?? existing?.variant, fields.customFields ?? existing?.customFields)
+            if (clashes.length) {
+                throw createBusinessException({
+                    code: "RESOURCE_CUSTOM_FIELDS_INVALID",
+                    message: `A ${resourceType} (${fields.variant ?? existing?.variant}) sets ${clashes.join(", ")} already: give the variable another name`
+                })
+            }
         }
         const typedSpec = (dto as { apiSpec?: unknown } | undefined)?.apiSpec
         if (typedSpec !== undefined) {
@@ -410,7 +418,7 @@ export class ResourceService extends BaseAuthorizedService {
                 fields.apiSpec = null
             }
         }
-        // A change of variant, or of the variables a generic one defines, drops the fields it does not have, so it goes through here even with no field sent
+        // A change of variant, or of the variables the resource defines, drops the fields it does not have, so it goes through here even with no field sent
         if (typedFields !== undefined || fields.variant !== undefined || fields.customFields !== undefined) {
             const environmentIds = new Set((await Environment.find({ projectId }, { _id: 1 })).map(environment => String(environment._id)))
             Object.assign(fields, normalizeResourceFields(typedFields, variant, environmentIds, existing))
