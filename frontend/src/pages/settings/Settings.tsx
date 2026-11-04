@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Bot, Database, FolderCog, GitBranch, HardDrive, Key, Palette, Rocket, Server, ServerCog, Settings2, Sparkles, Users } from "lucide-react"
+import { Activity, Bot, Database, FolderCog, GitBranch, HardDrive, Key, Palette, Rocket, Server, ServerCog, Settings2, Sparkles, Users } from "lucide-react"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
@@ -10,7 +10,7 @@ import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useGitOpsErrorMessage from "@/hooks/apiClients/useGitOpsErrorMessage"
 // Hooks & Stores
-import useProjectApi, { type DesignSystem } from "@/hooks/apiClients/useProjectApi"
+import useProjectApi, { type DesignSystem, type ProjectUpdateDTO } from "@/hooks/apiClients/useProjectApi"
 import useOrganizationStore from "@/store/useOrganizationStore"
 import useProjectStore from "@/store/useProjectStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
@@ -25,7 +25,8 @@ import {
     ProjectInfoSection,
     ProjectProbesSection,
     ProjectStatsSection,
-    ProjectTechnologiesSection
+    ProjectTechnologiesSection,
+    ProjectTelemetrySection
 } from "./partials"
 import type { GitOpsFormValues } from "./partials/GitOpsSection"
 import type { ProjectContainerRegistryFormValues } from "./partials/ProjectContainerRegistrySection"
@@ -35,10 +36,10 @@ import type { ProjectInfoFormValues } from "./partials/ProjectInfoSection"
 import type { ProjectProbesPayload } from "./partials/ProjectProbesSection"
 import type { ProjectTechnologiesFormValues } from "./partials/ProjectTechnologiesSection"
 
-const TABS = ["general", "context", "designSystem", "access", "resources", "delivery"] as const
+const TABS = ["general", "context", "designSystem", "telemetry", "access", "resources", "delivery"] as const
 type Tab = (typeof TABS)[number]
 
-const TAB_ICONS: Record<Tab, React.ComponentType> = { general: Settings2, context: Sparkles, designSystem: Palette, access: Users, resources: FolderCog, delivery: Rocket }
+const TAB_ICONS: Record<Tab, React.ComponentType> = { general: Settings2, context: Sparkles, designSystem: Palette, telemetry: Activity, access: Users, resources: FolderCog, delivery: Rocket }
 
 /**
  * Le impostazioni del progetto, un tema per scheda: i dati e le tecnologie, il contesto AI, il design system, chi vi
@@ -47,7 +48,7 @@ const TAB_ICONS: Record<Tab, React.ComponentType> = { general: Settings2, contex
 export const Settings: React.FC = () => {
     const notifications = useToastNotificationStore()
     const { t } = useTranslation()
-    const { project, setProject } = useProjectStore()
+    const { project, setProject, environments } = useProjectStore()
     // Il design system che il progetto eredita quando non ne ha uno proprio
     const organizationDesignSystem = useOrganizationStore().organization?.designSystem
     const projectApi = useProjectApi()
@@ -148,6 +149,18 @@ export const Settings: React.FC = () => {
         }
     })
 
+    const updateTelemetryMutation = useMutation({
+        mutationFn: (telemetry: ProjectUpdateDTO["telemetry"]) => projectApi.updateProject(project._id, { telemetry }),
+        onSuccess: updated => {
+            setProject({ ...project, telemetry: updated.telemetry })
+            queryClient.invalidateQueries({ queryKey: ["project-summary", project._id] })
+            notifications.showSuccessNotification({ message: t("settings.telemetry.saved") })
+        },
+        onError: () => {
+            notifications.showErrorNotification({ message: t("settings.telemetry.save_failed") })
+        }
+    })
+
     const updateExposureMutation = useMutation({
         mutationFn: (values: ProjectExposureFormValues) =>
             projectApi.updateProject(project._id, {
@@ -245,6 +258,18 @@ export const Settings: React.FC = () => {
                                 organizationDesignSystem={organizationDesignSystem}
                                 onUpdate={designSystem => updateDesignSystemMutation.mutate(designSystem)}
                                 isUpdating={updateDesignSystemMutation.isPending}
+                            />
+                        )}
+                    </TabsContent>
+
+                    <TabsContent value="telemetry" className="mt-6 flex flex-col gap-6">
+                        {projectData && (
+                            <ProjectTelemetrySection
+                                key={`telemetry-${projectData._id}`}
+                                telemetry={projectData.telemetry}
+                                environments={environments ?? []}
+                                onUpdate={telemetry => updateTelemetryMutation.mutate(telemetry)}
+                                isUpdating={updateTelemetryMutation.isPending}
                             />
                         )}
                     </TabsContent>

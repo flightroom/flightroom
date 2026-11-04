@@ -90,7 +90,13 @@ export interface AiChangeAgentInput {
     /** How hard the model reasons on every turn of the run: {@link AI_CHANGE_DEFAULT_EFFORT} when left out. */
     effort?: LlmEffort
     /** The technologies are the defaults the team chose, for what the agent adds: never a reason to rewrite existing code. */
-    project: { name: string; context?: string; technologies?: IProjectTechnologies }
+    project: {
+        name: string
+        context?: string
+        technologies?: IProjectTechnologies
+        /** How the applications send their telemetry: Application Insights where it is switched on, plain OpenTelemetry otherwise */
+        telemetry?: { provider: string; instructions: string }
+    }
     /** The functional domain the job works on: its repositories are its frontend and its backend. */
     domain?: AiChangeAgentDomain
     /** For a job not on a domain: the domains its repositories are in, whose context they follow too. */

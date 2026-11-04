@@ -2,6 +2,7 @@ import { AxiosError } from "axios"
 import { useTranslation } from "react-i18next"
 import type { ProbeTemplate } from "@/pages/backends/partials/containerResources"
 import type { BackendTechnology, FrontendTechnology, ProjectTechnologies } from "@/utils/technologies"
+import type { TelemetryProvider } from "@/utils/telemetryProviders"
 import useApiClient from "../useApiClient"
 import { EnvironmentDTO } from "./useEnvironmentsApi"
 import { domainScopeErrorMessage } from "./useProjectUserApi"
@@ -48,6 +49,14 @@ export interface DesignSystem {
     notes?: string
 }
 
+/** La telemetria del progetto: il provider scelto e, per provider, i campi impostati; il valore solo dei campi non segreti */
+export interface ProjectTelemetry {
+    provider: TelemetryProvider
+    settings: Partial<Record<TelemetryProvider, Record<string, { set: true; value?: string }>>>
+    /** Gli ambienti i cui container ricevono le variabili; se assente, tutti */
+    environmentIds?: string[]
+}
+
 export interface Project {
     /** The organization the project belongs to: a project sits in exactly one. */
     organizationId: string
@@ -66,6 +75,8 @@ export interface Project {
     probes?: { backend?: ProbeTemplate; frontend?: ProbeTemplate }
     /** Il design system dei frontend; nessuno quando il progetto eredita quello dell'organizzazione */
     designSystem?: DesignSystem
+    /** Il provider di telemetria scelto, OpenTelemetry se nessuno, e cio' che e' configurato per ciascuno */
+    telemetry?: ProjectTelemetry
     /** The role the user acts with in the project, on the projects of the switcher: an organization administrator acts as an owner */
     role?: RoleInProject
     /** On the projects of the switcher: true when the user reaches only some of its domains, hence not what spans the whole project */
@@ -113,6 +124,13 @@ export interface ProjectUpdateDTO {
     probes?: { backend?: ProbeTemplate | null; frontend?: ProbeTemplate | null } | null
     /** Sostituito per intero; `null` lo toglie */
     designSystem?: DesignSystem | null
+    /** `null` toglie tutto; la connection string omessa resta, a `null` o vuota e' tolta; `environmentIds` a `null` vuol dire tutti gli ambienti */
+    telemetry?: {
+        provider?: TelemetryProvider
+        /** Per provider e campo: un campo omesso resta, a `null` o vuoto e' tolto */
+        settings?: Partial<Record<TelemetryProvider, Record<string, string | null>>>
+        environmentIds?: string[] | null
+    } | null
     /** Il repository si indica con l'id del provider: il backend verifica che la connessione lo raggiunga */
     gitOps?: {
         enabled: boolean

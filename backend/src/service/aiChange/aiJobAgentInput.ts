@@ -12,7 +12,7 @@ import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
 import { effectiveProbes } from "../../types/Probes"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
 import { toObjectId } from "../../utils/mongooseUtils"
-import { projectDesignSystemOf } from "../ProjectService"
+import { projectDesignSystemOf, projectTelemetryContextOf } from "../ProjectService"
 import { effectiveOpenShellConfig } from "../sandbox/sandboxSettings"
 import { keysOnly } from "../VariableMapService"
 import { BackendComponent, componentsOfJob, RepositoryComponent } from "../workspace/repositoryComponent"
@@ -260,14 +260,15 @@ export const agentInputOf = async (
 ): Promise<AiChangeAgentInput> => {
     const components = repositories.map(repository => repository.component)
     // Independent reads, side by side
-    const [history, { designSystem: projectDesignSystem }, facts, domainResources, sandboxSettings] = await Promise.all([
+    const [history, { designSystem: projectDesignSystem }, facts, domainResources, sandboxSettings, telemetry] = await Promise.all([
         historyOf(job),
         // The one every frontend builds with: the project's, else the organization's
         projectDesignSystemOf(project),
         backendFactsOf(project, components, visibleResources),
         domain ? domainResourcesOf(job.projectId, domain, visibleResources) : [],
         // What an installation administrator set in the console over the environment
-        effectiveOpenShellConfig(fastify.config)
+        effectiveOpenShellConfig(fastify.config),
+        projectTelemetryContextOf(project)
     ])
     const slugs = pathSlugs(components)
     // The sandbox time of the job is counted as its tokens are: against its organization, project, user, domain and repositories.
@@ -276,7 +277,7 @@ export const agentInputOf = async (
         prompt: job.prompt,
         images: job.images?.map(({ mediaType, data }) => ({ mediaType, data })),
         effort: job.effort,
-        project: { name: project.name, context: project.context, technologies: project.technologies },
+        project: { name: project.name, context: project.context, technologies: project.technologies, telemetry: { provider: telemetry.provider, instructions: telemetry.instructions } },
         domain: domain ? toAgentDomain(domain, domainResources) : undefined,
         memberDomains: memberDomains.map(memberDomain => toAgentDomain(memberDomain)),
         repositories: repositories.map(({ component, request, workspace, previousFiles }, index) =>

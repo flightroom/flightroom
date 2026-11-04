@@ -200,7 +200,8 @@ export const describeInput = (input: AiChangeAgentInput, maps: (AiChangeReposito
     const mapOf = (index: number) => (maps[index] ? describeMap(maps[index]) : undefined)
     const installs = input.sandbox !== undefined
     const projectNotes = input.project.context ? `<project_context project="${input.project.name}">\n${input.project.context}\n</project_context>` : undefined
-    const projectContext = [projectNotes, describeProjectTechnologies(input.project.technologies)].filter(Boolean).join("\n\n") || undefined
+    const telemetry = input.project.telemetry ? `<telemetry provider="${input.project.telemetry.provider}">\n${input.project.telemetry.instructions}\n</telemetry>` : undefined
+    const projectContext = [projectNotes, describeProjectTechnologies(input.project.technologies), telemetry].filter(Boolean).join("\n\n") || undefined
     const domainContext = input.domain ? describeDomain(input.domain) : (input.memberDomains ?? []).map(domainNotes).join("\n") || undefined
     // One repository reads as it always did: the frontend (or the backend), then its context.
     const repositories =

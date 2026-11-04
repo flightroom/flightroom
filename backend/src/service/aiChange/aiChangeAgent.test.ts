@@ -601,6 +601,15 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         expect(firstPrompt).not.toContain("<project_context")
     })
 
+    it("Given a project on Application Insights, when it runs, then the first prompt carries how to instrument the applications", async () => {
+        const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
+
+        await runAiChangeAgent(client, { ...input(), project: { name: "Shop", telemetry: { provider: "applicationInsights", instructions: "Use Azure Monitor." } } }, hooks().hooks)
+
+        const firstMessage = sent[0].messages[0]
+        expect(firstMessage.role === "user" ? firstMessage.text : "").toContain('<telemetry provider="applicationInsights">\nUse Azure Monitor.\n</telemetry>')
+    })
+
     it("Given a frontend with a design system, when it runs, then the first prompt tells the agent to build the UI with it, its npmrc credentials masked", async () => {
         const { client, sent } = scriptedClient([{ stopReason: "end_turn", text: "Nothing to do.", toolCalls: [] }])
         const base = input()

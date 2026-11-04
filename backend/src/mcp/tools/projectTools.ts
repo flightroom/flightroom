@@ -14,6 +14,7 @@ import { CONTAINER_REGISTRY, isBackendTemplateType } from "../../types/BackendSt
 import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../../types/Exposure"
 import { FrontendFramework } from "../../types/FrontendStack"
 import { BackendTechnology } from "../../types/ProjectTechnology"
+import { MAX_TELEMETRY_VALUE_LENGTH, TELEMETRY_CATALOG, TELEMETRY_PROVIDERS, TelemetryProvider } from "../../types/ProjectTelemetry"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { defineTool, NO_INPUT, objectId, READ_ONLY, WRITE } from "../toolDefinition"
 import { designSystemInput, probeFields } from "./frontendTools"
@@ -141,7 +142,7 @@ export const projectTools = [
         name: "project_update",
         title: "Update project",
         description:
-            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole), its default technologies, its design system, the probe templates of its backends and frontends, where it is exposed or its container registry. Pass description, context, technologies, designSystem, probes, exposure or containerRegistry null to remove it: without its own design system the project uses the organization's.",
+            "Renames the project or changes its description, its context (markdown notes for AI agents, replaced as a whole), its default technologies, its design system, the probe templates of its backends and frontends, where it is exposed, its container registry or its telemetry. Pass description, context, technologies, designSystem, probes, exposure, containerRegistry or telemetry null to remove it: without its own design system the project uses the organization's.",
         scope: MCP_SCOPE_WRITE,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
@@ -204,7 +205,51 @@ export const projectTools = [
                 .describe(
                     "The probe templates of the project: each backend, frontend or maintenance agent overrides any field by setting it, and inherits it when null. Applied by the next deploy of each environment"
                 ),
-            designSystem: designSystemInput.describe("The design system of the frontends; null goes back to the organization's. Replaced as a whole")
+            designSystem: designSystemInput.describe("The design system of the frontends; null goes back to the organization's. Replaced as a whole"),
+            telemetry: z
+                .object({
+                    provider: z
+                        .enum(TELEMETRY_PROVIDERS as [TelemetryProvider, ...TelemetryProvider[]])
+                        .optional()
+                        .describe("Where the applications send their telemetry; it needs its required fields in settings, given now or saved before. Left out it stays as it is"),
+                    settings: z
+                        .object(
+                            Object.fromEntries(
+                                TELEMETRY_PROVIDERS.map(provider => [
+                                    provider,
+                                    z
+                                        .object(
+                                            Object.fromEntries(
+                                                TELEMETRY_CATALOG[provider].fields.map(field => [
+                                                    field.name,
+                                                    z
+                                                        .string()
+                                                        .max(MAX_TELEMETRY_VALUE_LENGTH)
+                                                        .nullable()
+                                                        .optional()
+                                                        .describe(
+                                                            `${field.variable} of the containers${field.required ? ", required" : ""}${field.secret ? ", secret: never returned" : ""}${field.example ? `, e.g. ${field.example}` : ""}; null removes it, left out it stays as it is`
+                                                        )
+                                                ])
+                                            )
+                                        )
+                                        .optional()
+                                ])
+                            )
+                        )
+                        .optional()
+                        .describe("What each provider is configured with, by provider then field: what is filled for a provider not picked stays saved"),
+                    environmentIds: z
+                        .array(z.string())
+                        .nullable()
+                        .optional()
+                        .describe("Ids of the environments whose containers get the variables of the provider; null for every one, the ones added later included; left out it stays as it is")
+                })
+                .nullable()
+                .optional()
+                .describe(
+                    "The telemetry of the applications: openTelemetry (OTLP, the default), applicationInsights (Azure), awsCloudWatch (CloudWatch and X-Ray through ADOT), googleCloud (Cloud Trace, Monitoring and Logging) or datadog. Each deploy hands the variables of the provider picked to the containers of the environments switched on, and agents instrument the code for it. Secret fields are never returned"
+                )
         }),
         run: (args, { principal, projectId }) => new ProjectService(principal).update(projectId, args)
     }),

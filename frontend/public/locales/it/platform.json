@@ -201,7 +201,8 @@
             "designSystem": "Design system",
             "access": "Accessi",
             "resources": "Infrastruttura",
-            "delivery": "Rilascio"
+            "delivery": "Rilascio",
+            "telemetry": "Telemetria"
         },
         "howItWorks": "Come funziona",
         "probes": {
@@ -269,6 +270,76 @@
             "https_port": "Porta HTTPS",
             "https_port_hint": "La porta su cui ascolta l'entry point websecure di Traefik dentro il pod. 443 di default; il chart Helm di Traefik lasciato ai suoi default usa 8443.",
             "port_invalid": "Una porta tra 1 e 65535"
+        },
+        "telemetry": {
+            "title": "Telemetria",
+            "subtitle": "Dove le applicazioni del progetto mandano tracce, metriche e log.",
+            "details": "Scegli il provider: a ogni Deploy i container (backend, frontend Docker e agenti di manutenzione) degli ambienti accesi ricevono le sue variabili, e Modifica con AI e i client MCP strumentano le applicazioni per lui. Le credenziali dei cloud restano negli agenti e collector del cluster (CloudWatch agent, Datadog Agent, Workload Identity): le applicazioni ricevono solo dove mandare i dati. Con OpenTelemetry senza endpoint i container non ricevono nulla e l'export si configura con config map. La modifica arriva ai container con il prossimo Deploy di ogni ambiente.",
+            "providerLabel": "Provider di telemetria",
+            "providers": {
+                "openTelemetry": "OpenTelemetry (OTLP)",
+                "applicationInsights": "Azure Application Insights",
+                "awsCloudWatch": "AWS CloudWatch e X-Ray",
+                "googleCloud": "Google Cloud Observability",
+                "datadog": "Datadog"
+            },
+            "providerHint": {
+                "openTelemetry": "Standard e indipendente dal fornitore: va bene per un collector o per qualsiasi backend OTLP (Grafana, Honeycomb, Elastic, New Relic...).",
+                "applicationInsights": "Le applicazioni usano la distro Azure Monitor di OpenTelemetry con la connection string della risorsa.",
+                "awsCloudWatch": "Le applicazioni usano AWS Distro for OpenTelemetry e mandano al CloudWatch agent o a un collector ADOT del cluster, che ha le credenziali AWS.",
+                "googleCloud": "Le applicazioni usano OpenTelemetry con gli exporter di Google Cloud, autenticate con la Workload Identity del pod o una risorsa service account.",
+                "datadog": "Le applicazioni usano la libreria di tracing Datadog e mandano al Datadog Agent del cluster, che ha la API key."
+            },
+            "fields": {
+                "openTelemetry": {
+                    "endpoint": {
+                        "label": "Endpoint OTLP",
+                        "hint": "Facoltativo. Senza, i container non ricevono nulla da qui."
+                    },
+                    "headers": {
+                        "label": "Header OTLP",
+                        "hint": "Facoltativo, es. la API key del backend come chiave=valore separati da virgola. Non viene mai mostrato di nuovo."
+                    }
+                },
+                "applicationInsights": {
+                    "connectionString": {
+                        "label": "Connection string",
+                        "hint": "Dalla pagina Panoramica della risorsa Application Insights. Non viene mai mostrata di nuovo: lascia vuoto per non cambiarla."
+                    }
+                },
+                "awsCloudWatch": {
+                    "region": {
+                        "label": "Regione AWS",
+                        "hint": "La regione di CloudWatch e X-Ray."
+                    },
+                    "endpoint": {
+                        "label": "Endpoint del CloudWatch agent o del collector ADOT",
+                        "hint": "L'indirizzo OTLP nel cluster a cui mandano le applicazioni."
+                    }
+                },
+                "googleCloud": {
+                    "projectId": {
+                        "label": "ID del progetto Google Cloud",
+                        "hint": "Il progetto in cui finiscono tracce, metriche e log."
+                    }
+                },
+                "datadog": {
+                    "agentHost": {
+                        "label": "Host del Datadog Agent",
+                        "hint": "Il servizio del Datadog Agent nel cluster."
+                    }
+                }
+            },
+            "variable": "I container la ricevono come {{variable}}.",
+            "fieldRequired": "Campo obbligatorio per questo provider",
+            "fieldInvalid": "Valore non valido, es. {{example}}",
+            "valueSet": "•••••••• impostato",
+            "environments": "Ambienti che ricevono la telemetria",
+            "environmentsHint": "I container degli ambienti accesi ricevono le variabili del provider. Con tutti accesi vale anche per gli ambienti creati in seguito.",
+            "noEnvironments": "Il progetto non ha ancora ambienti.",
+            "remove": "Rimuovi la configurazione",
+            "saved": "Telemetria salvata",
+            "save_failed": "Impossibile salvare la telemetria"
         },
         "containerRegistry": {
             "title": "Container registry",

@@ -10,6 +10,7 @@ vi.mock("..", () => ({
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
+import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import MongoServer from "../models/MongoServerModel"
 import Organization from "../models/OrganizationModel"
@@ -378,6 +379,94 @@ describe("update", () => {
         await expect(update({ designSystem: { notes: "Use its tokens." } })).rejects.toMatchObject({ code: "DESIGN_SYSTEM_INVALID", statusCode: 400 })
         expect(written).toBeUndefined()
     })
+
+    describe("the telemetry", () => {
+        const development = String(newId())
+        const production = String(newId())
+        const connectionString = "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/"
+        /** What the project has saved before the update */
+        let stored: Record<string, unknown> | undefined
+
+        beforeEach(() => {
+            stored = undefined
+            vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
+            vi.spyOn(Project, "findById").mockImplementation((() => Promise.resolve({ telemetry: stored })) as never)
+        })
+
+        it("Given Application Insights picked with its connection string, when the project is updated, then both are written, the string trimmed, by path", async () => {
+            await update({ telemetry: { provider: "applicationInsights", settings: { applicationInsights: { connectionString: ` ${connectionString} ` } } } })
+
+            expect(written).toEqual({ "telemetry.provider": "applicationInsights", "telemetry.settings.applicationInsights.connectionString": connectionString })
+        })
+
+        it("Given Datadog picked with the host of its Agent, when the project is updated, then it is written", async () => {
+            await update({ telemetry: { provider: "datadog", settings: { datadog: { agentHost: "datadog-agent.datadog.svc.cluster.local" } } } })
+
+            expect(written).toEqual({ "telemetry.provider": "datadog", "telemetry.settings.datadog.agentHost": "datadog-agent.datadog.svc.cluster.local" })
+        })
+
+        it("Given a provider picked again with its fields saved, when only the environments are sent, then only they are written", async () => {
+            stored = { provider: "openTelemetry", settings: { awsCloudWatch: { region: "eu-west-1", endpoint: "http://cloudwatch-agent.amazon-cloudwatch:4316" } } }
+
+            await update({ telemetry: { provider: "awsCloudWatch", environmentIds: [production, production] } })
+
+            expect(written).toEqual({ "telemetry.provider": "awsCloudWatch", "telemetry.environmentIds": [production] })
+        })
+
+        it("Given OpenTelemetry picked, when the project is updated, then what was saved for another provider is kept for a later switch back", async () => {
+            stored = { provider: "applicationInsights", settings: { applicationInsights: { connectionString } } }
+
+            await update({ telemetry: { provider: "openTelemetry" } })
+
+            expect(written).toEqual({ "telemetry.provider": "openTelemetry" })
+        })
+
+        it("Given an OTLP endpoint and the environments null, when the project is updated, then the endpoint is written and the environments unset", async () => {
+            await update({ telemetry: { provider: "openTelemetry", settings: { openTelemetry: { endpoint: "https://otlp.example.com:4318", headers: " " } }, environmentIds: null } })
+
+            expect(written).toEqual({
+                "telemetry.provider": "openTelemetry",
+                "telemetry.settings.openTelemetry.endpoint": "https://otlp.example.com:4318",
+                $unset: { "telemetry.settings.openTelemetry.headers": 1, "telemetry.environmentIds": 1 }
+            })
+        })
+
+        it("Given the telemetry null, when the project is updated, then it is unset whole", async () => {
+            await update({ telemetry: null })
+
+            expect(written).toEqual({ $unset: { telemetry: 1 } })
+        })
+
+        it.each([
+            ["Application Insights picked with no connection string", undefined, { provider: "applicationInsights" }, ["connectionString"]],
+            ["AWS picked with the region only", undefined, { provider: "awsCloudWatch", settings: { awsCloudWatch: { region: "eu-west-1" } } }, ["endpoint"]],
+            [
+                "the connection string removed while on Application Insights",
+                { provider: "applicationInsights", settings: { applicationInsights: { connectionString } } },
+                { settings: { applicationInsights: { connectionString: null } } },
+                ["connectionString"]
+            ]
+        ])("Given %s, when the project is updated, then it is refused as incomplete and nothing is written", async (_case, saved, telemetry, missing) => {
+            stored = saved
+
+            await expect(update({ telemetry })).rejects.toMatchObject({ code: "PROJECT_TELEMETRY_INCOMPLETE", statusCode: 400, details: { missing } })
+            expect(written).toBeUndefined()
+        })
+
+        it.each([
+            ["an unknown provider", { provider: "newrelic" }],
+            ["settings of an unknown provider", { settings: { newrelic: { key: "x" } } }],
+            ["an unknown field", { settings: { datadog: { apiKey: "x" } } }],
+            ["a connection string without the instrumentation key", { settings: { applicationInsights: { connectionString: "IngestionEndpoint=https://example.com/" } } }],
+            ["a region that is not one", { settings: { awsCloudWatch: { region: "Europe" } } }],
+            ["a value that is not a string", { settings: { googleCloud: { projectId: 42 } } }],
+            ["an environment of another project", { environmentIds: [String(newId())] }],
+            ["environments that are not a list", { environmentIds: "all" }]
+        ])("Given %s, when the project is updated, then it is refused with a 400 and nothing is written", async (_case, telemetry) => {
+            await expect(update({ telemetry })).rejects.toMatchObject({ code: "PROJECT_TELEMETRY_INVALID", statusCode: 400 })
+            expect(written).toBeUndefined()
+        })
+    })
 })
 
 describe("getContext", () => {
@@ -429,6 +518,27 @@ describe("getContext", () => {
         const context = await new ProjectService(aUser()).getContext(projectId)
 
         expect(context.project.technologies).toEqual({ backend: "QUARKUS" })
+    })
+
+    it("Given a project without Application Insights, when the context is read, then the telemetry is OpenTelemetry", async () => {
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.telemetry).toMatchObject({ provider: "openTelemetry", instructions: expect.stringContaining("OTEL_EXPORTER_OTLP_ENDPOINT") })
+    })
+
+    it("Given Application Insights switched on in some environments, when the context is read, then they come back by slug and the connection string does not", async () => {
+        const telemetry = { provider: "applicationInsights", settings: { applicationInsights: { connectionString: "InstrumentationKey=abc" } }, environmentIds: [String(newId())] }
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", telemetry } as never)
+        vi.spyOn(Environment, "find").mockImplementation((() => ({ sort: () => Promise.resolve([{ slug: "production" }]) })) as never)
+
+        const context = await new ProjectService(aUser()).getContext(projectId)
+
+        expect(context.project.telemetry).toMatchObject({
+            provider: "applicationInsights",
+            environments: ["production"],
+            instructions: expect.stringContaining("APPLICATIONINSIGHTS_CONNECTION_STRING in the environments production only")
+        })
+        expect(JSON.stringify(context)).not.toContain("InstrumentationKey=abc")
     })
 
     it("Given a project with a design system, when the context is read, then it comes back with its npmrc whole", async () => {

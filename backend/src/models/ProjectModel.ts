@@ -5,6 +5,7 @@ import { CERTIFICATE_ISSUER, DOMAIN_NAME } from "../types/Exposure"
 import { FrontendFramework } from "../types/FrontendStack"
 import { ProjectProbes } from "../types/Probes"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
+import { IProjectTelemetry, TELEMETRY_CATALOG, TELEMETRY_PROVIDERS, TELEMETRY_SECRET_PATHS, telemetryView } from "../types/ProjectTelemetry"
 import { encryptedFields } from "../utils/encryptedFieldsPlugin"
 import { probeSettingsSchema } from "./ContainerFields"
 import { designSystemSchema } from "./DesignSystemSchema"
@@ -95,8 +96,8 @@ export interface IProjectExposure {
     httpsPort?: number
 }
 
-/** The credentials of Argo CD the console keeps: encrypted at rest, never sent to a client */
-export const PROJECT_SECRET_PATHS = ["argoCd.token", "argoCd.repositories.configuration.password", "argoCd.repositories.applications.password"]
+/** The credentials of Argo CD and of the telemetry the console keeps: encrypted at rest, never sent to a client */
+export const PROJECT_SECRET_PATHS = ["argoCd.token", "argoCd.repositories.configuration.password", "argoCd.repositories.applications.password", ...TELEMETRY_SECRET_PATHS]
 
 export interface IProject extends Document<ObjectId> {
     /** The organization owning the project. A project belongs to exactly one, and never changes hands. */
@@ -133,6 +134,8 @@ export interface IProject extends Document<ObjectId> {
     probes?: ProjectProbes
     /** The UI library the frontends are built with, unless one has its own; unset, the organization's. Guides users and AI agents, never enforced */
     designSystem?: IDesignSystem
+    /** The telemetry provider picked and what was filled for each. Sent to a client without the value of a secret field */
+    telemetry?: IProjectTelemetry
     createdAt: Date
     updatedAt: Date
 }
@@ -207,7 +210,28 @@ const projectSchema = new Schema<IProject>(
             type: new Schema<ProjectProbes>({ backend: { type: probeSettingsSchema, required: false }, frontend: { type: probeSettingsSchema, required: false } }, { _id: false }),
             required: false
         },
-        designSystem: { type: designSystemSchema, required: false }
+        designSystem: { type: designSystemSchema, required: false },
+        telemetry: {
+            type: new Schema<IProjectTelemetry>(
+                // No default for the environments: an empty array would switch every one off, where unset means all of them
+                {
+                    provider: { type: String, enum: TELEMETRY_PROVIDERS },
+                    // One subdocument per provider of the catalog, one string per field: a path outside it is never written
+                    settings: new Schema(
+                        Object.fromEntries(
+                            TELEMETRY_PROVIDERS.map(provider => [
+                                provider,
+                                new Schema(Object.fromEntries(TELEMETRY_CATALOG[provider].fields.map(field => [field.name, { type: String }])), { _id: false })
+                            ])
+                        ),
+                        { _id: false }
+                    ),
+                    environmentIds: { type: [String], default: undefined }
+                },
+                { _id: false }
+            ),
+            required: false
+        }
     },
     {
         timestamps: true
@@ -218,11 +242,14 @@ projectSchema.plugin(encryptedFields, { model: "Project", paths: PROJECT_SECRET_
 
 /**
  * Every way out of the backend serialises a project through here. ArgoCdService answers with what the
- * screen needs of Argo CD, so the whole object stays behind, the credentials with it.
+ * screen needs of Argo CD, so the whole object stays behind, the credentials with it; of the telemetry only
+ * whether each value is set goes out.
  */
 projectSchema.set("toJSON", {
     transform: (_document, object) => {
         delete object.argoCd
+        // Whether each value is set, never the value: the screen shows what is configured, the deploy and the agents read the model
+        if (object.telemetry) (object as { telemetry?: unknown }).telemetry = telemetryView(object.telemetry)
         return object
     }
 })

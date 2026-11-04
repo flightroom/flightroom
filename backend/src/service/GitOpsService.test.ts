@@ -620,6 +620,86 @@ describe("GitOpsService.deploy", () => {
         })
     })
 
+    describe("with the project on Application Insights", () => {
+        const connectionString = "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/"
+        const onTelemetry = (telemetry: object | undefined) =>
+            vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, gitOps: { enabled: true, codeRepository: link, applicationsCodeRepository: applicationsLink }, telemetry } as never)
+        const valuesOf = (branch: string) => parse(applicationsCommit.mock.calls.find(call => call[2]?.branch === branch)![1].find(file => file.path === "orders-api.yaml")!.content!)
+
+        beforeEach(() => {
+            vi.spyOn(Backend, "find").mockResolvedValue([
+                {
+                    _id: ordersId,
+                    slug: "orders-api",
+                    image: { repository: "ghcr.io/acme/orders-api" },
+                    environmentVersions: [
+                        { environmentId: development, version: "1.4.0" },
+                        { environmentId: production, version: "1.4.0" }
+                    ],
+                    configMapIds: [logging._id],
+                    secretIds: [database._id]
+                }
+            ] as never)
+        })
+
+        it("given Application Insights picked, when production is deployed, then its Secret holds the connection string only and every container reads it after its config maps", async () => {
+            onTelemetry({ provider: "applicationInsights", settings: { applicationInsights: { connectionString } } })
+
+            await deployOf(production)()
+
+            const file = commit.mock.calls[0][1].find(file => file.path === "production/telemetry.yaml")!
+            const manifest = parse(file.content!)
+            expect(manifest).toMatchObject({
+                apiVersion: "v1",
+                kind: "Secret",
+                type: "Opaque",
+                metadata: { name: "telemetry.flightroom", namespace: "production", labels: { "app.kubernetes.io/managed-by": "flightroom" } }
+            })
+            expect(manifest.data).toEqual({ APPLICATIONINSIGHTS_CONNECTION_STRING: Buffer.from(connectionString).toString("base64") })
+            expect(valuesOf("production")).toMatchObject({ environmentMaps: ["services.flightroom", "logging"], secrets: ["telemetry.flightroom", "database"] })
+        })
+
+        it("given Datadog picked, when production is deployed, then its Secret holds the host of the Agent and the variables Datadog always sets", async () => {
+            onTelemetry({ provider: "datadog", settings: { datadog: { agentHost: "datadog-agent.datadog.svc.cluster.local" } } })
+
+            await deployOf(production)()
+
+            const file = commit.mock.calls[0][1].find(file => file.path === "production/telemetry.yaml")!
+            expect(parse(file.content!).data).toEqual({
+                DD_AGENT_HOST: Buffer.from("datadog-agent.datadog.svc.cluster.local").toString("base64"),
+                DD_LOGS_INJECTION: Buffer.from("true").toString("base64")
+            })
+            expect(valuesOf("production").secrets).toEqual(["telemetry.flightroom", "database"])
+        })
+
+        it.each([
+            ["no telemetry", undefined],
+            ["a connection string with no provider picked", { settings: { applicationInsights: { connectionString } } }],
+            ["OpenTelemetry picked", { provider: "openTelemetry", settings: { applicationInsights: { connectionString } } }]
+        ])("given %s, when production is deployed, then no Secret is written, none is named, and one left there is pruned", async (_case, telemetry) => {
+            onTelemetry(telemetry)
+
+            await deployOf(production)()
+
+            expect(commit.mock.calls[0][1].map(file => file.path)).not.toContain("production/telemetry.yaml")
+            expect(commit.mock.calls[0][2]!.prune!("production/telemetry.yaml")).toBe(true)
+            expect(valuesOf("production").secrets).toEqual(["database"])
+        })
+
+        it("given Application Insights on in production only, when both environments are deployed, then development gets no Secret, none named, and one left there is pruned", async () => {
+            onTelemetry({ provider: "applicationInsights", settings: { applicationInsights: { connectionString } }, environmentIds: [String(production)] })
+
+            await deployOf(development, production)()
+
+            const paths = commit.mock.calls[0][1].map(file => file.path)
+            expect(paths).toContain("production/telemetry.yaml")
+            expect(paths).not.toContain("development/telemetry.yaml")
+            expect(commit.mock.calls[0][2]!.prune!("development/telemetry.yaml")).toBe(true)
+            expect(valuesOf("production").secrets).toEqual(["telemetry.flightroom", "database"])
+            expect(valuesOf("development").secrets).toEqual(["database"])
+        })
+    })
+
     describe("with the project exposed on a domain", () => {
         const exposedOn = (exposure: object | undefined, gitOps: object = { enabled: true, codeRepository: link }) =>
             vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, slug: "shop", gitOps, exposure } as never)

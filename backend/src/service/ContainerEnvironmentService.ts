@@ -8,6 +8,7 @@ import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import { ConfigMap, IVariableMap, Secret } from "../models/VariableMapModel"
 import { versionIn } from "../types/EnvironmentVersions"
+import { telemetryVariablesOf } from "../types/ProjectTelemetry"
 import { resourceEnvironmentValues, resourceSecretName } from "../types/ResourceCatalog"
 import { entryValueIn } from "../types/VariableMapDTO"
 import { toObjectId } from "../utils/mongooseUtils"
@@ -73,7 +74,7 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
         await this.ensureInDomainScope(projectIdObj, component.domainId)
 
         const [project, environments] = await Promise.all([
-            Project.findById(projectIdObj, { slug: 1, exposure: 1, containerRegistry: 1, gitOps: 1 }),
+            Project.findById(projectIdObj, { slug: 1, exposure: 1, containerRegistry: 1, gitOps: 1, telemetry: 1 }),
             Environment.find({ projectId: projectIdObj }, { slug: 1, namespace: 1, subdomain: 1, isProduction: 1, ipAllowList: 1, logLevel: 1, logJson: 1 })
         ])
         const environment = environments.find(candidate => String(candidate._id) === environmentId)
@@ -104,19 +105,23 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
         } catch (error) {
             notes.push(`PUBLIC_URL left out: ${error instanceof Error ? error.message : String(error)}`)
         }
+        // Through the model, decrypted, as the deploy reads it: only its length goes out
+        const telemetry = telemetryVariablesOf(project.telemetry, id)
         const variables = containerEnvironment(
             application,
             environment,
             {
                 configMaps: new Map(configMaps.map(map => [String(map._id), map.name])),
                 secrets: new Map(secrets.map(map => [String(map._id), map.name])),
-                resources: new Map(resources.map(resource => [String(resource._id), resourceSecretName(resource)]))
+                resources: new Map(resources.map(resource => [String(resource._id), resourceSecretName(resource)])),
+                telemetry: Boolean(telemetry)
             },
             {
                 services: serviceUrls([...backends, ...frontends], environment._id, project.containerRegistry),
                 configMaps: new Map(configMaps.map(map => [String(map._id), mapValues(map, id)])),
                 secrets: new Map(secrets.map(map => [String(map._id), mapValues(map, id)])),
-                resources: new Map(resources.map(resource => [String(resource._id), resourceEnvironmentValues(resource, id)]))
+                resources: new Map(resources.map(resource => [String(resource._id), resourceEnvironmentValues(resource, id)])),
+                ...(telemetry ? { telemetry } : {})
             },
             version,
             containerPublicUrl(target.kind, application, origin)

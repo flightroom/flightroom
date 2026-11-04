@@ -19,6 +19,7 @@ import { variableMapModels } from "../models/VariableMapModel"
 import { effectiveSubdomain, exposedHost, SUBDOMAIN, sameExposurePath } from "../types/Exposure"
 import { cronWeekdays, kubeGreenSleeps } from "../types/KubeGreen"
 import { ProjectProbes } from "../types/Probes"
+import { IProjectTelemetry, telemetryVariablesOf } from "../types/ProjectTelemetry"
 import { ResourceWithValues, resourceEnvironmentValues, resourceSecretName } from "../types/ResourceCatalog"
 import { entryValueIn, VariableMapKind } from "../types/VariableMapDTO"
 import { getBackendUrl } from "../utils/backendUrl"
@@ -45,7 +46,8 @@ import {
     ownVariables,
     renderApplicationValues,
     SERVICES_CONFIG_MAP,
-    serviceUrls
+    serviceUrls,
+    TELEMETRY_SECRET
 } from "./gitops/applicationManifests"
 import { applicationListener, EnvironmentGateway, gatewayName, HTTPS_LISTENER, ipAllowListMiddleware, renderGateway } from "./gitops/gatewayManifests"
 import { maintenanceApplications } from "./gitops/maintenanceApplications"
@@ -103,6 +105,9 @@ export const SLEEP_INFO_FILE = "sleepinfo.yaml"
 
 /** The ConfigMap of an environment with the in-cluster URL of each backend and DOCKER frontend deployed there */
 export const SERVICES_FILE = "services.yaml"
+
+/** The Secret of an environment switched on for the telemetry with the variables of its containers, in the folder of the environment */
+export const TELEMETRY_FILE = "telemetry.yaml"
 
 /** Local branch the commit is made on before it is pushed onto the default one */
 const GITOPS_BRANCH = "flightroom-gitops"
@@ -162,6 +167,8 @@ export const gatewayFilePath = (environment: Pick<IEnvironment, "slug">) => `${e
 export const sleepInfoFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${SLEEP_INFO_FILE}`
 
 export const servicesFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${SERVICES_FILE}`
+
+export const telemetryFilePath = (environment: Pick<IEnvironment, "slug">) => `${environmentSlug(environment)}/${TELEMETRY_FILE}`
 
 /**
  * The kube-green SleepInfos of an environment, one per sleep its days make, none when it does not sleep. Named after the
@@ -305,6 +312,19 @@ export const renderMaintenanceAgentManifest = (agent: { slug: string }, token: s
     })
 
 /**
+ * The Secret of the telemetry of an environment switched on: the variables of the provider the project picked. Base64
+ * encoded, not encrypted, as a secret map is.
+ */
+export const renderTelemetryManifest = (variables: Record<string, string>, namespace?: string): string =>
+    stringify({
+        apiVersion: "v1",
+        kind: "Secret",
+        metadata: { name: TELEMETRY_SECRET, ...(namespace ? { namespace } : {}), labels: { [MANAGED_BY_LABEL]: MANAGED_BY } },
+        type: "Opaque",
+        data: Object.fromEntries(Object.entries(variables).map(([key, value]) => [key, Buffer.from(value).toString("base64")]))
+    })
+
+/**
  * The Kubernetes Secret of the secret variables of a backend that have a value, the same in every environment: the last
  * of its `envFrom`, so it wins over its config maps, secrets and resources. Base64 encoded, not encrypted, as a secret map is.
  */
@@ -343,6 +363,7 @@ Committed by Flightroom every time environments of the project are deployed, for
 - \`<environment>/gateway.yaml\`: when the project has a domain, the Traefik Gateway answering on the host of the environment, its cert-manager Certificate and the redirect to HTTPS
 - \`<environment>/sleepinfo.yaml\`: when the environment sleeps on a schedule, the kube-green SleepInfos that scale it down and back up, one per sleep within a day
 - \`<environment>/services.yaml\`: the ConfigMap \`services.flightroom\` every container reads first, with the URL each backend and DOCKER frontend deployed there answers on inside the cluster, as \`<SLUG>_URL\` (\`orders-be\` is \`ORDERS_BE_URL=http://orders-be\`)
+- \`<environment>/telemetry.yaml\`: when the environment is switched on for the telemetry, the Secret \`telemetry.flightroom\` with the variables of the provider the project picked (e.g. \`APPLICATIONINSIGHTS_CONNECTION_STRING\`, \`DD_AGENT_HOST\`), base64 encoded (not encrypted), which every container reads after its config maps
 - \`<environment>/configMaps/<name>.yaml\`: the ConfigMaps, in that namespace
 - \`<environment>/secrets/<name>.yaml\`: the Secrets, in that namespace, values base64 encoded (not encrypted)
 - \`<environment>/resources/<name>.yaml\`: a Secret \`<name>.resource\` per resource a backend attaches, in that namespace, values base64 encoded (not encrypted)
@@ -396,9 +417,9 @@ const environmentOfPath = (path: string): string => path.split("/")[0]
 
 const KIND_FOLDERS = new Set([...Object.values(GITOPS_FOLDER), RESOURCES_FOLDER, MAINTENANCE_AGENTS_FOLDER, BACKEND_ENV_FOLDER])
 
-const ENVIRONMENT_FILES = new Set([NAMESPACE_FILE, GATEWAY_FILE, SLEEP_INFO_FILE, SERVICES_FILE])
+const ENVIRONMENT_FILES = new Set([NAMESPACE_FILE, GATEWAY_FILE, SLEEP_INFO_FILE, SERVICES_FILE, TELEMETRY_FILE])
 
-/** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, `<slug>/sleepinfo.yaml`, `<slug>/services.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
+/** `<slug>/namespace.yaml`, `<slug>/gateway.yaml`, `<slug>/sleepinfo.yaml`, `<slug>/services.yaml`, `<slug>/telemetry.yaml`, or `<slug>/<kind folder>/<name>.yaml` */
 const isConfigurationManifest = (path: string) => {
     const [, second, third, ...rest] = path.split("/")
     return rest.length === 0 && (third === undefined ? ENVIRONMENT_FILES.has(second) : KIND_FOLDERS.has(second) && third.endsWith(".yaml"))
@@ -413,9 +434,10 @@ type DeployedResource = ResourceWithValues & { _id: unknown }
 /**
  * What a deploy of one environment ships: its Namespace, its Gateway when it has one, the URLs of its applications,
  * every config map and secret of the project as they are in it, every resource a backend attaches, and the Secret of
- * the secret variables of each backend in `backends` that has any set. A Gateway left out is pruned, with the project's
- * domain gone, and so is a resource no backend attaches any longer, the Secret of a backend gone or left with no secret
- * value, and the SleepInfo of an environment that no longer sleeps.
+ * the secret variables of each backend in `backends` that has any set, and the Secret of the telemetry when `telemetry`, its
+ * variables, is given. A Gateway left out is pruned, with the project's domain gone, and so
+ * is a resource no backend attaches any longer, the Secret of a backend gone or left with no secret value, the SleepInfo of
+ * an environment that no longer sleeps, and the Secret of the telemetry of an environment no longer switched on.
  */
 const environmentFiles = (
     environment: Pick<IEnvironment, "_id" | "slug" | "namespace">,
@@ -425,7 +447,8 @@ const environmentFiles = (
     agents: Array<{ slug: string; token: string }> = [],
     sleepInfo?: string,
     services: Record<string, string> = {},
-    backends: Array<{ slug: string; env?: GitOpsApplication["env"] }> = []
+    backends: Array<{ slug: string; env?: GitOpsApplication["env"] }> = [],
+    telemetry?: Record<string, string>
 ): GitOpsFile[] => {
     const namespace = environmentNamespace(environment)
     return [
@@ -433,6 +456,7 @@ const environmentFiles = (
         { path: servicesFilePath(environment), action: "update", content: renderServicesManifest(services, namespace) },
         ...(gateway ? [{ path: gatewayFilePath(environment), action: "update" as const, content: renderGateway(gateway) }] : []),
         ...(sleepInfo ? [{ path: sleepInfoFilePath(environment), action: "update" as const, content: sleepInfo }] : []),
+        ...(telemetry ? [{ path: telemetryFilePath(environment), action: "update" as const, content: renderTelemetryManifest(telemetry, namespace) }] : []),
         ...(Object.keys(GITOPS_FOLDER) as VariableMapKind[]).flatMap(kind =>
             maps[kind].map(map => ({ path: gitOpsFilePath(kind, environment, map.name), action: "update" as const, content: renderManifest(kind, map, String(environment._id), namespace) }))
         ),
@@ -572,7 +596,7 @@ export class GitOpsService extends BaseAuthorizedService {
     }
 
     private async deployProject<T>(projectId: Schema.Types.ObjectId, environmentIds: Set<string>, deploy: (revisions: ApplicationRevisions) => Promise<T>, domainId?: string): Promise<T> {
-        const project = await Project.findById(projectId, { gitOps: 1, slug: 1, exposure: 1, containerRegistry: 1, probes: 1 })
+        const project = await Project.findById(projectId, { gitOps: 1, slug: 1, exposure: 1, containerRegistry: 1, probes: 1, telemetry: 1 })
         const gitOps = project?.gitOps
         if (!project || !gitOps?.enabled || !gitOps.codeRepository) return deploy(new Map())
 
@@ -610,7 +634,7 @@ export class GitOpsService extends BaseAuthorizedService {
         const withApplications = applicationsLink
             ? () =>
                   this.inRepository(projectId, "applications", applicationsLink, commit =>
-                      this.commitApplications(projectId, project.containerRegistry, project.probes, deployed, maps, resources, gateways, commit, deploy, domainId)
+                      this.commitApplications(projectId, project.containerRegistry, project.probes, project.telemetry, deployed, maps, resources, gateways, commit, deploy, domainId)
                   )
             : () => deploy(new Map())
 
@@ -630,7 +654,9 @@ export class GitOpsService extends BaseAuthorizedService {
                         renderSleepInfo(gatewayName(String(project._id), project.slug), environment),
                         serviceUrls(services, environment._id, project.containerRegistry),
                         // Those whose values file names the Secret: every backend the environment runs, whatever the domain of the deploy, as for the maps
-                        backends.filter(backend => isDeployable(backend, project.containerRegistry, environment._id))
+                        backends.filter(backend => isDeployable(backend, project.containerRegistry, environment._id)),
+                        // Through the model, decrypted: none for an environment switched off or a provider with nothing to hand, whose Secret is pruned
+                        telemetryVariablesOf(project.telemetry, String(environment._id))
                     )
                 ),
                 { prune: path => isConfigurationManifest(path) && (deployedSlugs.has(environmentOfPath(path)) || !existingSlugs.has(environmentOfPath(path))) }
@@ -666,6 +692,7 @@ export class GitOpsService extends BaseAuthorizedService {
         projectId: Schema.Types.ObjectId,
         containerRegistry: string | undefined,
         probes: ProjectProbes | undefined,
+        telemetry: IProjectTelemetry | undefined,
         deployed: Pick<IEnvironment, "_id" | "slug" | "logLevel" | "logJson">[],
         maps: Record<VariableMapKind, DeployedMap[]>,
         resources: DeployedResource[],
@@ -724,6 +751,8 @@ export class GitOpsService extends BaseAuthorizedService {
                 const publicUrl = (application: GitOpsApplication & { _id?: unknown }) => containerPublicUrl(kindOf(application), application, origin)
                 // A maintenance agent is made from a backend template, and probed as a backend
                 const probeTemplate = (application: GitOpsApplication & { _id?: unknown }) => (kindOf(application) === "frontend" ? probes?.frontend : probes?.backend)
+                // The Secret of the telemetry is there only in an environment that gets it, as the configuration commit writes it
+                const environmentMapNames = { ...mapNames, telemetry: Boolean(telemetryVariablesOf(telemetry, String(environment._id))) }
                 const files: GitOpsFile[] = [
                     ...CHART_FILES.map(file => ({ ...file, action: "update" as const, ifMissing: true })),
                     // Those with no version in the environment keep the values they have there, if any
@@ -732,7 +761,7 @@ export class GitOpsService extends BaseAuthorizedService {
                         .map(application => ({
                             path: applicationValuesPath(application),
                             action: "update" as const,
-                            content: renderApplicationValues(application, environment, mapNames, route, containerRegistry, publicUrl(application), probeTemplate(application))
+                            content: renderApplicationValues(application, environment, environmentMapNames, route, containerRegistry, publicUrl(application), probeTemplate(application))
                         }))
                 ]
                 const onPushed = (revision: string) => revisions.set(String(environment._id), revision)

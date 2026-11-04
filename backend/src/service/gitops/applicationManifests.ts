@@ -94,6 +94,12 @@ export const inClusterUrl = (slug: string, path = "") => `http://${slug}${path}`
 /** The ConfigMap of each environment with the in-cluster URL of every backend and DOCKER frontend deployed there: a user's map has no dot in its name */
 export const SERVICES_CONFIG_MAP = "services.flightroom"
 
+/**
+ * The Secret of each environment switched on for the telemetry, with the variables of the provider the project picked
+ * (telemetryVariablesOf). A user's map has no dot in its name, so it is told apart
+ */
+export const TELEMETRY_SECRET = "telemetry.flightroom"
+
 /** The variable the URL of a backend or a frontend goes by in that ConfigMap: `orders-be` is ORDERS_BE_URL */
 export const serviceUrlVariable = (slug: string) => `${slug.toUpperCase().replace(/[^A-Z0-9]/g, "_")}_URL`
 
@@ -210,15 +216,17 @@ export interface ContainerMapNames {
     configMaps: Map<string, string>
     secrets: Map<string, string>
     resources?: Map<string, string>
+    /** The environment gets the variables of the telemetry: its containers read the platform's Secret {@link TELEMETRY_SECRET} */
+    telemetry?: boolean
 }
 
 /**
  * What a container takes whole through `envFrom`: the platform's ConfigMap of the URLs of the applications, a config map,
- * a secret, the Secret of a resource, the platform's Secret of a maintenance agent, or the Secret of the secret variables
- * of a backend
+ * the platform's Secret of the telemetry, a secret, the Secret of a resource, the platform's Secret of a maintenance agent,
+ * or the Secret of the secret variables of a backend
  */
 export interface ContainerEnvSource {
-    kind: "services" | "configMap" | "secret" | "resource" | "platform" | "backendEnv"
+    kind: "services" | "configMap" | "telemetry" | "secret" | "resource" | "platform" | "backendEnv"
     /** The id of the config map, the secret or the resource; none for the platform's */
     id?: string
     /** The ConfigMap or the Secret, as Kubernetes names it */
@@ -227,9 +235,10 @@ export interface ContainerEnvSource {
 
 /**
  * The `envFrom` of the container, in the order the chart lists it: the URLs of the backends and frontends first, so that a config
- * map of the team can point one elsewhere, then the config maps, the secrets, the Secrets of the resources, for a
- * maintenance agent its own and, last so that it wins over all of them, the Secret of the secret variables of a backend
- * that gives any a value. An id with no name is a map deleted since: left out.
+ * map of the team can point one elsewhere, then the config maps, in an environment switched on for the telemetry the platform's
+ * Secret of the telemetry, first of the Secrets so that a secret of the team or a resource setting the same variable wins
+ * over it, then the secrets, the Secrets of the resources, for a maintenance agent its own and, last so that it wins over
+ * all of them, the Secret of the secret variables of a backend that gives any a value. An id with no name is a map deleted since: left out.
  */
 export const containerEnvSources = (application: GitOpsApplication, mapNames: ContainerMapNames): ContainerEnvSource[] => {
     const named = (kind: "configMap" | "secret" | "resource", ids: unknown[] | undefined, byId: Map<string, string>): ContainerEnvSource[] =>
@@ -240,6 +249,8 @@ export const containerEnvSources = (application: GitOpsApplication, mapNames: Co
     return [
         { kind: "services", name: SERVICES_CONFIG_MAP },
         ...named("configMap", application.configMapIds, mapNames.configMaps),
+        // The chart lists every config map before the Secrets: the first of these is as early as a Secret goes
+        ...(mapNames.telemetry ? [{ kind: "telemetry" as const, name: TELEMETRY_SECRET }] : []),
         ...named("secret", application.secretIds, mapNames.secrets),
         ...named("resource", application.resourceIds, mapNames.resources ?? new Map()),
         ...(application.maintenance ? [{ kind: "platform" as const, name: maintenanceAgentSecretName(application.slug) }] : []),
@@ -277,6 +288,8 @@ export interface ContainerSourceValues {
     configMaps: Map<string, Record<string, string>>
     secrets: Map<string, Record<string, string>>
     resources: Map<string, Record<string, string>>
+    /** What the platform's Secret of the telemetry holds in the environment, when it gets one */
+    telemetry?: Record<string, string>
 }
 
 /** The source of a variable the backend sets itself, a plain one in `env` as a secret one in its Secret */
@@ -331,6 +344,10 @@ export const containerEnvironment = (
         }
         if (source.kind === "backendEnv") {
             for (const { name, value } of ownVariables(application, true)) variables.push({ name, source: BACKEND_SOURCE, masked: { set: true, length: value.length }, fromEnv: false })
+            continue
+        }
+        if (source.kind === "telemetry") {
+            for (const [name, value] of Object.entries(values.telemetry ?? {})) variables.push({ name, source: `secret ${source.name}`, masked: { set: true, length: value.length }, fromEnv: false })
             continue
         }
         if (source.kind === "services") {

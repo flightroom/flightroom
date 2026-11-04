@@ -109,6 +109,17 @@ describe("renderApplicationValues", () => {
     }
     const render = (overrides = {}) => renderApplicationValues({ ...application, ...overrides }, environment, mapNames)
 
+    it("given an environment on Application Insights, when its values are rendered, then the platform's Secret of the telemetry is the first of the secrets", () => {
+        const values = parse(renderApplicationValues(application, environment, { ...mapNames, telemetry: true }))
+
+        expect(values.environmentMaps).toEqual(["services.flightroom", "logging"])
+        expect(values.secrets).toEqual(["telemetry.flightroom", "database"])
+    })
+
+    it("given an environment not on Application Insights, when its values are rendered, then no Secret of the telemetry is named", () => {
+        expect(parse(render()).secrets).toEqual(["database"])
+    })
+
     it("given an application, when its values are rendered, then the first line is the managed marker", () => {
         expect(render().split("\n")[0]).toBe(MANAGED_VALUES_MARKER)
     })
@@ -641,6 +652,33 @@ maintenance:
         expect(new Set(variables().map(variable => variable.source))).toEqual(
             new Set(["platform", "configMap services.flightroom", "configMap logging", "configMap features", "secret database", "resource orders-db.resource"])
         )
+    })
+
+    it("given an environment on Application Insights, when the environment is built, then the connection string comes from the platform's Secret masked, a resource setting it wins", () => {
+        const connectionString = "InstrumentationKey=abc;IngestionEndpoint=https://example.in.applicationinsights.azure.com/"
+        const telemetryValues = {
+            ...values,
+            resources: new Map([["r1", { APPLICATIONINSIGHTS_CONNECTION_STRING: "InstrumentationKey=own" }]]),
+            telemetry: { APPLICATIONINSIGHTS_CONNECTION_STRING: connectionString }
+        }
+
+        const found = containerEnvironment(backend, environment, { ...mapNames, telemetry: true }, telemetryValues, "1.2.3").filter(
+            variable => variable.name === "APPLICATIONINSIGHTS_CONNECTION_STRING"
+        )
+
+        expect(found).toEqual([
+            {
+                name: "APPLICATIONINSIGHTS_CONNECTION_STRING",
+                source: "secret telemetry.flightroom",
+                masked: { set: true, length: connectionString.length },
+                overriddenBy: "resource orders-db.resource"
+            },
+            { name: "APPLICATIONINSIGHTS_CONNECTION_STRING", source: "resource orders-db.resource", masked: { set: true, length: "InstrumentationKey=own".length } }
+        ])
+    })
+
+    it("given an environment not on Application Insights, when the environment is built, then no variable comes from the Secret of the telemetry", () => {
+        expect(variables().map(variable => variable.source)).not.toContain("secret telemetry.flightroom")
     })
 
     it("given a CONTAINER maintenance agent, whose Deployment runs it, when its environment is built, then it gets HTTP_PORT, its targets and the platform's Secret masked, without the token read", () => {

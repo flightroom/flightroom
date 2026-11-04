@@ -31,6 +31,18 @@ import { CERTIFICATE_ISSUER, DOMAIN_NAME, isListenerPort } from "../types/Exposu
 import { FrontendFramework } from "../types/FrontendStack"
 import { isProbePath, isProbeSeconds, MAX_PROBE_SECONDS, PROBE_PATH_FIELDS, PROBE_SIDES, PROBE_TIMING_FIELDS, PROBE_TIMING_MINIMUMS, ProbeSettings } from "../types/Probes"
 import { BackendTechnology, IProjectTechnologies } from "../types/ProjectTechnology"
+import {
+    describeTelemetry,
+    IProjectTelemetry,
+    isTelemetryProvider,
+    isTelemetryValue,
+    missingTelemetryFields,
+    TELEMETRY_CATALOG,
+    TELEMETRY_PROVIDERS,
+    TelemetryProvider,
+    telemetryProviderOf,
+    telemetryVariableNames
+} from "../types/ProjectTelemetry"
 import { toObjectId } from "../utils/mongooseUtils"
 import { runInTransaction } from "../utils/runInTransaction"
 import { slugify } from "../utils/slugUtils"
@@ -73,6 +85,17 @@ export interface ProjectUpdateInput {
      * `null` removes it and left out it stays as it is. A field left out or null is the platform's
      */
     probes?: { backend?: ProbeSettings | null; frontend?: ProbeSettings | null } | null
+    /**
+     * Where the applications send their telemetry: `null` removes it all, back to OpenTelemetry. `provider` picks one of
+     * the catalog, which needs its required fields, typed now or saved before. `settings` holds the fields of each provider:
+     * one left out stays as it is, `null` or blank removes it. Every deploy hands the containers the variables of the
+     * provider picked; `environmentIds` are those whose containers get them: `null` for all of them, the ones added later included
+     */
+    telemetry?: {
+        provider?: TelemetryProvider
+        settings?: Partial<Record<TelemetryProvider, Record<string, string | null>>>
+        environmentIds?: string[] | null
+    } | null
 }
 
 /** The exposure to store, trimmed and in lowercase: refused with a 400 rather than by the model with a 500 */
@@ -99,6 +122,70 @@ const exposureOf = (input: unknown): { domain: string; certificateIssuer?: strin
         ...(httpPort != null ? { httpPort: httpPort as number } : {}),
         ...(httpsPort != null ? { httpsPort: httpsPort as number } : {})
     }
+}
+
+/**
+ * What to write and unset of the telemetry, by dotted path so that a field left out keeps the one stored: the secret
+ * ones are never sent back, so the screen sends only what was typed. Refused with a 400 rather than by the model with a
+ * 500, and so is a provider picked without a field it needs, `stored` counting what is saved already
+ */
+const telemetryOf = (input: unknown, projectEnvironmentIds: string[], stored?: IProjectTelemetry): { set: Record<string, string | string[]>; unset: Record<string, 1> } => {
+    const invalid = (message: string) => createBusinessException({ code: "PROJECT_TELEMETRY_INVALID", message, statusCode: 400 })
+    const isObject = (value: unknown): value is Record<string, unknown> => typeof value === "object" && value !== null && !Array.isArray(value)
+    if (!isObject(input)) throw invalid("The telemetry is an object with provider, settings and environmentIds")
+    const set: Record<string, string | string[]> = {}
+    const unset: Record<string, 1> = {}
+    const { environmentIds, provider, settings } = input
+    if (provider !== undefined) {
+        if (!isTelemetryProvider(provider)) throw invalid(`The provider of the telemetry is one of ${TELEMETRY_PROVIDERS.join(", ")}`)
+        set["telemetry.provider"] = provider
+    }
+    if (environmentIds === null) {
+        unset["telemetry.environmentIds"] = 1
+    } else if (environmentIds !== undefined) {
+        // Only environments of the project: an id from elsewhere would switch nothing on, and say it does
+        if (!Array.isArray(environmentIds) || environmentIds.some(id => typeof id !== "string" || !projectEnvironmentIds.includes(id))) {
+            throw invalid("The environments of the telemetry are ids of environments of the project, or null for all of them")
+        }
+        set["telemetry.environmentIds"] = [...new Set(environmentIds as string[])]
+    }
+    if (settings !== undefined) {
+        if (!isObject(settings)) throw invalid("The settings of the telemetry are an object by provider")
+        for (const [name, values] of Object.entries(settings)) {
+            if (!isTelemetryProvider(name) || !isObject(values)) throw invalid(`The settings of the telemetry are by provider, one of ${TELEMETRY_PROVIDERS.join(", ")}`)
+            for (const [fieldName, value] of Object.entries(values)) {
+                const field = TELEMETRY_CATALOG[name].fields.find(candidate => candidate.name === fieldName)
+                if (!field) throw invalid(`The fields of ${name} are ${TELEMETRY_CATALOG[name].fields.map(candidate => candidate.name).join(", ")}`)
+                if (value === undefined) continue
+                if (value !== null && typeof value !== "string") throw invalid(`The ${fieldName} of ${name} is a string, or null to remove it`)
+                const trimmed = value?.trim() ?? ""
+                const path = `telemetry.settings.${name}.${fieldName}`
+                if (!trimmed) {
+                    unset[path] = 1
+                } else if (!isTelemetryValue(field, trimmed)) {
+                    throw invalid(`The ${fieldName} of ${name} is not valid${field.example ? `, e.g. ${field.example}` : ""}`)
+                } else {
+                    set[path] = trimmed
+                }
+            }
+        }
+    }
+    // What the project ends up with: a provider without a field it needs would silently fall back to OpenTelemetry
+    const picked = (set["telemetry.provider"] as TelemetryProvider | undefined) ?? stored?.provider ?? "openTelemetry"
+    const after = (fieldName: string) => {
+        const path = `telemetry.settings.${picked}.${fieldName}`
+        return unset[path] ? undefined : ((set[path] as string | undefined) ?? stored?.settings?.[picked]?.[fieldName])
+    }
+    const missing = missingTelemetryFields(picked, Object.fromEntries(TELEMETRY_CATALOG[picked].fields.map(field => [field.name, after(field.name)])))
+    if (missing.length) {
+        throw createBusinessException({
+            code: "PROJECT_TELEMETRY_INCOMPLETE",
+            message: `The telemetry provider ${picked} needs ${missing.join(", ")}`,
+            statusCode: 400,
+            details: { provider: picked, missing }
+        })
+    }
+    return { set, unset }
 }
 
 /** The container registry to store, trimmed and without a trailing slash: refused with a 400 rather than by the model with a 500 */
@@ -203,6 +290,8 @@ export interface ProjectContextDTO {
         /** Its own, else the organization's */
         designSystem?: IDesignSystem
         designSystemSource?: DesignSystemSource
+        /** How the applications send their telemetry, never the connection string: an agent instruments what it works on accordingly */
+        telemetry: ProjectTelemetryContext
     }
     domains: ContextEntry[]
     frontends: ContextEntry[]
@@ -210,6 +299,27 @@ export interface ProjectContextDTO {
     /** With a frontend focus: the design system its UI is built with, the project's, else the organization's, whether it has a context or not */
     designSystem?: IDesignSystem
     designSystemSource?: DesignSystemSource
+}
+
+/** The telemetry of a project as an agent reads it */
+export interface ProjectTelemetryContext {
+    provider: TelemetryProvider
+    /** With Application Insights, the slugs of the environments whose containers get the connection string; left out, every one */
+    environments?: string[]
+    instructions: string
+}
+
+/** What an agent is told of the telemetry of a project: the slugs of the environments switched on are read only when the project picked some */
+export const projectTelemetryContextOf = async (project: Pick<IProject, "_id" | "telemetry">): Promise<ProjectTelemetryContext> => {
+    const provider = telemetryProviderOf(project.telemetry)
+    // The environments matter only when the provider hands the containers something
+    const ids = telemetryVariableNames(project.telemetry).length ? project.telemetry?.environmentIds : undefined
+    const environments = ids
+        ? (await Environment.find({ projectId: project._id, _id: { $in: ids.filter(id => Types.ObjectId.isValid(id)).map(toObjectId) } }, { slug: 1 }).sort({ order: 1, slug: 1 })).map(
+              environment => environment.slug
+          )
+        : undefined
+    return { provider, ...(environments ? { environments } : {}), instructions: describeTelemetry(project.telemetry, environments) }
 }
 
 /**
@@ -382,7 +492,7 @@ export class ProjectService extends BaseAuthorizedService {
             filters.backends ? Backend.find({ ...filters.backends, ...withContext }, fields).sort({ slug: 1 }) : []
         ])
         const { frontend, backend } = project.technologies ?? {}
-        const projectDesignSystem = await projectDesignSystemOf(project)
+        const [projectDesignSystem, telemetry] = await Promise.all([projectDesignSystemOf(project), projectTelemetryContextOf(project)])
         // npmrc whole: MCP hands it to the client to install the package, the assistant's replacer masks it for its model
         return {
             project: {
@@ -391,7 +501,8 @@ export class ProjectService extends BaseAuthorizedService {
                 context: project.context || undefined,
                 technologies: frontend || backend ? { ...(frontend ? { frontend } : {}), ...(backend ? { backend } : {}) } : undefined,
                 designSystem: plainDesignSystem(projectDesignSystem.designSystem),
-                designSystemSource: projectDesignSystem.source
+                designSystemSource: projectDesignSystem.source,
+                telemetry
             },
             domains: domains.map(toContextEntry),
             frontends: frontends.map(toContextEntry),
@@ -566,6 +677,19 @@ export class ProjectService extends BaseAuthorizedService {
                 updateData.$unset = { ...updateData.$unset, probes: 1 }
             } else if (projectData.probes !== undefined) {
                 const { set, unset } = probesOf(projectData.probes)
+                Object.assign(updateData, set)
+                if (Object.keys(unset).length > 0) updateData.$unset = { ...updateData.$unset, ...unset }
+            }
+            if (projectData.telemetry === null) {
+                updateData.$unset = { ...updateData.$unset, telemetry: 1 }
+            } else if (projectData.telemetry !== undefined) {
+                // Through the model, decrypted: whether each value is saved, for a change that leaves one out
+                const [environments, stored] = await Promise.all([Environment.find({ projectId: toObjectId(projectId) }, { _id: 1 }), Project.findById(projectId, { telemetry: 1 })])
+                const { set, unset } = telemetryOf(
+                    projectData.telemetry,
+                    environments.map(environment => String(environment._id)),
+                    stored?.telemetry
+                )
                 Object.assign(updateData, set)
                 if (Object.keys(unset).length > 0) updateData.$unset = { ...updateData.$unset, ...unset }
             }

@@ -121,6 +121,32 @@ describe("ContainerEnvironmentService.get", () => {
         expect(json).not.toContain("redis.internal")
     })
 
+    describe("with the project on Application Insights", () => {
+        const connectionString = "InstrumentationKey=00000000-0000-0000-0000-000000000000;IngestionEndpoint=https://westeurope-5.in.applicationinsights.azure.com/"
+
+        it("given Application Insights picked, when the environment is read, then the connection string comes from the platform's Secret masked", async () => {
+            vi.mocked(Project.findById).mockResolvedValue(project({ telemetry: { provider: "applicationInsights", settings: { applicationInsights: { connectionString } } } }) as never)
+
+            const result = await get()
+
+            expect(result.variables).toContainEqual({ name: "APPLICATIONINSIGHTS_CONNECTION_STRING", source: "secret telemetry.flightroom", masked: { set: true, length: connectionString.length } })
+            const json = JSON.stringify(result)
+            expect(json).not.toContain(connectionString)
+            expect(Project.findById).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ telemetry: 1 }))
+        })
+
+        it.each([
+            ["OpenTelemetry picked", { provider: "openTelemetry", settings: { applicationInsights: { connectionString } } }],
+            ["the environment switched off", { provider: "applicationInsights", settings: { applicationInsights: { connectionString } }, environmentIds: [String(otherEnvironmentId)] }]
+        ])("given %s, when the environment is read, then no variable comes from the Secret of the telemetry", async (_case, telemetry) => {
+            vi.mocked(Project.findById).mockResolvedValue(project({ telemetry }) as never)
+
+            const result = await get()
+
+            expect(result.variables.map(variable => variable.name)).not.toContain("APPLICATIONINSIGHTS_CONNECTION_STRING")
+        })
+    })
+
     it("given another backend and a DOCKER frontend deployed in the environment, when the environment is read, then their URLs inside the cluster come from the platform's ConfigMap", async () => {
         vi.mocked(Backend.find).mockResolvedValue([
             backend(),
