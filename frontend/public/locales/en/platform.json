@@ -3684,7 +3684,7 @@
         "organization": {
             "title": "Design system",
             "subtitle": "The UI library the frontends of every project are built with, unless the project picks its own.",
-            "details": "Each project may replace it with its own, and each frontend with its own again: the most specific one wins. The .npmrc is stored as you paste it; AI agents read it with its credentials masked. Leave the package empty to remove the design system.",
+            "details": "Each project may replace it with its own, which every frontend of the project then builds with. The .npmrc is stored as you paste it; AI agents read it with its credentials masked. Leave the package empty to remove the design system.",
             "none": "The organization defines no design system.",
             "adminOnly": "Only the administrators of the organization can change it.",
             "docs": "Documentation",
@@ -3705,15 +3705,6 @@
             "notes": "Notes for AI agents",
             "notesPlaceholder": "Import components from @acme/ui, use its tokens, no raw CSS colors.",
             "notesHint": "Markdown: how agents should use the design system."
-        },
-        "frontend": {
-            "title": "Design system",
-            "subtitle": "The UI library this frontend is built with.",
-            "override": "Use its own design system",
-            "overrideHint": "Off, the frontend builds with the design system of the project or, when the project has none, the organization's.",
-            "inherited": "Inherits from the project: {{packageName}}",
-            "inheritedFromOrganization": "Inherits from the organization: {{packageName}}",
-            "noProjectDefault": "Neither the project nor the organization has a design system: set one in the project or organization settings."
         }
     },
     "technologies": {

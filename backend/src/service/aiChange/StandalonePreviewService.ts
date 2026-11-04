@@ -9,7 +9,7 @@ import Project from "../../models/ProjectModel"
 import Resource from "../../models/ResourceModel"
 import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel"
 import { ConfigMap, Secret } from "../../models/VariableMapModel"
-import { effectiveDesignSystem, IDesignSystem } from "../../types/DesignSystem"
+import { IDesignSystem } from "../../types/DesignSystem"
 import { resourceEnvironmentValues } from "../../types/ResourceCatalog"
 import { runtimeVariables } from "../../types/RuntimeVariables"
 import { toObjectId } from "../../utils/mongooseUtils"
@@ -63,7 +63,7 @@ const isConnected = (component: RepositoryComponent) => Boolean(component.codeRe
 /** An API has no page of its own at its root: its preview opens on its docs, when it has some. */
 export const backendPreviewUrl = (url: string, docsPath: string | undefined) => (docsPath ? `${url.replace(/\/+$/, "")}/${docsPath.replace(/^\/+/, "")}` : url)
 
-/** The frontend's own design system, else the project's, else the organization's: the npmrc of the one it builds with. */
+/** The design system of the project, else the organization's: the npmrc of the one a frontend builds with. */
 const scriptRepositoryOf = (
     component: FrontendComponent | BackendComponent,
     workingCopy: ScriptRepository["workingCopy"],
@@ -75,9 +75,7 @@ const scriptRepositoryOf = (
     workingCopy,
     kind: component.kind,
     ...(environment ? { environment } : {}),
-    ...(component.kind === "frontend"
-        ? { framework: component.framework, npmrc: effectiveDesignSystem(component.designSystem, projectDesignSystem)?.npmrc }
-        : { framework: component.framework, runtime: component.runtime, port: component.port })
+    ...(component.kind === "frontend" ? { framework: component.framework, npmrc: projectDesignSystem?.npmrc } : { framework: component.framework, runtime: component.runtime, port: component.port })
 })
 
 /** What reaches the container of a frontend or a backend through `envFrom`, and the LOG_LEVEL it may set apart. */

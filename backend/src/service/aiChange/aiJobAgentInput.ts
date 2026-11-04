@@ -7,7 +7,7 @@ import { IProject } from "../../models/ProjectModel"
 import Resource, { IResource } from "../../models/ResourceModel"
 import { IUser } from "../../models/UserModel"
 import { ConfigMap, IVariableMap, Secret } from "../../models/VariableMapModel"
-import { effectiveDesignSystem, IDesignSystem } from "../../types/DesignSystem"
+import { IDesignSystem } from "../../types/DesignSystem"
 import { effectiveSubdomain, exposedOrigin } from "../../types/Exposure"
 import { effectiveProbes } from "../../types/Probes"
 import { resourceEnvKeys, resourceVariant } from "../../types/ResourceCatalog"
@@ -203,7 +203,7 @@ const agentRepository = (
                   framework: component.framework,
                   compiler: component.compiler,
                   context: component.context,
-                  designSystem: effectiveDesignSystem(component.designSystem, projectDesignSystem)
+                  designSystem: projectDesignSystem
               }
           }
 
@@ -262,7 +262,7 @@ export const agentInputOf = async (
     // Independent reads, side by side
     const [history, { designSystem: projectDesignSystem }, facts, domainResources, sandboxSettings] = await Promise.all([
         historyOf(job),
-        // The one a frontend without its own builds with: the project's, else the organization's
+        // The one every frontend builds with: the project's, else the organization's
         projectDesignSystemOf(project),
         backendFactsOf(project, components, visibleResources),
         domain ? domainResourcesOf(job.projectId, domain, visibleResources) : [],

@@ -160,7 +160,7 @@ export const containerFields = {
         )
 }
 
-/** The design system of an organization, a project or a frontend, replaced as a whole: null removes it */
+/** The design system of an organization or a project, replaced as a whole: null removes it */
 export const designSystemInput = z
     .object({
         packageName: z.string().trim().regex(NPM_PACKAGE_NAME, "an npm package name, e.g. @acme/ui").max(DESIGN_SYSTEM_MAX_LENGTH.packageName).describe("npm package of the UI library, e.g. @acme/ui"),
@@ -192,9 +192,6 @@ const frontendFields = {
     description: z.string().max(2000).optional(),
     domainId: memberDomainId,
     context: z.string().max(CONTEXT_MAX_LENGTH).optional().describe("Markdown notes for AI agents about this frontend, replaced as a whole"),
-    designSystem: designSystemInput.describe(
-        "Its own design system, in place of the project's; null goes back to the project's (or the organization's, when the project has none). Replaced as a whole"
-    ),
     version: z
         .string()
         .min(1)
@@ -301,7 +298,7 @@ export const frontendTools = [
         title: "Get frontend",
         description:
             "One frontend of the project, with aiContext: what the team wrote for AI agents about it, its domain and the project. Follow it when working on its code. " +
-            "aiContext.designSystem is the design system its UI is built with: its own, else the project's, else the organization's; aiContext.designSystemSource says which. " +
+            "aiContext.designSystem is the design system its UI is built with: the project's, else the organization's; aiContext.designSystemSource says which. " +
             "attachedVariables lists the environment variables the config maps and secrets attached to a DOCKER frontend set on its container (keys only, never values).",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,

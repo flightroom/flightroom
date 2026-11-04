@@ -1,7 +1,6 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
 import type { Backend, BackendEnvVariable, BuiltBackend } from "./useBackendsApi"
-import type { DesignSystem } from "./useProjectApi"
 import type { IFrontendStackDTO } from "./useServeApi"
 
 export enum HostedOn {
@@ -140,8 +139,6 @@ export interface Frontend extends FrontendContainer {
     description?: string
     /** Markdown per gli agenti AI su questo solo frontend */
     context?: string
-    /** Il suo design system al posto di quello del progetto; `null` torna a quello del progetto */
-    designSystem?: DesignSystem | null
     createdAt?: Date
     updatedAt?: Date
     parentIds?: string[]

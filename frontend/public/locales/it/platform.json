@@ -3704,7 +3704,7 @@
         "organization": {
             "title": "Design system",
             "subtitle": "La libreria UI con cui si costruiscono i frontend di ogni progetto che non ne sceglie una propria.",
-            "details": "Ogni progetto può sostituirlo con il proprio, e ogni frontend con il suo: vale il più specifico. Il .npmrc viene salvato così come lo incolli; gli agenti AI lo leggono con le credenziali mascherate. Lascia vuoto il pacchetto per togliere il design system.",
+            "details": "Ogni progetto può sostituirlo con il proprio, con cui poi si costruiscono tutti i suoi frontend. Il .npmrc viene salvato così come lo incolli; gli agenti AI lo leggono con le credenziali mascherate. Lascia vuoto il pacchetto per togliere il design system.",
             "none": "L'organizzazione non definisce un design system.",
             "adminOnly": "Solo gli amministratori dell'organizzazione possono modificarlo.",
             "docs": "Documentazione",
@@ -3725,15 +3725,6 @@
             "notes": "Note per gli agenti AI",
             "notesPlaceholder": "Importa i componenti da @acme/ui, usa i suoi token, niente colori CSS scritti a mano.",
             "notesHint": "Markdown: come gli agenti devono usare il design system."
-        },
-        "frontend": {
-            "title": "Design system",
-            "subtitle": "La libreria UI con cui è costruito questo frontend.",
-            "override": "Usa un design system proprio",
-            "overrideHint": "Se disattivato, il frontend usa il design system del progetto o, se il progetto non ne ha uno, quello dell'organizzazione.",
-            "inherited": "Eredita dal progetto: {{packageName}}",
-            "inheritedFromOrganization": "Eredita dall'organizzazione: {{packageName}}",
-            "noProjectDefault": "Né il progetto né l'organizzazione hanno un design system: impostalo nelle impostazioni del progetto o dell'organizzazione."
         }
     },
     "technologies": {

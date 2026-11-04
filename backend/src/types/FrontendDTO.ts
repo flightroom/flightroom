@@ -1,6 +1,5 @@
 import { CanaryDeploymentType, CanaryType, FrontendKind, FrontendType, IHostFrontend } from "../models/FrontendModel"
 import BackendDTO from "./BackendDTO"
-import { IDesignSystem } from "./DesignSystem"
 import { FrontendStackDTO } from "./FrontendStack"
 
 /** The container fields of a DOCKER, the same as a backend's and checked the same way */
@@ -44,8 +43,6 @@ interface FrontendDTO extends FrontendContainerDTO {
     version?: string
     /** Markdown for AI agents about this frontend */
     context?: string
-    /** Its own design system, replaced as a whole; `null` goes back to the project's */
-    designSystem?: IDesignSystem | null
     /** Slug of the marketplace template the repository was scaffolded from */
     template?: string
     stack?: FrontendStackDTO

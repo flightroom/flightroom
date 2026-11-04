@@ -40,7 +40,7 @@ export const organizationAdminTools = [
             organizationId,
             name: z.string().trim().min(1).max(255).optional(),
             description: z.string().max(2000).nullable().optional(),
-            designSystem: designSystemInput.describe("The design system of the projects without their own, and of their frontends without their own. Replaced as a whole")
+            designSystem: designSystemInput.describe("The design system of the projects without their own. Replaced as a whole")
         }),
         run: ({ organizationId: id, ...changes }, { principal }) => new OrganizationService(principal).update(id, changes)
     }),

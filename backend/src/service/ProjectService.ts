@@ -15,7 +15,7 @@ import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
-import Frontend, { IFrontend } from "../models/FrontendModel"
+import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import MaintenanceRun from "../models/MaintenanceRunModel"
 import Organization from "../models/OrganizationModel"
@@ -185,8 +185,8 @@ interface ContextEntry {
     context: string
 }
 
-/** The level a design system is set at: the most specific one that has it wins */
-export type DesignSystemSource = "frontend" | "project" | "organization"
+/** The level a design system is set at: the project's wins over the organization's */
+export type DesignSystemSource = "project" | "organization"
 
 /**
  * What the team wrote for AI agents in one project: the shared context and the one of each domain, frontend and backend that has it.
@@ -201,12 +201,12 @@ export interface ProjectContextDTO {
         technologies?: IProjectTechnologies
         /** Its own, else the organization's */
         designSystem?: IDesignSystem
-        designSystemSource?: Exclude<DesignSystemSource, "frontend">
+        designSystemSource?: DesignSystemSource
     }
     domains: ContextEntry[]
     frontends: ContextEntry[]
     backends: ContextEntry[]
-    /** With a frontend focus: the design system its UI is built with, its own, else the project's, else the organization's, whether it has a context or not */
+    /** With a frontend focus: the design system its UI is built with, the project's, else the organization's, whether it has a context or not */
     designSystem?: IDesignSystem
     designSystemSource?: DesignSystemSource
 }
@@ -215,9 +215,7 @@ export interface ProjectContextDTO {
  * The design system of the frontends of a project: its own, else the one of its organization, read only when
  * the project has none. Not redacted: whoever hands it to an AI does.
  */
-export const projectDesignSystemOf = async (
-    project: Pick<IProject, "designSystem" | "organizationId">
-): Promise<{ designSystem?: IDesignSystem; source?: Exclude<DesignSystemSource, "frontend"> }> => {
+export const projectDesignSystemOf = async (project: Pick<IProject, "designSystem" | "organizationId">): Promise<{ designSystem?: IDesignSystem; source?: DesignSystemSource }> => {
     if (project.designSystem?.packageName) return { designSystem: project.designSystem, source: "project" }
     const organization = await Organization.findById(project.organizationId, { designSystem: 1 })
     const designSystem = effectiveDesignSystem(organization?.designSystem)
@@ -236,8 +234,8 @@ interface ContextFilters {
     domains?: Record<string, unknown>
     frontends?: Record<string, unknown>
     backends?: Record<string, unknown>
-    /** The frontend of a frontend focus */
-    frontend?: Pick<IFrontend, "designSystem">
+    /** A frontend focus */
+    frontend?: boolean
 }
 
 const toContextEntry = (item: { _id: unknown; slug: string; name: string; context?: string }): ContextEntry => ({
@@ -382,7 +380,6 @@ export class ProjectService extends BaseAuthorizedService {
         ])
         const { frontend, backend } = project.technologies ?? {}
         const projectDesignSystem = await projectDesignSystemOf(project)
-        const ownDesignSystem = filters.frontend?.designSystem?.packageName ? filters.frontend.designSystem : undefined
         // npmrc whole: MCP hands it to the client to install the package, the assistant's replacer masks it for its model
         return {
             project: {
@@ -396,26 +393,22 @@ export class ProjectService extends BaseAuthorizedService {
             domains: domains.map(toContextEntry),
             frontends: frontends.map(toContextEntry),
             backends: backends.map(toContextEntry),
-            designSystem: filters.frontend ? plainDesignSystem(effectiveDesignSystem(ownDesignSystem, projectDesignSystem.designSystem)) : undefined,
-            designSystemSource: filters.frontend ? (ownDesignSystem ? "frontend" : projectDesignSystem.source) : undefined
+            designSystem: filters.frontend ? plainDesignSystem(projectDesignSystem.designSystem) : undefined,
+            designSystemSource: filters.frontend ? projectDesignSystem.source : undefined
         }
     }
 
     /**
-     * The .npmrc of the design system the project's frontends build with, or one frontend's, whole: credentials
-     * included: what `design_system_npmrc_get` hands an MCP client to install the package.
+     * The .npmrc of the design system the project's frontends build with, whole: credentials included: what
+     * `design_system_npmrc_get` hands an MCP client to install the package.
      */
-    async getDesignSystemNpmrc(projectId: string, frontendId?: string): Promise<{ packageName: string; source: DesignSystemSource; npmrc: string }> {
+    async getDesignSystemNpmrc(projectId: string): Promise<{ packageName: string; source: DesignSystemSource; npmrc: string }> {
         const projectIdObj = toObjectId(projectId)
         const project = await this.findById(projectIdObj)
         if (!project) {
             throw new ProjectNotFoundError(projectId)
         }
-        const { frontend } = frontendId ? await this.contextFilters(projectIdObj, { frontendId }) : {}
-        const projectDesignSystem = await projectDesignSystemOf(project)
-        const own = frontend?.designSystem?.packageName ? frontend.designSystem : undefined
-        const designSystem = own ?? projectDesignSystem.designSystem
-        const source = own ? "frontend" : projectDesignSystem.source
+        const { designSystem, source } = await projectDesignSystemOf(project)
         if (!designSystem?.npmrc || !source) {
             throw createBusinessException({
                 code: "DESIGN_SYSTEM_NPMRC_MISSING",
@@ -448,10 +441,10 @@ export class ProjectService extends BaseAuthorizedService {
             return { domains: { _id: domain._id }, frontends: { domainId: domain._id }, backends: { domainId: domain._id } }
         }
         if ("frontendId" in focus) {
-            const frontend = await Frontend.findOne({ _id: toObjectId(focus.frontendId), projectId }, { domainId: 1, designSystem: 1 })
+            const frontend = await Frontend.findOne({ _id: toObjectId(focus.frontendId), projectId }, { domainId: 1 })
             if (!frontend) throw new EntityNotFoundError(focus.frontendId)
             ensureInScope(frontend.domainId)
-            return { domains: domainOf(frontend.domainId), frontends: { _id: frontend._id }, frontend }
+            return { domains: domainOf(frontend.domainId), frontends: { _id: frontend._id }, frontend: true }
         }
         const backend = await Backend.findOne({ _id: toObjectId(focus.backendId), projectId }, { domainId: 1 })
         if (!backend) throw new EntityNotFoundError(focus.backendId)

@@ -443,19 +443,16 @@ describe("getContext", () => {
         expect(context.designSystemSource).toBeUndefined()
     })
 
-    it.each([
-        ["its own", { packageName: "@acme/legacy-ui" }, "@acme/legacy-ui", "frontend"],
-        ["none, the project's", undefined, "@acme/ui", "project"]
-    ])("Given a frontend with %s design system and no context, when its context is read, then the design system it builds with comes back", async (_case, own, expected, source) => {
+    it("Given a frontend with no context, when its context is read, then the design system of the project comes back as the one it builds with", async () => {
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui" } } as never)
-        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null, designSystem: own } as never)
+        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null } as never)
         vi.spyOn(Frontend, "find").mockImplementation((() => ({ sort: () => Promise.resolve([]) })) as never)
 
         const context = await new ProjectService(aUser()).getContext(projectId, { frontendId: String(frontendId) })
 
         expect(context.frontends).toEqual([])
-        expect(context.designSystem).toEqual({ packageName: expected })
-        expect(context.designSystemSource).toBe(source)
+        expect(context.designSystem).toEqual({ packageName: "@acme/ui" })
+        expect(context.designSystemSource).toBe("project")
     })
 
     describe("with a design system set by the organization", () => {
@@ -547,14 +544,12 @@ describe("getContext", () => {
 
 describe("getDesignSystemNpmrc", () => {
     const projectId = String(newId())
-    const frontendId = newId()
     const npmrc = "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123"
-    const read = (frontend?: string) => new ProjectService(aUser()).getDesignSystemNpmrc(projectId, frontend)
+    const read = () => new ProjectService(aUser()).getDesignSystemNpmrc(projectId)
 
     beforeEach(() => {
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui", npmrc } } as never)
         vi.spyOn(Organization, "findById").mockResolvedValue(null as never)
-        vi.spyOn(ProjectService.prototype as unknown as WithAuthorizationGate, "getDomainScope").mockResolvedValue(undefined)
     })
 
     afterEach(() => {
@@ -565,28 +560,17 @@ describe("getDesignSystemNpmrc", () => {
         expect(await read()).toEqual({ packageName: "@acme/ui", source: "project", npmrc })
     })
 
-    it("Given a frontend with its own design system, when its npmrc is read, then the frontend's comes back", async () => {
-        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null, designSystem: { packageName: "@acme/legacy-ui", npmrc: "//legacy/:_auth=secret" } } as never)
+    it("Given a project without one, when its npmrc is read, then the organization's comes back", async () => {
+        vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", organizationId: newId() } as never)
+        vi.spyOn(Organization, "findById").mockResolvedValue({ designSystem: { packageName: "@acme/brand", npmrc } } as never)
 
-        expect(await read(String(frontendId))).toEqual({ packageName: "@acme/legacy-ui", source: "frontend", npmrc: "//legacy/:_auth=secret" })
-    })
-
-    it("Given a frontend without its own, when its npmrc is read, then the project's comes back", async () => {
-        vi.spyOn(Frontend, "findOne").mockResolvedValue({ _id: frontendId, domainId: null } as never)
-
-        expect(await read(String(frontendId))).toEqual({ packageName: "@acme/ui", source: "project", npmrc })
+        expect(await read()).toEqual({ packageName: "@acme/brand", source: "organization", npmrc })
     })
 
     it("Given a design system without an npmrc, when its npmrc is read, then it is refused", async () => {
         vi.spyOn(ProjectService.prototype, "findById").mockResolvedValue({ _id: newId(), name: "Portal", designSystem: { packageName: "@acme/ui" } } as never)
 
         await expect(read()).rejects.toMatchObject({ code: "DESIGN_SYSTEM_NPMRC_MISSING", statusCode: 404 })
-    })
-
-    it("Given a frontend of another project, when its npmrc is read, then it is not found", async () => {
-        vi.spyOn(Frontend, "findOne").mockResolvedValue(null as never)
-
-        await expect(read(String(frontendId))).rejects.toBeInstanceOf(EntityNotFoundError)
     })
 })
 

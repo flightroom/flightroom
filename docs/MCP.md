@@ -117,24 +117,21 @@ An agent always gets the contexts of what it works on, the project one included:
 ### Design system
 
 The **design system** the frontends are built with (the npm package, a version range, the
-documentation URL, the `.npmrc` the package installs with and notes for agents) is set at three
-levels, the most specific winning:
+documentation URL, the `.npmrc` the package installs with and notes for agents) is set at two
+levels, the project's winning; a frontend has none of its own:
 
 1. **Organization** (Organization settings → Design system): the one of every project that does not
    set its own. Only its owners and admins change it.
 2. **Project** (Settings → Design system, "Use a project-specific design system"): replaces the
    organization's for its frontends; turned off, the project inherits it again.
-3. **Frontend** (its "AI context" tab, "Use its own design system"): replaces the one the project
-   resolves to.
 
 `project.designSystem` in `context_get` is the one of the project, its own or else the
 organization's, and `project.designSystemSource` says which (`project` or `organization`). With a
-`frontendId`, `designSystem` is the one that frontend builds with and `designSystemSource` the level
-it comes from (`frontend`, `project` or `organization`). The AI change jobs put the frontend's in the
-prompt of each frontend repository, telling the agent to build the UI with that package and no other
+`frontendId`, `designSystem` and `designSystemSource` repeat them as the one that frontend builds
+with. The AI change jobs put it in the prompt of each frontend repository, telling the agent to build the UI with that package and no other
 UI library; the domain planner is told the project's by name, to pick a frontend template that can
-use it. `project_update`, `frontend_create` and `frontend_update` set it, replaced as a whole; `null`
-goes back to the level above. The organization's is set from the console, and by its assistant
+use it. `project_update` sets the project's, replaced as a whole; `null` goes back to the
+organization's. The organization's is set from the console, and by its assistant
 through `organization_update`, which MCP clients do not get.
 
 The `.npmrc` is stored as pasted and the console shows it whole. MCP clients read it whole too:
@@ -146,8 +143,7 @@ something to ask the user about. A committed `.npmrc` cannot slip through: `code
 refuses it like any registry configuration.
 
 `design_system_npmrc_get` (`mfe:read`, read-only, MCP only) returns the `.npmrc` on its own: the one
-of the design system a frontend builds with (`frontendId`), or of the project's without one, along
-with `packageName` and `source`. A design system without an `.npmrc`, or no design system at all, is
+of the design system the frontends of the project build with, along with `packageName` and `source`. A design system without an `.npmrc`, or no design system at all, is
 refused with `DESIGN_SYSTEM_NPMRC_MISSING`. Every call goes into the audit log like any other tool
 call.
 

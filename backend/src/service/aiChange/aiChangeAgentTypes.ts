@@ -12,7 +12,7 @@ export interface AiChangeAgentFrontend {
     framework?: string
     compiler?: string
     context?: string
-    /** The one it builds its UI with: its own, else the project's. Its npmrc is redacted when described. */
+    /** The one it builds its UI with: the project's, else the organization's. Its npmrc is redacted when described. */
     designSystem?: IDesignSystem
 }
 

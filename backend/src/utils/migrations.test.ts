@@ -13,7 +13,7 @@ import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Storage from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
-import { BUNDLE_VERSIONS_SEEDED, convertKubeGreenSchedules, encryptStoredSecrets, pruneBackendEnvDeclarations, runMigrations, seedEnvironmentVersions } from "./migrations"
+import { BUNDLE_VERSIONS_SEEDED, convertKubeGreenSchedules, encryptStoredSecrets, pruneBackendEnvDeclarations, runMigrations, seedEnvironmentVersions, unsetFrontendDesignSystems } from "./migrations"
 import { resetSecretEncryptionKeyCache } from "./secretCrypto"
 
 const logger = { info: vi.fn(), error: vi.fn() } as never
@@ -278,12 +278,41 @@ describe("pruneBackendEnvDeclarations", () => {
     })
 })
 
+/** The frontends collection answering an updateMany with `modifiedCount` */
+const holdingFrontendDesignSystems = (modifiedCount: number) => {
+    const updateMany = vi.fn().mockResolvedValue({ modifiedCount })
+    vi.spyOn(Frontend, "collection", "get").mockReturnValue({ updateMany } as never)
+    return updateMany
+}
+
+describe("unsetFrontendDesignSystems", () => {
+    it("Given frontends with a design system of their own, when it runs, then it is unset from them only and logged", async () => {
+        const updateMany = holdingFrontendDesignSystems(2)
+        const info = vi.fn()
+
+        await unsetFrontendDesignSystems({ info, error: vi.fn() } as never)
+
+        expect(updateMany).toHaveBeenCalledWith({ designSystem: { $exists: true } }, { $unset: { designSystem: "" } })
+        expect(info).toHaveBeenCalledTimes(1)
+    })
+
+    it("Given no frontend with one, when it runs, then nothing is logged", async () => {
+        holdingFrontendDesignSystems(0)
+        const info = vi.fn()
+
+        await unsetFrontendDesignSystems({ info, error: vi.fn() } as never)
+
+        expect(info).not.toHaveBeenCalled()
+    })
+})
+
 describe("runMigrations", () => {
     it("Given the encryption fails, when the migrations run, then the failure is logged and the boot goes on", async () => {
         vi.stubEnv("SECRETS_ENCRYPTION_KEY", Buffer.alloc(32, 5).toString("base64"))
         resetSecretEncryptionKeyCache()
         unseeded()
         holdingBackends(0, 0)
+        holdingFrontendDesignSystems(0)
         holding(Storage, [{ save: vi.fn().mockRejectedValue(new Error("write refused")) }])
         const error = vi.fn()
 

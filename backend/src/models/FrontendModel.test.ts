@@ -1,7 +1,6 @@
-import { Schema, Types } from "mongoose"
+import { Schema } from "mongoose"
 import { describe, expect, it } from "vitest"
 import Frontend, { CanaryType } from "./FrontendModel"
-import Project from "./ProjectModel"
 
 const canaryTypePath = () => (Frontend.schema.path("canary") as unknown as { schema: Schema }).schema.path("type")
 
@@ -24,21 +23,7 @@ describe("canary type", () => {
 })
 
 describe("design system", () => {
-    const aFrontend = (designSystem: Record<string, unknown>) =>
-        new Frontend({ slug: "catalog", name: "Catalog", version: "1.0.0", host: { type: "CUSTOM_URL" }, projectId: new Types.ObjectId(), designSystem })
-
-    it("Given one with its package, then it is stored trimmed, without an _id of its own", async () => {
-        const frontend = aFrontend({ packageName: " @acme/ui ", npmrc: "@acme:registry=https://npm.acme.dev/" })
-
-        await expect(frontend.validate()).resolves.toBeUndefined()
-        expect(frontend.toObject().designSystem).toEqual({ packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/" })
-    })
-
-    it("Given one without its package, then it is refused", async () => {
-        await expect(aFrontend({ notes: "Use its tokens." }).validate()).rejects.toMatchObject({ errors: { "designSystem.packageName": expect.anything() } })
-    })
-
-    it("Given the project, then it shares the very same schema as its default", () => {
-        expect(Project.schema.path("designSystem").schema).toBe(Frontend.schema.path("designSystem").schema)
+    it("Given a frontend, then it has no design system of its own: it builds with the project's", () => {
+        expect(Frontend.schema.path("designSystem")).toBeUndefined()
     })
 })

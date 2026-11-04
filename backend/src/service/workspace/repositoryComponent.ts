@@ -2,7 +2,6 @@ import { IAiChangeRequest } from "../../models/AiChangeRequestModel"
 import Backend, { IBackend, IBackendInjectedEnvVariable } from "../../models/BackendModel"
 import Frontend, { ICodeRepositoryFrontend, IFrontend } from "../../models/FrontendModel"
 import { BackendRuntime } from "../../types/BackendStack"
-import { IDesignSystem } from "../../types/DesignSystem"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { backendWorkspacePath, frontendWorkspacePath, WorkspaceOwner } from "../../utils/workspacePaths"
 
@@ -34,8 +33,6 @@ export interface FrontendComponent extends RepositoryComponentBase {
     kind: "frontend"
     framework?: string
     compiler?: string
-    /** Its own, when it replaces the one of the project */
-    designSystem?: IDesignSystem
 }
 
 export interface BackendComponent extends RepositoryComponentBase {
@@ -72,8 +69,7 @@ export const fromFrontend = (frontend: IFrontend): FrontendComponent => ({
     context: frontend.context,
     domainId: frontend.domainId ?? undefined,
     framework: frontend.stack?.framework,
-    compiler: frontend.stack?.compiler,
-    designSystem: frontend.designSystem
+    compiler: frontend.stack?.compiler
 })
 
 export const fromBackend = (backend: IBackend): BackendComponent => ({

@@ -207,6 +207,16 @@ export const pruneBackendEnvDeclarations = async (logger: FastifyBaseLogger): Pr
 }
 
 /**
+ * Unsets the design system a frontend had of its own, before only the organization and the project could set one: no
+ * screen nor tool reads it any longer, and its npmrc may hold the credentials of a registry. A raw update matching only
+ * the frontends that still have one, so a second run changes nothing.
+ */
+export const unsetFrontendDesignSystems = async (logger: FastifyBaseLogger): Promise<void> => {
+    const { modifiedCount } = await Frontend.collection.updateMany({ designSystem: { $exists: true } }, { $unset: { designSystem: "" } })
+    if (modifiedCount > 0) logger.info(`Removed the design system of their own from ${modifiedCount} frontend(s)`)
+}
+
+/**
  * Every data migration the application still needs, run once the database connection is up.
  *
  * A failure is logged and swallowed: none of these is required for the process to serve traffic, and
@@ -233,5 +243,10 @@ export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> =>
         await pruneBackendEnvDeclarations(logger)
     } catch (error) {
         logger.error({ error }, "Error while removing the variables of the backends with no value")
+    }
+    try {
+        await unsetFrontendDesignSystems(logger)
+    } catch (error) {
+        logger.error({ error }, "Error while removing the design systems of the frontends")
     }
 }

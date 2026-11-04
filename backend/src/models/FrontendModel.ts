@@ -1,7 +1,6 @@
 import mongoose, { Document, ObjectId, Schema } from "mongoose"
 import { BackendPaths } from "../types/BackendStack"
 import { ContainerResourcesByEnvironment } from "../types/ContainerResources"
-import { IDesignSystem } from "../types/DesignSystem"
 import { VersionByEnvironment } from "../types/EnvironmentVersions"
 import { FrontendCompiler, FrontendFramework, FrontendStackSource } from "../types/FrontendStack"
 import { ProbeSettings } from "../types/Probes"
@@ -18,7 +17,6 @@ import {
     probeTimingFields,
     resourceFields
 } from "./ContainerFields"
-import { designSystemSchema } from "./DesignSystemSchema"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
 export enum FrontendType {
@@ -122,8 +120,6 @@ export interface IFrontend extends Document<ObjectId>, IFrontendContainer {
     description?: string
     /** Markdown for AI agents about this frontend only; the project context covers what they share. */
     context?: string
-    /** Replaces the design system of the project for this frontend only; unset, it builds with the project's */
-    designSystem?: IDesignSystem
     createdAt: Date
     updatedAt: Date
 
@@ -325,10 +321,6 @@ const frontendSchema: Schema = new Schema<IFrontend>(
             type: String,
             trim: true,
             maxlength: CONTEXT_MAX_LENGTH
-        },
-        designSystem: {
-            type: designSystemSchema,
-            required: false
         },
         // Set by hand, by a release or, on a DOCKER, by the versions its CI registers: never deployed as it is, each
         // environment serves the version environmentVersions sets there

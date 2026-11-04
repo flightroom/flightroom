@@ -2,7 +2,7 @@ import { createBusinessException } from "../errors/BusinessException"
 
 /**
  * The UI library the frontends are built with: set by the organization, which a project may replace with
- * its own, and a frontend with its own again. It tells users and AI agents which package to build the UI with.
+ * its own. It tells users and AI agents which package to build the UI with.
  */
 export interface IDesignSystem {
     /** The npm package, e.g. `@acme/ui` */

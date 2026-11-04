@@ -12,7 +12,7 @@ const isFormTab = (value: string | null): value is FormTab => Boolean(value && (
 
 const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
     general: ["name", "slug", "description", "domainId", "kind", "version", "environmentVersions", "canary", "codeRepository"],
-    context: ["context", "designSystem"],
+    context: ["context"],
     hosting: ["host"],
     runtime: [
         "port",

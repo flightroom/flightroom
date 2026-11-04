@@ -84,9 +84,6 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                 versionInvalid: t("backends.version_invalid"),
                 hostUrlRequired: t("frontend.validation.host_url_required"),
                 canaryPercentage: t("frontend.validation.canary_percentage"),
-                designSystemPackageRequired: t("designSystem.fields.packageNameRequired"),
-                designSystemPackageInvalid: t("designSystem.fields.packageNameInvalid"),
-                designSystemDocsUrlInvalid: t("designSystem.fields.docsUrlInvalid"),
                 ...resourceMessages(t)
             }),
         [t]
@@ -117,7 +114,6 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
 
     const kind = form.watch("kind")
     const isDocker = kind === FrontendKind.DOCKER
-    const designSystemOverride = form.watch("designSystemOverride")
 
     const { shownTab, selectTab, tabHasErrors, onInvalid } = useFrontendFormTabs({ form, isEdit, isDocker })
 
@@ -189,7 +185,7 @@ export const AddFrontendForm: React.FC<AddFrontendFormProps> = ({ versions, repo
                     </TabsContent>
 
                     <TabsContent value="context" forceMount>
-                        <ContextTab designSystemOverride={designSystemOverride} />
+                        <ContextTab />
                     </TabsContent>
 
                     {isDocker ? (

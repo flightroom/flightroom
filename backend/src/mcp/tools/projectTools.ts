@@ -114,7 +114,7 @@ export const projectTools = [
             "Read it before working on the project or on its code. Working on one frontend or backend, pass its id: you get its context, the one of its domain and the project one. " +
             "Working on a domain, pass domainId: you get its context, the one of each of its frontends and backends and the project one. Without ids, every context of the project. " +
             "project.technologies holds the default frontend and backend technology the team chose: use them for new frontends and backends unless the user explicitly asks for another. " +
-            "project.designSystem is the UI library of the frontends: the project's own, else the organization's (project.designSystemSource says which); with frontendId, designSystem is the one that frontend builds its UI with and designSystemSource the level it is set at.",
+            "project.designSystem is the UI library of the frontends: the project's own, else the organization's (project.designSystemSource says which); with frontendId, designSystem and designSystemSource repeat them as the one that frontend builds its UI with.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({
@@ -129,13 +129,13 @@ export const projectTools = [
         title: "Get design system .npmrc",
         description:
             "The whole .npmrc the design system installs with, credentials included: write it as .npmrc next to package.json (or merge it into ~/.npmrc) to install the package. " +
-            "With frontendId, the one of the design system that frontend builds with; without, the project's. source says which level it is set at. " +
+            "The one of the design system the frontends build with: the project's, else the organization's; source says which. " +
             "The designSystem of context_get, frontend_get and the other tools carries the same npmrc. Keep it out of git: code_change_submit refuses an .npmrc.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         mcpOnly: true,
-        inputSchema: z.object({ frontendId: objectId("Id of the frontend whose design system to read, from frontends_list").optional() }),
-        run: (args, { principal, projectId }) => new ProjectService(principal).getDesignSystemNpmrc(projectId, args.frontendId)
+        inputSchema: NO_INPUT,
+        run: (_args, { principal, projectId }) => new ProjectService(principal).getDesignSystemNpmrc(projectId)
     }),
     defineTool({
         name: "project_update",
@@ -204,7 +204,7 @@ export const projectTools = [
                 .describe(
                     "The probe templates of the project: each backend, frontend or maintenance agent overrides any field by setting it, and inherits it when null. Applied by the next deploy of each environment"
                 ),
-            designSystem: designSystemInput.describe("The design system of the frontends, which one may replace with its own; null goes back to the organization's. Replaced as a whole")
+            designSystem: designSystemInput.describe("The design system of the frontends; null goes back to the organization's. Replaced as a whole")
         }),
         run: (args, { principal, projectId }) => new ProjectService(principal).update(projectId, args)
     }),

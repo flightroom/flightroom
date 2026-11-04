@@ -6,7 +6,6 @@ import type { VariableMap } from "@/hooks/apiClients/useVariableMapsApi"
 import { probeFormValues, probePaths, probeTimings, replicaCount, resourceFormValues } from "@/pages/backends/partials/containerResources"
 import { environmentVersionFormValues } from "@/pages/backends/partials/environmentVersions"
 import { logLevelOf } from "@/pages/backends/partials/LogLevelOverrideField"
-import { designSystemFormValues, toDesignSystem } from "@/pages/settings/partials/DesignSystemFields"
 import { frontendTechnologyOf } from "@/utils/technologies"
 import type { FormInput, FormValues } from "./frontendFormSchema"
 
@@ -71,8 +70,6 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
               technology: frontendTechnologyOf(frontend) ?? "",
               version: frontend.version ?? "",
               host: frontend.host ?? getStandardHost(storages),
-              designSystemOverride: Boolean(frontend.designSystem?.packageName),
-              designSystem: designSystemFormValues(frontend.designSystem),
               ...containerDefaults
           }
         : {
@@ -81,8 +78,6 @@ export const frontendFormDefaults = ({ frontend, storages, repositories, configM
               description: "",
               domainId: initialDomainId ?? "",
               context: "",
-              designSystemOverride: false,
-              designSystem: designSystemFormValues(),
               kind: FrontendKind.BUNDLE,
               version: "",
               host: getStandardHost(storages),
@@ -142,16 +137,12 @@ export const toFrontendPayload = (data: FormValues, { isEdit, template, isVersio
         env,
         configMapIds,
         secretIds,
-        designSystemOverride,
-        designSystem,
         // Saved through the stack of the frontend, not with the rest
         technology: _technology,
         ...rest
     } = data
     const dataToSend = {
         ...rest,
-        // Null: it builds with the design system of the project, else the organization's
-        designSystem: designSystemOverride ? toDesignSystem(designSystem) : null,
         // Blank: the frontend is in no domain
         domainId: data.domainId || null,
         // Blank: not deployed in that environment, whatever its kind

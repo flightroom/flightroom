@@ -2,7 +2,6 @@ import * as z from "zod"
 import { CanaryType, FrontendKind } from "@/hooks/apiClients/useFrontendsApi"
 import { BACKEND_VERSION, createBackendRuntimeShape, refineExposure } from "@/pages/backends/partials/backendVariables"
 import { type ResourceMessages, refineResources } from "@/pages/backends/partials/containerResources"
-import { HTTP_URL, NPM_PACKAGE_NAME } from "@/pages/settings/partials/DesignSystemFields"
 import { CONTEXT_MAX_LENGTH } from "@/pages/settings/partials/ProjectContextSection"
 
 export interface FormMessages extends ResourceMessages {
@@ -12,9 +11,6 @@ export interface FormMessages extends ResourceMessages {
     versionInvalid: string
     hostUrlRequired: string
     canaryPercentage: string
-    designSystemPackageRequired: string
-    designSystemPackageInvalid: string
-    designSystemDocsUrlInvalid: string
 }
 
 export const createFormSchema = (messages: FormMessages) => {
@@ -32,9 +28,6 @@ export const createFormSchema = (messages: FormMessages) => {
             // Its framework, chosen by hand on a saved frontend: a template says it at creation
             technology: z.string().optional(),
             context: z.string().max(CONTEXT_MAX_LENGTH).optional(),
-            // Off, the frontend builds with the design system of the project, else the organization's
-            designSystemOverride: z.boolean().default(false),
-            designSystem: z.object({ packageName: z.string(), version: z.string(), docsUrl: z.string(), npmrc: z.string(), notes: z.string() }).partial().optional(),
             // Never deployed as it is: each environment runs the version it sets in environmentVersions
             version: z.string().optional(),
             continuousDeployment: z.boolean().default(false),
@@ -121,17 +114,6 @@ export const createFormSchema = (messages: FormMessages) => {
                 .optional()
         })
         .superRefine((data, ctx) => {
-            // Its own design system, whatever its kind, needs its npm package
-            if (data.designSystemOverride) {
-                const packageName = data.designSystem?.packageName?.trim() ?? ""
-                if (!NPM_PACKAGE_NAME.test(packageName)) {
-                    ctx.addIssue({ code: "custom", message: packageName ? messages.designSystemPackageInvalid : messages.designSystemPackageRequired, path: ["designSystem", "packageName"] })
-                }
-                const docsUrl = data.designSystem?.docsUrl?.trim()
-                if (docsUrl && !HTTP_URL.test(docsUrl)) {
-                    ctx.addIssue({ code: "custom", message: messages.designSystemDocsUrlInvalid, path: ["designSystem", "docsUrl"] })
-                }
-            }
             // The same rule for both kinds, a tag or the name of a bundle: it is a path segment of the bundle too
             data.environmentVersions?.forEach((entry, index) => {
                 if (entry.version.trim() && !BACKEND_VERSION.test(entry.version.trim())) {

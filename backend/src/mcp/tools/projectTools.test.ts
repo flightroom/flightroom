@@ -87,13 +87,12 @@ describe("project tools", () => {
         expect(tool("project_update").inputSchema.safeParse({ designSystem: null }).success).toBe(true)
     })
 
-    it("given a frontend, when design_system_npmrc_get is called, then the service reads the npmrc of that frontend's design system", async () => {
+    it("given a project, when design_system_npmrc_get is called, then the service reads the npmrc of the design system its frontends build with", async () => {
         const whole = { packageName: "@acme/ui", source: "project", npmrc: "//npm.acme.dev/:_authToken=npm_abc123" }
         getDesignSystemNpmrc.mockResolvedValue(whole)
-        const frontendId = "bbbbbbbbbbbbbbbbbbbbbbbb"
 
-        expect(await run("design_system_npmrc_get", { frontendId })).toEqual(whole)
-        expect(getDesignSystemNpmrc).toHaveBeenCalledWith(PROJECT, frontendId)
+        expect(await run("design_system_npmrc_get", {})).toEqual(whole)
+        expect(getDesignSystemNpmrc).toHaveBeenCalledWith(PROJECT)
     })
 
     it("given a project with domains, when its overview is read, then each frontend and backend comes once with its version per environment slug", async () => {

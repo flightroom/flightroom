@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest"
-import Frontend from "../models/FrontendModel"
 import Organization from "../models/OrganizationModel"
+import Project from "../models/ProjectModel"
 import { describeDesignSystem, designSystemOf, designSystemsForMcp, effectiveDesignSystem, NPMRC_USAGE, redactDesignSystems, redactNpmrc } from "./DesignSystem"
 
 describe("redactNpmrc", () => {
@@ -79,15 +79,14 @@ describe("effectiveDesignSystem", () => {
 })
 
 describe("redactDesignSystems", () => {
-    it("Given a frontend document serialised for an AI, when it carries a design system, then its npmrc reaches it masked and the rest untouched", () => {
-        const frontend = new Frontend({
+    it("Given a project document serialised for an AI, when it carries a design system, then its npmrc reaches it masked and the rest untouched", () => {
+        const project = new Project({
             slug: "catalog",
             name: "Catalog",
-            version: "1.0.0",
             designSystem: { packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123" }
         })
 
-        const serialised = JSON.parse(JSON.stringify({ ...frontend.toObject(), aiContext: { project: { designSystem: frontend.designSystem } } }, redactDesignSystems))
+        const serialised = JSON.parse(JSON.stringify({ ...project.toObject(), aiContext: { project: { designSystem: project.designSystem } } }, redactDesignSystems))
 
         expect(serialised.designSystem).toEqual({ packageName: "@acme/ui", npmrc: "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=***" })
         expect(serialised.aiContext.project.designSystem.npmrc).not.toContain("npm_abc123")
@@ -109,11 +108,11 @@ describe("redactDesignSystems", () => {
 })
 
 describe("designSystemsForMcp", () => {
-    it("Given a frontend document serialised for an MCP client, when it carries a design system, then its npmrc reaches it whole with how to use it", () => {
+    it("Given a project document serialised for an MCP client, when it carries a design system, then its npmrc reaches it whole with how to use it", () => {
         const npmrc = "@acme:registry=https://npm.acme.dev/\n//npm.acme.dev/:_authToken=npm_abc123"
-        const frontend = new Frontend({ slug: "catalog", name: "Catalog", version: "1.0.0", designSystem: { packageName: "@acme/ui", npmrc } })
+        const project = new Project({ slug: "catalog", name: "Catalog", designSystem: { packageName: "@acme/ui", npmrc } })
 
-        const serialised = JSON.parse(JSON.stringify({ ...frontend.toObject(), aiContext: { project: { designSystem: frontend.designSystem } } }, designSystemsForMcp))
+        const serialised = JSON.parse(JSON.stringify({ ...project.toObject(), aiContext: { project: { designSystem: project.designSystem } } }, designSystemsForMcp))
 
         expect(serialised.designSystem).toEqual({ packageName: "@acme/ui", npmrc, npmrcUsage: NPMRC_USAGE })
         expect(serialised.aiContext.project.designSystem.npmrc).toContain("npm_abc123")
