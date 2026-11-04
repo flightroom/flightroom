@@ -119,6 +119,24 @@ describe("the sandbox of a job", () => {
         expect(sandboxKeyOf(undefined, job as never, [{ domainId: domainA }])).toBe(`domain-${domainA}`)
     })
 
+    it("Given sharing by project, then every job of the project uses its sandbox, whatever its domain", () => {
+        expect(sandboxKeyOf("project", { ...job, domainId: domainA } as never, [{ domainId: domainA }])).toBe(`project-${projectId}`)
+        expect(sandboxKeyOf("project", job as never, [{ kind: "frontend", _id: domainB }])).toBe(`project-${projectId}`)
+    })
+
+    it("Given sharing by component, then a job on one frontend or backend uses its sandbox, a job on several that of their domain, else of the project", () => {
+        const frontendId = new Types.ObjectId()
+        const backendId = new Types.ObjectId()
+        expect(sandboxKeyOf("component", { ...job, domainId: domainA } as never, [{ kind: "frontend", _id: frontendId, domainId: domainA }])).toBe(`frontend-${frontendId}`)
+        expect(sandboxKeyOf("component", job as never, [{ kind: "backend", _id: backendId }])).toBe(`backend-${backendId}`)
+        const both = [
+            { kind: "frontend", _id: frontendId, domainId: domainA },
+            { kind: "backend", _id: backendId, domainId: domainA }
+        ]
+        expect(sandboxKeyOf("component", job as never, both)).toBe(`domain-${domainA}`)
+        expect(sandboxKeyOf("component", job as never, [both[0], { ...both[1], domainId: domainB }])).toBe(`project-${projectId}`)
+    })
+
     it("Given sharing by conversation, then a job uses its conversation's sandbox", () => {
         expect(sandboxKeyOf("conversation", { ...job, domainId: domainA } as never, [{ domainId: domainA }])).toBe(CONVERSATION)
     })
@@ -164,6 +182,18 @@ describe("the sandbox of a job", () => {
         await lifecycle.created(key, "sandbox-1")
 
         expect(openSandboxLifetime).toHaveBeenCalledWith(key, "sandbox-1", { organizationId: owner.organizationId, projectId, source: "agent", domainId: String(domainA) })
+    })
+
+    it("Given the sandbox of a frontend, when it is created, then its lifetime counts against its project and that frontend", async () => {
+        const frontendId = new Types.ObjectId()
+        const owner = jobSandboxOwner({ ...job, userId: new Types.ObjectId(), frontendIds: [frontendId], backendIds: [] } as never, new Types.ObjectId())
+        const key = `frontend-${frontendId}`
+
+        await sandboxForJob({ OPENSHELL_GATEWAY_URL: "https://gateway" }, job as never, key, owner)?.()
+        const lifecycle = acquire.mock.calls[0][1] as { created: (conversation: string, id: string) => Promise<void> }
+        await lifecycle.created(key, "sandbox-1")
+
+        expect(openSandboxLifetime).toHaveBeenCalledWith(key, "sandbox-1", { organizationId: owner.organizationId, projectId, source: "agent", frontendIds: [String(frontendId)] })
     })
 
     it("Given no gateway, then a job has no sandbox", () => {

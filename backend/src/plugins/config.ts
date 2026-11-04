@@ -454,11 +454,11 @@ export default fastifyPlugin(
                     type: "number",
                     default: OPENSHELL_DEFAULTS.maxHours
                 },
-                // "domain": the jobs of a domain (else of a project) share a sandbox, each conversation in its own folder.
-                // "conversation": one sandbox per conversation.
+                // "component", "domain", "project": the jobs of a frontend or backend, of a domain, of a project share a
+                // sandbox, each conversation in its own folder; never wider than a project. "conversation": one per conversation.
                 OPENSHELL_SANDBOX_SHARING: {
                     type: "string",
-                    enum: ["domain", "conversation"],
+                    enum: ["conversation", "component", "domain", "project"],
                     default: "domain"
                 },
                 // How many sandboxes are kept created and unassigned, so that a new conversation does not wait for one.

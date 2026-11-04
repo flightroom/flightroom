@@ -1,7 +1,7 @@
 import useApiClient from "../useApiClient"
 import type { AiSandboxStatusSummary } from "./useAiSandboxApi"
 
-export type SandboxSharing = "domain" | "conversation"
+export type SandboxSharing = "conversation" | "component" | "domain" | "project"
 
 /** The settings of the sandboxes an installation administrator may change: each one missing is the environment's. */
 export interface SandboxSettingsValues {
@@ -36,7 +36,7 @@ export interface InstallationSandbox {
     name: string
     phase?: string
     pool: SandboxPoolState
-    target?: { kind: "domain" | "project" | "conversation" | "preview"; name?: string; projectName?: string }
+    target?: { kind: "frontend" | "backend" | "domain" | "project" | "conversation" | "preview"; name?: string; projectName?: string }
     organization?: { id: string; name: string }
     usage?: SandboxUsage
     shared: boolean

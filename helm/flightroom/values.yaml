@@ -214,7 +214,8 @@ env:
   OPENSHELL_SANDBOX_IDLE_MINUTES: ""
   # Past this age a sandbox is deleted at the first quiet moment. default: 24
   OPENSHELL_SANDBOX_MAX_HOURS: ""
-  # domain (the conversations of a domain share a sandbox) | conversation.
+  # Which conversations share a sandbox, never wider than a project:
+  # conversation | component (one frontend or backend) | domain | project.
   # default: domain
   OPENSHELL_SANDBOX_SHARING: ""
   # Sandboxes kept created and unassigned, so a new conversation does not wait

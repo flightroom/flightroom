@@ -87,8 +87,12 @@ export interface OpenShellConfiguration {
     OPENSHELL_SANDBOX_IDLE_MINUTES?: number
     /** Past this age a sandbox is deleted at the first sweep that finds none of its jobs waiting or running: it never piles up for good. */
     OPENSHELL_SANDBOX_MAX_HOURS?: number
-    /** "domain": the jobs of one domain (else of one project) share a sandbox, each conversation in a folder of its own. "conversation": one sandbox per conversation. */
-    OPENSHELL_SANDBOX_SHARING?: "domain" | "conversation"
+    /**
+     * Which jobs share a sandbox, each conversation in a folder of its own: "component" those of one frontend or backend,
+     * "domain" those of one domain, "project" those of one project; a job a narrower one cannot hold uses a wider one, never
+     * wider than its project. "conversation": one sandbox per conversation.
+     */
+    OPENSHELL_SANDBOX_SHARING?: "conversation" | "component" | "domain" | "project"
     OPENSHELL_PREVIEWS_ENABLED?: boolean
     /**
      * Where the browser reaches the previews when an ingress serves them, `*` standing for each one

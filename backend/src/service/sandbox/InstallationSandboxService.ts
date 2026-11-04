@@ -1,7 +1,9 @@
 import { isValidObjectId } from "mongoose"
 import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import AiChangeJob from "../../models/AiChangeJobModel"
+import Backend from "../../models/BackendModel"
 import Domain from "../../models/DomainModel"
+import Frontend from "../../models/FrontendModel"
 import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
 import SandboxSettings, { SANDBOX_SETTINGS_ID } from "../../models/SandboxSettingsModel"
@@ -9,7 +11,7 @@ import StandalonePreviewSession from "../../models/StandalonePreviewSessionModel
 import { ensureInstallationAdmin } from "../../utils/installationAdmins"
 import { toObjectId } from "../../utils/mongooseUtils"
 import { redactSecrets } from "../../utils/redactSecrets"
-import { closeLifetime, conversationState } from "../aiChange/aiChangeSandboxes"
+import { closeLifetime, conversationState, SHARED_KEY } from "../aiChange/aiChangeSandboxes"
 import { ConversationState, OPENSHELL_DEFAULTS, OpenShellConfiguration, openShellSandboxes, SandboxLogLine, SandboxPoolState } from "./OpenShellSandboxes"
 import { SandboxStatusSummary, sandboxGatewayStatus } from "./SandboxStatusService"
 import { sandboxPoolCounts } from "./sandboxPool"
@@ -28,8 +30,8 @@ export interface SandboxSettingsSummary {
 
 /** What a sandbox serves, in words a person reads. */
 export interface SandboxTarget {
-    kind: "domain" | "project" | "conversation" | "preview"
-    /** The domain, the project, or the title of the conversation (else the start of its first prompt). */
+    kind: "frontend" | "backend" | "domain" | "project" | "conversation" | "preview"
+    /** The frontend, the backend, the domain, the project, or the title of the conversation (else the start of its first prompt). */
     name?: string
     projectName?: string
 }
@@ -85,8 +87,6 @@ export const normalizeSandboxSettings = (values: Record<string, unknown>): Sandb
 /** How much of a first prompt names a conversation without a title. */
 const PROMPT_EXCERPT = 80
 
-const SHARED_KEY = /^(domain|project)-([0-9a-f]{24})$/
-
 /**
  * What an installation administrator does from the console with the sandboxes of the coding agent: their settings,
  * the list of them, their logs, and deleting one. Refused to anybody else.
@@ -122,13 +122,15 @@ export default class InstallationSandboxService {
         const keys = [...new Set(items.flatMap(item => (item.key ? [item.key] : [])))]
         const idsOf = (kind: string) => keys.flatMap(key => (SHARED_KEY.exec(key)?.[1] === kind ? [key.slice(kind.length + 1)] : []))
         const conversationIds = keys.filter(key => isValidObjectId(key) && !SHARED_KEY.test(key)).map(toObjectId)
-        const [domains, jobs, previews, usage] = await Promise.all([
+        const [domains, frontends, backends, jobs, previews, usage] = await Promise.all([
             Domain.find({ _id: { $in: idsOf("domain").map(toObjectId) } }, { name: 1, projectId: 1 }).lean(),
+            Frontend.find({ _id: { $in: idsOf("frontend").map(toObjectId) } }, { name: 1, projectId: 1 }).lean(),
+            Backend.find({ _id: { $in: idsOf("backend").map(toObjectId) } }, { name: 1, projectId: 1 }).lean(),
             AiChangeJob.find({ _id: { $in: conversationIds } }, { title: 1, prompt: 1, projectId: 1 }).lean(),
             StandalonePreviewSession.find({ _id: { $in: conversationIds } }, { projectId: 1 }).lean(),
             Promise.all(keys.map(async key => [key, await stateOf(key)] as const))
         ])
-        const projectIds = [...idsOf("project"), ...[...domains, ...jobs, ...previews].map(target => String(target.projectId))]
+        const projectIds = [...idsOf("project"), ...[...domains, ...frontends, ...backends, ...jobs, ...previews].map(target => String(target.projectId))]
         const projects = await Project.find({ _id: { $in: projectIds.map(toObjectId) } }, { name: 1, organizationId: 1 }).lean()
         const projectOf = new Map(projects.map(project => [String(project._id), project]))
         const organizationIds = [...items.flatMap(item => (item.organizationId ? [item.organizationId] : [])), ...projects.map(project => String(project.organizationId))]
@@ -139,10 +141,12 @@ export default class InstallationSandboxService {
         const targetOf = (key: string): { target?: SandboxTarget; projectId?: string } => {
             const shared = SHARED_KEY.exec(key)
             if (shared?.[1] === "project") return { target: { kind: "project", name: projectOf.get(shared[2])?.name }, projectId: shared[2] }
-            if (shared?.[1] === "domain") {
-                const domain = domains.find(candidate => String(candidate._id) === shared[2])
-                const projectId = domain ? String(domain.projectId) : undefined
-                return { target: { kind: "domain", name: domain?.name, projectName: projectId ? projectOf.get(projectId)?.name : undefined }, projectId }
+            if (shared?.[1] === "domain" || shared?.[1] === "frontend" || shared?.[1] === "backend") {
+                const kind = shared[1]
+                const owners: { _id: unknown; name: string; projectId: unknown }[] = kind === "domain" ? domains : kind === "frontend" ? frontends : backends
+                const owner = owners.find(candidate => String(candidate._id) === shared[2])
+                const projectId = owner ? String(owner.projectId) : undefined
+                return { target: { kind, name: owner?.name, projectName: projectId ? projectOf.get(projectId)?.name : undefined }, projectId }
             }
             const preview = previews.find(candidate => String(candidate._id) === key)
             if (preview) return { target: { kind: "preview", projectName: projectOf.get(String(preview.projectId))?.name }, projectId: String(preview.projectId) }

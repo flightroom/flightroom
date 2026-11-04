@@ -343,7 +343,11 @@ are the repository's code, and the console holds the repository tokens, the data
   Its users see the same code anyway; a command can still read the other folders and stop the other
   processes of the sandbox. Size the requests and limits of the sandbox template for several
   conversations at once: one running out of memory takes the others down with it.
-  `OPENSHELL_SANDBOX_SHARING=conversation` goes back to one sandbox per conversation.
+  `OPENSHELL_SANDBOX_SHARING=component` narrows it to a sandbox per frontend or backend: a request on one
+  repository uses that repository's, one on several falls back to their domain's, else the project's.
+  `OPENSHELL_SANDBOX_SHARING=project` widens it to one sandbox for the whole project.
+  `OPENSHELL_SANDBOX_SHARING=conversation` goes back to one sandbox per conversation. No setting shares a
+  sandbox across projects, nor across organizations. The **Installation** page sets it over the variable.
 - **A template per language.** A workload template of the gateway can say which languages its image
   holds (Node.js, Java, Python, Go, .NET), from the **Installation** page; each is a label of the
   template, `languages.flightroom.dev/<language>: "true"`. A new sandbox is created from the template

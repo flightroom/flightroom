@@ -12,13 +12,17 @@ import useInstallationApi, {
     SANDBOX_TEMPLATES_QUERY_KEY,
     type SandboxSettingsSummary,
     type SandboxSettingsUpdate,
-    type SandboxSettingsValues
+    type SandboxSettingsValues,
+    type SandboxSharing
 } from "@/hooks/apiClients/useInstallationApi"
 import useThemeStore from "@/store/useThemeStore"
 import useToastNotificationStore from "@/store/useToastNotificationStore"
 
 /** A select item cannot carry an empty value: this one stands for "the environment's value". */
 const DEFAULT = "default"
+
+/** From the narrowest to the widest: never wider than a project, a sandbox never serves two projects nor two organizations. */
+const SHARING_OPTIONS: SandboxSharing[] = ["conversation", "component", "domain", "project"]
 
 const NUMBER_FIELDS = { idleMinutes: [1, 1440], maxHours: [1, 720], warmSandboxes: [0, 50] } as const
 const TEXT_FIELDS = ["image"] as const
@@ -35,7 +39,7 @@ type NumberField = keyof typeof NUMBER_FIELDS
 type FormValues = Record<NumberField | (typeof TEXT_FIELDS)[number] | (typeof LIST_FIELDS)[number], string> & {
     /** A template of the gateway, by name, or DEFAULT for the environment's. */
     template: string
-    sharing: typeof DEFAULT | "domain" | "conversation"
+    sharing: typeof DEFAULT | SandboxSharing
     previewsEnabled: typeof DEFAULT | "on" | "off"
     previewUrl: string
 }
@@ -130,8 +134,7 @@ export const SandboxSettingsForm: React.FC<SandboxSettingsFormProps> = ({ summar
 
     const sharingOptions = [
         { value: DEFAULT, label: t("installation.settings.use_environment", { value: t(`installation.settings.fields.sharing.options.${defaults.sharing}`) }) },
-        { value: "domain", label: t("installation.settings.fields.sharing.options.domain") },
-        { value: "conversation", label: t("installation.settings.fields.sharing.options.conversation") }
+        ...SHARING_OPTIONS.map(value => ({ value, label: t(`installation.settings.fields.sharing.options.${value}`) }))
     ]
     const previewOptions = [
         {

@@ -43,23 +43,32 @@ export const jobSandboxOwner = (
     backendIds: job.backendIds
 })
 
-/** The key of a sandbox the jobs of a domain, or of a project, share. */
-const SHARED_KEY = /^(domain|project)-([0-9a-f]{24})$/
+/**
+ * The key of a sandbox the jobs of a frontend, a backend, a domain or a project share: never wider than a project, so
+ * no sandbox serves two projects, nor two organizations.
+ */
+export const SHARED_KEY = /^(frontend|backend|domain|project)-([0-9a-f]{24})$/
 
 /**
- * The sandbox a job runs its commands in. Shared by domain: the one of its domain, of the one domain all its
- * repositories are in for a job on single frontends or backends, else of its project. Its users share the
- * domain's code already, and the caches of the package managers stay warm. Otherwise its conversation's.
+ * The sandbox a job runs its commands in. By project, the one of its project. By domain, the one of its domain, of
+ * the one domain all its repositories are in for a job on single frontends or backends, else of its project. By
+ * component, the one of the frontend or backend it works on, and a job on several falls back to the domain's, else
+ * the project's: its commands need them all in one sandbox. Shared, its users share the code already, and the caches
+ * of the package managers stay warm. By conversation, its conversation's.
  */
 export const sandboxKeyOf = (
     sharing: OpenShellConfiguration["OPENSHELL_SANDBOX_SHARING"],
     job: Pick<IAiChangeJob, "rootJobId" | "projectId" | "domainId">,
-    components: { domainId?: unknown }[]
+    components: { kind?: string; _id?: unknown; domainId?: unknown }[]
 ): string => {
     if (sharing === "conversation") return String(job.rootJobId)
+    const project = `project-${String(job.projectId)}`
+    if (sharing === "project") return project
+    const [single] = components
+    if (sharing === "component" && components.length === 1 && single._id && (single.kind === "frontend" || single.kind === "backend")) return `${single.kind}-${String(single._id)}`
     const domains = new Set(job.domainId ? [String(job.domainId)] : components.map(component => (component.domainId ? String(component.domainId) : "")))
     const [domain] = domains
-    return domains.size === 1 && domain ? `domain-${domain}` : `project-${String(job.projectId)}`
+    return domains.size === 1 && domain ? `domain-${domain}` : project
 }
 
 /**
@@ -86,7 +95,7 @@ const sandboxLanguagesOf = async (key: string, components: readonly (FrontendCom
  * same first one), so that the next message finds its dependencies installed, created from the template holding the
  * languages of `components` when it is new. Undefined without a gateway. The
  * lifetime of a conversation's sandbox is counted against `owner` when this job creates it; that of a shared one
- * against its project and domain only, as it is no one job's.
+ * against its project and its domain, frontend or backend only, as it is no one job's.
  */
 export const sandboxForJob = (
     config: OpenShellConfiguration,
@@ -97,8 +106,17 @@ export const sandboxForJob = (
 ): (() => Promise<CommandSandbox>) | undefined => {
     const sandboxes = openShellSandboxes(config)
     if (!sandboxes) return undefined
-    const domainId = SHARED_KEY.exec(key)?.[1] === "domain" ? key.slice("domain-".length) : undefined
-    const lifetimeOwner: SandboxOwner = SHARED_KEY.test(key) ? { organizationId: owner.organizationId, projectId: owner.projectId, source: owner.source, ...(domainId ? { domainId } : {}) } : owner
+    const [, scope, id] = SHARED_KEY.exec(key) ?? []
+    const lifetimeOwner: SandboxOwner = scope
+        ? {
+              organizationId: owner.organizationId,
+              projectId: owner.projectId,
+              source: owner.source,
+              ...(scope === "domain" ? { domainId: id } : {}),
+              ...(scope === "frontend" ? { frontendIds: [id] } : {}),
+              ...(scope === "backend" ? { backendIds: [id] } : {})
+          }
+        : owner
     return async () => {
         // Saved before the sandbox is asked for: the sweep finds the job under the key and keeps the sandbox.
         await AiChangeJob.updateOne({ _id: job._id }, { $set: { sandboxKey: key } })

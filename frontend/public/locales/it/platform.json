@@ -4144,7 +4144,6 @@
     },
     "ai_sandbox": {
         "title": "Sandbox del codice (OpenShell)",
-        "description": "Il gateway in cui Modifica con AI installa le dipendenze, compila ed esegue i test. È uno per tutta la console.",
         "status": {
             "online": "Online",
             "degraded": "Degradato",
@@ -4158,10 +4157,7 @@
             "notConfigured": "OPENSHELL_GATEWAY_URL non è impostata: Modifica con AI non esegue codice."
         },
         "version": "Versione {{version}}",
-        "checked_at": "Verificato alle {{time}}.",
-        "errors": {
-            "load": "Impossibile leggere lo stato della sandbox."
-        }
+        "checked_at": "Verificato alle {{time}}."
     },
     "ai_usage": {
         "title": "Token AI",
@@ -4520,10 +4516,12 @@
                 },
                 "sharing": {
                     "label": "Condivisione",
-                    "help": "Per dominio, le conversazioni di un dominio condividono una sandbox, ognuna nella sua cartella; per conversazione, ognuna ha la sua.",
+                    "help": "Quali conversazioni condividono una sandbox, ognuna nella sua cartella: quelle di un singolo frontend o backend, di un dominio o di tutto il progetto; per conversazione, ognuna ha la sua. Un lavoro su più repository usa quella del loro dominio, altrimenti quella del progetto. Una sandbox non è mai condivisa tra progetti o organizzazioni.",
                     "options": {
+                        "conversation": "Per conversazione",
+                        "component": "Per singolo frontend o backend",
                         "domain": "Per dominio",
-                        "conversation": "Per conversazione"
+                        "project": "Per progetto"
                     }
                 },
                 "previewsEnabled": {
@@ -4665,6 +4663,8 @@
                 "unknown": "Sconosciuto"
             },
             "target": {
+                "frontend": "Frontend",
+                "backend": "Backend",
                 "domain": "Dominio",
                 "project": "Progetto",
                 "conversation": "Conversazione",

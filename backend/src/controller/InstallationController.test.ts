@@ -15,12 +15,14 @@ const { settingsModel, sandboxes, templateClient, finders } = vi.hoisted(() => {
             templates: vi.fn(async () => ({ client: templateClient, workspace: "flightroom" })),
             forgetTemplates: vi.fn()
         },
-        finders: { Domain: finder(), Project: finder(), Organization: finder(), AiChangeJob: finder(), StandalonePreviewSession: finder() }
+        finders: { Domain: finder(), Frontend: finder(), Backend: finder(), Project: finder(), Organization: finder(), AiChangeJob: finder(), StandalonePreviewSession: finder() }
     }
 })
 
 vi.mock("../models/SandboxSettingsModel", () => ({ default: settingsModel, SANDBOX_SETTINGS_ID: "installation" }))
 vi.mock("../models/DomainModel", async importOriginal => ({ ...(await importOriginal<object>()), default: finders.Domain }))
+vi.mock("../models/FrontendModel", async importOriginal => ({ ...(await importOriginal<object>()), default: finders.Frontend }))
+vi.mock("../models/BackendModel", async importOriginal => ({ ...(await importOriginal<object>()), default: finders.Backend }))
 vi.mock("../models/ProjectModel", async importOriginal => ({ ...(await importOriginal<object>()), default: finders.Project }))
 vi.mock("../models/OrganizationModel", async importOriginal => ({ ...(await importOriginal<object>()), default: finders.Organization }))
 vi.mock("../models/AiChangeJobModel", async importOriginal => ({ ...(await importOriginal<object>()), default: finders.AiChangeJob }))
@@ -28,7 +30,7 @@ vi.mock("../models/StandalonePreviewSessionModel", async importOriginal => ({ ..
 vi.mock("../service/sandbox/sandboxPool", () => ({ sandboxPoolCounts: vi.fn(async () => ({ warm: 2, creating: 1, assigned: 3 })) }))
 vi.mock("../service/sandbox/SandboxStatusService", () => ({ sandboxGatewayStatus: vi.fn(async () => ({ status: "online", version: "0.4.1", checkedAt: new Date(0) })) }))
 const stateOf = vi.hoisted(() => vi.fn(async (_key: string) => "running"))
-vi.mock("../service/aiChange/aiChangeSandboxes", () => ({ closeLifetime: vi.fn(), conversationState: () => stateOf }))
+vi.mock("../service/aiChange/aiChangeSandboxes", () => ({ closeLifetime: vi.fn(), conversationState: () => stateOf, SHARED_KEY: /^(frontend|backend|domain|project)-([0-9a-f]{24})$/ }))
 vi.mock("../service/sandbox/OpenShellSandboxes", async importOriginal => ({
     ...(await importOriginal<typeof import("../service/sandbox/OpenShellSandboxes")>()),
     openShellSandboxes: (config: { OPENSHELL_GATEWAY_URL?: string }) => (config.OPENSHELL_GATEWAY_URL ? sandboxes : undefined)
@@ -41,6 +43,7 @@ import installationController from "./InstallationController"
 const ADMIN = { _id: "65f1a2b3c4d5e6f708192a00", email: "Admin@Example.com" }
 const MEMBER = { _id: "65f1a2b3c4d5e6f708192a99", email: "member@example.com" }
 const DOMAIN = "65f1a2b3c4d5e6f708192a10"
+const FRONTEND = "65f1a2b3c4d5e6f708192a50"
 const PROJECT = "65f1a2b3c4d5e6f708192a20"
 const ORGANIZATION = "65f1a2b3c4d5e6f708192a30"
 const JOB = "65f1a2b3c4d5e6f708192a40"
@@ -161,8 +164,11 @@ describe("InstallationController", () => {
         sandboxes.inventory.mockResolvedValue([
             { name: "fr-0000000000000001", phase: "ready", pool: "assigned", key: `domain-${DOMAIN}`, organizationId: ORGANIZATION, shared: true, createdAtMs: 0 },
             { name: "fr-0000000000000002", phase: "ready", pool: "legacy", key: JOB, shared: false },
-            { name: "fr-0000000000000003", phase: "provisioning", pool: "warm", shared: false }
+            { name: "fr-0000000000000003", phase: "provisioning", pool: "warm", shared: false },
+            { name: "fr-0000000000000004", phase: "ready", pool: "assigned", key: `frontend-${FRONTEND}`, organizationId: ORGANIZATION, shared: true }
         ])
+        finders.Frontend.find.mockReturnValue({ lean: () => Promise.resolve([{ _id: FRONTEND, name: "Storefront", projectId: PROJECT }]) })
+        finders.Backend.find.mockReturnValue({ lean: () => Promise.resolve([]) })
         finders.Domain.find.mockReturnValue({ lean: () => Promise.resolve([{ _id: DOMAIN, name: "Checkout", projectId: PROJECT }]) })
         finders.AiChangeJob.find.mockReturnValue({ lean: () => Promise.resolve([{ _id: JOB, prompt: "x".repeat(200), projectId: PROJECT }]) })
         finders.Project.find.mockReturnValue({ lean: () => Promise.resolve([{ _id: PROJECT, name: "Shop", organizationId: ORGANIZATION }]) })
@@ -171,12 +177,13 @@ describe("InstallationController", () => {
         const response = await app.inject({ method: "GET", url: "/installation/sandboxes" })
 
         expect(response.statusCode).toBe(200)
-        const [domain, conversation, warm] = response.json()
+        const [domain, conversation, warm, frontend] = response.json()
         expect(domain).toMatchObject({ pool: "assigned", target: { kind: "domain", name: "Checkout", projectName: "Shop" }, organization: { id: ORGANIZATION, name: "Acme" }, usage: "running" })
         expect(conversation).toMatchObject({ pool: "legacy", target: { kind: "conversation", name: "x".repeat(80), projectName: "Shop" }, organization: { name: "Acme" } })
         expect(warm).toMatchObject({ pool: "warm", phase: "provisioning" })
         expect(warm.usage).toBeUndefined()
-        expect(stateOf).toHaveBeenCalledTimes(2)
+        expect(frontend).toMatchObject({ pool: "assigned", target: { kind: "frontend", name: "Storefront", projectName: "Shop" }, organization: { name: "Acme" } })
+        expect(stateOf).toHaveBeenCalledTimes(3)
     })
 
     it("Given the logs of a sandbox carrying a token, when they are read, then the token is blanked and the lines asked for are capped", async () => {

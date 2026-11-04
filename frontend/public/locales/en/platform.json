@@ -4124,7 +4124,6 @@
     },
     "ai_sandbox": {
         "title": "Code sandbox (OpenShell)",
-        "description": "The gateway where Edit with AI installs dependencies, builds and runs the tests. There is one for the whole console.",
         "status": {
             "online": "Online",
             "degraded": "Degraded",
@@ -4138,10 +4137,7 @@
             "notConfigured": "OPENSHELL_GATEWAY_URL is not set: Edit with AI runs no code."
         },
         "version": "Version {{version}}",
-        "checked_at": "Checked at {{time}}.",
-        "errors": {
-            "load": "Could not read the status of the sandbox."
-        }
+        "checked_at": "Checked at {{time}}."
     },
     "ai_usage": {
         "title": "AI tokens",
@@ -4500,10 +4496,12 @@
                 },
                 "sharing": {
                     "label": "Sharing",
-                    "help": "By domain, the conversations of a domain share a sandbox, each in its own folder; by conversation, each has its own.",
+                    "help": "Which conversations share a sandbox, each in its own folder: those of a single frontend or backend, of a domain or of the whole project; by conversation, each has its own. A job on several repositories uses the one of their domain, else the project's. A sandbox is never shared across projects or organizations.",
                     "options": {
+                        "conversation": "By conversation",
+                        "component": "By single frontend or backend",
                         "domain": "By domain",
-                        "conversation": "By conversation"
+                        "project": "By project"
                     }
                 },
                 "previewsEnabled": {
@@ -4645,6 +4643,8 @@
                 "unknown": "Unknown"
             },
             "target": {
+                "frontend": "Frontend",
+                "backend": "Backend",
                 "domain": "Domain",
                 "project": "Project",
                 "conversation": "Conversation",
