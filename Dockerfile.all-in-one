@@ -70,7 +70,12 @@ ARG MONGODB_VERSION=8.0
 # mongodb      -> database, from the official MongoDB repository
 # supervisor   -> keeps the four processes alive and pipes their logs to stdout
 # libstdc++6   -> required by the node binary copied from the official image
-RUN apt-get update && apt-get install -y --no-install-recommends \
+# The upgrade picks up the Debian fixes released after the base image was built;
+# PACKAGES_DATE, the day of the build from docker-build.yml, keeps the layer
+# from coming out of the build cache for more than a day with stale packages.
+ARG PACKAGES_DATE
+RUN echo "packages of ${PACKAGES_DATE}" && apt-get update && apt-get upgrade -y \
+    && apt-get install -y --no-install-recommends \
         ca-certificates \
         curl \
         gnupg \

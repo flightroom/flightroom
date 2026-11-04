@@ -148,6 +148,9 @@ jobs:
             tags="${{ env.IMAGE }}:${ROLLING_TAG}"
           fi
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          # The day of the build: the layer upgrading the OS packages is rebuilt
+          # once a day instead of coming out of the cache with old ones.
+          echo "packages-date=$(date -u +%F)" >> "$GITHUB_OUTPUT"
 
       # The default `docker` driver cannot export the cache to GitHub Actions:
       # a docker-container builder is needed for `type=gha`.
@@ -166,6 +169,8 @@ jobs:
           # The backend installs @nvidia/openshell-sdk from GitHub Packages.
           secrets: |
             npm_token=${{ secrets.GITHUB_TOKEN }}
+          build-args: |
+            PACKAGES_DATE=${{ steps.tags.outputs.packages-date }}
           load: true
           tags: ${{ env.IMAGE }}:scan-${{ matrix.variant }}
           cache-from: type=gha,scope=${{ matrix.variant }}
@@ -192,6 +197,9 @@ jobs:
           file: ${{ matrix.dockerfile }}
           secrets: |
             npm_token=${{ secrets.GITHUB_TOKEN }}
+          # The same build args as above, or the push would build other layers.
+          build-args: |
+            PACKAGES_DATE=${{ steps.tags.outputs.packages-date }}
           push: true
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.variant }}

@@ -33,6 +33,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Self-Hosted GitLab URL Checked**: the URL of a self-hosted GitLab must be https, carry no credentials and not be localhost or a loopback, link-local or cloud metadata address, so that it can no longer reach the internals of the cluster; private hosts stay allowed. Its API calls no longer follow redirects, and the organization of an Azure DevOps repository is validated before it is used as a host
 - **Micro-Frontend Files Confined To Their Folder**: `/serve/mfe/files/*` resolves the path asked for inside the folder of the micro-frontend, locally and on a storage, so that an encoded `..` can no longer read the other files of the pod
 - **Tool Output Kept Apart From The Assistant's Instructions**: what the tools return reaches the model of the assistant wrapped as untrusted data, as for the coding agent, so that text in a log line can no longer act as instructions; promoting an environment, setting its replicas and creating or updating a config map or a global variable now ask for confirmation
+- **The OS Packages Of The Images Upgraded Every Day**: the layer of the images that upgrades their Alpine and Debian packages no longer comes out of the build cache with old ones, but is rebuilt on the first build of each day, so that a fix released after the base image is picked up: the standard image ships `libexpat` 2.10.0 (CVE-2026-113351, CVE-2026-117610, CVE-2026-118370). The all-in-one image upgrades the Debian packages of its base too
 
 ## [14.1.0] - 2026-11-02
 

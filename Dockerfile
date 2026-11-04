@@ -55,7 +55,10 @@ FROM nginx:alpine
 
 # Node.js only, without npm: the backend never runs a package manager. The
 # upgrade picks up the Alpine fixes released after the base image was built.
-RUN apk upgrade --no-cache && apk add --no-cache nodejs
+# PACKAGES_DATE, the day of the build from docker-build.yml, keeps the layer
+# from coming out of the build cache for more than a day with stale packages.
+ARG PACKAGES_DATE
+RUN echo "packages of ${PACKAGES_DATE}" && apk upgrade --no-cache && apk add --no-cache nodejs
 
 # Every request reaches the backend through the nginx of this image, from the
 # loopback: trusting that one hop gives the backend the real client IP for its
