@@ -51,6 +51,9 @@ const fakeStream = (message: { stop_reason: string; content: unknown[]; usage?: 
     finalMessage: async () => ({ usage: { input_tokens: 0, output_tokens: 0 }, ...message })
 })
 
+const unwrapped = (content: string) => content.replace(/^[^<]*<console_data[^\n]*\n[^\n]*\n/, "").replace(/\n<\/console_data>$/, "")
+/** The model-facing result of a tool is wrapped as untrusted data. */
+const DONE_DELETED = expect.stringMatching(/^Done: <console_data[\s\S]*"deleted":true[\s\S]*<\/console_data>$/)
 const user = { _id: "user-1" } as unknown as IUser
 const ENVIRONMENT = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const ORGANIZATION = "cccccccccccccccccccccccc"
@@ -148,7 +151,7 @@ describe("AssistantService", () => {
         const toolResultMessage = secondRequest.messages[secondRequest.messages.length - 1]
         expect(toolResultMessage.role).toBe("user")
         expect(toolResultMessage.content[0]).toMatchObject({ type: "tool_result", tool_use_id: "toolu_1" })
-        expect(JSON.parse(toolResultMessage.content[0].content)[0]).toMatchObject({ _id: "env-1", name: "Production" })
+        expect(JSON.parse(unwrapped(toolResultMessage.content[0].content))[0]).toMatchObject({ _id: "env-1", name: "Production" })
     })
 
     it("Given an answer over several model rounds, then its usage is the sum of every round", async () => {
@@ -336,7 +339,7 @@ describe("AssistantService", () => {
                 { type: "tool_use", id: "toolu_1", name: "environment_delete", input: { environmentId: ENVIRONMENT } }
             ]
         })
-        expect(request.messages[2].content[0]).toMatchObject({ type: "tool_result", tool_use_id: "toolu_1", content: 'Done: {"deleted":true}' })
+        expect(request.messages[2].content[0]).toMatchObject({ type: "tool_result", tool_use_id: "toolu_1", content: DONE_DELETED })
     })
 
     it("Given a declined confirmation after a conversation ending with the user, when the turn resumes, then nothing runs and the model is told the user declined", async () => {
@@ -401,7 +404,7 @@ describe("AssistantService", () => {
             expect(sent[1]).toEqual({ role: "assistant", content: native })
             expect(sent[2].content).toEqual([
                 expect.objectContaining({ type: "tool_result", tool_use_id: "toolu_read", content: expect.stringContaining("Staging") }),
-                expect.objectContaining({ type: "tool_result", tool_use_id: "toolu_delete", content: 'Done: {"deleted":true}' })
+                expect.objectContaining({ type: "tool_result", tool_use_id: "toolu_delete", content: DONE_DELETED })
             ])
         })
 
@@ -459,7 +462,7 @@ describe("AssistantService", () => {
             const input = azureStream.mock.calls[1][0].input
             expect(input.slice(1, 4)).toEqual(output)
             expect(input[4]).toMatchObject({ type: "function_call_output", call_id: "call_read" })
-            expect(input[5]).toEqual({ type: "function_call_output", call_id: "call_delete", output: 'Done: {"deleted":true}' })
+            expect(input[5]).toEqual({ type: "function_call_output", call_id: "call_delete", output: DONE_DELETED })
         })
     })
 

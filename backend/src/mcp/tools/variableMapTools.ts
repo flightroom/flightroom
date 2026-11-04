@@ -58,6 +58,8 @@ export const variableMapTools = [
         description:
             "Adds a config map to the project. Its values are readable by anyone who sees the project: put secrets in a secret, from the console. Attach it with backend_update, frontend_update or maintenance_agent_update (configMapIds).",
         scope: MCP_SCOPE_WRITE,
+        // Changes what the project runs or serves: the assistant asks the user first.
+        requiresConfirmation: true,
         annotations: WRITE,
         inputSchema: z.object({
             name: z.string().regex(VARIABLE_MAP_NAME, "at most 63 lowercase letters, digits or dashes, starting and ending with a letter or digit"),
@@ -71,6 +73,8 @@ export const variableMapTools = [
         title: "Update config map",
         description: "Renames a config map or changes its description or its keys (replaced as a whole: read it first with config_map_get to keep the others).",
         scope: MCP_SCOPE_WRITE,
+        // Changes what the project runs or serves: the assistant asks the user first.
+        requiresConfirmation: true,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
             configMapId,

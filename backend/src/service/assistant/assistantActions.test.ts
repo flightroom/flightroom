@@ -35,6 +35,7 @@ vi.mock("../EnvironmentService", () => ({
     }
 }))
 
+const unwrapped = (content: string) => content.replace(/^[^<]*<console_data[^\n]*\n[^\n]*\n/, "").replace(/\n<\/console_data>$/, "")
 const PROJECT = "aaaaaaaaaaaaaaaaaaaaaaaa"
 const ENVIRONMENT = "bbbbbbbbbbbbbbbbbbbbbbbb"
 const OTHER_ENVIRONMENT = "cccccccccccccccccccccccc"
@@ -189,7 +190,8 @@ describe("AssistantToolRunner.runRound", () => {
         expect(getEnvironments).toHaveBeenCalledWith(PROJECT)
         expect(environmentPrincipals[0]).toMatchObject({ _id: "user-1", restrictedToProjectIds: [PROJECT] })
         expect(outcome).toMatchObject({ wrote: false, awaitingConfirmation: false })
-        expect(JSON.parse(outcome.results[0].content)).toEqual([{ _id: ENVIRONMENT, name: "Production" }])
+        expect(outcome.results[0].content).toContain("<console_data")
+        expect(JSON.parse(unwrapped(outcome.results[0].content))).toEqual([{ _id: ENVIRONMENT, name: "Production" }])
         expect(frames).toEqual([
             { event: "tool_call", frame: { id: "c1", name: "environments_list", title: "List environments", input: {}, kind: "read" } },
             { event: "tool_result", frame: { id: "c1", ok: true, summary: "1 result", result: [{ _id: ENVIRONMENT, name: "Production" }] } }
@@ -363,7 +365,8 @@ describe("AssistantToolRunner.runRound", () => {
 
             const outcome = await runnerFor().runRound([call("c1", "environments_list")], events)
 
-            expect(outcome.results[0].content).toBe('{"id":"key-1"}')
+            expect(outcome.results[0].content).toContain('{"id":"key-1"}')
+            expect(outcome.results[0].content).toContain("<console_data")
             expect(outcome.results[0].content).not.toContain("secret-value")
             expect(frames[1].frame.result).toEqual({ id: "key-1", key: "secret-value" })
         })
@@ -422,7 +425,8 @@ describe("AssistantToolRunner.runConfirmed", () => {
 
         expect(deleteEnvironment).toHaveBeenCalledWith(ENVIRONMENT)
         expect(outcome.wrote).toBe(true)
-        expect(outcome.result).toEqual({ callId: "c1", name: "environment_delete", content: 'Done: {"deleted":true}' })
+        expect(outcome.result).toEqual({ callId: "c1", name: "environment_delete", content: expect.stringContaining("Done: <console_data") })
+        expect(outcome.result?.content).toContain('{"deleted":true}')
         expect(frames).toEqual([{ event: "tool_result", frame: { id: "c1", ok: true, summary: "Done", result: { deleted: true } } }])
     })
 

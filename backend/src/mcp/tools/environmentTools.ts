@@ -159,6 +159,8 @@ export const environmentTools = [
         description:
             "Sets, in the target environment, the version each application runs in the source one, e.g. from UAT to production. It writes the version per environment only: the next deploy of the target applies it, call deploy for that. Returns the rows of environment_promotion_preview after the change.",
         scope: MCP_SCOPE_WRITE,
+        // Changes what the project runs or serves: the assistant asks the user first.
+        requiresConfirmation: true,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
             environmentId: objectId("Id of the environment the versions go to"),
@@ -175,6 +177,8 @@ export const environmentTools = [
         title: "Set the replicas of an environment",
         description: `Sets the pods of every container an environment runs at once, from 0 to ${MAX_REPLICAS}, e.g. 0 to stop UAT for the night: each backend, DOCKER frontend and maintenance agent of kind CONTAINER with a version there gets them in that environment, its CPU and memory kept. It writes the replicas per environment only: the next deploy of the environment applies them, call deploy for that. Returns each container with the replicas it runs there after the change.`,
         scope: MCP_SCOPE_WRITE,
+        // Changes what the project runs or serves: the assistant asks the user first.
+        requiresConfirmation: true,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({
             environmentId: objectId("Id of the environment"),

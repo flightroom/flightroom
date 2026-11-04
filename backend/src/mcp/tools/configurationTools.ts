@@ -55,6 +55,8 @@ export const configurationTools = [
         title: "Create global variable",
         description: "Adds a runtime variable to the project. Values reach the browsers of the host application: never put secrets in them.",
         scope: MCP_SCOPE_WRITE,
+        // Changes what the project runs or serves: the assistant asks the user first.
+        requiresConfirmation: true,
         annotations: WRITE,
         inputSchema: z.object({ key: z.string().min(1).max(255), values: environmentValues }),
         run: (args, { principal, projectId }) => new GlobalVariablesService(principal).createForProject(args, projectId)
@@ -64,6 +66,8 @@ export const configurationTools = [
         title: "Update global variable",
         description: "Renames a variable and/or changes its values per environment.",
         scope: MCP_SCOPE_WRITE,
+        // Changes what the project runs or serves: the assistant asks the user first.
+        requiresConfirmation: true,
         annotations: { ...WRITE, idempotentHint: true },
         inputSchema: z.object({ originalKey: z.string().min(1), key: z.string().min(1).max(255), values: environmentValues }),
         run: (args, { principal, projectId }) => new GlobalVariablesService(principal).updateByProjectId(args, projectId)

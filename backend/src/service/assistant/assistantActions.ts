@@ -35,18 +35,17 @@
  */
 import { FastifyBaseLogger } from "fastify"
 import { describeToolError, MCP_TOOLS } from "../../mcp/server"
-import { auditedArgs, credentialLogFields, McpSession, McpToolContext, McpToolDefinition, requiresConfirmation, toModelContent, toModelInputSchema } from "../../mcp/toolDefinition"
+import { auditedArgs, credentialLogFields, McpSession, McpToolContext, McpToolDefinition, requiresConfirmation, toModelInputSchema } from "../../mcp/toolDefinition"
 import { IUser } from "../../models/UserModel"
 import { RoleInProject } from "../../models/UserProjectModel"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
+import { consoleData } from "../aiChange/aiChangeConsoleTools"
 import { AuthorizedPrincipal } from "../BaseAuthorizedService"
 import { LlmMessage, LlmTool, LlmToolCall, LlmToolResult } from "../llm"
 import { assistantOnlyTools } from "./assistantTools"
 import { ConfirmationDetail, describeConfirmation } from "./confirmationDetails"
 import { createPendingAction, PendingAssistantAction, UPDATE_ACTION_TTL_MS } from "./pendingActions"
 
-/** A tool result is sent again on every later round of the turn: an oversized one is cut. */
-const MAX_RESULT_CHARS_FOR_MODEL = 60_000
 /** What the panel shows of a result: enough to read it, not a whole collection dump. */
 const MAX_RESULT_CHARS_FOR_USER = 20_000
 /**
@@ -373,7 +372,7 @@ export class AssistantToolRunner {
             const shown = forUser === undefined ? forModel : forUser
             this.audit(tool, "ok", { args, actionId })
             return {
-                result: { callId: call.id, name: call.name, content: toModelContent(forModel, MAX_RESULT_CHARS_FOR_MODEL) },
+                result: { callId: call.id, name: call.name, content: consoleData(call.name, forModel) },
                 frame: { id: call.id, ok: true, summary: summarize(shown), result: toUserResult(shown) },
                 wrote: toolKind(tool) !== "read"
             }

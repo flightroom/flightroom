@@ -509,9 +509,10 @@ describe("agent run tools", () => {
         it("Given the catalog, when sorted for an update turn, then reads, its own follow-ups and stops, and the tools waiting for the user pass, every other write does not", () => {
             const verdict = (name: string, input: Record<string, unknown> = {}) => updateTurnRefusal(ASSISTANT_TOOLS.find(tool => tool.name === name)!, input)
 
-            for (const name of ["frontends_list", "agent_run_wait", "agent_run_follow_up", "agent_run_stop", "deploy", "agent_run_discard"]) expect(verdict(name), name).toBeUndefined()
+            for (const name of ["frontends_list", "agent_run_wait", "agent_run_follow_up", "agent_run_stop", "deploy", "agent_run_discard", "environment_replicas_set", "environment_promote"])
+                expect(verdict(name), name).toBeUndefined()
             expect(verdict("agent_run_apply", { mode: "push" })).toBeUndefined()
-            for (const name of ["agent_run_start", "mission_start", "environment_replicas_set", "frontend_trigger_build", "environment_promote", "ai_domain_plan", "project_create"]) {
+            for (const name of ["agent_run_start", "mission_start", "frontend_trigger_build", "ai_domain_plan", "project_create"]) {
                 expect(verdict(name), name).toBe(NOT_IN_UPDATE_TURN)
             }
         })
