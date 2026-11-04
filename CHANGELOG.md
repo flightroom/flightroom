@@ -7,14 +7,23 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.0.0] - 2026-11-04
+
 ### Changed
 
+- **Config Maps, Secrets And Resources Need Argo CD**: they reach a container only through the GitOps manifests Argo CD applies, so in a project whose Argo CD is not initialized they are now off everywhere: the console hides their pages, menu entries, pickers and sections (a direct URL shows a notice pointing to the Argo CD settings), sandbox previews no longer inject them, and creating or changing one, or attaching a new one to a backend, a frontend or a maintenance agent, is refused with `ARGOCD_REQUIRED_FOR_VARIABLES`, through the MCP tools too. Deleting stays allowed, and the ids already attached are kept, so everything comes back once Argo CD is initialized
 - **Assistant Conversations Expire**: a conversation with the assistant nobody touched for `ASSISTANT_CONVERSATION_RETENTION_DAYS` (60 by default) is removed from the database, a deleted one counted from its deletion; until now they were kept forever, the deleted ones too. Changing the variable applies at the next start to the conversations already stored
 - **Every Environment Variable Of A Backend Has A Value**: a variable of a backend no longer has the **Required** flag, and it can no longer be declared without a value: the console asks for the **Value** of a new one, and the API and `backend_create`, `backend_update` refuse a variable left with none, or with an empty one. To stop passing a variable, remove it; a secret one sent back without a value still keeps the stored one. At the first start, the variables of a backend saved with no value are removed, and the flag unset from the others. **Injected variables** no longer lists a variable of a backend as missing; those of a DOCKER frontend and of a maintenance agent are still declared only, required or not, as before, and their forms no longer show the **Value** field 14.2.0 gave them, which was never saved
+
+### Fixed
+
+- **No Endless Spinner On The Overview Of A Frontend Or A Backend**: the overview of a frontend or a backend in a domain, without the **Edit with AI** screen, no longer spins forever reloading its data: the **Build and deploy** button refetched the environments the page was waiting for, so the page unmounted and mounted it again without end, until the API answered `429`
+- **No Endless Spinner On The Environments Page**: opening **Environments** from another page, such as **Deployments** with its **Manage environments** link, no longer leaves the page on its spinner once the environments are loaded
 
 ### Security
 
 - **No Query Operators From The Account Routes**: password reset, account activation, login, forgot password, registration and invitation take the token, the email and the password as plain strings only, refusing anything else before the database is queried. An object such as `{"$ne": null}` in place of the reset token used to match whichever pending reset came first, so that anybody could set the password of an account with a reset under way
+- **Patched minimatch And glob**: pnpm overrides pull the transitive `minimatch` to 11.0.4 and `glob` to 14.0.3, clearing two moderate advisories (GHSA-g3hv-75wg-m249, ReDoS via globstar; GHSA-3g3m-2fjr-6pw4, AbortSignal cancellation bypass)
 
 ## [14.2.0] - 2026-11-04
 
