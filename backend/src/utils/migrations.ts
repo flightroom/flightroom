@@ -191,6 +191,22 @@ export const convertKubeGreenSchedules = async (logger: FastifyBaseLogger): Prom
 }
 
 /**
+ * Drops from the backends the variables saved as a declaration, before a backend's variables carried the value the deploy
+ * hands the container: one with no value, missing, null or empty (an empty value is never encrypted, so it is stored as
+ * ""), has nothing left to say now that every variable of a backend has one. Then unsets `required` from those that stay,
+ * a flag a backend's variables no longer have. Raw updates on the collection: the values stay as they are stored, encrypted
+ * or not, and each one matches only what is still to be done, so a second run changes nothing.
+ */
+export const pruneBackendEnvDeclarations = async (logger: FastifyBaseLogger): Promise<void> => {
+    const noValue = { value: { $in: [null, ""] } }
+    const pruned = await Backend.collection.updateMany({ env: { $elemMatch: noValue } }, { $pull: { env: noValue } } as never)
+    // Apart: a $pull and an $unset of the same array conflict in one update
+    const unset = await Backend.collection.updateMany({ "env.required": { $exists: true } }, { $unset: { "env.$[].required": "" } })
+    if (pruned.modifiedCount > 0) logger.info(`Removed the variables with no value of ${pruned.modifiedCount} backend(s)`)
+    if (unset.modifiedCount > 0) logger.info(`Unset required on the variables of ${unset.modifiedCount} backend(s)`)
+}
+
+/**
  * Every data migration the application still needs, run once the database connection is up.
  *
  * A failure is logged and swallowed: none of these is required for the process to serve traffic, and
@@ -212,5 +228,10 @@ export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> =>
         await convertKubeGreenSchedules(logger)
     } catch (error) {
         logger.error({ error }, "Error while turning the kube-green schedules into a day each")
+    }
+    try {
+        await pruneBackendEnvDeclarations(logger)
+    } catch (error) {
+        logger.error({ error }, "Error while removing the variables of the backends with no value")
     }
 }

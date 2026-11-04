@@ -108,10 +108,17 @@ describe("Backend model", () => {
         expect(aBackend().slug).toBe("orders-api")
     })
 
-    it("given an env variable with only a name, when it is built, then it is neither required nor secret", () => {
-        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", env: [{ name: "DATABASE_URL" }] })
+    it("given an env variable with a name and a value, when it is built, then it is not secret and has no required flag", () => {
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", env: [{ name: "DATABASE_URL", value: "postgres://db" }] })
 
-        expect(backend.env[0]).toMatchObject({ name: "DATABASE_URL", required: false, secret: false })
+        expect(backend.env[0]).toMatchObject({ name: "DATABASE_URL", secret: false, value: "postgres://db" })
+        expect(backend.toObject().env[0]).not.toHaveProperty("required")
+    })
+
+    it.each([[undefined], [""]])("given an env variable with the value %j, when it is validated, then it is refused", async value => {
+        const backend = new Backend({ projectId: new Types.ObjectId(), slug: "orders", name: "Orders", env: [{ name: "DATABASE_URL", value }] })
+
+        await expect(backend.validate()).rejects.toMatchObject({ errors: { "env.0.value": expect.anything() } })
     })
 
     it("given no project, when it is validated, then it is refused", async () => {
@@ -153,9 +160,8 @@ describe("Backend variables", () => {
             slug: "orders",
             name: "Orders",
             env: [
-                { name: "API_TOKEN", required: true, secret: true, value: "hunter2" },
-                { name: "FEATURE_FLAGS", required: false, secret: false, value: "beta" },
-                { name: "UNSET", required: false, secret: true }
+                { name: "API_TOKEN", secret: true, value: "hunter2" },
+                { name: "FEATURE_FLAGS", secret: false, value: "beta" }
             ]
         })
 
@@ -164,9 +170,8 @@ describe("Backend variables", () => {
 
         expect(JSON.stringify(backend)).not.toContain("hunter2")
         expect(backend.toObject().env).toEqual([
-            { name: "API_TOKEN", required: true, secret: true, valueSet: true },
-            { name: "FEATURE_FLAGS", required: false, secret: false, value: "beta" },
-            { name: "UNSET", required: false, secret: true, valueSet: false }
+            { name: "API_TOKEN", secret: true, valueSet: true },
+            { name: "FEATURE_FLAGS", secret: false, value: "beta" }
         ])
     })
 
@@ -180,6 +185,11 @@ describe("Backend variables", () => {
     it("declares a value on the variables of a backend only: a frontend's are declared, never set, and are not encrypted", () => {
         expect((Backend.schema.path("env") as unknown as { schema: typeof Backend.schema }).schema.path("value")).toBeDefined()
         expect((Frontend.schema.path("env") as unknown as { schema: typeof Frontend.schema }).schema.path("value")).toBeUndefined()
+    })
+
+    it("declares required on the variables of a frontend only: a backend's all have a value", () => {
+        expect((Backend.schema.path("env") as unknown as { schema: typeof Backend.schema }).schema.path("required")).toBeUndefined()
+        expect((Frontend.schema.path("env") as unknown as { schema: typeof Frontend.schema }).schema.path("required")).toBeDefined()
     })
 })
 
@@ -198,15 +208,14 @@ describe("Backend variables with a key configured", () => {
         resetSecretEncryptionKeyCache()
     })
 
-    it("given variables with values, when the document is encrypted and decrypted, then every value goes through it and a variable with none stays without", () => {
+    it("given variables with values, when the document is encrypted and decrypted, then every value goes through it", () => {
         const backend = new Backend({
             projectId: new Types.ObjectId(),
             slug: "orders",
             name: "Orders",
             env: [
                 { name: "API_TOKEN", secret: true, value: "hunter2" },
-                { name: "FEATURE_FLAGS", value: "beta" },
-                { name: "UNSET", secret: true }
+                { name: "FEATURE_FLAGS", value: "beta" }
             ]
         })
 
@@ -214,11 +223,10 @@ describe("Backend variables with a key configured", () => {
 
         expect(isEncryptedSecret(backend.env[0].value)).toBe(true)
         expect(isEncryptedSecret(backend.env[1].value)).toBe(true)
-        expect(backend.env[2].value).toBeUndefined()
 
         transformDocument(backend, options, decryptSecret)
 
-        expect(backend.env.map(variable => variable.value)).toEqual(["hunter2", "beta", undefined])
+        expect(backend.env.map(variable => variable.value)).toEqual(["hunter2", "beta"])
     })
 
     it("given the variables replaced by an update, when it is encrypted, then each value is ciphertext and the names are not", () => {

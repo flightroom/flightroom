@@ -13,7 +13,7 @@ import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
 import Storage from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
-import { BUNDLE_VERSIONS_SEEDED, convertKubeGreenSchedules, encryptStoredSecrets, runMigrations, seedEnvironmentVersions } from "./migrations"
+import { BUNDLE_VERSIONS_SEEDED, convertKubeGreenSchedules, encryptStoredSecrets, pruneBackendEnvDeclarations, runMigrations, seedEnvironmentVersions } from "./migrations"
 import { resetSecretEncryptionKeyCache } from "./secretCrypto"
 
 const logger = { info: vi.fn(), error: vi.fn() } as never
@@ -244,11 +244,46 @@ describe("convertKubeGreenSchedules", () => {
     })
 })
 
+/** The backends collection, each updateMany answering how many documents it changed, in turn */
+const holdingBackends = (...modified: number[]) => {
+    const updateMany = vi.fn()
+    for (const modifiedCount of modified) updateMany.mockResolvedValueOnce({ modifiedCount })
+    vi.spyOn(Backend, "collection", "get").mockReturnValue({ updateMany } as never)
+    return updateMany
+}
+
+describe("pruneBackendEnvDeclarations", () => {
+    it("Given backends with variables saved as a declaration, when it runs, then those with no value are pulled, then required is unset from the others", async () => {
+        const updateMany = holdingBackends(2, 3)
+        const info = vi.fn()
+
+        await pruneBackendEnvDeclarations({ info, error: vi.fn() } as never)
+
+        const noValue = { value: { $in: [null, ""] } }
+        // Each one matches only what is still to be done: a second run changes nothing
+        expect(updateMany.mock.calls).toEqual([
+            [{ env: { $elemMatch: noValue } }, { $pull: { env: noValue } }],
+            [{ "env.required": { $exists: true } }, { $unset: { "env.$[].required": "" } }]
+        ])
+        expect(info).toHaveBeenCalledTimes(2)
+    })
+
+    it("Given no backend left to clean, when it runs, then nothing is logged", async () => {
+        holdingBackends(0, 0)
+        const info = vi.fn()
+
+        await pruneBackendEnvDeclarations({ info, error: vi.fn() } as never)
+
+        expect(info).not.toHaveBeenCalled()
+    })
+})
+
 describe("runMigrations", () => {
     it("Given the encryption fails, when the migrations run, then the failure is logged and the boot goes on", async () => {
         vi.stubEnv("SECRETS_ENCRYPTION_KEY", Buffer.alloc(32, 5).toString("base64"))
         resetSecretEncryptionKeyCache()
         unseeded()
+        holdingBackends(0, 0)
         holding(Storage, [{ save: vi.fn().mockRejectedValue(new Error("write refused")) }])
         const error = vi.fn()
 

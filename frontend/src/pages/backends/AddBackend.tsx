@@ -37,7 +37,7 @@ import BackendRuntimeFields from "./partials/BackendRuntimeFields"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { BACKEND_STACK_CHOICES, stackChoiceOf } from "./partials/backendStacks"
 import { isBackendTemplate } from "./partials/backendTemplates"
-import { BACKEND_VERSION, createBackendRuntimeShape, envFormValues, envToSubmit, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
+import { BACKEND_VERSION, createBackendEnvShape, createBackendRuntimeShape, envFormValues, envToSubmit, refineExposure, useProjectEnvironmentsQuery } from "./partials/backendVariables"
 import { ContainerComputeCard } from "./partials/ContainerResourceFields"
 import { PROBE_TIMING_FIELDS, probeFormValues, probePaths, probeTimings, type ResourceMessages, refineResources, resourceFormValues, resourceMessages } from "./partials/containerResources"
 import { createEnvironmentVersionsShape, environmentVersionFormValues } from "./partials/environmentVersions"
@@ -65,6 +65,7 @@ interface FormMessages extends ResourceMessages {
     path: string
     exposurePath: string
     exposurePathRequired: string
+    envValueRequired: string
 }
 
 const createFormSchema = (messages: FormMessages) =>
@@ -87,6 +88,8 @@ const createFormSchema = (messages: FormMessages) =>
             // Blank: not deployed in that environment
             environmentVersions: createEnvironmentVersionsShape(messages.version),
             ...createBackendRuntimeShape(messages),
+            // Not the declared variables of the runtime shape, which frontends share: a backend's each carry their value
+            env: createBackendEnvShape(messages.envValueRequired),
             // Here and not in the runtime shape, which frontends share: a frontend never attaches a resource
             resourceIds: z.array(z.string()),
             codeRepository: z
@@ -199,6 +202,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                 path: t("backends.path_invalid"),
                 exposurePath: t("backends.exposure_path_invalid"),
                 exposurePathRequired: t("backends.exposure_path_required"),
+                envValueRequired: t("backends.env.value_required"),
                 ...resourceMessages(t)
             }),
         [t]
@@ -498,7 +502,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                     {/* What the container gets: its own variables and the config maps, secrets and resources attached. What the running one received is in the overview */}
                     <TabsContent value="variables" forceMount>
                         <div className="flex flex-col gap-6">
-                            <BackendEnvFields />
+                            <BackendEnvFields withValues />
                             <BackendVariableMapsFields configMaps={configMaps} secrets={secrets} resources={resources} />
                             <BackendResourcesFields resources={resources} />
                         </div>

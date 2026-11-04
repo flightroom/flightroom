@@ -1,22 +1,24 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle, SwitchField as Switch } from "@flightroom/design-system"
-import { Eraser, Plus, Trash2 } from "lucide-react"
+import { Plus, Trash2 } from "lucide-react"
 import { useState } from "react"
 import { useFieldArray, useFormContext, useWatch } from "react-hook-form"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
 import TextField from "@/components/input/TextField.rhf"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
-import type { BackendEnvVariable } from "@/hooks/apiClients/useBackendsApi"
+import type { BackendInjectedEnvVariable } from "@/hooks/apiClients/useBackendsApi"
 
 /**
- * The environment variables Flightroom injects into the container on every deploy, the same value in every environment.
- * The server never sends back the value of a secret one, only `valueSet`: left blank, the stored value is kept.
+ * The environment variables of a container. `withValues`, a backend's: Flightroom injects each into the container on every
+ * deploy, with the same value in every environment, and none goes without one. The server never sends back the value of a
+ * secret one, only `valueSet`: left blank, the stored value is kept. Without, a DOCKER frontend's or a maintenance agent's:
+ * declared only, each required or not.
  */
-export const BackendEnvFields: React.FC = () => {
+export const BackendEnvFields: React.FC<{ withValues?: boolean }> = ({ withValues = false }) => {
     const { t } = useTranslation()
-    const { control, getValues, setValue } = useFormContext()
+    const { control, getValues } = useFormContext()
     const { fields, append, remove } = useFieldArray({ control, name: "env" })
-    const rows = (useWatch({ control, name: "env" }) ?? []) as BackendEnvVariable[]
+    const rows = (useWatch({ control, name: "env" }) ?? []) as BackendInjectedEnvVariable[]
     const [toRemove, setToRemove] = useState<{ index: number; name: string }>()
 
     const askRemove = (index: number) => {
@@ -32,9 +34,14 @@ export const BackendEnvFields: React.FC = () => {
                 <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
                     <div>
                         <CardTitle className="mb-0">{t("backends.env.title")}</CardTitle>
-                        <CardDescription>{t("backends.env.description")}</CardDescription>
+                        <CardDescription>{withValues ? t("backends.env.description") : t("backends.env.declared_description")}</CardDescription>
                     </div>
-                    <Button type="button" variant="secondary" size="sm" onClick={() => append({ name: "", value: "", required: false, secret: false, description: "" })}>
+                    <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => append(withValues ? { name: "", value: "", secret: false, description: "" } : { name: "", required: false, secret: false, description: "" })}
+                    >
                         <Plus />
                         {t("backends.env.add")}
                     </Button>
@@ -44,7 +51,7 @@ export const BackendEnvFields: React.FC = () => {
                 {fields.length === 0 && <p className="text-sm text-foreground-secondary">{t("backends.env.empty")}</p>}
                 {fields.map((field, index) => {
                     const row = rows[index]
-                    // A secret value the server holds and nobody retyped: kept on save unless cleared
+                    // A secret value the server holds and nobody retyped: kept on save
                     const kept = Boolean(row?.secret && row.valueSet && !row.value)
                     return (
                         <div key={field.id} className="flex flex-wrap items-end gap-x-4 gap-y-2 rounded-md border border-divider p-3">
@@ -56,33 +63,22 @@ export const BackendEnvFields: React.FC = () => {
                                 required
                                 containerClassName="flex-[1_1_200px]"
                             />
-                            <div className="flex min-w-0 flex-[2_1_240px] items-end gap-1">
+                            {withValues && (
                                 <TextField
                                     name={`env.${index}.value`}
                                     label={t("backends.env.value")}
                                     type={row?.secret ? "password" : "text"}
                                     autoComplete={row?.secret ? "new-password" : "off"}
-                                    placeholder={kept ? t("backends.env.value_set_placeholder") : t("backends.env.value_placeholder")}
-                                    containerClassName="min-w-0 flex-1"
+                                    placeholder={kept ? t("backends.env.value_set_placeholder") : undefined}
+                                    required={!kept}
+                                    containerClassName="min-w-0 flex-[2_1_240px]"
                                 />
-                                {kept && (
-                                    <Button
-                                        type="button"
-                                        variant="ghost"
-                                        size="icon"
-                                        aria-label={t("backends.env.clear_value")}
-                                        title={t("backends.env.clear_value")}
-                                        onClick={() => setValue(`env.${index}.valueSet`, false, { shouldDirty: true })}
-                                    >
-                                        <Eraser />
-                                    </Button>
-                                )}
-                            </div>
+                            )}
                             <TextField name={`env.${index}.description`} label={t("backends.env.variable_description")} containerClassName="flex-[2_1_240px]" />
                             <div className="flex items-end gap-4">
                                 {/* The switches carry their label above: the padding brings the toggle onto the inputs' centre line. */}
                                 <div className="flex items-end gap-4 pb-2">
-                                    <Switch name={`env.${index}.required`} label={t("backends.env.required")} />
+                                    {!withValues && <Switch name={`env.${index}.required`} label={t("backends.env.required")} />}
                                     <Switch name={`env.${index}.secret`} label={t("backends.env.secret")} />
                                 </div>
                                 <Button type="button" variant="ghost" size="icon" aria-label={t("backends.env.remove")} title={t("backends.env.remove")} onClick={() => askRemove(index)}>

@@ -12,12 +12,20 @@ export enum BackendRuntime {
     OTHER = "OTHER"
 }
 
+/** A variable a container declares it reads, with no value: a DOCKER frontend's or a maintenance agent's */
 export interface BackendEnvVariable {
     name: string
     required: boolean
     secret: boolean
     description?: string
-    /** What Flightroom injects into the container on every deploy; never sent for a secret one, `valueSet` says whether it has one */
+}
+
+/** A variable of a backend, always with a value: Flightroom injects it into the container on every deploy */
+export interface BackendInjectedEnvVariable {
+    name: string
+    secret: boolean
+    description?: string
+    /** Never sent for a secret one: `valueSet` says the server holds it */
     value?: string
     valueSet?: boolean
 }
@@ -95,7 +103,7 @@ export interface Backend {
     environmentResources?: EnvironmentResources[] | null
     /** The version each environment runs: one without does not get it, whatever the version above */
     environmentVersions?: EnvironmentVersion[] | null
-    env: BackendEnvVariable[]
+    env: BackendInjectedEnvVariable[]
     /** Config maps of the project it receives as environment variables */
     configMapIds?: string[]
     /** Secrets of the project it receives as environment variables */

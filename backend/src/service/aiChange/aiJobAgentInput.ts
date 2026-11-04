@@ -190,7 +190,7 @@ const agentRepository = (
                   readinessPath: component.readinessPath,
                   docsPath: component.docsPath,
                   openApiPath: component.openApiPath,
-                  env: component.env.map(({ name, required, secret, description, valueSet }) => ({ name, required, secret, description, ...(valueSet ? { valueSet } : {}) })),
+                  env: component.env.map(({ name, secret, description }) => ({ name, secret, description })),
                   context: component.context,
                   ...facts
               }

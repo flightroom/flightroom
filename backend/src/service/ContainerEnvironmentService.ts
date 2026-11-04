@@ -33,7 +33,7 @@ export interface ContainerEnvironmentDTO {
     /** The version the environment runs, with `next_deploy` */
     version?: string
     variables: ContainerVariable[]
-    /** The variables the backend declares that no source sets in the environment, a value of the backend's own counting as one */
+    /** The variables a DOCKER frontend declares that no source sets in the environment: none for a backend, whose own all have a value */
     missing: Array<Pick<IBackendEnvVariable, "name" | "required" | "secret">>
     /** What the answer leaves out, and why */
     notes?: string[]
@@ -78,7 +78,7 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
         ])
         const environment = environments.find(candidate => String(candidate._id) === environmentId)
         if (!project || !environment) throw new EntityNotFoundError(environmentId)
-        const application: Omit<GitOpsApplication, "env"> & { _id: unknown; env?: IBackendEnvVariable[] } = component
+        const application: GitOpsApplication & { _id: unknown } = component
         // A deploy writes the values of the containers into the applications repository only: without it, nothing hands them variables
         const gitOps = project.gitOps
         if (!gitOps?.enabled || !gitOps.codeRepository || !gitOps.applicationsCodeRepository) return { state: "no_gitops", variables: [], missing: [] }
@@ -122,11 +122,13 @@ class ContainerEnvironmentService extends BaseAuthorizedService {
             containerPublicUrl(target.kind, application, origin)
         )
         const set = new Set(variables.map(variable => variable.name))
+        // Every variable of a backend comes with its value: only what a DOCKER frontend declares can be left unset
+        const declared: IBackendEnvVariable[] = target.kind === "frontend" ? ((application.env ?? []) as IBackendEnvVariable[]) : []
         return {
             state: "next_deploy",
             version,
             variables: variables.map(cut),
-            missing: (application.env ?? []).filter(declared => !set.has(declared.name)).map(({ name, required, secret }) => ({ name, required, secret })),
+            missing: declared.filter(variable => !set.has(variable.name)).map(({ name, required, secret }) => ({ name, required, secret })),
             ...(notes.length ? { notes } : {})
         }
     }

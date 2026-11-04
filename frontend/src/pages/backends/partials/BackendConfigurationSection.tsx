@@ -3,7 +3,7 @@ import { ExternalLink } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Link } from "react-router-dom"
 import { Badge } from "@/components/atoms"
-import type { Backend } from "@/hooks/apiClients/useBackendsApi"
+import type { Backend, BackendInjectedEnvVariable } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectStore from "@/store/useProjectStore"
 import { exposedOrigin } from "./backendVariables"
@@ -161,8 +161,11 @@ export const ContainerComputeCard: React.FC<{ backend: ContainerConfiguration; e
     )
 }
 
-/** The variables the container declares it reads, with the value Flightroom injects when it has one (a secret one masked) */
-export const ContainerEnvSection: React.FC<{ backend: Pick<ContainerConfiguration, "env"> }> = ({ backend }) => {
+/**
+ * The variables the container reads: a backend's with the value Flightroom injects (a secret one masked), a DOCKER frontend's
+ * declared only, with whether it is required
+ */
+export const ContainerEnvSection: React.FC<{ backend: { env?: Array<BackendInjectedEnvVariable & { required?: boolean }> } }> = ({ backend }) => {
     const { t } = useTranslation()
 
     return (

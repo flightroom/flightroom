@@ -188,9 +188,11 @@ at most.
   (`mfe:write`, the delete destructive) manage the backends: name, description, domain,
   context, port, probe and API documentation paths, image repository, the environment variables the
   image reads, each with the value Flightroom injects into its container on every deploy, the same in
-  every environment, and a link to a repository that already exists. A secret variable never comes
-  back with its value, only `valueSet`: sent back without a value, it keeps the stored one; an empty
-  value clears it. The slug is fixed after creation. The version comes from the CI, never from a tool.
+  every environment, and a link to a repository that already exists. Every variable of a backend has a
+  value, and none has a required flag: a new one comes with its value. A secret variable never comes
+  back with its value, only `valueSet`: sent back without a value, it keeps the stored one. A variable
+  left with no value, or with an empty one, is refused: to stop passing it, remove it from the list.
+  The slug is fixed after creation. The version comes from the CI, never from a tool.
 - `frontend_scaffold` and `backend_scaffold` (`mfe:write`) create the frontend or the backend
   together with a new repository at the provider, from a marketplace template (`templates_list`) and
   through a repository connection of the project (`code_repositories_list`), with its CI pipeline and,

@@ -209,7 +209,9 @@ diagnoses before changing code:
   `overriddenBy`. Values of secrets, resources and secret variables of the backend are masked (set, and their length). Global variables are not
   there: they reach the browsers, not the containers. `state` says what the list is: `next_deploy`, what the next
   deploy hands the container; `not_in_deploy`, the environment sets no version of it and a container may still run
-  with what an earlier deploy wrote; `no_gitops`, the project deploys no container through GitOps;
+  with what an earlier deploy wrote; `no_gitops`, the project deploys no container through GitOps. `missing` lists
+  the variables a DOCKER frontend declares that nothing sets; a backend has none, every variable of its own carrying
+  its value;
 - the rest of the read-only catalog: the project, its environments, domains, frontends, backends and their
   versions, deployments, config maps, the names and keys of secrets, global variables, resources (credentials masked).
 

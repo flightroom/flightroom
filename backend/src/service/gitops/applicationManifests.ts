@@ -34,8 +34,9 @@ export interface GitOpsApplication extends ContainerResourcesByEnvironment, Prob
     /** A backend or a maintenance agent: each one is a Secret of its own in the configuration repository */
     resourceIds?: unknown[]
     /**
-     * The variables it declares. A backend's carry the value the deploy hands the container in every environment: a plain
-     * one in `env`, a secret one in its Secret {@link backendEnvSecretName}. One with no value is declared only.
+     * The variables it declares. A backend's each carry the value the deploy hands the container in every environment: a
+     * plain one in `env`, a secret one in its Secret {@link backendEnvSecretName}. A frontend's or a maintenance agent's have
+     * none: they are declared only.
      */
     env?: Array<{ name: string; secret?: boolean; value?: string }> | null
     /** A maintenance agent only: what its CronJob is made from */

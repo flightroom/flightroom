@@ -848,8 +848,8 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         docsPath: "/docs",
         openApiPath: "/openapi.json",
         env: [
-            { name: "DATABASE_URL", required: true, secret: true, description: "Postgres connection string" },
-            { name: "LOG_LEVEL", required: false, secret: false }
+            { name: "DATABASE_URL", secret: true, description: "Postgres connection string" },
+            { name: "LOG_LEVEL", secret: false }
         ],
         context: "Routes live in src/routes."
     })
@@ -863,7 +863,7 @@ describe.skipIf(!hasGit)("runAiChangeAgent", () => {
         const firstPrompt = firstMessage.role === "user" ? firstMessage.text : ""
         expect(
             firstPrompt.startsWith(
-                "<backend>\nname: Orders API\nslug: orders\nruntime: NODE\nframework: Express\nport: 8080\nliveness_path: /health/live\nreadiness_path: /health/ready\ndocs_path: /docs\nopenapi_path: /openapi.json\nenv:\n- DATABASE_URL (required, secret): Postgres connection string\n- LOG_LEVEL (optional)\nbase_branch: main\n</backend>"
+                "<backend>\nname: Orders API\nslug: orders\nruntime: NODE\nframework: Express\nport: 8080\nliveness_path: /health/live\nreadiness_path: /health/ready\ndocs_path: /docs\nopenapi_path: /openapi.json\nenv:\n- DATABASE_URL (secret, set by Flightroom on every deploy): Postgres connection string\n- LOG_LEVEL (set by Flightroom on every deploy)\nbase_branch: main\n</backend>"
             )
         ).toBe(true)
         expect(firstPrompt).toContain("<backend_context>\nRoutes live in src/routes.\n</backend_context>")

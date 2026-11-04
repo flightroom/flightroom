@@ -1,6 +1,6 @@
 import { useTranslation } from "react-i18next"
 import useApiClient, { errorCodeOf, IClientRequestMetadataExtended } from "../useApiClient"
-import type { Backend, BuiltBackend } from "./useBackendsApi"
+import type { Backend, BackendEnvVariable, BuiltBackend } from "./useBackendsApi"
 import type { DesignSystem } from "./useProjectApi"
 import type { IFrontendStackDTO } from "./useServeApi"
 
@@ -31,7 +31,7 @@ export enum FrontendKind {
     DOCKER = "DOCKER"
 }
 
-/** What a DOCKER declares about its container: the same fields as a backend, with the same meaning. */
+/** What a DOCKER declares about its container: the same fields as a backend, with the same meaning, but its variables, declared only */
 export type FrontendContainer = Partial<
     Pick<
         Backend,
@@ -54,11 +54,10 @@ export type FrontendContainer = Partial<
         | "replicas"
         | "environmentResources"
         | "environmentVersions"
-        | "env"
         | "configMapIds"
         | "secretIds"
     >
->
+> & { env?: BackendEnvVariable[] }
 
 export enum CanaryDeploymentType {
     BASED_ON_VERSION = "BASED_ON_VERSION",

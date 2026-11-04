@@ -4,7 +4,7 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import { ProjectNotFoundError } from "../errors/ProjectNotFoundError"
 import { ApiKeyRole } from "../models/ApiKeyModel"
 import BackendDeployment from "../models/BackendDeploymentModel"
-import Backend, { IBackend, IBackendEnvVariable } from "../models/BackendModel"
+import Backend, { IBackend, IBackendInjectedEnvVariable } from "../models/BackendModel"
 import BuiltBackend, { IBuiltBackend } from "../models/BuiltBackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Environment from "../models/EnvironmentModel"
@@ -185,13 +185,13 @@ export const ENV_VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 /**
  * The variables of a backend as stored, from what a client sent: the API never gives back the value of a secret one, so a
  * variable sent without a value keeps the one stored under its name. Not when it stops being secret: its value would then
- * come back in clear to whoever unticked the switch. An empty value clears it. Refused: a name that is no variable name,
- * a name listed twice, a value that is no string.
+ * come back in clear to whoever unticked the switch. Refused: a name that is no variable name, a name listed twice, a value
+ * that is no string, and a variable left with no value, which is removed rather than emptied.
  */
-export const withEnvValues = <T extends Pick<BackendDTO, "env">>(dto: T, existing?: IBackendEnvVariable[], code = "BACKEND_INVALID"): T => {
+export const withEnvValues = <T extends Pick<BackendDTO, "env">>(dto: T, existing?: IBackendInjectedEnvVariable[], code = "BACKEND_INVALID"): T => {
     if (dto.env === undefined) return dto
     if (!Array.isArray(dto.env)) {
-        throw createBusinessException({ code, message: "env must be a list of { name, required, secret, description, value }" })
+        throw createBusinessException({ code, message: "env must be a list of { name, secret, description, value }" })
     }
     const stored = new Map((existing ?? []).map(variable => [variable.name, variable]))
     const names = new Set<string>()
@@ -202,12 +202,14 @@ export const withEnvValues = <T extends Pick<BackendDTO, "env">>(dto: T, existin
         }
         if (names.has(name)) throw createBusinessException({ code, message: `The variable ${name} is listed twice in env` })
         names.add(name)
-        const { value, valueSet: _valueSet, ...fields } = variable
+        // `required`: what a variable declared before it had a value, dropped if a client still sends it
+        const { value, valueSet: _valueSet, required: _required, ...fields } = variable as typeof variable & { required?: unknown }
         if (value != null && typeof value !== "string") throw createBusinessException({ code, message: `The value of ${name} must be a string` })
         const previous = stored.get(name)
         const secret = Boolean(fields.secret)
-        const next = value == null ? (previous?.secret && !secret ? undefined : previous?.value) : value || undefined
-        return { ...fields, name, secret, ...(next !== undefined ? { value: next } : {}) }
+        const next = value == null ? (previous?.secret && !secret ? undefined : previous?.value) : value
+        if (!next) throw createBusinessException({ code, message: `The variable ${name} has no value: give it one, or remove it` })
+        return { ...fields, name, secret, value: next }
     })
     return { ...dto, env }
 }

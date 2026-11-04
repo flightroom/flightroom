@@ -70,7 +70,7 @@ const catalogApi = {
     livenessPath: "/healthz/live",
     readinessPath: "/healthz/ready",
     docsPath: "/docs",
-    env: [{ name: "DATABASE_URL", required: true, secret: true, description: "Postgres connection string" }],
+    env: [{ name: "DATABASE_URL", secret: true, description: "Postgres connection string", value: "postgres://catalog" }],
     codeRepository: { enabled: true, codeRepositoryId: connectionId, name: "catalog-api" }
 }
 
@@ -1060,7 +1060,7 @@ describe("AiChangeJobService", () => {
                 livenessPath: "/healthz/live",
                 readinessPath: "/healthz/ready",
                 docsPath: "/docs",
-                env: [{ name: "DATABASE_URL", required: true, secret: true, description: "Postgres connection string" }],
+                env: [{ name: "DATABASE_URL", secret: true, description: "Postgres connection string" }],
                 context: undefined,
                 // Where the other workloads of the cluster reach it: the chart's Service is named after the slug
                 clusterUrl: "http://catalog"

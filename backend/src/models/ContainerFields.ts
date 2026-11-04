@@ -17,12 +17,18 @@ export interface IBackendEnvVariable {
     required: boolean
     secret: boolean
     description?: string
-    /**
-     * A backend's only: what every deploy hands the container, the same in every environment, the values of a config map
-     * or a secret being for what changes per environment. None: the variable is declared, not set. Encrypted at rest, and a
-     * secret one never goes out of the API, which says `valueSet` instead.
-     */
-    value?: string
+}
+
+/**
+ * A variable of a backend: what every deploy hands the container, the same in every environment, the values of a config map
+ * or a secret being for what changes per environment. Always with a value: one with none is no variable of a backend. The
+ * value is encrypted at rest, and a secret one never goes out of the API, which says `valueSet` instead.
+ */
+export interface IBackendInjectedEnvVariable {
+    name: string
+    secret: boolean
+    description?: string
+    value: string
 }
 
 /** What a container gets when neither the caller nor a template says otherwise */
@@ -52,9 +58,30 @@ export const backendEnvVariableSchema = new Schema<IBackendEnvVariable>(
     { _id: false }
 )
 
-/** A variable of a backend: declared as a frontend's or a maintenance agent's, and with the value the deploy hands it */
-export const backendInjectedEnvVariableSchema = backendEnvVariableSchema.clone()
-backendInjectedEnvVariableSchema.add({ value: { type: String, required: false } })
+/** A variable of a backend, with the value the deploy hands it: no `required`, since every one has its value */
+export const backendInjectedEnvVariableSchema = new Schema<IBackendInjectedEnvVariable>(
+    {
+        name: {
+            type: String,
+            required: true,
+            trim: true
+        },
+        secret: {
+            type: Boolean,
+            default: false
+        },
+        description: {
+            type: String,
+            required: false,
+            trim: true
+        },
+        value: {
+            type: String,
+            required: true
+        }
+    },
+    { _id: false }
+)
 
 const httpPathValidator = {
     validator: (value?: string | null) => value == null || BACKEND_HTTP_PATH.test(value),

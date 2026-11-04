@@ -30,24 +30,28 @@ const backendFields = {
     context: z.string().max(CONTEXT_MAX_LENGTH).optional().describe("Markdown notes for AI agents about this backend, replaced as a whole"),
     codeRepository: frontendCreateSchema.shape.codeRepository,
     ...containerFields,
-    // A backend only: the deploy hands its container the value of each variable
+    // A backend only: the deploy hands its container the value of each variable, so none is declared without one
     env: z
         .array(
-            containerFields.env.unwrap().element.extend({
-                value: z
-                    .string()
-                    .max(32_768)
-                    .nullable()
-                    .optional()
-                    .describe(
-                        "What every deploy hands the container, the same in every environment (per environment values belong in a config map or a secret). Omitted or null keeps the value stored under the same name, unless the variable stops being secret; empty clears it, and the variable is then declared only"
-                    )
-            })
+            containerFields.env
+                .unwrap()
+                .element.omit({ required: true })
+                .extend({
+                    value: z
+                        .string()
+                        .min(1)
+                        .max(32_768)
+                        .nullable()
+                        .optional()
+                        .describe(
+                            "What every deploy hands the container, the same in every environment (per environment values belong in a config map or a secret); never empty. Omitted or null keeps the value stored under the same name, unless the variable stops being secret; a variable left with no value is refused: remove it from the list instead"
+                        )
+                })
         )
         .max(200)
         .optional()
         .describe(
-            "Variables the image reads from its environment, each with the value Flightroom injects into the container on every deploy, if any. A secret variable comes back without its value, with valueSet: send it back without value to keep it. A variable of the backend wins over a config map, a secret or a resource setting the same name, the platform's (HTTP_PORT, LOG_LEVEL, PUBLIC_URL...) win over it. Replaced as a whole"
+            "Variables the image reads from its environment, each with the value Flightroom injects into the container on every deploy: a new variable needs its value. A secret variable comes back without its value, with valueSet: send it back without value to keep it. A variable of the backend wins over a config map, a secret or a resource setting the same name, the platform's (HTTP_PORT, LOG_LEVEL, PUBLIC_URL...) win over it. Replaced as a whole"
         ),
     // A backend only: a frontend never attaches a resource
     resourceIds: z
@@ -86,7 +90,7 @@ export const backendTools = [
         description:
             "One backend of the project, with aiContext: what the team wrote for AI agents about it, its domain and the project. Follow it when working on its code. " +
             "attachedVariables lists the environment variables its attached resources, config maps and secrets set on the container (keys only, never values): its code can read them. " +
-            "env lists the variables it declares, with the value Flightroom injects for each that has one: in clear for a plain one, valueSet only for a secret one.",
+            "env lists its variables, each with the value Flightroom injects: in clear for a plain one, valueSet only for a secret one.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: z.object({ backendId }),

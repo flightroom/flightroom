@@ -32,10 +32,7 @@ const backend = (overrides: Record<string, unknown> = {}) => ({
     configMapIds: [configMapId],
     secretIds: [secretId],
     resourceIds: [resourceId],
-    env: [
-        { name: "DB_PASSWORD", required: true, secret: true },
-        { name: "PAYMENTS_URL", required: true, secret: false }
-    ],
+    env: [],
     ...overrides
 })
 
@@ -117,7 +114,7 @@ describe("ContainerEnvironmentService.get", () => {
         expect(fromResource.find(variable => variable.name.endsWith("HOST"))).toMatchObject({ masked: { set: true, length: 14 } })
         expect(fromResource.find(variable => variable.name.endsWith("PASSWORD"))).toMatchObject({ masked: { set: true, length: 10 } })
         expect(fromResource.every(variable => variable.masked && variable.value === undefined)).toBe(true)
-        expect(result.missing).toEqual([{ name: "PAYMENTS_URL", required: true, secret: false }])
+        expect(result.missing).toEqual([])
         const json = JSON.stringify(result)
         expect(json).not.toContain("s3cr3t-value")
         expect(json).not.toContain("redis-pass")
@@ -143,13 +140,12 @@ describe("ContainerEnvironmentService.get", () => {
         expect(result.missing).toEqual([])
     })
 
-    it("given variables the backend sets itself, when its environment is read, then they come with the source backend, a secret one masked, and no longer count as missing", async () => {
+    it("given variables the backend sets itself, when its environment is read, then they come with the source backend, a secret one masked, and none is missing", async () => {
         vi.mocked(Backend.findOne).mockResolvedValue(
             backend({
                 env: [
-                    { name: "DB_PASSWORD", required: true, secret: true, value: "own-password" },
-                    { name: "PAYMENTS_URL", required: true, secret: false, value: "https://payments.example.com" },
-                    { name: "DECLARED_ONLY", required: false, secret: false }
+                    { name: "DB_PASSWORD", secret: true, value: "own-password" },
+                    { name: "PAYMENTS_URL", secret: false, value: "https://payments.example.com" }
                 ]
             }) as never
         )
@@ -159,8 +155,25 @@ describe("ContainerEnvironmentService.get", () => {
         expect(result.variables).toContainEqual({ name: "PAYMENTS_URL", source: "backend", value: "https://payments.example.com" })
         expect(result.variables).toContainEqual({ name: "DB_PASSWORD", source: "secret orders-db", masked: { set: true, length: 12 }, overriddenBy: "backend" })
         expect(result.variables).toContainEqual({ name: "DB_PASSWORD", source: "backend", masked: { set: true, length: 12 } })
-        expect(result.missing).toEqual([{ name: "DECLARED_ONLY", required: false, secret: false }])
+        expect(result.missing).toEqual([])
         expect(JSON.stringify(result)).not.toContain("own-password")
+    })
+
+    it("given a DOCKER frontend declaring variables, when its environment is read, then those no source sets are missing, with their required flag", async () => {
+        vi.mocked(Frontend.findOne).mockResolvedValue(
+            backend({
+                kind: "DOCKER",
+                env: [
+                    { name: "DB_PASSWORD", required: true, secret: true },
+                    { name: "CHECKOUT_KEY", required: false, secret: false }
+                ]
+            }) as never
+        )
+
+        const result = await get("frontend")
+
+        expect(result.state).toBe("next_deploy")
+        expect(result.missing).toEqual([{ name: "CHECKOUT_KEY", required: false, secret: false }])
     })
 
     it("given an environment that sets no version of it, when its environment is read, then it says the deploy leaves it out, an earlier container possibly still running", async () => {

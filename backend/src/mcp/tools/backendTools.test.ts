@@ -141,7 +141,7 @@ describe("backend tools", () => {
     })
 
     describe("backend_create", () => {
-        const input = { name: "Orders API", slug: "orders-api", port: 3000, env: [{ name: "DATABASE_URL", required: true, secret: true }] }
+        const input = { name: "Orders API", slug: "orders-api", port: 3000, env: [{ name: "DATABASE_URL", secret: true, value: "postgres://db" }] }
 
         it("given a backend in a domain of the project, when created, then the service creates it in the project", async () => {
             getDomain.mockResolvedValue({ _id: DOMAIN })
@@ -187,6 +187,14 @@ describe("backend tools", () => {
             expect(schema.safeParse({ ...input, livenessPath: "health" }).success).toBe(false)
             expect(schema.safeParse({ ...input, port: 70000 }).success).toBe(false)
             expect(schema.safeParse({ ...input, env: [{ name: "1BAD" }] }).success).toBe(false)
+        })
+
+        it("given a variable with an empty value, when validated, then it is refused, and a required flag is dropped", () => {
+            const schema = tool("backend_create").inputSchema
+
+            expect(schema.safeParse({ ...input, env: [{ name: "DATABASE_URL", value: "" }] }).success).toBe(false)
+            const parsed = schema.parse({ ...input, env: [{ name: "DATABASE_URL", required: true, value: "postgres://db" }] }) as { env: object[] }
+            expect(parsed.env[0]).not.toHaveProperty("required")
         })
     })
 

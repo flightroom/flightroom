@@ -12,7 +12,7 @@ import {
     environmentResourcesField,
     environmentVersionsField,
     exposurePath,
-    IBackendEnvVariable,
+    IBackendInjectedEnvVariable,
     logLevelField,
     optionalPath,
     probePathFields,
@@ -22,7 +22,7 @@ import {
 import { frontendCodeRepositorySchema, ICodeRepositoryFrontend } from "./FrontendModel"
 import { CONTEXT_MAX_LENGTH } from "./ProjectModel"
 
-export type { IBackendEnvVariable }
+export type { IBackendInjectedEnvVariable }
 
 /** Runtime and framework of a backend, and where that knowledge came from */
 export interface IBackendStack {
@@ -53,7 +53,7 @@ export interface IBackend extends Document<ObjectId>, Omit<BackendPaths, "livene
     port: number
     /** The path it is exposed at on the host of every environment, e.g. /api/orders; null when it is not exposed */
     exposurePath?: string | null
-    env: IBackendEnvVariable[]
+    env: IBackendInjectedEnvVariable[]
     /** Config maps of the project the backend receives as environment variables; they live on their own and can be shared */
     configMapIds: Schema.Types.ObjectId[]
     /** Secrets of the project the backend receives as environment variables, as for the config maps */
@@ -187,9 +187,9 @@ export const BACKEND_SECRET_PATHS = ["env.value"]
 backendSchema.plugin(encryptedFields, { model: "Backend", paths: BACKEND_SECRET_PATHS })
 
 /** A variable as it leaves the backend: a secret one's value never, only whether it has one; a plain one's in clear */
-export type BackendEnvVariableJSON = Omit<IBackendEnvVariable, "value"> & { value?: string; valueSet?: boolean }
+export type BackendEnvVariableJSON = Omit<IBackendInjectedEnvVariable, "value"> & { value?: string; valueSet?: boolean }
 
-export const maskedEnv = (env: IBackendEnvVariable[] | undefined): BackendEnvVariableJSON[] | undefined =>
+export const maskedEnv = (env: IBackendInjectedEnvVariable[] | undefined): BackendEnvVariableJSON[] | undefined =>
     env?.map(({ value, ...variable }) => (variable.secret ? { ...variable, valueSet: Boolean(value) } : { ...variable, ...(value !== undefined ? { value } : {}) }))
 
 /**

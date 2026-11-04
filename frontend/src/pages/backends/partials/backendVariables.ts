@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import * as z from "zod"
-import type { BackendEnvVariable } from "@/hooks/apiClients/useBackendsApi"
+import type { BackendInjectedEnvVariable } from "@/hooks/apiClients/useBackendsApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
 import useProjectApi, { type ProjectExposure } from "@/hooks/apiClients/useProjectApi"
 import useProjectStore from "@/store/useProjectStore"
@@ -8,6 +8,9 @@ import { createResourceShape, probeSecondsField, type ResourceMessages } from ".
 
 /** Same rule as the backend (BACKEND_HTTP_PATH): a probe or docs path is absolute, at most 256 characters, without whitespace */
 export const BACKEND_HTTP_PATH = /^\/\S{0,255}$/
+
+/** Same rule as the backend (ENV_VARIABLE_NAME): letters, digits and underscores, not starting with a digit */
+const ENV_VARIABLE_NAME = /^[A-Za-z_][A-Za-z0-9_]*$/
 
 /** Same rule as the backend (BACKEND_VERSION): the version is the tag of the image, which takes no `+`, space or slash */
 export const BACKEND_VERSION = /^[A-Za-z0-9._-]{1,128}$/
@@ -52,15 +55,13 @@ export const createBackendRuntimeShape = (messages: { path: string } & ResourceM
     exposed: z.boolean(),
     exposurePath: z.string().trim(),
     image: z.object({ repository: z.string().optional() }).optional(),
+    // Declared only, as a DOCKER frontend's: a backend's carry a value instead of the flag (createBackendEnvShape)
     env: z.array(
         z.object({
-            name: z.string().regex(/^[A-Za-z_][A-Za-z0-9_]*$/),
+            name: z.string().regex(ENV_VARIABLE_NAME),
             required: z.boolean().default(false),
             secret: z.boolean().default(false),
-            description: z.string().optional(),
-            // What Flightroom injects into the container; blank for a secret one the server hides (valueSet)
-            value: z.string().optional(),
-            valueSet: z.boolean().optional()
+            description: z.string().optional()
         })
     ),
     configMapIds: z.array(z.string()),
@@ -68,13 +69,30 @@ export const createBackendRuntimeShape = (messages: { path: string } & ResourceM
 })
 
 /**
- * The variables as the API takes them: a secret value the server holds and nobody retyped goes without a value, so it is kept;
- * any other goes with what the field holds, blank clearing it.
+ * The variables of a backend, each with the value Flightroom injects into the container: same rule as the backend, none goes
+ * without one. Blank is fine for a secret one the server holds (valueSet), which is kept; to drop a variable, remove it.
  */
-export const envToSubmit = (env: BackendEnvVariable[]) => env.map(({ value, valueSet, ...variable }) => (variable.secret && valueSet && !value ? variable : { ...variable, value: value ?? "" }))
+export const createBackendEnvShape = (valueRequired: string) =>
+    z.array(
+        z
+            .object({
+                name: z.string().regex(ENV_VARIABLE_NAME),
+                secret: z.boolean().default(false),
+                description: z.string().optional(),
+                value: z.string().optional(),
+                valueSet: z.boolean().optional()
+            })
+            .superRefine((variable, ctx) => {
+                if (!variable.value && !(variable.secret && variable.valueSet)) ctx.addIssue({ code: "custom", message: valueRequired, path: ["value"] })
+            })
+    )
+
+/** The variables as the API takes them: a secret value the server holds and nobody retyped goes without a value, so it is kept */
+export const envToSubmit = (env: BackendInjectedEnvVariable[]) =>
+    env.map(({ value, valueSet, ...variable }) => (variable.secret && valueSet && !value ? variable : { ...variable, value: value ?? "" }))
 
 /** The variables as the form edits them: a value field for each, blank for a secret one the server hides */
-export const envFormValues = (env: BackendEnvVariable[] | undefined) => (env ?? []).map(variable => ({ ...variable, value: variable.value ?? "" }))
+export const envFormValues = (env: BackendInjectedEnvVariable[] | undefined) => (env ?? []).map(variable => ({ ...variable, value: variable.value ?? "" }))
 
 /** Exposed, it needs a path an HTTPRoute takes; not exposed, the hidden path is not checked, since null is what is sent */
 export const refineExposure = (data: { exposed?: boolean; exposurePath?: string }, ctx: z.RefinementCtx, messages: { exposurePath: string; exposurePathRequired: string }) => {

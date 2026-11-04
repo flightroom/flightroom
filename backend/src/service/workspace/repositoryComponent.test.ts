@@ -11,19 +11,17 @@ describe("fromBackend", () => {
         slug: "orders",
         name: "Orders",
         env: [
-            { name: "API_TOKEN", required: true, secret: true, value: "hunter2" },
-            { name: "FEATURE_FLAGS", required: false, secret: false, value: "beta" },
-            { name: "DECLARED_ONLY", required: false, secret: false }
+            { name: "API_TOKEN", secret: true, value: "hunter2", description: "Calls the payments API" },
+            { name: "FEATURE_FLAGS", secret: false, value: "beta" }
         ]
     })
 
-    it("given variables with values, when the backend becomes a component for an agent, then no value goes with it, a plain one neither, only whether it is set", () => {
+    it("given variables with values, when the backend becomes a component for an agent, then no value goes with it, a plain one neither", () => {
         const component = fromBackend(backend)
 
         expect(component.env).toEqual([
-            { name: "API_TOKEN", required: true, secret: true, description: undefined, valueSet: true },
-            { name: "FEATURE_FLAGS", required: false, secret: false, description: undefined, valueSet: true },
-            { name: "DECLARED_ONLY", required: false, secret: false, description: undefined, valueSet: false }
+            { name: "API_TOKEN", secret: true, description: "Calls the payments API" },
+            { name: "FEATURE_FLAGS", secret: false, description: undefined }
         ])
         expect(JSON.stringify(component)).not.toContain("hunter2")
         expect(JSON.stringify(component)).not.toContain("beta")
@@ -34,8 +32,8 @@ describe("fromBackend", () => {
             .filter(Boolean)
             .join("\n")
 
-        expect(facts).toContain("- API_TOKEN (required, secret, set by Flightroom on every deploy)")
-        expect(facts).toContain("- DECLARED_ONLY (optional)")
+        expect(facts).toContain("- API_TOKEN (secret, set by Flightroom on every deploy): Calls the payments API")
+        expect(facts).toContain("- FEATURE_FLAGS (set by Flightroom on every deploy)")
         expect(facts).not.toContain("hunter2")
     })
 })
