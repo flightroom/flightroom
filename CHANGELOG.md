@@ -7,6 +7,8 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+## [15.3.0] - 2026-11-04
+
 ### Added
 
 - **Hide The Legend Of The Galaxy Map**: a right click on the galaxy map of the domains and of the backends hides its legend, and another one shows it again; the choice is remembered in the browser
