@@ -42,7 +42,7 @@ describe("GitlabClient", () => {
 
         new GitlabClient("https://gitlab.example", "glpat-secret")
 
-        expect(create).toHaveBeenCalledWith({ baseURL: "https://gitlab.example/api/v4", headers: { "PRIVATE-TOKEN": "glpat-secret" } })
+        expect(create).toHaveBeenCalledWith({ baseURL: "https://gitlab.example/api/v4", maxRedirects: 0, headers: { "PRIVATE-TOKEN": "glpat-secret" } })
         expect((create.mock.calls[0][0] as CreateAxiosDefaults).headers).not.toHaveProperty("Authorization")
     })
 })

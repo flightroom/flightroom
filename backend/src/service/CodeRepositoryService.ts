@@ -12,6 +12,7 @@ import CreateAzureDevOpsRepositoryDTO from "../types/CreateAzureDevOpsRepository
 import CreateGitlabRepositoryDto from "../types/CreateGitlabRepositoryDTO"
 import UpdateGithubDTO from "../types/UpdateGithubDTO"
 import { toObjectId } from "../utils/mongooseUtils"
+import { assertAllowedGitUrl, assertAzureOrganization } from "../utils/publicHttpsUrl"
 import { runInTransaction } from "../utils/runInTransaction"
 import { SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import BaseAuthorizedService from "./BaseAuthorizedService"
@@ -338,6 +339,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
     async addRepositoryAzureRaw(body: CreateAzureDevOpsRepositoryDTO, projectId: string, session?: ClientSession) {
         await this.ensureAccessToProject(projectId)
         await this.ensureWholeProject(projectId)
+        assertAzureOrganization(body.organization)
 
         const repository = new CodeRepository({
             name: body.name,
@@ -371,6 +373,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
         if (repository.provider !== CodeRepositoryProvider.AZURE_DEV_OPS) {
             throw invalidProvider("Repository provider is not GitLab")
         }
+        assertAzureOrganization(body.organization)
 
         repository.name = body.name
         repository.accessToken = retypedSecret(body.pat) ?? repository.accessToken
@@ -387,6 +390,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
     }
 
     async testConnectionAzure(organization: string, pat: string, repositoryId?: string) {
+        assertAzureOrganization(organization)
         const client = new AzureDevOpsClient()
         // The organization may change on the edit screen: the host stays Azure DevOps, so the token stays with it
         const token = await this.resolveAccessToken(pat, repositoryId, repository => repository.provider === CodeRepositoryProvider.AZURE_DEV_OPS)
@@ -407,6 +411,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
     async addRepositoryGitlabRaw(body: CreateGitlabRepositoryDto, projectId: string, session?: ClientSession) {
         await this.ensureAccessToProject(projectId)
         await this.ensureWholeProject(projectId)
+        assertAllowedGitUrl(body.url, "GitLab URL")
 
         const repository = new CodeRepository({
             name: body.name,
@@ -440,6 +445,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
         if (repository.provider !== CodeRepositoryProvider.GITLAB) {
             throw invalidProvider("Repository provider is not GitLab")
         }
+        assertAllowedGitUrl(body.url, "GitLab URL")
 
         const typed = retypedSecret(body.pat)
         // Saving pushes the deploy key with the token to the URL: a new one takes the token typed again
@@ -462,6 +468,7 @@ export class CodeRepositoryService extends BaseAuthorizedService {
     }
 
     async testConnectionGitlab(url: string, pat: string, repositoryId?: string) {
+        assertAllowedGitUrl(url, "GitLab URL")
         const token = await this.resolveAccessToken(pat, repositoryId, repository => repository.provider === CodeRepositoryProvider.GITLAB && sameGitlabUrl(repository.gitlabData?.url, url))
         return new GitLabClient(url, token).getGroups()
     }

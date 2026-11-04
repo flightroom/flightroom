@@ -9,6 +9,7 @@ import { EntityNotFoundError } from "../../errors/EntityNotFoundError"
 import CodeRepository, { CodeRepositoryProvider, ICodeRepository } from "../../models/CodeRepositoryModel"
 import Organization from "../../models/OrganizationModel"
 import Project from "../../models/ProjectModel"
+import { isAllowedGitHostSyntax, isAzureOrganization } from "../../utils/publicHttpsUrl"
 import { isJobWorkspacePath, jobWorkspacePath, sharedWorkspacePath } from "../../utils/workspacePaths"
 import BaseAuthorizedService from "../BaseAuthorizedService"
 import { RepositoryFileService, repositoryNameFor } from "../RepositoryFileService"
@@ -45,9 +46,11 @@ const allowedHostsFor = (codeRepository: ICodeRepository): string[] => {
         case CodeRepositoryProvider.GITHUB:
             return ["github.com"]
         case CodeRepositoryProvider.GITLAB:
-            return codeRepository.gitlabData?.url ? [new URL(codeRepository.gitlabData.url).hostname] : []
+            return codeRepository.gitlabData?.url && isAllowedGitHostSyntax(codeRepository.gitlabData.url) ? [new URL(codeRepository.gitlabData.url).hostname] : []
         case CodeRepositoryProvider.AZURE_DEV_OPS:
-            return codeRepository.azureData ? ["dev.azure.com", `${codeRepository.azureData.organization}.visualstudio.com`.toLowerCase()] : []
+            return codeRepository.azureData && isAzureOrganization(codeRepository.azureData.organization)
+                ? ["dev.azure.com", `${codeRepository.azureData.organization}.visualstudio.com`.toLowerCase()]
+                : []
         default:
             return []
     }

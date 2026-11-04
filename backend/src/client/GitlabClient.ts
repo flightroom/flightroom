@@ -124,6 +124,8 @@ class GitLabClient {
     constructor(url: string, pat: string) {
         this.api = axios.create({
             baseURL: url + "/api/v4",
+            // A redirect would carry the token and the request to a host nobody validated
+            maxRedirects: 0,
             headers: {
                 "PRIVATE-TOKEN": pat
             }
