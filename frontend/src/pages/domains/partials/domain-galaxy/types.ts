@@ -57,11 +57,22 @@ export type StarNode = NodeObject<World>
 /** Where a galaxy was drawn on the last frame: the centre of its halo and its radius */
 export type GalaxyGeometry = Point & { r: number }
 
+/** An orbit around a world, off centre as Kepler's: an ellipse with the world at a focus, turned by `tilt`. */
+export interface KeplerOrbit {
+    /** Half the long axis of the orbit */
+    semiMajor: number
+    semiMinor: number
+    /** 0 a circle, 1 no longer closed */
+    eccentricity: number
+    /** Where the near end of the orbit points from its world, in radians */
+    tilt: number
+}
+
 /**
- * A resource attached to a backend, orbiting it. A resource several backends attach is a moon of each
+ * A resource attached to a backend, orbiting it off centre. A resource several backends attach is a moon of each
  * of them. Where it was drawn on the last frame is written on it by the painter, never allocated per frame.
  */
-export interface Moon {
+export interface Moon extends KeplerOrbit {
     resourceId: string
     name: string
     /** Its type and variant, for the tooltip */
@@ -70,10 +81,9 @@ export interface Moon {
     users: string[]
     world: StarNode
     radius: number
-    /** Distance from the centre of its world */
-    orbit: number
+    /** Its mean anomaly at time zero */
     phase: number
-    /** Radians per second */
+    /** Radians of mean anomaly per second */
     speed: number
     /** The logo of its provider or engine, when there is one */
     brand?: Path2D
@@ -90,7 +100,7 @@ export interface Moon {
  * maps on one, the secrets on the other, each an ellipse with the world at a focus. A map several worlds receive
  * is a comet of each of them. Where it was drawn on the last frame is written on it by the painter.
  */
-export interface Comet {
+export interface Comet extends KeplerOrbit {
     mapId: string
     kind: VariableMapKind
     name: string
@@ -100,12 +110,6 @@ export interface Comet {
     users: string[]
     world: StarNode
     radius: number
-    /** Half the long axis of its orbit */
-    semiMajor: number
-    semiMinor: number
-    eccentricity: number
-    /** Where the near end of its orbit points from its world, in radians */
-    tilt: number
     /** Its mean anomaly at time zero */
     phase: number
     /** Radians of mean anomaly per second: fast near its world, slow far out */
@@ -152,15 +156,15 @@ export interface Agent {
 export type StationStatus = "scheduled" | "standby" | "failed"
 
 /**
- * A maintenance agent that looks after one world only, in a slow orbit around it like a station, tethered to it.
- * One that looks after several worlds is in the maintenance room only: it belongs to none of them.
+ * A maintenance agent that looks after one world only, in a slow orbit off centre around it like a station, tethered
+ * to it. One that looks after several worlds is in the maintenance room only: it belongs to none of them.
  */
-export interface Station {
+export interface Station extends KeplerOrbit {
     agent: MaintenanceAgent
     world: StarNode
     status: StationStatus
+    /** Its mean anomaly at time zero */
     phase: number
-    orbit: number
     x: number
     y: number
     frame: number

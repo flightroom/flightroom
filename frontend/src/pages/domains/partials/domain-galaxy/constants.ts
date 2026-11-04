@@ -13,8 +13,10 @@ export const FIT_MS = 600
 export const FIT_PADDING = 110
 export const MAX_GALAXY_ZOOM = 4
 export const GOLDEN_ANGLE = Math.PI * (3 - Math.sqrt(5))
-/** A moon to its world, and the gap between its world and the first orbit and between two orbits, in moon radii */
+/** A moon to its world, and the gap between its world and the near end of the first orbit and between two orbits, in moon radii */
 export const MOON_SIZE = 0.33
+/** How off centre the orbits of the moons are: 0 a circle, 1 no longer closed. Less than the comets, a moon keeps near its world. */
+export const MOON_ECCENTRICITY = 0.25
 export const MOON_FIRST_ORBIT = 2.4
 export const MOON_ORBIT_STEP = 3
 /** In moon radii: how close two moons of the same orbit may come, centre to centre */
@@ -50,8 +52,8 @@ export const SHIP_LANE_SLOWDOWN = 0.15
 /** Between the halo of a galaxy and the first lane of its ships, and between two lanes: in graph units, never less than SHIP_LANE_PX on screen */
 export const SHIP_LANE_GAP = 14
 export const SHIP_LANE_PX = 18
-/** How much longer than wide the orbit of each lane is, in turn: a circle, then two ellipses more and more stretched, short of the neighbouring galaxies */
-export const SHIP_LANE_STRETCH = [0, 0.15, 0.3]
+/** How much longer than wide the orbit of each lane is, in turn: never a circle, more and more stretched, short of the neighbouring galaxies */
+export const SHIP_LANE_STRETCH = [0.1, 0.2, 0.3]
 /** The ships shown per world-equivalent across the galaxy; the others are counted on the first ship's tooltip */
 export const SHIP_CAP = 3
 /** The length of the trail of a ship along its galactic orbit, in radians */
@@ -63,6 +65,8 @@ export const SHIP_HIT = 14
 
 /** Radians per second: a station keeps nearly still over its world, a ship flies by */
 export const STATION_ORBIT_SPEED = 0.12
+/** How off centre the orbit of a station is: it swings a little nearer its world and away again */
+export const STATION_ECCENTRICITY = 0.2
 export const STATION_SCREEN_SIZE = 14
 export const STATION_HIT = 12
 /** In screen pixels: how near a click must fall to a relation, the size of its arrow, the gap to its way back */

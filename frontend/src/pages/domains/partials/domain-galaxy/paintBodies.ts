@@ -1,15 +1,37 @@
 import { drawRocket } from "@/components/ai-agents/drawRocket"
 import { MOON_ICON_PX, MOON_SHADE_PX, SHIP_LANE_SLOWDOWN, SHIP_ORBIT_SPEED, SHIP_TRAIL, STATION_ORBIT_SPEED } from "./constants"
 import type { BodyColors } from "./sky"
-import type { Comet, Moon, Point, Ship, Station } from "./types"
+import type { Comet, KeplerOrbit, Moon, Point, Ship, StarNode, Station } from "./types"
+
+/** Where a body on an off-centre orbit is from its world at the mean anomaly `mean`: Kepler's equation, solved in a few Newton steps. */
+const keplerOffset = (orbit: KeplerOrbit, mean: number): Point => {
+    const e = orbit.eccentricity
+    let anomaly = mean
+    for (let step = 0; step < 4; step++) anomaly -= (anomaly - e * Math.sin(anomaly) - mean) / (1 - e * Math.cos(anomaly))
+    const along = orbit.semiMajor * (Math.cos(anomaly) - e)
+    const across = orbit.semiMinor * Math.sin(anomaly)
+    const cos = Math.cos(orbit.tilt)
+    const sin = Math.sin(orbit.tilt)
+    return { x: along * cos - across * sin, y: along * sin + across * cos }
+}
+
+/** The path of an off-centre orbit around `world`, an ellipse with the world at a focus, to stroke with the caller's style. */
+export const traceKeplerOrbit = (ctx: CanvasRenderingContext2D, world: StarNode, orbit: KeplerOrbit) => {
+    const focus = orbit.semiMajor * orbit.eccentricity
+    const cx = (world.x ?? 0) - focus * Math.cos(orbit.tilt)
+    const cy = (world.y ?? 0) - focus * Math.sin(orbit.tilt)
+    ctx.moveTo(cx + orbit.semiMajor * Math.cos(orbit.tilt), cy + orbit.semiMajor * Math.sin(orbit.tilt))
+    ctx.ellipse(cx, cy, orbit.semiMajor, orbit.semiMinor, orbit.tilt, 0, 2 * Math.PI)
+}
 
 /** One moon at `now` (seconds): a disc in the colour of the moons, its far side in shadow and the icon of its resource once big enough to read. */
 export const paintMoon = (ctx: CanvasRenderingContext2D, moon: Moon, now: number, scale: number, colors: BodyColors, space: string, selected: boolean) => {
-    const angle = moon.phase + now * moon.speed
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    const x = (moon.world.x ?? 0) + cos * moon.orbit
-    const y = (moon.world.y ?? 0) + sin * moon.orbit
+    const offset = keplerOffset(moon, moon.phase + now * moon.speed)
+    const distance = Math.hypot(offset.x, offset.y) || 1
+    const cos = offset.x / distance
+    const sin = offset.y / distance
+    const x = (moon.world.x ?? 0) + offset.x
+    const y = (moon.world.y ?? 0) + offset.y
     const r = moon.radius
     moon.x = x
     moon.y = y
@@ -53,27 +75,13 @@ export const paintMoon = (ctx: CanvasRenderingContext2D, moon: Moon, now: number
     }
 }
 
-/** Where a comet is at `now` (seconds), from its world: Kepler's equation, solved in a few Newton steps. */
-const cometOffset = (comet: Comet, now: number) => {
-    const mean = comet.phase + now * comet.speed
-    const e = comet.eccentricity
-    let anomaly = mean
-    for (let step = 0; step < 4; step++) anomaly -= (anomaly - e * Math.sin(anomaly) - mean) / (1 - e * Math.cos(anomaly))
-    const along = comet.semiMajor * (Math.cos(anomaly) - e)
-    const across = comet.semiMinor * Math.sin(anomaly)
-    const cos = Math.cos(comet.tilt)
-    const sin = Math.sin(comet.tilt)
-    return { x: along * cos - across * sin, y: along * sin + across * cos }
-}
-
 /** The orbit of a world's config maps or secrets: a faint dashed ellipse with the world at a focus. */
 export const paintCometOrbit = (ctx: CanvasRenderingContext2D, comet: Comet, scale: number, colors: BodyColors) => {
-    const focus = comet.semiMajor * comet.eccentricity
     ctx.strokeStyle = colors.comet[comet.kind].orbit
     ctx.lineWidth = 1 / scale
     ctx.setLineDash([3 / scale, 3 / scale])
     ctx.beginPath()
-    ctx.ellipse((comet.world.x ?? 0) - focus * Math.cos(comet.tilt), (comet.world.y ?? 0) - focus * Math.sin(comet.tilt), comet.semiMajor, comet.semiMinor, comet.tilt, 0, 2 * Math.PI)
+    traceKeplerOrbit(ctx, comet.world, comet)
     ctx.stroke()
     ctx.setLineDash([])
 }
@@ -83,7 +91,7 @@ export const paintCometOrbit = (ctx: CanvasRenderingContext2D, comet: Comet, sca
  * a diamond for a config map and a disc for a secret.
  */
 export const paintComet = (ctx: CanvasRenderingContext2D, comet: Comet, now: number, scale: number, colors: BodyColors, selected: boolean) => {
-    const offset = cometOffset(comet, now)
+    const offset = keplerOffset(comet, comet.phase + now * comet.speed)
     const distance = Math.hypot(offset.x, offset.y) || 1
     const x = (comet.world.x ?? 0) + offset.x
     const y = (comet.world.y ?? 0) + offset.y
@@ -178,11 +186,14 @@ export const paintShip = (ctx: CanvasRenderingContext2D, ship: Ship, orbit: Ship
 export const paintStation = (ctx: CanvasRenderingContext2D, station: Station, now: number, size: number, scale: number, colors: BodyColors, reducedMotion: boolean) => {
     const wx = station.world.x ?? 0
     const wy = station.world.y ?? 0
-    const angle = station.phase + now * STATION_ORBIT_SPEED
-    const cos = Math.cos(angle)
-    const sin = Math.sin(angle)
-    station.x = wx + cos * station.orbit
-    station.y = wy + sin * station.orbit
+    const offset = keplerOffset(station, station.phase + now * STATION_ORBIT_SPEED)
+    const distance = Math.hypot(offset.x, offset.y) || 1
+    const cos = offset.x / distance
+    const sin = offset.y / distance
+    // The hub faces its world wherever the orbit takes it.
+    const angle = Math.atan2(sin, cos)
+    station.x = wx + offset.x
+    station.y = wy + offset.y
 
     ctx.strokeStyle = colors.tether
     ctx.lineWidth = 1 / scale

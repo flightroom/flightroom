@@ -17,6 +17,7 @@ import {
     COMET_SPEED,
     COMET_TILT,
     GOLDEN_ANGLE,
+    MOON_ECCENTRICITY,
     MOON_FIRST_ORBIT,
     MOON_ORBIT_STEP,
     MOON_SIZE,
@@ -24,10 +25,11 @@ import {
     MOON_SPEED,
     NO_DOMAIN,
     RELATION_GAP,
-    SHIP_CAP
+    SHIP_CAP,
+    STATION_ECCENTRICITY
 } from "./constants"
 import { brandPath, glyphPath } from "./resourcePaths"
-import type { Agent, Comet, Galaxy, GalaxyGeometry, LaneLink, Moon, RelationSegment, Ship, StarNode, Station, StationStatus, World } from "./types"
+import type { Agent, Comet, Galaxy, GalaxyGeometry, KeplerOrbit, LaneLink, Moon, RelationSegment, Ship, StarNode, Station, StationStatus, World } from "./types"
 
 /** A stable spread from an id, so a world, a moon or a ship keeps its place in the orbit across polls. */
 export const phaseOf = (id: string) => {
@@ -36,27 +38,39 @@ export const phaseOf = (id: string) => {
     return (hash / 9973) * 2 * Math.PI
 }
 
+/** The orbit with its world at a focus whose near end is `periapsis` from it. */
+const keplerOrbit = (periapsis: number, eccentricity: number, tilt: number): KeplerOrbit => {
+    const semiMajor = periapsis / (1 - eccentricity)
+    return { semiMajor, semiMinor: semiMajor * Math.sqrt(1 - eccentricity ** 2), eccentricity, tilt }
+}
+
+/** Where a body is slowest, at the far end of its orbit, it comes this much nearer to the next one than on a circle as wide. */
+const BUNCHING = Math.sqrt((1 - MOON_ECCENTRICITY) / (1 + MOON_ECCENTRICITY))
+
 /**
- * The moons of a backend, from the first orbit out: as many on an orbit as fit with room between them,
- * evenly spread, each orbit slower than the one inside it.
+ * The moons of a backend, from the first orbit out: each orbit off centre, the world at a focus, all of them turned the
+ * same way so they nest without crossing. As many moons on an orbit as fit with room between them where they bunch
+ * up, evenly spread in mean anomaly, each orbit slower than the one inside it.
  */
-const placeMoons = (world: StarNode, attached: Omit<Moon, "world" | "radius" | "orbit" | "phase" | "speed" | "x" | "y" | "frame">[]): Moon[] => {
+const placeMoons = (world: StarNode, attached: Omit<Moon, keyof KeplerOrbit | "world" | "radius" | "phase" | "speed" | "x" | "y" | "frame">[]): Moon[] => {
     const radius = world.radius * MOON_SIZE
-    const first = world.radius + radius * MOON_FIRST_ORBIT
+    const tilt = phaseOf(`${world.id}-moons`)
     const moons: Moon[] = []
-    let orbit = first
+    let periapsis = world.radius + radius * MOON_FIRST_ORBIT
+    const firstSemiMajor = keplerOrbit(periapsis, MOON_ECCENTRICITY, tilt).semiMajor
     let ring = 0
     let left = attached
     while (left.length) {
-        const fits = Math.max(3, Math.floor((2 * Math.PI * orbit) / (radius * MOON_SPACING)))
+        const orbit = keplerOrbit(periapsis, MOON_ECCENTRICITY, tilt)
+        const fits = Math.max(3, Math.floor((2 * Math.PI * orbit.semiMajor * BUNCHING) / (radius * MOON_SPACING)))
         const onOrbit = left.slice(0, fits)
         const offset = phaseOf(world.id) + ring * 0.5
-        const speed = MOON_SPEED * (first / orbit) ** 1.5
+        const speed = MOON_SPEED * (firstSemiMajor / orbit.semiMajor) ** 1.5
         onOrbit.forEach((moon, index) => {
-            moons.push({ ...moon, world, radius, orbit, speed, phase: offset + (index * 2 * Math.PI) / onOrbit.length, x: 0, y: 0, frame: -1 })
+            moons.push({ ...moon, ...orbit, world, radius, speed, phase: offset + (index * 2 * Math.PI) / onOrbit.length, x: 0, y: 0, frame: -1 })
         })
         left = left.slice(fits)
-        orbit += radius * MOON_ORBIT_STEP
+        periapsis += radius * MOON_ORBIT_STEP
         ring++
     }
     return moons
@@ -79,18 +93,14 @@ const placeComets = (world: StarNode, configMaps: CometSeed[], secrets: CometSee
         [secrets, nearest + world.radius * COMET_ORBIT_STEP, phaseOf(`${world.id}-comets`) + COMET_TILT]
     ]
     return orbits.flatMap(([seeds, periapsis, tilt]) => {
-        const semiMajor = periapsis / (1 - COMET_ECCENTRICITY)
-        const semiMinor = semiMajor * Math.sqrt(1 - COMET_ECCENTRICITY ** 2)
-        const speed = COMET_SPEED * (innerSemiMajor / semiMajor) ** 1.5
+        const orbit = keplerOrbit(periapsis, COMET_ECCENTRICITY, tilt)
+        const speed = COMET_SPEED * (innerSemiMajor / orbit.semiMajor) ** 1.5
         const offset = phaseOf(`${world.id}-${seeds[0]?.kind}`)
         return seeds.map((seed, index) => ({
             ...seed,
+            ...orbit,
             world,
             radius,
-            semiMajor,
-            semiMinor,
-            eccentricity: COMET_ECCENTRICITY,
-            tilt,
             phase: offset + (index * 2 * Math.PI) / seeds.length,
             speed,
             x: 0,
@@ -100,8 +110,8 @@ const placeComets = (world: StarNode, configMaps: CometSeed[], secrets: CometSee
     })
 }
 
-/** Where a station orbits: past the moons, inside the lane of the ships. */
-const stationOrbit = (world: StarNode) => world.reach + world.radius * 0.3 + 1
+/** Where a station orbits: off centre, its near end past the moons and the comets. */
+const stationOrbit = (world: StarNode) => keplerOrbit(world.reach + world.radius * 0.3 + 1, STATION_ECCENTRICITY, phaseOf(`${world.id}-station-orbit`))
 
 const stationStatus = (agent: MaintenanceAgent): StationStatus => {
     if (agent.lastRun && !agent.lastRun.ok) return "failed"
@@ -217,7 +227,7 @@ export const buildGalaxyMap = ({ domains, frontends, backends, resources, config
         if (attached.length) {
             const worldMoons = placeMoons(node, attached)
             const outermost = worldMoons[worldMoons.length - 1]
-            node.reach = outermost.orbit + outermost.radius
+            node.reach = outermost.semiMajor * (1 + outermost.eccentricity) + outermost.radius
             moonsByWorld.set(member.id, worldMoons)
         }
         const worldConfigMaps = configMapsByWorld.get(member.id) ?? []
@@ -329,8 +339,8 @@ export const placeStations = (maintenanceAgents: MaintenanceAgent[], worldNodes:
                 agent,
                 world,
                 status: stationStatus(agent),
+                ...stationOrbit(world),
                 phase: start + (index * 2 * Math.PI) / agents.length,
-                orbit: stationOrbit(world),
                 x: 0,
                 y: 0,
                 frame: -1

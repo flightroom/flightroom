@@ -1,5 +1,5 @@
 import { DIMMED_ALPHA, MOON_LABEL_ZOOM, SHIP_LANE_GAP, SHIP_LANE_PX, SHIP_LANE_STRETCH, SHIP_MAX_SIZE, SHIP_SCREEN_SIZE, STAR_LABEL_ZOOM, STATION_SCREEN_SIZE } from "./constants"
-import { paintComet, paintCometOrbit, paintMoon, paintShip, paintStation } from "./paintBodies"
+import { paintComet, paintCometOrbit, paintMoon, paintShip, paintStation, traceKeplerOrbit } from "./paintBodies"
 import { type BodyColors, type Sky, STAR_CORE } from "./sky"
 import type { Comet, Frame, GalaxyGeometry, Moon, Ship, StarNode, Station } from "./types"
 
@@ -85,12 +85,11 @@ export const createWorldPainter =
             ctx.strokeStyle = colors.orbit
             ctx.lineWidth = 1 / scale
             ctx.beginPath()
-            let orbit = 0
+            let semiMajor = 0
             for (const moon of worldMoons) {
-                if (moon.orbit === orbit) continue
-                orbit = moon.orbit
-                ctx.moveTo(x + orbit, y)
-                ctx.arc(x, y, orbit, 0, 2 * Math.PI)
+                if (moon.semiMajor === semiMajor) continue
+                semiMajor = moon.semiMajor
+                traceKeplerOrbit(ctx, node, moon)
             }
             ctx.stroke()
             const labelled = scale >= MOON_LABEL_ZOOM
@@ -149,7 +148,8 @@ export const createWorldPainter =
         }
         // Something turning in view keeps the map redrawing.
         if (!reducedMotion && !frame.motion && (worldMoons || worldComets || worldStations)) {
-            const extent = worldStations ? worldStations[0].orbit + STATION_SCREEN_SIZE / scale : node.reach
+            const farthest = worldStations?.[0]
+            const extent = farthest ? farthest.semiMajor * (1 + farthest.eccentricity) + STATION_SCREEN_SIZE / scale : node.reach
             frame.motion = x + extent > frame.left && x - extent < frame.right && y + extent > frame.top && y - extent < frame.bottom
         }
 
