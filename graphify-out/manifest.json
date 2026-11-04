@@ -610,12 +610,12 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793815548.386951,
+    "mtime": 1793815876.3730333,
     "ast_hash": "08bbcd9714a30427427e114e91e7961e",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793815548.3945646,
+    "mtime": 1793815876.3731198,
     "ast_hash": "3bcf863ec2da49a85d534210ed642cdd",
     "semantic_hash": ""
   },
@@ -1155,7 +1155,7 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/settings/Settings.tsx": {
-    "mtime": 1793815511.7070014,
+    "mtime": 1793815876.3732018,
     "ast_hash": "c134570118420a7b728ed94e391cf4e2",
     "semantic_hash": ""
   },
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793815597.705191,
-    "ast_hash": "e774b6d07960818f15e3dba24f84a1ef",
+    "mtime": 1793816423.9561276,
+    "ast_hash": "892e62f4ab62a3e40e00452ae377a023",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -1840,8 +1840,8 @@
     "semantic_hash": ""
   },
   "backend/src/utils/migrations.ts": {
-    "mtime": 1793815619.0677176,
-    "ast_hash": "c9046ccb2c4666352cf2f4073fc8e201",
+    "mtime": 1793816233.3027847,
+    "ast_hash": "c4bb78de1c957bcb3f74065375fd1113",
     "semantic_hash": ""
   },
   "frontend/public/img/logo.png": {
@@ -2840,8 +2840,8 @@
     "semantic_hash": ""
   },
   "backend/src/utils/migrations.test.ts": {
-    "mtime": 1793815244.2723227,
-    "ast_hash": "ffa5265780b7e925f42e9e6d67f367e5",
+    "mtime": 1793816233.5092046,
+    "ast_hash": "8b93f0ee1b6d67460cbd697726fb4183",
     "semantic_hash": ""
   },
   "backend/src/client/AzureDevOpsClient.test.ts": {
@@ -3380,8 +3380,8 @@
     "semantic_hash": ""
   },
   "backend/src/models/ContainerFields.ts": {
-    "mtime": 1793813485.1218333,
-    "ast_hash": "93d4a8ad982bd4286a7ffc9bc7ebaef1",
+    "mtime": 1793816226.3601456,
+    "ast_hash": "8c89a3e973969d15ef5729413e77c985",
     "semantic_hash": ""
   },
   "backend/src/models/FrontendDeploymentModel.ts": {
@@ -4105,8 +4105,8 @@
     "semantic_hash": ""
   },
   "backend/src/types/ResourceCatalog.test.ts": {
-    "mtime": 1793448114.9814074,
-    "ast_hash": "aaec8a6c848389d92d3ef8fae62f6d06",
+    "mtime": 1793815893.1782308,
+    "ast_hash": "af45835d8fbaa89257f909d1b97b988e",
     "semantic_hash": ""
   },
   "backend/src/types/ResourceCatalog.ts": {
@@ -4390,13 +4390,13 @@
     "semantic_hash": ""
   },
   "helm/flightroom/Chart.yaml": {
-    "mtime": 1793812557.4141614,
-    "ast_hash": "2ce93434800fa31b18732fbb975dff44",
+    "mtime": 1793816329.4063632,
+    "ast_hash": "5334da2450eae1e5c9d16ae828277069",
     "semantic_hash": ""
   },
   "helm/flightroom/README.md": {
-    "mtime": 1793812557.4182124,
-    "ast_hash": "d845b1fb757cc69cec9c43c53c0e261a",
+    "mtime": 1793816329.4100614,
+    "ast_hash": "036b5724df67d884536e84f4e56ca004",
     "semantic_hash": ""
   },
   "helm/flightroom/templates/NOTES.txt": {
