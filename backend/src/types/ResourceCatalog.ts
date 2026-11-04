@@ -1,4 +1,4 @@
-import { DatabaseType } from "../models/DatabaseModel"
+import { DatabaseType, SQL_DATABASE_TYPES } from "../models/DatabaseModel"
 import { RUNTIME_VARIABLES } from "./RuntimeVariables"
 import { SERVICE_VARIABLES } from "./ServiceVariables"
 
@@ -84,7 +84,7 @@ const field = (name: string, envSuffix: string, options: Partial<Omit<ResourceFi
 const secret = (name: string, envSuffix: string, options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix" | "secret">> = {}) => field(name, envSuffix, { ...options, secret: true })
 
 /** The engines of the platform's databases; MongoDB is a type of its own, with the fields its drivers take */
-const engine = field("engine", "ENGINE", { input: "select", options: Object.values(DatabaseType) })
+const engine = field("engine", "ENGINE", { input: "select", options: SQL_DATABASE_TYPES })
 const schema = (options: Partial<Omit<ResourceFieldSpec, "name" | "envSuffix">> = {}) => field("schema", "SCHEMA", { required: false, ...options })
 
 /** An Azure SQL database reached with an Entra ID identity: always SQL Server, always encrypted */

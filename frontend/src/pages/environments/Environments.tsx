@@ -7,8 +7,8 @@ import { useSearchParams } from "react-router-dom"
 import { Badge, Button } from "@/components/atoms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
+import useDatabaseApi, { EnvironmentDatabasesChoice } from "@/hooks/apiClients/useDatabaseApi"
 import useEnvironmentsApi, { EnvironmentDTO, KUBE_GREEN_DEFAULTS } from "@/hooks/apiClients/useEnvironmentsApi"
-import useMongoServersApi, { EnvironmentDatabasesChoice } from "@/hooks/apiClients/useMongoServersApi"
 import useProjectApi from "@/hooks/apiClients/useProjectApi"
 import useDragAndDropOrder from "@/hooks/useDragAndDropOrder"
 import useProjectStore from "@/store/useProjectStore"
@@ -74,16 +74,16 @@ export default function EnvironmentsPage() {
     const selected = orderedEnvironments.find(env => env.slug === selectedSlug) ?? (selectedSlug === NEW ? undefined : orderedEnvironments[0])
 
     // I database creati su un server MongoDB che alimentano una risorsa nell'ambiente: eliminandolo si chiede cosa farne
-    const mongoServersApi = useMongoServersApi()
-    const provisionedQuery = useQuery({ queryKey: ["provisioned-databases", project?._id], queryFn: mongoServersApi.getAllDatabases, enabled: Boolean(project?._id) })
-    const serversQuery = useQuery({ queryKey: ["mongo-servers", project?._id], queryFn: mongoServersApi.getAll, enabled: Boolean(provisionedQuery.data?.length) })
+    const databaseApi = useDatabaseApi()
+    const provisionedQuery = useQuery({ queryKey: ["provisioned-databases", project?._id], queryFn: databaseApi.getAllProvisioned, enabled: Boolean(project?._id) })
+    const serversQuery = useQuery({ queryKey: ["databases", project?._id], queryFn: databaseApi.getAll, enabled: Boolean(provisionedQuery.data?.length) })
     const resourcesQuery = useResourcesQuery(Boolean(provisionedQuery.data?.length))
     const linkedDatabases = (provisionedQuery.data ?? [])
         .filter(database => selected?._id && database.link?.environmentId === selected._id)
         .map(database => ({
             id: database._id,
             databaseName: database.databaseName,
-            server: serversQuery.data?.find(server => server._id === database.serverId)?.name,
+            server: serversQuery.data?.find(server => server._id === database.databaseId)?.name,
             resource: resourcesQuery.data?.find(resource => resource._id === database.link?.resourceId)?.name
         }))
     const isCreating = selected === undefined && selectedSlug === NEW

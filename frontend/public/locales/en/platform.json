@@ -229,8 +229,7 @@
             "codeRepositories": "Code Repositories",
             "mcpClients": "AI assistants",
             "manage": "Manage",
-            "databases": "Databases",
-            "mongoServers": "MongoDB servers"
+            "databases": "Databases"
         },
         "projectInfo": {
             "title": "Project Information",
@@ -475,7 +474,7 @@
                     "deleting": "Deleting...",
                     "confirmButton": "Delete Project"
                 },
-                "has_mongo_servers": "The project still has MongoDB servers ({{servers}}): remove their databases and the servers first, choosing what becomes of each"
+                "has_provisioned_databases": "Databases were created on {{servers}}: remove them first from those databases, choosing what becomes of each"
             }
         },
         "notifications": {
@@ -1697,36 +1696,41 @@
         },
         "connectionTestSuccess": "A probe file was uploaded and read back: frontend hosting can use this storage."
     },
-    "mongoServers": {
-        "title": "MongoDB servers",
-        "description": "Register a MongoDB server, an Atlas project or an Azure Cosmos DB for MongoDB (RU) account and create on it a database per environment, each with a user of its own",
-        "newServer": "New MongoDB server",
-        "newServerDescription": "A server Flightroom creates databases and users on, with credentials allowed to create users",
-        "editServer": "Edit MongoDB server",
-        "editServerDescription": "The databases created on this server and the credentials Flightroom reaches it with",
-        "noServersFound": "No MongoDB server registered",
+    "database": {
+        "databases": "Databases",
+        "databasesDescription": "Connect the project's databases: SQL ones, and MongoDB ones on which databases can be created for each environment",
+        "noDatabasesFound": "No databases connected",
+        "newDatabase": "New database",
+        "editDatabase": "Edit database",
+        "newDatabaseDescription": "Connect a database with its credentials, a connection string or, for MongoDB, an Atlas or Azure account",
+        "editDatabaseDescription": "Update the database connection",
         "name": "Name",
-        "namePlaceholder": "Shared cluster",
-        "provider": "Provider",
-        "providers": {
-            "MONGODB": "MongoDB (self-hosted)",
-            "ATLAS": "MongoDB Atlas",
-            "COSMOS_MONGO_RU": "Azure Cosmos DB for MongoDB (RU)"
-        },
+        "namePlaceholder": "e.g. orders-production",
+        "type": "Engine",
         "address": "Address",
-        "connectionStringHidden": "Admin connection string",
-        "deleteDescription": "Remove the server {{name}} from the project? Only Flightroom forgets it: the server and its data are not touched.",
-        "basicInformation": "Basic information",
-        "basicInformationDescription": "How the server is named in the project and how its databases are created",
-        "connection": "Connection",
-        "connectionDescriptions": {
-            "MONGODB": "The URI of an account allowed to create users, usually root with authSource=admin. Its hosts and options (replicaSet, tls...) are the ones the applications get.",
-            "ATLAS": "A service account of the Atlas project with the Project Owner role, and the cluster the databases are created on. Creating and dropping a database also go through the driver: the egress IP address of the Flightroom backend must be in the IP Access List of the Atlas project. Test only checks the Admin API.",
-            "COSMOS_MONGO_RU": "An Entra service principal with the DocumentDB Account Contributor role on the resource group of the account, and an account of the API for MongoDB (RU) with role-based access control on (EnableMongoRoleBasedAccessControl, in Features)."
+        "types": {
+            "POSTGRESQL": "PostgreSQL",
+            "MYSQL": "MySQL",
+            "MARIADB": "MariaDB",
+            "SQLSERVER": "SQL Server",
+            "ORACLE": "Oracle",
+            "MONGODB": "MongoDB"
+        },
+        "authTypes": {
+            "credentials": "Host and credentials",
+            "connectionString": "Connection string",
+            "atlasServiceAccount": "Atlas service account",
+            "azureServicePrincipal": "Azure Cosmos DB (Entra service principal)"
         },
         "fields": {
-            "connectionString": "Admin connection string",
-            "connectionStringHint": "mongodb:// or mongodb+srv://, with the user and the password percent-encoded",
+            "authType": "Connection mode",
+            "host": "Host",
+            "port": "Port",
+            "database": "Database name",
+            "username": "Username",
+            "password": "Password",
+            "ssl": "Encrypted connection (SSL/TLS)",
+            "connectionString": "Connection string",
             "clientId": "Client ID",
             "clientSecret": "Client secret",
             "groupId": "Project ID",
@@ -1740,22 +1744,37 @@
             "accountName": "Account name",
             "accountNameHint": "The name of the Cosmos DB account, as in <account>.mongo.cosmos.azure.com",
             "accountNameInvalid": "3 to 50 lowercase letters, digits and dashes",
-            "guidInvalid": "A GUID, as the Azure portal shows it"
+            "guidInvalid": "A GUID, as the Azure portal shows it",
+            "mongoConnectionStringHint": "mongodb:// or mongodb+srv://, with the user and the password percent-encoded"
         },
-        "securityNotice": "Super-admin credentials.",
-        "securityNoticeDescription": "They are encrypted at rest, never shown again and used only to create and remove the users of the databases created here. Each database gets a user that reaches it and nothing else.",
-        "createSuccess": "MongoDB server registered",
-        "updateSuccess": "MongoDB server updated",
+        "basicInformation": "Basic information",
+        "basicInformationDescription": "What the database is called and which engine it runs",
+        "connection": "Connection",
+        "connectionDescription": "Where the database is and which account to reach it with",
+        "portInvalid": "The port must be a number between 1 and 65535",
+        "createSuccess": "Database connected",
+        "updateSuccess": "Database updated",
+        "deleteDescription": "Disconnect \"{{name}}\"? The database and its data are not touched.",
+        "securityNotice": "Security notice:",
+        "securityNoticeDescription": "Passwords and connection strings are encrypted at rest and never shown again: leave them as they are to keep the stored ones.",
+        "connectionStringPlaceholders": {
+            "POSTGRESQL": "postgres://user:password@host:5432/database",
+            "MYSQL": "mysql://user:password@host:3306/database",
+            "MARIADB": "mysql://user:password@host:3306/database",
+            "SQLSERVER": "Server=host,1433;Database=database;User Id=user;Password=password;Encrypt=true",
+            "ORACLE": "oracle://user:password@host:1521/service",
+            "MONGODB": "mongodb://root:password@db-0:27017,db-1:27017/admin?replicaSet=rs0&authSource=admin"
+        },
         "errors": {
-            "secret_required": "Type the credential again: a saved one is kept only while the provider and the address (Atlas project and cluster, tenant and Cosmos DB account) stay the same",
-            "write_forbidden": "A viewer of the project cannot register, edit, test or delete a MongoDB server",
+            "secret_required": "Type the password or the connection string again: the stored one is only valid for the engine and the address it was saved with.",
+            "write_forbidden": "A read-only member cannot connect, edit, test or delete databases.",
             "connection_invalid": "The connection is not valid: {{message}}",
-            "in_use": "The server still has databases created on it: remove them first, or keep its provider and address and change only the credentials",
-            "provider_invalid": "Choose the provider of the server",
-            "name_required": "The server needs a name",
-            "rate_limited": "Too many operations reaching an outside server in the last minute: wait a minute and try again"
+            "in_use": "Databases were created on it: remove them first, or keep its engine and its address and change only the credentials",
+            "name_required": "The database needs a name",
+            "rate_limited": "Too many operations reaching an outside server in the last minute: wait a minute and try again",
+            "provisioning_not_supported": "Databases can be created on a MongoDB connection only, for now"
         },
-        "databases": {
+        "provisioned": {
             "title": "Created databases",
             "description": "Each database has a user with readWrite and dbAdmin on it only. Linked to a mongodb resource, it is what the resource connects to in that environment.",
             "create": "Create database",
@@ -1826,63 +1845,13 @@
                 "data": "Data removed, user left: finish the removal",
                 "user": "User removed: finish the removal"
             }
-        }
-    },
-    "database": {
-        "databases": "Databases",
-        "databasesDescription": "Connect the project's SQL databases",
-        "noDatabasesFound": "No databases connected",
-        "newDatabase": "New database",
-        "editDatabase": "Edit database",
-        "newDatabaseDescription": "Connect a SQL database with its credentials or a connection string",
-        "editDatabaseDescription": "Update the database connection",
-        "name": "Name",
-        "namePlaceholder": "e.g. orders-production",
-        "type": "Engine",
-        "address": "Address",
-        "types": {
-            "POSTGRESQL": "PostgreSQL",
-            "MYSQL": "MySQL",
-            "MARIADB": "MariaDB",
-            "SQLSERVER": "SQL Server",
-            "ORACLE": "Oracle",
-            "MONGODB": "MongoDB"
         },
-        "authTypes": {
-            "credentials": "Host and credentials",
-            "connectionString": "Connection string"
+        "mongoConnectionDescriptions": {
+            "connectionString": "The URI of an account allowed to create users, usually root with authSource=admin. Its hosts and options (replicaSet, tls...) are the ones the applications get.",
+            "atlasServiceAccount": "A service account of the Atlas project with the Project Owner role, and the cluster the databases are created on. Creating and dropping a database also go through the driver: the egress IP address of the Flightroom backend must be in the IP Access List of the Atlas project. Test only checks the Admin API.",
+            "azureServicePrincipal": "An Entra service principal with the DocumentDB Account Contributor role on the resource group of the account, and an account of the API for MongoDB (RU) with role-based access control on (EnableMongoRoleBasedAccessControl, in Features)."
         },
-        "fields": {
-            "authType": "Connection mode",
-            "host": "Host",
-            "port": "Port",
-            "database": "Database name",
-            "username": "Username",
-            "password": "Password",
-            "ssl": "Encrypted connection (SSL/TLS)",
-            "connectionString": "Connection string"
-        },
-        "basicInformation": "Basic information",
-        "basicInformationDescription": "What the database is called and which engine it runs",
-        "connection": "Connection",
-        "connectionDescription": "Where the database is and which account to reach it with",
-        "portInvalid": "The port must be a number between 1 and 65535",
-        "createSuccess": "Database connected",
-        "updateSuccess": "Database updated",
-        "deleteDescription": "Disconnect \"{{name}}\"? The database and its data are not touched.",
-        "securityNotice": "Security notice:",
-        "securityNoticeDescription": "Passwords and connection strings are encrypted at rest and never shown again: leave them as they are to keep the stored ones.",
-        "connectionStringPlaceholders": {
-            "POSTGRESQL": "postgres://user:password@host:5432/database",
-            "MYSQL": "mysql://user:password@host:3306/database",
-            "MARIADB": "mysql://user:password@host:3306/database",
-            "SQLSERVER": "Server=host,1433;Database=database;User Id=user;Password=password;Encrypt=true",
-            "ORACLE": "oracle://user:password@host:1521/service"
-        },
-        "errors": {
-            "secret_required": "Type the password or the connection string again: the stored one is only valid for the engine and the address it was saved with.",
-            "write_forbidden": "A read-only member cannot connect, edit, test or delete databases."
-        }
+        "mongoSecurityNoticeDescription": "They are encrypted at rest, never shown again and used only to create and remove the users of the databases created here. Each database gets a user that reaches it and nothing else."
     },
     "connectionTest": {
         "test": "Test connection",

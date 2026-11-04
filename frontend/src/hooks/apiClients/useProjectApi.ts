@@ -96,7 +96,6 @@ export interface ProjectSummaryDTO {
         apiKeys: number
         storages: number
         databases: number
-        mongoServers: number
     }
 }
 
@@ -215,7 +214,7 @@ const useProjectApi = () => {
             // The MongoDB servers are removed first, by hand: their databases live outside the console
             customErrorMessage: (error: Error) => {
                 const body = (error as AxiosError<{ error?: { code?: string; details?: { servers?: string[] } } }>)?.response?.data?.error
-                return body?.code === "PROJECT_HAS_MONGO_SERVERS" ? t("settings.dangerZone.delete.has_mongo_servers", { servers: body.details?.servers?.join(", ") }) : undefined
+                return body?.code === "PROJECT_HAS_PROVISIONED_DATABASES" ? t("settings.dangerZone.delete.has_provisioned_databases", { servers: body.details?.servers?.join(", ") }) : undefined
             }
         })
     }

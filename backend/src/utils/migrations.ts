@@ -1,21 +1,21 @@
 import { FastifyBaseLogger } from "fastify"
-import { Model, QueryFilter } from "mongoose"
+import mongoose, { Model, QueryFilter, Schema } from "mongoose"
 import AiModel, { AI_MODEL_SECRET_PATHS } from "../models/AiModelModel"
 import Backend from "../models/BackendModel"
 import CodeRepository, { CODE_REPOSITORY_SECRET_PATHS } from "../models/CodeRepositoryModel"
 import Configuration from "../models/ConfigurationModel"
-import Database, { DATABASE_SECRET_PATHS } from "../models/DatabaseModel"
+import Database, { DATABASE_SECRET_PATHS, DatabaseType } from "../models/DatabaseModel"
 import Deployment from "../models/DeploymentModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend, { FrontendKind } from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import MongoServer, { MONGO_SERVER_SECRET_PATHS } from "../models/MongoServerModel"
 import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
 import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
 import { WEEKDAYS } from "../types/KubeGreen"
+import { encryptedFields } from "./encryptedFieldsPlugin"
 import { isSecretEncryptionEnabled } from "./secretCrypto"
 
 /** Anything not carrying the marker written by secretCrypto is still a credential in the clear. */
@@ -49,7 +49,6 @@ export const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<v
         ["storage", Storage as unknown as SecretHolder, anyPlaintextIn(STORAGE_SECRET_PATHS) as SecretFilter],
         ["code repository", CodeRepository as unknown as SecretHolder, anyPlaintextIn(CODE_REPOSITORY_SECRET_PATHS) as SecretFilter],
         ["database", Database as unknown as SecretHolder, anyPlaintextIn(DATABASE_SECRET_PATHS) as SecretFilter],
-        ["MongoDB server", MongoServer as unknown as SecretHolder, anyPlaintextIn(MONGO_SERVER_SECRET_PATHS) as SecretFilter],
         ["provisioned database", ProvisionedDatabase as unknown as SecretHolder, anyPlaintextIn(["password"]) as SecretFilter],
         ["project", Project as unknown as SecretHolder, anyPlaintextIn(PROJECT_SECRET_PATHS) as SecretFilter],
         // `config` is Mixed and a provider without a secret access key has no such field: $exists in NOT_ENCRYPTED skips it
@@ -221,12 +220,64 @@ export const unsetFrontendDesignSystems = async (logger: FastifyBaseLogger): Pro
 }
 
 /**
+ * The MongoDB servers of 15.1.0, a model of their own until they became databases: read from their old collection
+ * through the encryption plugin under their old model name, the context their credentials were encrypted with, so
+ * that they come back in the clear and are encrypted again as a Database's when saved. A ciphertext cannot be moved
+ * as it is: it is bound to its model and its path.
+ */
+const legacyMongoServerSchema = new Schema({ projectId: Schema.Types.ObjectId, name: String, provider: String, connection: Schema.Types.Mixed }, { timestamps: true, collection: "mongoservers" })
+legacyMongoServerSchema.plugin(encryptedFields, { model: "MongoServer", paths: ["connection.connectionString", "connection.clientSecret"] })
+export const LegacyMongoServer = mongoose.models.LegacyMongoServer ?? mongoose.model("LegacyMongoServer", legacyMongoServerSchema)
+
+/** How each provider of a server is reached as a database */
+const AUTH_TYPE_OF_PROVIDER: Record<string, string> = { MONGODB: "connectionString", ATLAS: "atlasServiceAccount", COSMOS_MONGO_RU: "azureServicePrincipal" }
+
+/**
+ * Turns the MongoDB servers into databases of type MONGODB, with the same _id, and the serverId of the databases
+ * created on them into databaseId. Each server is moved, its records renamed, then the server removed from the old
+ * collection, one at a time: a run that stops half way leaves a server either still there (moved again, its
+ * Database kept if it was already written) or gone with its records renamed. A second run finds nothing to do.
+ * The unique index on the server and the name goes first: once the records lose serverId it would see them all
+ * under the same null server, and refuse the rename of two databases of the same name on two servers.
+ */
+export const moveMongoServersToDatabases = async (logger: FastifyBaseLogger): Promise<void> => {
+    await ProvisionedDatabase.collection.dropIndex("serverId_1_databaseName_1").catch(() => undefined)
+    let moved = 0
+    for await (const server of LegacyMongoServer.find().cursor()) {
+        const authType = AUTH_TYPE_OF_PROVIDER[server.provider as string]
+        if (!authType) {
+            logger.error({ serverId: String(server._id), provider: server.provider }, "A MongoDB server of an unknown provider was left where it is")
+            continue
+        }
+        if (!(await Database.exists({ _id: server._id }))) {
+            const connection = { authType, ...(server.connection as Record<string, unknown>) }
+            await new Database({ _id: server._id, projectId: server.projectId, name: server.name, type: DatabaseType.MONGODB, connection }).save()
+        }
+        await ProvisionedDatabase.collection.updateMany({ serverId: server._id }, { $rename: { serverId: "databaseId" } })
+        await LegacyMongoServer.deleteOne({ _id: server._id })
+        moved++
+    }
+    // The records of a server moved by a run that stopped before renaming them
+    const { modifiedCount } = await ProvisionedDatabase.collection.updateMany({ serverId: { $exists: true } }, { $rename: { serverId: "databaseId" } })
+    if (moved > 0 || modifiedCount > 0) {
+        // The index on the database and the name, which the boot may have tried to build before the rename
+        await ProvisionedDatabase.createIndexes()
+        logger.info(`Moved ${moved} MongoDB server(s) to the databases of their project`)
+    }
+}
+
+/**
  * Every data migration the application still needs, run once the database connection is up.
  *
  * A failure is logged and swallowed: none of these is required for the process to serve traffic, and
  * refusing to boot over one would take the whole console down for a data fix.
  */
 export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> => {
+    try {
+        await moveMongoServersToDatabases(logger)
+    } catch (error) {
+        logger.error({ error }, "Error while moving the MongoDB servers to the databases")
+    }
     try {
         await encryptStoredSecrets(logger)
     } catch (error) {

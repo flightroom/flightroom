@@ -11,6 +11,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 - **Continuous Deployment Per Container And Environment**: a backend or a DOCKER frontend turns on **Continuous deployment** for each environment next to its version (`continuousDeploymentEnvironmentIds` in the API and through MCP). There, every deploy writes `imagePullPolicy: Always` and the label `updatedAt` (the time of the deploy) on the pods: the values file changes at each deploy, so Argo CD syncs and the pods roll out pulling the image again, even when the tag is the same. With Argo CD, when the CI registers again the tag an environment deployed continuously runs, Flightroom refreshes its Application and restarts its Deployment there through Argo CD. The chart's `deployment.yaml` is updated on the branches where it was never changed; a template a team changed is left as it is and needs the two new blocks for it
 
+### Changed
+
+- **MongoDB Servers Are Databases**: the **MongoDB servers** page is now part of **Databases** (Settings → Infrastructure): a database of engine **MongoDB** is connected by **Connection string** (a self-hosted server), **Atlas service account** or **Azure Cosmos DB (Entra service principal)**, and its page shows **Created databases** with every rule of 15.1.0 kept (existing users and databases refused, the removal dialog, a database or a project with created databases not deleted, its address locked while it has some). The servers registered with 15.1.0 are moved at the first start, with their ids, credentials and created databases. Through MCP, `databases_list`, `database_get` and `database_test` cover the MongoDB ones and `mongo_servers_list`, `mongo_server_get` and `mongo_server_test` are gone; `provisioned_database_create` and `provisioned_databases_list` take `databaseId` in place of `serverId`. The routes are `/databases/:databaseId/provisioned-databases`
+
 ## [15.1.0] - 2026-11-04
 
 ### Added

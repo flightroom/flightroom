@@ -1,8 +1,8 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { DatabaseExistsError, DatabaseUserExistsError, UserLeftOnServerError } from "../client/MongoProvisioner"
+import Database from "../models/DatabaseModel"
 import Environment from "../models/EnvironmentModel"
-import MongoServer, { MongoServerProvider } from "../models/MongoServerModel"
 import Project from "../models/ProjectModel"
 import ProvisionedDatabase, { IProvisionedDatabase } from "../models/ProvisionedDatabaseModel"
 import Resource, { RESOURCE_SECRET_PATHS } from "../models/ResourceModel"
@@ -45,7 +45,7 @@ const development = new Types.ObjectId()
 const production = new Types.ObjectId()
 const APP_URI = "mongodb://report_dev:app-pw@db.internal/report_dev?authSource=report_dev"
 
-const server = { _id: serverId, projectId, name: "Shared cluster", provider: MongoServerProvider.MONGODB, connection: { connectionString: "mongodb://root:root-pw@db.internal/admin" } }
+const server = { _id: serverId, projectId, name: "Shared cluster", type: "MONGODB", connection: { authType: "connectionString", connectionString: "mongodb://root:root-pw@db.internal/admin" } }
 
 /** A mongodb resource reached by connection string, with a value of all and one override in production */
 const resource = (changes: object = {}) => ({
@@ -60,7 +60,7 @@ const resource = (changes: object = {}) => ({
 })
 
 const database = (changes: Partial<IProvisionedDatabase> = {}) => {
-    const document = new ProvisionedDatabase({ projectId, serverId, databaseName: "report_dev", username: "report_dev", password: "app-pw", ...changes })
+    const document = new ProvisionedDatabase({ projectId, databaseId: serverId, databaseName: "report_dev", username: "report_dev", password: "app-pw", ...changes })
     vi.spyOn(document, "save").mockResolvedValue(document)
     return document
 }
@@ -76,7 +76,7 @@ beforeEach(() => {
     vi.spyOn(base, "ensureAccessToProject").mockResolvedValue(undefined)
     vi.spyOn(base, "ensureNotViewer").mockResolvedValue(undefined)
     vi.spyOn(base, "ensureWholeProject").mockResolvedValue(undefined)
-    vi.spyOn(MongoServer, "findById").mockResolvedValue(server as never)
+    vi.spyOn(Database, "findById").mockResolvedValue(server as never)
     vi.spyOn(Resource, "findById").mockResolvedValue(resource() as never)
     vi.spyOn(Environment, "findById").mockResolvedValue({ _id: development, projectId, name: "dev" } as never)
     vi.spyOn(ProvisionedDatabase, "findOne").mockResolvedValue(null)
@@ -323,7 +323,7 @@ describe("ProvisionedDatabaseService.create", () => {
         const created = await new ProvisionedDatabaseService().create(String(serverId), { databaseName: " report_dev " })
 
         const { password } = create.mock.calls[0][0]
-        expect(create.mock.calls[0][0]).toMatchObject({ projectId, serverId, databaseName: "report_dev", username: "report_dev" })
+        expect(create.mock.calls[0][0]).toMatchObject({ projectId, databaseId: serverId, databaseName: "report_dev", username: "report_dev" })
         expect(password).toMatch(/^[A-Za-z0-9_-]{32}$/)
         expect(provisioner.ensureUser).toHaveBeenCalledWith("report_dev", "report_dev", password)
         expect(created.toFrontendObject().password).toBe(SECRET_PLACEHOLDER)
@@ -357,6 +357,14 @@ describe("ProvisionedDatabaseService.create", () => {
     ])("given %s, when a database is created, then it is refused and the server is not touched", async (_case, databaseName, code) => {
         await expect(new ProvisionedDatabaseService().create(String(serverId), { databaseName })).rejects.toMatchObject({ code })
         expect(provisioner.ensureUser).not.toHaveBeenCalled()
+    })
+
+    /** Creating databases is a capability of the connection: a SQL database has none yet */
+    it("given a SQL database, when a database is created on it, then it is refused and nothing is written", async () => {
+        vi.mocked(Database.findById).mockResolvedValue({ ...server, type: "POSTGRESQL", connection: { authType: "connectionString", connectionString: "postgres://db/orders" } } as never)
+
+        await expect(new ProvisionedDatabaseService().create(String(serverId), { databaseName: "report_dev" })).rejects.toMatchObject({ code: "DATABASE_PROVISIONING_NOT_SUPPORTED" })
+        expect(create).not.toHaveBeenCalled()
     })
 
     /** Its user would otherwise get a new password, while the record of the existing one keeps the old */

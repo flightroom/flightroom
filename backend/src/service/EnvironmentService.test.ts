@@ -13,13 +13,13 @@ vi.mock("../plugins/noSQL", () => ({ isReplicaSet: false }))
 
 import BackendDeployment from "../models/BackendDeploymentModel"
 import Backend from "../models/BackendModel"
+import Database from "../models/DatabaseModel"
 import Deployment from "../models/DeploymentModel"
 import DeploymentToCanaryUsers from "../models/DeploymentsToCanaryUsersModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import GlobalVariable from "../models/GlobalVariableModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import MongoServer from "../models/MongoServerModel"
 import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
 import { KUBE_GREEN_DEFAULT_DAYS } from "../types/KubeGreen"
@@ -311,7 +311,7 @@ describe("EnvironmentService.deleteSingle with provisioned databases", () => {
     const environmentId = newId()
     const serverId = newId()
     const resourceId = newId()
-    const linked = ["report_dev", "audit_dev", "billing_dev"].map(databaseName => ({ _id: newId(), databaseName, serverId, link: { resourceId, environmentId } }))
+    const linked = ["report_dev", "audit_dev", "billing_dev"].map(databaseName => ({ _id: newId(), databaseName, databaseId: serverId, link: { resourceId, environmentId } }))
 
     let unlink: ReturnType<typeof vi.fn>
     let remove: ReturnType<typeof vi.fn>
@@ -329,7 +329,7 @@ describe("EnvironmentService.deleteSingle with provisioned databases", () => {
     beforeEach(() => {
         vi.restoreAllMocks()
         vi.spyOn(ProvisionedDatabase, "find").mockResolvedValue(linked as never)
-        vi.spyOn(MongoServer, "find").mockResolvedValue([{ _id: serverId, name: "Shared cluster" }] as never)
+        vi.spyOn(Database, "find").mockResolvedValue([{ _id: serverId, name: "Shared cluster" }] as never)
         vi.spyOn(Resource, "find").mockResolvedValue([{ _id: resourceId, name: "report-steering" }] as never)
         vi.spyOn(Environment, "findOne").mockResolvedValue({ _id: environmentId, name: "Development" } as never)
         vi.spyOn(Environment, "findById").mockReturnValue({ session: () => Promise.resolve({ _id: environmentId }) } as never)

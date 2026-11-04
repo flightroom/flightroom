@@ -1,8 +1,8 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import Backend from "../models/BackendModel"
+import Database from "../models/DatabaseModel"
 import Environment from "../models/EnvironmentModel"
-import MongoServer from "../models/MongoServerModel"
 import Project from "../models/ProjectModel"
 import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
@@ -876,8 +876,8 @@ describe("ResourceService.update of a resource a provisioned database feeds", ()
         vi.spyOn(Resource, "findById").mockResolvedValue(resource as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
         vi.spyOn(Backend, "find").mockResolvedValue([] as never)
-        vi.mocked(ProvisionedDatabase.find).mockResolvedValue([{ databaseName: "report_dev", serverId, link: { resourceId, environmentId: development } }] as never)
-        vi.spyOn(MongoServer, "find").mockResolvedValue([{ _id: serverId, provider: "MONGODB", connection: { connectionString: "mongodb://root:pw@db/admin" } }] as never)
+        vi.mocked(ProvisionedDatabase.find).mockResolvedValue([{ databaseName: "report_dev", databaseId: serverId, link: { resourceId, environmentId: development } }] as never)
+        vi.spyOn(Database, "find").mockResolvedValue([{ _id: serverId, type: "MONGODB", connection: { authType: "connectionString", connectionString: "mongodb://root:pw@db/admin" } }] as never)
         write = vi.spyOn(Resource, "findOneAndUpdate").mockResolvedValue(resource as never) as unknown as ReturnType<typeof vi.fn>
     })
 
@@ -954,7 +954,7 @@ describe("ResourceService.update racing a link", () => {
             secrets: [{ field: "connectionString", value: "mongodb://shared", overrides: [{ environmentId: development, value: APP_URI }] }],
             updatedAt: new Date(2)
         }
-        vi.mocked(ProvisionedDatabase.find).mockResolvedValue([{ databaseName: "report_dev", serverId, link: { resourceId, environmentId: development } }] as never)
+        vi.mocked(ProvisionedDatabase.find).mockResolvedValue([{ databaseName: "report_dev", databaseId: serverId, link: { resourceId, environmentId: development } }] as never)
     }
 
     beforeEach(() => {
@@ -973,7 +973,7 @@ describe("ResourceService.update racing a link", () => {
         vi.spyOn(Resource, "findById").mockImplementation((async () => ({ ...current })) as never)
         vi.spyOn(Environment, "find").mockResolvedValue([{ _id: development }, { _id: production }] as never)
         vi.spyOn(Backend, "find").mockResolvedValue([] as never)
-        vi.spyOn(MongoServer, "find").mockResolvedValue([{ _id: serverId, provider: "MONGODB", connection: { connectionString: "mongodb://root:pw@db/admin" } }] as never)
+        vi.spyOn(Database, "find").mockResolvedValue([{ _id: serverId, type: "MONGODB", connection: { authType: "connectionString", connectionString: "mongodb://root:pw@db/admin" } }] as never)
         vi.spyOn(Resource, "findOneAndUpdate").mockImplementation((async (filter: { updatedAt: Date }, update: { $set: Record<string, unknown> }) => {
             if (!linkLanded) land()
             if (filter.updatedAt.getTime() !== (current.updatedAt as Date).getTime()) return null

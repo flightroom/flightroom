@@ -1,10 +1,11 @@
 import { ObjectId, Schema } from "mongoose"
+import { provisionerOf } from "../client/databaseProvisioners"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
+import Database from "../models/DatabaseModel"
 import Environment from "../models/EnvironmentModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
-import MongoServer from "../models/MongoServerModel"
 import { CONTEXT_MAX_LENGTH } from "../models/ProjectModel"
 import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource, { IResource, IResourceValue, RESOURCE_WRITE_ATTEMPTS, unchangedSince } from "../models/ResourceModel"
@@ -31,7 +32,6 @@ import { toObjectId } from "../utils/mongooseUtils"
 import { isEncryptedSecret, SECRET_PLACEHOLDER } from "../utils/secretCrypto"
 import { parseApiDocument } from "./aiChange/apiSpecReader"
 import BaseAuthorizedService, { domainScopeForbidden } from "./BaseAuthorizedService"
-import { provisionerOf } from "./MongoServerService"
 import { ensureArgoCdInitialized, ensureNoKeyClash, KeyedMap, keysOnly, resourceKeys, resourceNaming } from "./VariableMapService"
 
 /** As for a value of a config map: well past any real credential, short of a document Mongo would refuse */
@@ -504,14 +504,14 @@ export class ResourceService extends BaseAuthorizedService {
         const refuse = (message: string): never => {
             throw createBusinessException({
                 code: "RESOURCE_LINKED_TO_PROVISIONED_DATABASE",
-                message: `${message}: unlink ${linked.map(database => database.databaseName).join(", ")} from its MongoDB server first`,
+                message: `${message}: unlink ${linked.map(database => database.databaseName).join(", ")} from the database it was created on first`,
                 statusCode: 409,
                 details: { provisionedDatabases: linked.map(database => database.databaseName) }
             })
         }
         if (variantChanged) refuse(`"${resource.name}" is fed by provisioned databases, which need the variant ${resource.variant}`)
 
-        const servers = await MongoServer.find({ _id: { $in: linked.map(database => database.serverId) } })
+        const servers = await Database.find({ _id: { $in: linked.map(database => database.databaseId) } })
         type Field = { field: string; overrides: Array<{ environmentId: unknown; value: string }> }
         const overrideOf = (lists: Array<Field[] | undefined>, field: string, environment: string) =>
             lists
@@ -519,9 +519,9 @@ export class ResourceService extends BaseAuthorizedService {
                 .find(candidate => candidate.field === field)
                 ?.overrides.find(override => String(override.environmentId) === environment)?.value
         for (const database of linked) {
-            const server = servers.find(candidate => String(candidate._id) === String(database.serverId))
+            const server = servers.find(candidate => String(candidate._id) === String(database.databaseId))
             const environment = String(database.link?.environmentId)
-            for (const field of server ? provisionerOf(server).resource.fields : []) {
+            for (const field of (server && provisionerOf(server)?.resource.fields) || []) {
                 const before = overrideOf([resource.values, resource.secrets], field, environment)
                 const after = overrideOf([fields.values ?? resource.values, fields.secrets ?? resource.secrets], field, environment)
                 if (before !== after) refuse(`${field} is set by ${database.databaseName} in its environment`)

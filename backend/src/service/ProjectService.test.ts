@@ -9,12 +9,13 @@ vi.mock("..", () => ({
 
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend from "../models/BackendModel"
+import Database from "../models/DatabaseModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
-import MongoServer from "../models/MongoServerModel"
 import Organization from "../models/OrganizationModel"
 import Project from "../models/ProjectModel"
+import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import { IUser } from "../models/UserModel"
 import UserOrganization, { RoleInOrganization } from "../models/UserOrganizationModel"
 import UserProject from "../models/UserProjectModel"
@@ -740,16 +741,17 @@ describe("delete", () => {
         vi.restoreAllMocks()
     })
 
-    /** Their databases and users live outside the console: what becomes of them is chosen by removing them first */
-    it("given a project with MongoDB servers, when it is deleted, then it is refused naming them and nothing is removed", async () => {
+    /** Those databases and their users live outside the console: what becomes of them is chosen by removing them first */
+    it("given a project with databases created on its connected databases, when it is deleted, then it is refused naming those and nothing is removed", async () => {
         const service = new ProjectService({ _id: new Types.ObjectId() } as never)
         const gate = service as unknown as { ensureAccessToProject: () => Promise<void>; ensureWholeProject: () => Promise<void> }
         vi.spyOn(gate, "ensureAccessToProject").mockResolvedValue()
         vi.spyOn(gate, "ensureWholeProject").mockResolvedValue()
-        vi.spyOn(MongoServer, "find").mockResolvedValue([{ name: "Shared cluster" }, { name: "Atlas" }] as never)
+        vi.spyOn(ProvisionedDatabase, "find").mockResolvedValue([{ databaseId: new Types.ObjectId() }] as never)
+        vi.spyOn(Database, "find").mockResolvedValue([{ name: "Shared cluster" }, { name: "Atlas" }] as never)
         const removed = vi.spyOn(UserProject, "deleteMany")
 
-        await expect(service.delete(projectId)).rejects.toMatchObject({ code: "PROJECT_HAS_MONGO_SERVERS", statusCode: 409, details: { servers: ["Shared cluster", "Atlas"] } })
+        await expect(service.delete(projectId)).rejects.toMatchObject({ code: "PROJECT_HAS_PROVISIONED_DATABASES", statusCode: 409, details: { servers: ["Shared cluster", "Atlas"] } })
         expect(removed).not.toHaveBeenCalled()
     })
 })

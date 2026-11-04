@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
-import { DatabaseType } from "../models/DatabaseModel"
+import { DatabaseType, SqlDatabaseType } from "../models/DatabaseModel"
 import { databaseTargetOf, testDatabaseConnection } from "./SqlDatabaseClient"
 
 /**
@@ -118,7 +118,7 @@ describe("databaseTargetOf", () => {
         ["mariadb://app:pw@db.internal/orders", DatabaseType.MYSQL, 3306],
         ["oracle://app:pw@db.internal/ORCLPDB1", DatabaseType.ORACLE, 1521]
     ])("given %s without a port, when it is read, then the engine's default port is the target's", async (connectionString, type, port) => {
-        expect(await databaseTargetOf(type, fromString(connectionString))).toMatchObject({ host: "db.internal", port, ssl: false })
+        expect(await databaseTargetOf(type as SqlDatabaseType, fromString(connectionString))).toMatchObject({ host: "db.internal", port, ssl: false })
     })
 
     it.each([
@@ -127,7 +127,7 @@ describe("databaseTargetOf", () => {
         ["ssl=true", "mysql://app:pw@db.internal/orders?ssl=true", DatabaseType.MYSQL, true],
         ["ssl=false", "mysql://app:pw@db.internal/orders?ssl=false", DatabaseType.MYSQL, false]
     ])("given a URL with %s, when it is read, then SSL is asked for accordingly", async (_case, connectionString, type, ssl) => {
-        expect(await databaseTargetOf(type, fromString(connectionString))).toMatchObject({ ssl })
+        expect(await databaseTargetOf(type as SqlDatabaseType, fromString(connectionString))).toMatchObject({ ssl })
     })
 
     it("given a URL with an IPv6 host and an encoded database, when it is read, then the brackets are dropped and the name decoded", async () => {
@@ -175,7 +175,7 @@ describe("databaseTargetOf", () => {
         ["port 65536", DatabaseType.MYSQL, { ...credentials, port: 65536 }],
         ["a fractional port", DatabaseType.MYSQL, { ...credentials, port: 3306.5 }]
     ])("given %s, when it is read, then it is refused", async (_case, type, connection) => {
-        await expect(databaseTargetOf(type, connection as never)).rejects.toThrow()
+        await expect(databaseTargetOf(type as SqlDatabaseType, connection as never)).rejects.toThrow()
     })
 
     it.each([
@@ -230,7 +230,7 @@ describe("testDatabaseConnection on PostgreSQL", () => {
 
 describe("testDatabaseConnection on MySQL and MariaDB", () => {
     it.each([DatabaseType.MYSQL, DatabaseType.MARIADB])("given %s without SSL, when the connection is tested, then the MySQL driver connects without TLS nor local files", async type => {
-        await testDatabaseConnection(type, target({ port: 3306 }))
+        await testDatabaseConnection(type as SqlDatabaseType, target({ port: 3306 }))
 
         expect(driver.mysql.createConnection).toHaveBeenCalledWith({
             host: "db.internal",

@@ -1,4 +1,4 @@
-import { DatabaseConnection, DatabaseType } from "../models/DatabaseModel"
+import { DatabaseType, SqlDatabaseConnection, SqlDatabaseType } from "../models/DatabaseModel"
 import { withTimeout } from "../utils/connectionTest"
 
 /** How long a connection attempt may take before the database counts as unreachable */
@@ -19,7 +19,7 @@ export interface DatabaseTarget {
     ssl: boolean
 }
 
-const DEFAULT_PORT: Record<DatabaseType, number> = {
+const DEFAULT_PORT: Record<SqlDatabaseType, number> = {
     [DatabaseType.POSTGRESQL]: 5432,
     [DatabaseType.MYSQL]: 3306,
     [DatabaseType.MARIADB]: 3306,
@@ -27,7 +27,7 @@ const DEFAULT_PORT: Record<DatabaseType, number> = {
     [DatabaseType.ORACLE]: 1521
 }
 
-const URL_SCHEMES: Partial<Record<DatabaseType, string[]>> = {
+const URL_SCHEMES: Partial<Record<SqlDatabaseType, string[]>> = {
     [DatabaseType.POSTGRESQL]: ["postgres:", "postgresql:"],
     [DatabaseType.MYSQL]: ["mysql:", "mariadb:"],
     [DatabaseType.MARIADB]: ["mysql:", "mariadb:"],
@@ -43,7 +43,7 @@ const ORACLE_SERVICE = /^[A-Za-z0-9_.$#-]+$/
 const SSL_MODES = ["require", "verify-ca", "verify-full"]
 
 /** Its error messages never quote the string: it carries the password */
-const urlTargetOf = (type: DatabaseType, connectionString: string): DatabaseTarget => {
+const urlTargetOf = (type: SqlDatabaseType, connectionString: string): DatabaseTarget => {
     const schemes = URL_SCHEMES[type] ?? []
     let url: URL
     try {
@@ -82,7 +82,7 @@ const sqlServerTargetOf = async (connectionString: string): Promise<DatabaseTarg
  * The target of a test, checked. The account is required even where a driver would do without: pg falls
  * back on the server's own PGPASSWORD, PGDATABASE and ~/.pgpass, and would hand them to the host tested.
  */
-export const databaseTargetOf = async (type: DatabaseType, connection: DatabaseConnection): Promise<DatabaseTarget> => {
+export const databaseTargetOf = async (type: SqlDatabaseType, connection: SqlDatabaseConnection): Promise<DatabaseTarget> => {
     const target =
         connection.authType === "credentials"
             ? { host: connection.host, port: connection.port, database: connection.database, user: connection.username, password: connection.password, ssl: connection.ssl }
@@ -165,7 +165,7 @@ const testOracle = async (target: DatabaseTarget): Promise<void> => {
     }
 }
 
-const TESTERS: Record<DatabaseType, (target: DatabaseTarget) => Promise<void>> = {
+const TESTERS: Record<SqlDatabaseType, (target: DatabaseTarget) => Promise<void>> = {
     [DatabaseType.POSTGRESQL]: testPostgres,
     [DatabaseType.MYSQL]: testMysql,
     [DatabaseType.MARIADB]: testMysql,
@@ -178,7 +178,7 @@ const TESTERS: Record<DatabaseType, (target: DatabaseTarget) => Promise<void>> =
  * driver said when that fails. The drivers are loaded on the first test, not at boot: most installations
  * never connect a database.
  */
-export const testDatabaseConnection = async (type: DatabaseType, connection: DatabaseConnection): Promise<void> => {
+export const testDatabaseConnection = async (type: SqlDatabaseType, connection: SqlDatabaseConnection): Promise<void> => {
     const target = await databaseTargetOf(type, connection)
     await withTimeout(TESTERS[type](target), 3 * CONNECT_TIMEOUT_MS, "The connection test")
 }

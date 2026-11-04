@@ -1,8 +1,8 @@
 import { AxiosError } from "axios"
 import { useTranslation } from "react-i18next"
 import useApiClient from "../useApiClient"
+import { type EnvironmentDatabasesChoice, useDatabaseErrorTranslation } from "./useDatabaseApi"
 import useGitOpsErrorMessage from "./useGitOpsErrorMessage"
-import { type EnvironmentDatabasesChoice, useMongoServerErrorTranslation } from "./useMongoServersApi"
 
 /** Come per il backend (LOG_LEVELS): dal più verboso */
 export const LOG_LEVELS = ["trace", "debug", "info", "warn", "error", "fatal"] as const
@@ -108,12 +108,12 @@ export const promotes = (row: PromotionRow) => Boolean(row.from) && row.from !==
 /** The refusals of a delete about the databases created on a MongoDB server that feed a resource in the environment */
 const useEnvironmentDeleteErrorMessage = () => {
     const { t } = useTranslation()
-    const translateDatabaseError = useMongoServerErrorTranslation()
+    const translateDatabaseError = useDatabaseErrorTranslation()
     return (error: Error): string | undefined => {
         const response = (error as AxiosError<{ error?: { code?: string; message?: string; details?: { done?: string[]; failed?: string; reason?: string; code?: string } } }>)?.response
         const body = response?.data?.error
         // The limiter of a delete reaching the servers of its databases answers with no code of ours
-        if (response?.status === 429 && !body?.code) return t("mongoServers.errors.rate_limited")
+        if (response?.status === 429 && !body?.code) return t("database.errors.rate_limited")
         switch (body?.code) {
             case "ENVIRONMENT_PROVISIONED_DATABASES_CHOICE_INVALID":
                 return t("environment.page.delete.databases.errors.choice_invalid")

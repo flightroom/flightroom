@@ -1,12 +1,3 @@
-import { MongoServerConnection, MongoServerProvider } from "../models/MongoServerModel"
-
-/** A credential sent as the placeholder the API answers with keeps the stored one */
-export interface MongoServerDTO {
-    name: string
-    provider: MongoServerProvider
-    connection: MongoServerConnection
-}
-
 /** A database to create on a server, and optionally the resource and environment it feeds from the start */
 export interface ProvisionedDatabaseCreateDTO {
     databaseName: string

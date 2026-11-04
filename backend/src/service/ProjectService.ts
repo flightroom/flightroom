@@ -18,9 +18,9 @@ import Environment from "../models/EnvironmentModel"
 import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import MaintenanceRun from "../models/MaintenanceRunModel"
-import MongoServer from "../models/MongoServerModel"
 import Organization from "../models/OrganizationModel"
 import Project, { IProject } from "../models/ProjectModel"
+import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
 import Storage from "../models/StorageModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
@@ -372,7 +372,6 @@ export interface ProjectSummaryDTO {
         apiKeys: number
         storages: number
         databases: number
-        mongoServers: number
         codeRepositories: number
     }
 }
@@ -470,7 +469,6 @@ export class ProjectService extends BaseAuthorizedService {
                 apiKeys: await ApiKey.countDocuments({ projectId: projectIdObj }),
                 storages: await Storage.countDocuments({ projectId: projectIdObj }),
                 databases: await Database.countDocuments({ projectId: projectIdObj }),
-                mongoServers: await MongoServer.countDocuments({ projectId: projectIdObj }),
                 codeRepositories: await CodeRepository.countDocuments({ projectId: projectIdObj })
             }
         }
@@ -736,17 +734,18 @@ export class ProjectService extends BaseAuthorizedService {
     }
 
     /**
-     * Refused while the project has MongoDB servers: their databases and users live outside the console, and what
-     * becomes of them is chosen by removing them first, never by a cascade nobody looked at.
+     * Refused while databases were created on connected databases of the project: they and their users live outside
+     * the console, and what becomes of them is chosen by removing them first, never by a cascade nobody looked at.
      */
     async delete(projectId: string): Promise<DeleteResult> {
         await this.ensureAccessToProject(projectId)
         await this.ensureWholeProject(projectId)
-        const servers = await MongoServer.find({ projectId: toObjectId(projectId) }, { name: 1 })
-        if (servers.length > 0) {
+        const provisioned = await ProvisionedDatabase.find({ projectId: toObjectId(projectId) }, { databaseId: 1 })
+        if (provisioned.length > 0) {
+            const servers = await Database.find({ _id: { $in: provisioned.map(database => database.databaseId) } }, { name: 1 })
             throw createBusinessException({
-                code: "PROJECT_HAS_MONGO_SERVERS",
-                message: `The project has MongoDB servers (${servers.map(server => server.name).join(", ")}): remove their databases and the servers first`,
+                code: "PROJECT_HAS_PROVISIONED_DATABASES",
+                message: `Databases were created on ${servers.map(server => server.name).join(", ")}: remove them first`,
                 statusCode: 409,
                 details: { servers: servers.map(server => server.name) }
             })

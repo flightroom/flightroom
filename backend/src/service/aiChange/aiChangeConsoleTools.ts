@@ -12,7 +12,7 @@ import { AiChangeAgentConsoleTools } from "./aiChangeAgentTypes"
 
 /**
  * Read tools of the MCP catalog the coding agent never gets, read-only as they are. Those holding or reaching
- * credentials, masked or not: secrets, storages, databases and MongoDB servers, the repository connections with the tokens of the git
+ * credentials, masked or not: secrets, storages, databases and those created on them, the repository connections with the tokens of the git
  * providers, the npmrc of a design system, and where to clone a repository it already has a working copy of. And
  * those that help no change to the code, whose definitions it would pay for on every round: what other members
  * spent on AI, canary users, templates, the catalog of resource types, links between domains, dependency and
@@ -24,8 +24,6 @@ export const EXECUTOR_EXCLUDED_TOOLS = new Set([
     "storage_get",
     "databases_list",
     "database_get",
-    "mongo_servers_list",
-    "mongo_server_get",
     "provisioned_databases_list",
     "provisioned_database_get",
     "design_system_npmrc_get",

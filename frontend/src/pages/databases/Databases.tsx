@@ -8,7 +8,7 @@ import { Button } from "@/components/atoms"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import { DeleteConfirmationDialog } from "@/components/ui/DeleteConfirmationDialog"
-import useDatabaseApi, { Database } from "@/hooks/apiClients/useDatabaseApi"
+import useDatabaseApi, { Database, DatabaseType } from "@/hooks/apiClients/useDatabaseApi"
 import useProjectStore from "@/store/useProjectStore"
 
 export const Databases: React.FC = () => {
@@ -28,9 +28,21 @@ export const Databases: React.FC = () => {
         navigate("/databases/new")
     }
 
-    // La stringa di connessione e' mascherata: si vede solo cosa si e' scelto, non dove punta
-    const addressOf = (database: Database) =>
-        database.connection.authType === "credentials" ? `${database.connection.host}:${database.connection.port}/${database.connection.database}` : t("database.authTypes.connectionString")
+    // La stringa di connessione e' mascherata: si vede solo cosa si e' scelto, non dove punta. Di Atlas si vede il
+    // cluster, di Cosmos DB l'account, che non sono credenziali
+    const addressOf = (database: Database) => {
+        const { connection } = database
+        switch (connection.authType) {
+            case "credentials":
+                return `${connection.host}:${connection.port}/${connection.database}`
+            case "atlasServiceAccount":
+                return `${connection.groupId} / ${connection.clusterName}`
+            case "azureServicePrincipal":
+                return `${connection.resourceGroup} / ${connection.accountName}`
+            default:
+                return t("database.authTypes.connectionString")
+        }
+    }
 
     return (
         <ApiStatusHandler queries={[databasesQuery]}>
@@ -63,7 +75,11 @@ export const Databases: React.FC = () => {
                                         <DatabaseIcon className="h-6 w-6 text-muted-foreground" />
                                         {database.name}
                                     </TableCell>
-                                    <TableCell>{t(`database.types.${database.type}`)}</TableCell>
+                                    <TableCell>
+                                        {t(`database.types.${database.type}`)}
+                                        {/* MongoDB si raggiunge in tre modi: si dice quale */}
+                                        {database.type === DatabaseType.MONGODB && <span className="text-foreground-secondary"> · {t(`database.authTypes.${database.connection.authType}`)}</span>}
+                                    </TableCell>
                                     <TableCell className="font-mono text-sm">{addressOf(database)}</TableCell>
                                     <TableCell>
                                         <div className="flex justify-end gap-2">

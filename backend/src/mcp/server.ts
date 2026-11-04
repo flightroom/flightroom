@@ -23,12 +23,12 @@ import { frontendTools } from "./tools/frontendTools"
 import { localChangeTools } from "./tools/localChangeTools"
 import { logTools } from "./tools/logTools"
 import { maintenanceAgentTools } from "./tools/maintenanceAgentTools"
-import { mongoServerTools } from "./tools/mongoServerTools"
 import { organizationAdminTools } from "./tools/organizationAdminTools"
 import { organizationTools } from "./tools/organizationTools"
 import { projectAdminTools } from "./tools/projectAdminTools"
 import { projectContentTools } from "./tools/projectContentTools"
 import { projectTools } from "./tools/projectTools"
+import { provisionedDatabaseTools } from "./tools/provisionedDatabaseTools"
 import { repositoryTools } from "./tools/repositoryTools"
 import { resourceTools } from "./tools/resourceTools"
 import { scaffoldTools } from "./tools/scaffoldTools"
@@ -54,8 +54,8 @@ import { variableMapTools } from "./tools/variableMapTools"
  * (project deletion, members and invitations, organizations, API keys, MCP clients, bulk actions,
  * the canvas layout and AI code changes). The AI tokens a person spent are read through MCP too
  * (`user_ai_usage`): their own, or anyone's for an owner of the project. What stays in the console pages for the
- * assistant too: storages, databases, registering or editing a MongoDB server, repository connections, secret values, the
- * user profile and bundle upload (their input is a secret or a file). The databases created on a MongoDB server are offered,
+ * assistant too: storages, databases (MongoDB ones included), repository connections, secret values, the
+ * user profile and bundle upload (their input is a secret or a file). The databases created on a connected MongoDB are offered,
  * as their password is generated and never returned.
  */
 export const MCP_TOOLS: McpToolDefinition[] = [
@@ -72,7 +72,7 @@ export const MCP_TOOLS: McpToolDefinition[] = [
     ...localChangeTools,
     ...scaffoldTools,
     ...configurationTools,
-    ...mongoServerTools,
+    ...provisionedDatabaseTools,
     ...logTools,
     ...variableMapTools,
     ...resourceTools,

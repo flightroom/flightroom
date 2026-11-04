@@ -7,6 +7,7 @@ import GlobalVariablesService from "../../service/GlobalVariablesService"
 import { StorageService } from "../../service/StorageService"
 import { DatabaseDTO } from "../../types/DatabaseDTO"
 import { StorageDTO } from "../../types/StorageDTO"
+import { takeExternalCall } from "../../utils/externalCallLimiter"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, DESTRUCTIVE_EXTERNAL, defineTool, NO_INPUT, objectId, READ_ONLY, READ_ONLY_EXTERNAL, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 
@@ -185,7 +186,8 @@ export const configurationTools = [
     defineTool({
         name: "databases_list",
         title: "List databases",
-        description: "The SQL databases connected to the project. Credentials are masked; connecting or editing a database is only possible from the console.",
+        description:
+            "The databases connected to the project: SQL ones (type POSTGRESQL, MYSQL, MARIADB, SQLSERVER, ORACLE) and MongoDB ones (type MONGODB, by admin URI, Atlas service account or Azure Cosmos DB service principal), on which provisioned_database_create creates databases. Credentials are masked; connecting or editing a database is only possible from the console.",
         scope: MCP_SCOPE_READ,
         annotations: READ_ONLY,
         inputSchema: NO_INPUT,
@@ -203,13 +205,16 @@ export const configurationTools = [
     defineTool({
         name: "database_test",
         title: "Test database connection",
-        description: "Checks that a database connected to the project answers with its stored credentials. Says what failed otherwise. Nothing is changed.",
+        description:
+            "Checks that a database connected to the project answers with its stored credentials: a SQL one through its driver, a MongoDB one as a create of a database reaches it (for Atlas the Admin API only). Says what failed otherwise. Nothing is changed.",
         scope: MCP_SCOPE_WRITE,
         // Connects to the database with the stored credentials, as an update would: refused to viewers, and
         // under mfe:write like every tool that does. It changes nothing
         annotations: WRITE_EXTERNAL,
         inputSchema: z.object({ databaseId }),
         run: async (args, { principal }) => {
+            // It reaches the server, as the tools that create databases on it do: the same budget
+            takeExternalCall(String(principal._id))
             const service = new DatabaseService(principal)
             // The masked credentials stand for the stored ones, as when the console tests a saved database
             return service.testConnection((await service.getById(args.databaseId)).toFrontendObject() as unknown as DatabaseDTO, { databaseId: args.databaseId })

@@ -3,8 +3,8 @@ import { TriangleAlert } from "lucide-react"
 import { useId, useState } from "react"
 import { useTranslation } from "react-i18next"
 import { Button } from "@/components/atoms"
+import type { EnvironmentDatabasesChoice } from "@/hooks/apiClients/useDatabaseApi"
 import type { EnvironmentDTO } from "@/hooks/apiClients/useEnvironmentsApi"
-import type { EnvironmentDatabasesChoice } from "@/hooks/apiClients/useMongoServersApi"
 
 /** Un database creato su un server MongoDB che alimenta una risorsa nell'ambiente, con i nomi da mostrare */
 export interface LinkedDatabase {

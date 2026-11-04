@@ -1,18 +1,19 @@
 import { randomBytes } from "node:crypto"
 import { isValidObjectId, ObjectId, Schema } from "mongoose"
+import { provisionerOf } from "../client/databaseProvisioners"
 import { ClusterUnreachableError, DatabaseExistsError, DatabaseProvisioner, DatabaseUserExistsError, UserLeftOnServerError } from "../client/MongoProvisioner"
 import { createBusinessException } from "../errors/BusinessException"
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Database, { IDatabase } from "../models/DatabaseModel"
 import Environment from "../models/EnvironmentModel"
-import MongoServer, { IMongoServer } from "../models/MongoServerModel"
 import ProvisionedDatabase, { IProvisionedDatabase, PROVISIONED_DATABASE_NAME } from "../models/ProvisionedDatabaseModel"
 import Resource, { IResource, IResourceValue, RESOURCE_WRITE_ATTEMPTS, unchangedSince } from "../models/ResourceModel"
-import { PROVISIONED_DATABASE_DELETE_MODES, ProvisionedDatabaseCreateDTO, ProvisionedDatabaseDeleteMode, ProvisionedDatabaseLinkDTO } from "../types/MongoServerDTO"
+import { PROVISIONED_DATABASE_DELETE_MODES, ProvisionedDatabaseCreateDTO, ProvisionedDatabaseDeleteMode, ProvisionedDatabaseLinkDTO } from "../types/ProvisionedDatabaseDTO"
 import { resourceVariant } from "../types/ResourceCatalog"
 import { runConnectionTest } from "../utils/connectionTest"
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService from "./BaseAuthorizedService"
-import MongoServerService, { provisionerOf } from "./MongoServerService"
+import DatabaseService from "./DatabaseService"
 import { ensureArgoCdInitialized } from "./VariableMapService"
 
 /** 24 random bytes are 32 url-safe characters: nothing to escape in a URI, nothing a person types */
@@ -33,6 +34,7 @@ export type EnvironmentReleaseChoice = (typeof ENVIRONMENT_RELEASE_CHOICES)[numb
 export interface LinkedDatabaseSummary {
     id: string
     databaseName: string
+    /** The connected database it was created on */
     server?: string
     resource?: string
 }
@@ -134,20 +136,33 @@ const SERVER_UNREACHABLE = "The server could not be reached or refused to create
 
 /** The databases created on the MongoDB servers of a project, each with a user of its own, and the resources they feed */
 export class ProvisionedDatabaseService extends BaseAuthorizedService {
-    private servers(): MongoServerService {
-        return new MongoServerService(this.user)
+    /** The connected databases of the project, which the databases are created on */
+    private servers(): DatabaseService {
+        return new DatabaseService(this.user)
     }
 
-    async getByProjectId(projectId: string | Schema.Types.ObjectId, serverId?: string): Promise<IProvisionedDatabase[]> {
+    async getByProjectId(projectId: string | Schema.Types.ObjectId, databaseId?: string): Promise<IProvisionedDatabase[]> {
         const projectIdObj = toObjectId(projectId)
         await this.ensureAccessToProject(projectIdObj)
-        // Filtered by the project too: a server of another project lists nothing
-        return ProvisionedDatabase.find({ projectId: projectIdObj, ...(serverId !== undefined && { serverId: toObjectId(serverId) }) }).sort({ databaseName: 1 })
+        // Filtered by the project too: a database of another project lists nothing
+        return ProvisionedDatabase.find({ projectId: projectIdObj, ...(databaseId !== undefined && { databaseId: toObjectId(databaseId) }) }).sort({ databaseName: 1 })
     }
 
-    async getByServerId(serverId: string): Promise<IProvisionedDatabase[]> {
-        const server = await this.servers().getById(serverId)
-        return ProvisionedDatabase.find({ serverId: server._id }).sort({ databaseName: 1 })
+    async getByDatabaseId(databaseId: string): Promise<IProvisionedDatabase[]> {
+        const server = await this.servers().getById(databaseId)
+        return ProvisionedDatabase.find({ databaseId: server._id }).sort({ databaseName: 1 })
+    }
+
+    /** What creates databases on a connected database; refused for one whose engine or connection cannot */
+    private provisionerOf(server: IDatabase): DatabaseProvisioner {
+        const provisioner = provisionerOf(server)
+        if (!provisioner) {
+            throw createBusinessException({
+                code: "DATABASE_PROVISIONING_NOT_SUPPORTED",
+                message: `Databases cannot be created on "${server.name}": only a MongoDB connection can create them for now`
+            })
+        }
+        return provisioner
     }
 
     async getById(id: string | ObjectId): Promise<IProvisionedDatabase> {
@@ -250,9 +265,9 @@ export class ProvisionedDatabaseService extends BaseAuthorizedService {
         }
     }
 
-    private async provisionerFor(database: IProvisionedDatabase): Promise<{ server: IMongoServer; provisioner: DatabaseProvisioner }> {
-        const server = await this.servers().getById(database.serverId)
-        return { server, provisioner: provisionerOf(server) }
+    private async provisionerFor(database: IProvisionedDatabase): Promise<{ server: IDatabase; provisioner: DatabaseProvisioner }> {
+        const server = await this.servers().getById(database.databaseId)
+        return { server, provisioner: this.provisionerOf(server) }
     }
 
     /**
@@ -265,12 +280,12 @@ export class ProvisionedDatabaseService extends BaseAuthorizedService {
      * nothing is dropped here: a user it refused is someone else's. That failure is told without what the
      * server said, which only the rate-limited test of the server shows.
      */
-    async create(serverId: string, dto: ProvisionedDatabaseCreateDTO): Promise<IProvisionedDatabase> {
+    async create(databaseId: string, dto: ProvisionedDatabaseCreateDTO): Promise<IProvisionedDatabase> {
         // See createOnServer for what a failure leaves behind
         const servers = this.servers()
-        const server = await servers.getById(serverId)
+        const server = await servers.getById(databaseId)
         await servers.ensureWritable(server.projectId)
-        const provisioner = provisionerOf(server)
+        const provisioner = this.provisionerOf(server)
 
         const databaseName = typeof dto?.databaseName === "string" ? dto.databaseName.trim() : ""
         if (!PROVISIONED_DATABASE_NAME.test(databaseName)) {
@@ -291,7 +306,7 @@ export class ProvisionedDatabaseService extends BaseAuthorizedService {
         const password = generateDatabasePassword()
         let database: IProvisionedDatabase
         try {
-            database = await ProvisionedDatabase.create({ projectId: server.projectId, serverId: server._id, databaseName, username: databaseName, password })
+            database = await ProvisionedDatabase.create({ projectId: server.projectId, databaseId: server._id, databaseName, username: databaseName, password })
         } catch (error) {
             if (isDuplicateKeyError(error)) {
                 throw createBusinessException({ code: DATABASE_EXISTS, message: `${databaseName} already exists on "${server.name}"`, statusCode: 409 })
@@ -449,15 +464,15 @@ export class ProvisionedDatabaseService extends BaseAuthorizedService {
         return databases.sort((first, second) => first.databaseName.localeCompare(second.databaseName))
     }
 
-    /** The databases with the names of their server and of the resource they feed, for a refusal the console shows as it is */
+    /** The databases with the names of the connected database they were created on and of the resource they feed, for a refusal the console shows as it is */
     async summaryOf(databases: IProvisionedDatabase[]): Promise<LinkedDatabaseSummary[]> {
-        const servers = await MongoServer.find({ _id: { $in: databases.map(database => database.serverId) } }, { name: 1 })
+        const servers = await Database.find({ _id: { $in: databases.map(database => database.databaseId) } }, { name: 1 })
         const resources = await Resource.find({ _id: { $in: databases.flatMap(database => (database.link?.resourceId ? [database.link.resourceId] : [])) } }, { name: 1 })
         const nameIn = (documents: Array<{ _id: unknown; name: string }>, id: unknown) => documents.find(document => String(document._id) === String(id))?.name
         return databases.map(database => ({
             id: String(database._id),
             databaseName: database.databaseName,
-            server: nameIn(servers, database.serverId),
+            server: nameIn(servers, database.databaseId),
             resource: nameIn(resources, database.link?.resourceId)
         }))
     }

@@ -1,11 +1,11 @@
 import { FastifyInstance, FastifyRequest } from "fastify"
 import ProjectHeaderNotFoundError from "../errors/ProjectHeaderNotFoundError"
 import ProvisionedDatabaseService from "../service/ProvisionedDatabaseService"
-import { ProvisionedDatabaseCreateDTO, ProvisionedDatabaseLinkDTO, reachesServers } from "../types/MongoServerDTO"
+import { ProvisionedDatabaseCreateDTO, ProvisionedDatabaseLinkDTO, reachesServers } from "../types/ProvisionedDatabaseDTO"
 import { CONNECTION_TEST_ROUTE_CONFIG } from "../utils/connectionTest"
 import { getProjectIdFromRequest } from "../utils/requestUtils"
 
-/** Each of these reaches the server of the database: they share the budget of the connection tests */
+/** Each of these reaches the server the database is created on: they share the budget of the connection tests */
 const EXTERNAL = { config: CONNECTION_TEST_ROUTE_CONFIG }
 /** A removal "from Flightroom only" reaches no server: it is not counted */
 const REMOVAL = {
@@ -16,17 +16,18 @@ const REMOVAL = {
 }
 
 export default async function provisionedDatabaseController(fastify: FastifyInstance) {
-    fastify.get<{ Params: { mongoServerId: string } }>("/mongo-servers/:mongoServerId/databases", async (request, reply) => {
-        const databases = await new ProvisionedDatabaseService(request.databaseUser).getByServerId(request.params.mongoServerId)
+    // The databases created on one connected database of the project
+    fastify.get<{ Params: { databaseId: string } }>("/databases/:databaseId/provisioned-databases", async (request, reply) => {
+        const databases = await new ProvisionedDatabaseService(request.databaseUser).getByDatabaseId(request.params.databaseId)
         return reply.send(databases.map(database => database.toFrontendObject()))
     })
 
-    fastify.post<{ Body: ProvisionedDatabaseCreateDTO; Params: { mongoServerId: string } }>("/mongo-servers/:mongoServerId/databases", EXTERNAL, async (request, reply) => {
-        const database = await new ProvisionedDatabaseService(request.databaseUser).create(request.params.mongoServerId, request.body)
+    fastify.post<{ Body: ProvisionedDatabaseCreateDTO; Params: { databaseId: string } }>("/databases/:databaseId/provisioned-databases", EXTERNAL, async (request, reply) => {
+        const database = await new ProvisionedDatabaseService(request.databaseUser).create(request.params.databaseId, request.body)
         return reply.send(database.toFrontendObject())
     })
 
-    // Every database of the project, whatever its server: what the resources read to say which of their environments one feeds
+    // Every created database of the project, whatever it was created on: what the resources read to say which of their environments one feeds
     fastify.get("/provisioned-databases", async (request, reply) => {
         const projectId = getProjectIdFromRequest(request)
         if (!projectId) {

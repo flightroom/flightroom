@@ -1,6 +1,6 @@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@flightroom/design-system"
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query"
-import { Activity, Bot, Database, FolderCog, GitBranch, HardDrive, Key, Palette, Rocket, Server, ServerCog, Settings2, Sparkles, Users } from "lucide-react"
+import { Activity, Bot, Database, FolderCog, GitBranch, HardDrive, Key, Palette, Rocket, Server, Settings2, Sparkles, Users } from "lucide-react"
 import React from "react"
 import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
@@ -328,12 +328,6 @@ export const Settings: React.FC = () => {
                                     title: t("settings.stats.databases"),
                                     value: projectQuery.data?.count?.databases,
                                     href: "/databases"
-                                },
-                                {
-                                    icon: <ServerCog />,
-                                    title: t("settings.stats.mongoServers"),
-                                    value: projectQuery.data?.count?.mongoServers,
-                                    href: "/mongo-servers"
                                 }
                             ]}
                         />

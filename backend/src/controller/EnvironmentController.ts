@@ -5,7 +5,7 @@ import EnvironmentPromotionService, { PromotionRequest } from "../service/Enviro
 import EnvironmentReplicasService from "../service/EnvironmentReplicasService"
 import EnvironmentService from "../service/EnvironmentService"
 import { EnvironmentDTO, EnvironmentOrderDTO } from "../types/EnvironmentDTO"
-import { reachesServers } from "../types/MongoServerDTO"
+import { reachesServers } from "../types/ProvisionedDatabaseDTO"
 import { CONNECTION_TEST_ROUTE_CONFIG } from "../utils/connectionTest"
 import { getProjectIdFromRequest } from "../utils/requestUtils"
 

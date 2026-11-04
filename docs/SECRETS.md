@@ -42,9 +42,8 @@ upload a bundle.
 | Where | Fields |
 | --- | --- |
 | `storages` | `secretAccessKey`, `accountKey`, `connectionString`, `clientSecret`, `jsonKey` |
-| `databases` | `password`, `connectionString` |
-| `mongoservers` | `connection.connectionString` (the admin URI of a self-hosted server), `connection.clientSecret` (the Atlas service account, or the Entra service principal of a Cosmos DB account) |
-| `provisioneddatabases` | `password`: the generated password of the user of a database created on a MongoDB server, never sent by the API |
+| `databases` | `password`, `connectionString` (for MongoDB the admin URI of a self-hosted server), `clientSecret` (the Atlas service account, or the Entra service principal of a Cosmos DB account) |
+| `provisioneddatabases` | `password`: the generated password of the user of a database created on a connected database, never sent by the API |
 | `coderepositories` | `accessToken`, `refreshToken` |
 | `deployments` | the same storage fields, inside the snapshot a deployment freezes |
 | `secrets` | the value of every key in every environment, of the secrets backends attach |
