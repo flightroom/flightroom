@@ -198,7 +198,11 @@ userSchema.methods.generateAuthToken = function (): AuthTokenDataDTO {
     }
 }
 
-export const getSecret = () => process.env.JWT_SECRET || "your-secret-key"
+export const getSecret = (): string => {
+    const secret = process.env.JWT_SECRET
+    if (!secret) throw new Error("JWT_SECRET is not set")
+    return secret
+}
 
 const User = mongoose.model<IUserDocument>("User", userSchema)
 export default User

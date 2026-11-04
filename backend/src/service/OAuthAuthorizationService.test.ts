@@ -1,5 +1,5 @@
 import { Model, Types } from "mongoose"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 import OAuthAuthorizationCode from "../models/OAuthAuthorizationCodeModel"
 import OAuthAuthorizationRequest from "../models/OAuthAuthorizationRequestModel"
 import OAuthClient, { OAuthClientRegistrationType } from "../models/OAuthClientModel"
@@ -14,6 +14,15 @@ import { getOAuthConfig } from "../utils/oauthConfig"
 import { computeS256Challenge, hashOpaqueToken } from "../utils/pkce"
 import OAuthAuthorizationService, { consentWarnings } from "./OAuthAuthorizationService"
 import { verifyMcpAccessToken } from "./OAuthTokenService"
+
+// The service signs/verifies MCP tokens via getSecret(), which no longer falls back to a public
+// secret: give the suite a valid JWT_SECRET so token minting works under the boot-check.
+beforeAll(() => {
+    vi.stubEnv("JWT_SECRET", "x".repeat(32))
+})
+afterAll(() => {
+    vi.unstubAllEnvs()
+})
 
 type Row = Record<string, unknown> & { _id: Types.ObjectId }
 

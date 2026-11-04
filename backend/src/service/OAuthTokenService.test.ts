@@ -1,12 +1,20 @@
 import { SignJWT } from "jose"
 import jwt from "jsonwebtoken"
-import { afterEach, describe, expect, it, vi } from "vitest"
+import { afterAll, afterEach, beforeAll, describe, expect, it, vi } from "vitest"
 import OAuthRefreshToken from "../models/OAuthRefreshTokenModel"
 import { getSecret, ISSUER } from "../models/UserModel"
 import { getOAuthConfig } from "../utils/oauthConfig"
 import { consumeRefreshToken, getMcpAccessTokenKey, signMcpAccessToken, verifyMcpAccessToken } from "./OAuthTokenService"
 
 const config = getOAuthConfig({ FRONTEND_URL: "https://console.example.com", MCP_ENABLED: "true" })
+
+beforeAll(() => {
+    vi.stubEnv("JWT_SECRET", "x".repeat(32))
+})
+
+afterAll(() => {
+    vi.unstubAllEnvs()
+})
 
 const CLAIMS = {
     userId: "6890f0b1c2d3e4f5a6b7c8d9",

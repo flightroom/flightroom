@@ -3,7 +3,7 @@ import { FastifyInstance, FastifyPluginOptions } from "fastify"
 import fastifyPlugin from "fastify-plugin"
 import { LlmConfiguration, resolveLlmProvider } from "../service/llm"
 import { OPENSHELL_DEFAULTS } from "../service/sandbox/OpenShellSandboxes"
-import { assertMcpConfigurationIsUsable } from "../utils/oauthConfig"
+import { assertJwtSecretIsUsable, assertMcpConfigurationIsUsable } from "../utils/oauthConfig"
 import { assertSecretEncryptionKeyIsUsable, isSecretEncryptionEnabled } from "../utils/secretCrypto"
 import { TELEMETRY_DEFAULT_ENDPOINT, TELEMETRY_DEFAULT_INTERVAL_HOURS } from "../utils/telemetry"
 
@@ -506,7 +506,8 @@ export default fastifyPlugin(
         // broken bucket rather than as a typo in the environment.
         assertSecretEncryptionKeyIsUsable()
 
-        // Same reasoning: a MCP server signing with the public fallback secret must not come up at all.
+        // Same reasoning: console and MCP tokens signed with a missing or public secret must not come up at all.
+        assertJwtSecretIsUsable()
         assertMcpConfigurationIsUsable()
 
         // A provider named without its credentials fails here, not at the first question. Read from

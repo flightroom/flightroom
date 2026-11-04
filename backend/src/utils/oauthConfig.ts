@@ -96,25 +96,27 @@ export const getOAuthConfig = (env: NodeJS.ProcessEnv = process.env): OAuthConfi
 }
 
 /** Values copied from examples: as good as public, so as good as no secret at all. */
-const PLACEHOLDER_SECRETS = ["change-me", "changeme", "your-secret-key", "secret"]
+export const PLACEHOLDER_SECRETS = ["change-me", "changeme", "your-secret-key", "secret"]
 /** HS256 keys shorter than the hash output weaken it (RFC 7518 §3.2). */
-const MIN_JWT_SECRET_BYTES = 32
+export const MIN_JWT_SECRET_BYTES = 32
 
 /**
- * Whether the boot may proceed with this environment.
- *
- * The console has always fallen back to a hard-coded JWT secret when none is set. With MCP on,
- * that fallback would also be the root of every MCP access token, which outlive a console session
- * and are handed to third-party clients: the boot refuses instead of starting with a public key.
+ * The console session tokens and, with MCP on, every MCP access token are signed with JWT_SECRET:
+ * the boot refuses a missing, placeholder or too short one instead of running on a public key.
  */
-export const assertMcpConfigurationIsUsable = (env: NodeJS.ProcessEnv = process.env): void => {
-    if (!parseBooleanFlag(env.MCP_ENABLED, false)) return
+export const assertJwtSecretIsUsable = (env: NodeJS.ProcessEnv = process.env): void => {
     if (!env.JWT_SECRET) {
-        throw new Error("MCP_ENABLED is set but JWT_SECRET is not: the MCP access tokens would be signed with the public fallback secret. Set JWT_SECRET.")
+        throw new Error("JWT_SECRET is not set: the console session tokens would be signed with a guessable secret. Generate one with: openssl rand -hex 32")
     }
     if (PLACEHOLDER_SECRETS.includes(env.JWT_SECRET.trim().toLowerCase()) || Buffer.byteLength(env.JWT_SECRET) < MIN_JWT_SECRET_BYTES) {
-        throw new Error(`MCP_ENABLED is set but JWT_SECRET is a placeholder or shorter than ${MIN_JWT_SECRET_BYTES} bytes. Generate one with: openssl rand -hex 32`)
+        throw new Error(`JWT_SECRET is a placeholder or shorter than ${MIN_JWT_SECRET_BYTES} bytes. Generate one with: openssl rand -hex 32`)
     }
+}
+
+/** Whether the boot may proceed with this environment as far as MCP is concerned (JWT_SECRET is checked apart). */
+export const assertMcpConfigurationIsUsable = (env: NodeJS.ProcessEnv = process.env): void => {
+    if (!parseBooleanFlag(env.MCP_ENABLED, false)) return
+    assertJwtSecretIsUsable(env)
     if (!env.FRONTEND_URL) {
         throw new Error("MCP_ENABLED is set but FRONTEND_URL is not: the consent page could not be reached.")
     }

@@ -1,7 +1,7 @@
 import { FastifyInstance, FastifyRequest } from "fastify"
 import { exportJWK, generateKeyPair, JSONWebKeySet, SignJWT } from "jose"
 import jwt from "jsonwebtoken"
-import { beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
+import { afterAll, beforeAll, beforeEach, describe, expect, it, vi } from "vitest"
 
 // Reached through UserService, which reads the app instance from the entry point:
 // importing that entry point would start the server.
@@ -66,10 +66,15 @@ let tenantPrivateKey: CryptoKey
 let anotherPrivateKey: CryptoKey
 
 beforeAll(async () => {
+    vi.stubEnv("JWT_SECRET", "x".repeat(32))
     const tenant = await generateKeyPair("RS256")
     tenantPrivateKey = tenant.privateKey
     anotherPrivateKey = (await generateKeyPair("RS256")).privateKey
     entraTenantKeys.jwks = { keys: [{ ...(await exportJWK(tenant.publicKey)), kid: "tenant-key", alg: "RS256" }] }
+})
+
+afterAll(() => {
+    vi.unstubAllEnvs()
 })
 
 /** An Entra ID token as Microsoft would sign it: RS256, with the key id of the tenant's key set. */
