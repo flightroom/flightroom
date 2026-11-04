@@ -2952,6 +2952,18 @@
             "replicas_other": "{{count}} repliche",
             "summary": "Cosa gira dove: la versione che ogni ambiente ha ricevuto con il suo ultimo deploy, o che riceverà con il prossimo."
         },
+        "schedule": {
+            "title": "Esecuzione",
+            "description": "Sempre attivo come servizio, oppure a orari fissi come cron: il container parte, fa il suo lavoro ed esce.",
+            "label": "Quando gira",
+            "always": "Sempre attivo",
+            "custom": "Personalizzato (cron)",
+            "always_hint": "Un servizio sempre acceso, raggiungibile dagli altri e dal suo URL.",
+            "scheduled_hint": "Gira come CronJob, negli orari del fuso {{timeZone}}: niente porta, probe né URL.",
+            "scheduled_hint_cluster": "Gira come CronJob, negli orari del fuso del cluster: niente porta, probe né URL.",
+            "cron_invalid": "Non è un'espressione cron: cinque campi oppure una macro come @daily",
+            "badge": "Cron · {{when}}"
+        },
         "urls": {
             "title": "Endpoint",
             "description": "Se è raggiungibile dall'esterno e su quale path: lo stesso sull'host di ogni ambiente. I percorsi di documentazione e OpenAPI sono relativi a questo indirizzo.",

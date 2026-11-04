@@ -7,6 +7,7 @@ import ProjectService from "../../service/ProjectService"
 import { attachedVariableKeys } from "../../service/VariableMapService"
 import BackendDTO from "../../types/BackendDTO"
 import { BACKEND_SLUG, BACKEND_VERSION } from "../../types/BackendStack"
+import { isValidSchedule } from "../../types/MaintenanceAgent"
 import { MCP_SCOPE_READ, MCP_SCOPE_WRITE } from "../../utils/oauthConfig"
 import { DESTRUCTIVE, defineTool, McpToolContext, objectId, READ_ONLY, WRITE, WRITE_EXTERNAL } from "../toolDefinition"
 import { domainFilter, filterByDomain, memberDomainId } from "./domainTools"
@@ -53,6 +54,15 @@ const backendFields = {
         .describe(
             "Variables the image reads from its environment, each with the value Flightroom injects into the container on every deploy: a new variable needs its value. A secret variable comes back without its value, with valueSet: send it back without value to keep it. A variable of the backend wins over a config map, a secret or a resource setting the same name, the platform's (HTTP_PORT, LOG_LEVEL, PUBLIC_URL...) win over it. Replaced as a whole"
         ),
+    schedule: z
+        .string()
+        .refine(value => !value.trim() || isValidSchedule(value), "five cron fields (minute hour day month weekday) or a macro such as @daily")
+        .nullable()
+        .optional()
+        .describe(
+            "Cron expression, e.g. 0 3 * * *: the backend runs as a Kubernetes CronJob, its container started on it, doing its work and exiting, with no port, probes, Service nor exposure path (it is cleared). Null or blank: always on, as a Deployment"
+        ),
+    timeZone: z.string().max(64).nullable().optional().describe("IANA time zone of the schedule, e.g. Europe/Rome; null for the one of the cluster"),
     // A backend only: a frontend never attaches a resource
     resourceIds: z
         .array(objectId("Id of a resource of the project, from resources_list"))

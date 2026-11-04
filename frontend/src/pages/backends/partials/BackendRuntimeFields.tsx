@@ -26,7 +26,8 @@ const RuntimeGroup: React.FC<{ group: "image" | "probes" | "docs" | "logs"; chil
 
 /** The port, the probes, the docs paths, the log level and the image repository of a container: a backend's, or a frontend's served by its own. */
 /** `probeSide`: whose template of the project the blank probe fields inherit, the backends' or the frontends' */
-export const BackendRuntimeFields: React.FC<{ probeSide?: ProbeSide }> = ({ probeSide = "backend" }) => {
+/** `scheduled`: a backend on a schedule starts, works and exits, so it has no port, probes nor API docs to show */
+export const BackendRuntimeFields: React.FC<{ probeSide?: ProbeSide; scheduled?: boolean }> = ({ probeSide = "backend", scheduled = false }) => {
     const { t } = useTranslation()
     // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
     const [repository, version, slug] = useWatch({ name: WATCHED_FIELDS }) as (string | undefined)[]
@@ -53,15 +54,19 @@ export const BackendRuntimeFields: React.FC<{ probeSide?: ProbeSide }> = ({ prob
             <CardContent className="flex flex-col gap-4 pt-3">
                 <RuntimeGroup group="image">
                     <TextField name="image.repository" label={t("backends.image_repository")} placeholder="ghcr.io/acme/orders-api" description={imageHint} />
-                    <TextField name="port" type="number" label={t("backends.port")} description={t("backends.port_hint")} required />
+                    {!scheduled && <TextField name="port" type="number" label={t("backends.port")} description={t("backends.port_hint")} required />}
                 </RuntimeGroup>
-                <RuntimeGroup group="probes">
-                    <ProbeFields side={probeSide} />
-                </RuntimeGroup>
-                <RuntimeGroup group="docs">
-                    <TextField name="docsPath" label={t("backends.docs_path")} placeholder="/docs" description={t("backends.docs_path_hint")} />
-                    <TextField name="openApiPath" label={t("backends.openapi_path")} placeholder="/openapi.json" description={t("backends.openapi_path_hint")} />
-                </RuntimeGroup>
+                {!scheduled && (
+                    <>
+                        <RuntimeGroup group="probes">
+                            <ProbeFields side={probeSide} />
+                        </RuntimeGroup>
+                        <RuntimeGroup group="docs">
+                            <TextField name="docsPath" label={t("backends.docs_path")} placeholder="/docs" description={t("backends.docs_path_hint")} />
+                            <TextField name="openApiPath" label={t("backends.openapi_path")} placeholder="/openapi.json" description={t("backends.openapi_path_hint")} />
+                        </RuntimeGroup>
+                    </>
+                )}
                 <RuntimeGroup group="logs">
                     <LogLevelOverrideField />
                 </RuntimeGroup>

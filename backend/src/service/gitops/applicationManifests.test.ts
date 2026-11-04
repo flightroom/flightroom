@@ -795,6 +795,60 @@ describe("containerEnvironment, variables of the backend", () => {
     })
 })
 
+describe("renderApplicationValues, backend on a schedule", () => {
+    const environment = { _id: new Types.ObjectId(), slug: "production" }
+    const mapNames = { configMaps: new Map<string, string>(), secrets: new Map<string, string>() }
+    const gateway = { name: "shop", listener: "https", hsts: true }
+    const backend = (fields: { schedule?: string | null; timeZone?: string | null }) =>
+        parse(
+            renderApplicationValues(
+                {
+                    slug: "nightly-export-be",
+                    environmentVersions: [{ environmentId: environment._id, version: "1.0.0" }],
+                    image: { repository: "ghcr.io/acme/nightly-export-be" },
+                    exposurePath: "/export",
+                    ...fields
+                },
+                environment,
+                mapNames,
+                gateway
+            )
+        )
+
+    it("given a schedule, when its values are rendered, then the CronJob runs its image on it, with no Deployment that runs, no Service and no route", () => {
+        const values = backend({ schedule: "0 3 * * *", timeZone: "Europe/Rome" })
+
+        expect(values.maintenance).toEqual({ schedule: "0 3 * * *", suspend: false, timeZone: "Europe/Rome" })
+        expect(values.replicas).toBe(0)
+        expect(values.expose).toEqual({ service: false })
+        expect(values.route).toBeUndefined()
+        expect(values.env.map((variable: { name: string }) => variable.name)).not.toContain("MAINTAINED_TARGETS")
+        expect(values.secrets).toEqual([])
+    })
+
+    it("given no schedule, when its values are rendered, then it is always on, with no CronJob", () => {
+        const values = backend({ schedule: null })
+
+        expect(values.maintenance).toBeUndefined()
+        expect(values.replicas).toBe(1)
+        expect(values.route).toMatchObject({ path: "/export" })
+    })
+
+    it("given a schedule, when its environment is built, then its container has no HTTP_PORT, which only the Deployment sets", () => {
+        const scheduled = { slug: "nightly-export-be", environmentVersions: [{ environmentId: "e1", version: "1.0.0" }], image: { repository: "ghcr.io/acme/x" }, schedule: "@daily" }
+        const services = { services: {}, configMaps: new Map(), secrets: new Map(), resources: new Map() }
+
+        expect(containerEnvironment(scheduled, { slug: "production" }, mapNames, services, "1.0.0").map(variable => variable.name)).not.toContain("HTTP_PORT")
+    })
+
+    it("given a schedule, when the URLs of the environment and its PUBLIC_URL are resolved, then it has neither: it has no Service", () => {
+        const scheduled = { slug: "nightly-export-be", environmentVersions: [{ environmentId: "e1", version: "1.0.0" }], image: { repository: "ghcr.io/acme/x" }, schedule: "@daily" }
+
+        expect(serviceUrls([scheduled], "e1")).toEqual({})
+        expect(containerPublicUrl("backend", { exposurePath: "/export", schedule: "@daily" }, "https://dev.example.com")).toBeUndefined()
+    })
+})
+
 describe("serviceUrls", () => {
     it.each([
         ["orders-be", "ORDERS_BE_URL"],

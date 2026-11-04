@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Added
+
+- **Run A Backend On A Schedule**: the **Runtime** tab of a backend has an **Execution** card with one choice: **Always on**, every hour, every day at 03:00, every Monday at 03:00, or a custom cron. On a schedule the backend is deployed as a Kubernetes CronJob that starts its image, lets it do its work and exit, in the browser's time zone: no port, probes, Service nor URL, and it leaves the `services.flightroom` ConfigMap. It reuses the chart's `cronjob.yaml` of the maintenance agents, so no chart file changes. `backend_create` and `backend_update` take `schedule` and `timeZone`; a schedule clears the exposure path
+
 ### Fixed
 
 - **kube-green Puts Argo CD Environments To Sleep**: the Applications of the backends and frontends ignore in the diff `spec.replicas` of the Deployments and `spec.suspend` of the CronJobs, so self-heal no longer brings back in seconds the pods kube-green scales to 0. A deploy now syncs those Applications explicitly, so a change of replicas alone still reaches the cluster; an Argo CD account with rules narrower than `applications, *` needs `applications, sync`

@@ -35,6 +35,7 @@ import BackendEnvFields from "./partials/BackendEnvFields"
 import BackendHeader from "./partials/BackendHeader"
 import BackendResourcesFields from "./partials/BackendResourcesFields"
 import BackendRuntimeFields from "./partials/BackendRuntimeFields"
+import BackendScheduleCard, { backendScheduleShape, refineSchedule, scheduleFormValues, scheduleToSubmit } from "./partials/BackendScheduleCard"
 import BackendVariableMapsFields from "./partials/BackendVariableMapsFields"
 import { BACKEND_STACK_CHOICES, stackChoiceOf } from "./partials/backendStacks"
 import { isBackendTemplate } from "./partials/backendTemplates"
@@ -67,6 +68,7 @@ interface FormMessages extends ResourceMessages {
     exposurePath: string
     exposurePathRequired: string
     envValueRequired: string
+    schedule: string
 }
 
 const createFormSchema = (messages: FormMessages) =>
@@ -91,6 +93,8 @@ const createFormSchema = (messages: FormMessages) =>
             // The environments where each deploy pulls the image again and rolls the pods out
             continuousDeploymentEnvironmentIds: z.array(z.string()),
             ...createBackendRuntimeShape(messages),
+            // Form only: always on, a preset or a cron, sent as schedule and timeZone (scheduleToSubmit)
+            ...backendScheduleShape,
             // Not the declared variables of the runtime shape, which frontends share: a backend's each carry their value
             env: createBackendEnvShape(messages.envValueRequired),
             // Here and not in the runtime shape, which frontends share: a frontend never attaches a resource
@@ -109,7 +113,9 @@ const createFormSchema = (messages: FormMessages) =>
                 .optional()
         })
         .superRefine((data, ctx) => {
-            refineExposure(data, ctx, messages)
+            // On a schedule it is reached by nobody: the exposure switch is hidden, and its path not checked
+            if (data.scheduleMode === "always") refineExposure(data, ctx, messages)
+            refineSchedule(data, ctx, messages.schedule)
             refineResources(data, ctx, messages)
         })
 
@@ -143,7 +149,9 @@ const TAB_FIELDS: Record<FormTab, (keyof FormValues)[]> = {
         "replicas",
         "environmentResources",
         "exposed",
-        "exposurePath"
+        "exposurePath",
+        "scheduleMode",
+        "schedule"
     ],
     variables: ["env", "configMapIds", "secretIds", "resourceIds"],
     danger: []
@@ -208,6 +216,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                 exposurePath: t("backends.exposure_path_invalid"),
                 exposurePathRequired: t("backends.exposure_path_required"),
                 envValueRequired: t("backends.env.value_required"),
+                schedule: t("backends.schedule.cron_invalid"),
                 ...resourceMessages(t)
             }),
         [t]
@@ -228,6 +237,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   logLevel: backend.logLevel ?? "",
                   exposed: Boolean(backend.exposurePath),
                   exposurePath: backend.exposurePath ?? "",
+                  ...scheduleFormValues(backend),
                   ...resourceFormValues(backend),
                   ...probeFormValues(backend),
                   env: envFormValues(backend.env),
@@ -254,6 +264,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                   // Off until asked for: a new backend is reached from outside only when that is decided
                   exposed: false,
                   exposurePath: "",
+                  ...scheduleFormValues(),
                   ...resourceFormValues(),
                   ...probeFormValues(),
                   image: { repository: "" },
@@ -274,6 +285,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
     // What the last template filled in: a field still holding it was not edited by hand, so the next template may replace it
     const prefilled = useRef<PrefilledValues>({ port: "8080", livenessPath: "", readinessPath: "", docsPath: "", openApiPath: "" })
     const selectedTemplate = form.watch("template")
+    const scheduled = form.watch("scheduleMode") !== "always"
     useEffect(() => {
         const defaults = backendTemplates.find(market => market.slug === selectedTemplate)?.backendDefaults
         if (isEdit || !defaults) return
@@ -300,16 +312,18 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
 
     const onSubmit = async (data: FormValues) => {
         // Blank: the backend is in no domain
-        const { exposed, technology, ...fields } = data
+        const { exposed, technology, scheduleMode, schedule, timeZone, ...fields } = data
+        const scheduled = scheduleMode !== "always"
         const dto = {
             ...fields,
+            ...scheduleToSubmit({ scheduleMode, schedule, timeZone }),
             domainId: data.domainId || null,
             port: Number(data.port),
             ...probePaths(data),
             ...probeTimings(data),
             logLevel: logLevelOf(data.logLevel),
             // Null: not exposed on the host of the environments
-            exposurePath: exposed ? data.exposurePath : null,
+            exposurePath: exposed && !scheduled ? data.exposurePath : null,
             env: envToSubmit(data.env)
         } as unknown as BackendDTO
         // Left out rather than sent empty when not shown: what the backend attaches stays, and shows again once Argo CD is initialized
@@ -506,9 +520,11 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
 
                     <TabsContent value="runtime" forceMount>
                         <div className="flex flex-col gap-6">
+                            <BackendScheduleCard />
                             <ContainerComputeCard />
-                            <BackendRuntimeFields />
-                            <BackendEndpointFields environments={environments} />
+                            <BackendRuntimeFields scheduled={scheduled} />
+                            {/* On a schedule it has no Service: nothing to reach it at */}
+                            {!scheduled && <BackendEndpointFields environments={environments} />}
                         </div>
                     </TabsContent>
 

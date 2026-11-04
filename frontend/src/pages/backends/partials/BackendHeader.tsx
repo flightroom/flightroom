@@ -8,7 +8,7 @@ import LivePreviewButton from "@/components/LivePreviewButton"
 import TemplateRepositoryLink from "@/components/TemplateRepositoryLink"
 import type { Backend } from "@/hooks/apiClients/useBackendsApi"
 import useLivePreview from "@/hooks/useLivePreview"
-import RuntimeBadge from "./RuntimeBadge"
+import RuntimeBadge, { ScheduleBadge } from "./RuntimeBadge"
 
 interface BackendHeaderProps {
     backend: Backend
@@ -36,6 +36,7 @@ export const BackendHeader: React.FC<BackendHeaderProps> = ({ backend, active, a
                 <>
                     {/* No version: each environment runs its own */}
                     <RuntimeBadge backend={backend} />
+                    <ScheduleBadge backend={backend} />
                     <CloneRepositoryPopover frontend={backend} link />
                     <TemplateRepositoryLink slug={backend.template} />
                     <ComponentWorkingAgents componentId={backend._id} live />

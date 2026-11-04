@@ -55,7 +55,8 @@ import BackendService, {
     withEnvValues,
     withNormalizedEnvironmentResources,
     withNormalizedEnvironmentVersions,
-    withNormalizedReplicas
+    withNormalizedReplicas,
+    withNormalizedSchedule
 } from "./BackendService"
 
 withNoMaintenanceAgents()
@@ -876,5 +877,32 @@ describe("BackendService.delete", () => {
         expect(deleteVersions).toHaveBeenCalledWith({ backendId })
         expect(deleteDeploys).toHaveBeenCalledWith({ backendId })
         expect(forgetBackends).toHaveBeenCalledWith([backend])
+    })
+})
+
+describe("withNormalizedSchedule", () => {
+    const codeOf = (run: () => unknown) => {
+        try {
+            run()
+        } catch (error) {
+            return (error as BusinessException).code
+        }
+    }
+
+    it("given a cron and a time zone in any case, when normalised, then they are stored trimmed and as IANA writes the zone", () => {
+        expect(withNormalizedSchedule({ schedule: " 0 3 * * * ", timeZone: "europe/rome" })).toEqual({ schedule: "0 3 * * *", timeZone: "Europe/Rome" })
+    })
+
+    it("given a blank schedule, when normalised, then it is none: the backend is always on", () => {
+        expect(withNormalizedSchedule({ schedule: "  ", timeZone: "" })).toEqual({ schedule: null, timeZone: null })
+    })
+
+    it("given what a CronJob would refuse, when normalised, then it is refused before it reaches the GitOps repository", () => {
+        expect(codeOf(() => withNormalizedSchedule({ schedule: "every day" }))).toBe("BACKEND_SCHEDULE_INVALID")
+        expect(codeOf(() => withNormalizedSchedule({ schedule: "@daily", timeZone: "Mars/Olympus" }))).toBe("BACKEND_TIMEZONE_INVALID")
+    })
+
+    it("given neither field, when normalised, then nothing is set: the stored schedule stays", () => {
+        expect(withNormalizedSchedule({})).toEqual({})
     })
 })

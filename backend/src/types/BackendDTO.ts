@@ -59,8 +59,15 @@ interface BackendDTO extends ProbeTimings {
     docsPath?: string | null
     /** The OpenAPI spec; blank or null when the backend has none */
     openApiPath?: string | null
-    /** The path on the host of every environment, e.g. /api/orders; blank or null when it is not exposed */
+    /** The path on the host of every environment, e.g. /api/orders; blank or null when it is not exposed. Always null for a backend on a schedule */
     exposurePath?: string | null
+    /**
+     * A cron expression, e.g. 0 3 * * *: the backend runs as a Kubernetes CronJob, a container that starts on it, does its work
+     * and exits, with no port, probes, Service nor route. Blank or null: always on, as a Deployment
+     */
+    schedule?: string | null
+    /** The IANA time zone of the schedule, e.g. Europe/Rome; blank or null for the one of the cluster */
+    timeZone?: string | null
     /** Kubernetes quantities, e.g. 250m or 0.5; blank or null for the default of the chart */
     cpuRequest?: string | null
     cpuLimit?: string | null

@@ -13,10 +13,10 @@ import MaintenanceRun, { IMaintenanceRun, MaintenanceRunStatus } from "../models
 import Project from "../models/ProjectModel"
 import { BACKEND_SLUG, BACKEND_VERSION, isBackendTemplateType, parseRuntime } from "../types/BackendStack"
 import { FrontendStackSource } from "../types/FrontendStack"
-import { canonicalTimeZone, isValidSchedule, MaintenanceAgentDTO, MaintenanceAgentKind } from "../types/MaintenanceAgent"
+import { MaintenanceAgentDTO, MaintenanceAgentKind } from "../types/MaintenanceAgent"
 import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
-import { ensureRequestsWithinLimits, withManualVersion, withNormalizedReferences } from "./BackendService"
+import { ensureRequestsWithinLimits, withManualVersion, withNormalizedReferences, withNormalizedSchedule } from "./BackendService"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
 import { resolveDomainId } from "./DomainService"
 import { isDeployable } from "./gitops/applicationManifests"
@@ -53,22 +53,7 @@ export const withNormalizedRunning = <T extends Pick<MaintenanceAgentDTO, "kind"
     if (normalized.kind !== undefined && !Object.values(MaintenanceAgentKind).includes(normalized.kind)) {
         throw invalid("MAINTENANCE_AGENT_INVALID", `The kind is either ${Object.values(MaintenanceAgentKind).join(" or ")}`)
     }
-    if (normalized.schedule !== undefined) {
-        const schedule = typeof normalized.schedule === "string" ? normalized.schedule.trim() : ""
-        if (schedule && !isValidSchedule(schedule)) {
-            throw invalid("MAINTENANCE_AGENT_SCHEDULE_INVALID", `"${schedule}" is not a cron expression: five fields (minute hour day month weekday) or a macro such as @daily`)
-        }
-        normalized.schedule = schedule || null
-    }
-    if (normalized.timeZone !== undefined) {
-        const timeZone = typeof normalized.timeZone === "string" ? normalized.timeZone.trim() : ""
-        const canonical = timeZone ? canonicalTimeZone(timeZone) : undefined
-        if (timeZone && !canonical) {
-            throw invalid("MAINTENANCE_AGENT_TIMEZONE_INVALID", `"${timeZone}" is not a time zone: use an IANA name such as Europe/Rome`)
-        }
-        normalized.timeZone = canonical ?? null
-    }
-    return normalized
+    return withNormalizedSchedule(normalized, "MAINTENANCE_AGENT")
 }
 
 const uniqueIds = (ids: unknown): string[] | undefined => {

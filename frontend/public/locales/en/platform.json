@@ -2932,6 +2932,18 @@
             "replicas_other": "{{count}} replicas",
             "summary": "What runs where: the version each environment got with its latest deploy, or will get with its next one."
         },
+        "schedule": {
+            "title": "Execution",
+            "description": "Always on as a service, or on a schedule as a cron: the container starts, does its work and exits.",
+            "label": "When it runs",
+            "always": "Always on",
+            "custom": "Custom (cron)",
+            "always_hint": "A service that is always on, reached by the others and at its URL.",
+            "scheduled_hint": "Runs as a CronJob, on the hours of the {{timeZone}} time zone: no port, probes or URL.",
+            "scheduled_hint_cluster": "Runs as a CronJob, on the hours of the cluster's time zone: no port, probes or URL.",
+            "cron_invalid": "Not a cron expression: five fields or a macro such as @daily",
+            "badge": "Cron · {{when}}"
+        },
         "urls": {
             "title": "Endpoint",
             "description": "Whether it is reachable from outside, and at which path: the same on the host of every environment. The docs and OpenAPI paths are relative to it.",

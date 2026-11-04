@@ -41,7 +41,31 @@ export interface GitOpsApplication extends ContainerResourcesByEnvironment, Prob
     env?: Array<{ name: string; secret?: boolean; value?: string }> | null
     /** A maintenance agent only: what its CronJob is made from */
     maintenance?: ApplicationMaintenance
+    /** A backend only: the cron it runs on, as a CronJob that starts its image, rather than always on; null when always on */
+    schedule?: string | null
+    timeZone?: string | null
 }
+
+/**
+ * A backend on a schedule: no Deployment that runs, no Service and no route, only a CronJob that starts its image. A
+ * maintenance agent's schedule is its own (`maintenance`), and never makes it one.
+ */
+export const isScheduled = (application: Pick<GitOpsApplication, "maintenance" | "schedule">): boolean => !application.maintenance && Boolean(application.schedule?.trim())
+
+/**
+ * The values of a backend on a schedule. The chart's CronJob is the one of the maintenance agents, keyed on `maintenance`:
+ * with no trigger it runs the image, as for a JOB. The Deployment stays with no replicas, as the chart of a branch may
+ * be one written before the CronJob.
+ */
+const scheduleValues = (application: GitOpsApplication) => ({
+    replicas: 0,
+    expose: { service: false },
+    maintenance: {
+        schedule: application.schedule!.trim(),
+        suspend: false,
+        ...(application.timeZone?.trim() ? { timeZone: application.timeZone.trim() } : {})
+    }
+})
 
 /** What a maintenance agent adds to its values: a CronJob, and for a JOB a Deployment that runs nothing */
 export interface ApplicationMaintenance {
@@ -106,12 +130,12 @@ export const serviceUrlVariable = (slug: string) => `${slug.toUpperCase().replac
 /**
  * What that ConfigMap holds in one environment: the URL each backend and DOCKER frontend deployed there answers on
  * inside the cluster, port 80 of its Service in the same namespace. One the environment runs no version of has no
- * Service: left out.
+ * Service: left out, as a backend on a schedule, which has none either.
  */
 export const serviceUrls = (applications: GitOpsApplication[], environmentId: unknown, containerRegistry?: string): Record<string, string> =>
     Object.fromEntries(
         applications
-            .filter(application => isDeployable(application, containerRegistry, environmentId))
+            .filter(application => isDeployable(application, containerRegistry, environmentId) && !isScheduled(application))
             .map(application => application.slug)
             .sort()
             .map(slug => [serviceUrlVariable(slug), inClusterUrl(slug)])
@@ -191,9 +215,9 @@ export const gatewayOrigin = (gateway?: { host: string; certificateIssuer?: stri
 /** What runs as a container: what PUBLIC_URL points at depends on it */
 export type ContainerKind = "backend" | "frontend" | "maintenanceAgent"
 
-/** PUBLIC_URL of a container: the public URL it is exposed at, a frontend's and a backend's alike; none for a maintenance agent */
-export const containerPublicUrl = (kind: ContainerKind, application: { exposurePath?: string | null }, origin: string | undefined): string | undefined =>
-    kind === "maintenanceAgent" ? undefined : exposedUrl(origin, application.exposurePath)
+/** PUBLIC_URL of a container: the public URL it is exposed at, a frontend's and a backend's alike; none for a maintenance agent nor a backend on a schedule */
+export const containerPublicUrl = (kind: ContainerKind, application: { exposurePath?: string | null; schedule?: string | null }, origin: string | undefined): string | undefined =>
+    kind === "maintenanceAgent" || isScheduled(application) ? undefined : exposedUrl(origin, application.exposurePath)
 
 export const HTTP_PORT_VARIABLE = "HTTP_PORT"
 
@@ -332,8 +356,8 @@ export const containerEnvironment = (
     const variables: Array<ContainerVariable & { fromEnv: boolean }> = [
         ...ownVariables(application, false).map(({ name, value }) => ({ name, source: BACKEND_SOURCE, value, fromEnv: true })),
         ...[
-            // The Deployment hands it, not the CronJob: the container of a JOB agent, which only the CronJob runs, has none
-            ...(application.maintenance?.kind === MaintenanceAgentKind.JOB ? [] : [{ name: HTTP_PORT_VARIABLE, value: String(containerPortOf(application)) }]),
+            // The Deployment hands it, not the CronJob: the container of a JOB agent or of a backend on a schedule, which only the CronJob runs, has none
+            ...(application.maintenance?.kind === MaintenanceAgentKind.JOB || isScheduled(application) ? [] : [{ name: HTTP_PORT_VARIABLE, value: String(containerPortOf(application)) }]),
             ...containerVariables(application, environment, version, publicUrl)
         ].map(({ name, value }) => ({ name, source: "platform", value, fromEnv: true }))
     ]
@@ -408,8 +432,9 @@ export const renderApplicationValues = (
     if (!repository) throw new Error(`${application.slug} has no image repository and the project no container registry`)
     if (!version) throw new Error(`${application.slug} has no version in ${environment.slug}`)
     const sources = containerEnvSources(application, mapNames)
+    const scheduled = isScheduled(application)
     const route =
-        gateway && application.exposurePath
+        gateway && application.exposurePath && !scheduled
             ? { gateway: gateway.name, listener: gateway.listener, path: application.exposurePath, hsts: gateway.hsts, ...(gateway.ipAllowList ? { ipAllowList: gateway.ipAllowList } : {}) }
             : undefined
     // What the environment sets apart, else what the application sets
@@ -432,7 +457,8 @@ export const renderApplicationValues = (
         secrets: sources.filter(source => source.kind !== "services" && source.kind !== "configMap").map(source => source.name),
         env: valuesEnv(application, environment, version, publicUrl),
         ...(route ? { route } : {}),
-        ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {})
+        ...(application.maintenance ? maintenanceValues(application, application.maintenance) : {}),
+        ...(scheduled ? scheduleValues(application) : {})
     }
     return `${MANAGED_VALUES_MARKER}\n# Written by every deploy of ${environment.slug}: a change made here is overwritten.\n${stringify(values)}`
 }

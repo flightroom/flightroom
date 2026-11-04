@@ -24,6 +24,7 @@ import {
     resourcesIn
 } from "../types/ContainerResources"
 import { FrontendStackSource } from "../types/FrontendStack"
+import { canonicalTimeZone, isValidSchedule } from "../types/MaintenanceAgent"
 import { toObjectId } from "../utils/mongooseUtils"
 import { restartContinuouslyDeployed } from "./argoCd/argoCdContinuousDeployment"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
@@ -256,6 +257,33 @@ export const withManualVersion = <T extends { version?: string }>(fields: T): T 
 }
 
 /**
+ * The schedule and its time zone as they are stored: blank is none, anything a Kubernetes CronJob would refuse is refused here,
+ * so it never reaches the GitOps repository, where the sync would only fail. `prefix` names the refusals: BACKEND, MAINTENANCE_AGENT.
+ */
+export const withNormalizedSchedule = <T extends { schedule?: string | null; timeZone?: string | null }>(fields: T, prefix = "BACKEND"): T => {
+    const normalized = { ...fields }
+    if (normalized.schedule !== undefined) {
+        const schedule = typeof normalized.schedule === "string" ? normalized.schedule.trim() : ""
+        if (schedule && !isValidSchedule(schedule)) {
+            throw createBusinessException({
+                code: `${prefix}_SCHEDULE_INVALID`,
+                message: `"${schedule}" is not a cron expression: five fields (minute hour day month weekday) or a macro such as @daily`
+            })
+        }
+        normalized.schedule = schedule || null
+    }
+    if (normalized.timeZone !== undefined) {
+        const timeZone = typeof normalized.timeZone === "string" ? normalized.timeZone.trim() : ""
+        const canonical = timeZone ? canonicalTimeZone(timeZone) : undefined
+        if (timeZone && !canonical) {
+            throw createBusinessException({ code: `${prefix}_TIMEZONE_INVALID`, message: `"${timeZone}" is not a time zone: use an IANA name such as Europe/Rome` })
+        }
+        normalized.timeZone = canonical ?? null
+    }
+    return normalized
+}
+
+/**
  * The body the CI posts once it pushed an image. It arrives with an API key only, from a pipeline
  * nobody watches: a malformed one is refused with a 400 rather than stored half filled.
  */
@@ -356,7 +384,9 @@ export class BackendService extends BaseAuthorizedService {
         const slug = (dto.slug ?? "").trim().toLowerCase()
         ensureValidSlug(slug)
         const { id: _id, ...fields } = { ...dto, slug }
-        const backend = await withNormalizedReferences(withEnvValues(withManualVersion(fields)), projectIdObj, undefined, { resources: true })
+        const backend = await withNormalizedReferences(withEnvValues(withManualVersion(withNormalizedSchedule(fields))), projectIdObj, undefined, { resources: true })
+        // On a schedule it has no Service, so nothing to route a path to
+        if (backend.schedule) backend.exposurePath = null
         if (backend.stack) backend.stack = this.manualStack(backend.stack)
         if (backend.domainId !== undefined) {
             backend.domainId = await resolveDomainId(backend.domainId, projectIdObj)
@@ -444,7 +474,9 @@ export class BackendService extends BaseAuthorizedService {
         const scope = await this.getDomainScope(backend.projectId)
         // A domain-scoped member's console lists only the resources they see: the others it attaches stay attached
         const withHidden = await withResourcesOutOfScope(scope, backend.projectId, fields, backend)
-        const allowed = await withNormalizedReferences(withEnvValues(withManualVersion(withHidden), backend.env), backend.projectId, backend, { resources: true })
+        const allowed = await withNormalizedReferences(withEnvValues(withManualVersion(withNormalizedSchedule(withHidden)), backend.env), backend.projectId, backend, { resources: true })
+        // On a schedule it has no Service, so nothing to route a path to, as in create
+        if (allowed.schedule !== undefined ? allowed.schedule : backend.schedule) allowed.exposurePath = null
         if (allowed.stack) allowed.stack = this.manualStack(allowed.stack)
         if (allowed.domainId !== undefined) {
             allowed.domainId = await resolveDomainId(allowed.domainId, backend.projectId)

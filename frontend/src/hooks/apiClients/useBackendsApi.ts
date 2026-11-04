@@ -89,6 +89,10 @@ export interface Backend {
     docsPath?: string | null
     /** Il path su cui e' esposto sull'host di ogni ambiente, es. /api/orders; null se non e' esposto */
     exposurePath?: string | null
+    /** A cron expression: it runs as a CronJob, started on it, does its work and exits; null when always on */
+    schedule?: string | null
+    /** The IANA time zone of the schedule; null for the one of the cluster */
+    timeZone?: string | null
     /** The OpenAPI spec; blank or null when the backend has none */
     openApiPath?: string | null
     /** Kubernetes quantities, e.g. 250m or 0.5; blank or null for the default of the chart */

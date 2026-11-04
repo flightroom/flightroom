@@ -61,6 +61,10 @@ export interface IBackend
     port: number
     /** The path it is exposed at on the host of every environment, e.g. /api/orders; null when it is not exposed */
     exposurePath?: string | null
+    /** A cron expression: it runs as a CronJob, started on it, rather than always on; null when always on */
+    schedule?: string | null
+    /** The IANA time zone of the schedule; null for the one of the cluster */
+    timeZone?: string | null
     env: IBackendInjectedEnvVariable[]
     /** Config maps of the project the backend receives as environment variables; they live on their own and can be shared */
     configMapIds: Schema.Types.ObjectId[]
@@ -162,6 +166,8 @@ const backendSchema = new Schema<IBackend>(
         docsPath: optionalPath,
         openApiPath: optionalPath,
         exposurePath,
+        schedule: { type: String, required: false, trim: true, default: null },
+        timeZone: { type: String, required: false, trim: true, default: null },
         ...resourceFields,
         environmentResources: environmentResourcesField,
         environmentVersions: environmentVersionsField,
