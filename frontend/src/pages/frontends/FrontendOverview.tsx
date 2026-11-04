@@ -4,6 +4,7 @@ import { Boxes, Info, Rocket, ScrollText, Server, Variable } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import SandboxUsageCard from "@/components/ai-usage/SandboxUsageCard"
 import ApplicationLogsSection from "@/components/application-logs/ApplicationLogsSection"
 import useProjectAiModels from "@/components/assistant/useProjectAiModels"
 import { Badge } from "@/components/atoms"
@@ -188,6 +189,7 @@ const FrontendOverview: React.FC = () => {
                             {/* Above the logs when they have a tab */}
                             {isDocker && !tabs.includes("logs") && <LogLevelCard value={frontend.logLevel} environments={environmentsQuery.data ?? []} />}
                             <AiUsageSummary target={{ kind: "frontend", id: frontend._id! }} />
+                            <SandboxUsageCard target={{ kind: "frontend", id: frontend._id! }} />
                             {isDocker && <BackendVersionsTable versions={buildsQuery.data ?? []} />}
                         </TabsContent>
 

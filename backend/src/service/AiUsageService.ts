@@ -45,9 +45,17 @@ export interface SandboxUsageTotals {
     lifetimeSeconds: number
 }
 
+/** The seconds the scripts and commands of the AI ran on one UTC day, as YYYY-MM-DD: its Edit with AI jobs and missions, no live preview. */
+export interface SandboxCodingDay {
+    day: string
+    execSeconds: number
+}
+
 export interface SandboxUsageSummary {
     total: SandboxUsageTotals
     bySource: Record<SandboxUsageSource, SandboxUsageTotals>
+    /** Only the days the AI ran something, oldest first. */
+    codingByDay: SandboxCodingDay[]
 }
 
 export interface AiUsageSummary {
@@ -244,17 +252,21 @@ export const organizationPipeline = (organizationId: Id, period: AiUsagePeriod):
     { $group: { _id: "$projectId", ...sums(), ...costSums() } }
 ]
 
-type SandboxGroup = Partial<SandboxUsageTotals> & { _id: { projectId: unknown; source: SandboxUsageSource } }
+type SandboxGroup = Partial<SandboxUsageTotals> & { _id: { projectId: unknown; source: SandboxUsageSource; day?: string } }
+
+/** What the AI codes in: a live preview runs what is already written. */
+const CODING_SOURCES: readonly SandboxUsageSource[] = ["agent", "mission"]
 
 /**
- * The sandbox time of a level, by project and source, each amount weighed by `weight` as the tokens: a lifetime still
- * open has none, and `$sum` skips it. One shape for every level: the project and the source are split in code.
+ * The sandbox time of a level, by project, source and UTC day, each amount weighed by `weight` as the tokens: a
+ * lifetime still open has none, and `$sum` skips it. One shape for every level: the project, the source and the day
+ * are split in code.
  */
 export const sandboxPipeline = (filter: Record<string, unknown>, period: AiUsagePeriod, weight: unknown = 1): PipelineStage[] => [
     matchOf(filter, period),
     {
         $group: {
-            _id: { projectId: "$projectId", source: "$source" },
+            _id: { projectId: "$projectId", source: "$source", day: { $dateToString: { date: "$createdAt", format: "%Y-%m-%d" } } },
             commands: { $sum: weighed("$commands", weight) },
             execSeconds: { $sum: weighed("$execSeconds", weight) },
             lifetimeSeconds: { $sum: weighed("$lifetimeSeconds", weight) }
@@ -269,9 +281,22 @@ const sandboxTotalsOf = (groups: SandboxGroup[]): SandboxUsageTotals => ({
     lifetimeSeconds: Math.round(groups.reduce((sum, group) => sum + (group.lifetimeSeconds ?? 0), 0))
 })
 
+/** The exec seconds of the jobs and missions summed by day, then rounded once, the days that ran nothing left out. */
+const codingByDayOf = (groups: SandboxGroup[]): SandboxCodingDay[] => {
+    const days = new Map<string, number>()
+    for (const { _id, execSeconds } of groups) {
+        if (_id.day && CODING_SOURCES.includes(_id.source) && execSeconds) days.set(_id.day, (days.get(_id.day) ?? 0) + execSeconds)
+    }
+    return [...days]
+        .map(([day, execSeconds]) => ({ day, execSeconds: Math.round(execSeconds) }))
+        .filter(day => day.execSeconds > 0)
+        .sort((a, b) => a.day.localeCompare(b.day))
+}
+
 const sandboxSummaryOf = (groups: SandboxGroup[]): SandboxUsageSummary => ({
     total: sandboxTotalsOf(groups),
-    bySource: Object.fromEntries(SANDBOX_USAGE_SOURCES.map(source => [source, sandboxTotalsOf(groups.filter(group => group._id.source === source))])) as Record<SandboxUsageSource, SandboxUsageTotals>
+    bySource: Object.fromEntries(SANDBOX_USAGE_SOURCES.map(source => [source, sandboxTotalsOf(groups.filter(group => group._id.source === source))])) as Record<SandboxUsageSource, SandboxUsageTotals>,
+    codingByDay: codingByDayOf(groups)
 })
 
 /** A member's usage in the project between two days, summed by period: exported for the tests, which have no MongoDB. */

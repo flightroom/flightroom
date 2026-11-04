@@ -1,31 +1,10 @@
-import {
-    Card,
-    CardContent,
-    CardDescription,
-    CardHeader,
-    CardTitle,
-    EmptyState,
-    Select,
-    SelectContent,
-    SelectItem,
-    SelectTrigger,
-    SelectValue,
-    Spinner,
-    StatTile,
-    Table,
-    TableBody,
-    TableCell,
-    TableHead,
-    TableHeader,
-    TableRow
-} from "@flightroom/design-system"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle, EmptyState, Spinner, StatTile, Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@flightroom/design-system"
 import { useQuery } from "@tanstack/react-query"
 import { format } from "date-fns"
-import { CalendarRange, Coins } from "lucide-react"
+import { Coins } from "lucide-react"
 import { useState } from "react"
 import { useTranslation } from "react-i18next"
 import useAiUsageApi, {
-    AI_USAGE_PERIODS,
     AI_USAGE_QUERY_KEY,
     AiUsageCost,
     AiUsagePeriod,
@@ -33,39 +12,30 @@ import useAiUsageApi, {
     AiUsageTarget,
     AiUsageTotals,
     OrganizationAiUsageSummary,
-    ProjectAiUsageSummary,
-    SandboxUsageSource,
-    SandboxUsageTotals
+    ProjectAiUsageSummary
 } from "@/hooks/apiClients/useAiUsageApi"
 import useThemeStore from "@/store/useThemeStore"
 import { cn } from "@/utils/styleUtils"
+import AiUsagePeriodSelect from "./AiUsagePeriodSelect"
+import { compactTokens } from "./compactTokens"
 
 const SOURCES: AiUsageSource[] = ["agent", "mission", "assistant"]
-
-/** The sources of sandbox time that spend no token: a live preview runs no agent. */
-const SANDBOX_ONLY_SOURCES: SandboxUsageSource[] = ["preview"]
-
-const NO_TOKENS: AiUsageTotals = { inputTokens: 0, cachedInputTokens: 0, outputTokens: 0 }
-
-const hasSandboxTime = (sandbox?: SandboxUsageTotals) => Boolean(sandbox && sandbox.commands + sandbox.execSeconds + sandbox.lifetimeSeconds > 0)
 
 interface AiUsageSummaryProps {
     target: AiUsageTarget
 }
 
-/** One line of the breakdown: what spent the tokens, then the three figures of the tiles and the sandbox time. */
+/** One line of the breakdown: what spent the tokens, then the figures of the tiles. */
 interface BreakdownRow extends AiUsageTotals {
     key: string
     label: string
-    /** None for what never runs a sandbox: the assistant. */
-    sandbox?: SandboxUsageTotals
 }
 
 /**
  * The AI tokens spent over a period on what the page shows: three figures, the cached part of the input apart as
- * it is far cheaper, and the minutes of sandbox once there are some. The project adds the split between Edit with
- * AI, the missions, the assistant and the live previews, the organization the split by project. Counting started when
- * the ledger shipped: nothing before it is shown.
+ * it is far cheaper, and what they cost. The project adds the split between Edit with AI, the missions and the
+ * assistant, the organization the split by project. The time in sandboxes is {@link SandboxUsageCard}'s. Counting
+ * started when the ledger shipped: nothing before it is shown.
  */
 const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
     const { t, i18n } = useTranslation()
@@ -81,7 +51,8 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
         placeholderData: (previous, previousQuery) => (previousQuery?.queryKey[1] === target.kind && previousQuery?.queryKey[2] === target.id ? previous : undefined)
     })
 
-    const formatted = (value: number) => value.toLocaleString(i18n.language)
+    const formatted = (value: number) => compactTokens(value, i18n.language)
+    const exact = (value: number) => value.toLocaleString(i18n.language)
     // One amount per currency the AIs are priced in; the cents of a few answers would read as zero, so below one more digits
     const money = (costs?: AiUsageCost[]) =>
         costs?.length
@@ -91,33 +62,18 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                   )
                   .join(" + ")
             : "—"
-    const minutes = (seconds: number) => (seconds / 60).toLocaleString(i18n.language, { maximumFractionDigits: 1 })
     const usage = usageQuery.data
-    const sandbox = usage?.sandbox
-    // Shown only once something ran in a sandbox: an installation without OpenShell never sees the columns.
-    const showSandbox = hasSandboxTime(sandbox?.total)
 
-    const sourceRows = (summary: ProjectAiUsageSummary): BreakdownRow[] => [
-        ...SOURCES.map(source => ({
-            key: source,
-            label: t(`ai_usage.sources.${source}`),
-            ...summary.bySource[source],
-            sandbox: source === "assistant" ? undefined : summary.sandbox?.bySource[source]
-        })),
-        ...SANDBOX_ONLY_SOURCES.filter(source => hasSandboxTime(summary.sandbox?.bySource[source])).map(source => ({
-            key: source,
-            label: t(`ai_usage.sources.${source}`),
-            ...NO_TOKENS,
-            sandbox: summary.sandbox?.bySource[source]
-        }))
-    ]
     const breakdown: BreakdownRow[] | undefined =
         usage && "byProject" in usage
-            ? (usage as OrganizationAiUsageSummary).byProject.map(project => ({ key: project.projectId, label: project.name ?? t("ai_usage.deleted_project"), ...project }))
+            ? (usage as OrganizationAiUsageSummary).byProject
+                  // A project that only ran live previews spent no token: its line is the sandbox card's
+                  .filter(project => project.inputTokens + project.outputTokens > 0)
+                  .map(project => ({ key: project.projectId, label: project.name ?? t("ai_usage.deleted_project"), ...project }))
             : usage && "bySource" in usage
-              ? sourceRows(usage as ProjectAiUsageSummary)
+              ? SOURCES.map(source => ({ key: source, label: t(`ai_usage.sources.${source}`), ...(usage as ProjectAiUsageSummary).bySource[source] }))
               : undefined
-    const isEmpty = usage ? usage.total.inputTokens + usage.total.outputTokens === 0 && !showSandbox : false
+    const isEmpty = usage ? usage.total.inputTokens + usage.total.outputTokens === 0 : false
 
     return (
         <Card data-testid={`ai-usage-${target.kind}`}>
@@ -129,19 +85,7 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                     </CardTitle>
                     <CardDescription>{t(`ai_usage.description.${target.kind}`)}</CardDescription>
                 </div>
-                <Select layoutSize="sm" value={period} onValueChange={value => setPeriod(value as AiUsagePeriod)}>
-                    <SelectTrigger aria-label={t("ai_usage.period.label")} className="w-auto shrink-0" dataTestId={`ai-usage-period-${target.kind}`}>
-                        <CalendarRange aria-hidden="true" />
-                        <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                        {AI_USAGE_PERIODS.map(value => (
-                            <SelectItem key={value} value={value}>
-                                {t(`ai_usage.period.${value}`)}
-                            </SelectItem>
-                        ))}
-                    </SelectContent>
-                </Select>
+                <AiUsagePeriodSelect value={period} onChange={setPeriod} dataTestId={`ai-usage-period-${target.kind}`} />
             </CardHeader>
             <CardContent className="flex flex-col gap-4 pt-3">
                 {usageQuery.isPending ? (
@@ -157,20 +101,6 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.cached")} value={formatted(usage.total.cachedInputTokens)} title={t("ai_usage.cached_hint")} />
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.output")} value={formatted(usage.total.outputTokens)} />
                             <StatTile size="sm" className="flex-[1_0_160px]" label={t("ai_usage.cost")} value={money(usage.total.costs)} title={t("ai_usage.cost_hint")} />
-                            {showSandbox && sandbox && (
-                                <StatTile
-                                    size="sm"
-                                    className="flex-[1_0_160px]"
-                                    label={t("ai_usage.sandbox")}
-                                    value={
-                                        // A few short commands round to 0 / 0, which would read as nothing ran
-                                        minutes(sandbox.total.execSeconds) === minutes(0) && minutes(sandbox.total.lifetimeSeconds) === minutes(0)
-                                            ? t("ai_usage.sandbox_under_minute")
-                                            : t("ai_usage.sandbox_value", { exec: minutes(sandbox.total.execSeconds), lifetime: minutes(sandbox.total.lifetimeSeconds) })
-                                    }
-                                    title={t("ai_usage.sandbox_hint")}
-                                />
-                            )}
                         </div>
                         {breakdown && breakdown.length > 0 && !isEmpty && (
                             <Table>
@@ -181,32 +111,22 @@ const AiUsageSummary: React.FC<AiUsageSummaryProps> = ({ target }) => {
                                         <TableHead className="text-right">{t("ai_usage.cached")}</TableHead>
                                         <TableHead className="text-right">{t("ai_usage.output")}</TableHead>
                                         <TableHead className="text-right">{t("ai_usage.cost")}</TableHead>
-                                        {showSandbox && (
-                                            <>
-                                                <TableHead className="text-right" title={t("ai_usage.sandbox_hint")}>
-                                                    {t("ai_usage.sandbox_exec")}
-                                                </TableHead>
-                                                <TableHead className="text-right" title={t("ai_usage.sandbox_hint")}>
-                                                    {t("ai_usage.sandbox_lifetime")}
-                                                </TableHead>
-                                            </>
-                                        )}
                                     </TableRow>
                                 </TableHeader>
                                 <TableBody>
                                     {breakdown.map(row => (
                                         <TableRow key={row.key}>
                                             <TableCell className="font-medium">{row.label}</TableCell>
-                                            <TableCell className="text-right tabular-nums">{formatted(row.inputTokens)}</TableCell>
-                                            <TableCell className="text-right tabular-nums text-muted-foreground">{formatted(row.cachedInputTokens)}</TableCell>
-                                            <TableCell className="text-right tabular-nums">{formatted(row.outputTokens)}</TableCell>
+                                            <TableCell className="text-right tabular-nums" title={exact(row.inputTokens)}>
+                                                {formatted(row.inputTokens)}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums text-muted-foreground" title={exact(row.cachedInputTokens)}>
+                                                {formatted(row.cachedInputTokens)}
+                                            </TableCell>
+                                            <TableCell className="text-right tabular-nums" title={exact(row.outputTokens)}>
+                                                {formatted(row.outputTokens)}
+                                            </TableCell>
                                             <TableCell className="text-right tabular-nums">{money(row.costs)}</TableCell>
-                                            {showSandbox && (
-                                                <>
-                                                    <TableCell className="text-right tabular-nums">{row.sandbox ? minutes(row.sandbox.execSeconds) : "—"}</TableCell>
-                                                    <TableCell className="text-right tabular-nums text-muted-foreground">{row.sandbox ? minutes(row.sandbox.lifetimeSeconds) : "—"}</TableCell>
-                                                </>
-                                            )}
                                         </TableRow>
                                     ))}
                                 </TableBody>

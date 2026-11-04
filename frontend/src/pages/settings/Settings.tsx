@@ -6,6 +6,7 @@ import { useTranslation } from "react-i18next"
 import { useNavigate, useSearchParams } from "react-router-dom"
 // Components
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import SandboxUsageCard from "@/components/ai-usage/SandboxUsageCard"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useGitOpsErrorMessage from "@/hooks/apiClients/useGitOpsErrorMessage"
@@ -333,6 +334,7 @@ export const Settings: React.FC = () => {
                         />
                         {/* I token spesi da Modifica con AI e da Vega: una risorsa del progetto come le altre di questa scheda. Non per chi vede solo alcuni domini: il totale e' di tutto il progetto, il server lo rifiuta */}
                         {project._id && !project.domainScoped && <AiUsageSummary target={{ kind: "project", id: project._id }} />}
+                        {project._id && !project.domainScoped && <SandboxUsageCard target={{ kind: "project", id: project._id }} />}
                     </TabsContent>
 
                     {/* Nell'ordine in cui si configurano: Exposure e Argo CD lavorano su cio' che GitOps committa */}

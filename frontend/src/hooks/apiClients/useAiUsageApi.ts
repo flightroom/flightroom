@@ -34,9 +34,17 @@ export interface SandboxUsageTotals {
     lifetimeSeconds: number
 }
 
+/** The seconds the scripts and commands of the AI ran on one UTC day (YYYY-MM-DD): Edit with AI and the missions, no live preview. */
+export interface SandboxCodingDay {
+    day: string
+    execSeconds: number
+}
+
 export interface SandboxUsageSummary {
     total: SandboxUsageTotals
     bySource: Record<SandboxUsageSource, SandboxUsageTotals>
+    /** Only the days the AI ran something, oldest first. */
+    codingByDay: SandboxCodingDay[]
 }
 
 export interface AiUsageSummary {

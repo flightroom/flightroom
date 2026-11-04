@@ -4,6 +4,7 @@ import { Boxes, Info, ScrollText, Variable } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { Navigate, useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import SandboxUsageCard from "@/components/ai-usage/SandboxUsageCard"
 import AiWorkspace from "@/components/ai-workspace/AiWorkspace"
 import { workspaceRepositoriesOf } from "@/components/ai-workspace/RepositoryBranches"
 import ApplicationLogsSection from "@/components/application-logs/ApplicationLogsSection"
@@ -128,6 +129,7 @@ const BackendDetail: React.FC<BackendDetailProps> = ({ view = "overview" }) => {
                             {/* Above the logs when they have a tab */}
                             {!tabs.includes("logs") && <LogLevelCard value={backend.logLevel} environments={environmentsQuery.data ?? []} />}
                             <AiUsageSummary target={{ kind: "backend", id: backend._id! }} />
+                            <SandboxUsageCard target={{ kind: "backend", id: backend._id! }} />
                             <BackendVersionsTable versions={versionsQuery.data ?? []} />
                         </TabsContent>
 

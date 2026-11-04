@@ -98,7 +98,7 @@ const groupOver = (pipeline: PipelineStage[], documents: Record<string, unknown>
 const matchOf = (pipeline: PipelineStage[]) => (pipeline[0] as PipelineStage.Match).$match
 
 const NO_SANDBOX = { commands: 0, execSeconds: 0, lifetimeSeconds: 0 }
-const noSandboxSummary = { total: NO_SANDBOX, bySource: { agent: NO_SANDBOX, mission: NO_SANDBOX, preview: NO_SANDBOX } }
+const noSandboxSummary = { total: NO_SANDBOX, bySource: { agent: NO_SANDBOX, mission: NO_SANDBOX, preview: NO_SANDBOX }, codingByDay: [] }
 
 describe("AiUsageService", () => {
     beforeEach(() => {
@@ -264,12 +264,12 @@ describe("AiUsageService", () => {
             expect(groupOver(vi.mocked(SandboxUsage.aggregate).mock.calls[0][0] as PipelineStage[], sandboxTime)).toEqual({ commands: 0.5, execSeconds: 30, lifetimeSeconds: 300 })
         })
 
-        it("Given the sandbox time of a domain, when the pipeline is built, then the domain counts all of it, grouped by project and source", () => {
+        it("Given the sandbox time of a domain, when the pipeline is built, then the domain counts all of it, grouped by project, source and UTC day", () => {
             expect(sandboxPipeline({ domainId: checkout }, "all")).toEqual([
                 { $match: { domainId: checkout } },
                 {
                     $group: {
-                        _id: { projectId: "$projectId", source: "$source" },
+                        _id: { projectId: "$projectId", source: "$source", day: { $dateToString: { date: "$createdAt", format: "%Y-%m-%d" } } },
                         commands: { $sum: "$commands" },
                         execSeconds: { $sum: "$execSeconds" },
                         lifetimeSeconds: { $sum: "$lifetimeSeconds" }
@@ -417,9 +417,10 @@ describe("AiUsageService", () => {
 
         it("Given sandbox time of jobs, missions and previews, when the project's usage is asked, then it comes split by source and added up", async () => {
             vi.mocked(SandboxUsage.aggregate).mockResolvedValue([
-                { _id: { projectId, source: "agent" }, commands: 3, execSeconds: 120.4, lifetimeSeconds: 900 },
-                { _id: { projectId, source: "mission" }, commands: 1, execSeconds: 30, lifetimeSeconds: 0 },
-                { _id: { projectId, source: "preview" }, commands: 0, execSeconds: 0, lifetimeSeconds: 600 }
+                { _id: { projectId, source: "agent", day: "2026-10-21" }, commands: 2, execSeconds: 100.2, lifetimeSeconds: 900 },
+                { _id: { projectId, source: "agent", day: "2026-10-20" }, commands: 1, execSeconds: 20.2, lifetimeSeconds: 0 },
+                { _id: { projectId, source: "mission", day: "2026-10-21" }, commands: 1, execSeconds: 30, lifetimeSeconds: 0 },
+                { _id: { projectId, source: "preview", day: "2026-10-19" }, commands: 0, execSeconds: 0, lifetimeSeconds: 600 }
             ] as never)
 
             const summary = await service().forProject(String(projectId), "30d")
@@ -430,7 +431,12 @@ describe("AiUsageService", () => {
                     agent: { commands: 3, execSeconds: 120, lifetimeSeconds: 900 },
                     mission: { commands: 1, execSeconds: 30, lifetimeSeconds: 0 },
                     preview: { commands: 0, execSeconds: 0, lifetimeSeconds: 600 }
-                }
+                },
+                // The jobs and the missions by day, oldest first: a live preview is not the AI coding
+                codingByDay: [
+                    { day: "2026-10-20", execSeconds: 20 },
+                    { day: "2026-10-21", execSeconds: 130 }
+                ]
             })
             expect(matchOf(vi.mocked(SandboxUsage.aggregate).mock.calls[0][0] as PipelineStage[])).toEqual({ projectId, createdAt: { $gte: new Date("2026-09-22T10:00:00.000Z") } })
         })

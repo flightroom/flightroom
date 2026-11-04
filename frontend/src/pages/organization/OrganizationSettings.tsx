@@ -5,6 +5,7 @@ import React from "react"
 import { useTranslation } from "react-i18next"
 import { useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import SandboxUsageCard from "@/components/ai-usage/SandboxUsageCard"
 import { ApiStatusHandler } from "@/components/organisms"
 import SinglePageLayout from "@/components/SinglePageLayout"
 import useOrganizationApi, { canAdministerOrganization } from "@/hooks/apiClients/useOrganizationApi"
@@ -80,6 +81,7 @@ const OrganizationSettings: React.FC = () => {
                             <OrganizationAiModelsSection organizationId={organization._id} canAdminister={canAdminister} />
                             {/* Per project, as the access of the projects to the AIs: for those who decide it. */}
                             {canAdminister && <AiUsageSummary target={{ kind: "organization", id: organization._id }} />}
+                            {canAdminister && <SandboxUsageCard target={{ kind: "organization", id: organization._id }} />}
                         </TabsContent>
                     </Tabs>
                 )}

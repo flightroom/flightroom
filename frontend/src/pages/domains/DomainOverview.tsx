@@ -4,6 +4,7 @@ import { Boxes, Info, Rocket, ScrollText } from "lucide-react"
 import { useTranslation } from "react-i18next"
 import { useParams, useSearchParams } from "react-router-dom"
 import AiUsageSummary from "@/components/ai-usage/AiUsageSummary"
+import SandboxUsageCard from "@/components/ai-usage/SandboxUsageCard"
 import ApplicationLogsSection, { LogsApplication } from "@/components/application-logs/ApplicationLogsSection"
 import useBackendsApi from "@/hooks/apiClients/useBackendsApi"
 import useDomainDeploymentsApi from "@/hooks/apiClients/useDomainDeploymentsApi"
@@ -111,6 +112,7 @@ const DomainOverview: React.FC = () => {
                 <TabsContent value="summary" className="mt-6 flex flex-col gap-6">
                     <DomainMembersSection domain={domainQuery.data} frontends={frontendsQuery.data ?? []} backends={backendsQuery.data ?? []} />
                     <AiUsageSummary target={{ kind: "domain", id: id! }} />
+                    <SandboxUsageCard target={{ kind: "domain", id: id! }} />
                 </TabsContent>
 
                 <TabsContent value="deployments" className="mt-6 flex flex-col gap-6">
