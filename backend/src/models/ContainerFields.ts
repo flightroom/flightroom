@@ -198,8 +198,7 @@ const environmentVersionSchema = new Schema<IEnvironmentVersion>(
 
 /**
  * The version each environment runs: one with none does not get the application. As for the resources, that each one
- * belongs to the project is checked by the services. Empty on a new one: a document without it is one made before, which
- * seedEnvironmentVersions gives the versions its environments run.
+ * belongs to the project is checked by the services. Empty on a new one.
  */
 export const environmentVersionsField = { type: [environmentVersionSchema], default: () => [] }
 

@@ -1,20 +1,14 @@
 import { FastifyBaseLogger } from "fastify"
 import mongoose, { Model, QueryFilter, Schema } from "mongoose"
 import AiModel, { AI_MODEL_SECRET_PATHS } from "../models/AiModelModel"
-import Backend from "../models/BackendModel"
 import CodeRepository, { CODE_REPOSITORY_SECRET_PATHS } from "../models/CodeRepositoryModel"
-import Configuration from "../models/ConfigurationModel"
 import Database, { DATABASE_SECRET_PATHS, DatabaseType } from "../models/DatabaseModel"
 import Deployment from "../models/DeploymentModel"
-import Environment from "../models/EnvironmentModel"
-import Frontend, { FrontendKind } from "../models/FrontendModel"
-import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project, { PROJECT_SECRET_PATHS } from "../models/ProjectModel"
 import ProvisionedDatabase from "../models/ProvisionedDatabaseModel"
 import Resource from "../models/ResourceModel"
 import Storage, { STORAGE_SECRET_PATHS } from "../models/StorageModel"
 import { Secret } from "../models/VariableMapModel"
-import { WEEKDAYS } from "../types/KubeGreen"
 import { encryptedFields } from "./encryptedFieldsPlugin"
 import { isSecretEncryptionEnabled } from "./secretCrypto"
 
@@ -82,141 +76,6 @@ export const encryptStoredSecrets = async (logger: FastifyBaseLogger): Promise<v
             logger.info(`Encrypted the credentials of ${encrypted} ${label} document(s) at rest`)
         }
     }
-}
-
-/** Written once the BUNDLE frontends got the version each environment serves: they are not seeded again */
-export const BUNDLE_VERSIONS_SEEDED = "migration.bundle-environment-versions"
-
-/**
- * Gives the backends, the DOCKER frontends and the maintenance agents made before a version was set per environment the
- * one each environment runs: what its current deployment recorded, else the version of the application, which every
- * deploy wrote before. Without it, an environment would no longer get them. A document is seeded once: those made since
- * hold the field, empty or not.
- *
- * The BUNDLE frontends got theirs later, when they already held an empty list: those with none are seeded the same way,
- * once for the whole installation, as the configuration BUNDLE_VERSIONS_SEEDED records. A marker rather than the empty
- * list, which a BUNDLE created since, or taken out of every environment, holds on purpose. Written last, so that a run cut
- * short is taken again: each document is written only while its list is still empty, so a second run changes nothing.
- */
-export const seedEnvironmentVersions = async (logger: FastifyBaseLogger): Promise<void> => {
-    const unseeded = { environmentVersions: { $exists: false } }
-    // No kind: a BUNDLE stored before the kind existed
-    const unseededBundles = { kind: { $ne: FrontendKind.DOCKER }, $or: [unseeded, { environmentVersions: { $size: 0 } }] }
-    const bundlesSeeded = Boolean(await Configuration.exists({ name: BUNDLE_VERSIONS_SEEDED }))
-    const fields = { projectId: 1, version: 1 }
-    type Unseeded = { _id: unknown; projectId: unknown; version?: string }
-    const kinds = [
-        { label: "backend", model: Backend, snapshot: "backends" as const, filter: unseeded, documents: await Backend.find(unseeded, fields).lean<Unseeded[]>() },
-        {
-            label: "frontend",
-            model: Frontend,
-            snapshot: "frontends" as const,
-            filter: { ...unseeded, kind: FrontendKind.DOCKER },
-            documents: await Frontend.find({ ...unseeded, kind: FrontendKind.DOCKER }, fields).lean<Unseeded[]>()
-        },
-        {
-            label: "BUNDLE frontend",
-            model: Frontend,
-            snapshot: "frontends" as const,
-            filter: unseededBundles,
-            documents: bundlesSeeded ? [] : await Frontend.find(unseededBundles, fields).lean<Unseeded[]>()
-        },
-        // Not recorded by a deployment: every deploy wrote its version
-        { label: "maintenance agent", model: MaintenanceAgent, snapshot: undefined, filter: unseeded, documents: await MaintenanceAgent.find(unseeded, fields).lean<Unseeded[]>() }
-    ]
-    const markBundlesSeeded = async () => {
-        if (!bundlesSeeded) await Configuration.updateOne({ name: BUNDLE_VERSIONS_SEEDED }, { $setOnInsert: { value: new Date().toISOString() } }, { upsert: true })
-    }
-    if (kinds.every(kind => kind.documents.length === 0)) return markBundlesSeeded()
-
-    // The current deployment of each environment of a project, read once per project
-    type Recorded = { _id: unknown; version?: string }
-    type Current = { _id: unknown; backends: Recorded[]; frontends: Recorded[] }
-    const currentByProject = new Map<string, Current[]>()
-    const currentOf = async (projectId: unknown): Promise<Current[]> => {
-        const known = currentByProject.get(String(projectId))
-        if (known) return known
-        const current: Current[] = []
-        for (const environment of await Environment.find({ projectId: projectId as never }, { _id: 1 })) {
-            const deployment = await Deployment.findOne({ environmentId: environment._id }, { "backends._id": 1, "backends.version": 1, "frontends._id": 1, "frontends.version": 1 })
-                .sort({ active: -1, deployedAt: -1 })
-                .lean<{ backends?: Recorded[]; frontends?: Recorded[] }>()
-            current.push({ _id: environment._id, backends: deployment?.backends ?? [], frontends: deployment?.frontends ?? [] })
-        }
-        currentByProject.set(String(projectId), current)
-        return current
-    }
-
-    for (const { label, model, snapshot, filter, documents } of kinds) {
-        for (const document of documents) {
-            const environmentVersions = (await currentOf(document.projectId)).flatMap(environment => {
-                const recorded = snapshot ? environment[snapshot].find(application => String(application._id) === String(document._id))?.version : undefined
-                const version = recorded?.trim() || document.version?.trim()
-                return version ? [{ environmentId: environment._id, version }] : []
-            })
-            await (model as unknown as Model<Record<string, unknown>>).updateOne({ _id: document._id, ...filter }, { $set: { environmentVersions } })
-        }
-        if (documents.length > 0) logger.info(`Set the version each environment runs on ${documents.length} ${label}(s)`)
-    }
-    await markBundlesSeeded()
-}
-
-/** The days of a cron `weekdays`, e.g. `1-5`, `1,3,5` or `*`; a range backwards goes round the week, as it did in the editor */
-const cronDays = (weekdays: string): number[] => {
-    if (weekdays.trim() === "*") return [...WEEKDAYS]
-    return weekdays
-        .replace(/\s+/g, "")
-        .split(",")
-        .flatMap(part => {
-            const [from, to = from] = part.split("-").map(Number)
-            if (!Number.isInteger(from) || !Number.isInteger(to)) return []
-            return Array.from({ length: ((to - from + 7) % 7) + 1 }, (_, offset) => (from + offset) % 7)
-        })
-}
-
-/**
- * Turns the kube-green schedules saved as one rule, its days going to sleep at `sleepAt` and waking up at `wakeUpAt`,
- * into a day each: those days awake between the two times, the others asleep, as the rule had them from Friday night to
- * Monday morning. A rule with no wake up, or waking up after it goes to sleep, keeps those days awake from midnight. Once
- * per environment: the rule is unset as it is turned.
- */
-export const convertKubeGreenSchedules = async (logger: FastifyBaseLogger): Promise<void> => {
-    type Legacy = { _id: unknown; kubeGreen: { weekdays?: string; sleepAt?: string; wakeUpAt?: string } }
-    const legacy = await Environment.collection.find<Legacy>({ "kubeGreen.weekdays": { $exists: true } }, { projection: { kubeGreen: 1 } }).toArray()
-    for (const { _id, kubeGreen } of legacy) {
-        const awake = new Set(cronDays(kubeGreen.weekdays ?? ""))
-        const sleepAt = kubeGreen.sleepAt ?? ""
-        const wakeUpAt = kubeGreen.wakeUpAt && kubeGreen.wakeUpAt < sleepAt ? kubeGreen.wakeUpAt : ""
-        const days = WEEKDAYS.map(weekday => (awake.has(weekday) ? { weekday, awake: true, wakeUpAt, sleepAt } : { weekday, awake: false, wakeUpAt: "", sleepAt: "" }))
-        await Environment.collection.updateOne({ _id: _id as never }, { $set: { "kubeGreen.days": days }, $unset: { "kubeGreen.weekdays": "", "kubeGreen.sleepAt": "", "kubeGreen.wakeUpAt": "" } })
-    }
-    if (legacy.length > 0) logger.info(`Turned the kube-green schedule of ${legacy.length} environment(s) into a day each`)
-}
-
-/**
- * Drops from the backends the variables saved as a declaration, before a backend's variables carried the value the deploy
- * hands the container: one with no value, missing, null or empty (an empty value is never encrypted, so it is stored as
- * ""), has nothing left to say now that every variable of a backend has one. Then unsets `required` from those that stay,
- * a flag a backend's variables no longer have. Raw updates on the collection: the values stay as they are stored, encrypted
- * or not, and each one matches only what is still to be done, so a second run changes nothing.
- */
-export const pruneBackendEnvDeclarations = async (logger: FastifyBaseLogger): Promise<void> => {
-    const noValue = { value: { $in: [null, ""] } }
-    const pruned = await Backend.collection.updateMany({ env: { $elemMatch: noValue } }, { $pull: { env: noValue } } as never)
-    // Apart: a $pull and an $unset of the same array conflict in one update
-    const unset = await Backend.collection.updateMany({ "env.required": { $exists: true } }, { $unset: { "env.$[].required": "" } })
-    if (pruned.modifiedCount > 0) logger.info(`Removed the variables with no value of ${pruned.modifiedCount} backend(s)`)
-    if (unset.modifiedCount > 0) logger.info(`Unset required on the variables of ${unset.modifiedCount} backend(s)`)
-}
-
-/**
- * Unsets the design system a frontend had of its own, before only the organization and the project could set one: no
- * screen nor tool reads it any longer, and its npmrc may hold the credentials of a registry. A raw update matching only
- * the frontends that still have one, so a second run changes nothing.
- */
-export const unsetFrontendDesignSystems = async (logger: FastifyBaseLogger): Promise<void> => {
-    const { modifiedCount } = await Frontend.collection.updateMany({ designSystem: { $exists: true } }, { $unset: { designSystem: "" } })
-    if (modifiedCount > 0) logger.info(`Removed the design system of their own from ${modifiedCount} frontend(s)`)
 }
 
 /**
@@ -299,26 +158,5 @@ export const runMigrations = async (logger: FastifyBaseLogger): Promise<void> =>
         await encryptStoredSecrets(logger)
     } catch (error) {
         logger.error({ error }, "Error while running data migrations")
-    }
-    // Apart: the deploys of the applications made before depend on it, whatever happens to the credentials
-    try {
-        await seedEnvironmentVersions(logger)
-    } catch (error) {
-        logger.error({ error }, "Error while setting the version each environment runs")
-    }
-    try {
-        await convertKubeGreenSchedules(logger)
-    } catch (error) {
-        logger.error({ error }, "Error while turning the kube-green schedules into a day each")
-    }
-    try {
-        await pruneBackendEnvDeclarations(logger)
-    } catch (error) {
-        logger.error({ error }, "Error while removing the variables of the backends with no value")
-    }
-    try {
-        await unsetFrontendDesignSystems(logger)
-    } catch (error) {
-        logger.error({ error }, "Error while removing the design systems of the frontends")
     }
 }
