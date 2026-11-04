@@ -117,6 +117,7 @@ declare module "fastify" {
             REPOSITORIES_MAX_SIZE_MB: number
             REPOSITORIES_EVICT_AFTER_DAYS: number
             ASSISTANT_RATE_LIMIT_MAX: number
+            ASSISTANT_CONVERSATION_RETENTION_DAYS: number
         } & OpenShellConfiguration
         telemetry: TelemetryRuntimeConfiguration
     }

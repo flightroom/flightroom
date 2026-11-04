@@ -352,6 +352,13 @@ export default fastifyPlugin(
                     type: "number",
                     default: 20
                 },
+                // Assistant conversations nobody touched for this many days are removed from the database, the deleted
+                // ones too, counted from their deletion. Changing it applies to the conversations already stored.
+                ASSISTANT_CONVERSATION_RETENTION_DAYS: {
+                    type: "number",
+                    minimum: 1,
+                    default: 60
+                },
                 // Where the repositories behind the frontends are cloned to be edited with AI,
                 // as <org>/<project>/<frontend>. A cache: deleting it only costs a new clone.
                 REPOSITORIES_FOLDER: {

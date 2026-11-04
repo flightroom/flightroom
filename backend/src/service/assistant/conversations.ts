@@ -1,4 +1,4 @@
-import { ObjectId, Schema } from "mongoose"
+import mongoose, { ObjectId, Schema } from "mongoose"
 import { createBusinessException } from "../../errors/BusinessException"
 import AssistantConversation from "../../models/AssistantConversationModel"
 import { AssistantConversationDTO, AssistantConversationMessageDTO, AssistantConversationSummaryDTO } from "../../types/AssistantDTO"
@@ -179,7 +179,7 @@ export const saveConversation = async (userId: UserId, projectId: string, conver
     throw conversationConflict()
 }
 
-/** A logical delete: the conversation leaves the history, the document stays. */
+/** A logical delete: the conversation leaves the history, the document stays until the retention has passed. */
 export const deleteConversation = async (userId: UserId, projectId: string, conversationId: string): Promise<void> => {
     const { matchedCount } = await AssistantConversation.updateOne({ _id: conversationId, userId, projectId: toObjectId(projectId), deletedAt: null }, { $set: { deletedAt: new Date() } })
     if (matchedCount === 0) {
@@ -295,5 +295,30 @@ export const conversationForRuns = async (userId: UserId, projectId: string, con
     return {
         messages: ((conversation as { messages?: unknown[] }).messages ?? []) as Pick<AssistantConversationMessageDTO, "id" | "origin" | "usage">[],
         busy: Boolean(conversation.turnUntil && new Date(conversation.turnUntil).getTime() > Date.now())
+    }
+}
+
+/** Named, so that its expiry can be found and changed. */
+export const RETENTION_INDEX = "updatedAt_retention"
+/** What MongoDB answers listing the indexes of a collection not created yet. */
+const NAMESPACE_NOT_FOUND = 26
+
+/**
+ * Removes the conversations no turn, save or delete touched for `days`: a TTL index on `updatedAt`, which every write
+ * refreshes, a delete included. Created on the first start; when `days` changes, its expiry is changed in place, and
+ * applies to the conversations already stored.
+ */
+export const ensureConversationRetention = async (days: number): Promise<void> => {
+    const expireAfterSeconds = Math.round(days * 24 * 60 * 60)
+    const collection = AssistantConversation.collection
+    const indexes = await collection.indexes().catch(error => {
+        if (error?.code === NAMESPACE_NOT_FOUND) return []
+        throw error
+    })
+    const current = indexes.find(index => index.name === RETENTION_INDEX)
+    if (!current) {
+        await collection.createIndex({ updatedAt: 1 }, { name: RETENTION_INDEX, expireAfterSeconds })
+    } else if (current.expireAfterSeconds !== expireAfterSeconds) {
+        await mongoose.connection.db?.command({ collMod: collection.collectionName, index: { name: RETENTION_INDEX, expireAfterSeconds } })
     }
 }

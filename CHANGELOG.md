@@ -9,6 +9,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
+- **Assistant Conversations Expire**: a conversation with the assistant nobody touched for `ASSISTANT_CONVERSATION_RETENTION_DAYS` (60 by default) is removed from the database, a deleted one counted from its deletion; until now they were kept forever, the deleted ones too. Changing the variable applies at the next start to the conversations already stored
 - **Every Environment Variable Of A Backend Has A Value**: a variable of a backend no longer has the **Required** flag, and it can no longer be declared without a value: the console asks for the **Value** of a new one, and the API and `backend_create`, `backend_update` refuse a variable left with none, or with an empty one. To stop passing a variable, remove it; a secret one sent back without a value still keeps the stored one. At the first start, the variables of a backend saved with no value are removed, and the flag unset from the others. **Injected variables** no longer lists a variable of a backend as missing; those of a DOCKER frontend and of a maintenance agent are still declared only, required or not, as before, and their forms no longer show the **Value** field 14.2.0 gave them, which was never saved
 
 ## [14.2.0] - 2026-11-04

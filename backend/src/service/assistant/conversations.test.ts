@@ -1,3 +1,4 @@
+import mongoose from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { AssistantConversationMessageDTO } from "../../types/AssistantDTO"
 import {
@@ -6,9 +7,11 @@ import {
     claimTurn,
     countUpdateTurn,
     deleteConversation,
+    ensureConversationRetention,
     getConversation,
     holdTurn,
     MAX_STORED_MESSAGES,
+    RETENTION_INDEX,
     releaseTurn,
     renewTurn,
     SAVE_GRACE_MS,
@@ -22,13 +25,17 @@ const updateOne = vi.fn()
 const findOne = vi.fn()
 const findOneAndUpdate = vi.fn()
 const exists = vi.fn()
+const indexes = vi.fn()
+const createIndex = vi.fn()
+const command = vi.fn()
 
 vi.mock("../../models/AssistantConversationModel", () => ({
     default: {
         updateOne: (...args: unknown[]) => updateOne(...args),
         findOne: (...args: unknown[]) => ({ lean: () => findOne(...args) }),
         findOneAndUpdate: (...args: unknown[]) => findOneAndUpdate(...args),
-        exists: (...args: unknown[]) => exists(...args)
+        exists: (...args: unknown[]) => exists(...args),
+        collection: { collectionName: "assistantconversations", indexes: () => indexes(), createIndex: (...args: unknown[]) => createIndex(...args) }
     }
 }))
 
@@ -389,5 +396,53 @@ describe("conversations", () => {
             await expect(countUpdateTurn("conversation-1", 5)).resolves.toBe(false)
             expect(findOneAndUpdate.mock.calls[0][0]).toEqual({ _id: "conversation-1", $or: [{ updateTurns: null }, { updateTurns: { $lt: 5 } }] })
         })
+    })
+})
+
+describe("ensureConversationRetention", () => {
+    const SIXTY_DAYS = 60 * 24 * 60 * 60
+
+    beforeEach(() => {
+        indexes.mockReset()
+        createIndex.mockReset()
+        command.mockReset()
+        Object.assign(mongoose.connection, { db: { command } })
+    })
+
+    afterEach(() => {
+        Object.assign(mongoose.connection, { db: undefined })
+    })
+
+    it("Given no conversation stored yet, when the retention is ensured, then the TTL index on updatedAt is created with it", async () => {
+        indexes.mockRejectedValue(Object.assign(new Error("ns does not exist"), { code: 26 }))
+
+        await ensureConversationRetention(60)
+
+        expect(createIndex).toHaveBeenCalledWith({ updatedAt: 1 }, { name: RETENTION_INDEX, expireAfterSeconds: SIXTY_DAYS })
+        expect(command).not.toHaveBeenCalled()
+    })
+
+    it("Given the index kept another retention, when the retention is ensured, then its expiry is changed in place", async () => {
+        indexes.mockResolvedValue([{ name: "_id_" }, { name: RETENTION_INDEX, expireAfterSeconds: 30 * 24 * 60 * 60 }])
+
+        await ensureConversationRetention(60)
+
+        expect(command).toHaveBeenCalledWith({ collMod: "assistantconversations", index: { name: RETENTION_INDEX, expireAfterSeconds: SIXTY_DAYS } })
+        expect(createIndex).not.toHaveBeenCalled()
+    })
+
+    it("Given the index already keeps the retention, when the retention is ensured, then nothing is changed", async () => {
+        indexes.mockResolvedValue([{ name: RETENTION_INDEX, expireAfterSeconds: SIXTY_DAYS }])
+
+        await ensureConversationRetention(60)
+
+        expect(createIndex).not.toHaveBeenCalled()
+        expect(command).not.toHaveBeenCalled()
+    })
+
+    it("Given listing the indexes fails for another reason, when the retention is ensured, then the failure is returned", async () => {
+        indexes.mockRejectedValue(new Error("not authorized"))
+
+        await expect(ensureConversationRetention(60)).rejects.toThrow("not authorized")
     })
 })

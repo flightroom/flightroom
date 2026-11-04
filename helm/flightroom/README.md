@@ -161,7 +161,7 @@ Observability: `SENTRY_DSN`, `TELEMETRY_ENABLED`, `TELEMETRY_DISABLED`, `TELEMET
 `TELEMETRY_INTERVAL_HOURS`, `DO_NOT_TRACK`, `APPLICATIONINSIGHTS_CONNECTION_STRING` (under `envSecrets`)
 
 Not shipped, add them yourself: the AI provider variables (`AI_PROVIDER`, `ANTHROPIC_API_KEY`, …),
-`AI_MAX_EFFORT`, `ASSISTANT_RATE_LIMIT_MAX`, `ARGOCD_ALLOW_INSECURE_HTTP`, `REPOSITORIES_*` and
+`AI_MAX_EFFORT`, `ASSISTANT_RATE_LIMIT_MAX`, `ASSISTANT_CONVERSATION_RETENTION_DAYS`, `ARGOCD_ALLOW_INSECURE_HTTP`, `REPOSITORIES_*` and
 `OPENSHELL_*`. Put API keys under `envSecrets`.
 
 `*` lives under `envSecrets`. The meaning and defaults of each variable are documented in the

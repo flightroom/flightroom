@@ -5,8 +5,10 @@ import { AssistantConversationMessageDTO } from "../types/AssistantDTO"
  * A conversation with the console assistant, kept so that the user can reopen it. The id comes
  * from the browser, which names the conversation before its first answer is saved.
  *
- * Conversations are never removed from the database: deleting one only sets `deletedAt`, and
- * there is no expiry.
+ * Deleting one only sets `deletedAt`. A conversation is removed from the database once untouched for
+ * ASSISTANT_CONVERSATION_RETENTION_DAYS, a deleted one counted from its deletion: a TTL index on `updatedAt`,
+ * created at startup by `ensureConversationRetention` (see `conversations.ts`), not here, so that its expiry follows
+ * the variable.
  */
 export interface IAssistantConversation {
     _id: string
@@ -16,7 +18,7 @@ export interface IAssistantConversation {
     title: string
     /** As the panel shows them, without tool inputs and results (see `conversations.ts`). */
     messages: AssistantConversationMessageDTO[]
-    /** Set when the user deletes it: it leaves the history but stays in the database. */
+    /** Set when the user deletes it: it leaves the history, and the database once the retention has passed. */
     deletedAt?: Date
     /**
      * Held while a turn of the conversation runs, the user's or one the server runs when an agent it started ends:
