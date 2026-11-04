@@ -16,7 +16,14 @@ export const getFrontendStreamLocal = (project: IProject, frontendSlug: string, 
         throw new Error("Frontend file not found in path " + basePath)
     }
 
-    const finalPath = path.join(basePath, filePath)
+    // Confine the requested file to basePath: `filePath` is the attacker-controlled `*` route param,
+    // which the router delivers percent-decoded (so `..%2f` arrives as `../`). Without this check a
+    // traversal would read any file the process can, the pod service-account token included.
+    const root = path.resolve(basePath)
+    const finalPath = path.resolve(root, filePath)
+    if (finalPath !== root && !finalPath.startsWith(root + path.sep)) {
+        throw new Error("File not found for path: " + filePath)
+    }
 
     if (!fs.existsSync(finalPath)) {
         throw new Error("File not found for path: " + finalPath)
@@ -42,7 +49,12 @@ export const getFrontendStreamCustomUrl = async (project: IProject, frontendSlug
 export const getFrontendStreamStorage = async (project: IProject, frontendSlug: string, version: string, filePath: string, storage: IStorage): Promise<Stream> => {
     const storagePath = storage.path || ""
     const basePathInStorage = path.join(storagePath, `${project.slug}-${project._id.toString()}`, frontendSlug, version)
+    // Confine to the frontend's own prefix: `filePath` is attacker-controlled and `path.join`
+    // collapses `..`, which could otherwise reach another project's objects in a shared bucket.
     let finalPath = path.join(basePathInStorage, filePath)
+    if (finalPath !== basePathInStorage && !finalPath.startsWith(basePathInStorage + path.sep)) {
+        throw new Error("File not found for path: " + filePath)
+    }
     if (finalPath.startsWith("/")) {
         finalPath = finalPath.substring(1)
     }
