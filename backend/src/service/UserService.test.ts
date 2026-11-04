@@ -9,6 +9,7 @@ vi.mock("..", () => ({ fastify: { log: { warn: logWarn } } }))
 
 import { MultipartFile } from "@fastify/multipart"
 import { BusinessException } from "../errors/BusinessException"
+import { InvalidCredentialsError } from "../errors/InvalidCredentialsError"
 import UserAvatar, { MAX_AVATAR_SIZE_BYTES } from "../models/UserAvatarModel"
 import User, { IUser } from "../models/UserModel"
 import EmailService from "./EmailSenderService"
@@ -219,6 +220,59 @@ describe("requestPasswordReset", () => {
         await expect(userServiceWith(false, sendResetPasswordEmail).requestPasswordReset("someone@example.com")).rejects.toThrow()
 
         expect(sendResetPasswordEmail).not.toHaveBeenCalled()
+    })
+})
+
+/**
+ * The public routes pass the parsed JSON body as it comes: an object where a string belongs would reach Mongo as an
+ * operator, `{"$ne": null}` matching whichever pending reset or activation comes first.
+ */
+describe("a query operator in place of a string", () => {
+    const OPERATOR = { $ne: null } as unknown as string
+    const service = () => new UserService({ canSendEmails: () => true, sendResetPasswordEmail: vi.fn() } as unknown as EmailService)
+    let findOne: ReturnType<typeof vi.spyOn>
+
+    beforeEach(() => {
+        findOne = vi.spyOn(User, "findOne").mockResolvedValue({ password: "x", save: vi.fn() } as never)
+    })
+
+    afterEach(() => {
+        vi.restoreAllMocks()
+    })
+
+    it("given an operator as the reset token, when the password is reset, then it is refused before any query", async () => {
+        await expect(service().resetPassword({ token: OPERATOR, password: "new-password" })).rejects.toThrow("Invalid or expired reset password token")
+        expect(findOne).not.toHaveBeenCalled()
+    })
+
+    it("given an operator as the new password, when the password is reset, then it is refused before any query", async () => {
+        await expect(service().resetPassword({ token: "a-token", password: OPERATOR })).rejects.toThrow()
+        expect(findOne).not.toHaveBeenCalled()
+    })
+
+    it("given an operator as the activation token, when the account is activated, then it is refused before any query", async () => {
+        await expect(service().activate({ token: OPERATOR })).rejects.toThrow()
+        expect(findOne).not.toHaveBeenCalled()
+    })
+
+    it("given an operator as the email, when a reset is requested, then it is refused before any query", async () => {
+        await expect(service().requestPasswordReset(OPERATOR)).rejects.toThrow()
+        expect(findOne).not.toHaveBeenCalled()
+    })
+
+    it("given an operator as the email, when someone logs in, then the credentials are refused before any query", async () => {
+        await expect(service().login({ email: OPERATOR, password: "x" })).rejects.toBeInstanceOf(InvalidCredentialsError)
+        expect(findOne).not.toHaveBeenCalled()
+    })
+
+    it("given an operator as the email, when someone registers, then it is refused before any query", async () => {
+        await expect(service().register({ email: OPERATOR, password: "x" } as never)).rejects.toThrow("Email is required")
+        expect(findOne).not.toHaveBeenCalled()
+    })
+
+    it("given a string token, when the password is reset, then the query carries the string itself", async () => {
+        await service().resetPassword({ token: "a-token", password: "new-password" })
+        expect(findOne).toHaveBeenCalledWith(expect.objectContaining({ resetPasswordToken: "a-token" }))
     })
 })
 

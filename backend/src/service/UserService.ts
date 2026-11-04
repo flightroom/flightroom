@@ -104,6 +104,16 @@ export const recordPresence = async (user: Pick<IUser, "_id" | "lastSeenAt">, at
 /** Whether the user has not been at the console for {@link AWAY_AFTER_MS}; never seen counts as away. */
 export const isAway = (user: Pick<IUser, "lastSeenAt">, now: Date = new Date()): boolean => !user.lastSeenAt || now.getTime() - user.lastSeenAt.getTime() >= AWAY_AFTER_MS
 
+/**
+ * A value of a request body that goes into a query: a non-empty string, or the error the caller gives for no match.
+ * The bodies are parsed as they come, so `{"token":{"$ne":null}}` would reach Mongo as an operator and match any
+ * document: on the public routes, any pending reset token or activation.
+ */
+export const queryString = (value: unknown, invalid: () => Error): string => {
+    if (typeof value !== "string" || !value) throw invalid()
+    return value
+}
+
 export class UserService {
     private emailService: EmailService
 
@@ -112,9 +122,10 @@ export class UserService {
     }
 
     async activate(data: UserAccoutActivationDTO) {
-        const user = await User.findOne({ activateEmailToken: data.token })
+        const token = queryString(data.token, () => new UserNotFoundError(""))
+        const user = await User.findOne({ activateEmailToken: token })
         if (!user) {
-            throw new UserNotFoundError(data.token)
+            throw new UserNotFoundError(token)
         }
 
         if (!user.activateEmailToken) {
@@ -153,10 +164,8 @@ export class UserService {
     }
 
     async register(userData: RegisterUserData, verifyEmail: boolean = true) {
-        const { email, password, name, surname, status, marketingConsent } = userData
-        if (!email) {
-            throw new Error("Email is required")
-        }
+        const { password, name, surname, status, marketingConsent } = userData
+        const email = queryString(userData.email, () => new Error("Email is required"))
         const existingUser = await User.findOne({ email })
 
         const canVerifyEmail = verifyEmail && this.emailService.canSendEmails()
@@ -198,7 +207,8 @@ export class UserService {
     }
 
     async login(loginData: UserLoginDTO) {
-        const { email, password } = loginData
+        const email = queryString(loginData.email, () => new InvalidCredentialsError())
+        const password = queryString(loginData.password, () => new InvalidCredentialsError())
         const user = await User.findOne({ email })
 
         if (!user?.password) {
@@ -223,7 +233,8 @@ export class UserService {
     }
 
     async inviteUser(invitationData: UserInvitationDTO): Promise<IUser> {
-        const { email, name, surname, role } = invitationData
+        const { name, surname, role } = invitationData
+        const email = queryString(invitationData.email, () => new Error("Email is required"))
         const existingUser = await User.findOne({ email })
 
         if (existingUser) {
@@ -247,7 +258,8 @@ export class UserService {
         return user
     }
 
-    async requestPasswordReset(email: string): Promise<void> {
+    async requestPasswordReset(requested: unknown): Promise<void> {
+        const email = queryString(requested, () => new UserNotFoundError(""))
         const user = await User.findOne({ email })
         if (!user) {
             throw new UserNotFoundError(email)
@@ -275,7 +287,8 @@ export class UserService {
     }
 
     async resetPassword(data: ResetPasswordDataDTO): Promise<void> {
-        const { token, password } = data
+        const token = queryString(data.token, () => new Error("Invalid or expired reset password token"))
+        const password = queryString(data.password, () => new Error("Password is required"))
         const user = await User.findOne({
             resetPasswordToken: token,
             resetPasswordExpires: { $gt: new Date() }
