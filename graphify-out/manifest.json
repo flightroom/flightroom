@@ -610,13 +610,13 @@
     "semantic_hash": ""
   },
   "frontend/public/locales/en/platform.json": {
-    "mtime": 1793891875.852743,
-    "ast_hash": "74ad69c0e693533397b3da9fba708c04",
+    "mtime": 1793916898.4133918,
+    "ast_hash": "c2e09b90c12c893aa2f490b9b56c8286",
     "semantic_hash": ""
   },
   "frontend/public/locales/it/platform.json": {
-    "mtime": 1793891875.8534818,
-    "ast_hash": "79b5545b7ea3d2cb7766f67c597ad83a",
+    "mtime": 1793916897.540181,
+    "ast_hash": "d0f2c00f61201f5ce282178fd1bedcba",
     "semantic_hash": ""
   },
   "frontend/public/manifest.json": {
@@ -1435,8 +1435,8 @@
     "semantic_hash": ""
   },
   "CHANGELOG.md": {
-    "mtime": 1793832076.3944397,
-    "ast_hash": "8100454cdc825c0c40c50e3ed291da08",
+    "mtime": 1793916934.2561975,
+    "ast_hash": "a77a166153c7f54c83b7355d240fa3ef",
     "semantic_hash": ""
   },
   "COMMIT_CONVENTIONS.md": {
@@ -4725,8 +4725,8 @@
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/aiChangeScripts.ts": {
-    "mtime": 1793560609.2478406,
-    "ast_hash": "02f168c71d5e30fce94b98a078bd5bbc",
+    "mtime": 1793916818.4229574,
+    "ast_hash": "8dae1f14545d53f8d49302bce7872162",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.test.ts": {
@@ -4735,13 +4735,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/OpenShellSandboxes.ts": {
-    "mtime": 1793807320.8006907,
-    "ast_hash": "2fce11eef4a7dcf1f2597825563ac167",
+    "mtime": 1793916813.6234164,
+    "ast_hash": "cbdbc5edb99d66da3bbb3e17b268d089",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/commandSandbox.ts": {
-    "mtime": 1793545553.940352,
-    "ast_hash": "10bb82146a0085f97dc46448d117fa43",
+    "mtime": 1793916810.9837995,
+    "ast_hash": "bf542aa7075a37ee77dce15ca9303fa4",
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/tarArchive.test.ts": {
@@ -5800,13 +5800,13 @@
     "semantic_hash": ""
   },
   "backend/src/controller/InstallationController.test.ts": {
-    "mtime": 1793807352.6240497,
-    "ast_hash": "de03dcc05086ec1bdc1abd4b50ff5eab",
+    "mtime": 1793916843.2376006,
+    "ast_hash": "73460b01b6c0f44a248a1f6320fe2c02",
     "semantic_hash": ""
   },
   "backend/src/controller/InstallationController.ts": {
-    "mtime": 1793807320.8068278,
-    "ast_hash": "c08e1241c9226b92510bb630c799cf98",
+    "mtime": 1793916789.5145714,
+    "ast_hash": "204ba4acdf560185dec8f276bbdbf72c",
     "semantic_hash": ""
   },
   "backend/src/models/AiSandboxModel.ts": {
@@ -5850,8 +5850,8 @@
     "semantic_hash": ""
   },
   "frontend/src/hooks/apiClients/useInstallationApi.ts": {
-    "mtime": 1793807379.4056106,
-    "ast_hash": "f38c16b6f56f0fc25e07120bbf0a0ab5",
+    "mtime": 1793916900.2757127,
+    "ast_hash": "38041adef52e30cf94240720cb96949c",
     "semantic_hash": ""
   },
   "frontend/src/pages/installation/Installation.tsx": {
@@ -5880,13 +5880,13 @@
     "semantic_hash": ""
   },
   "backend/src/service/sandbox/SandboxTemplateService.ts": {
-    "mtime": 1793552026.3893807,
-    "ast_hash": "85c2a8b6f9f602bdacde5d4a456dd49f",
+    "mtime": 1793916916.8777282,
+    "ast_hash": "95420126dff5c065059ea5b1443d8be1",
     "semantic_hash": ""
   },
   "frontend/src/pages/installation/partials/SandboxTemplates.tsx": {
-    "mtime": 1793564930.3772347,
-    "ast_hash": "b14df685a8ce6480e24d908ec987394a",
+    "mtime": 1793916904.6703444,
+    "ast_hash": "ea52ee1f4918bbed4123e2774d68b149",
     "semantic_hash": ""
   },
   "backend/src/service/aiChange/commandOutput.test.ts": {
@@ -6157,6 +6157,16 @@
   "backend/src/service/componentSlugs.ts": {
     "mtime": 1793890533.4052145,
     "ast_hash": "f15b7950e869e9861ffeae78e5310a4d",
+    "semantic_hash": ""
+  },
+  "backend/src/service/sandbox/packageCache.test.ts": {
+    "mtime": 1793916842.3681538,
+    "ast_hash": "35854c6f4a477f99f0fd878265da8728",
+    "semantic_hash": ""
+  },
+  "backend/src/service/sandbox/packageCache.ts": {
+    "mtime": 1793916765.6797233,
+    "ast_hash": "d5b6687a48a801aa7ca6debe6487c6d4",
     "semantic_hash": ""
   }
 }
