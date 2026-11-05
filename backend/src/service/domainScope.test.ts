@@ -431,6 +431,7 @@ describe("repository created by a domain-scoped member", () => {
         grantProjectAccess()
         vi.spyOn(Domain, "exists").mockResolvedValue({ _id: OWN_DOMAIN } as never)
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         vi.spyOn(Storage, "findOne").mockResolvedValue(null as never)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({
             _id: connectionId,

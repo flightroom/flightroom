@@ -28,6 +28,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import { restartContinuouslyDeployed } from "./argoCd/argoCdContinuousDeployment"
 import { ensurePlainFields, ensureRequestsWithinLimits, imageRepositoryOf, isNewerVersion, parseRegistration, withManualVersion, withNormalizedReferences } from "./BackendService"
 import BaseAuthorizedService, { domainScopeForbidden, ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged, isInDomainScope } from "./BaseAuthorizedService"
+import { isComponentSlugTaken } from "./componentSlugs"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
 import TemplateScaffoldService from "./TemplateScaffoldService"
@@ -114,11 +115,11 @@ export class FrontendService extends BaseAuthorizedService {
         await ensureArgoCdForAttachments(projectIdObj, frontend)
         ensureOnlyNewRepositoryLinked(scope, frontend.codeRepository)
         ensureRequestsWithinLimits(frontend, undefined, "FRONTEND_INVALID")
-        // A maintenance agent's values file is named after its slug as well, next to the frontend's
-        if ((await Frontend.exists({ slug: frontend.slug, projectId: projectIdObj })) || (await MaintenanceAgent.exists({ slug: frontend.slug, projectId: projectIdObj }))) {
+        // The slug names the component across the app: no frontend, backend or maintenance agent may hold it already
+        if (await isComponentSlugTaken(frontend.slug, projectIdObj)) {
             throw createBusinessException({
                 code: "FRONTEND_SLUG_TAKEN",
-                message: `A frontend or a maintenance agent with slug "${frontend.slug}" already exists in this project`,
+                message: `A frontend, a backend or a maintenance agent with slug "${frontend.slug}" already exists in this project`,
                 statusCode: 409
             })
         }

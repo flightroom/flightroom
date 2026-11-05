@@ -3399,8 +3399,8 @@
                 "too_many_description": "Ne hai selezionati {{count}}, un agente lavora su al massimo {{max}} repository: selezionane meno, potrai avviare un job sugli altri in seguito.",
                 "errors": {
                     "generic": "Non è stato possibile crearlo: verifica che il nome del repository sia ancora libero presso il provider e riprova.",
-                    "FRONTEND_SLUG_TAKEN": "Esiste già un frontend con questo slug nel progetto: scegline un altro.",
-                    "BACKEND_SLUG_TAKEN": "Esiste già un backend con questo slug nel progetto: scegline un altro.",
+                    "FRONTEND_SLUG_TAKEN": "Nel progetto un frontend, un backend o un agente di manutenzione usa già questo slug: scegline un altro.",
+                    "BACKEND_SLUG_TAKEN": "Nel progetto un frontend, un backend o un agente di manutenzione usa già questo slug: scegline un altro.",
                     "BACKEND_SLUG_INVALID": "Lo slug non è valido: da 2 a 50 lettere minuscole, cifre o trattini.",
                     "INVALID_REPOSITORY_NAME": "Il nome del repository non è valido.",
                     "REPOSITORY_ALREADY_LINKED": "Ha già un repository di codice collegato.",
@@ -4671,7 +4671,7 @@
             }
         },
         "errors": {
-            "slug_taken": "Un altro agente di manutenzione del progetto usa già questo slug.",
+            "slug_taken": "Nel progetto un frontend, un backend o un altro agente di manutenzione usa già questo slug.",
             "slug_invalid": "Lo slug può contenere solo lettere minuscole, numeri e trattini (da 2 a 50 caratteri).",
             "schedule_invalid": "La pianificazione non è un'espressione cron valida.",
             "timezone_invalid": "Il fuso orario non è un nome IANA valido.",

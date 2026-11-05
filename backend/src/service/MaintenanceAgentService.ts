@@ -18,6 +18,7 @@ import { toObjectId } from "../utils/mongooseUtils"
 import ArgoCdService from "./ArgoCdService"
 import { ensureRequestsWithinLimits, withManualVersion, withNormalizedReferences, withNormalizedSchedule } from "./BackendService"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
+import { isComponentSlugTaken } from "./componentSlugs"
 import { resolveDomainId } from "./DomainService"
 import { isDeployable } from "./gitops/applicationManifests"
 import MarketService from "./MarketService"
@@ -41,8 +42,7 @@ const ensureSlugFree = async (slug: string, projectId: Schema.Types.ObjectId) =>
     if (!BACKEND_SLUG.test(slug)) {
         throw invalid("MAINTENANCE_AGENT_SLUG_INVALID", `"${slug}" is not a valid slug: 2 to 50 lowercase letters, digits or dashes, not starting with a dash`)
     }
-    const taken = (await MaintenanceAgent.exists({ slug, projectId })) || (await Backend.exists({ slug, projectId })) || (await Frontend.exists({ slug, projectId }))
-    if (taken) {
+    if (await isComponentSlugTaken(slug, projectId)) {
         throw invalid("MAINTENANCE_AGENT_SLUG_TAKEN", `A maintenance agent, a backend or a frontend with slug "${slug}" already exists in this project`, 409)
     }
 }

@@ -28,6 +28,7 @@ import { canonicalTimeZone, isValidSchedule } from "../types/MaintenanceAgent"
 import { toObjectId } from "../utils/mongooseUtils"
 import { restartContinuouslyDeployed } from "./argoCd/argoCdContinuousDeployment"
 import BaseAuthorizedService, { ensureOnlyNewRepositoryLinked, ensureRepositoryLinkUnchanged } from "./BaseAuthorizedService"
+import { isComponentSlugTaken } from "./componentSlugs"
 import { resolveDomainId } from "./DomainService"
 import MarketService from "./MarketService"
 import { ensureAttachableResources, withResourcesOutOfScope } from "./ResourceService"
@@ -401,9 +402,9 @@ export class BackendService extends BaseAuthorizedService {
         ensureRequestsWithinLimits(backend)
 
         // Both before the repository is created: a refused save would leave an orphan repository behind
-        // A maintenance agent's values file is named after its slug as well, next to the backend's
-        if ((await Backend.exists({ slug, projectId: projectIdObj })) || (await MaintenanceAgent.exists({ slug, projectId: projectIdObj }))) {
-            throw createBusinessException({ code: "BACKEND_SLUG_TAKEN", message: `A backend or a maintenance agent with slug "${slug}" already exists in this project`, statusCode: 409 })
+        // The slug names the component across the app: no frontend, backend or maintenance agent may hold it already
+        if (await isComponentSlugTaken(slug, projectIdObj)) {
+            throw createBusinessException({ code: "BACKEND_SLUG_TAKEN", message: `A frontend, a backend or a maintenance agent with slug "${slug}" already exists in this project`, statusCode: 409 })
         }
         try {
             await new Backend({ ...backend, projectId: projectIdObj }).validate()

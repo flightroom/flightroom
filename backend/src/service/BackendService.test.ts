@@ -39,6 +39,7 @@ import BuiltBackend from "../models/BuiltBackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Domain from "../models/DomainModel"
 import Environment from "../models/EnvironmentModel"
+import Frontend from "../models/FrontendModel"
 import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Project from "../models/ProjectModel"
 import Resource from "../models/ResourceModel"
@@ -213,9 +214,11 @@ describe("BackendService.create", () => {
     const codeRepositoryId = new Types.ObjectId().toString()
 
     let exists: ReturnType<typeof vi.fn>
+    let frontendExists: ReturnType<typeof vi.fn>
 
     beforeEach(() => {
         exists = vi.spyOn(Backend, "exists").mockResolvedValue(null) as unknown as ReturnType<typeof vi.fn>
+        frontendExists = vi.spyOn(Frontend, "exists").mockResolvedValue(null) as unknown as ReturnType<typeof vi.fn>
     })
 
     const create = async (template: Record<string, unknown> | null, slug = " Orders-API ", overrides: Partial<BackendDTO> = {}) => {
@@ -305,6 +308,14 @@ describe("BackendService.create", () => {
         await expect(create({ slug: "service-node-fastify", type: "service", framework: "Node.js" })).rejects.toMatchObject({ statusCode: 409, code: "BACKEND_SLUG_TAKEN" })
         expect(exists).toHaveBeenCalledWith({ slug: "orders-api", projectId: expect.anything() })
         expect(getSingle).not.toHaveBeenCalled()
+        expect(createRepository).not.toHaveBeenCalled()
+    })
+
+    it("given a slug a frontend of the project has, when a backend is created, then it is refused with a 409 before any repository is created", async () => {
+        frontendExists.mockResolvedValue({ _id: new Types.ObjectId() })
+
+        await expect(create({ slug: "service-node-fastify", type: "service", framework: "Node.js" })).rejects.toMatchObject({ statusCode: 409, code: "BACKEND_SLUG_TAKEN" })
+        expect(frontendExists).toHaveBeenCalledWith({ slug: "orders-api", projectId: expect.anything() })
         expect(createRepository).not.toHaveBeenCalled()
     })
 

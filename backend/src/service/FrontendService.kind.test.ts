@@ -6,6 +6,7 @@ vi.mock("..", () => ({
 }))
 
 import { ApiKeyRole } from "../models/ApiKeyModel"
+import Backend from "../models/BackendModel"
 import BuiltFrontend from "../models/BuiltFrontendModel"
 import Environment from "../models/EnvironmentModel"
 import FrontendDeployment from "../models/FrontendDeploymentModel"
@@ -38,6 +39,7 @@ describe("FrontendService.create, kind", () => {
         const service = new FrontendService()
         vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         const write = vi.spyOn(Frontend, "create").mockImplementation((async (doc: unknown) => doc) as never)
         await service.create({ name: "Shell", slug: "shell", version: "1.0.0", host: { type: HostedOn.MFE_ORCHESTRATOR_HUB }, ...dto } as unknown as FrontendDTO, String(projectId))
         return write

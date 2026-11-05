@@ -47,6 +47,16 @@ describe("CodeRepositoryImportService.importRepositories", () => {
         expect(result.imported).toEqual([expect.objectContaining({ repositoryId: "1", backendId: expect.any(String) })])
     })
 
+    it("given a frontend holding the repository's slug, when the repository is imported as a backend, then the backend gets the next free slug", async () => {
+        vi.spyOn(Frontend, "find").mockImplementation(found([{ _id: new Types.ObjectId(), slug: "orders-api", name: "orders", codeRepository: { repositoryId: "9", name: "orders-fe" } }]))
+        vi.spyOn(Backend, "find").mockImplementation(found([]))
+        const createBackend = vi.spyOn(Backend, "create").mockImplementation((async (doc: unknown) => ({ _id: new Types.ObjectId(), ...(doc as object) })) as never)
+
+        await new CodeRepositoryImportService().importRepositories(String(connection._id), { repositoryIds: ["1"], target: "backend" })
+
+        expect(createBackend).toHaveBeenCalledWith(expect.objectContaining({ slug: "orders-api-2" }))
+    })
+
     it("given a repository already linked to a frontend, when it is imported as a backend, then it is skipped", async () => {
         vi.spyOn(Frontend, "find").mockImplementation(found([{ _id: new Types.ObjectId(), slug: "orders-api", name: "orders-api", codeRepository: { repositoryId: "1", name: "orders-api" } }]))
         vi.spyOn(Backend, "find").mockImplementation(found([]))

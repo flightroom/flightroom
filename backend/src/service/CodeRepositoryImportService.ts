@@ -4,7 +4,6 @@ import { EntityNotFoundError } from "../errors/EntityNotFoundError"
 import Backend, { IBackend } from "../models/BackendModel"
 import { ICodeRepository } from "../models/CodeRepositoryModel"
 import Frontend, { HostedOn, ICodeRepositoryFrontend, IFrontend, IHostFrontend } from "../models/FrontendModel"
-import MaintenanceAgent from "../models/MaintenanceAgentModel"
 import Storage from "../models/StorageModel"
 import { BACKEND_SLUG } from "../types/BackendStack"
 import ImportRepositoriesDTO, { ImportTarget } from "../types/ImportRepositoriesDTO"
@@ -12,6 +11,7 @@ import { buildUniqueSlug, NormalizedRepository, normalizeRepository } from "../u
 import { toObjectId } from "../utils/mongooseUtils"
 import BaseAuthorizedService, { isInDomainScope } from "./BaseAuthorizedService"
 import CodeRepositoryService from "./CodeRepositoryService"
+import { takenComponentSlugs } from "./componentSlugs"
 import { resolveDomainId } from "./DomainService"
 
 const defaultEntryPoint = "assets/remoteEntry.js"
@@ -82,7 +82,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
 
         const repositories = await this.fetchRepositories(codeRepositoryService, codeRepository, groupId)
         const linkedMembers = await this.getLinkedMembers(codeRepository)
-        const takenSlugs = await this.getTakenSlugs(codeRepository.projectId, target)
+        const takenSlugs = await takenComponentSlugs(codeRepository.projectId)
         const scope = await this.getDomainScope(codeRepository.projectId)
 
         return repositories.map(repository => {
@@ -127,7 +127,7 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
         const domainId = body.domainId !== undefined ? await resolveDomainId(body.domainId, codeRepository.projectId) : undefined
         const repositories = await this.fetchRepositories(codeRepositoryService, codeRepository, body.groupId)
         const linkedMembers = await this.getLinkedMembers(codeRepository)
-        const takenSlugs = await this.getTakenSlugs(codeRepository.projectId, body.target)
+        const takenSlugs = await takenComponentSlugs(codeRepository.projectId)
         const host = isBackend ? undefined : await this.resolveHost(codeRepository.projectId)
 
         const result: ImportRepositoriesResult = { imported: [], skipped: [], failed: [] }
@@ -222,14 +222,6 @@ export class CodeRepositoryImportService extends BaseAuthorizedService {
         }
         const [frontends, backends] = await Promise.all([Frontend.find(linked), Backend.find(linked)])
         return [...frontends, ...backends]
-    }
-
-    /** Frontends and backends have a slug space each, so only the target's is taken; the maintenance agents share both */
-    private async getTakenSlugs(projectId: Schema.Types.ObjectId, target?: ImportTarget): Promise<Set<string>> {
-        const filter = { projectId: toObjectId(projectId) }
-        const members = target === "backend" ? await Backend.find(filter, { slug: 1 }) : await Frontend.find(filter, { slug: 1 })
-        const agents = await MaintenanceAgent.find(filter, { slug: 1 })
-        return new Set([...members, ...agents].map(member => member.slug))
     }
 
     private reserveSlug(name: string, takenSlugs: Set<string>, target: ImportTarget = "frontend"): string {

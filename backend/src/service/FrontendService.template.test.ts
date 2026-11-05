@@ -20,6 +20,7 @@ vi.mock("./TemplateScaffoldService", () => ({
 }))
 
 import { BusinessException } from "../errors/BusinessException"
+import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Frontend from "../models/FrontendModel"
 import Storage from "../models/StorageModel"
@@ -44,6 +45,7 @@ describe("FrontendService.create from a template", () => {
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: new Types.ObjectId(), projectId } as never)
         // The slug is free: checked before any repository is created
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         const write = vi.spyOn(Frontend, "create").mockImplementation((async (doc: unknown) => doc) as never)
         getSingle.mockResolvedValue(template)
         await service.create(
@@ -115,6 +117,7 @@ describe("FrontendService.create with a taken slug", () => {
         const service = new FrontendService()
         vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
         vi.spyOn(Frontend, "exists").mockResolvedValue({ _id: new Types.ObjectId() } as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         const write = vi.spyOn(Frontend, "create")
 
         const creation = service.create(
@@ -129,6 +132,19 @@ describe("FrontendService.create with a taken slug", () => {
 
         await expect(creation).rejects.toMatchObject({ code: "FRONTEND_SLUG_TAKEN", statusCode: 409 })
         expect(createRepository).not.toHaveBeenCalled()
+        expect(write).not.toHaveBeenCalled()
+    })
+
+    it("given a slug a backend of the project has, when a frontend is created, then it is refused before any repository is created", async () => {
+        const service = new FrontendService()
+        vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue({ _id: new Types.ObjectId() } as never)
+        const write = vi.spyOn(Frontend, "create")
+
+        const creation = service.create({ name: "Cart", slug: "cart", version: "1.0.0" } as unknown as FrontendDTO, projectId)
+
+        await expect(creation).rejects.toMatchObject({ code: "FRONTEND_SLUG_TAKEN", statusCode: 409 })
         expect(write).not.toHaveBeenCalled()
     })
 })

@@ -1,5 +1,6 @@
 import { Types } from "mongoose"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
+import Backend from "../models/BackendModel"
 import Domain from "../models/DomainModel"
 import Frontend from "../models/FrontendModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
@@ -22,6 +23,7 @@ describe("FrontendService.create domain", () => {
     beforeEach(() => {
         // The slug is free: checked before any repository is created
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         write = vi.spyOn(Frontend, "create").mockImplementation((async (doc: unknown) => doc) as never) as unknown as ReturnType<typeof vi.fn>
     })
 

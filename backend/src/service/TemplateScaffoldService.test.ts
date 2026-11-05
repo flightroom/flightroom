@@ -1078,6 +1078,7 @@ describe("TemplateScaffoldService, single-spa and micro-lc templates through Fro
         testCase.stub()
         // The slug is free: checked before any repository is created
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         const write = vi.spyOn(Frontend, "create").mockImplementation((async (doc: unknown) => doc) as never)
         const service = new FrontendService()
         vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()

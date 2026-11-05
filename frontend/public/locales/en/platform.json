@@ -3379,8 +3379,8 @@
                 "too_many_description": "{{count}} are selected, one agent works on at most {{max}} repositories: select fewer, you can start a job on the others later.",
                 "errors": {
                     "generic": "It could not be created: check that the repository name is still free at the provider and try again.",
-                    "FRONTEND_SLUG_TAKEN": "A frontend with this slug already exists in the project: pick another one.",
-                    "BACKEND_SLUG_TAKEN": "A backend with this slug already exists in the project: pick another one.",
+                    "FRONTEND_SLUG_TAKEN": "A frontend, a backend or a maintenance agent of the project already uses this slug: pick another one.",
+                    "BACKEND_SLUG_TAKEN": "A frontend, a backend or a maintenance agent of the project already uses this slug: pick another one.",
                     "BACKEND_SLUG_INVALID": "The slug is not valid: 2 to 50 lowercase letters, digits or dashes.",
                     "INVALID_REPOSITORY_NAME": "The repository name is not valid.",
                     "REPOSITORY_ALREADY_LINKED": "It already has a code repository linked.",
@@ -4651,7 +4651,7 @@
             }
         },
         "errors": {
-            "slug_taken": "Another maintenance agent of the project already uses this slug.",
+            "slug_taken": "A frontend, a backend or another maintenance agent of the project already uses this slug.",
             "slug_invalid": "The slug may contain only lowercase letters, numbers and dashes (2 to 50 characters).",
             "schedule_invalid": "The schedule is not a valid cron expression.",
             "timezone_invalid": "The time zone is not a valid IANA name.",

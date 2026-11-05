@@ -1,5 +1,6 @@
 import { Types } from "mongoose"
 import { afterEach, describe, expect, it, vi } from "vitest"
+import Backend from "../models/BackendModel"
 import Frontend, { HostedOn } from "../models/FrontendModel"
 import Storage from "../models/StorageModel"
 import { withNoMaintenanceAgents } from "../testing/noMaintenanceAgents"
@@ -16,6 +17,7 @@ const created = async (frontend: Partial<FrontendDTO>) => {
     vi.spyOn(service as unknown as { ensureAccessToProject: () => Promise<void> }, "ensureAccessToProject").mockResolvedValue()
     // The slug is free: checked before any repository is created
     vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+    vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
     const create = vi.spyOn(Frontend, "create").mockImplementation((async (doc: unknown) => doc) as never)
     await service.create({ name: "cart", slug: "cart", version: "1.0.0", ...frontend } as FrontendDTO, projectId.toString())
     return create.mock.calls[0][0] as unknown as { host: Record<string, unknown> }

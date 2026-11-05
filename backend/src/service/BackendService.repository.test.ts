@@ -21,6 +21,7 @@ vi.mock("./TemplateScaffoldService", () => ({
 
 import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
+import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
 import { IUser } from "../models/UserModel"
 import UserProject, { RoleInProject } from "../models/UserProjectModel"
@@ -47,6 +48,7 @@ describe("BackendService.create with a new repository", () => {
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId() } as never)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: codeRepositoryId, projectId } as never)
         vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
         vi.spyOn(Backend, "create").mockImplementation((async (doc: unknown) => doc) as never)
         getSingle.mockResolvedValue({ slug: "service-node-fastify", type: "service", compiler: "docker", framework: "Node.js" })
     })

@@ -20,6 +20,7 @@ vi.mock("./TemplateScaffoldService", () => ({
 }))
 
 import { EntityNotFoundError } from "../errors/EntityNotFoundError"
+import Backend from "../models/BackendModel"
 import CodeRepository from "../models/CodeRepositoryModel"
 import Frontend from "../models/FrontendModel"
 import Project from "../models/ProjectModel"
@@ -51,6 +52,7 @@ describe("FrontendService.create with a new repository", () => {
         vi.spyOn(Project, "findById").mockResolvedValue({ _id: projectId, organizationId: new Types.ObjectId() } as never)
         vi.spyOn(CodeRepository, "findById").mockResolvedValue({ _id: connectionId, projectId } as never)
         vi.spyOn(Frontend, "exists").mockResolvedValue(null as never)
+        vi.spyOn(Backend, "exists").mockResolvedValue(null as never)
         vi.spyOn(Frontend, "create").mockImplementation((async (doc: unknown) => doc) as never)
         getSingle.mockResolvedValue({ slug: "vite-remote-react", type: "remote", compiler: "vite", framework: "React" })
     })
