@@ -276,6 +276,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                       ? {
                             enabled: Boolean(initialTemplate),
                             repositoryId: "create_new",
+                            name: "create_new",
                             codeRepositoryId: repositories.length === 1 ? repositories[0]._id : repositories.find(repo => repo.default)?._id
                         }
                       : { enabled: false }
@@ -285,6 +286,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
     // What the last template filled in: a field still holding it was not edited by hand, so the next template may replace it
     const prefilled = useRef<PrefilledValues>({ port: "8080", livenessPath: "", readinessPath: "", docsPath: "", openApiPath: "" })
     const selectedTemplate = form.watch("template")
+    // The template scaffolds only a repository created here: with an existing one, or none, the technology is said by hand
+    const creatingRepository = Boolean(form.watch("codeRepository.enabled")) && form.watch("codeRepository.repositoryId") === "create_new"
     const scheduled = form.watch("scheduleMode") !== "always"
     useEffect(() => {
         const defaults = backendTemplates.find(market => market.slug === selectedTemplate)?.backendDefaults
@@ -341,8 +344,15 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
             dto.stack = { runtime: choice?.runtime, framework: choice?.framework }
         }
 
-        if (!isEdit && template && dto.codeRepository) {
-            dto.codeRepository.createData = { ...dto.codeRepository.createData, template, name: dto.codeRepository.createData?.name || data.slug }
+        if (!isEdit && dto.codeRepository) {
+            if (dto.codeRepository.repositoryId === "create_new") {
+                // The provider names it: the select only held the "create new" choice
+                dto.codeRepository.name = undefined
+                if (template) dto.codeRepository.createData = { ...dto.codeRepository.createData, template, name: dto.codeRepository.createData?.name || data.slug }
+            } else {
+                // An existing repository: nothing to create, the name typed above keeps refilling it
+                dto.codeRepository.createData = undefined
+            }
         }
 
         if (isEdit) {
@@ -445,8 +455,8 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                                             className="w-full"
                                         />
                                     )}
-                                    {/* A template says it at creation */}
-                                    {(isEdit || !selectedTemplate) && (
+                                    {/* A template says it when it scaffolds the repository */}
+                                    {(isEdit || !selectedTemplate || !creatingRepository) && (
                                         <SelectField
                                             name="technology"
                                             label={t("backends.technology.label")}
@@ -493,7 +503,7 @@ const AddBackendForm: React.FC<AddBackendFormProps> = ({ repositories, environme
                                     <TextareaField name="description" label={t("backends.description")} placeholder={t("backends.description_placeholder")} />
                                 </CardContent>
                             </Card>
-                            {hasRepositories && <CodeRepositorySection repositoriesData={repositories} isEdit={isEdit} forceCreation={!isEdit} />}
+                            {hasRepositories && <CodeRepositorySection repositoriesData={repositories} isEdit={isEdit} />}
                         </div>
                     </TabsContent>
 

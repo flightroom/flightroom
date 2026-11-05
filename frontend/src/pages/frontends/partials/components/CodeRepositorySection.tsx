@@ -45,7 +45,7 @@ interface RepositoryNameAvailability {
 
 export const CodeRepositorySection: React.FC<CodeRepositorySectionProps> = ({ repositoriesData, isEdit = false, frontendId, savedRepository, forceCreation = false }) => {
     const { t } = useTranslation()
-    const { setValue, formState } = useFormContext()
+    const { setValue, getValues, formState } = useFormContext()
     const codeRepositoriesApi = useCodeRepositoriesApi()
 
     // useWatch and not watch: watch re-renders the whole form at each keystroke in these fields
@@ -79,8 +79,9 @@ export const CodeRepositorySection: React.FC<CodeRepositorySectionProps> = ({ re
             const response = await codeRepositoriesApi.getRepositories({ repositoryId: codeRepositoryId, silent: true })
             return response
         },
+        // By name, as the user looks for them
         onSuccess: data => {
-            setFetchedRepositories(data || [])
+            setFetchedRepositories([...(data || [])].sort((a, b) => String(a.name).localeCompare(String(b.name), undefined, { sensitivity: "base", numeric: true })))
         }
     })
 
@@ -93,6 +94,8 @@ export const CodeRepositorySection: React.FC<CodeRepositorySectionProps> = ({ re
 
         if (selectedCodeRepositoryId && codeRepositoryEnabled) {
             const data = await fetchRepositoriesMutation.mutateAsync(selectedCodeRepositoryId)
+            // A repository to create is in no provider list: the choice stays
+            if (getValues("codeRepository.repositoryId") === "create_new") return
             const repository = data.find(repo => repo.name === selectedRepositoryId || String(repo.id) === selectedRepositoryId)
             if (!repository) {
                 setValue("codeRepository.repositoryId", "")
@@ -119,8 +122,11 @@ export const CodeRepositorySection: React.FC<CodeRepositorySectionProps> = ({ re
     // Prefill the clone urls with the ones exposed by the provider for the selected repository
     const onRepositorySelected = (repositoryName: string) => {
         if (repositoryName === "create_new") {
+            setValue("codeRepository.repositoryId", "create_new")
             setValue("codeRepository.cloneUrlHttps", "")
             setValue("codeRepository.cloneUrlSsh", "")
+            // Back from an existing repository: the name to create starts again from the slug
+            if (!getValues("codeRepository.createData.name")) setValue("codeRepository.createData.name", getValues("slug") || "")
             return
         }
 
