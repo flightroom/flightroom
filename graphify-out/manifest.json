@@ -3825,8 +3825,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/CodeRepositorySection.tsx": {
-    "mtime": 1793804420.6811528,
-    "ast_hash": "4df82029efa303106a8384f7ea44d02c",
+    "mtime": 1793890105.415554,
+    "ast_hash": "1170def349db2d0870c04c5ec6f955cf",
     "semantic_hash": ""
   },
   "frontend/src/pages/frontends/partials/components/DangerZoneRemoveFrontend.tsx": {
@@ -4540,8 +4540,8 @@
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/AddBackend.tsx": {
-    "mtime": 1793831004.4559574,
-    "ast_hash": "793c8c20736d8ea99e482f77139271dc",
+    "mtime": 1793890105.4162207,
+    "ast_hash": "8a0b01bc6df818f56d96a79d322220db",
     "semantic_hash": ""
   },
   "frontend/src/pages/backends/BackendDetail.tsx": {
