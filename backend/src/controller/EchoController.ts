@@ -3,7 +3,8 @@ import { name, version } from "../../package.json"
 import AuthenticationMethod from "../types/AuthenticationMethod"
 
 export default async function echoController(fastify: FastifyInstance) {
-    fastify.get("/echo", { config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
+    // The Kubernetes probes call it every few seconds: two lines per call would bury the logs that matter
+    fastify.get("/echo", { logLevel: "silent", config: { authMethod: AuthenticationMethod.PUBLIC } }, async (request, reply) => {
         reply.send({
             name: name,
             version: version,
