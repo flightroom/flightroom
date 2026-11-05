@@ -325,6 +325,35 @@ describe("OpenShellSandboxes", () => {
             await expect(acquired.exposeService?.(5173, "preview-fe")).resolves.toBe(opened)
         })
 
+        it("Given the sandbox of the key cannot write its folder, when one is acquired, then it is deleted with its record and its lifetime, and another one is created", async () => {
+            put("fr-0000000000000001", ours)
+            pool.seed({ name: "fr-0000000000000001", sandboxId: "broken-1", key: CONVERSATION })
+            sandbox.execStream.mockImplementation(async function* (name: string, command: string[]) {
+                commands.push(command)
+                if (name === "fr-0000000000000001") yield { stream: "stderr", data: Buffer.from("mkdir: cannot create directory '/sandbox/spaces': Permission denied\n") }
+                yield { type: "exit", exitCode: name === "fr-0000000000000001" ? 1 : 0 }
+            })
+            const lifecycle = lifetimes()
+
+            const acquired = await sandboxes().acquire(CONVERSATION, lifecycle)
+
+            expect(sandbox.delete).toHaveBeenCalledWith("fr-0000000000000001", { workspace: undefined, allowMissing: true })
+            expect(lifecycle.deleted).toHaveBeenCalledWith(CONVERSATION, "broken-1")
+            const [record] = assigned()
+            expect(record.name).not.toBe("fr-0000000000000001")
+            expect(commands).toContainEqual(["sh", "-c", 'mkdir -p "$0"', acquired.root])
+        })
+
+        it("Given every sandbox created cannot write its folder, when one is acquired, then it fails saying the template must be saved again", async () => {
+            sandbox.execStream.mockImplementation(async function* () {
+                yield { stream: "stderr", data: Buffer.from("mkdir: cannot create directory '/sandbox/spaces': Permission denied\n") }
+                yield { type: "exit", exitCode: 1 }
+            })
+
+            await expect(sandboxes().acquire(CONVERSATION)).rejects.toThrow(/cannot write \/sandbox: mkdir: .*Permission denied\. Save the sandbox template again/)
+            expect(sandbox.create.mock.calls.length + sandbox.createFromTemplate.mock.calls.length).toBe(3)
+        })
+
         it("Given the sandbox of the key in error, when one is acquired, then it is deleted with its record, its lifetime closed, and another one is created after", async () => {
             put("fr-0000000000000001", ours, { phase: "error" })
             pool.seed({ name: "fr-0000000000000001", sandboxId: "dead-1", key: CONVERSATION })
@@ -574,11 +603,11 @@ describe("OpenShellSandboxes", () => {
         })
 
         it("Given a command printing more than is kept, when it runs, then its exit code and the end of its output come back with how much was cut", async () => {
+            const acquired = await sandboxes().acquire(CONVERSATION)
             sandbox.execStream.mockImplementation(async function* () {
                 for (let index = 0; index < 100; index++) yield { stream: index % 2 ? "stderr" : "stdout", data: Buffer.from(`${String(index).padStart(999, ".")}\n`) }
                 yield { type: "exit", exitCode: 2 }
             })
-            const acquired = await sandboxes().acquire(CONVERSATION)
             const result = await acquired.exec(["npm", "test"], { workdir: "/sandbox/repositories/shop" })
 
             expect(result.exitCode).toBe(2)

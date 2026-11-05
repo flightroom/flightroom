@@ -7,6 +7,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Fixed
+
+- **A Sandbox That Cannot Write Its Workspace Is Replaced**: a sandbox created from a template that mounted a volume under `/sandbox`, as 15.4.0 did with the package cache, stayed with its frontend, backend or conversation and failed every live preview and script with `mkdir: cannot create directory '/sandbox/spaces': Permission denied` until it idled out, even after the template was saved again. It is now checked when it is handed out, deleted and replaced; when every new one fails too, the error says to save the sandbox template again
+- **The Kubernetes Probes No Longer Fill The Logs**: `/api/echo`, which the probes call every few seconds, writes no line to the backend log nor to the nginx access log
+
 ## [15.4.1] - 2026-11-05
 
 ### Fixed

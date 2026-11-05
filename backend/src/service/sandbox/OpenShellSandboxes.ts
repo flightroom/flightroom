@@ -563,14 +563,22 @@ export class OpenShellSandboxes {
         const [client, owner, current] = await Promise.all([this.connect(), this.owner(), this.settings()])
         const settings = await this.settingsFor(client, current, languages)
         const workspace = this.workspace
+        let unwritable: string | undefined
         for (let attempt = 0; attempt < 3; attempt++) {
             const name = await this.sandboxFor(client, owner, settings, key, lifecycle, folder !== key.toLowerCase(), organizationId)
             await client.sandbox.waitReady(name, READY_TIMEOUT_SECS, { workspace }).catch(error => this.unready(client, name, key, lifecycle, error))
             // The sweep may have moved it back into the pool while it was looked up: the key then gets another one.
-            if ((await this.pool.byName(name))?.key === key) {
-                return new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`, current.OPENSHELL_PREVIEW_URL, PACKAGE_CACHE_FOLDER)
-            }
+            const record = await this.pool.byName(name)
+            if (record?.key !== key) continue
+            const acquired = new OpenShellCommandSandbox(client, name, workspace, `${this.spaces}/${folder}`, `${this.root}/home`, current.OPENSHELL_PREVIEW_URL, PACKAGE_CACHE_FOLDER)
+            // Created from a template that took the workspace over (a volume under /sandbox, as 15.4.0 mounted the
+            // package cache), it can never write its folder: kept by its key, it would fail every run until it idles out.
+            const writable = await acquired.exec(["sh", "-c", 'mkdir -p "$0"', acquired.root], { timeoutSecs: 30 })
+            if (writable.exitCode === 0) return acquired
+            unwritable = writable.output.trim()
+            await this.discard(client, record, await this.find(client, name), lifecycle.deleted)
         }
+        if (unwritable) throw new Error(`The sandboxes cannot write ${this.root}: ${unwritable}. Save the sandbox template again from the installation page, without volumes under ${this.root}`)
         throw new Error(`The sandbox of ${key} kept going back to the pool`)
     }
 
